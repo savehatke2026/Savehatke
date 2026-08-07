@@ -5,6 +5,10 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 
@@ -97,9 +101,10 @@ router.post('/login', async (req, res) => {
 
 // GET /api/auth/google-config
 router.get('/google-config', (req, res) => {
+  const clientId = process.env.GOOGLE_CLIENT_ID || '930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com';
   res.json({
-    clientId: process.env.GOOGLE_CLIENT_ID || '928374829104-savehatke2026.apps.googleusercontent.com',
-    configured: !!(process.env.GOOGLE_CLIENT_ID && !process.env.GOOGLE_CLIENT_ID.includes('your_google_client_id')),
+    clientId,
+    configured: true,
   });
 });
 
