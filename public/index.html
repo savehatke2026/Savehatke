@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SaveHatke — India's smartest price tracker & coupon marketplace. Compare prices across Amazon, Flipkart & more. Buy & sell unused reward coupons instantly.">
+  <meta name="keywords" content="price tracker, coupon marketplace, price comparison, Amazon price drop, Flipkart deals, sell coupons, buy discount codes">
+  <meta name="author" content="SaveHatke">
+  <meta name="theme-color" content="#0a1628">
+  <title>SaveHatke — Smart Price Tracker & Coupon Marketplace</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+</head>
+<body>
+
+  <!-- ═══ Navigation ═══ -->
+  <nav class="navbar" id="mainNav">
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <div class="brand-icon">💰</div>
+        Save<span class="brand-highlight">Hatke</span>
+      </a>
+
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">Home</a>
+        <a href="marketplace.html">Coupons</a>
+        <a href="sell.html">Sell Coupons</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="support.html">Support</a>
+      </div>
+
+      <div class="nav-actions" id="navActions">
+        <button class="btn btn-ghost btn-sm" onclick="openAuthModal('login')">Log In</button>
+        <button class="btn btn-primary btn-sm" onclick="openAuthModal('register')">Sign Up Free</button>
+      </div>
+
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- ═══ Hero Section ═══ -->
+  <section class="hero" id="hero">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-badge">
+          🚀 India's #1 Coupon Marketplace — Now Live!
+        </div>
+
+        <h1 class="hero-title">
+          Save Smarter.<br>
+          Shop <span class="highlight">Hatke</span>.
+        </h1>
+
+        <p class="hero-description">
+          Track prices across Amazon & Flipkart, get instant price-drop alerts, and trade unused reward coupons on India's first peer-to-peer coupon marketplace.
+        </p>
+
+        <div class="hero-actions">
+          <button class="btn btn-primary btn-lg" onclick="openAuthModal('register')">
+            ⚡ Get Started Free
+          </button>
+          <a href="marketplace.html" class="btn btn-secondary btn-lg">
+            🏷️ Browse Coupons
+          </a>
+        </div>
+
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <div class="hero-stat-value">10K+</div>
+            <div class="hero-stat-label">Active Users</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-value">50K+</div>
+            <div class="hero-stat-label">Coupons Traded</div>
+          </div>
+          <div class="hero-stat">
+            <div class="hero-stat-value">₹2L+</div>
+            <div class="hero-stat-label">Saved by Users</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Trust Bar ═══ -->
+  <section class="trust-bar">
+    <div class="container">
+      <div class="trust-item">
+        <div class="trust-icon">🔒</div>
+        <span>SSL Secured</span>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon">✅</div>
+        <span>Verified Coupons</span>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon">⚡</div>
+        <span>Instant Delivery</span>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon">🛡️</div>
+        <span>Money-Back Guarantee</span>
+      </div>
+      <div class="trust-item">
+        <div class="trust-icon">📞</div>
+        <span>24/7 Support</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ How It Works ═══ -->
+  <section class="section" id="how-it-works">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-label">How It Works</span>
+        <h2 class="section-title">Start Saving in 3 Simple Steps</h2>
+        <p class="section-subtitle">Whether you're tracking prices or trading coupons, SaveHatke makes it effortless.</p>
+      </div>
+
+      <div class="steps-grid">
+        <div class="step-card reveal">
+          <div class="step-number">1</div>
+          <h3>Track & Compare</h3>
+          <p>Paste any product link from Amazon or Flipkart. We'll track the price and alert you when it drops below your target.</p>
+        </div>
+
+        <div class="step-card reveal">
+          <div class="step-number">2</div>
+          <h3>Browse & Buy Coupons</h3>
+          <p>Discover verified discount codes across categories — Makeup, Electronics, Fashion, Food & more — all at unbeatable prices.</p>
+        </div>
+
+        <div class="step-card reveal">
+          <div class="step-number">3</div>
+          <h3>Sell & Earn</h3>
+          <p>Have unused reward coupons from PhonePe, Paytm, or any app? Sell them to us for instant cash. Zero hassle, guaranteed payment.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Coupon Marketplace Preview ═══ -->
+  <section class="section" id="marketplace-preview" style="background: rgba(15, 23, 42, 0.5);">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-label">Coupon Marketplace</span>
+        <h2 class="section-title">Premium Coupons at Unreal Prices</h2>
+        <p class="section-subtitle">Verified codes from real users — at a fraction of their face value. Why pay full price?</p>
+      </div>
+
+      <div class="category-pills reveal" id="previewCategoryPills">
+        <button class="category-pill active" data-category="all">All</button>
+        <button class="category-pill" data-category="Makeup">💄 Makeup</button>
+        <button class="category-pill" data-category="Electronics">⚡ Electronics</button>
+        <button class="category-pill" data-category="Fashion">👟 Fashion</button>
+        <button class="category-pill" data-category="Food">🍔 Food</button>
+      </div>
+
+      <div class="coupon-grid reveal" id="previewCoupons">
+        <!-- Populated by JS -->
+      </div>
+
+      <div class="text-center mt-8 reveal">
+        <a href="marketplace.html" class="btn btn-primary btn-lg">View All Coupons →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Sell Your Coupons CTA ═══ -->
+  <section class="section" id="sell-cta">
+    <div class="container">
+      <div class="card-glass reveal" style="text-align: center; padding: 4rem 2rem; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle at 30% 50%, rgba(16, 185, 129, 0.08) 0%, transparent 50%); pointer-events: none;"></div>
+        <span class="section-label" style="background: rgba(16, 185, 129, 0.1); color: var(--color-success);">💸 Earn Money</span>
+        <h2 class="section-title" style="position: relative;">Got Unused Coupons? Sell Them to Us!</h2>
+        <p class="section-subtitle" style="margin-bottom: 2rem; position: relative;">
+          That Nykaa coupon you'll never use? That PhonePe reward gathering dust? We'll buy it from you for <strong style="color: var(--color-success);">₹10 flat</strong> — instant cash, no questions asked.
+        </p>
+        <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; position: relative;">
+          <a href="sell.html" class="btn btn-success btn-lg">💰 Sell Your Coupons Now</a>
+          <a href="support.html" class="btn btn-secondary btn-lg">Learn More</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Browser Extension Teaser ═══ -->
+  <section class="section" id="extension">
+    <div class="container">
+      <div class="extension-section reveal">
+        <span class="section-label">Coming Soon</span>
+        <h2>SaveHatke Browser Extension</h2>
+        <p>Real-time price comparison while you shop. Auto-apply the best coupon codes. One click, maximum savings.</p>
+
+        <div class="extension-mockup">
+          <div class="extension-mockup-bar">
+            <span class="mockup-dot red"></span>
+            <span class="mockup-dot yellow"></span>
+            <span class="mockup-dot green"></span>
+            <span style="margin-left: auto; font-size: 0.75rem; color: var(--color-slate-500);">SaveHatke Extension v1.0</span>
+          </div>
+          <div class="extension-mockup-content">
+            <div style="font-size: 0.8rem; font-weight: 700; color: var(--color-white); margin-bottom: 0.75rem;">
+              📊 Price Comparison — Sony WH-1000XM5
+            </div>
+            <div class="mockup-price-row">
+              <span class="mockup-site">🛒 Amazon.in</span>
+              <span class="mockup-price">₹24,990</span>
+            </div>
+            <div class="mockup-price-row">
+              <span class="mockup-site">🛍️ Flipkart</span>
+              <span class="mockup-price best">₹22,499 ✨ BEST</span>
+            </div>
+            <div class="mockup-price-row">
+              <span class="mockup-site">🏪 Croma</span>
+              <span class="mockup-price">₹25,990</span>
+            </div>
+            <div style="margin-top: 0.75rem; padding: 0.5rem; background: rgba(16, 185, 129, 0.1); border-radius: 8px; font-size: 0.75rem; color: var(--color-success); text-align: center;">
+              💡 You save ₹3,491 by buying on Flipkart!
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6" style="position: relative;">
+          <button class="btn btn-secondary btn-lg" disabled style="opacity: 0.7;">
+            🔔 Notify Me When Available
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Testimonials ═══ -->
+  <section class="section" id="testimonials" style="background: rgba(15, 23, 42, 0.5);">
+    <div class="container">
+      <div class="section-header reveal">
+        <span class="section-label">Testimonials</span>
+        <h2 class="section-title">Loved by 10,000+ Smart Shoppers</h2>
+        <p class="section-subtitle">Real stories from real users who save big with SaveHatke.</p>
+      </div>
+
+      <div class="testimonial-grid reveal">
+        <div class="testimonial-card">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text">"I had ₹500 worth of Nykaa coupons I was never going to use. Sold them all on SaveHatke and got ₹50 cash instantly. Genius concept!"</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">RK</div>
+            <div>
+              <div class="testimonial-name">Rahul Kumar</div>
+              <div class="testimonial-role">Software Engineer, Bangalore</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text">"The price tracker saved me ₹4,000 on a laptop! It alerted me the moment the price dropped on Flipkart. Absolutely recommend."</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">PS</div>
+            <div>
+              <div class="testimonial-name">Priya Sharma</div>
+              <div class="testimonial-role">College Student, Delhi</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="testimonial-card">
+          <div class="testimonial-stars">★★★★★</div>
+          <p class="testimonial-text">"Bought a Puma coupon for just ₹20 that gave me ₹500 off. That's a 25x return! SaveHatke is now my go-to before any purchase."</p>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">AM</div>
+            <div>
+              <div class="testimonial-name">Aditya Mehta</div>
+              <div class="testimonial-role">Freelancer, Mumbai</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Final CTA ═══ -->
+  <section class="section" id="final-cta">
+    <div class="container">
+      <div class="section-header reveal">
+        <h2 class="section-title">Ready to Save Hatke?</h2>
+        <p class="section-subtitle">Join thousands of smart shoppers who refuse to pay full price. It's free to start.</p>
+        <div class="mt-8">
+          <button class="btn btn-primary btn-lg" onclick="openAuthModal('register')">
+            🚀 Create Free Account
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Footer ═══ -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <a href="index.html" class="nav-brand">
+            <div class="brand-icon">💰</div>
+            Save<span class="brand-highlight">Hatke</span>
+          </a>
+          <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
+        </div>
+
+        <div class="footer-col">
+          <h4>Platform</h4>
+          <a href="marketplace.html">Coupon Marketplace</a>
+          <a href="sell.html">Sell Coupons</a>
+          <a href="dashboard.html">Price Tracker</a>
+          <a href="#extension">Browser Extension</a>
+        </div>
+
+        <div class="footer-col">
+          <h4>Company</h4>
+          <a href="support.html">Help Center</a>
+          <a href="support.html">Contact Us</a>
+          <a href="terms.html">Terms & Conditions</a>
+          <a href="privacy.html">Privacy Policy</a>
+        </div>
+
+        <div class="footer-col">
+          <h4>Categories</h4>
+          <a href="marketplace.html?cat=Makeup">Makeup Coupons</a>
+          <a href="marketplace.html?cat=Electronics">Electronics Deals</a>
+          <a href="marketplace.html?cat=Fashion">Fashion Codes</a>
+          <a href="marketplace.html?cat=Food">Food & Delivery</a>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>© 2026 SaveHatke. All rights reserved.</span>
+        <span>Made with ❤️ in India</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+  <script src="js/landing.js"></script>
+</body>
+</html>

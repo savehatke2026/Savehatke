@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sell your unused reward coupons on SaveHatke and earn ₹10 instant cash per coupon. PhonePe, Paytm, Nykaa — we buy them all.">
+  <title>Sell Your Coupons — SaveHatke</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+</head>
+<body>
+  <nav class="navbar" id="mainNav">
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <div class="brand-icon">💰</div>
+        Save<span class="brand-highlight">Hatke</span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">Home</a>
+        <a href="marketplace.html">Coupons</a>
+        <a href="sell.html">Sell Coupons</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="support.html">Support</a>
+      </div>
+      <div class="nav-actions" id="navActions"></div>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <main class="page">
+    <div class="container" style="max-width: 700px;">
+      <div class="page-header text-center">
+        <h1 class="page-title">💰 Sell Your Unused Coupons</h1>
+        <p class="page-subtitle">Turn those dusty reward codes into instant cash. We pay <strong style="color: var(--color-success);">₹10 per coupon</strong> — verified and paid within 24 hours.</p>
+      </div>
+
+      <!-- How It Works Mini -->
+      <div class="card mb-8" style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.15);">
+        <div style="display: flex; gap: var(--space-6); flex-wrap: wrap; justify-content: center; text-align: center;">
+          <div style="flex: 1; min-width: 120px;">
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">📝</div>
+            <div style="font-weight: 600; color: var(--color-white); font-size: 0.875rem;">Submit Code</div>
+            <div style="font-size: 0.75rem; color: var(--color-slate-500);">Enter your coupon details</div>
+          </div>
+          <div style="flex: 1; min-width: 120px;">
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">✅</div>
+            <div style="font-weight: 600; color: var(--color-white); font-size: 0.875rem;">We Verify</div>
+            <div style="font-size: 0.75rem; color: var(--color-slate-500);">Quick validation check</div>
+          </div>
+          <div style="flex: 1; min-width: 120px;">
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">💸</div>
+            <div style="font-weight: 600; color: var(--color-white); font-size: 0.875rem;">Get Paid ₹10</div>
+            <div style="font-size: 0.75rem; color: var(--color-slate-500);">Instant to your UPI</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Multi-Step Form -->
+      <div class="stepper mb-6" id="stepper">
+        <div class="stepper-step active" data-step="1">
+          <div class="stepper-circle">1</div>
+          <span class="stepper-label">Category</span>
+        </div>
+        <div class="stepper-line"></div>
+        <div class="stepper-step" data-step="2">
+          <div class="stepper-circle">2</div>
+          <span class="stepper-label">Details</span>
+        </div>
+        <div class="stepper-line"></div>
+        <div class="stepper-step" data-step="3">
+          <div class="stepper-circle">3</div>
+          <span class="stepper-label">Confirm</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <!-- Step 1: Category -->
+        <div class="step-content active" id="step-1">
+          <h3 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-6);">Select Coupon Category</h3>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--space-4);" id="categorySelect">
+            <button class="category-select-btn" data-cat="Makeup" style="padding: var(--space-5); background: rgba(236, 72, 153, 0.05); border: 2px solid rgba(236, 72, 153, 0.15); border-radius: var(--radius-lg); cursor: pointer; text-align: center; transition: all 0.2s; color: var(--color-white);">
+              <div style="font-size: 2rem; margin-bottom: 0.5rem;">💄</div>
+              <div style="font-weight: 600;">Makeup & Beauty</div>
+              <div style="font-size: 0.75rem; color: var(--color-slate-500);">Nykaa, Lakme, Mamaearth</div>
+            </button>
+            <button class="category-select-btn" data-cat="Electronics" style="padding: var(--space-5); background: rgba(59, 130, 246, 0.05); border: 2px solid rgba(59, 130, 246, 0.15); border-radius: var(--radius-lg); cursor: pointer; text-align: center; transition: all 0.2s; color: var(--color-white);">
+              <div style="font-size: 2rem; margin-bottom: 0.5rem;">⚡</div>
+              <div style="font-weight: 600;">Electronics</div>
+              <div style="font-size: 0.75rem; color: var(--color-slate-500);">boAt, Croma, Samsung</div>
+            </button>
+            <button class="category-select-btn" data-cat="Fashion" style="padding: var(--space-5); background: rgba(168, 85, 247, 0.05); border: 2px solid rgba(168, 85, 247, 0.15); border-radius: var(--radius-lg); cursor: pointer; text-align: center; transition: all 0.2s; color: var(--color-white);">
+              <div style="font-size: 2rem; margin-bottom: 0.5rem;">👟</div>
+              <div style="font-weight: 600;">Fashion & Shoes</div>
+              <div style="font-size: 0.75rem; color: var(--color-slate-500);">Puma, Myntra, AJIO</div>
+            </button>
+            <button class="category-select-btn" data-cat="Food" style="padding: var(--space-5); background: rgba(245, 158, 11, 0.05); border: 2px solid rgba(245, 158, 11, 0.15); border-radius: var(--radius-lg); cursor: pointer; text-align: center; transition: all 0.2s; color: var(--color-white);">
+              <div style="font-size: 2rem; margin-bottom: 0.5rem;">🍔</div>
+              <div style="font-weight: 600;">Food & Delivery</div>
+              <div style="font-size: 0.75rem; color: var(--color-slate-500);">Swiggy, Zomato, Dominos</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: Code Details -->
+        <div class="step-content" id="step-2">
+          <h3 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-6);">Enter Coupon Details</h3>
+          <form id="sellForm">
+            <div class="form-group">
+              <label class="form-label" for="sellCode">Coupon Code *</label>
+              <input class="form-input" type="text" id="sellCode" placeholder="e.g. NYKAA200OFF" required style="text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+              <span class="form-hint">Enter the exact code as shown on your reward/voucher</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sellBrand">Brand / Platform *</label>
+              <input class="form-input" type="text" id="sellBrand" placeholder="e.g. Nykaa, PhonePe, Paytm" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sellDescription">What does the coupon offer?</label>
+              <input class="form-input" type="text" id="sellDescription" placeholder="e.g. ₹200 off on orders above ₹999">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="sellValue">Coupon Face Value (₹)</label>
+              <input class="form-input" type="number" id="sellValue" placeholder="e.g. 200">
+            </div>
+            <div style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
+              <button type="button" class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
+              <button type="button" class="btn btn-primary" style="flex: 1;" onclick="goToStep(3)">Review Submission →</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Step 3: Confirm & Submit -->
+        <div class="step-content" id="step-3">
+          <h3 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-6);">Review & Submit</h3>
+
+          <div class="card" style="background: rgba(15, 23, 42, 0.8); margin-bottom: var(--space-6);" id="reviewSummary">
+            <!-- Populated by JS -->
+          </div>
+
+          <div class="card" style="background: rgba(16, 185, 129, 0.05); border-color: rgba(16, 185, 129, 0.2); text-align: center; padding: var(--space-5);">
+            <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">💰</div>
+            <div style="font-size: var(--font-size-2xl); font-weight: 800; color: var(--color-success);">You'll receive ₹10</div>
+            <div style="font-size: var(--font-size-sm); color: var(--color-slate-400);">Paid to your account after verification (within 24 hours)</div>
+          </div>
+
+          <div style="display: flex; gap: var(--space-4); margin-top: var(--space-6);">
+            <button type="button" class="btn btn-secondary" onclick="goToStep(2)">← Edit</button>
+            <button type="button" class="btn btn-success btn-lg" style="flex: 1;" id="submitSellBtn" onclick="submitCoupon()">
+              ✅ Submit & Earn ₹10
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 4: Success -->
+        <div class="step-content" id="step-success" style="text-align: center; padding: var(--space-8);">
+          <div style="font-size: 4rem; margin-bottom: var(--space-4);">🎉</div>
+          <h2 style="color: var(--color-white); font-weight: 800; margin-bottom: var(--space-3);">Coupon Submitted!</h2>
+          <p style="color: var(--color-slate-400); margin-bottom: var(--space-6);">
+            Your coupon is now under review. You'll receive ₹10 once it's verified.<br>
+            Track your submission in your dashboard.
+          </p>
+          <div style="display: flex; gap: var(--space-4); justify-content: center; flex-wrap: wrap;">
+            <a href="dashboard.html" class="btn btn-primary">View in Dashboard</a>
+            <button class="btn btn-secondary" onclick="resetForm()">Sell Another Coupon</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer" style="margin-top: var(--space-16);">
+    <div class="container">
+      <div class="footer-bottom" style="border-top: none; padding-top: 0;">
+        <span>© 2026 SaveHatke. All rights reserved.</span>
+        <span>
+          <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="support.html">Support</a>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+  <script src="js/sell.js"></script>
+</body>
+</html>

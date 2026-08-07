@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SaveHatke Dashboard — Track prices, manage coupons, and view your savings all in one place.">
+  <title>Dashboard — SaveHatke</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+</head>
+<body>
+  <!-- Navigation -->
+  <nav class="navbar" id="mainNav">
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <div class="brand-icon">💰</div>
+        Save<span class="brand-highlight">Hatke</span>
+      </a>
+      <div class="nav-links" id="navLinks">
+        <a href="index.html">Home</a>
+        <a href="marketplace.html">Coupons</a>
+        <a href="sell.html">Sell Coupons</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="support.html">Support</a>
+      </div>
+      <div class="nav-actions" id="navActions"></div>
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Page Content -->
+  <main class="page">
+    <div class="container">
+      <div class="page-header">
+        <h1 class="page-title">Your Dashboard</h1>
+        <p class="page-subtitle" id="dashGreeting">Welcome back! Here's your savings overview.</p>
+      </div>
+
+      <!-- Dashboard Tabs (mobile-friendly instead of sidebar) -->
+      <div class="category-pills mb-8" id="dashTabs">
+        <button class="category-pill active" data-tab="tracker">📊 Price Tracker</button>
+        <button class="category-pill" data-tab="purchases">🛒 My Purchases</button>
+        <button class="category-pill" data-tab="sales">💰 My Sales</button>
+      </div>
+
+      <!-- ═══ Price Tracker Tab ═══ -->
+      <div class="dash-tab active" id="tab-tracker">
+        <!-- Add Product Form -->
+        <div class="card mb-6">
+          <h3 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-4);">📌 Track a New Product</h3>
+          <form id="addTrackerForm" style="display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: end;">
+            <div class="form-group" style="flex: 2; min-width: 200px; margin-bottom: 0;">
+              <label class="form-label" for="productUrl">Product URL</label>
+              <input class="form-input" type="url" id="productUrl" placeholder="Paste Amazon or Flipkart product link..." required>
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 120px; margin-bottom: 0;">
+              <label class="form-label" for="targetPrice">Target Price (₹)</label>
+              <input class="form-input" type="number" id="targetPrice" placeholder="Optional">
+            </div>
+            <button type="submit" class="btn btn-primary" id="addTrackerBtn">+ Track Price</button>
+          </form>
+        </div>
+
+        <!-- Tracked Products List -->
+        <div id="trackedProducts">
+          <div class="shimmer" style="height: 80px; margin-bottom: 1rem;"></div>
+          <div class="shimmer" style="height: 80px; margin-bottom: 1rem;"></div>
+          <div class="shimmer" style="height: 80px;"></div>
+        </div>
+      </div>
+
+      <!-- ═══ My Purchases Tab ═══ -->
+      <div class="dash-tab" id="tab-purchases" style="display: none;">
+        <div id="purchasesList">
+          <div class="shimmer" style="height: 200px;"></div>
+        </div>
+      </div>
+
+      <!-- ═══ My Sales Tab ═══ -->
+      <div class="dash-tab" id="tab-sales" style="display: none;">
+        <div id="salesList">
+          <div class="shimmer" style="height: 200px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer" style="margin-top: var(--space-16);">
+    <div class="container">
+      <div class="footer-bottom" style="border-top: none; padding-top: 0;">
+        <span>© 2026 SaveHatke. All rights reserved.</span>
+        <span>
+          <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="support.html">Support</a>
+        </span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+  <script src="js/dashboard.js"></script>
+</body>
+</html>

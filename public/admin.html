@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin Panel — SaveHatke</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+</head>
+<body>
+  <nav class="navbar" id="mainNav">
+    <div class="container">
+      <a href="index.html" class="nav-brand">
+        <div class="brand-icon" style="background: var(--gradient-gold);">🔐</div>
+        Save<span class="brand-highlight">Hatke</span>
+        <span class="badge badge-amber" style="margin-left: 0.5rem;">ADMIN</span>
+      </a>
+      <div class="nav-actions" id="navActions">
+        <button class="btn btn-ghost btn-sm" id="adminLogoutBtn" style="display: none;" onclick="adminLogout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="page">
+    <div class="container">
+      <!-- Login Gate -->
+      <div id="adminLoginGate" style="max-width: 400px; margin: 4rem auto; text-align: center;">
+        <div style="font-size: 3rem; margin-bottom: 1rem;">🔐</div>
+        <h2 style="color: var(--color-white); font-weight: 800; margin-bottom: 0.5rem;">Admin Access</h2>
+        <p style="color: var(--color-slate-500); margin-bottom: 2rem; font-size: 0.875rem;">Enter your admin credentials to continue.</p>
+        <form id="adminLoginForm">
+          <div class="form-group">
+            <input class="form-input" type="text" id="adminUsername" placeholder="Username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <input class="form-input" type="password" id="adminPassword" placeholder="Password" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg w-full" id="adminLoginBtn">Sign In</button>
+        </form>
+      </div>
+
+      <!-- Admin Dashboard (hidden until login) -->
+      <div id="adminDashboard" style="display: none;">
+        <div class="page-header">
+          <h1 class="page-title">⚙️ Admin Dashboard</h1>
+          <p class="page-subtitle">Manage coupons, users, and platform inventory.</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="stats-grid mb-8" id="adminStats">
+          <div class="stat-card blue">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value" id="statUsers">—</div>
+            <div class="stat-label">Total Users</div>
+          </div>
+          <div class="stat-card green">
+            <div class="stat-icon">🏷️</div>
+            <div class="stat-value" id="statCoupons">—</div>
+            <div class="stat-label">Active Coupons</div>
+          </div>
+          <div class="stat-card amber">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-value" id="statPending">—</div>
+            <div class="stat-label">Pending Review</div>
+          </div>
+          <div class="stat-card purple">
+            <div class="stat-icon">💰</div>
+            <div class="stat-value" id="statRevenue">—</div>
+            <div class="stat-label">Revenue</div>
+          </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="category-pills mb-6" id="adminTabs">
+          <button class="category-pill active" data-tab="add-coupon">➕ Add Coupon</button>
+          <button class="category-pill" data-tab="inventory">📋 Inventory</button>
+          <button class="category-pill" data-tab="pending">⏳ Pending</button>
+        </div>
+
+        <!-- Add Coupon Tab -->
+        <div class="admin-tab active" id="tab-add-coupon">
+          <div class="card">
+            <h3 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-6);">📝 Add Offline Coupon Code</h3>
+            <p style="color: var(--color-slate-500); font-size: 0.875rem; margin-bottom: var(--space-6);">Manually enter codes from physical scratch cards or offline sources. These go live immediately.</p>
+            <form id="addCouponForm">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+                <div class="form-group">
+                  <label class="form-label" for="acCode">Coupon Code *</label>
+                  <input class="form-input" type="text" id="acCode" placeholder="e.g. PUMA-FLAT30" required style="text-transform: uppercase;">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="acBrand">Brand *</label>
+                  <input class="form-input" type="text" id="acBrand" placeholder="e.g. Puma" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="acCategory">Category *</label>
+                  <select class="form-select" id="acCategory" required>
+                    <option value="">Select category</option>
+                    <option value="Makeup">💄 Makeup & Beauty</option>
+                    <option value="Electronics">⚡ Electronics</option>
+                    <option value="Fashion">👟 Fashion & Shoes</option>
+                    <option value="Food">🍔 Food & Delivery</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="acValue">Face Value (₹)</label>
+                  <input class="form-input" type="number" id="acValue" placeholder="e.g. 500">
+                </div>
+                <div class="form-group" style="grid-column: 1 / -1;">
+                  <label class="form-label" for="acDescription">Description</label>
+                  <input class="form-input" type="text" id="acDescription" placeholder="e.g. Flat 30% off on Puma shoes">
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="acPrice">Selling Price (₹) *</label>
+                  <input class="form-input" type="number" id="acPrice" placeholder="e.g. 25" required value="20">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-success btn-lg mt-4" id="addCouponBtn">
+                ➕ Add Coupon to Inventory
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Inventory Tab -->
+        <div class="admin-tab" id="tab-inventory" style="display: none;">
+          <div class="card" style="padding: var(--space-4);">
+            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-4);">
+              <input class="form-input" type="text" id="invSearch" placeholder="🔍 Search inventory..." style="flex: 1; min-width: 200px;">
+              <select class="form-select" id="invStatusFilter" style="width: 150px;">
+                <option value="">All Status</option>
+                <option value="available">Available</option>
+                <option value="sold">Sold</option>
+                <option value="pending">Pending</option>
+              </select>
+            </div>
+          </div>
+          <div class="mt-4" id="inventoryTable">
+            <div class="shimmer" style="height: 300px;"></div>
+          </div>
+        </div>
+
+        <!-- Pending Tab -->
+        <div class="admin-tab" id="tab-pending" style="display: none;">
+          <div id="pendingList">
+            <div class="shimmer" style="height: 300px;"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
