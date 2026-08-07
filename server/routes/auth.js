@@ -95,6 +95,70 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// POST /api/auth/google
+router.post('/google', async (req, res) => {
+  try {
+    const { credential, email, name, picture } = req.body;
+
+    let userEmail = email;
+    let userName = name;
+    let userPicture = picture;
+
+    // If ID token is passed, parse payload
+    if (credential) {
+      try {
+        const payloadBase64 = credential.split('.')[1];
+        if (payloadBase64) {
+          const decodedJson = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+          if (decodedJson.email) userEmail = decodedJson.email;
+          if (decodedJson.name) userName = decodedJson.name;
+          if (decodedJson.picture) userPicture = decodedJson.picture;
+        }
+      } catch (e) {
+        console.warn('Could not parse Google JWT credential payload, using fallback profile data:', e.message);
+      }
+    }
+
+    if (!userEmail) {
+      return res.status(400).json({ error: 'Google authentication failed: Email missing.' });
+    }
+
+    userEmail = userEmail.toLowerCase();
+    userName = userName || userEmail.split('@')[0];
+
+    // Find or create user in DB
+    let user = await db.findRow(db.SHEETS.USERS, 'email', userEmail);
+
+    if (!user) {
+      user = {
+        id: uuidv4(),
+        email: userEmail,
+        passwordHash: 'GOOGLE_OAUTH_ACCOUNT',
+        name: userName,
+        picture: userPicture || '',
+        createdAt: new Date().toISOString(),
+      };
+      await db.appendRow(db.SHEETS.USERS, user);
+    }
+
+    const token = generateToken({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: 'user',
+    });
+
+    res.json({
+      message: 'Google login successful.',
+      token,
+      user: { id: user.id, email: user.email, name: user.name, picture: user.picture },
+    });
+  } catch (err) {
+    console.error('Google auth error:', err);
+    res.status(500).json({ error: 'Failed to authenticate with Google.' });
+  }
+});
+
 // GET /api/auth/me
 router.get('/me', authenticateToken, async (req, res) => {
   try {

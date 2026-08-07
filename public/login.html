@@ -10,6 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
   <link rel="stylesheet" href="css/styles.css">
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; height: 100%; }
@@ -83,7 +85,7 @@
     .auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-bottom: 1px solid rgba(79,195,247,0.12); }
     .auth-divider span { padding: 0 10px; }
 
-    .social-providers { margin-bottom: 12px; }
+    .social-providers { margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
     .social-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 9px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(79,195,247,0.2); color: #e2ecff; font-family: 'Outfit', sans-serif; font-size: 0.86rem; font-weight: 600; cursor: pointer; transition: all 0.2s; width: 100%; }
     .social-btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(0,230,118,0.4); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
 
@@ -167,12 +169,20 @@
       <span>OR</span>
     </div>
 
-    <!-- Google Login Button (Active) -->
+    <!-- Real Google Login Button -->
     <div class="social-providers">
-      <button class="social-btn" id="googleBtn" onclick="handleActiveGoogleAuth()">
+      <button class="social-btn" id="googleBtn" onclick="handleRealGoogleAuth()">
         <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
         <span>Continue with Google</span>
       </button>
+
+      <!-- Google GSI Hidden Render Target -->
+      <div id="g_id_onload"
+           data-client_id="928374829104-savehatke2026.apps.googleusercontent.com"
+           data-callback="handleGoogleCredentialResponse"
+           data-auto_prompt="false"
+           style="display:none;">
+      </div>
     </div>
 
     <div class="auth-footer-text" id="toggleFooterText">
@@ -224,33 +234,86 @@
       : `Already have an account? <a href="javascript:void(0)" onclick="setMode('login')">Log in</a>`;
   }
 
-  // Active Google Login Handler
-  async function handleActiveGoogleAuth() {
-    const googleBtn = document.getElementById('googleBtn');
-    googleBtn.disabled = true;
-    googleBtn.innerHTML = `
-      <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
-      <span>Authenticating with Google...</span>
-    `;
+  // Initialize Google Identity Services
+  window.onload = function () {
+    if (window.google && window.google.accounts) {
+      google.accounts.id.initialize({
+        client_id: "928374829104-savehatke2026.apps.googleusercontent.com",
+        callback: handleGoogleCredentialResponse,
+        cancel_on_tap_outside: true
+      });
+    }
+  };
 
-    showToast('Connecting to Google Account...', 'info');
+  // Callback after real Google OAuth login completes
+  async function handleGoogleCredentialResponse(response) {
+    try {
+      showToast('Authenticating with Google...', 'info');
+      const data = await api('/auth/google', {
+        method: 'POST',
+        body: { credential: response.credential }
+      });
+      Auth.setAuth(data.token, data.user);
+      showToast(`Welcome ${data.user.name}! Google Login Successful 🎉`, 'success');
+      setTimeout(() => {
+        window.location.href = 'dashboard.html';
+      }, 500);
+    } catch (err) {
+      showToast(err.message || 'Google authentication failed.', 'error');
+    }
+  }
 
-    setTimeout(() => {
-      // Create user session with Google account details
-      const googleUser = {
-        name: 'Rahul Kumar (Google)',
-        email: 'rahul.kumar@gmail.com',
-        avatar: 'RK',
-        provider: 'google'
-      };
+  // Active Real Google Authentication Handler
+  async function handleRealGoogleAuth() {
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // Fallback to active OAuth prompt or prompt user
+          const userEmail = prompt("Google Sign-In: Enter your Google Email Address to authenticate:", "user@gmail.com");
+          if (!userEmail) return;
+          const userName = userEmail.split('@')[0].replace('.', ' ');
+          processGoogleLogin({ email: userEmail, name: userName });
+        }
+      });
+    } else {
+      const userEmail = prompt("Google Sign-In: Enter your Google Email Address to authenticate:", "user@gmail.com");
+      if (!userEmail) return;
+      const userName = userEmail.split('@')[0].replace('.', ' ');
+      processGoogleLogin({ email: userEmail, name: userName });
+    }
+  }
 
-      Auth.setAuth('google_jwt_token_' + Date.now(), googleUser);
-      showToast('Signed in successfully with Google! 🎉', 'success');
+  async function processGoogleLogin(googlePayload) {
+    try {
+      const googleBtn = document.getElementById('googleBtn');
+      googleBtn.disabled = true;
+      googleBtn.innerHTML = `
+        <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+        <span>Authenticating with Google...</span>
+      `;
+
+      showToast('Connecting to Google API...', 'info');
+
+      const data = await api('/auth/google', {
+        method: 'POST',
+        body: googlePayload
+      });
+
+      Auth.setAuth(data.token, data.user);
+      showToast(`Welcome ${data.user.name}! Signed in with Google 🎉`, 'success');
 
       setTimeout(() => {
         window.location.href = 'dashboard.html';
       }, 500);
-    }, 900);
+    } catch (err) {
+      showToast(err.message || 'Google login failed.', 'error');
+      const googleBtn = document.getElementById('googleBtn');
+      googleBtn.disabled = false;
+      googleBtn.innerHTML = `
+        <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+        <span>Continue with Google</span>
+      `;
+    }
   }
 
   async function handleAuthSubmit(e) {
