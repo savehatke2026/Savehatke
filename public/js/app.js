@@ -183,8 +183,7 @@ function updateNavAuth() {
     });
   } else {
     navActions.innerHTML = `
-      <button class="btn btn-ghost btn-sm" onclick="openAuthModal('login')">Log In</button>
-      <button class="btn btn-primary btn-sm" onclick="openAuthModal('register')">Sign Up Free</button>
+      <a href="login.html" class="btn btn-primary btn-sm">Log In</a>
     `;
   }
 }
