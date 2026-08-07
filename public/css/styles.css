@@ -1137,6 +1137,28 @@ input, button, textarea, select {
   justify-content: space-between;
 }
 
+.coupon-tc-btn {
+  background: rgba(14, 165, 233, 0.08);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+  border-radius: var(--radius-sm);
+  color: var(--color-teal-400);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  transition: all var(--transition-fast);
+  margin-top: var(--space-2);
+}
+
+.coupon-tc-btn:hover {
+  background: rgba(14, 165, 233, 0.18);
+  border-color: var(--color-teal-400);
+  color: var(--color-white);
+}
+
 /* ── Category Pills ──────────────────────────────────────────────────── */
 .category-pills {
   display: flex;

@@ -44,6 +44,7 @@ function renderCoupons(grid, coupons) {
     const cat = categoryColors[c.category] || { bg: 'rgba(37, 99, 235, 0.1)', color: '#3b82f6', emoji: '🏷️' };
     const sourceLabel = c.source === 'auto-scraped' ? 'FREE' : `₹${c.sellingPrice}`;
     const isFree = c.source === 'auto-scraped';
+    const cJson = JSON.stringify(c).replace(/"/g, '&quot;');
 
     return `
       <div class="coupon-card">
@@ -64,6 +65,11 @@ function renderCoupons(grid, coupons) {
           <div class="coupon-value">
             <span class="coupon-original-price">Worth ₹${c.originalValue}</span>
             <span class="coupon-price">${sourceLabel}</span>
+          </div>
+          <div>
+            <button class="coupon-tc-btn" onclick="openCouponTermsModal(${cJson})">
+              📜 Terms & How to Use
+            </button>
           </div>
         </div>
         <div class="coupon-card-footer">

@@ -338,6 +338,118 @@ function formatTimeAgo(isoString) {
   return formatDate(isoString);
 }
 
+// ── Coupon Terms & How-to-Use Modal ──────────────────────────────────────
+function openCouponTermsModal(couponData) {
+  let c = typeof couponData === 'object' ? couponData : { id: couponData };
+
+  const brand = c.brand || 'Store';
+  const category = c.category || 'General';
+  const description = c.description || 'Special Discount Coupon';
+  const originalValue = c.originalValue || '200';
+  const sellingPrice = c.source === 'auto-scraped' ? 'FREE' : `₹${c.sellingPrice || '20'}`;
+
+  // Remove existing modal
+  document.querySelector('.modal-overlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal" style="max-width: 540px;">
+      <div class="modal-header">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <div style="width: 38px; height: 38px; border-radius: 8px; background: rgba(37,99,235,0.15); display: flex; align-items: center; justify-content: center; font-weight: 800; color: var(--color-blue-400);">
+            🏷️
+          </div>
+          <div>
+            <h2 class="modal-title" style="font-size: 1.25rem;">${brand} Details</h2>
+            <span class="badge badge-blue" style="font-size: 0.65rem;">${category}</span>
+          </div>
+        </div>
+        <button class="modal-close" onclick="this.closest('.modal-overlay').classList.remove('active'); setTimeout(() => this.closest('.modal-overlay').remove(), 300)">×</button>
+      </div>
+
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;">
+        <div style="font-size: 0.95rem; font-weight: 700; color: var(--color-white); margin-bottom: 0.25rem;">${description}</div>
+        <div style="font-size: 0.8rem; color: var(--color-slate-400);">Discount Value: ₹${originalValue} · Listing Price: <strong style="color: var(--color-success);">${sellingPrice}</strong></div>
+      </div>
+
+      <!-- Tab Buttons -->
+      <div class="category-pills" style="margin-bottom: 1.25rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem; gap: 0.5rem;">
+        <button class="category-pill active" id="btnModalTabUse" onclick="switchModalTab('use')">📖 How to Use Code</button>
+        <button class="category-pill" id="btnModalTabTerms" onclick="switchModalTab('terms')">📜 Terms & Conditions</button>
+      </div>
+
+      <!-- How to Use Tab -->
+      <div id="modalTabUse" class="modal-tab-content">
+        <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+          <div style="display: flex; gap: 0.75rem; align-items: start;">
+            <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--color-blue-600); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">1</div>
+            <div style="font-size: 0.875rem; color: var(--color-slate-300);"><strong style="color: var(--color-white);">Unlock Code:</strong> Click <em>Buy Now</em> (or <em>Get Free Code</em>) to reveal your unique coupon code.</div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: start;">
+            <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--color-blue-600); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">2</div>
+            <div style="font-size: 0.875rem; color: var(--color-slate-300);"><strong style="color: var(--color-white);">Copy Code:</strong> Copy the revealed code from your screen or from your <em>Dashboard Wallet</em>.</div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: start;">
+            <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--color-blue-600); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">3</div>
+            <div style="font-size: 0.875rem; color: var(--color-slate-300);"><strong style="color: var(--color-white);">Visit Store:</strong> Open the official <strong>${brand}</strong> app or website and add items to your cart.</div>
+          </div>
+          <div style="display: flex; gap: 0.75rem; align-items: start;">
+            <div style="width: 26px; height: 26px; border-radius: 50%; background: var(--color-blue-600); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; flex-shrink: 0;">4</div>
+            <div style="font-size: 0.875rem; color: var(--color-slate-300);"><strong style="color: var(--color-white);">Apply at Checkout:</strong> Paste the code in the <em>Have a Coupon / Promo Code?</em> box before making payment.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Terms & Conditions Tab -->
+      <div id="modalTabTerms" class="modal-tab-content" style="display: none;">
+        <ul style="font-size: 0.85rem; color: var(--color-slate-300); line-height: 1.8; padding-left: 1.25rem;">
+          <li>Valid for purchases on official <strong>${brand}</strong> digital platforms.</li>
+          <li>Cart value must meet the minimum requirement specified by ${brand} (e.g. ₹${originalValue}).</li>
+          <li>Single-use promo code per user account on the merchant site.</li>
+          <li>Cannot be combined with conflicting promotional vouchers or gift cards.</li>
+          <li><strong>100% Active Guarantee:</strong> Verified by SaveHatke. If the code is invalid, request a full refund within 48 hours via your Dashboard.</li>
+        </ul>
+      </div>
+
+      <div style="margin-top: 1.5rem; text-align: right;">
+        <button class="btn btn-secondary btn-sm" onclick="this.closest('.modal-overlay').classList.remove('active'); setTimeout(() => this.closest('.modal-overlay').remove(), 300)">Close</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('active'));
+
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.classList.remove('active');
+      setTimeout(() => overlay.remove(), 300);
+    }
+  });
+}
+
+function switchModalTab(tab) {
+  const useBtn = document.getElementById('btnModalTabUse');
+  const termsBtn = document.getElementById('btnModalTabTerms');
+  const useTab = document.getElementById('modalTabUse');
+  const termsTab = document.getElementById('modalTabTerms');
+
+  if (!useBtn || !termsBtn || !useTab || !termsTab) return;
+
+  if (tab === 'use') {
+    useBtn.classList.add('active');
+    termsBtn.classList.remove('active');
+    useTab.style.display = 'block';
+    termsTab.style.display = 'none';
+  } else {
+    termsBtn.classList.add('active');
+    useBtn.classList.remove('active');
+    termsTab.style.display = 'block';
+    useTab.style.display = 'none';
+  }
+}
+
 // ── Require Auth ────────────────────────────────────────────────────────
 function requireAuth() {
   if (!Auth.isLoggedIn()) {
@@ -353,3 +465,4 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initScrollReveal();
 });
+
