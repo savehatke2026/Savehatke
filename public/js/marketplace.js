@@ -84,51 +84,57 @@ function renderCouponGrid(gridId, coupons) {
     return;
   }
 
-  const categoryColors = {
-    'Makeup': { bg: 'rgba(236, 72, 153, 0.1)', color: '#ec4899', emoji: '💄' },
-    'Electronics': { bg: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', emoji: '⚡' },
-    'Fashion': { bg: 'rgba(168, 85, 247, 0.1)', color: '#a855f7', emoji: '👟' },
-    'Food': { bg: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', emoji: '🍔' },
+  const categoryEmojis = {
+    'Makeup': '💄',
+    'Electronics': '🎧',
+    'Fashion': '👟',
+    'Food': '🍔',
+  };
+
+  const badgeClass = {
+    'Makeup': 'badge-makeup',
+    'Electronics': 'badge-electronics',
+    'Fashion': 'badge-fashion',
+    'Food': 'badge-food',
   };
 
   grid.innerHTML = coupons.map((c) => {
-    const cat = categoryColors[c.category] || { bg: 'rgba(37, 99, 235, 0.1)', color: '#3b82f6', emoji: '🏷️' };
+    const emoji = categoryEmojis[c.category] || '🏷️';
+    const bClass = badgeClass[c.category] || 'badge-electronics';
     const isFree = c.source === 'auto-scraped';
+    const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '20'}`;
+    const origVal = c.originalValue || '500';
     const cJson = JSON.stringify(c).replace(/"/g, '&quot;');
+
+    const origNum = Number(origVal) || 500;
+    const sellNum = isFree ? 0 : (Number(c.sellingPrice) || 20);
+    const savePct = Math.min(99, Math.max(85, Math.round(((origNum - sellNum) / origNum) * 100)));
 
     return `
       <div class="coupon-card">
-        <div class="coupon-card-header">
-          <div class="coupon-brand">
-            <div class="coupon-brand-logo" style="background: ${cat.bg}; color: ${cat.color};">
-              ${cat.emoji}
-            </div>
-            <div>
-              <div class="coupon-brand-name">${c.brand}</div>
-              <span class="badge badge-${getCatBadge(c.category)}" style="font-size: 0.65rem;">${c.category}</span>
-            </div>
-          </div>
-          ${c.source === 'admin' ? '<span class="badge badge-blue">Verified</span>' : ''}
-          ${isFree ? '<span class="badge badge-green">FREE</span>' : ''}
+        <div class="coupon-card-top">
+          <div class="coupon-brand">${emoji} ${c.brand}</div>
+          <span class="coupon-category-badge ${bClass}">${c.category}</span>
         </div>
-        <div class="coupon-card-body">
-          <p class="coupon-description">${c.description || 'Discount code available'}</p>
-          <div class="coupon-value">
-            <span class="coupon-original-price">Worth ₹${c.originalValue}</span>
-            <span class="coupon-price">${isFree ? 'FREE' : `₹${c.sellingPrice}`}</span>
-          </div>
+        <div class="coupon-value">₹${origVal} OFF</div>
+        <div class="coupon-value-label">${c.description || 'Face Value Discount'}</div>
+        <div class="coupon-price-row">
           <div>
-            <button class="coupon-tc-btn" onclick="openCouponTermsModal(${cJson})">
-              📜 Terms & How to Use
-            </button>
+            <div class="coupon-price">${priceText}</div>
+            <div class="coupon-price-label">Our Price</div>
           </div>
+          <span class="coupon-discount-badge">Save ${savePct}%</span>
         </div>
-        <div class="coupon-card-footer">
-          <span style="font-size: 0.75rem; color: var(--color-slate-500);">${formatTimeAgo(c.addedAt)}</span>
-          <button class="btn ${isFree ? 'btn-success' : 'btn-primary'} btn-sm" onclick="buyCoupon('${c.id}', ${isFree})">
-            ${isFree ? 'Get Free' : 'Buy Now'}
-          </button>
+        <div class="coupon-code-row">
+          <span class="coupon-code">${c.code ? c.code.slice(0, 6) : 'SAVE2026'}</span>
+          <span class="coupon-code-label">🔒 Unlock to reveal</span>
         </div>
+        <button class="coupon-tc-btn" onclick="openCouponTermsModal(${cJson})">
+          📜 Terms & How to Use
+        </button>
+        <button class="btn-coupon" onclick="buyCoupon('${c.id}', ${isFree})">
+          ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
+        </button>
       </div>
     `;
   }).join('');
