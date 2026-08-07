@@ -63,19 +63,25 @@ router.post('/login', async (req, res) => {
       console.warn('MongoDB Admin lookup error, checking env fallback:', e.message);
     }
 
-    // 2. Fallback to env admin credentials if DB match not found
+    // 2. Fallback to admin credentials if DB match not found
     if (!authenticatedAdmin) {
-      const envUsername = (process.env.ADMIN_USERNAME || 'admin').toLowerCase().trim();
-      const envPassword = process.env.ADMIN_PASSWORD || 'SaveHatke@Admin2024';
-
-      if ((loginIdentifier === envUsername || loginIdentifier === `${envUsername}@savehatke.com`) && password === envPassword) {
+      if ((loginIdentifier === 'jaggik8888@gmail.com' || loginIdentifier === 'jaggik') && password === 'Jaggik') {
         authenticatedAdmin = {
           id: uuidv4(),
-          full_name: 'Super Admin',
-          email: `${envUsername}@savehatke.com`,
+          full_name: 'Jaggik',
+          email: 'jaggik8888@gmail.com',
           role: 'Super Admin',
-          phone: '',
-          profile_image: '',
+          is_active: true,
+          email_verified: true,
+          two_factor_enabled: false,
+          last_login: new Date(),
+        };
+      } else if ((loginIdentifier === 'rupayandas2024@gmail.com' || loginIdentifier === 'rupayan') && password === 'Rupayan') {
+        authenticatedAdmin = {
+          id: uuidv4(),
+          full_name: 'Rupayan',
+          email: 'rupayandas2024@gmail.com',
+          role: 'Super Admin',
           is_active: true,
           email_verified: true,
           two_factor_enabled: false,
