@@ -4,7 +4,9 @@
 
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'savehatke_dev_secret_key';
+function getJwtSecret() {
+  return process.env.JWT_SECRET || 'savehatke_dev_secret_key';
+}
 
 /**
  * Middleware: Verify JWT token from Authorization header.
@@ -19,7 +21,7 @@ function authenticateToken(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, getJwtSecret());
     req.user = decoded;
     next();
   } catch (err) {
@@ -47,7 +49,7 @@ function optionalAuth(req, res, next) {
 
   if (token) {
     try {
-      req.user = jwt.verify(token, JWT_SECRET);
+      req.user = jwt.verify(token, getJwtSecret());
     } catch (err) {
       // Token invalid, continue without user
     }
@@ -59,7 +61,7 @@ function optionalAuth(req, res, next) {
  * Generate a JWT token for a user.
  */
 function generateToken(payload, expiresIn = '7d') {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn });
 }
 
 module.exports = {
