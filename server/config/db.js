@@ -4,6 +4,7 @@
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { v4: uuidv4 } = require('uuid');
 const Admin = require('../models/Admin');
 
 let isConnected = false;
@@ -35,15 +36,22 @@ async function seedAdminUser() {
       const defaultPassword = process.env.ADMIN_PASSWORD || 'SaveHatke@Admin2024';
 
       const salt = await bcrypt.genSalt(10);
-      const passwordHash = await bcrypt.hash(defaultPassword, salt);
+      const password_hash = await bcrypt.hash(defaultPassword, salt);
 
       await Admin.create({
-        username: defaultUsername,
-        passwordHash,
-        email: 'admin@savehatke.com',
-        role: 'admin',
+        id: uuidv4(),
+        full_name: 'Super Admin',
+        email: `${defaultUsername}@savehatke.com`,
+        password_hash,
+        role: 'Super Admin',
+        phone: '+919876543210',
+        profile_image: '',
+        is_active: true,
+        email_verified: true,
+        two_factor_enabled: false,
+        last_login: null,
       });
-      console.log(`👤 Initial Admin created in MongoDB: username="${defaultUsername}"`);
+      console.log(`👤 Initial Super Admin created in MongoDB: email="${defaultUsername}@savehatke.com"`);
     }
   } catch (e) {
     console.error('Error seeding admin user in MongoDB:', e.message);
