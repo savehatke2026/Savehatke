@@ -459,8 +459,45 @@ function requireAuth() {
   return true;
 }
 
+// ── Top Green Progress Bar ──────────────────────────────────────────────
+function initProgressBar() {
+  let container = document.getElementById('topProgressBarContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'topProgressBarContainer';
+    container.innerHTML = '<div id="topProgressBar"></div>';
+    document.body.prepend(container);
+  }
+  const bar = document.getElementById('topProgressBar');
+  if (!bar) return;
+
+  // Initial load animation
+  bar.style.width = '35%';
+  setTimeout(() => { bar.style.width = '75%'; }, 150);
+  setTimeout(() => { 
+    bar.style.width = '100%'; 
+    setTimeout(() => { updateScrollProgress(); }, 200); 
+  }, 350);
+
+  window.addEventListener('scroll', updateScrollProgress);
+}
+
+function updateScrollProgress() {
+  const bar = document.getElementById('topProgressBar');
+  if (!bar) return;
+  const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+  const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+  if (height <= 0) {
+    bar.style.width = '100%';
+  } else {
+    const scrolled = Math.min(100, Math.max(0, (winScroll / height) * 100));
+    bar.style.width = scrolled + '%';
+  }
+}
+
 // ── Initialize ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  initProgressBar();
   initNavigation();
   initScrollReveal();
 });

@@ -79,6 +79,26 @@ button, input, select, textarea { font-family: inherit; }
 ::-webkit-scrollbar-track { background: var(--navy); }
 ::-webkit-scrollbar-thumb { background: var(--slate-700); border-radius: 3px; }
 
+/* ═══ Top Green Progress Bar ═══ */
+#topProgressBarContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: transparent;
+  z-index: 99999;
+  pointer-events: none;
+}
+#topProgressBar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #00e676 0%, #00c853 100%);
+  box-shadow: 0 0 12px rgba(0, 230, 118, 0.9), 0 0 4px #00e676;
+  border-radius: 0 2px 2px 0;
+  transition: width 0.1s ease-out;
+}
+
 /* ═══ Typography ═══ */
 .gradient-text {
   background: linear-gradient(135deg, var(--green), var(--blue));
