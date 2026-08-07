@@ -235,10 +235,19 @@
   }
 
   // Initialize Google Identity Services
-  window.onload = function () {
+  let activeGoogleClientId = "928374829104-savehatke2026.apps.googleusercontent.com";
+
+  window.onload = async function () {
+    try {
+      const cfg = await api('/auth/google-config');
+      if (cfg && cfg.clientId) activeGoogleClientId = cfg.clientId;
+    } catch (e) {
+      console.warn('Could not fetch server google-config:', e.message);
+    }
+
     if (window.google && window.google.accounts) {
       google.accounts.id.initialize({
-        client_id: "928374829104-savehatke2026.apps.googleusercontent.com",
+        client_id: activeGoogleClientId,
         callback: handleGoogleCredentialResponse,
         cancel_on_tap_outside: true
       });

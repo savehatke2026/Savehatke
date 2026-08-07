@@ -95,6 +95,14 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// GET /api/auth/google-config
+router.get('/google-config', (req, res) => {
+  res.json({
+    clientId: process.env.GOOGLE_CLIENT_ID || '928374829104-savehatke2026.apps.googleusercontent.com',
+    configured: !!(process.env.GOOGLE_CLIENT_ID && !process.env.GOOGLE_CLIENT_ID.includes('your_google_client_id')),
+  });
+});
+
 // POST /api/auth/google
 router.post('/google', async (req, res) => {
   try {
