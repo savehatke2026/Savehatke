@@ -495,9 +495,30 @@ function updateScrollProgress() {
   }
 }
 
+// ── Floating Green Particles ────────────────────────────────────────────
+function initParticles() {
+  const containers = document.querySelectorAll('.particles');
+  containers.forEach((container) => {
+    if (container.children.length > 0) return;
+    const count = 30;
+    for (let i = 0; i < count; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = `${Math.random() * 100}%`;
+      p.style.animationDuration = `${4 + Math.random() * 7}s`;
+      p.style.animationDelay = `${Math.random() * 5}s`;
+      const size = 2 + Math.random() * 3;
+      p.style.width = `${size}px`;
+      p.style.height = `${size}px`;
+      container.appendChild(p);
+    }
+  });
+}
+
 // ── Initialize ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initProgressBar();
+  initParticles();
   initNavigation();
   initScrollReveal();
 });
