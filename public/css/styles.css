@@ -99,6 +99,59 @@ button, input, select, textarea { font-family: inherit; }
   transition: width 0.1s ease-out;
 }
 
+/* ═══ Navbar Profile Badge ═══ */
+.nav-profile-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 30, 58, 0.9);
+  border: 1.5px solid rgba(0, 230, 118, 0.35);
+  border-radius: 9999px;
+  padding: 4px 14px 4px 5px;
+  cursor: pointer;
+  transition: all 0.22s;
+  box-shadow: 0 4px 14px rgba(0, 230, 118, 0.15);
+}
+.nav-profile-badge:hover {
+  background: rgba(0, 230, 118, 0.12);
+  border-color: #00e676;
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(0, 230, 118, 0.3);
+}
+.nav-avatar-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #00e676, #00c853);
+  color: #060d1f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.8rem;
+  flex-shrink: 0;
+}
+.nav-avatar-img {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid #00e676;
+}
+.nav-user-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: #e2ecff;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-google-icon {
+  flex-shrink: 0;
+}
+
 /* ═══ Typography ═══ */
 .gradient-text {
   background: linear-gradient(135deg, var(--green), var(--blue));

@@ -297,7 +297,7 @@
             });
             Auth.setAuth(data.token, data.user);
             showToast(`Welcome ${data.user.name}! Signed in with Google 🎉`, 'success');
-            setTimeout(() => window.location.href = 'dashboard.html', 500);
+            setTimeout(() => window.location.href = 'index.html', 500);
           }
         } catch (e) {
           showToast('Google authentication failed.', 'error');
@@ -317,7 +317,7 @@
       Auth.setAuth(data.token, data.user);
       showToast(`Welcome ${data.user.name}! Google Login Successful 🎉`, 'success');
       setTimeout(() => {
-        window.location.href = 'dashboard.html';
+        window.location.href = 'index.html';
       }, 500);
     } catch (err) {
       showToast(err.message || 'Google authentication failed.', 'error');
@@ -352,7 +352,7 @@
       }
 
       setTimeout(() => {
-        window.location.href = 'dashboard.html';
+        window.location.href = 'index.html';
       }, 500);
     } catch (err) {
       showToast(err.message || 'Authentication failed. Please check details.', 'error');
