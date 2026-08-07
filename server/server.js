@@ -12,6 +12,10 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const db = require('./services/googleSheets');
+const { connectDB } = require('./config/db');
+
+// Connect to MongoDB
+connectDB();
 
 // Import routes
 const authRoutes = require('./routes/auth');

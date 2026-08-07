@@ -10,28 +10,68 @@ const db = require('../services/googleSheets');
 
 const router = express.Router();
 
-// POST /api/admin/login — Admin login (separate from user auth)
+const Admin = require('../models/Admin');
+
+// POST /api/admin/login — Admin login (MongoDB backed)
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
-    const adminUsername = process.env.ADMIN_USERNAME || 'admin';
-    const adminPassword = process.env.ADMIN_PASSWORD || 'SaveHatke@Admin2024';
 
-    if (username !== adminUsername || password !== adminPassword) {
-      return res.status(401).json({ error: 'Invalid admin credentials.' });
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Username and password are required.' });
+    }
+
+    const cleanUsername = username.toLowerCase().trim();
+    let authenticatedAdmin = null;
+
+    // 1. Try checking MongoDB Admin collection
+    try {
+      const dbAdmin = await Admin.findOne({ username: cleanUsername });
+      if (dbAdmin) {
+        const isMatch = await bcrypt.compare(password, dbAdmin.passwordHash);
+        if (isMatch) {
+          authenticatedAdmin = {
+            id: dbAdmin._id.toString(),
+            username: dbAdmin.username,
+            email: dbAdmin.email || 'admin@savehatke.com',
+            role: dbAdmin.role || 'admin',
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('MongoDB Admin lookup failed, checking env fallback:', e.message);
+    }
+
+    // 2. Fallback to env admin credentials if not matched in DB
+    if (!authenticatedAdmin) {
+      const envUsername = (process.env.ADMIN_USERNAME || 'admin').toLowerCase().trim();
+      const envPassword = process.env.ADMIN_PASSWORD || 'SaveHatke@Admin2024';
+
+      if (cleanUsername === envUsername && password === envPassword) {
+        authenticatedAdmin = {
+          id: 'admin-001',
+          username: envUsername,
+          email: 'admin@savehatke.com',
+          role: 'admin',
+        };
+      }
+    }
+
+    if (!authenticatedAdmin) {
+      return res.status(401).json({ error: 'Invalid admin username or password.' });
     }
 
     const token = generateToken({
-      id: 'admin-001',
-      email: 'admin@savehatke.com',
-      name: 'Admin',
+      id: authenticatedAdmin.id,
+      email: authenticatedAdmin.email,
+      name: authenticatedAdmin.username,
       role: 'admin',
     }, '12h');
 
     res.json({
       message: 'Admin login successful.',
       token,
-      user: { id: 'admin-001', name: 'Admin', role: 'admin' },
+      user: authenticatedAdmin,
     });
   } catch (err) {
     console.error('Admin login error:', err);
