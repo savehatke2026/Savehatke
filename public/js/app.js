@@ -375,6 +375,11 @@ function openAuthModal(mode = 'login') {
 
       closeAuthModal();
       updateNavAuth();
+
+      const currentPage = window.location.pathname.split('/').pop();
+      if (currentPage === 'login.html') {
+        setTimeout(() => window.location.href = 'index.html', 500);
+      }
     } catch (err) {
       showToast(err.message, 'error');
       btn.disabled = false;
