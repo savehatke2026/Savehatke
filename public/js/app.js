@@ -264,6 +264,16 @@ function openAuthModal(mode = 'login') {
           body: { email, password },
         });
         Auth.setAuth(data.token, data.user);
+
+        // Admin role → redirect to admin panel
+        if (data.user.role === 'admin') {
+          Auth.setAdminAuth(data.token, data.user);
+          showToast(`Welcome Admin ${data.user.name}! 🛡️`, 'success');
+          closeAuthModal();
+          setTimeout(() => window.location.href = 'admin.html', 500);
+          return;
+        }
+
         showToast('Welcome back! 👋', 'success');
       } else {
         const name = document.getElementById('authName').value;

@@ -13,11 +13,10 @@ const adminSchema = new mongoose.Schema(
       unique: true,
       index: true,
     },
-    full_name: {
+    name: {
       type: String,
       required: true,
       trim: true,
-      default: 'Super Admin',
     },
     email: {
       type: String,
@@ -32,8 +31,8 @@ const adminSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['Super Admin', 'Admin'],
-      default: 'Super Admin',
+      enum: ['Super Admin', 'Admin', 'Support'],
+      default: 'Admin',
     },
     phone: {
       type: String,
@@ -66,4 +65,18 @@ const adminSchema = new mongoose.Schema(
   }
 );
 
+// Virtual for full_name to ensure full backward compatibility
+adminSchema.virtual('full_name')
+  .get(function () {
+    return this.name;
+  })
+  .set(function (v) {
+    this.name = v;
+  });
+
+// Ensure virtuals are included in JSON output
+adminSchema.set('toJSON', { virtuals: true });
+adminSchema.set('toObject', { virtuals: true });
+
 module.exports = mongoose.models.Admin || mongoose.model('Admin', adminSchema);
+

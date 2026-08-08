@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   showAdminDashboard();
   initAdminTabs();
   initAddCouponForm();
+  initCreateAdminForm();
 });
 
 // ── Admin Dashboard Initializer ─────────────────────────────────────────
@@ -65,6 +66,7 @@ function initAdminTabs() {
         target.style.display = 'block';
         if (tab.dataset.tab === 'inventory') loadInventory();
         if (tab.dataset.tab === 'pending') loadPending();
+        if (tab.dataset.tab === 'admins') loadAdminsList();
       }
     });
   });
@@ -267,3 +269,151 @@ function debounce(fn, ms) {
     timer = setTimeout(() => fn.apply(this, args), ms);
   };
 }
+
+// ── Admin User Management (MongoDB Atlas) ───────────────────────────────
+function initCreateAdminForm() {
+  const form = document.getElementById('createAdminForm');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('createAdminBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating...';
+
+    try {
+      const data = await api('/admin/create-admin', {
+        method: 'POST',
+        useAdmin: true,
+        body: {
+          name: document.getElementById('newAdminName').value.trim(),
+          email: document.getElementById('newAdminEmail').value.trim(),
+          password: document.getElementById('newAdminPassword').value,
+          role: document.getElementById('newAdminRole').value,
+          phone: document.getElementById('newAdminPhone').value.trim(),
+          profile_image: document.getElementById('newAdminAvatar').value.trim(),
+        },
+      });
+
+      showToast(data.message, 'success');
+      form.reset();
+      loadAdminsList();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '➕ Create Admin in MongoDB Atlas';
+    }
+  });
+}
+
+async function loadAdminsList() {
+  const container = document.getElementById('adminsTableContainer');
+  if (!container) return;
+
+  try {
+    const data = await api('/admin/list-admins', { useAdmin: true });
+    const admins = data.admins || [];
+
+    if (admins.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">👥</div>
+          <h3>No admin accounts found</h3>
+          <p>Create your first admin account using the form above.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Realtime ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Role</th>
+              <th>Phone</th>
+              <th>Status</th>
+              <th>Last Login</th>
+              <th>Created At</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${admins.map((a) => {
+              const roleBadge = a.role === 'Super Admin' ? 'purple' : a.role === 'Support' ? 'teal' : 'blue';
+              const statusBadge = a.is_active ? 'green' : 'red';
+              const realId = a.id || a._id;
+              const adminName = a.name || a.full_name || 'Admin';
+              const lastLoginFormatted = a.last_login ? new Date(a.last_login).toLocaleString('en-IN') : 'Never';
+              const createdAtFormatted = a.created_at ? new Date(a.created_at).toLocaleDateString('en-IN') : '—';
+
+              return `
+                <tr>
+                  <td><code style="background: rgba(37,99,235,0.1); padding: 2px 6px; border-radius: 4px; color: var(--color-gold-400); font-size: 0.75rem;">${realId.substring(0, 8)}...</code></td>
+                  <td style="font-weight: 600; color: var(--color-white);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                      ${a.profile_image ? `<img src="${a.profile_image}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">` : '👤'}
+                      <span>${adminName}</span>
+                    </div>
+                  </td>
+                  <td>${a.email}</td>
+                  <td><span class="badge badge-${roleBadge}">${a.role}</span></td>
+                  <td>${a.phone || '—'}</td>
+                  <td><span class="badge badge-${statusBadge}">${a.is_active ? 'Active' : 'Inactive'}</span></td>
+                  <td style="font-size: 0.75rem; color: var(--color-slate-400);">${lastLoginFormatted}</td>
+                  <td style="font-size: 0.75rem; color: var(--color-slate-400);">${createdAtFormatted}</td>
+                  <td>
+                    <div style="display: flex; gap: 4px;">
+                      <button class="btn btn-ghost btn-sm" onclick="toggleAdminStatus('${realId}', ${!a.is_active})">
+                        ${a.is_active ? '⏸️' : '▶️'}
+                      </button>
+                      <button class="btn btn-danger btn-sm" onclick="deleteAdminUser('${realId}')">🗑</button>
+                    </div>
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="padding: var(--space-4); color: var(--color-slate-500); font-size: 0.75rem;">
+        Total Admins in MongoDB Atlas: ${admins.length}
+      </div>
+    `;
+  } catch (err) {
+    container.innerHTML = `<p class="text-danger">Failed to load admin list: ${err.message}</p>`;
+  }
+}
+
+async function toggleAdminStatus(id, newActiveState) {
+  try {
+    await api(`/admin/update-admin/${id}`, {
+      method: 'PUT',
+      useAdmin: true,
+      body: { is_active: newActiveState },
+    });
+    showToast(`Admin account status updated.`, 'success');
+    loadAdminsList();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function deleteAdminUser(id) {
+  if (!confirm('Are you sure you want to delete this admin account from MongoDB Atlas?')) return;
+  try {
+    await api(`/admin/delete-admin/${id}`, {
+      method: 'DELETE',
+      useAdmin: true,
+    });
+    showToast('Admin account deleted.', 'info');
+    loadAdminsList();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+

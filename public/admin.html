@@ -1,142 +1,891 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="robots" content="noindex, nofollow">
-  <title>Admin Panel — SaveHatke</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaveHatke Admin Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Outfit',sans-serif;background:#060d1f;color:#e2ecff;-webkit-font-smoothing:antialiased;overflow-x:hidden;display:flex;min-height:100vh}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#060d1f}
+::-webkit-scrollbar-thumb{background:#1a3055;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#00e676}
+a{text-decoration:none;color:inherit}
+input,select,textarea,button{font-family:'Outfit',sans-serif}
+
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.gtext{background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.shimmer{background:linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3.5s linear infinite}
+
+/* ── SIDEBAR ── */
+.sidebar{
+  width:240px;flex-shrink:0;
+  background:rgba(9,18,40,.98);
+  border-right:1px solid rgba(79,195,247,.1);
+  display:flex;flex-direction:column;
+  position:fixed;top:0;left:0;bottom:0;z-index:50;
+  transition:transform .3s;overflow-y:auto;overflow-x:hidden;
+}
+.sidebar-logo{
+  padding:20px 20px 16px;
+  border-bottom:1px solid rgba(79,195,247,.08);
+  display:flex;align-items:center;gap:10px;
+  font-size:1.15rem;font-weight:800;flex-shrink:0;
+}
+.brand-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.bhl{color:#00e676}
+.admin-badge{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,230,118,.15);color:#00e676;border:1px solid rgba(0,230,118,.25);border-radius:5px;padding:2px 7px;margin-left:auto}
+
+.sidebar-nav{flex:1;padding:12px 0}
+.nav-group-label{font-size:.65rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(107,136,170,.6);padding:14px 20px 6px;display:block}
+.nav-item{
+  display:flex;align-items:center;gap:10px;
+  padding:9px 20px;font-size:.88rem;font-weight:500;
+  color:#6b88aa;cursor:pointer;transition:all .2s;
+  border-left:2px solid transparent;position:relative;
+}
+.nav-item:hover{color:#e2ecff;background:rgba(79,195,247,.05)}
+.nav-item.active{color:#e2ecff;background:rgba(0,230,118,.07);border-left-color:#00e676}
+.nav-item .ni{font-size:1rem;flex-shrink:0;width:20px;text-align:center}
+.nav-item .nbadge{margin-left:auto;font-size:.65rem;font-weight:700;background:rgba(255,80,80,.2);color:#ff6b6b;border-radius:9999px;padding:2px 7px;min-width:20px;text-align:center}
+.nav-item .nbadge.green{background:rgba(0,230,118,.15);color:#00e676}
+
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(79,195,247,.08)}
+.sidebar-user{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.su-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#060d1f;flex-shrink:0}
+.su-name{font-size:.85rem;font-weight:600}
+.su-role{font-size:.72rem;color:#6b88aa;margin-top:1px}
+.logout-btn{width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.15);color:#ff6b6b;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .2s}
+.logout-btn:hover{background:rgba(255,80,80,.15)}
+
+/* ── MAIN ── */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+
+/* ── TOPBAR ── */
+.topbar{
+  height:64px;background:rgba(6,13,31,.95);backdrop-filter:blur(20px);
+  border-bottom:1px solid rgba(79,195,247,.1);
+  display:flex;align-items:center;padding:0 28px;gap:16px;
+  position:sticky;top:0;z-index:40;
+}
+.topbar-title{font-size:1rem;font-weight:700;color:#e2ecff;flex:1}
+.topbar-title span{font-size:.8rem;font-weight:400;color:#6b88aa;margin-left:8px}
+.topbar-search{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:8px 14px;width:260px}
+.topbar-search input{background:none;border:none;color:#e2ecff;font-size:.88rem;outline:none;width:100%}
+.topbar-search input::placeholder{color:#6b88aa}
+.topbar-search .si{color:#6b88aa;font-size:.9rem}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;position:relative}
+.icon-btn:hover{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.06)}
+.notif-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#ff6b6b;border:2px solid #060d1f}
+.mob-toggle{display:none;width:36px;height:36px;border-radius:8px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px}
+.mob-toggle span{display:block;width:18px;height:2px;background:#e2ecff;border-radius:2px}
+
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .mob-toggle{display:flex}
+  .topbar-search{display:none}
+}
+
+/* ── CONTENT ── */
+.content{flex:1;padding:28px;animation:fadeIn .4s ease}
+.section-view{display:none}
+.section-view.active{display:block;animation:fadeIn .35s ease}
+
+/* ── STAT CARDS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:28px}
+.stat-card{
+  background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);
+  border-radius:16px;padding:22px;transition:all .3s;cursor:pointer;position:relative;overflow:hidden;
+}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .3s}
+.stat-card:hover{border-color:rgba(0,230,118,.25);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
+.stat-card:hover::before{opacity:1}
+.sc-green::before{background:linear-gradient(90deg,#00e676,#00c853)}
+.sc-blue::before{background:linear-gradient(90deg,#4fc3f7,#0288d1)}
+.sc-purple::before{background:linear-gradient(90deg,#ce93d8,#9c27b0)}
+.sc-orange::before{background:linear-gradient(90deg,#ffb74d,#f57c00)}
+.sc-teal::before{background:linear-gradient(90deg,#80cbc4,#009688)}
+.sc-red::before{background:linear-gradient(90deg,#ef9a9a,#e53935)}
+.stat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.stat-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.si-green{background:rgba(0,230,118,.12)}
+.si-blue{background:rgba(79,195,247,.12)}
+.si-purple{background:rgba(206,147,216,.12)}
+.si-orange{background:rgba(255,183,77,.12)}
+.si-teal{background:rgba(128,203,196,.12)}
+.si-red{background:rgba(239,154,154,.12)}
+.stat-trend{font-size:.75rem;font-weight:600;padding:3px 8px;border-radius:6px;display:flex;align-items:center;gap:3px}
+.trend-up{background:rgba(0,230,118,.12);color:#00e676}
+.trend-down{background:rgba(239,154,154,.12);color:#ef9a9a}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:600;line-height:1;margin-bottom:4px}
+.stat-lbl{font-size:.78rem;color:#6b88aa;font-weight:500}
+
+@media(max-width:1100px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.stats-grid{grid-template-columns:1fr}}
+
+/* ── TABLES ── */
+.table-card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;overflow:hidden;margin-bottom:24px}
+.table-header{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid rgba(79,195,247,.08)}
+.table-header h3{font-size:.95rem;font-weight:700}
+.table-header-actions{display:flex;gap:8px;align-items:center}
+table{width:100%;border-collapse:collapse}
+thead th{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:10px 16px;text-align:left;background:rgba(0,0,0,.2)}
+tbody tr{border-top:1px solid rgba(79,195,247,.05);transition:background .2s}
+tbody tr:hover{background:rgba(79,195,247,.04)}
+tbody td{padding:12px 16px;font-size:.86rem;color:#a8c0dc;vertical-align:middle}
+tbody td strong{color:#e2ecff;font-weight:600}
+.overflow-x{overflow-x:auto}
+
+/* ── BADGES ── */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
+.badge-green{background:rgba(0,230,118,.12);color:#00e676}
+.badge-blue{background:rgba(79,195,247,.12);color:#4fc3f7}
+.badge-orange{background:rgba(255,183,77,.12);color:#ffb74d}
+.badge-red{background:rgba(239,154,154,.12);color:#ef9a9a}
+.badge-purple{background:rgba(206,147,216,.12);color:#ce93d8}
+.badge-gray{background:rgba(107,136,170,.12);color:#6b88aa}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:0 18px;height:36px;border-radius:8px;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:700;border:none;cursor:pointer;white-space:nowrap;transition:all .22s}
+.btn-lg{height:44px;padding:0 24px;font-size:.92rem;border-radius:10px}
+.btn-sm{height:30px;padding:0 12px;font-size:.78rem;border-radius:6px}
+.btn-primary{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,230,118,.35)}
+.btn-ghost{background:transparent;color:#e2ecff;border:1px solid rgba(79,195,247,.25)}
+.btn-ghost:hover{border-color:rgba(79,195,247,.5);background:rgba(79,195,247,.07)}
+.btn-danger{background:rgba(239,154,154,.1);color:#ef9a9a;border:1px solid rgba(239,154,154,.2)}
+.btn-danger:hover{background:rgba(239,154,154,.2)}
+.btn-warning{background:rgba(255,183,77,.1);color:#ffb74d;border:1px solid rgba(255,183,77,.2)}
+.btn-warning:hover{background:rgba(255,183,77,.2)}
+.btn-success{background:rgba(0,230,118,.1);color:#00e676;border:1px solid rgba(0,230,118,.2)}
+.btn-success:hover{background:rgba(0,230,118,.2)}
+.btn-icon{width:32px;height:32px;padding:0;border-radius:7px}
+
+/* ── FORMS ── */
+.form-grid{display:grid;gap:18px}
+.form-grid-2{grid-template-columns:1fr 1fr}
+.form-grid-3{grid-template-columns:1fr 1fr 1fr}
+.form-group{display:flex;flex-direction:column;gap:7px}
+.form-label{font-size:.8rem;font-weight:600;color:#a8c0dc}
+.form-input,.form-select,.form-textarea{
+  background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);
+  color:#e2ecff;border-radius:10px;padding:10px 14px;font-size:.88rem;
+  transition:border-color .2s;outline:none;width:100%;
+}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:rgba(0,230,118,.4)}
+.form-input::placeholder,.form-textarea::placeholder{color:#6b88aa}
+.form-select option{background:#0c1835;color:#e2ecff}
+.form-textarea{resize:vertical;min-height:90px}
+.form-check{display:flex;align-items:center;gap:8px;font-size:.88rem;color:#a8c0dc;cursor:pointer}
+.form-check input{width:16px;height:16px;accent-color:#00e676;cursor:pointer}
+@media(max-width:700px){.form-grid-2,.form-grid-3{grid-template-columns:1fr}}
+
+/* ── CARD ── */
+.card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:22px;margin-bottom:24px}
+.card-title{font-size:.95rem;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:10px}
+.card-title .ct-icon{font-size:1.1rem}
+
+/* ── ACTIVITY ── */
+.activity-list{}
+.activity-item{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.activity-text{font-size:.85rem;color:#a8c0dc;line-height:1.5;flex:1}
+.activity-text strong{color:#e2ecff}
+.activity-time{font-size:.75rem;color:#6b88aa;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+
+/* ── MINI CHART (CSS only) ── */
+.mini-chart{display:flex;align-items:flex-end;gap:4px;height:48px;margin-top:12px}
+.bar{border-radius:4px 4px 0 0;min-width:10px;transition:opacity .2s}
+.bar:hover{opacity:.7}
+
+/* ── SEARCH BAR ── */
+.search-bar{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.12);border-radius:10px;padding:8px 14px;margin-bottom:20px}
+.search-bar input{background:none;border:none;color:#e2ecff;font-size:.88rem;outline:none;flex:1}
+.search-bar input::placeholder{color:#6b88aa}
+
+/* ── TABS ── */
+.tab-row{display:flex;gap:4px;margin-bottom:22px;background:rgba(255,255,255,.03);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap}
+.tab-btn{padding:7px 18px;border-radius:8px;border:none;background:transparent;color:#6b88aa;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .2s}
+.tab-btn.active{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f}
+.tab-btn:hover:not(.active){color:#e2ecff;background:rgba(255,255,255,.05)}
+.tab-content{display:none}
+.tab-content.active{display:block;animation:fadeIn .3s ease}
+
+/* ── PAGE TITLE ── */
+.page-title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-title{font-family:'DM Serif Display',serif;font-size:1.7rem;line-height:1.2}
+.page-subtitle{font-size:.85rem;color:#6b88aa;margin-top:4px}
+
+/* ── CHART PLACEHOLDER ── */
+.chart-placeholder{background:rgba(0,0,0,.2);border-radius:12px;height:220px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.chart-bars{display:flex;align-items:flex-end;gap:8px;height:160px;padding:0 20px}
+.cb{border-radius:6px 6px 0 0;flex:1;min-width:24px;transition:opacity .2s;cursor:pointer}
+.cb:hover{opacity:.7}
+.chart-line{position:absolute;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#6b88aa;font-size:.85rem}
+
+/* ── TOGGLE ── */
+.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0}
+.toggle-slider{position:absolute;cursor:pointer;inset:0;background:rgba(255,255,255,.1);border-radius:24px;transition:.3s}
+.toggle-slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#6b88aa;border-radius:50%;transition:.3s}
+.toggle input:checked + .toggle-slider{background:rgba(0,230,118,.3)}
+.toggle input:checked + .toggle-slider::before{transform:translateX(20px);background:#00e676}
+
+/* ── USER AVATAR ── */
+.u-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#060d1f;flex-shrink:0}
+
+/* ── SECTION HEADER ── */
+.sec-label{display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00e676;margin-bottom:6px}
+
+/* ── 2-COL LAYOUT ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
+@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}}
+
+/* ── INFO ROWS ── */
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(79,195,247,.06);font-size:.85rem}
+.info-row:last-child{border-bottom:none}
+.info-row .irl{color:#6b88aa}
+.info-row .irv{color:#e2ecff;font-weight:600;font-family:'JetBrains Mono',monospace}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{width:100%;max-width:560px;border-radius:20px;padding:32px;background:#0c1835;border:1px solid rgba(79,195,247,.15);box-shadow:0 40px 100px rgba(0,0,0,.6);transform:translateY(16px) scale(.97);transition:transform .25s;max-height:90vh;overflow-y:auto}
+.modal-overlay.open .modal{transform:translateY(0) scale(1)}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.modal-title{font-family:'DM Serif Display',serif;font-size:1.5rem}
+.modal-close{background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1.3rem;padding:2px 6px;transition:color .2s}
+.modal-close:hover{color:#e2ecff}
+
+/* ── PROGRESS BAR ── */
+.prog-bar{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-top:6px}
+.prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#00e676,#4fc3f7)}
+
+/* ── AUDIT LOG ── */
+.audit-item{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+.audit-item:last-child{border-bottom:none}
+.audit-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+.audit-body{flex:1;min-width:0}
+.audit-action{font-size:.88rem;color:#e2ecff;font-weight:600;margin-bottom:3px}
+.audit-meta{font-size:.76rem;color:#6b88aa;font-family:'JetBrains Mono',monospace}
+
+/* ── SETTINGS ── */
+.settings-section{margin-bottom:32px;padding-bottom:32px;border-bottom:1px solid rgba(79,195,247,.07)}
+.settings-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.settings-title{font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+
+/* ── COUPON CARD ── */
+.coupon-item{background:rgba(12,24,48,.8);border:1px solid rgba(79,195,247,.1);border-radius:12px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:all .3s}
+.coupon-item:hover{border-color:rgba(0,230,118,.22);transform:translateY(-2px)}
+.ci-brand{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,rgba(0,230,118,.15),rgba(79,195,247,.15));display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.ci-body{flex:1;min-width:0}
+.ci-name{font-weight:700;font-size:.9rem;margin-bottom:3px}
+.ci-code{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#00e676;background:rgba(0,230,118,.08);padding:2px 8px;border-radius:5px;display:inline-block;margin-bottom:6px}
+.ci-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ci-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* sidebar overlay for mobile */
+.sidebar-overlay{display:none;position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.6)}
+.sidebar-overlay.show{display:block}
+</style>
 </head>
 <body>
-  <nav class="navbar" id="mainNav">
-    <div class="container">
-      <a href="index.html" class="nav-brand">
-        <div class="brand-icon" style="background: var(--gradient-gold);">🔐</div>
-        Save<span class="brand-highlight">Hatke</span>
-        <span class="badge badge-amber" style="margin-left: 0.5rem;">ADMIN</span>
-      </a>
-      <div class="nav-actions" id="navActions">
-        <button class="btn btn-ghost btn-sm" id="adminLogoutBtn" style="display: none;" onclick="adminLogout()">Logout</button>
-      </div>
-    </div>
+
+<!-- SIDEBAR OVERLAY (mobile) -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand-icon">💰</div>
+    Save<span class="bhl">Hatke</span>
+    <span class="admin-badge">ADMIN</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <span class="nav-group-label">Main</span>
+    <div class="nav-item active" onclick="showSection('dashboard',this)"><span class="ni">🏠</span> Dashboard</div>
+    <div class="nav-item" onclick="showSection('users',this)"><span class="ni">👥</span> Users <span class="nbadge green">1.2k</span></div>
+    <div class="nav-item" onclick="showSection('coupons',this)"><span class="ni">🎟️</span> Coupons <span class="nbadge">14</span></div>
+    <div class="nav-item" onclick="showSection('payouts',this)"><span class="ni">💰</span> Payouts <span class="nbadge">7</span></div>
+    <div class="nav-item" onclick="showSection('brands',this)"><span class="ni">🛍️</span> Brands</div>
+
+    <span class="nav-group-label">Operations</span>
+    <div class="nav-item" onclick="showSection('tracker',this)"><span class="ni">📦</span> Price Tracker</div>
+    <div class="nav-item" onclick="showSection('analytics',this)"><span class="ni">📈</span> Analytics</div>
+    <div class="nav-item" onclick="showSection('content',this)"><span class="ni">📢</span> Content</div>
+    <div class="nav-item" onclick="showSection('reports',this)"><span class="ni">⭐</span> Reports <span class="nbadge">3</span></div>
+
+    <span class="nav-group-label">Admin</span>
+    <div class="nav-item" onclick="showSection('admins',this)"><span class="ni">👤</span> Admins &amp; Roles</div>
+    <div class="nav-item" onclick="showSection('security',this)"><span class="ni">🔒</span> Security</div>
+    <div class="nav-item" onclick="showSection('settings',this)"><span class="ni">⚙️</span> Settings</div>
+    <div class="nav-item" onclick="showSection('audit',this)"><span class="ni">📄</span> Audit Logs</div>
   </nav>
 
-  <main class="page">
-    <div class="container">
-      <!-- Admin Dashboard -->
-      <div id="adminDashboard">
-        <div class="page-header">
-          <h1 class="page-title">⚙️ Admin Dashboard</h1>
-          <p class="page-subtitle">Manage coupons, users, and platform inventory.</p>
-        </div>
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="su-avatar">SA</div>
+      <div><div class="su-name">Super Admin</div><div class="su-role">admin@savehatke.com</div></div>
+    </div>
+    <button class="logout-btn">🚪 Logout</button>
+  </div>
+</aside>
 
-        <!-- Stats Cards -->
-        <div class="stats-grid mb-8" id="adminStats">
-          <div class="stat-card blue">
-            <div class="stat-icon">👥</div>
-            <div class="stat-value" id="statUsers">—</div>
-            <div class="stat-label">Total Users</div>
-          </div>
-          <div class="stat-card green">
-            <div class="stat-icon">🏷️</div>
-            <div class="stat-value" id="statCoupons">—</div>
-            <div class="stat-label">Active Coupons</div>
-          </div>
-          <div class="stat-card amber">
-            <div class="stat-icon">⏳</div>
-            <div class="stat-value" id="statPending">—</div>
-            <div class="stat-label">Pending Review</div>
-          </div>
-          <div class="stat-card purple">
-            <div class="stat-icon">💰</div>
-            <div class="stat-value" id="statRevenue">—</div>
-            <div class="stat-label">Revenue</div>
-          </div>
-        </div>
+<!-- MAIN -->
+<div class="main">
 
-        <!-- Tabs -->
-        <div class="category-pills mb-6" id="adminTabs">
-          <button class="category-pill active" data-tab="add-coupon">➕ Add Coupon</button>
-          <button class="category-pill" data-tab="inventory">📋 Inventory</button>
-          <button class="category-pill" data-tab="pending">⏳ Pending</button>
-        </div>
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="mob-toggle" id="mobToggle" onclick="toggleSidebar()"><span></span><span></span><span></span></div>
+    <div class="topbar-title" id="topbarTitle">Dashboard <span>/ Overview</span></div>
+    <div class="topbar-search">
+      <span class="si">🔍</span>
+      <input type="text" placeholder="Search anything...">
+    </div>
+    <div class="topbar-actions">
+      <div class="icon-btn" title="Notifications"><span>🔔</span><div class="notif-dot"></div></div>
+      <div class="icon-btn" title="Messages"><span>💬</span></div>
+      <div class="icon-btn" title="Profile"><span>👤</span></div>
+    </div>
+  </div>
 
-        <!-- Add Coupon Tab -->
-        <div class="admin-tab active" id="tab-add-coupon">
-          <div class="card">
-            <h3 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-6);">📝 Add Offline Coupon Code</h3>
-            <p style="color: var(--color-slate-500); font-size: 0.875rem; margin-bottom: var(--space-6);">Manually enter codes from physical scratch cards or offline sources. These go live immediately.</p>
-            <form id="addCouponForm">
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
-                <div class="form-group">
-                  <label class="form-label" for="acCode">Coupon Code *</label>
-                  <input class="form-input" type="text" id="acCode" placeholder="e.g. PUMA-FLAT30" required style="text-transform: uppercase;">
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="acBrand">Brand *</label>
-                  <input class="form-input" type="text" id="acBrand" placeholder="e.g. Puma" required>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="acCategory">Category *</label>
-                  <select class="form-select" id="acCategory" required>
-                    <option value="">Select category</option>
-                    <option value="Makeup">💄 Makeup & Beauty</option>
-                    <option value="Electronics">⚡ Electronics</option>
-                    <option value="Fashion">👟 Fashion & Shoes</option>
-                    <option value="Food">🍔 Food & Delivery</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="acValue">Face Value (₹)</label>
-                  <input class="form-input" type="number" id="acValue" placeholder="e.g. 500">
-                </div>
-                <div class="form-group" style="grid-column: 1 / -1;">
-                  <label class="form-label" for="acDescription">Description</label>
-                  <input class="form-input" type="text" id="acDescription" placeholder="e.g. Flat 30% off on Puma shoes">
-                </div>
-                <div class="form-group">
-                  <label class="form-label" for="acPrice">Selling Price (₹) *</label>
-                  <input class="form-input" type="number" id="acPrice" placeholder="e.g. 25" required value="20">
-                </div>
-              </div>
-              <button type="submit" class="btn btn-success btn-lg mt-4" id="addCouponBtn">
-                ➕ Add Coupon to Inventory
-              </button>
-            </form>
-          </div>
-        </div>
+  <!-- CONTENT -->
+  <div class="content">
 
-        <!-- Inventory Tab -->
-        <div class="admin-tab" id="tab-inventory" style="display: none;">
-          <div class="card" style="padding: var(--space-4);">
-            <div style="display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: center; margin-bottom: var(--space-4);">
-              <input class="form-input" type="text" id="invSearch" placeholder="🔍 Search inventory..." style="flex: 1; min-width: 200px;">
-              <select class="form-select" id="invStatusFilter" style="width: 150px;">
-                <option value="">All Status</option>
-                <option value="available">Available</option>
-                <option value="sold">Sold</option>
-                <option value="pending">Pending</option>
-              </select>
+    <!-- ════════════════ DASHBOARD ════════════════ -->
+    <div class="section-view active" id="sec-dashboard">
+      <div class="page-title-row">
+        <div><div class="page-title">Good morning, <span class="gtext">Admin</span> 👋</div><div class="page-subtitle">Here's what's happening with SaveHatke today.</div></div>
+        <button class="btn btn-primary btn-lg">📊 Export Report</button>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card sc-green">
+          <div class="stat-card-top"><div class="stat-icon si-green">👥</div><span class="stat-trend trend-up">↑ 12%</span></div>
+          <div class="stat-val gtext">12,840</div><div class="stat-lbl">Total Users</div>
+        </div>
+        <div class="stat-card sc-blue">
+          <div class="stat-card-top"><div class="stat-icon si-blue">⚡</div><span class="stat-trend trend-up">↑ 8%</span></div>
+          <div class="stat-val" style="color:#4fc3f7">934</div><div class="stat-lbl">Active Users Today</div>
+        </div>
+        <div class="stat-card sc-purple">
+          <div class="stat-card-top"><div class="stat-icon si-purple">🎟️</div><span class="stat-trend trend-up">↑ 24%</span></div>
+          <div class="stat-val" style="color:#ce93d8">4,217</div><div class="stat-lbl">Total Coupons</div>
+        </div>
+        <div class="stat-card sc-orange">
+          <div class="stat-card-top"><div class="stat-icon si-orange">⏳</div><span class="stat-trend trend-down">↓ 2</span></div>
+          <div class="stat-val" style="color:#ffb74d">14</div><div class="stat-lbl">Pending Approvals</div>
+        </div>
+        <div class="stat-card sc-green">
+          <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend trend-up">↑ 18%</span></div>
+          <div class="stat-val gtext">₹84,290</div><div class="stat-lbl">Total Earnings</div>
+        </div>
+        <div class="stat-card sc-teal">
+          <div class="stat-card-top"><div class="stat-icon si-teal">🔄</div><span class="stat-trend trend-up">↑ 5%</span></div>
+          <div class="stat-val" style="color:#80cbc4">₹3,420</div><div class="stat-lbl">Transactions Today</div>
+        </div>
+        <div class="stat-card sc-blue">
+          <div class="stat-card-top"><div class="stat-icon si-blue">🌐</div><span class="stat-trend trend-up">↑ 31%</span></div>
+          <div class="stat-val" style="color:#4fc3f7">8,104</div><div class="stat-lbl">Website Visitors</div>
+        </div>
+        <div class="stat-card sc-red">
+          <div class="stat-card-top"><div class="stat-icon si-red">🚩</div><span class="stat-trend trend-down">↑ 1</span></div>
+          <div class="stat-val" style="color:#ef9a9a">3</div><div class="stat-lbl">Abuse Reports</div>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title"><span class="ct-icon">📈</span> Revenue This Week</div>
+          <div class="chart-placeholder">
+            <div class="chart-bars">
+              <div class="cb" style="height:60%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
+              <div class="cb" style="height:80%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
+              <div class="cb" style="height:50%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
+              <div class="cb" style="height:90%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
+              <div class="cb" style="height:70%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
+              <div class="cb" style="height:85%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
+              <div class="cb" style="height:100%;background:linear-gradient(180deg,#00e676,rgba(0,230,118,.3))"></div>
             </div>
           </div>
-          <div class="mt-4" id="inventoryTable">
-            <div class="shimmer" style="height: 300px;"></div>
+          <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:.75rem;color:#6b88aa;padding:0 4px">
+            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
           </div>
         </div>
-
-        <!-- Pending Tab -->
-        <div class="admin-tab" id="tab-pending" style="display: none;">
-          <div id="pendingList">
-            <div class="shimmer" style="height: 300px;"></div>
+        <div class="card">
+          <div class="card-title"><span class="ct-icon">🔔</span> Recent Activity</div>
+          <div class="activity-list">
+            <div class="activity-item"><div class="activity-dot" style="background:#00e676"></div><div class="activity-text"><strong>Priya Sharma</strong> sold a Nykaa coupon worth ₹500</div><div class="activity-time">2m ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:#4fc3f7"></div><div class="activity-text"><strong>New user</strong> Rohan Verma registered</div><div class="activity-time">5m ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:#ffb74d"></div><div class="activity-text"><strong>Coupon #C-8821</strong> pending approval from Aditya</div><div class="activity-time">11m ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:#00e676"></div><div class="activity-text"><strong>Payout ₹340</strong> processed to Rahul Kumar</div><div class="activity-time">18m ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:#ef9a9a"></div><div class="activity-text"><strong>Coupon reported</strong> as expired by user @meena_j</div><div class="activity-time">34m ago</div></div>
+            <div class="activity-item"><div class="activity-dot" style="background:#ce93d8"></div><div class="activity-text"><strong>Swiggy coupon</strong> sold 48 times today</div><div class="activity-time">1h ago</div></div>
           </div>
         </div>
+      </div>
 
+      <div class="table-card">
+        <div class="table-header"><h3>Recent Transactions</h3><div class="table-header-actions"><button class="btn btn-ghost btn-sm">View All</button></div></div>
+        <div class="overflow-x"><table>
+          <thead><tr><th>ID</th><th>User</th><th>Coupon</th><th>Amount</th><th>Type</th><th>Date</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><strong>#T-9920</strong></td><td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">PS</div>Priya Sharma</div></td><td>Nykaa 30% OFF</td><td><strong style="color:#00e676">₹15</strong></td><td><span class="badge badge-blue">Sell</span></td><td>Aug 8, 2026</td><td><span class="badge badge-green">Completed</span></td></tr>
+            <tr><td><strong>#T-9919</strong></td><td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">RK</div>Rahul Kumar</div></td><td>Myntra ₹500 OFF</td><td><strong style="color:#00e676">₹20</strong></td><td><span class="badge badge-purple">Buy</span></td><td>Aug 8, 2026</td><td><span class="badge badge-green">Completed</span></td></tr>
+            <tr><td><strong>#T-9918</strong></td><td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">AM</div>Aditya Mehta</div></td><td>Swiggy 50% OFF</td><td><strong style="color:#00e676">₹10</strong></td><td><span class="badge badge-purple">Buy</span></td><td>Aug 7, 2026</td><td><span class="badge badge-orange">Pending</span></td></tr>
+            <tr><td><strong>#T-9917</strong></td><td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">NP</div>Neha Patel</div></td><td>boAt ₹800 OFF</td><td><strong style="color:#00e676">₹25</strong></td><td><span class="badge badge-blue">Sell</span></td><td>Aug 7, 2026</td><td><span class="badge badge-red">Refunded</span></td></tr>
+          </tbody>
+        </table></div>
       </div>
     </div>
-  </main>
 
-  <script src="js/app.js"></script>
-  <script src="js/admin.js"></script>
+    <!-- ════════════════ USERS ════════════════ -->
+    <div class="section-view" id="sec-users">
+      <div class="page-title-row">
+        <div><div class="page-title">User <span class="gtext">Management</span></div><div class="page-subtitle">12,840 total registered users</div></div>
+        <button class="btn btn-primary btn-lg" onclick="openModal('addUserModal')">+ Add User</button>
+      </div>
+      <div class="three-col" style="margin-bottom:22px">
+        <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">✅</div></div><div class="stat-val gtext">11,204</div><div class="stat-lbl">Verified Users</div></div>
+        <div class="stat-card sc-orange"><div class="stat-card-top"><div class="stat-icon si-orange">⏳</div></div><div class="stat-val" style="color:#ffb74d">1,502</div><div class="stat-lbl">Unverified</div></div>
+        <div class="stat-card sc-red"><div class="stat-card-top"><div class="stat-icon si-red">🚫</div></div><div class="stat-val" style="color:#ef9a9a">134</div><div class="stat-lbl">Suspended</div></div>
+      </div>
+      <div class="table-card">
+        <div class="table-header">
+          <h3>All Users</h3>
+          <div class="table-header-actions">
+            <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Search users...">
+            <select class="form-select btn-sm" style="width:130px"><option>All Status</option><option>Active</option><option>Suspended</option><option>Unverified</option></select>
+            <button class="btn btn-ghost btn-sm">Export</button>
+          </div>
+        </div>
+        <div class="overflow-x"><table>
+          <thead><tr><th>User</th><th>Email</th><th>Joined</th><th>Transactions</th><th>Status</th><th>Verified</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">RK</div><strong>Rahul Kumar</strong></div></td><td>rahul@gmail.com</td><td>Jan 12, 2026</td><td><strong>28</strong></td><td><span class="badge badge-green">Active</span></td><td>✅</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-warning btn-sm">Suspend</button></div></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">PS</div><strong>Priya Sharma</strong></div></td><td>priya@gmail.com</td><td>Feb 3, 2026</td><td><strong>41</strong></td><td><span class="badge badge-green">Active</span></td><td>✅</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-warning btn-sm">Suspend</button></div></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">AM</div><strong>Aditya Mehta</strong></div></td><td>aditya@outlook.com</td><td>Mar 17, 2026</td><td><strong>15</strong></td><td><span class="badge badge-orange">Unverified</span></td><td>❌</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-success btn-sm">Verify</button></div></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">NP</div><strong>Neha Patel</strong></div></td><td>neha.p@gmail.com</td><td>Apr 1, 2026</td><td><strong>7</strong></td><td><span class="badge badge-red">Suspended</span></td><td>✅</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-success btn-sm">Unban</button></div></td></tr>
+            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">VR</div><strong>Vikram Rao</strong></div></td><td>vikram.r@yahoo.com</td><td>May 22, 2026</td><td><strong>3</strong></td><td><span class="badge badge-green">Active</span></td><td>✅</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-warning btn-sm">Suspend</button></div></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">🕐</span> Recent Login History</div>
+        <div class="overflow-x"><table>
+          <thead><tr><th>User</th><th>IP Address</th><th>Device</th><th>Date & Time</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Rahul Kumar</strong></td><td><code style="color:#4fc3f7;font-family:'JetBrains Mono',monospace">103.42.18.220</code></td><td>Chrome / Android</td><td>Aug 8, 2026 · 10:24 AM</td><td><span class="badge badge-green">Success</span></td></tr>
+            <tr><td><strong>Priya Sharma</strong></td><td><code style="color:#4fc3f7;font-family:'JetBrains Mono',monospace">49.36.120.77</code></td><td>Safari / iPhone</td><td>Aug 8, 2026 · 09:11 AM</td><td><span class="badge badge-green">Success</span></td></tr>
+            <tr><td><strong>Unknown</strong></td><td><code style="color:#ef9a9a;font-family:'JetBrains Mono',monospace">185.220.101.4</code></td><td>Firefox / Windows</td><td>Aug 7, 2026 · 11:58 PM</td><td><span class="badge badge-red">Failed</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ════════════════ COUPONS ════════════════ -->
+    <div class="section-view" id="sec-coupons">
+      <div class="page-title-row">
+        <div><div class="page-title">Coupon <span class="gtext">Management</span></div><div class="page-subtitle">4,217 total coupons across all categories</div></div>
+        <button class="btn btn-primary btn-lg" onclick="showCouponTab('add')">+ Add Coupon</button>
+      </div>
+
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="showCouponTab('all',this)">📋 All Coupons</button>
+        <button class="tab-btn" onclick="showCouponTab('add',this)">➕ Add Coupon</button>
+        <button class="tab-btn" onclick="showCouponTab('pending',this)">⏳ Pending <span class="nbadge" style="background:rgba(255,183,77,.2);color:#ffb74d;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:4px">14</span></button>
+        <button class="tab-btn" onclick="showCouponTab('active',this)">✅ Active</button>
+        <button class="tab-btn" onclick="showCouponTab('expired',this)">❌ Expired</button>
+        <button class="tab-btn" onclick="showCouponTab('cats',this)">🗂️ Categories</button>
+      </div>
+
+      <!-- ALL COUPONS -->
+      <div class="tab-content active" id="ctab-all">
+        <div class="search-bar"><input type="text" placeholder="Search coupons, brands, codes..."></div>
+        <div style="display:grid;gap:12px">
+          <div class="coupon-item"><div class="ci-brand">💄</div><div class="ci-body"><div class="ci-name">Nykaa — 30% OFF Beauty</div><div class="ci-code">NYKAA30</div><div class="ci-meta"><span class="badge badge-green">Active</span><span class="badge badge-blue">Makeup</span><span style="font-size:.78rem;color:#6b88aa">Exp: Sep 30, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹15 · Sold 142x</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
+          <div class="coupon-item"><div class="ci-brand">👟</div><div class="ci-body"><div class="ci-name">Myntra — ₹500 OFF Fashion</div><div class="ci-code">MYNTRA500</div><div class="ci-meta"><span class="badge badge-green">Active</span><span class="badge badge-purple">Fashion</span><span style="font-size:.78rem;color:#6b88aa">Exp: Oct 15, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹20 · Sold 87x</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
+          <div class="coupon-item"><div class="ci-brand">🍔</div><div class="ci-body"><div class="ci-name">Swiggy — 50% OFF Up to ₹100</div><div class="ci-code">SWIG50</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span class="badge badge-orange">Food</span><span style="font-size:.78rem;color:#6b88aa">Exp: Aug 20, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹10 · Sold 0x</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">Approve</button><button class="btn btn-danger btn-sm">Reject</button></div></div>
+          <div class="coupon-item"><div class="ci-brand">⚡</div><div class="ci-body"><div class="ci-name">boAt — ₹800 OFF Headphones</div><div class="ci-code">BOAT800</div><div class="ci-meta"><span class="badge badge-red">Expired</span><span class="badge badge-blue">Electronics</span><span style="font-size:.78rem;color:#6b88aa">Exp: Jul 31, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹25 · Sold 63x</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
+        </div>
+      </div>
+
+      <!-- ADD COUPON FORM -->
+      <div class="tab-content" id="ctab-add">
+        <div class="card">
+          <div class="card-title"><span class="ct-icon">🎟️</span> Add New Coupon</div>
+          <div class="form-grid form-grid-2">
+            <div class="form-group"><label class="form-label">Store / Brand *</label><input class="form-input" type="text" placeholder="e.g. Nykaa, Swiggy, Myntra"></div>
+            <div class="form-group"><label class="form-label">Coupon Title *</label><input class="form-input" type="text" placeholder="e.g. 30% Off on Skincare"></div>
+            <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" placeholder="e.g. SAVE30" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase"></div>
+            <div class="form-group"><label class="form-label">Coupon Type *</label><select class="form-select"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
+            <div class="form-group"><label class="form-label">Discount *</label><input class="form-input" type="text" placeholder="e.g. 20% OFF or ₹500 OFF"></div>
+            <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" placeholder="e.g. 15"></div>
+            <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" placeholder="e.g. 999"></div>
+            <div class="form-group"><label class="form-label">Maximum Discount (₹)</label><input class="form-input" type="number" placeholder="e.g. 500"></div>
+            <div class="form-group"><label class="form-label">Valid From *</label><input class="form-input" type="date"></div>
+            <div class="form-group"><label class="form-label">Expiry Date *</label><input class="form-input" type="date"></div>
+            <div class="form-group"><label class="form-label">Category *</label><select class="form-select"><option>Makeup</option><option>Electronics</option><option>Fashion</option><option>Food</option><option>Travel</option><option>Health</option><option>Other</option></select></div>
+            <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select"><option>Admin</option><option>Partner</option><option>User Submitted</option></select></div>
+            <div class="form-group"><label class="form-label">Status</label><select class="form-select"><option>Active</option><option>Scheduled</option><option>Draft</option></select></div>
+            <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" placeholder="https://..."></div>
+          </div>
+          <div class="form-group" style="margin-top:14px"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" placeholder="Enter terms and conditions..."></textarea></div>
+          <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">
+            <label class="form-check"><input type="checkbox"> Featured Coupon</label>
+            <label class="form-check"><input type="checkbox"> Exclusive Deal</label>
+            <label class="form-check"><input type="checkbox"> Verified Code</label>
+          </div>
+          <div class="form-group" style="margin-top:14px"><label class="form-label">Coupon Banner / Image (optional)</label><input class="form-input" type="file" accept="image/*"></div>
+          <div style="display:flex;gap:10px;margin-top:20px">
+            <button class="btn btn-primary btn-lg">🎟️ Publish Coupon</button>
+            <button class="btn btn-ghost btn-lg">Save as Draft</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PENDING -->
+      <div class="tab-content" id="ctab-pending">
+        <div class="card">
+          <div class="card-title"><span class="ct-icon">⏳</span> Pending Approvals (14)</div>
+          <div style="display:grid;gap:10px">
+            <div class="coupon-item"><div class="ci-brand">🍔</div><div class="ci-body"><div class="ci-name">Zomato — 40% OFF</div><div class="ci-code">ZOM40NOW</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span style="font-size:.78rem;color:#6b88aa">Submitted by: @rahul_k · Aug 7</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">✅ Approve</button><button class="btn btn-danger btn-sm">❌ Reject</button></div></div>
+            <div class="coupon-item"><div class="ci-brand">👟</div><div class="ci-body"><div class="ci-name">H&amp;M — 20% Sitewide</div><div class="ci-code">HMSITE20</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span style="font-size:.78rem;color:#6b88aa">Submitted by: @priya_s · Aug 6</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">✅ Approve</button><button class="btn btn-danger btn-sm">❌ Reject</button></div></div>
+            <div class="coupon-item"><div class="ci-brand">💄</div><div class="ci-body"><div class="ci-name">Lakme — 25% OFF Skincare</div><div class="ci-code">LAK25SK</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span style="font-size:.78rem;color:#6b88aa">Submitted by: @neha_p · Aug 5</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">✅ Approve</button><button class="btn btn-danger btn-sm">❌ Reject</button></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ACTIVE -->
+      <div class="tab-content" id="ctab-active">
+        <div class="card"><div class="card-title"><span class="ct-icon">✅</span> Active Coupons (3,840)</div><p style="color:#6b88aa;font-size:.88rem">Showing top performing active coupons.</p>
+          <div style="margin-top:16px;display:grid;gap:10px">
+            <div class="coupon-item"><div class="ci-brand">💄</div><div class="ci-body"><div class="ci-name">Nykaa — 30% OFF Beauty</div><div class="ci-code">NYKAA30</div><div class="ci-meta"><span class="badge badge-green">Active</span><span style="font-size:.78rem;color:#a8c0dc">Sold 142x · ₹2,130 earned</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></div>
+            <div class="coupon-item"><div class="ci-brand">👟</div><div class="ci-body"><div class="ci-name">Myntra — ₹500 OFF</div><div class="ci-code">MYNTRA500</div><div class="ci-meta"><span class="badge badge-green">Active</span><span style="font-size:.78rem;color:#a8c0dc">Sold 87x · ₹1,740 earned</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- EXPIRED -->
+      <div class="tab-content" id="ctab-expired">
+        <div class="card"><div class="card-title"><span class="ct-icon">❌</span> Expired Coupons (377)</div>
+          <div style="margin-top:16px;display:grid;gap:10px">
+            <div class="coupon-item" style="opacity:.6"><div class="ci-brand">⚡</div><div class="ci-body"><div class="ci-name">boAt — ₹800 OFF</div><div class="ci-code">BOAT800</div><div class="ci-meta"><span class="badge badge-red">Expired</span><span style="font-size:.78rem;color:#6b88aa">Exp: Jul 31, 2026</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Renew</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CATEGORIES -->
+      <div class="tab-content" id="ctab-cats">
+        <div class="card"><div class="card-title"><span class="ct-icon">🗂️</span> Coupon Categories</div>
+          <div class="two-col">
+            <div>
+              <div class="info-row"><span class="irl">💄 Makeup</span><span class="irv">1,240 coupons</span></div>
+              <div class="info-row"><span class="irl">⚡ Electronics</span><span class="irv">884 coupons</span></div>
+              <div class="info-row"><span class="irl">👟 Fashion</span><span class="irv">762 coupons</span></div>
+              <div class="info-row"><span class="irl">🍔 Food</span><span class="irv">621 coupons</span></div>
+              <div class="info-row"><span class="irl">✈️ Travel</span><span class="irv">310 coupons</span></div>
+              <div class="info-row"><span class="irl">💊 Health</span><span class="irv">400 coupons</span></div>
+            </div>
+            <div>
+              <button class="btn btn-primary" style="width:100%;margin-bottom:10px">+ Add Category</button>
+              <div class="form-group"><label class="form-label">Category Name</label><input class="form-input" placeholder="e.g. Grocery"></div>
+              <div class="form-group"><label class="form-label">Icon (emoji)</label><input class="form-input" placeholder="🛒"></div>
+              <button class="btn btn-ghost" style="width:100%;margin-top:8px">Save Category</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ PAYOUTS ════════════════ -->
+    <div class="section-view" id="sec-payouts">
+      <div class="page-title-row">
+        <div><div class="page-title">Payments &amp; <span class="gtext">Payouts</span></div><div class="page-subtitle">Manage seller payouts and refund requests</div></div>
+        <button class="btn btn-primary btn-lg">💰 Process Batch Payouts</button>
+      </div>
+
+      <div class="three-col mb-6">
+        <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">💸</div></div><div class="stat-val gtext">₹48,290</div><div class="stat-lbl">Paid out this month</div></div>
+        <div class="stat-card sc-orange"><div class="stat-card-top"><div class="stat-icon si-orange">⏳</div></div><div class="stat-val" style="color:#ffb74d">₹4,120</div><div class="stat-lbl">Pending Payouts (7)</div></div>
+        <div class="stat-card sc-blue"><div class="stat-card-top"><div class="stat-icon si-blue">🏦</div></div><div class="stat-val" style="color:#4fc3f7">UPI / Bank</div><div class="stat-lbl">Primary Gateway</div></div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header"><h3>Pending Payout Requests</h3></div>
+        <div class="overflow-x"><table>
+          <thead><tr><th>Payout ID</th><th>Seller Email</th><th>Amount</th><th>Method</th><th>Requested</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody>
+            <tr><td><strong>#PO-1092</strong></td><td>rupayandas2024@gmail.com</td><td><strong>₹640</strong></td><td>UPI: rupayan@okicici</td><td>Today 09:30 AM</td><td><span class="badge badge-orange">Pending</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-success btn-sm">Approve</button><button class="btn btn-danger btn-sm">Reject</button></div></td></tr>
+            <tr><td><strong>#PO-1091</strong></td><td>jaggik8888@gmail.com</td><td><strong>₹1,200</strong></td><td>UPI: jaggik@ybl</td><td>Yesterday</td><td><span class="badge badge-green">Completed</span></td><td><span class="badge badge-gray">Done</span></td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ════════════════ ADMINS & ROLES (MongoDB Atlas) ════════════════ -->
+    <div class="section-view" id="sec-admins">
+      <div class="page-title-row">
+        <div><div class="page-title">Admin &amp; Role <span class="gtext">Management</span></div><div class="page-subtitle">Real-time MongoDB Atlas Document Storage for Admin details</div></div>
+        <button class="btn btn-primary btn-lg" onclick="openModal('addAdminModal')">➕ Create Admin in MongoDB Atlas</button>
+      </div>
+
+      <div class="card mb-6">
+        <div class="card-title"><span class="ct-icon">👤</span> Add Admin User (MongoDB Atlas)</div>
+        <form id="createAdminForm">
+          <div class="form-grid form-grid-3">
+            <div class="form-group">
+              <label class="form-label" for="newAdminName">Name *</label>
+              <input class="form-input" type="text" id="newAdminName" placeholder="e.g. Rupayan" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="newAdminEmail">Email *</label>
+              <input class="form-input" type="email" id="newAdminEmail" placeholder="e.g. rupayandas2024@gmail.com" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="newAdminPassword">Password *</label>
+              <input class="form-input" type="password" id="newAdminPassword" placeholder="••••••••" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="newAdminRole">Role *</label>
+              <select class="form-select" id="newAdminRole" required>
+                <option value="Super Admin">Super Admin</option>
+                <option value="Admin">Admin</option>
+                <option value="Support">Support</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="newAdminPhone">Phone</label>
+              <input class="form-input" type="tel" id="newAdminPhone" placeholder="+91 9876543210">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="newAdminAvatar">Profile Image URL</label>
+              <input class="form-input" type="url" id="newAdminAvatar" placeholder="https://example.com/avatar.jpg">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-lg mt-4" id="createAdminBtn">
+            ➕ Save Admin to MongoDB Atlas
+          </button>
+        </form>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Registered MongoDB Atlas Admins</h3>
+          <button class="btn btn-ghost btn-sm" onclick="loadAdminsList()">🔄 Refresh List</button>
+        </div>
+        <div id="adminsTableContainer" class="overflow-x">
+          <div class="shimmer" style="padding: 24px; text-align: center;">Loading admins from MongoDB Atlas...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ BRANDS ════════════════ -->
+    <div class="section-view" id="sec-brands">
+      <div class="page-title-row">
+        <div><div class="page-title">Brand <span class="gtext">Directory</span></div><div class="page-subtitle">Manage partner brands, stores, and logos</div></div>
+        <button class="btn btn-primary btn-lg">+ Add Brand</button>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">Top Partner Brands</div>
+          <div class="info-row"><span class="irl">💄 Nykaa</span><span class="badge badge-green">142 Coupons</span></div>
+          <div class="info-row"><span class="irl">👟 Myntra</span><span class="badge badge-green">87 Coupons</span></div>
+          <div class="info-row"><span class="irl">🍔 Swiggy</span><span class="badge badge-blue">64 Coupons</span></div>
+          <div class="info-row"><span class="irl">⚡ boAt</span><span class="badge badge-purple">48 Coupons</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ TRACKER ════════════════ -->
+    <div class="section-view" id="sec-tracker">
+      <div class="page-title-row">
+        <div><div class="page-title">Price <span class="gtext">Tracker</span></div><div class="page-subtitle">Monitor price drops across Amazon, Flipkart, &amp; Myntra</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📦 Active Price Trackers (1,280 items)</div>
+        <p style="color:#6b88aa">Live automated tracking enabled for registered user alerts.</p>
+      </div>
+    </div>
+
+    <!-- ════════════════ ANALYTICS ════════════════ -->
+    <div class="section-view" id="sec-analytics">
+      <div class="page-title-row">
+        <div><div class="page-title">Platform <span class="gtext">Analytics</span></div><div class="page-subtitle">Traffic, conversions, and revenue insights</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title">📈 Conversion Overview</div>
+          <p style="color:#6b88aa">Overall conversion rate is up 4.2% this week.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ CONTENT ════════════════ -->
+    <div class="section-view" id="sec-content">
+      <div class="page-title-row">
+        <div><div class="page-title">Content &amp; <span class="gtext">Banners</span></div><div class="page-subtitle">Homepage sliders, promos, and announcement bars</div></div>
+      </div>
+    </div>
+
+    <!-- ════════════════ REPORTS ════════════════ -->
+    <div class="section-view" id="sec-reports">
+      <div class="page-title-row">
+        <div><div class="page-title">User <span class="gtext">Reports</span></div><div class="page-subtitle">Flagged coupons and fraud reports</div></div>
+      </div>
+    </div>
+
+    <!-- ════════════════ SECURITY ════════════════ -->
+    <div class="section-view" id="sec-security">
+      <div class="page-title-row">
+        <div><div class="page-title">Security &amp; <span class="gtext">Access</span></div><div class="page-subtitle">API keys, 2FA, and authentication policies</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔒 MongoDB Atlas Security & Encryption</div>
+        <div class="info-row"><span class="irl">Cluster Name</span><span class="irv">Cluster0 (yeg6zmr)</span></div>
+        <div class="info-row"><span class="irl">Database Name</span><span class="irv">savehatke</span></div>
+        <div class="info-row"><span class="irl">SSL/TLS Connection</span><span class="badge badge-green">Enabled (MongoDB Atlas Driver)</span></div>
+        <div class="info-row"><span class="irl">Admin Password Hash</span><span class="badge badge-purple">Bcrypt (Salt 10)</span></div>
+      </div>
+    </div>
+
+    <!-- ════════════════ SETTINGS ════════════════ -->
+    <div class="section-view" id="sec-settings">
+      <div class="page-title-row">
+        <div><div class="page-title">System <span class="gtext">Settings</span></div><div class="page-subtitle">Configure SaveHatke application defaults</div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚙️ General Settings</div>
+        <div class="form-grid form-grid-2">
+          <div class="form-group"><label class="form-label">Platform Name</label><input class="form-input" value="SaveHatke"></div>
+          <div class="form-group"><label class="form-label">Admin Notification Email</label><input class="form-input" value="rupayandas2024@gmail.com"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ AUDIT LOGS ════════════════ -->
+    <div class="section-view" id="sec-audit">
+      <div class="page-title-row">
+        <div><div class="page-title">Audit <span class="gtext">Logs</span></div><div class="page-subtitle">Real-time administrator action history</div></div>
+      </div>
+      <div class="card">
+        <div class="activity-list">
+          <div class="activity-item"><div class="activity-dot" style="background:#00e676"></div><div class="activity-text"><strong>Rupayan</strong> connected to MongoDB Atlas &amp; verified Admin schema</div><div class="activity-time">Just now</div></div>
+          <div class="activity-item"><div class="activity-dot" style="background:#00e676"></div><div class="activity-text"><strong>Jaggik</strong> updated Super Admin permissions</div><div class="activity-time">10m ago</div></div>
+        </div>
+      </div>
+    </div>
+
+  </div> <!-- /content -->
+</div> <!-- /main -->
+
+<!-- ── MODAL: Add User ── -->
+<div class="modal-overlay" id="addUserModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Add New User</div>
+      <button class="modal-close" onclick="closeModal('addUserModal')">✕</button>
+    </div>
+    <form>
+      <div class="form-group mb-4"><label class="form-label">Full Name</label><input class="form-input" placeholder="e.g. Rahul Kumar"></div>
+      <div class="form-group mb-4"><label class="form-label">Email</label><input class="form-input" type="email" placeholder="e.g. rahul@example.com"></div>
+      <div class="form-group mb-4"><label class="form-label">Initial Password</label><input class="form-input" type="password" placeholder="••••••••"></div>
+      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create User</button>
+    </form>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/admin.js"></script>
+
+<script>
+// ── Section View Switcher ──
+function showSection(name, el) {
+  document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sidebar-nav .nav-item').forEach(i => i.classList.remove('active'));
+
+  const targetSec = document.getElementById(`sec-${name}`);
+  if (targetSec) {
+    targetSec.classList.add('active');
+  }
+
+  if (el) {
+    el.classList.add('active');
+  } else {
+    // find item by onclick attribute
+    const navEl = document.querySelector(`.sidebar-nav .nav-item[onclick*="${name}"]`);
+    if (navEl) navEl.classList.add('active');
+  }
+
+  const titleEl = document.getElementById('topbarTitle');
+  if (titleEl) {
+    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
+    titleEl.innerHTML = `${formatted} <span>/ View</span>`;
+  }
+
+  // Load section-specific data if available
+  if (name === 'admins' && typeof loadAdminsList === 'function') {
+    loadAdminsList();
+  }
+  if (name === 'coupons' && typeof loadInventory === 'function') {
+    loadInventory();
+  }
+
+  closeSidebar();
+}
+
+// ── Coupon Sub-Tabs Switcher ──
+function showCouponTab(tab, el) {
+  document.querySelectorAll('#sec-coupons .tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('#sec-coupons .tab-btn').forEach(b => b.classList.remove('active'));
+
+  const targetTab = document.getElementById(`ctab-${tab}`);
+  if (targetTab) targetTab.classList.add('active');
+
+  if (el) el.classList.add('active');
+}
+
+// ── Mobile Sidebar Toggles ──
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sb) sb.classList.toggle('open');
+  if (overlay) overlay.classList.toggle('show');
+}
+
+function closeSidebar() {
+  const sb = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebarOverlay');
+  if (sb) sb.classList.remove('open');
+  if (overlay) overlay.classList.remove('show');
+}
+
+// ── Modal Handlers ──
+function openModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.classList.add('open');
+}
+
+function closeModal(id) {
+  const m = document.getElementById(id);
+  if (m) m.classList.remove('open');
+}
+</script>
 </body>
 </html>

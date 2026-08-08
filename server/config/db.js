@@ -32,15 +32,15 @@ async function seedAdminUsers() {
   try {
     const initialAdmins = [
       {
-        full_name: 'Jaggik',
-        email: 'jaggik8888@gmail.com',
-        rawPassword: 'Jaggik',
+        name: 'Rupayan',
+        email: 'rupayandas2024@gmail.com',
+        rawPassword: 'Rupayan',
         role: 'Super Admin',
       },
       {
-        full_name: 'Rupayan',
-        email: 'rupayandas2024@gmail.com',
-        rawPassword: 'Rupayan',
+        name: 'Jaggik',
+        email: 'jaggik8888@gmail.com',
+        rawPassword: 'Jaggik',
         role: 'Super Admin',
       },
     ];
@@ -53,7 +53,7 @@ async function seedAdminUsers() {
 
         await Admin.create({
           id: uuidv4(),
-          full_name: adminData.full_name,
+          name: adminData.name,
           email: adminData.email.toLowerCase(),
           password_hash,
           role: adminData.role,
@@ -64,7 +64,22 @@ async function seedAdminUsers() {
           two_factor_enabled: false,
           last_login: null,
         });
-        console.log(`👤 Seeded Admin in MongoDB: ${adminData.full_name} (${adminData.email})`);
+        console.log(`👤 Seeded Admin in MongoDB: ${adminData.name} (${adminData.email})`);
+      } else {
+        // Ensure name and role are up to date if existing
+        let updated = false;
+        if (!existing.name && existing.full_name) {
+          existing.name = existing.full_name;
+          updated = true;
+        }
+        if (existing.name !== adminData.name) {
+          existing.name = adminData.name;
+          updated = true;
+        }
+        if (updated) {
+          await existing.save();
+          console.log(`🔄 Updated Admin details in MongoDB: ${adminData.name} (${adminData.email})`);
+        }
       }
     }
   } catch (e) {

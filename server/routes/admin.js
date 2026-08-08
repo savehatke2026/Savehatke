@@ -112,18 +112,22 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// POST /api/admin/create-admin — Create new Admin/Super Admin in MongoDB
+// POST /api/admin/create-admin — Create new Admin/Super Admin/Support in MongoDB
 router.post('/create-admin', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { full_name, email, password, role, phone, profile_image } = req.body;
+    const { name, full_name, email, password, role, phone, profile_image } = req.body;
+    const adminName = (name || full_name || '').trim();
 
-    if (!email || !password || !full_name) {
-      return res.status(400).json({ error: 'Full name, email, and password are required.' });
+    if (!email || !password || !adminName) {
+      return res.status(400).json({ error: 'Name, email, and password are required.' });
     }
+
+    const validRoles = ['Super Admin', 'Admin', 'Support'];
+    const assignedRole = validRoles.includes(role) ? role : 'Admin';
 
     const existing = await Admin.findOne({ email: email.toLowerCase().trim() });
     if (existing) {
-      return res.status(409).json({ error: 'An admin with this email already exists.' });
+      return res.status(409).json({ error: 'An admin with this email already exists in MongoDB Atlas.' });
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -131,10 +135,10 @@ router.post('/create-admin', authenticateToken, requireAdmin, async (req, res) =
 
     const newAdmin = await Admin.create({
       id: uuidv4(),
-      full_name: full_name.trim(),
+      name: adminName,
       email: email.toLowerCase().trim(),
       password_hash,
-      role: role === 'Super Admin' ? 'Super Admin' : 'Admin',
+      role: assignedRole,
       phone: phone || '',
       profile_image: profile_image || '',
       is_active: true,
@@ -143,31 +147,91 @@ router.post('/create-admin', authenticateToken, requireAdmin, async (req, res) =
     });
 
     res.status(201).json({
-      message: 'Admin account created successfully in MongoDB.',
+      message: 'Admin account created successfully in MongoDB Atlas.',
       admin: {
         id: newAdmin.id,
-        full_name: newAdmin.full_name,
+        name: newAdmin.name,
         email: newAdmin.email,
         role: newAdmin.role,
         phone: newAdmin.phone,
+        profile_image: newAdmin.profile_image,
         is_active: newAdmin.is_active,
         created_at: newAdmin.created_at,
+        updated_at: newAdmin.updated_at,
       },
     });
   } catch (err) {
     console.error('Create admin error:', err);
-    res.status(500).json({ error: 'Failed to create admin.' });
+    res.status(500).json({ error: 'Failed to create admin in MongoDB Atlas.' });
   }
 });
 
-// GET /api/admin/list-admins — List all admins stored in MongoDB
+// GET /api/admin/list-admins — List all admins stored in MongoDB Atlas
 router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const admins = await Admin.find().select('-password_hash').sort({ created_at: -1 });
     res.json({ admins, total: admins.length });
   } catch (err) {
     console.error('List admins error:', err);
-    res.status(500).json({ error: 'Failed to fetch admins list.' });
+    res.status(500).json({ error: 'Failed to fetch admins list from MongoDB Atlas.' });
+  }
+});
+
+// PUT /api/admin/update-admin/:id — Update admin details in MongoDB Atlas
+router.put('/update-admin/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { name, full_name, role, phone, profile_image, is_active } = req.body;
+
+    const admin = await Admin.findOne({ $or: [{ id }, { _id: id }] });
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin record not found.' });
+    }
+
+    if (name || full_name) admin.name = (name || full_name).trim();
+    if (role && ['Super Admin', 'Admin', 'Support'].includes(role)) admin.role = role;
+    if (phone !== undefined) admin.phone = phone.trim();
+    if (profile_image !== undefined) admin.profile_image = profile_image.trim();
+    if (is_active !== undefined) admin.is_active = Boolean(is_active);
+
+    await admin.save();
+
+    res.json({
+      message: 'Admin updated successfully in MongoDB Atlas.',
+      admin: {
+        id: admin.id,
+        name: admin.name,
+        email: admin.email,
+        role: admin.role,
+        phone: admin.phone,
+        profile_image: admin.profile_image,
+        is_active: admin.is_active,
+        last_login: admin.last_login,
+        created_at: admin.created_at,
+        updated_at: admin.updated_at,
+      },
+    });
+  } catch (err) {
+    console.error('Update admin error:', err);
+    res.status(500).json({ error: 'Failed to update admin details.' });
+  }
+});
+
+// DELETE /api/admin/delete-admin/:id — Delete admin record from MongoDB Atlas
+router.delete('/delete-admin/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const admin = await Admin.findOne({ $or: [{ id }, { _id: id }] });
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin record not found.' });
+    }
+
+    await admin.deleteOne();
+    res.json({ message: 'Admin deleted successfully from MongoDB Atlas.' });
+  } catch (err) {
+    console.error('Delete admin error:', err);
+    res.status(500).json({ error: 'Failed to delete admin.' });
   }
 });
 

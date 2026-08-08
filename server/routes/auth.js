@@ -71,7 +71,84 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
 
-    const user = await db.findRow(db.SHEETS.USERS, 'email', email.toLowerCase());
+    const loginEmail = email.toLowerCase().trim();
+
+    // ── 1. Check MongoDB Admin collection first ──────────────────────
+    let Admin;
+    try {
+      Admin = require('../models/Admin');
+    } catch (e) {
+      // Admin model not available, skip
+    }
+
+    if (Admin) {
+      try {
+        const dbAdmin = await Admin.findOne({ email: loginEmail });
+        if (dbAdmin) {
+          if (!dbAdmin.is_active) {
+            return res.status(403).json({ error: 'This admin account is currently deactivated.' });
+          }
+
+          const isMatch = await bcrypt.compare(password, dbAdmin.password_hash);
+          if (isMatch) {
+            // Update last_login
+            dbAdmin.last_login = new Date();
+            await dbAdmin.save();
+
+            const token = generateToken({
+              id: dbAdmin.id || dbAdmin._id.toString(),
+              email: dbAdmin.email,
+              name: dbAdmin.name || dbAdmin.full_name,
+              role: 'admin',
+            }, '12h');
+
+            return res.json({
+              message: 'Admin login successful.',
+              token,
+              user: {
+                id: dbAdmin.id || dbAdmin._id.toString(),
+                email: dbAdmin.email,
+                name: dbAdmin.name || dbAdmin.full_name,
+                role: 'admin',
+                profile_image: dbAdmin.profile_image,
+              },
+            });
+          }
+        }
+      } catch (e) {
+        console.warn('MongoDB Admin lookup during unified login:', e.message);
+      }
+    }
+
+    // ── 2. Hardcoded admin fallback ──────────────────────────────────
+    const hardcodedAdmins = [
+      { email: 'rupayandas2024@gmail.com', password: 'Rupayan', name: 'Rupayan' },
+      { email: 'jaggik8888@gmail.com', password: 'Jaggik', name: 'Jaggik' },
+    ];
+
+    const hardcoded = hardcodedAdmins.find(a => a.email === loginEmail && a.password === password);
+    if (hardcoded) {
+      const token = generateToken({
+        id: uuidv4(),
+        email: hardcoded.email,
+        name: hardcoded.name,
+        role: 'admin',
+      }, '12h');
+
+      return res.json({
+        message: 'Admin login successful.',
+        token,
+        user: {
+          id: uuidv4(),
+          email: hardcoded.email,
+          name: hardcoded.name,
+          role: 'admin',
+        },
+      });
+    }
+
+    // ── 3. Regular user login (Google Sheets) ────────────────────────
+    const user = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
     if (!user) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
@@ -91,7 +168,7 @@ router.post('/login', async (req, res) => {
     res.json({
       message: 'Login successful.',
       token,
-      user: { id: user.id, email: user.email, name: user.name },
+      user: { id: user.id, email: user.email, name: user.name, role: 'user' },
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -138,7 +215,54 @@ router.post('/google', async (req, res) => {
 
     userEmail = userEmail.toLowerCase();
     userName = userName || userEmail.split('@')[0];
+    // ── Check if this Google email belongs to an admin ─────────────
+    const adminEmails = ['rupayandas2024@gmail.com', 'jaggik8888@gmail.com'];
+    let isAdmin = adminEmails.includes(userEmail);
+    let adminData = null;
 
+    if (!isAdmin) {
+      try {
+        const AdminModel = require('../models/Admin');
+        adminData = await AdminModel.findOne({ email: userEmail });
+        if (adminData && adminData.is_active) {
+          isAdmin = true;
+        }
+      } catch (e) {
+        // Admin model not available, skip
+      }
+    }
+
+    if (isAdmin) {
+      // Admin Google login
+      const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
+      const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
+
+      if (adminData) {
+        adminData.last_login = new Date();
+        await adminData.save();
+      }
+
+      const token = generateToken({
+        id: adminId,
+        email: userEmail,
+        name: adminName,
+        role: 'admin',
+      }, '12h');
+
+      return res.json({
+        message: 'Admin Google login successful.',
+        token,
+        user: {
+          id: adminId,
+          email: userEmail,
+          name: adminName,
+          picture: userPicture || (adminData ? adminData.profile_image : ''),
+          role: 'admin',
+        },
+      });
+    }
+
+    // ── Regular user Google login ────────────────────────────────────
     // Find or create user in DB
     let user = await db.findRow(db.SHEETS.USERS, 'email', userEmail);
 
@@ -164,7 +288,7 @@ router.post('/google', async (req, res) => {
     res.json({
       message: 'Google login successful.',
       token,
-      user: { id: user.id, email: user.email, name: user.name, picture: user.picture },
+      user: { id: user.id, email: user.email, name: user.name, picture: user.picture, role: 'user' },
     });
   } catch (err) {
     console.error('Google auth error:', err);
