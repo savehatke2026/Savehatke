@@ -208,30 +208,67 @@ function updateNavAuth() {
 
   if (Auth.isLoggedIn()) {
     const user = Auth.getUser() || {};
-    const initials = user.name ? user.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
-    const isGoogleUser = user.provider === 'google' || (user.email && user.email.includes('gmail'));
-    
-    const googleIconSvg = `<svg class="nav-google-icon" width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>`;
+    const name = user.name || 'User';
+    const email = user.email || '';
+    const initials = name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
 
-    const avatarHtml = user.picture 
-      ? `<img src="${user.picture}" alt="${user.name}" class="nav-avatar-img" />`
-      : `<div class="nav-avatar-circle">${initials}</div>`;
+    const avatarHtmlBtn = user.picture 
+      ? `<img src="${user.picture}" alt="${name}" />`
+      : initials;
+
+    const avatarHtmlDropdown = user.picture
+      ? `<img src="${user.picture}" alt="${name}" />`
+      : initials;
 
     navActions.innerHTML = `
-      <a href="dashboard.html" class="btn btn-ghost btn-sm" style="height:34px;padding:0 14px;font-size:.82rem;border-radius:8px">Dashboard</a>
-      <div class="nav-profile-badge" id="navUserMenu" title="${user.name || 'User'} (${user.email || ''})">
-        ${avatarHtml}
-        <span class="nav-user-name">${user.name || 'User'}</span>
-        ${isGoogleUser ? googleIconSvg : ''}
+      <div class="nav-profile-wrapper">
+        <button class="nav-profile-btn" id="navProfileCircleBtn" title="${name} (${email})">
+          ${avatarHtmlBtn}
+        </button>
+        <div class="nav-profile-dropdown" id="navProfileDropdown">
+          <div class="npd-header">
+            <div class="npd-avatar">${avatarHtmlDropdown}</div>
+            <div class="npd-info">
+              <div class="npd-name">${name}</div>
+              <div class="npd-email">${email}</div>
+            </div>
+          </div>
+          <a href="dashboard.html" class="npd-item">
+            <span>📊</span> Dashboard
+          </a>
+          <button class="npd-item npd-item-logout" id="npdLogoutBtn">
+            <span>🚪</span> Log Out
+          </button>
+        </div>
       </div>
     `;
 
-    document.getElementById('navUserMenu')?.addEventListener('click', () => {
-      if (confirm(`Logged in as ${user.name || 'User'} (${user.email || ''}). Log out?`)) {
+    const btn = document.getElementById('navProfileCircleBtn');
+    const dropdown = document.getElementById('navProfileDropdown');
+    const logoutBtn = document.getElementById('npdLogoutBtn');
+
+    if (btn && dropdown) {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('active');
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
+          dropdown.classList.remove('active');
+        }
+      });
+    }
+
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', () => {
         Auth.clear();
-        window.location.href = 'index.html';
-      }
-    });
+        showToast('Logged out successfully. 👋', 'info');
+        setTimeout(() => {
+          window.location.href = 'index.html';
+        }, 400);
+      });
+    }
   } else {
     navActions.innerHTML = `
       <a href="login.html" class="btn btn-primary btn-sm">Log In</a>
