@@ -25,7 +25,6 @@ const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 // ── Security & Middleware ───────────────────────────────────────────────────
 app.use(helmet({
@@ -85,33 +84,52 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Something went wrong. Please try again.' });
 });
 
-// ── Start Server ────────────────────────────────────────────────────────────
-async function start() {
-  console.log('');
-  console.log('  ╔══════════════════════════════════════╗');
-  console.log('  ║        SaveHatke Server v1.0         ║');
-  console.log('  ╚══════════════════════════════════════╝');
-  console.log('');
+// ── Initialize DB & Sheets (runs on cold start for both local & Vercel) ─────
+let initialized = false;
+
+async function initServices() {
+  if (initialized) return;
+  initialized = true;
+
+  // Connect to MongoDB Atlas
+  await connectDB();
 
   // Initialize Google Sheets connection
   const sheetsConnected = await db.initialize();
-
   if (!sheetsConnected) {
-    // Seed demo data for development
     db.seedDemoData();
     console.log('📦 Demo data seeded for development.');
   }
+}
 
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running at http://localhost:${PORT}`);
-    console.log(`📄 Landing page: http://localhost:${PORT}`);
-    console.log(`🔧 Admin panel:  http://localhost:${PORT}/admin.html`);
-    console.log(`💡 API health:   http://localhost:${PORT}/api/health`);
-    console.log('');
+// Run initialization immediately
+initServices().catch((err) => {
+  console.error('Service initialization warning:', err.message);
+});
+
+// ── Start Server (only when running locally, NOT on Vercel) ─────────────────
+if (!process.env.VERCEL) {
+  const PORT = process.env.PORT || 3000;
+
+  initServices().then(() => {
+    app.listen(PORT, () => {
+      console.log('');
+      console.log('  ╔══════════════════════════════════════╗');
+      console.log('  ║        SaveHatke Server v1.0         ║');
+      console.log('  ╚══════════════════════════════════════╝');
+      console.log('');
+      console.log(`🚀 Server running at http://localhost:${PORT}`);
+      console.log(`📄 Landing page: http://localhost:${PORT}`);
+      console.log(`🔧 Admin panel:  http://localhost:${PORT}/admin.html`);
+      console.log(`💡 API health:   http://localhost:${PORT}/api/health`);
+      console.log('');
+    });
+  }).catch((err) => {
+    console.error('Failed to start server:', err);
+    process.exit(1);
   });
 }
 
-start().catch((err) => {
-  console.error('Failed to start server:', err);
-  process.exit(1);
-});
+// ── Export for Vercel Serverless ─────────────────────────────────────────────
+module.exports = app;
+

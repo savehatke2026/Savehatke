@@ -1,0 +1,22 @@
+{
+  "name": "savehatke",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SaveHatke — India's Smartest Price Tracker & Coupon Marketplace",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "googleapis": "^140.0.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^9.9.1",
+    "uuid": "^10.0.0"
+  }
+}
