@@ -367,15 +367,6 @@ function openAuthModal(mode = 'login') {
 
       closeAuthModal();
       updateNavAuth();
-
-      // Redirect to dashboard if on landing page
-      const currentPage = window.location.pathname.split('/').pop();
-      if (currentPage === 'index.html' || currentPage === '') {
-        setTimeout(() => window.location.href = 'dashboard.html', 500);
-      } else {
-        // Reload current page to reflect auth state
-        setTimeout(() => window.location.reload(), 500);
-      }
     } catch (err) {
       showToast(err.message, 'error');
       btn.disabled = false;

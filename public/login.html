@@ -343,7 +343,6 @@
   // Callback after real Google OAuth login completes
   async function handleGoogleCredentialResponse(response) {
     try {
-      showToast('Authenticating with Google...', 'info');
       const data = await api('/auth/google', {
         method: 'POST',
         body: { credential: response.credential }
