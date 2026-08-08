@@ -315,7 +315,6 @@
         handleGoogleCredentialResponse({ credential: idToken });
       } else if (accessToken) {
         try {
-          showToast('Verifying Google account...', 'info');
           const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
           const profile = await res.json();
             if (profile.email) {
@@ -326,11 +325,9 @@
               Auth.setAuth(data.token, data.user);
               if (data.user.role === 'admin') {
                 Auth.setAdminAuth(data.token, data.user);
-                showToast(`Welcome Admin ${data.user.name}! 🎉`, 'success');
-                setTimeout(() => window.location.href = 'admin.html', 500);
+                window.location.href = 'admin.html';
               } else {
-                showToast(`Welcome ${data.user.name}! Signed in with Google 🎉`, 'success');
-                setTimeout(() => window.location.href = 'index.html', 500);
+                window.location.href = 'index.html';
               }
             }
         } catch (e) {
@@ -350,11 +347,9 @@
       Auth.setAuth(data.token, data.user);
       if (data.user.role === 'admin') {
         Auth.setAdminAuth(data.token, data.user);
-        showToast(`Welcome Admin ${data.user.name}! 🎉`, 'success');
-        setTimeout(() => window.location.href = 'admin.html', 500);
+        window.location.href = 'admin.html';
       } else {
-        showToast(`Welcome ${data.user.name}! Google Login Successful 🎉`, 'success');
-        setTimeout(() => window.location.href = 'index.html', 500);
+        window.location.href = 'index.html';
       }
     } catch (err) {
       showToast(err.message || 'Google authentication failed.', 'error');
@@ -383,10 +378,7 @@
         // Check if the logged-in user is an admin
         if (data.user.role === 'admin') {
           Auth.setAdminAuth(data.token, data.user);
-          showToast(`Welcome Admin ${data.user.name}! 🛡️`, 'success');
           redirectUrl = 'admin.html';
-        } else {
-          showToast('Welcome back! 👋', 'success');
         }
       } else {
         const name = document.getElementById('inputName').value.trim();
@@ -395,12 +387,9 @@
           body: { name, email, password },
         });
         Auth.setAuth(data.token, data.user);
-        showToast('Account created successfully! 🎉', 'success');
       }
 
-      setTimeout(() => {
-        window.location.href = redirectUrl;
-      }, 500);
+      window.location.href = redirectUrl;
     } catch (err) {
       showToast(err.message || 'Authentication failed. Please check details.', 'error');
       btn.disabled = false;

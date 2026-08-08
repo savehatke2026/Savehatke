@@ -665,13 +665,12 @@
           // Admin redirect
           if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
             Auth.setAdminAuth(data.token, data.user);
-            showToast?.(`Welcome Admin ${data.user.name}! 🛡️`, 'success');
-            closeModal();
-            setTimeout(() => window.location.href = 'admin.html', 500);
+            window.location.href = 'admin.html';
             return;
           }
 
-          showToast?.('Welcome back! 👋', 'success');
+          closeModal();
+          if (typeof updateNavAuth === 'function') updateNavAuth();
         } else {
           const name = document.getElementById('mName')?.value;
           const email = document.getElementById('mRegEmail')?.value;
@@ -679,10 +678,9 @@
           if (!email || !password || !name) return showToast?.('Please fill all fields', 'warning');
           const data = await api('/auth/register', { method: 'POST', body: { name, email, password } });
           Auth.setAuth(data.token, data.user);
-          showToast?.('Account created! 🎉', 'success');
+          closeModal();
+          if (typeof updateNavAuth === 'function') updateNavAuth();
         }
-        closeModal();
-        if (typeof updateNavAuth === 'function') updateNavAuth();
       } catch (err) {
         showToast?.(err.message, 'error');
       }
