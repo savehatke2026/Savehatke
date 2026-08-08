@@ -4,17 +4,11 @@
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!Auth.isAdminLoggedIn()) {
-    try {
-      const data = await api('/admin/login', {
-        method: 'POST',
-        body: { username: 'rupayan', password: 'Rupayan' },
-      });
-      Auth.setAdminAuth(data.token, data.user);
-    } catch (err) {
-      console.warn('Auto admin login failed:', err.message);
-    }
+    window.location.href = 'login.html';
+    return;
   }
 
+  renderCurrentAdminProfile();
   showAdminDashboard();
   initAdminTabs();
   initAddCouponForm();
@@ -32,10 +26,52 @@ function showAdminDashboard() {
   loadAdminStats();
 }
 
+function renderCurrentAdminProfile() {
+  const adminUser = Auth.getAdminUser() || {};
+  const name = adminUser.name || adminUser.full_name || 'Admin User';
+  const email = adminUser.email || '';
+  const role = adminUser.role || 'Super Admin';
+
+  const initials = name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'SA';
+
+  const avatarEl = document.getElementById('currentAdminAvatar');
+  if (avatarEl) {
+    if (adminUser.profile_image) {
+      avatarEl.innerHTML = `<img src="${adminUser.profile_image}" alt="${name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+    } else {
+      avatarEl.textContent = initials;
+    }
+  }
+
+  const nameEl = document.getElementById('currentAdminName');
+  if (nameEl) nameEl.textContent = name;
+
+  const roleEl = document.getElementById('currentAdminEmail');
+  if (roleEl) roleEl.textContent = `${role} · ${email}`;
+
+  // Topbar elements
+  const topbarName = document.getElementById('topbarAdminName');
+  if (topbarName) topbarName.textContent = name;
+
+  const topbarAvatar = document.getElementById('topbarAdminAvatar');
+  if (topbarAvatar) {
+    if (adminUser.profile_image) {
+      topbarAvatar.innerHTML = `<img src="${adminUser.profile_image}" alt="${name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+    } else {
+      topbarAvatar.textContent = initials.slice(0, 1);
+    }
+  }
+}
+
 function adminLogout() {
-  Auth.clearAdmin();
-  showToast('Admin session cleared.', 'info');
-  setTimeout(() => window.location.reload(), 500);
+  if (confirm('Are you sure you want to log out of the Admin Panel?')) {
+    Auth.clearAdmin();
+    Auth.clear();
+    showToast('Admin logged out successfully. 👋', 'info');
+    setTimeout(() => {
+      window.location.href = 'login.html';
+    }, 400);
+  }
 }
 
 // ── Admin Stats ─────────────────────────────────────────────────────────

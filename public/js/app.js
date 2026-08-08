@@ -5,6 +5,32 @@
 
 const API_BASE = '/api';
 
+// ── Immediate Admin Redirect for Public Pages ─────────────────────────────
+(function checkAdminRedirectImmediate() {
+  try {
+    const path = window.location.pathname.toLowerCase();
+    const filename = path.split('/').pop() || 'index.html';
+    if (filename === 'admin.html') return;
+
+    const adminToken = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
+    const adminUserRaw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
+    if (!adminToken || !adminUserRaw) return;
+
+    const user = JSON.parse(adminUserRaw);
+    const isAdmin = user && (
+      user.role === 'admin' ||
+      user.role === 'Super Admin' ||
+      user.role === 'Admin' ||
+      user.role === 'Support'
+    );
+
+    if (isAdmin) {
+      if (document.documentElement) document.documentElement.style.display = 'none';
+      window.location.replace('admin.html');
+    }
+  } catch (e) {}
+})();
+
 // ── Auth State Management ───────────────────────────────────────────────
 const Auth = {
   getToken() {
@@ -30,23 +56,40 @@ const Auth = {
     return !!this.getToken();
   },
 
-  // Admin auth is separate
+  // Admin auth
   getAdminToken() {
-    return localStorage.getItem('sh_admin_token');
+    return localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
+  },
+
+  getAdminUser() {
+    const adminUser = localStorage.getItem('sh_admin_user');
+    if (adminUser) return JSON.parse(adminUser);
+    const user = this.getUser();
+    if (user && (user.role === 'admin' || user.role === 'Super Admin' || user.role === 'Admin' || user.role === 'Support')) return user;
+    return null;
   },
 
   setAdminAuth(token, user) {
     localStorage.setItem('sh_admin_token', token);
     localStorage.setItem('sh_admin_user', JSON.stringify(user));
+    localStorage.setItem('sh_token', token);
+    localStorage.setItem('sh_user', JSON.stringify(user));
   },
 
   clearAdmin() {
     localStorage.removeItem('sh_admin_token');
     localStorage.removeItem('sh_admin_user');
+    localStorage.removeItem('sh_token');
+    localStorage.removeItem('sh_user');
   },
 
   isAdminLoggedIn() {
-    return !!this.getAdminToken();
+    const adminToken = localStorage.getItem('sh_admin_token');
+    const adminUser = this.getAdminUser();
+    if (adminToken && adminUser) return true;
+
+    const user = this.getUser();
+    return !!(user && (user.role === 'admin' || user.role === 'Super Admin' || user.role === 'Admin' || user.role === 'Support'));
   },
 };
 

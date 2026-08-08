@@ -338,11 +338,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
   </nav>
 
   <div class="sidebar-footer">
-    <div class="sidebar-user">
-      <div class="su-avatar">SA</div>
-      <div><div class="su-name">Super Admin</div><div class="su-role">admin@savehatke.com</div></div>
+    <div class="sidebar-user" id="currentAdminProfile">
+      <div class="su-avatar" id="currentAdminAvatar">SA</div>
+      <div><div class="su-name" id="currentAdminName">Super Admin</div><div class="su-role" id="currentAdminEmail">admin@savehatke.com</div></div>
     </div>
-    <button class="logout-btn">🚪 Logout</button>
+    <button class="logout-btn" onclick="adminLogout()">🚪 Logout</button>
   </div>
 </aside>
 
@@ -360,7 +360,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="topbar-actions">
       <div class="icon-btn" title="Notifications"><span>🔔</span><div class="notif-dot"></div></div>
       <div class="icon-btn" title="Messages"><span>💬</span></div>
-      <div class="icon-btn" title="Profile"><span>👤</span></div>
+      <div class="topbar-user-badge" id="topbarAdminBadge" onclick="adminLogout()" title="Click to Logout" style="display:flex;align-items:center;gap:8px;padding:4px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(79,195,247,0.2);border-radius:20px;cursor:pointer;">
+        <div id="topbarAdminAvatar" style="width:24px;height:24px;border-radius:50%;background:#00e676;color:#060d1f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.75rem;">A</div>
+        <span id="topbarAdminName" style="font-size:0.82rem;font-weight:600;color:#e2ecff;">Admin</span>
+        <span style="font-size:0.75rem;color:#ff6b6b;" title="Logout">🚪 Logout</span>
+      </div>
     </div>
   </div>
 
