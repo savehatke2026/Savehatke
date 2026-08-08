@@ -17,6 +17,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.9.1",
+    "@supabase/supabase-js": "^2.48.1",
     "uuid": "^10.0.0"
   }
 }

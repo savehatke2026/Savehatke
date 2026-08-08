@@ -261,7 +261,15 @@ function updateNavAuth() {
     }
 
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => {
+      logoutBtn.addEventListener('click', async () => {
+        try {
+          await api('/auth/logout', {
+            method: 'POST',
+            body: { userId: user.user_id || user.id, email: user.email },
+          });
+        } catch (e) {
+          // Ignore API error on logout
+        }
         Auth.clear();
         showToast('Logged out successfully. 👋', 'info');
         setTimeout(() => {
