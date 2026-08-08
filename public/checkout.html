@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SaveHatke — Secure Coupon Checkout">
+  <title>Checkout — SaveHatke</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Outfit', sans-serif; background: #060d1f; color: #e2ecff; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #060d1f; }
+    ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+    a { text-decoration: none; color: inherit; }
+
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+    @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,0.45)} 50%{box-shadow:0 0 0 10px rgba(0,230,118,0)} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes checkPop { 0%{transform:scale(0) rotate(-10deg);opacity:0} 70%{transform:scale(1.15) rotate(3deg)} 100%{transform:scale(1) rotate(0deg);opacity:1} }
+    @keyframes confettiFall {
+      0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+
+    .fu { opacity: 0; transform: translateY(26px); transition: opacity 0.65s ease, transform 0.65s ease; }
+    .fu.in { opacity: 1; transform: translateY(0); }
+    .d1{transition-delay:.1s} .d2{transition-delay:.22s} .d3{transition-delay:.34s}
+
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+    .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .shimmer { background: linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 3.5s linear infinite; }
+    .slabel { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:12px; }
+
+    /* Buttons */
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; }
+    .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
+    .btn-lg { height:54px; padding:0 36px; font-size:1rem; border-radius:12px; }
+    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+    .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); }
+    .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
+    .btn-pay { width:100%; height:58px; border-radius:14px; font-size:1.08rem; font-weight:800; letter-spacing:.01em; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all .22s; }
+    .btn-pay:hover { transform:translateY(-2px); box-shadow:0 14px 36px rgba(0,230,118,.42); }
+    .btn-pay:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
+
+    /* NAVBAR */
+    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
+    .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
+    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .bhl { color:#00e676; }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
+    .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
+    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00e676; border-radius:1px; }
+    .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
+    .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
+
+    /* BREADCRUMB */
+    .breadcrumb { padding-top:96px; padding-bottom:8px; }
+    .bc-inner { display:flex; align-items:center; gap:8px; font-size:.82rem; color:#6b88aa; }
+    .bc-inner a { color:#6b88aa; transition:color .2s; }
+    .bc-inner a:hover { color:#00e676; }
+    .bc-sep { color:#2a3f5f; }
+    .bc-cur { color:#a8c0dc; }
+
+    /* PAGE HEADER */
+    .page-header { padding:20px 0 40px; position:relative; overflow:hidden; }
+    .page-header::before { content:''; position:absolute; top:-80px; right:-120px; width:420px; height:420px; border-radius:50%; background:radial-gradient(circle,rgba(0,230,118,.07) 0%,transparent 70%); pointer-events:none; }
+    .page-header::after { content:''; position:absolute; bottom:-60px; left:-80px; width:320px; height:320px; border-radius:50%; background:radial-gradient(circle,rgba(79,195,247,.06) 0%,transparent 70%); pointer-events:none; }
+    .ph-inner { display:flex; align-items:center; gap:16px; }
+    .ph-icon { width:52px; height:52px; border-radius:14px; background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(79,195,247,.2)); display:flex; align-items:center; justify-content:center; font-size:1.6rem; flex-shrink:0; }
+    .ph-title { font-family:'DM Serif Display',serif; font-size:clamp(1.7rem,3.5vw,2.4rem); line-height:1.15; }
+    .ph-sub { font-size:.9rem; color:#6b88aa; margin-top:4px; }
+
+    /* PROGRESS STEPS */
+    .progress-steps { display:flex; align-items:center; gap:0; margin: 28px 0 0; }
+    .ps-step { display:flex; align-items:center; gap:8px; }
+    .ps-dot { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.75rem; font-weight:700; flex-shrink:0; transition:all .3s; }
+    .ps-dot.done { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .ps-dot.active { background:linear-gradient(135deg,#00e676,#4fc3f7); color:#060d1f; box-shadow:0 0 0 4px rgba(0,230,118,.2); }
+    .ps-dot.pending { background:rgba(255,255,255,.06); color:#6b88aa; border:1.5px solid rgba(79,195,247,.15); }
+    .ps-label { font-size:.78rem; font-weight:600; color:#6b88aa; }
+    .ps-label.active { color:#e2ecff; }
+    .ps-line { flex:1; height:1.5px; background:rgba(79,195,247,.12); margin:0 10px; min-width:24px; }
+    .ps-line.done { background:linear-gradient(90deg,#00e676,#4fc3f7); }
+
+    /* MAIN LAYOUT */
+    .checkout-layout { display:grid; grid-template-columns:1fr 400px; gap:28px; padding-bottom:80px; align-items:start; }
+
+    /* CARDS */
+    .co-card { border-radius:20px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); padding:32px; margin-bottom:20px; transition:border-color .3s; }
+    .co-card:hover { border-color:rgba(79,195,247,.2); }
+    .co-card-hdr { display:flex; align-items:center; gap:12px; margin-bottom:26px; padding-bottom:20px; border-bottom:1px solid rgba(79,195,247,.08); }
+    .co-card-ico { width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,rgba(0,230,118,.15),rgba(79,195,247,.12)); display:flex; align-items:center; justify-content:center; font-size:1.1rem; flex-shrink:0; }
+    .co-card-ttl { font-weight:700; font-size:1.05rem; }
+    .co-card-sub { font-size:.78rem; color:#6b88aa; margin-top:2px; }
+
+    /* COUPON DETAILS */
+    .coupon-showcase { border-radius:14px; background:linear-gradient(135deg,rgba(0,230,118,.08),rgba(79,195,247,.06)); border:1px solid rgba(0,230,118,.2); padding:22px 24px; margin-bottom:20px; position:relative; overflow:hidden; }
+    .coupon-showcase::before { content:''; position:absolute; top:-40px; right:-40px; width:160px; height:160px; border-radius:50%; background:radial-gradient(circle,rgba(0,230,118,.1) 0%,transparent 70%); pointer-events:none; }
+    .cs-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+    .cs-brand { display:flex; align-items:center; gap:12px; }
+    .cs-brand-ico { width:44px; height:44px; border-radius:12px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:800; color:#ff3f6c; font-family:'Outfit',sans-serif; }
+    .cs-brand-name { font-weight:800; font-size:1.15rem; }
+    .cs-brand-cat { font-size:.72rem; color:#6b88aa; margin-top:2px; font-weight:500; }
+    .cs-off { font-family:'JetBrains Mono',monospace; font-size:1.8rem; font-weight:700; line-height:1; }
+    .cs-off span { background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .cs-divider { height:1px; background:rgba(79,195,247,.1); margin:16px 0; }
+    .cs-details { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .cs-detail { }
+    .cs-detail-label { font-size:.7rem; color:#6b88aa; font-weight:600; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
+    .cs-detail-val { font-size:.9rem; font-weight:600; color:#e2ecff; }
+    .cs-detail-val.mono { font-family:'JetBrains Mono',monospace; }
+    .cs-code { display:flex; align-items:center; gap:10px; background:rgba(0,0,0,.25); border:1px solid rgba(79,195,247,.12); border-radius:10px; padding:10px 14px; }
+    .cs-code-val { font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:600; letter-spacing:.12em; color:#a8c0dc; flex:1; }
+    .lock-ico { font-size:.85rem; }
+    .cs-badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:9999px; font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+    .cs-badge.available { background:rgba(0,230,118,.12); border:1px solid rgba(0,230,118,.3); color:#00e676; }
+    .cs-badge.seller { background:rgba(79,195,247,.1); border:1px solid rgba(79,195,247,.2); color:#4fc3f7; }
+
+    /* FORM */
+    .fgroup { margin-bottom:18px; }
+    .flabel { display:block; font-size:.82rem; font-weight:600; color:#a8c0dc; margin-bottom:8px; }
+    .flabel .req { color:#00e676; margin-left:2px; }
+    .finput { width:100%; padding:13px 16px; border-radius:11px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem; transition:border-color .2s, background .2s; outline:none; }
+    .finput:focus { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.03); }
+    .finput::placeholder { color:#6b88aa; }
+    .finput.prefilled { background:rgba(79,195,247,.06); border-color:rgba(79,195,247,.25); color:#c8daf5; }
+    .finput-group { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .finput-prefix { display:flex; align-items:center; }
+    .finput-prefix .prefix { background:rgba(255,255,255,.04); border:1.5px solid rgba(79,195,247,.15); border-right:none; border-radius:11px 0 0 11px; padding:13px 14px; font-size:.9rem; color:#6b88aa; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
+    .finput-prefix .finput { border-radius:0 11px 11px 0; }
+    .fpre-note { font-size:.76rem; color:#6b88aa; margin-top:7px; display:flex; align-items:center; gap:6px; }
+
+    /* ORDER SUMMARY SIDEBAR */
+    .summary-sticky { position:sticky; top:88px; }
+    .summary-card { border-radius:20px; background:rgba(12,24,53,.9); border:1px solid rgba(79,195,247,.15); padding:28px; }
+    .sum-title { font-family:'DM Serif Display',serif; font-size:1.35rem; margin-bottom:22px; }
+    .sum-coupon-preview { border-radius:12px; background:rgba(0,230,118,.06); border:1px solid rgba(0,230,118,.18); padding:16px 18px; margin-bottom:22px; display:flex; align-items:center; gap:14px; }
+    .scp-ico { width:40px; height:40px; border-radius:10px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:1.2rem; font-weight:800; color:#ff3f6c; flex-shrink:0; }
+    .scp-brand { font-weight:700; font-size:.95rem; }
+    .scp-off { font-family:'JetBrains Mono',monospace; font-size:.85rem; color:#00e676; font-weight:600; margin-top:2px; }
+    .sum-rows { margin-bottom:18px; }
+    .sum-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid rgba(79,195,247,.06); font-size:.88rem; }
+    .sum-row:last-child { border-bottom:none; }
+    .sum-row-label { color:#a8c0dc; }
+    .sum-row-val { font-family:'JetBrains Mono',monospace; font-weight:600; }
+    .sum-row-val.green { color:#00e676; }
+    .sum-row-val.muted { color:#6b88aa; }
+    .sum-row-val.strike { text-decoration:line-through; color:#6b88aa; font-size:.82rem; }
+    .sum-divider { height:1px; background:rgba(79,195,247,.1); margin:16px 0; }
+    .sum-total-row { display:flex; justify-content:space-between; align-items:center; padding:4px 0; }
+    .sum-total-label { font-weight:700; font-size:1rem; }
+    .sum-total-val { font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; color:#00e676; }
+    .sum-saving-pill { margin:14px 0 0; padding:10px 14px; border-radius:10px; background:linear-gradient(135deg,rgba(0,230,118,.1),rgba(79,195,247,.07)); border:1px solid rgba(0,230,118,.2); font-size:.8rem; font-weight:600; color:#00e676; text-align:center; }
+    .sum-trust { margin-top:20px; display:flex; flex-direction:column; gap:8px; }
+    .sum-trust-item { display:flex; align-items:center; gap:10px; font-size:.78rem; color:#6b88aa; }
+    .sum-trust-item .ti-ico { font-size:.85rem; }
+
+    /* PAYMENT SECTION */
+    .pay-card { border-radius:20px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); padding:32px; }
+    .pay-methods { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px; }
+    .pay-method-badge { display:flex; align-items:center; gap:6px; padding:7px 14px; border-radius:8px; font-size:.78rem; font-weight:600; background:rgba(255,255,255,.04); border:1px solid rgba(79,195,247,.12); color:#a8c0dc; }
+    .razorpay-note { font-size:.8rem; color:#6b88aa; line-height:1.6; margin-bottom:20px; display:flex; align-items:flex-start; gap:8px; }
+    .razorpay-note .rn-ico { font-size:.9rem; flex-shrink:0; margin-top:1px; }
+    .terms-check { display:flex; align-items:flex-start; gap:10px; margin-bottom:22px; }
+    .terms-check input[type="checkbox"] { margin-top:2px; width:16px; height:16px; accent-color:#00e676; flex-shrink:0; cursor:pointer; }
+    .terms-check label { font-size:.82rem; color:#a8c0dc; line-height:1.55; cursor:pointer; }
+    .terms-check label a { color:#4fc3f7; text-decoration:underline; text-underline-offset:2px; }
+
+    /* SECURE BADGE */
+    .secure-strip { display:flex; align-items:center; justify-content:center; gap:24px; margin-top:16px; padding:12px; border-radius:10px; background:rgba(255,255,255,.02); border:1px solid rgba(79,195,247,.07); }
+    .ss-item { display:flex; align-items:center; gap:6px; font-size:.73rem; color:#6b88aa; font-weight:500; }
+
+    /* SUCCESS OVERLAY */
+    .success-overlay { position:fixed; inset:0; z-index:300; background:rgba(6,13,31,.96); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .35s; }
+    .success-overlay.show { opacity:1; pointer-events:auto; }
+    .success-box { max-width:500px; width:100%; border-radius:26px; padding:52px 40px; background:#0c1835; border:1px solid rgba(0,230,118,.25); box-shadow:0 48px 120px rgba(0,0,0,.7); text-align:center; transform:scale(.94); transition:transform .35s; }
+    .success-overlay.show .success-box { transform:scale(1); }
+    .success-ico { font-size:3.5rem; margin-bottom:20px; display:block; animation:checkPop .5s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
+    .success-title { font-family:'DM Serif Display',serif; font-size:2rem; margin-bottom:10px; }
+    .success-sub { font-size:.95rem; color:#a8c0dc; line-height:1.65; margin-bottom:28px; }
+    .success-code-reveal { background:rgba(0,0,0,.3); border:1px solid rgba(0,230,118,.3); border-radius:14px; padding:20px 24px; margin:0 auto 28px; max-width:340px; }
+    .scr-label { font-size:.72rem; color:#6b88aa; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px; }
+    .scr-code { font-family:'JetBrains Mono',monospace; font-size:1.5rem; font-weight:700; letter-spacing:.14em; color:#00e676; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .scr-copy { margin-top:10px; display:flex; align-items:center; justify-content:center; gap:6px; font-size:.78rem; color:#6b88aa; cursor:pointer; transition:color .2s; background:none; border:none; font-family:'Outfit',sans-serif; }
+    .scr-copy:hover { color:#00e676; }
+    .success-meta { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:28px; text-align:left; }
+    .sm-item { background:rgba(255,255,255,.03); border-radius:10px; padding:14px; }
+    .sm-label { font-size:.7rem; color:#6b88aa; font-weight:600; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
+    .sm-val { font-size:.9rem; font-weight:600; }
+    .success-actions { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+
+    /* CONFETTI */
+    .confetti-piece { position:fixed; width:10px; height:10px; border-radius:2px; animation:confettiFall linear forwards; pointer-events:none; z-index:400; }
+
+    /* LOADING SPINNER */
+    .spinner { width:20px; height:20px; border:2.5px solid rgba(6,13,31,.3); border-top-color:#060d1f; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+
+    /* TRUST BAR */
+    .trust-bar { border-top:1px solid rgba(79,195,247,.1); border-bottom:1px solid rgba(79,195,247,.1); background:rgba(15,30,58,.5); overflow:hidden; margin-bottom:0; }
+    .trust-wrap { padding:14px 0; overflow:hidden; }
+    .trust-ticker { display:flex; white-space:nowrap; animation:ticker 22s linear infinite; width:max-content; }
+    .trust-item { display:inline-flex; align-items:center; gap:10px; padding:0 40px; font-size:.82rem; font-weight:600; color:#a8c0dc; border-right:1px solid rgba(79,195,247,.1); }
+
+    /* FOOTER */
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:40px 0; }
+    .footer-inner { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
+    .footer-links { display:flex; gap:24px; flex-wrap:wrap; }
+    .footer-links a { font-size:.82rem; color:#6b88aa; transition:color .2s; }
+    .footer-links a:hover { color:#00e676; }
+    .footer-copy { font-size:.82rem; color:#6b88aa; }
+
+    /* PROFILE AVATAR & DROPDOWN */
+    .nav-profile-wrapper { position:relative; display:inline-block; }
+    .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00e676; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,230,118,.35); outline:none; overflow:hidden; }
+    .nav-profile-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(0,230,118,.65); border-color:#4fc3f7; }
+    .nav-profile-btn img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .nav-profile-dropdown { position:absolute; top:calc(100% + 12px); right:0; width:230px; background:rgba(12,24,53,.96); backdrop-filter:blur(20px); border:1px solid rgba(79,195,247,.25); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.65); padding:10px; display:none; flex-direction:column; gap:6px; z-index:1000; animation:dropdownFadeIn .2s ease-out forwards; }
+    .nav-profile-dropdown.active { display:flex; }
+    @keyframes dropdownFadeIn { from{opacity:0;transform:translateY(-8px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+    .npd-header { display:flex; align-items:center; gap:10px; padding:8px; border-bottom:1px solid rgba(79,195,247,.12); margin-bottom:4px; padding-bottom:10px; }
+    .npd-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+    .npd-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .npd-info { display:flex; flex-direction:column; overflow:hidden; }
+    .npd-name { font-size:.88rem; font-weight:700; color:#e2ecff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .npd-email { font-size:.74rem; color:#6b88aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .npd-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; color:#e2ecff; font-size:.86rem; font-weight:600; text-decoration:none; cursor:pointer; transition:all .18s; background:transparent; border:none; width:100%; text-align:left; font-family:'Outfit',sans-serif; }
+    .npd-item:hover { background:rgba(0,230,118,.12); color:#00e676; }
+    .npd-item-logout { color:#ff6b6b; }
+    .npd-item-logout:hover { background:rgba(255,80,80,.12); color:#ff8585; }
+
+    /* MOBILE NAV */
+    @media(max-width:768px){
+      .nav-links,.nav-actions{display:none}
+      .nav-toggle{display:flex}
+      .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
+      .nav-actions.open{display:flex;position:absolute;top:240px;right:24px;flex-direction:column;gap:10px;z-index:99}
+    }
+
+    @media(max-width:960px){
+      .checkout-layout { grid-template-columns:1fr; }
+      .summary-sticky { position:static; order:-1; }
+    }
+    @media(max-width:600px){
+      .cs-details { grid-template-columns:1fr; }
+      .finput-group { grid-template-columns:1fr; }
+      .progress-steps { gap:0; }
+      .ps-label { display:none; }
+      .ps-line { min-width:16px; }
+      .success-meta { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar" id="nav">
+  <div class="container">
+    <a href="index.html" class="nav-brand">
+      <div class="brand-icon">💰</div>
+      Save<span class="bhl">Hatke</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="index.html">Home</a>
+      <a href="marketplace.html" class="active">Coupons</a>
+      <a href="sell.html">Sell Coupons</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="support.html">Support</a>
+    </div>
+    <div class="nav-actions" id="navActions">
+      <a href="login.html" class="btn btn-primary btn-sm">Log In</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- TRUST BAR -->
+<div class="trust-bar" style="margin-top:68px">
+  <div class="trust-wrap">
+    <div class="trust-ticker">
+      <div class="trust-item">🔒 256-bit SSL Secured</div>
+      <div class="trust-item">✅ Verified Seller</div>
+      <div class="trust-item">⚡ Instant Code Delivery</div>
+      <div class="trust-item">🛡️ Money-Back Guarantee</div>
+      <div class="trust-item">💳 Powered by Razorpay</div>
+      <div class="trust-item">🇮🇳 Made in India</div>
+      <div class="trust-item">🔒 256-bit SSL Secured</div>
+      <div class="trust-item">✅ Verified Seller</div>
+      <div class="trust-item">⚡ Instant Code Delivery</div>
+      <div class="trust-item">🛡️ Money-Back Guarantee</div>
+      <div class="trust-item">💳 Powered by Razorpay</div>
+      <div class="trust-item">🇮🇳 Made in India</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<main>
+  <div class="container">
+    <!-- BREADCRUMB -->
+    <div class="breadcrumb">
+      <div class="bc-inner">
+        <a href="index.html">Home</a>
+        <span class="bc-sep">›</span>
+        <a href="marketplace.html">Coupons</a>
+        <span class="bc-sep">›</span>
+        <span class="bc-cur">Checkout</span>
+      </div>
+    </div>
+
+    <!-- PAGE HEADER -->
+    <div class="page-header fu in">
+      <div class="ph-inner">
+        <div class="ph-icon">🛒</div>
+        <div>
+          <h1 class="ph-title">Complete Your <span class="gtext">Purchase</span></h1>
+          <p class="ph-sub">You're one step away from unlocking your coupon</p>
+        </div>
+      </div>
+      <div class="progress-steps" style="margin-top:22px">
+        <div class="ps-step">
+          <div class="ps-dot done">✓</div>
+          <span class="ps-label">Select Coupon</span>
+        </div>
+        <div class="ps-line done"></div>
+        <div class="ps-step">
+          <div class="ps-dot active">2</div>
+          <span class="ps-label active">Review &amp; Pay</span>
+        </div>
+        <div class="ps-line"></div>
+        <div class="ps-step">
+          <div class="ps-dot pending">3</div>
+          <span class="ps-label">Get Code</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHECKOUT LAYOUT -->
+    <div class="checkout-layout">
+
+      <!-- LEFT: FORM COLUMN -->
+      <div>
+
+        <!-- COUPON DETAILS -->
+        <div class="co-card fu in">
+          <div class="co-card-hdr">
+            <div class="co-card-ico">🏷️</div>
+            <div>
+              <div class="co-card-ttl">Coupon Details</div>
+              <div class="co-card-sub">Review what you're purchasing before paying</div>
+            </div>
+          </div>
+
+          <div class="coupon-showcase">
+            <div class="cs-top">
+              <div class="cs-brand">
+                <div class="cs-brand-ico">M</div>
+                <div>
+                  <div class="cs-brand-name">Myntra</div>
+                  <div class="cs-brand-cat">Fashion &amp; Accessories</div>
+                </div>
+              </div>
+              <div class="cs-off"><span>₹500 OFF</span></div>
+            </div>
+            <div class="cs-divider"></div>
+            <div class="cs-details">
+              <div class="cs-detail">
+                <div class="cs-detail-label">Coupon Code</div>
+                <div class="cs-code">
+                  <span class="lock-ico">🔒</span>
+                  <span class="cs-code-val">••••••••</span>
+                  <span style="font-size:.7rem;color:#6b88aa;white-space:nowrap">Revealed after payment</span>
+                </div>
+              </div>
+              <div class="cs-detail" style="display:flex;flex-direction:column;gap:10px">
+                <div>
+                  <div class="cs-detail-label">Validity</div>
+                  <div class="cs-detail-val">30 Aug 2026</div>
+                </div>
+                <div>
+                  <div class="cs-detail-label">Min. Order Value</div>
+                  <div class="cs-detail-val mono">₹1,999</div>
+                </div>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
+              <span class="cs-badge available"><span>●</span> Available</span>
+              <span class="cs-badge seller">✓ Verified Seller</span>
+            </div>
+          </div>
+
+          <div style="background:rgba(79,195,247,.05);border:1px solid rgba(79,195,247,.12);border-radius:12px;padding:14px 16px;font-size:.83rem;color:#a8c0dc;line-height:1.6;display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:1rem;flex-shrink:0">ℹ️</span>
+            <span>The actual coupon code will be revealed instantly on your screen and sent to your email after successful payment. SaveHatke does not disclose codes before payment to prevent fraud.</span>
+          </div>
+        </div>
+
+        <!-- BUYER DETAILS -->
+        <div class="co-card fu in d1">
+          <div class="co-card-hdr">
+            <div class="co-card-ico">👤</div>
+            <div>
+              <div class="co-card-ttl">Buyer Details</div>
+              <div class="co-card-sub">Your details are auto-filled from your account</div>
+            </div>
+          </div>
+
+          <div class="fgroup">
+            <label class="flabel">Full Name <span class="req">*</span></label>
+            <input type="text" class="finput prefilled" id="buyerName" value="Rahul Kumar" placeholder="Your full name">
+            <div class="fpre-note">✓ Auto-filled from your account</div>
+          </div>
+
+          <div class="finput-group">
+            <div class="fgroup">
+              <label class="flabel">Email Address <span class="req">*</span></label>
+              <input type="email" class="finput prefilled" id="buyerEmail" value="rahul.kumar@gmail.com" placeholder="you@example.com">
+              <div class="fpre-note">✓ Order confirmation will be sent here</div>
+            </div>
+            <div class="fgroup">
+              <label class="flabel">Mobile Number <span class="req">*</span></label>
+              <div class="finput-prefix">
+                <span class="prefix">+91</span>
+                <input type="tel" class="finput prefilled" id="buyerPhone" value="9876543210" placeholder="10-digit number" maxlength="10">
+              </div>
+              <div class="fpre-note">📱 Pre-filled to speed up Razorpay checkout</div>
+            </div>
+          </div>
+
+          <div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.15);border-radius:12px;padding:13px 16px;font-size:.8rem;color:#6b88aa;display:flex;align-items:center;gap:10px;margin-top:4px">
+            <span style="color:#00e676">🔐</span>
+            <span>Your personal information is encrypted and never shared with third parties. Used only for order confirmation and support.</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- RIGHT: ORDER SUMMARY -->
+      <div class="summary-sticky">
+        <div class="summary-card fu in d1">
+          <div class="sum-title">Order Summary</div>
+
+          <div class="sum-coupon-preview">
+            <div class="scp-ico">M</div>
+            <div>
+              <div class="scp-brand">Myntra Coupon</div>
+              <div class="scp-off">₹500 OFF on Fashion</div>
+            </div>
+          </div>
+
+          <div class="sum-rows">
+            <div class="sum-row">
+              <span class="sum-row-label">Coupon Value</span>
+              <span class="sum-row-val green">₹500</span>
+            </div>
+            <div class="sum-row">
+              <span class="sum-row-label">Selling Price</span>
+              <span class="sum-row-val">₹99</span>
+            </div>
+            <div class="sum-row">
+              <span class="sum-row-label">Platform Fee</span>
+              <span class="sum-row-val">₹5</span>
+            </div>
+          </div>
+
+          <div class="sum-divider"></div>
+
+          <div class="sum-total-row">
+            <span class="sum-total-label">Total Payable</span>
+            <span class="sum-total-val">₹104</span>
+          </div>
+
+          <div class="sum-saving-pill">🎉 You save ₹396 vs buying retail!</div>
+
+          <div class="sum-divider" style="margin-top:20px"></div>
+
+          <div class="terms-check" style="margin-bottom:18px">
+            <input type="checkbox" id="termsCheck" checked>
+            <label for="termsCheck">I agree to SaveHatke's <a href="terms.html" style="color:#4fc3f7;text-decoration:underline;text-underline-offset:2px">Terms &amp; Conditions</a> and <a href="privacy.html" style="color:#4fc3f7;text-decoration:underline;text-underline-offset:2px">Privacy Policy</a>.</label>
+          </div>
+
+          <button class="btn-pay" id="payBtn" onclick="initiatePayment()">
+            <span id="payBtnText">🔒 Pay ₹104 Securely</span>
+          </button>
+
+          <div class="secure-strip" style="margin-top:14px">
+            <div class="ss-item">🔒 SSL</div>
+            <div class="ss-item">🛡️ PCI DSS</div>
+            <div class="ss-item">⚡ Instant</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <a href="index.html" class="nav-brand" style="font-size:1.1rem">
+        <div class="brand-icon" style="width:28px;height:28px;font-size:.85rem">💰</div>
+        Save<span class="bhl">Hatke</span>
+      </a>
+      <div class="footer-links">
+        <a href="terms.html">Terms &amp; Conditions</a>
+        <a href="privacy.html">Privacy Policy</a>
+        <a href="support.html">Help Center</a>
+        <a href="marketplace.html">Coupons</a>
+      </div>
+      <div class="footer-copy">© 2026 SaveHatke. Made with ❤️ in India</div>
+    </div>
+  </div>
+</footer>
+
+<!-- SUCCESS OVERLAY -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-box">
+    <span class="success-ico">🎉</span>
+    <h2 class="success-title">Payment <span class="gtext">Successful!</span></h2>
+    <p class="success-sub">Your Myntra coupon has been unlocked. Use it on any order above ₹1,999 to save ₹500 instantly.</p>
+
+    <div class="success-code-reveal">
+      <div class="scr-label">Your Coupon Code</div>
+      <div class="scr-code" id="revealedCode">MYNTRA500X</div>
+      <button class="scr-copy" onclick="copyCode()">
+        <span id="copyIcon">📋</span> <span id="copyText">Copy Code</span>
+      </button>
+    </div>
+
+    <div class="success-meta">
+      <div class="sm-item">
+        <div class="sm-label">Brand</div>
+        <div class="sm-val">Myntra</div>
+      </div>
+      <div class="sm-item">
+        <div class="sm-label">Discount</div>
+        <div class="sm-val" style="color:#00e676;font-family:'JetBrains Mono',monospace">₹500 OFF</div>
+      </div>
+      <div class="sm-item">
+        <div class="sm-label">Amount Paid</div>
+        <div class="sm-val" style="font-family:'JetBrains Mono',monospace">₹104</div>
+      </div>
+      <div class="sm-item">
+        <div class="sm-label">Valid Till</div>
+        <div class="sm-val">30 Aug 2026</div>
+      </div>
+    </div>
+
+    <p style="font-size:.8rem;color:#6b88aa;margin-bottom:24px">📧 A confirmation email with the coupon code has been sent to <strong style="color:#a8c0dc" id="confirmEmail">rahul.kumar@gmail.com</strong></p>
+
+    <div class="success-actions">
+      <a href="marketplace.html" class="btn btn-primary">🏷️ Browse More Coupons</a>
+      <a href="dashboard.html" class="btn btn-ghost">📊 My Orders</a>
+    </div>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script>
+  // Auto-fill logged in user details if available
+  document.addEventListener('DOMContentLoaded', () => {
+    if (typeof Auth === 'object' && Auth.isLoggedIn()) {
+      const user = Auth.getUser();
+      if (user) {
+        if (user.name && document.getElementById('buyerName')) document.getElementById('buyerName').value = user.name;
+        if (user.email && document.getElementById('buyerEmail')) document.getElementById('buyerEmail').value = user.email;
+      }
+    }
+  });
+
+  // Sticky nav
+  window.addEventListener('scroll', () => {
+    const nav = document.getElementById('nav');
+    if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
+  });
+
+  // Mobile nav
+  const navToggle = document.getElementById('navToggle');
+  if (navToggle) {
+    navToggle.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.toggle('open');
+      document.getElementById('navActions')?.classList.toggle('open');
+    });
+  }
+
+  // Scroll reveal
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.fu').forEach(el => obs.observe(el));
+
+  // --- PAYMENT ---
+  function initiatePayment() {
+    const termsCheck = document.getElementById('termsCheck');
+    if (termsCheck && !termsCheck.checked) {
+      showToastLocal('Please accept the Terms & Conditions to proceed.', 'warning');
+      return;
+    }
+
+    const name = document.getElementById('buyerName').value.trim();
+    const email = document.getElementById('buyerEmail').value.trim();
+    const phone = document.getElementById('buyerPhone').value.trim();
+
+    if (!name || !email || !phone) {
+      showToastLocal('Please fill in all buyer details before paying.', 'warning');
+      return;
+    }
+    if (!/^\d{10}$/.test(phone)) {
+      showToastLocal('Please enter a valid 10-digit mobile number.', 'warning');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToastLocal('Please enter a valid email address.', 'warning');
+      return;
+    }
+
+    const payBtn = document.getElementById('payBtn');
+    const payBtnText = document.getElementById('payBtnText');
+    payBtn.disabled = true;
+    payBtnText.innerHTML = '<div class="spinner"></div> Opening Secure Checkout…';
+
+    const options = {
+      key: 'rzp_test_YourKeyHere', // Replace with your actual Razorpay key
+      amount: 10400, // Amount in paise (₹104)
+      currency: 'INR',
+      name: 'SaveHatke',
+      description: 'Myntra ₹500 OFF Coupon',
+      image: 'https://via.placeholder.com/80x80/00e676/060d1f?text=SH',
+      prefill: {
+        name: name,
+        email: email,
+        contact: '+91' + phone,
+      },
+      notes: {
+        coupon_id: 'MYNTRA_500_001',
+        brand: 'Myntra',
+        coupon_value: '500',
+      },
+      theme: {
+        color: '#00e676',
+        backdrop_color: 'rgba(6,13,31,0.9)',
+      },
+      modal: {
+        ondismiss: function () {
+          payBtn.disabled = false;
+          payBtnText.innerHTML = '🔒 Pay ₹104 Securely';
+          showToastLocal('Payment cancelled. You can try again anytime.', 'info');
+        },
+      },
+      handler: function (response) {
+        // Payment success
+        document.getElementById('confirmEmail').textContent = email;
+        showSuccessScreen();
+      },
+    };
+
+    try {
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        payBtn.disabled = false;
+        payBtnText.innerHTML = '🔒 Pay ₹104 Securely';
+        showToastLocal('Payment failed: ' + (response.error.description || 'Please try again.'), 'error');
+      });
+      rzp.open();
+    } catch (e) {
+      // Demo fallback when Razorpay key is not configured
+      payBtn.disabled = false;
+      payBtnText.innerHTML = '🔒 Pay ₹104 Securely';
+      simulateDemoPayment(email);
+    }
+  }
+
+  function simulateDemoPayment(email) {
+    // Demo mode: simulate payment for preview purposes
+    const payBtn = document.getElementById('payBtn');
+    const payBtnText = document.getElementById('payBtnText');
+    payBtn.disabled = true;
+    payBtnText.innerHTML = '<div class="spinner"></div> Processing Demo Payment…';
+
+    setTimeout(() => {
+      document.getElementById('confirmEmail').textContent = email || document.getElementById('buyerEmail').value;
+      showSuccessScreen();
+    }, 2000);
+  }
+
+  function showSuccessScreen() {
+    document.getElementById('successOverlay').classList.add('show');
+    document.body.style.overflow = 'hidden';
+    launchConfetti();
+  }
+
+  function copyCode() {
+    const code = document.getElementById('revealedCode').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      document.getElementById('copyIcon').textContent = '✅';
+      document.getElementById('copyText').textContent = 'Copied!';
+      setTimeout(() => {
+        document.getElementById('copyIcon').textContent = '📋';
+        document.getElementById('copyText').textContent = 'Copy Code';
+      }, 2000);
+    }).catch(() => {
+      // Fallback
+      const el = document.createElement('textarea');
+      el.value = code;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      document.getElementById('copyText').textContent = 'Copied!';
+    });
+  }
+
+  // Confetti
+  function launchConfetti() {
+    const colors = ['#00e676','#4fc3f7','#ffd740','#ff6b6b','#c084fc','#34d399'];
+    for (let i = 0; i < 80; i++) {
+      setTimeout(() => {
+        const piece = document.createElement('div');
+        piece.className = 'confetti-piece';
+        piece.style.cssText = `
+          left: ${Math.random() * 100}vw;
+          top: -20px;
+          background: ${colors[Math.floor(Math.random() * colors.length)]};
+          width: ${6 + Math.random() * 8}px;
+          height: ${6 + Math.random() * 8}px;
+          border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+          animation-duration: ${2.5 + Math.random() * 2}s;
+          animation-delay: ${Math.random() * 0.5}s;
+        `;
+        document.body.appendChild(piece);
+        setTimeout(() => piece.remove(), 5000);
+      }, i * 30);
+    }
+  }
+
+  // Toast
+  function showToastLocal(msg, type) {
+    if (typeof showToast === 'function') {
+      showToast(msg, type);
+      return;
+    }
+    const existing = document.getElementById('shToast');
+    if (existing) existing.remove();
+
+    const colors = { success: '#00e676', error: '#ff6b6b', warning: '#ffd740', info: '#4fc3f7' };
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    const toast = document.createElement('div');
+    toast.id = 'shToast';
+    toast.style.cssText = `
+      position: fixed; bottom: 28px; right: 28px; z-index: 500;
+      background: #0c1835; border: 1.5px solid ${colors[type] || '#4fc3f7'};
+      border-radius: 13px; padding: 14px 20px;
+      display: flex; align-items: center; gap: 10px;
+      font-family: 'Outfit', sans-serif; font-size: .88rem; font-weight: 500;
+      color: #e2ecff; box-shadow: 0 16px 40px rgba(0,0,0,.5);
+      transform: translateY(20px); opacity: 0;
+      transition: all .3s; max-width: 340px;
+    `;
+    toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span><span>${msg}</span>`;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => {
+      toast.style.transform = 'translateY(0)';
+      toast.style.opacity = '1';
+    });
+    setTimeout(() => {
+      toast.style.transform = 'translateY(20px)';
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 350);
+    }, 4000);
+  }
+</script>
+</body>
+</html>
