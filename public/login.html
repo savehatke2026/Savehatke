@@ -234,31 +234,46 @@
   }
 
   // Initialize Google Identity Services
-  let activeGoogleClientId = "";
+  const DEFAULT_GOOGLE_CLIENT_ID = "930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com";
+  let activeGoogleClientId = DEFAULT_GOOGLE_CLIENT_ID;
 
-  window.onload = async function () {
-    // Check if returning from Google OAuth redirect
-    checkGoogleRedirect();
-
+  async function fetchGoogleClientId() {
     try {
       const cfg = await api('/auth/google-config');
-      if (cfg && cfg.clientId) activeGoogleClientId = cfg.clientId;
+      if (cfg && cfg.clientId && cfg.clientId.trim() !== '') {
+        activeGoogleClientId = cfg.clientId;
+      }
     } catch (e) {
-      console.warn('Could not fetch server google-config:', e.message);
+      console.warn('Could not fetch server google-config, using fallback client ID:', e.message);
     }
+    return activeGoogleClientId;
+  }
 
-    if (window.google && window.google.accounts) {
-      google.accounts.id.initialize({
-        client_id: activeGoogleClientId,
-        callback: handleGoogleCredentialResponse,
-        cancel_on_tap_outside: true
-      });
+  async function initGoogleAuth() {
+    checkGoogleRedirect();
+    const clientId = await fetchGoogleClientId();
+
+    if (window.google && window.google.accounts && clientId) {
+      try {
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: handleGoogleCredentialResponse,
+          cancel_on_tap_outside: true
+        });
+      } catch (err) {
+        console.warn('GSI init error:', err);
+      }
     }
-  };
+  }
+
+  document.addEventListener('DOMContentLoaded', initGoogleAuth);
+  window.onload = initGoogleAuth;
 
   // Redirect directly to official Google OAuth Account Chooser screen
-  function handleRealGoogleAuth() {
+  async function handleRealGoogleAuth() {
     const googleBtn = document.getElementById('googleBtn');
+    const originalBtnHtml = googleBtn ? googleBtn.innerHTML : '';
+
     if (googleBtn) {
       googleBtn.disabled = true;
       googleBtn.innerHTML = `
@@ -267,8 +282,22 @@
       `;
     }
 
+    let clientId = activeGoogleClientId;
+    if (!clientId) {
+      clientId = await fetchGoogleClientId();
+    }
+
+    if (!clientId) {
+      if (googleBtn) {
+        googleBtn.disabled = false;
+        googleBtn.innerHTML = originalBtnHtml;
+      }
+      showToast('Google login is not configured. Missing Client ID.', 'error');
+      return;
+    }
+
     const redirectUri = window.location.origin + window.location.pathname;
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(activeGoogleClientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=id_token%20token&scope=openid%20email%20profile&nonce=${Date.now()}&prompt=select_account`;
+    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token%20id_token&scope=openid%20email%20profile&nonce=${Date.now()}&prompt=select_account`;
     
     window.location.href = googleAuthUrl;
   }

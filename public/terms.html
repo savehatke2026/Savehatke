@@ -5,156 +5,424 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="SaveHatke Terms and Conditions — Read our complete terms of service covering user accounts, coupon policies, refunds, and platform usage rules.">
   <title>Terms & Conditions — SaveHatke</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Outfit', sans-serif; background: #060d1f; color: #e2ecff; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #060d1f; }
+    ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+    a { text-decoration: none; color: inherit; }
+
+    @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+
+    .fu { opacity: 0; transform: translateY(26px); transition: opacity 0.65s ease, transform 0.65s ease; }
+    .fu.in { opacity: 1; transform: translateY(0); }
+    .d1 { transition-delay: .12s; }
+    .d2 { transition-delay: .24s; }
+
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+    .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+
+    /* ── BUTTONS ── */
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; text-decoration:none; }
+    .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
+    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+
+    /* ── NAVBAR ── */
+    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
+    .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
+    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .bhl { color:#00e676; }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
+    .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
+    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00e676; border-radius:1px; }
+    .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
+    .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
+    @media(max-width:768px){
+      .nav-links,.nav-actions { display:none; }
+      .nav-toggle { display:flex; }
+      .nav-links.open { display:flex; flex-direction:column; position:absolute; top:68px; left:0; right:0; background:#0c1835; padding:20px 24px; border-bottom:1px solid rgba(79,195,247,.1); gap:18px; z-index:99; }
+      .nav-actions.open { display:flex; position:absolute; top:230px; right:24px; flex-direction:column; gap:10px; z-index:99; }
+    }
+
+    /* ── PAGE HERO ── */
+    .page-hero { padding:120px 0 60px; position:relative; overflow:hidden; border-bottom:1px solid rgba(79,195,247,.1); background:radial-gradient(ellipse 70% 55% at 15% 30%,rgba(0,230,118,.06) 0%,transparent 65%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.06) 0%,transparent 65%); }
+    .page-hero-gridbg { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.03) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
+    .page-hero-inner { position:relative; z-index:1; }
+    .page-hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(79,195,247,.08); border:1px solid rgba(79,195,247,.2); color:#4fc3f7; border-radius:9999px; font-size:.8rem; font-weight:600; padding:6px 16px; margin-bottom:20px; }
+    .page-hero h1 { font-family:'DM Serif Display',serif; font-size:clamp(2.4rem,5vw,3.6rem); line-height:1.1; margin-bottom:14px; }
+    .page-hero-sub { font-size:1rem; color:#a8c0dc; line-height:1.75; max-width:580px; margin-bottom:16px; }
+    .legal-date-badge { display:inline-flex; align-items:center; gap:8px; font-size:.8rem; color:#6b88aa; font-family:'JetBrains Mono',monospace; background:rgba(255,255,255,.03); border:1px solid rgba(79,195,247,.1); border-radius:8px; padding:6px 14px; }
+
+    /* ── TABLE OF CONTENTS ── */
+    .toc-wrap { padding:44px 0 0; }
+    .toc-card { background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); border-radius:18px; padding:32px 36px; }
+    .toc-label { font-size:.72rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:20px; }
+    .toc-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:6px 32px; }
+    .toc-link { display:flex; align-items:center; gap:10px; font-size:.88rem; color:#a8c0dc; padding:8px 0; border-bottom:1px solid rgba(79,195,247,.06); transition:color .2s; }
+    .toc-link:hover { color:#00e676; }
+    .toc-num { font-family:'JetBrains Mono',monospace; font-size:.75rem; font-weight:600; color:#4fc3f7; min-width:22px; flex-shrink:0; }
+    @media(max-width:600px){ .toc-grid { grid-template-columns:1fr; } }
+
+    /* ── LEGAL BODY ── */
+    .legal-wrap { padding:56px 0 96px; }
+    .legal-layout { display:grid; grid-template-columns:1fr 260px; gap:56px; align-items:start; }
+    @media(max-width:900px){ .legal-layout { grid-template-columns:1fr; } .legal-sidebar { position:static !important; margin-top:40px; } }
+
+    .legal-block { margin-bottom:52px; }
+    .legal-block .intro-text { font-size:.93rem; color:#a8c0dc; line-height:1.8; margin-bottom:14px; }
+    .legal-block .intro-text a { color:#00e676; text-underline-offset:3px; text-decoration:underline; }
+    .legal-block .intro-text a:hover { opacity:.75; }
+
+    .legal-block h2 { font-family:'DM Serif Display',serif; font-size:1.55rem; line-height:1.2; margin-bottom:20px; padding-bottom:14px; border-bottom:1px solid rgba(79,195,247,.1); display:flex; align-items:center; gap:14px; }
+    .sec-num { font-family:'JetBrains Mono',monospace; font-size:.85rem; font-weight:600; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; min-width:28px; flex-shrink:0; }
+    .legal-block h3 { font-size:.95rem; font-weight:700; color:#4fc3f7; margin:22px 0 12px; }
+    .legal-block p { font-size:.9rem; color:#a8c0dc; line-height:1.8; margin-bottom:12px; }
+    .legal-block a { color:#00e676; text-decoration:underline; text-underline-offset:3px; transition:opacity .2s; }
+    .legal-block a:hover { opacity:.75; }
+
+    .legal-block ol { list-style:none; padding:0; counter-reset:ol-counter; }
+    .legal-block ol li { counter-increment:ol-counter; display:flex; gap:14px; padding:11px 14px; border-radius:10px; margin-bottom:7px; font-size:.88rem; color:#a8c0dc; line-height:1.75; background:rgba(255,255,255,.025); border:1px solid rgba(79,195,247,.06); transition:border-color .2s; }
+    .legal-block ol li:hover { border-color:rgba(79,195,247,.15); }
+    .legal-block ol li::before { content:counter(ol-counter) "."; font-family:'JetBrains Mono',monospace; font-size:.76rem; font-weight:600; color:#4fc3f7; min-width:20px; flex-shrink:0; padding-top:2px; }
+
+    .legal-block ul { list-style:none; padding:0; }
+    .legal-block ul li { display:flex; gap:12px; padding:11px 14px; border-radius:10px; margin-bottom:7px; font-size:.88rem; color:#a8c0dc; line-height:1.75; background:rgba(255,255,255,.025); border:1px solid rgba(79,195,247,.06); transition:border-color .2s; }
+    .legal-block ul li:hover { border-color:rgba(0,230,118,.15); }
+    .legal-block ul li::before { content:'—'; color:#00e676; font-weight:700; flex-shrink:0; }
+
+    /* ── SIDEBAR ── */
+    .legal-sidebar { position:sticky; top:88px; }
+    .sidebar-card { background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); border-radius:16px; padding:24px; margin-bottom:16px; }
+    .sidebar-card-title { font-size:.7rem; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:#6b88aa; margin-bottom:16px; }
+    .sidebar-stat { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid rgba(79,195,247,.07); font-size:.84rem; }
+    .sidebar-stat:last-child { border-bottom:none; }
+    .sidebar-stat-lbl { color:#6b88aa; }
+    .sidebar-stat-val { font-family:'JetBrains Mono',monospace; font-size:.8rem; color:#4fc3f7; font-weight:600; }
+    .sidebar-link { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:10px; font-size:.85rem; color:#a8c0dc; background:rgba(255,255,255,.025); margin-bottom:8px; border:1px solid rgba(79,195,247,.06); transition:all .2s; text-decoration:none; }
+    .sidebar-link:hover { color:#00e676; border-color:rgba(0,230,118,.2); background:rgba(0,230,118,.04); }
+
+    /* ── FOOTER ── */
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; padding-bottom:52px; }
+    .fbrand p { font-size:.88rem; color:#6b88aa; line-height:1.7; margin-top:16px; max-width:280px; }
+    .fcol h4 { font-size:.8rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:20px; color:#e2ecff; }
+    .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
+    .fcol a:hover { color:#00e676; }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
+    .fbot a { color:#6b88aa; transition:color .2s; }
+    .fbot a:hover { color:#00e676; }
+    @media(max-width:900px){ .footer-grid { grid-template-columns:1fr 1fr; gap:32px; } }
+    @media(max-width:600px){ .footer-grid { grid-template-columns:1fr; } .fbot { flex-direction:column; gap:8px; text-align:center; } }
+  </style>
 </head>
 <body>
-  <nav class="navbar" id="mainNav">
-    <div class="container">
-      <a href="index.html" class="nav-brand">
-        <div class="brand-icon">💰</div>
-        Save<span class="brand-highlight">Hatke</span>
-      </a>
-      <div class="nav-links" id="navLinks">
-        <a href="index.html">Home</a>
-        <a href="marketplace.html">Coupons</a>
+
+<!-- NAVBAR -->
+<nav class="navbar" id="nav">
+  <div class="container">
+    <a href="index.html" class="nav-brand">
+      <div class="brand-icon">💰</div>
+      Save<span class="bhl">Hatke</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="index.html">Home</a>
+      <a href="marketplace.html">Coupons</a>
+      <a href="sell.html">Sell Coupons</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="support.html">Support</a>
+    </div>
+    <div class="nav-actions" id="navActions">
+      <a href="login.html" class="btn btn-primary btn-sm">Log In</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- PAGE HERO -->
+<section class="page-hero">
+  <div class="page-hero-gridbg"></div>
+  <div class="container">
+    <div class="page-hero-inner fu in">
+      <div class="page-hero-badge">📋 Legal</div>
+      <h1>Terms &amp; <span class="gtext">Conditions</span></h1>
+      <p class="page-hero-sub">Please read these terms carefully before using SaveHatke's services, price tracking tools, and coupon marketplace.</p>
+      <div class="legal-date-badge">🗓&nbsp; Last updated: August 1, 2026</div>
+    </div>
+  </div>
+</section>
+
+<!-- TABLE OF CONTENTS -->
+<div class="toc-wrap">
+  <div class="container">
+    <div class="toc-card fu">
+      <div class="toc-label">Table of Contents</div>
+      <div class="toc-grid">
+        <a href="#s1" class="toc-link"><span class="toc-num">01</span>Account Registration &amp; Eligibility</a>
+        <a href="#s7" class="toc-link"><span class="toc-num">07</span>Limitation of Liability</a>
+        <a href="#s2" class="toc-link"><span class="toc-num">02</span>Price Tracking Services</a>
+        <a href="#s8" class="toc-link"><span class="toc-num">08</span>Data Storage &amp; Security</a>
+        <a href="#s3" class="toc-link"><span class="toc-num">03</span>Coupon Marketplace</a>
+        <a href="#s9" class="toc-link"><span class="toc-num">09</span>Browser Extension</a>
+        <a href="#s4" class="toc-link"><span class="toc-num">04</span>Refund &amp; Dispute Resolution</a>
+        <a href="#s10" class="toc-link"><span class="toc-num">10</span>Modifications to Terms</a>
+        <a href="#s5" class="toc-link"><span class="toc-num">05</span>Prohibited Conduct</a>
+        <a href="#s11" class="toc-link"><span class="toc-num">11</span>Governing Law &amp; Jurisdiction</a>
+        <a href="#s6" class="toc-link"><span class="toc-num">06</span>Intellectual Property</a>
+        <a href="#s12" class="toc-link"><span class="toc-num">12</span>Contact Us</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="legal-wrap">
+  <div class="container">
+    <div class="legal-layout">
+
+      <!-- BODY -->
+      <div>
+
+        <div class="legal-block fu">
+          <p class="intro-text">Welcome to SaveHatke ("the Platform," "we," "us," or "our"). These Terms and Conditions ("Terms") govern your access to and use of SaveHatke's website, services, and features, including our price tracking tools, coupon marketplace, and browser extension (collectively, "Services").</p>
+          <p class="intro-text">By accessing or using our Services, you agree to be bound by these Terms. If you do not agree, please do not use our Services.</p>
+        </div>
+
+        <div class="legal-block fu" id="s1">
+          <h2><span class="sec-num">01</span>Account Registration &amp; Eligibility</h2>
+          <ol>
+            <li>You must be at least 18 years of age, or the age of majority in your jurisdiction, to create an account and use our Services.</li>
+            <li>You agree to provide accurate, current, and complete information during registration and to keep your account information updated.</li>
+            <li>You are responsible for maintaining the confidentiality of your login credentials and for all activities that occur under your account.</li>
+            <li>We reserve the right to suspend or terminate accounts that violate these Terms or engage in fraudulent activity.</li>
+            <li>Each user may maintain only one (1) active account. Duplicate accounts may be merged or deleted without notice.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s2">
+          <h2><span class="sec-num">02</span>Price Tracking Services</h2>
+          <ol>
+            <li>SaveHatke provides price tracking and comparison tools for products listed on third-party e-commerce platforms (including but not limited to Amazon India and Flipkart).</li>
+            <li>Price data is provided on an "as-is" basis and may not always reflect real-time pricing. We are not responsible for price discrepancies between our tracked data and actual storefront prices.</li>
+            <li>We do not guarantee the availability of any product at the displayed price. Pricing is ultimately determined by the respective e-commerce platforms.</li>
+            <li>Price alerts are sent on a best-effort basis. We are not liable for missed alerts due to technical issues, email delivery failures, or data delays.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s3">
+          <h2><span class="sec-num">03</span>Coupon Marketplace</h2>
+          <h3>3.1 Buying Coupons</h3>
+          <ol>
+            <li>Coupons listed on our marketplace are sourced from users, administrators, and automated web-scraping tools.</li>
+            <li>Each coupon listing includes relevant details such as the brand, category, approximate value, and selling price.</li>
+            <li>The actual coupon code is revealed only after purchase. By purchasing, you agree to the listed price.</li>
+            <li>We verify coupons to the best of our ability but cannot guarantee that every code will work as described, as validity is determined by the issuing brand.</li>
+            <li>"Auto-scraped" or free coupon codes are provided as-is without verification guarantees.</li>
+          </ol>
+          <h3>3.2 Selling Coupons</h3>
+          <ol>
+            <li>By submitting a coupon code for sale, you represent and warrant that you are the legitimate owner or authorized holder of the coupon and have the right to sell it.</li>
+            <li>You agree that selling stolen, counterfeit, expired, or previously used coupons is strictly prohibited and may result in account termination and legal action.</li>
+            <li>We offer a flat rate of ₹10 (Indian Rupees Ten) per verified coupon. This rate may change at our discretion and will be displayed at the time of submission.</li>
+            <li>Payment for sold coupons is processed within 24–48 hours of successful verification.</li>
+            <li>Submitted coupons undergo a review process. We reserve the right to reject any coupon that fails verification or violates our policies.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s4">
+          <h2><span class="sec-num">04</span>Refund &amp; Dispute Resolution</h2>
+          <ol>
+            <li>If a purchased coupon code does not work as described at the time of purchase, you may request a refund or replacement within 48 hours by contacting our support team.</li>
+            <li>Refund requests must include the order details, the non-working code, and evidence of the failure (e.g., a screenshot of the error).</li>
+            <li>Refunds are issued at our sole discretion after investigation. We may offer a replacement coupon or credit instead of a monetary refund.</li>
+            <li>Refund requests for "auto-scraped" free coupon codes are not applicable, as these are provided without charge or guarantee.</li>
+            <li>For coupon sellers, if a submitted coupon is found to be invalid after payment has been processed, we reserve the right to deduct the payment amount from future earnings or recover the amount via available legal means.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s5">
+          <h2><span class="sec-num">05</span>Prohibited Conduct</h2>
+          <p>You agree NOT to:</p>
+          <ul>
+            <li>Submit fraudulent, counterfeit, expired, or already-redeemed coupon codes.</li>
+            <li>Use automated tools, bots, or scripts to access our Services in an unauthorized manner.</li>
+            <li>Attempt to reverse-engineer, scrape, or interfere with our platform's operation.</li>
+            <li>Circumvent security measures, access restricted areas, or impersonate other users.</li>
+            <li>Use the platform for money laundering, fraud, or any illegal activity.</li>
+            <li>Share or redistribute purchased coupon codes publicly or commercially.</li>
+            <li>Create multiple accounts to exploit promotional offers or referral programs.</li>
+          </ul>
+        </div>
+
+        <div class="legal-block fu" id="s6">
+          <h2><span class="sec-num">06</span>Intellectual Property</h2>
+          <ol>
+            <li>All content, design, code, logos, and branding of SaveHatke are the intellectual property of SaveHatke and are protected by applicable copyright and trademark laws.</li>
+            <li>Third-party brand names, logos, and trademarks appearing on coupon listings belong to their respective owners. Their use on our platform is for identification purposes only and does not imply endorsement or affiliation.</li>
+            <li>You may not reproduce, distribute, or create derivative works from our platform content without prior written consent.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s7">
+          <h2><span class="sec-num">07</span>Limitation of Liability</h2>
+          <ol>
+            <li>Our Services are provided "as is" and "as available" without warranties of any kind, express or implied.</li>
+            <li>SaveHatke shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from your use of, or inability to use, our Services.</li>
+            <li>Our total liability for any claim arising from the use of our Services shall not exceed the amount you paid to SaveHatke in the 30 days preceding the claim.</li>
+            <li>We are not liable for the actions, products, or services of any third-party e-commerce platforms or coupon issuers.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s8">
+          <h2><span class="sec-num">08</span>Data Storage &amp; Security</h2>
+          <ol>
+            <li>We use Google Drive (Google Sheets API) as our primary data storage solution. Data is transmitted and stored securely using Google's enterprise-grade infrastructure.</li>
+            <li>While we implement reasonable security measures, no method of electronic storage is 100% secure. You acknowledge and accept this risk.</li>
+            <li>For more details on data handling, please refer to our <a href="privacy.html">Privacy Policy</a>.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s9">
+          <h2><span class="sec-num">09</span>Browser Extension</h2>
+          <ol>
+            <li>Our browser extension, when available, will operate within the permissions explicitly granted by the user during installation.</li>
+            <li>The extension may collect anonymized browsing data on e-commerce sites for the sole purpose of providing price comparison services.</li>
+            <li>You may uninstall the extension at any time through your browser settings.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s10">
+          <h2><span class="sec-num">10</span>Modifications to Terms</h2>
+          <ol>
+            <li>We reserve the right to modify these Terms at any time. Updated Terms will be posted on this page with a revised "Last updated" date.</li>
+            <li>Continued use of our Services after changes constitutes acceptance of the modified Terms.</li>
+            <li>Material changes will be communicated via email or an in-app notification.</li>
+          </ol>
+        </div>
+
+        <div class="legal-block fu" id="s11">
+          <h2><span class="sec-num">11</span>Governing Law &amp; Jurisdiction</h2>
+          <p>These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising from these Terms shall be subject to the exclusive jurisdiction of the courts in New Delhi, India.</p>
+        </div>
+
+        <div class="legal-block fu" id="s12">
+          <h2><span class="sec-num">12</span>Contact Us</h2>
+          <p>If you have any questions about these Terms, please contact us at:</p>
+          <ul>
+            <li>Email: <a href="mailto:legal@savehatke.com">legal@savehatke.com</a></li>
+            <li>Support: <a href="support.html">Help Center</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- SIDEBAR -->
+      <aside class="legal-sidebar fu d1">
+        <div class="sidebar-card">
+          <div class="sidebar-card-title">Document Info</div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-lbl">Version</span>
+            <span class="sidebar-stat-val">v2.0</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-lbl">Last Updated</span>
+            <span class="sidebar-stat-val">Aug 1, 2026</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-lbl">Jurisdiction</span>
+            <span class="sidebar-stat-val">India</span>
+          </div>
+          <div class="sidebar-stat">
+            <span class="sidebar-stat-lbl">Sections</span>
+            <span class="sidebar-stat-val">12</span>
+          </div>
+        </div>
+        <div class="sidebar-card">
+          <div class="sidebar-card-title">Quick Links</div>
+          <a href="support.html" class="sidebar-link">🛟 Help Center</a>
+          <a href="mailto:legal@savehatke.com" class="sidebar-link">✉️ Legal Team</a>
+          <a href="privacy.html" class="sidebar-link">🔒 Privacy Policy</a>
+        </div>
+      </aside>
+
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="fbrand">
+        <a href="index.html" class="nav-brand" style="font-size:1.2rem">
+          <div class="brand-icon">💰</div>Save<span class="bhl">Hatke</span>
+        </a>
+        <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
+      </div>
+      <div class="fcol">
+        <h4>Platform</h4>
+        <a href="marketplace.html">Coupon Marketplace</a>
         <a href="sell.html">Sell Coupons</a>
-        <a href="dashboard.html">Dashboard</a>
-        <a href="support.html">Support</a>
+        <a href="dashboard.html">Price Tracker</a>
       </div>
-      <div class="nav-actions" id="navActions"></div>
-      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </nav>
-
-  <main class="page">
-    <div class="container">
-      <div class="legal-content">
-        <h1>Terms & Conditions</h1>
-        <p class="legal-date">Last updated: August 1, 2026</p>
-
-        <p>Welcome to SaveHatke ("the Platform," "we," "us," or "our"). These Terms and Conditions ("Terms") govern your access to and use of SaveHatke's website, services, and features, including our price tracking tools, coupon marketplace, and browser extension (collectively, "Services").</p>
-        <p>By accessing or using our Services, you agree to be bound by these Terms. If you do not agree, please do not use our Services.</p>
-
-        <h2>1. Account Registration & Eligibility</h2>
-        <ol>
-          <li>You must be at least 18 years of age, or the age of majority in your jurisdiction, to create an account and use our Services.</li>
-          <li>You agree to provide accurate, current, and complete information during registration and to keep your account information updated.</li>
-          <li>You are responsible for maintaining the confidentiality of your login credentials and for all activities that occur under your account.</li>
-          <li>We reserve the right to suspend or terminate accounts that violate these Terms or engage in fraudulent activity.</li>
-          <li>Each user may maintain only one (1) active account. Duplicate accounts may be merged or deleted without notice.</li>
-        </ol>
-
-        <h2>2. Price Tracking Services</h2>
-        <ol>
-          <li>SaveHatke provides price tracking and comparison tools for products listed on third-party e-commerce platforms (including but not limited to Amazon India and Flipkart).</li>
-          <li>Price data is provided on an "as-is" basis and may not always reflect real-time pricing. We are not responsible for price discrepancies between our tracked data and actual storefront prices.</li>
-          <li>We do not guarantee the availability of any product at the displayed price. Pricing is ultimately determined by the respective e-commerce platforms.</li>
-          <li>Price alerts are sent on a best-effort basis. We are not liable for missed alerts due to technical issues, email delivery failures, or data delays.</li>
-        </ol>
-
-        <h2>3. Coupon Marketplace</h2>
-        <h3>3.1 Buying Coupons</h3>
-        <ol>
-          <li>Coupons listed on our marketplace are sourced from users, administrators, and automated web-scraping tools.</li>
-          <li>Each coupon listing includes relevant details such as the brand, category, approximate value, and selling price.</li>
-          <li>The actual coupon code is revealed only after purchase. By purchasing, you agree to the listed price.</li>
-          <li>We verify coupons to the best of our ability but cannot guarantee that every code will work as described, as validity is determined by the issuing brand.</li>
-          <li>"Auto-scraped" or free coupon codes are provided as-is without verification guarantees.</li>
-        </ol>
-
-        <h3>3.2 Selling Coupons</h3>
-        <ol>
-          <li>By submitting a coupon code for sale, you represent and warrant that you are the legitimate owner or authorized holder of the coupon and have the right to sell it.</li>
-          <li>You agree that selling stolen, counterfeit, expired, or previously used coupons is strictly prohibited and may result in account termination and legal action.</li>
-          <li>We offer a flat rate of ₹10 (Indian Rupees Ten) per verified coupon. This rate may change at our discretion and will be displayed at the time of submission.</li>
-          <li>Payment for sold coupons is processed within 24–48 hours of successful verification.</li>
-          <li>Submitted coupons undergo a review process. We reserve the right to reject any coupon that fails verification or violates our policies.</li>
-        </ol>
-
-        <h2>4. Refund & Dispute Resolution</h2>
-        <ol>
-          <li>If a purchased coupon code does not work as described at the time of purchase, you may request a refund or replacement within 48 hours by contacting our support team.</li>
-          <li>Refund requests must include the order details, the non-working code, and evidence of the failure (e.g., a screenshot of the error).</li>
-          <li>Refunds are issued at our sole discretion after investigation. We may offer a replacement coupon or credit instead of a monetary refund.</li>
-          <li>Refund requests for "auto-scraped" free coupon codes are not applicable, as these are provided without charge or guarantee.</li>
-          <li>For coupon sellers, if a submitted coupon is found to be invalid after payment has been processed, we reserve the right to deduct the payment amount from future earnings or recover the amount via available legal means.</li>
-        </ol>
-
-        <h2>5. Prohibited Conduct</h2>
-        <p>You agree NOT to:</p>
-        <ul>
-          <li>Submit fraudulent, counterfeit, expired, or already-redeemed coupon codes.</li>
-          <li>Use automated tools, bots, or scripts to access our Services in an unauthorized manner.</li>
-          <li>Attempt to reverse-engineer, scrape, or interfere with our platform's operation.</li>
-          <li>Circumvent security measures, access restricted areas, or impersonate other users.</li>
-          <li>Use the platform for money laundering, fraud, or any illegal activity.</li>
-          <li>Share or redistribute purchased coupon codes publicly or commercially.</li>
-          <li>Create multiple accounts to exploit promotional offers or referral programs.</li>
-        </ul>
-
-        <h2>6. Intellectual Property</h2>
-        <ol>
-          <li>All content, design, code, logos, and branding of SaveHatke are the intellectual property of SaveHatke and are protected by applicable copyright and trademark laws.</li>
-          <li>Third-party brand names, logos, and trademarks appearing on coupon listings belong to their respective owners. Their use on our platform is for identification purposes only and does not imply endorsement or affiliation.</li>
-          <li>You may not reproduce, distribute, or create derivative works from our platform content without prior written consent.</li>
-        </ul>
-
-        <h2>7. Limitation of Liability</h2>
-        <ol>
-          <li>Our Services are provided "as is" and "as available" without warranties of any kind, express or implied.</li>
-          <li>SaveHatke shall not be liable for any direct, indirect, incidental, special, or consequential damages arising from your use of, or inability to use, our Services.</li>
-          <li>Our total liability for any claim arising from the use of our Services shall not exceed the amount you paid to SaveHatke in the 30 days preceding the claim.</li>
-          <li>We are not liable for the actions, products, or services of any third-party e-commerce platforms or coupon issuers.</li>
-        </ol>
-
-        <h2>8. Data Storage & Security</h2>
-        <ol>
-          <li>We use Google Drive (Google Sheets API) as our primary data storage solution. Data is transmitted and stored securely using Google's enterprise-grade infrastructure.</li>
-          <li>While we implement reasonable security measures, no method of electronic storage is 100% secure. You acknowledge and accept this risk.</li>
-          <li>For more details on data handling, please refer to our <a href="privacy.html">Privacy Policy</a>.</li>
-        </ol>
-
-        <h2>9. Browser Extension</h2>
-        <ol>
-          <li>Our browser extension, when available, will operate within the permissions explicitly granted by the user during installation.</li>
-          <li>The extension may collect anonymized browsing data on e-commerce sites for the sole purpose of providing price comparison services.</li>
-          <li>You may uninstall the extension at any time through your browser settings.</li>
-        </ol>
-
-        <h2>10. Modifications to Terms</h2>
-        <ol>
-          <li>We reserve the right to modify these Terms at any time. Updated Terms will be posted on this page with a revised "Last updated" date.</li>
-          <li>Continued use of our Services after changes constitutes acceptance of the modified Terms.</li>
-          <li>Material changes will be communicated via email or an in-app notification.</li>
-        </ol>
-
-        <h2>11. Governing Law & Jurisdiction</h2>
-        <p>These Terms shall be governed by and construed in accordance with the laws of India. Any disputes arising from these Terms shall be subject to the exclusive jurisdiction of the courts in New Delhi, India.</p>
-
-        <h2>12. Contact Us</h2>
-        <p>If you have any questions about these Terms, please contact us at:</p>
-        <ul>
-          <li>Email: <a href="mailto:legal@savehatke.com">legal@savehatke.com</a></li>
-          <li>Support: <a href="support.html">Help Center</a></li>
-        </ul>
+      <div class="fcol">
+        <h4>Company</h4>
+        <a href="support.html">Help Center</a>
+        <a href="support.html">Contact Us</a>
+        <a href="terms.html">Terms &amp; Conditions</a>
+        <a href="privacy.html">Privacy Policy</a>
+      </div>
+      <div class="fcol">
+        <h4>Categories</h4>
+        <a href="marketplace.html?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace.html?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace.html?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace.html?cat=Food">Food &amp; Delivery</a>
       </div>
     </div>
-  </main>
-
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-bottom" style="border-top: none; padding-top: 0;">
-        <span>© 2026 SaveHatke. All rights reserved.</span>
-        <span>
-          <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="support.html">Support</a>
-        </span>
-      </div>
+    <div class="fbot">
+      <span>© 2026 SaveHatke. All rights reserved.</span>
+      <span>
+        <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="support.html">Support</a>
+        &nbsp;&nbsp;Made with ❤️ in India
+      </span>
     </div>
-  </footer>
+  </div>
+</footer>
 
-  <script src="js/app.js"></script>
+<script>
+  // Sticky nav shadow on scroll
+  window.addEventListener('scroll', () => {
+    const nav = document.getElementById('nav');
+    if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
+  });
+
+  // Mobile nav toggle
+  document.getElementById('navToggle')?.addEventListener('click', () => {
+    document.getElementById('navLinks')?.classList.toggle('open');
+    document.getElementById('navActions')?.classList.toggle('open');
+  });
+
+  // Scroll-reveal fade-up
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.fu').forEach(el => obs.observe(el));
+</script>
+<script src="js/app.js"></script>
 </body>
 </html>

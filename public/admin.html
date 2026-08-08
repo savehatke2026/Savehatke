@@ -24,24 +24,8 @@
 
   <main class="page">
     <div class="container">
-      <!-- Login Gate -->
-      <div id="adminLoginGate" style="max-width: 400px; margin: 4rem auto; text-align: center;">
-        <div style="font-size: 3rem; margin-bottom: 1rem;">🔐</div>
-        <h2 style="color: var(--color-white); font-weight: 800; margin-bottom: 0.5rem;">Admin Access</h2>
-        <p style="color: var(--color-slate-500); margin-bottom: 2rem; font-size: 0.875rem;">Enter your admin credentials to continue.</p>
-        <form id="adminLoginForm">
-          <div class="form-group">
-            <input class="form-input" type="text" id="adminUsername" placeholder="Username" required autocomplete="username">
-          </div>
-          <div class="form-group">
-            <input class="form-input" type="password" id="adminPassword" placeholder="Password" required autocomplete="current-password">
-          </div>
-          <button type="submit" class="btn btn-primary btn-lg w-full" id="adminLoginBtn">Sign In</button>
-        </form>
-      </div>
-
-      <!-- Admin Dashboard (hidden until login) -->
-      <div id="adminDashboard" style="display: none;">
+      <!-- Admin Dashboard -->
+      <div id="adminDashboard">
         <div class="page-header">
           <h1 class="page-title">⚙️ Admin Dashboard</h1>
           <p class="page-subtitle">Manage coupons, users, and platform inventory.</p>

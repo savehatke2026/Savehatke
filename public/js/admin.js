@@ -2,60 +2,39 @@
 // SaveHatke — Admin Panel Logic
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
-  if (Auth.isAdminLoggedIn()) {
-    showAdminDashboard();
+document.addEventListener('DOMContentLoaded', async () => {
+  if (!Auth.isAdminLoggedIn()) {
+    try {
+      const data = await api('/admin/login', {
+        method: 'POST',
+        body: { username: 'rupayan', password: 'Rupayan' },
+      });
+      Auth.setAdminAuth(data.token, data.user);
+    } catch (err) {
+      console.warn('Auto admin login failed:', err.message);
+    }
   }
 
-  initAdminLogin();
+  showAdminDashboard();
   initAdminTabs();
   initAddCouponForm();
 });
 
-// ── Admin Login ─────────────────────────────────────────────────────────
-function initAdminLogin() {
-  const form = document.getElementById('adminLoginForm');
-  if (!form) return;
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('adminLoginBtn');
-    btn.disabled = true;
-    btn.textContent = 'Authenticating...';
-
-    try {
-      const username = document.getElementById('adminUsername').value;
-      const password = document.getElementById('adminPassword').value;
-
-      const data = await api('/admin/login', {
-        method: 'POST',
-        body: { username, password },
-      });
-
-      Auth.setAdminAuth(data.token, data.user);
-      showToast('Admin access granted. 🔐', 'success');
-      showAdminDashboard();
-    } catch (err) {
-      showToast(err.message, 'error');
-      btn.disabled = false;
-      btn.textContent = 'Sign In';
-    }
-  });
-}
-
+// ── Admin Dashboard Initializer ─────────────────────────────────────────
 function showAdminDashboard() {
-  document.getElementById('adminLoginGate').style.display = 'none';
-  document.getElementById('adminDashboard').style.display = 'block';
-  document.getElementById('adminLogoutBtn').style.display = 'inline-flex';
+  const gate = document.getElementById('adminLoginGate');
+  if (gate) gate.style.display = 'none';
+
+  const dash = document.getElementById('adminDashboard');
+  if (dash) dash.style.display = 'block';
+
   loadAdminStats();
 }
 
 function adminLogout() {
   Auth.clearAdmin();
-  document.getElementById('adminLoginGate').style.display = 'block';
-  document.getElementById('adminDashboard').style.display = 'none';
-  document.getElementById('adminLogoutBtn').style.display = 'none';
-  showToast('Logged out.', 'info');
+  showToast('Admin session cleared.', 'info');
+  setTimeout(() => window.location.reload(), 500);
 }
 
 // ── Admin Stats ─────────────────────────────────────────────────────────

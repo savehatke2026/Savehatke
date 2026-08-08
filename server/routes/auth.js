@@ -101,10 +101,10 @@ router.post('/login', async (req, res) => {
 
 // GET /api/auth/google-config
 router.get('/google-config', (req, res) => {
-  const clientId = process.env.GOOGLE_CLIENT_ID || '';
+  const clientId = process.env.GOOGLE_CLIENT_ID || '930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com';
   res.json({
     clientId,
-    configured: !!(process.env.GOOGLE_CLIENT_ID && !process.env.GOOGLE_CLIENT_ID.includes('your_google_client_id')),
+    configured: !!(clientId && !clientId.includes('your_google_client_id')),
   });
 });
 
