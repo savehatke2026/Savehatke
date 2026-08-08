@@ -64,14 +64,9 @@ function renderCurrentAdminProfile() {
 }
 
 function adminLogout() {
-  if (confirm('Are you sure you want to log out of the Admin Panel?')) {
-    Auth.clearAdmin();
-    Auth.clear();
-    showToast('Admin logged out successfully. 👋', 'info');
-    setTimeout(() => {
-      window.location.href = 'login.html';
-    }, 400);
-  }
+  Auth.clearAdmin();
+  Auth.clear();
+  window.location.href = 'login.html';
 }
 
 // ── Admin Stats ─────────────────────────────────────────────────────────

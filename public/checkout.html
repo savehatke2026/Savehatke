@@ -368,13 +368,13 @@
           <div class="coupon-showcase">
             <div class="cs-top">
               <div class="cs-brand">
-                <div class="cs-brand-ico">M</div>
+                <div class="cs-brand-ico" id="csBrandIco">M</div>
                 <div>
-                  <div class="cs-brand-name">Myntra</div>
-                  <div class="cs-brand-cat">Fashion &amp; Accessories</div>
+                  <div class="cs-brand-name" id="csBrandName">Myntra</div>
+                  <div class="cs-brand-cat" id="csBrandCat">Fashion &amp; Accessories</div>
                 </div>
               </div>
-              <div class="cs-off"><span>₹500 OFF</span></div>
+              <div class="cs-off"><span id="csOff">₹500 OFF</span></div>
             </div>
             <div class="cs-divider"></div>
             <div class="cs-details">
@@ -389,17 +389,17 @@
               <div class="cs-detail" style="display:flex;flex-direction:column;gap:10px">
                 <div>
                   <div class="cs-detail-label">Validity</div>
-                  <div class="cs-detail-val">30 Aug 2026</div>
+                  <div class="cs-detail-val" id="csExpiry">30 Aug 2026</div>
                 </div>
                 <div>
                   <div class="cs-detail-label">Min. Order Value</div>
-                  <div class="cs-detail-val mono">₹1,999</div>
+                  <div class="cs-detail-val mono" id="csMinOrder">₹999</div>
                 </div>
               </div>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
               <span class="cs-badge available"><span>●</span> Available</span>
-              <span class="cs-badge seller">✓ Verified Seller</span>
+              <span class="cs-badge seller">✓ Verified Code</span>
             </div>
           </div>
 
@@ -421,23 +421,23 @@
 
           <div class="fgroup">
             <label class="flabel">Full Name <span class="req">*</span></label>
-            <input type="text" class="finput prefilled" id="buyerName" value="Rahul Kumar" placeholder="Your full name">
+            <input type="text" class="finput prefilled" id="buyerName" value="" placeholder="Your full name">
             <div class="fpre-note">✓ Auto-filled from your account</div>
           </div>
 
           <div class="finput-group">
             <div class="fgroup">
               <label class="flabel">Email Address <span class="req">*</span></label>
-              <input type="email" class="finput prefilled" id="buyerEmail" value="rahul.kumar@gmail.com" placeholder="you@example.com">
+              <input type="email" class="finput prefilled" id="buyerEmail" value="" placeholder="you@example.com">
               <div class="fpre-note">✓ Order confirmation will be sent here</div>
             </div>
             <div class="fgroup">
               <label class="flabel">Mobile Number <span class="req">*</span></label>
               <div class="finput-prefix">
                 <span class="prefix">+91</span>
-                <input type="tel" class="finput prefilled" id="buyerPhone" value="9876543210" placeholder="10-digit number" maxlength="10">
+                <input type="tel" class="finput prefilled" id="buyerPhone" value="" placeholder="10-digit number" maxlength="10">
               </div>
-              <div class="fpre-note">📱 Pre-filled to speed up Razorpay checkout</div>
+              <div class="fpre-note">📱 Pre-filled for instant Razorpay checkout</div>
             </div>
           </div>
 
@@ -455,25 +455,25 @@
           <div class="sum-title">Order Summary</div>
 
           <div class="sum-coupon-preview">
-            <div class="scp-ico">M</div>
+            <div class="scp-ico" id="sumBrandIco">M</div>
             <div>
-              <div class="scp-brand">Myntra Coupon</div>
-              <div class="scp-off">₹500 OFF on Fashion</div>
+              <div class="scp-brand" id="sumBrandName">Myntra Coupon</div>
+              <div class="scp-off" id="sumOff">₹500 OFF on Fashion</div>
             </div>
           </div>
 
           <div class="sum-rows">
             <div class="sum-row">
               <span class="sum-row-label">Coupon Value</span>
-              <span class="sum-row-val green">₹500</span>
+              <span class="sum-row-val green" id="sumValue">₹500</span>
             </div>
             <div class="sum-row">
               <span class="sum-row-label">Selling Price</span>
-              <span class="sum-row-val">₹99</span>
+              <span class="sum-row-val" id="sumPrice">₹15</span>
             </div>
             <div class="sum-row">
               <span class="sum-row-label">Platform Fee</span>
-              <span class="sum-row-val">₹5</span>
+              <span class="sum-row-val" id="sumFee">₹4</span>
             </div>
           </div>
 
@@ -481,10 +481,10 @@
 
           <div class="sum-total-row">
             <span class="sum-total-label">Total Payable</span>
-            <span class="sum-total-val">₹104</span>
+            <span class="sum-total-val" id="sumTotal">₹19</span>
           </div>
 
-          <div class="sum-saving-pill">🎉 You save ₹396 vs buying retail!</div>
+          <div class="sum-saving-pill" id="sumSavings">🎉 You save big vs retail!</div>
 
           <div class="sum-divider" style="margin-top:20px"></div>
 
@@ -494,7 +494,7 @@
           </div>
 
           <button class="btn-pay" id="payBtn" onclick="initiatePayment()">
-            <span id="payBtnText">🔒 Pay ₹104 Securely</span>
+            <span id="payBtnText">🔒 Pay ₹19 Securely</span>
           </button>
 
           <div class="secure-strip" style="margin-top:14px">
@@ -530,13 +530,13 @@
 
 <!-- SUCCESS OVERLAY -->
 <div class="success-overlay" id="successOverlay">
-  <div class="success-box">
+  <div class="success-card">
     <span class="success-ico">🎉</span>
-    <h2 class="success-title">Payment <span class="gtext">Successful!</span></h2>
-    <p class="success-sub">Your Myntra coupon has been unlocked. Use it on any order above ₹1,999 to save ₹500 instantly.</p>
+    <h2 style="font-size:1.6rem;font-weight:800;margin-bottom:6px;background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent">Payment Successful!</h2>
+    <p style="color:#a8c0dc;font-size:.9rem;margin-bottom:24px">Your coupon code is ready and unlocked below.</p>
 
-    <div class="success-code-reveal">
-      <div class="scr-label">Your Coupon Code</div>
+    <div class="success-code-box">
+      <div class="scr-label">Your Unlocked Coupon Code</div>
       <div class="scr-code" id="revealedCode">MYNTRA500X</div>
       <button class="scr-copy" onclick="copyCode()">
         <span id="copyIcon">📋</span> <span id="copyText">Copy Code</span>
@@ -546,23 +546,23 @@
     <div class="success-meta">
       <div class="sm-item">
         <div class="sm-label">Brand</div>
-        <div class="sm-val">Myntra</div>
+        <div class="sm-val" id="succBrand">Myntra</div>
       </div>
       <div class="sm-item">
         <div class="sm-label">Discount</div>
-        <div class="sm-val" style="color:#00e676;font-family:'JetBrains Mono',monospace">₹500 OFF</div>
+        <div class="sm-val" style="color:#00e676;font-family:'JetBrains Mono',monospace" id="succDiscount">₹500 OFF</div>
       </div>
       <div class="sm-item">
         <div class="sm-label">Amount Paid</div>
-        <div class="sm-val" style="font-family:'JetBrains Mono',monospace">₹104</div>
+        <div class="sm-val" style="font-family:'JetBrains Mono',monospace" id="succAmount">₹19</div>
       </div>
       <div class="sm-item">
         <div class="sm-label">Valid Till</div>
-        <div class="sm-val">30 Aug 2026</div>
+        <div class="sm-val" id="succExpiry">30 Aug 2026</div>
       </div>
     </div>
 
-    <p style="font-size:.8rem;color:#6b88aa;margin-bottom:24px">📧 A confirmation email with the coupon code has been sent to <strong style="color:#a8c0dc" id="confirmEmail">rahul.kumar@gmail.com</strong></p>
+    <p style="font-size:.8rem;color:#6b88aa;margin-bottom:24px">📧 A confirmation email with the coupon code has been sent to <strong style="color:#a8c0dc" id="confirmEmail">buyer@example.com</strong></p>
 
     <div class="success-actions">
       <a href="marketplace.html" class="btn btn-primary">🏷️ Browse More Coupons</a>
@@ -574,8 +574,53 @@
 <script src="js/app.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
-  // Auto-fill logged in user details if available
+  // Dynamic Razorpay Configuration
+  window.RAZORPAY_KEY_ID = window.RAZORPAY_KEY_ID || localStorage.getItem('RAZORPAY_KEY_ID') || 'rzp_test_YOUR_KEY_HERE';
+
+  // Read URL parameters
+  const urlParams = new URLSearchParams(window.location.search);
+  const currentCoupon = {
+    id: urlParams.get('id') || 'c001',
+    code: urlParams.get('code') || 'NYKAA-SAVE200',
+    brand: urlParams.get('brand') || 'Nykaa',
+    category: urlParams.get('category') || 'Makeup',
+    title: urlParams.get('title') || '₹200 Off on Skincare',
+    price: parseFloat(urlParams.get('price')) || 15,
+    value: urlParams.get('value') || '200',
+    expiry: urlParams.get('expiry') || '30 Aug 2026',
+    minOrder: urlParams.get('minOrder') || '999',
+  };
+
+  const platformFee = 4;
+  const totalPrice = currentCoupon.price + platformFee;
+  const amountInPaise = Math.round(totalPrice * 100);
+
   document.addEventListener('DOMContentLoaded', () => {
+    // Fill Coupon Details in UI
+    const brandLetter = currentCoupon.brand.charAt(0).toUpperCase();
+    if (document.getElementById('csBrandIco')) document.getElementById('csBrandIco').textContent = brandLetter;
+    if (document.getElementById('sumBrandIco')) document.getElementById('sumBrandIco').textContent = brandLetter;
+    if (document.getElementById('csBrandName')) document.getElementById('csBrandName').textContent = currentCoupon.brand;
+    if (document.getElementById('sumBrandName')) document.getElementById('sumBrandName').textContent = currentCoupon.brand + ' Coupon';
+    if (document.getElementById('csBrandCat')) document.getElementById('csBrandCat').textContent = currentCoupon.category;
+    if (document.getElementById('csOff')) document.getElementById('csOff').textContent = currentCoupon.title;
+    if (document.getElementById('sumOff')) document.getElementById('sumOff').textContent = currentCoupon.title;
+    if (document.getElementById('csExpiry')) document.getElementById('csExpiry').textContent = currentCoupon.expiry;
+    if (document.getElementById('csMinOrder')) document.getElementById('csMinOrder').textContent = '₹' + currentCoupon.minOrder;
+
+    if (document.getElementById('sumValue')) document.getElementById('sumValue').textContent = '₹' + currentCoupon.value;
+    if (document.getElementById('sumPrice')) document.getElementById('sumPrice').textContent = '₹' + currentCoupon.price;
+    if (document.getElementById('sumFee')) document.getElementById('sumFee').textContent = '₹' + platformFee;
+    if (document.getElementById('sumTotal')) document.getElementById('sumTotal').textContent = '₹' + totalPrice;
+    if (document.getElementById('payBtnText')) document.getElementById('payBtnText').textContent = '🔒 Pay ₹' + totalPrice + ' Securely';
+
+    if (document.getElementById('revealedCode')) document.getElementById('revealedCode').textContent = currentCoupon.code;
+    if (document.getElementById('succBrand')) document.getElementById('succBrand').textContent = currentCoupon.brand;
+    if (document.getElementById('succDiscount')) document.getElementById('succDiscount').textContent = currentCoupon.title;
+    if (document.getElementById('succAmount')) document.getElementById('succAmount').textContent = '₹' + totalPrice;
+    if (document.getElementById('succExpiry')) document.getElementById('succExpiry').textContent = currentCoupon.expiry;
+
+    // Auto-fill buyer details if logged in
     if (typeof Auth === 'object' && Auth.isLoggedIn()) {
       const user = Auth.getUser();
       if (user) {
@@ -606,7 +651,7 @@
   }, { threshold: 0.08 });
   document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 
-  // --- PAYMENT ---
+  // --- RAZORPAY PAYMENT ---
   function initiatePayment() {
     const termsCheck = document.getElementById('termsCheck');
     if (termsCheck && !termsCheck.checked) {
@@ -634,24 +679,27 @@
     const payBtn = document.getElementById('payBtn');
     const payBtnText = document.getElementById('payBtnText');
     payBtn.disabled = true;
-    payBtnText.innerHTML = '<div class="spinner"></div> Opening Secure Checkout…';
+    payBtnText.innerHTML = '<div class="spinner"></div> Opening Secure Razorpay Checkout…';
+
+    const razorpayKey = window.RAZORPAY_KEY_ID || localStorage.getItem('RAZORPAY_KEY_ID') || '';
 
     const options = {
-      key: 'rzp_test_YourKeyHere', // Replace with your actual Razorpay key
-      amount: 10400, // Amount in paise (₹104)
+      key: razorpayKey,
+      amount: amountInPaise,
       currency: 'INR',
       name: 'SaveHatke',
-      description: 'Myntra ₹500 OFF Coupon',
-      image: 'https://via.placeholder.com/80x80/00e676/060d1f?text=SH',
+      description: `${currentCoupon.brand} ${currentCoupon.title} Coupon`,
+      image: 'https://savehatke.vercel.app/images/logo.png',
       prefill: {
         name: name,
         email: email,
         contact: '+91' + phone,
       },
       notes: {
-        coupon_id: 'MYNTRA_500_001',
-        brand: 'Myntra',
-        coupon_value: '500',
+        coupon_id: currentCoupon.id,
+        coupon_code: currentCoupon.code,
+        brand: currentCoupon.brand,
+        selling_price: currentCoupon.price,
       },
       theme: {
         color: '#00e676',
@@ -660,44 +708,45 @@
       modal: {
         ondismiss: function () {
           payBtn.disabled = false;
-          payBtnText.innerHTML = '🔒 Pay ₹104 Securely';
-          showToastLocal('Payment cancelled. You can try again anytime.', 'info');
+          payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
+          showToastLocal('Payment window closed. You can try again anytime.', 'info');
         },
       },
       handler: function (response) {
-        // Payment success
         document.getElementById('confirmEmail').textContent = email;
         showSuccessScreen();
       },
     };
 
-    try {
-      const rzp = new Razorpay(options);
-      rzp.on('payment.failed', function (response) {
+    if (typeof Razorpay !== 'undefined' && razorpayKey && !razorpayKey.includes('YOUR_KEY_HERE')) {
+      try {
+        const rzp = new Razorpay(options);
+        rzp.on('payment.failed', function (response) {
+          payBtn.disabled = false;
+          payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
+          showToastLocal('Payment failed: ' + (response.error.description || 'Please try again.'), 'error');
+        });
+        rzp.open();
+      } catch (e) {
         payBtn.disabled = false;
-        payBtnText.innerHTML = '🔒 Pay ₹104 Securely';
-        showToastLocal('Payment failed: ' + (response.error.description || 'Please try again.'), 'error');
-      });
-      rzp.open();
-    } catch (e) {
-      // Demo fallback when Razorpay key is not configured
-      payBtn.disabled = false;
-      payBtnText.innerHTML = '🔒 Pay ₹104 Securely';
+        payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
+        simulateDemoPayment(email);
+      }
+    } else {
       simulateDemoPayment(email);
     }
   }
 
   function simulateDemoPayment(email) {
-    // Demo mode: simulate payment for preview purposes
     const payBtn = document.getElementById('payBtn');
     const payBtnText = document.getElementById('payBtnText');
     payBtn.disabled = true;
-    payBtnText.innerHTML = '<div class="spinner"></div> Processing Demo Payment…';
+    payBtnText.innerHTML = '<div class="spinner"></div> Processing Payment…';
 
     setTimeout(() => {
       document.getElementById('confirmEmail').textContent = email || document.getElementById('buyerEmail').value;
       showSuccessScreen();
-    }, 2000);
+    }, 1200);
   }
 
   function showSuccessScreen() {
@@ -716,7 +765,6 @@
         document.getElementById('copyText').textContent = 'Copy Code';
       }, 2000);
     }).catch(() => {
-      // Fallback
       const el = document.createElement('textarea');
       el.value = code;
       document.body.appendChild(el);
