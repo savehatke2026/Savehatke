@@ -278,32 +278,34 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/admin/coupons — Add offline coupon codes manually
+// POST /api/admin/coupons — Add offline coupon codes manually to Google Sheets
 router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { code, category, brand, description, originalValue, sellingPrice } = req.body;
+    const { code, category, brand, title, description, originalValue, discount, sellingPrice, status, source } = req.body;
 
-    if (!code || !category || !brand) {
-      return res.status(400).json({ error: 'Code, category, and brand are required.' });
+    if (!code || !brand) {
+      return res.status(400).json({ error: 'Coupon code and brand are required.' });
     }
 
-    // Check for duplicate
-    const existing = await db.findRow(db.SHEETS.COUPONS, 'code', code.toUpperCase());
+    const cleanCode = code.toUpperCase().trim();
+
+    // Check for duplicate code in Google Sheets
+    const existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
     if (existing) {
-      return res.status(409).json({ error: 'This coupon code already exists.' });
+      return res.status(409).json({ error: 'This coupon code already exists in Google Sheets.' });
     }
 
     const coupon = {
       id: uuidv4(),
-      code: code.toUpperCase().trim(),
-      category: category.trim(),
+      code: cleanCode,
+      category: category ? category.trim() : 'General',
       brand: brand.trim(),
-      description: description || '',
-      originalValue: originalValue || '0',
-      sellingPrice: sellingPrice || '20',
-      sellerEmail: '',
-      status: 'available', // Admin coupons are immediately available
-      source: 'admin',
+      description: title || description || discount || '',
+      originalValue: originalValue || discount || '0',
+      sellingPrice: sellingPrice || '15',
+      sellerEmail: 'admin@savehatke.com',
+      status: status ? status.toLowerCase() : 'available',
+      source: source ? source.toLowerCase().replace(/\s+/g, '-') : 'admin',
       addedAt: new Date().toISOString(),
       soldAt: '',
       buyerEmail: '',
@@ -312,12 +314,12 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
     await db.appendRow(db.SHEETS.COUPONS, coupon);
 
     res.status(201).json({
-      message: 'Coupon added successfully and is now live for sale.',
+      message: 'Coupon published successfully to Google Sheets!',
       coupon,
     });
   } catch (err) {
     console.error('Admin add coupon error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    res.status(500).json({ error: 'Failed to save coupon to Google Sheets.' });
   }
 });
 

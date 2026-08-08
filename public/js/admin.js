@@ -116,32 +116,56 @@ function initAddCouponForm() {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const btn = document.getElementById('addCouponBtn');
-    btn.disabled = true;
-    btn.textContent = 'Adding...';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Publishing to Google Sheets...';
+    }
 
     try {
+      const code = document.getElementById('acCode')?.value?.trim() || '';
+      const brand = document.getElementById('acBrand')?.value?.trim() || '';
+      const title = document.getElementById('acTitle')?.value?.trim() || '';
+      const category = document.getElementById('acCategory')?.value || 'General';
+      const discount = document.getElementById('acDiscount')?.value?.trim() || '';
+      const originalValue = document.getElementById('acValue')?.value?.trim() || discount || '0';
+      const description = title || discount || '';
+      const sellingPrice = document.getElementById('acPrice')?.value?.trim() || '15';
+      const status = document.getElementById('acStatus')?.value || 'available';
+      const source = document.getElementById('acSource')?.value || 'admin';
+
+      if (!code || !brand) {
+        showToast('Please enter Brand and Coupon Code.', 'warning');
+        return;
+      }
+
       const data = await api('/admin/coupons', {
         method: 'POST',
         useAdmin: true,
         body: {
-          code: document.getElementById('acCode').value.trim(),
-          brand: document.getElementById('acBrand').value.trim(),
-          category: document.getElementById('acCategory').value,
-          originalValue: document.getElementById('acValue').value.trim(),
-          description: document.getElementById('acDescription').value.trim(),
-          sellingPrice: document.getElementById('acPrice').value.trim(),
+          code,
+          brand,
+          category,
+          title,
+          discount,
+          originalValue,
+          description,
+          sellingPrice,
+          status,
+          source,
         },
       });
 
-      showToast(data.message, 'success');
+      showToast(data.message || 'Coupon published to Google Sheets! 📊', 'success');
       form.reset();
-      document.getElementById('acPrice').value = '20';
-      loadAdminStats();
+      if (typeof loadInventory === 'function') loadInventory();
+      if (typeof loadAdminStats === 'function') loadAdminStats();
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast(err.message || 'Failed to add coupon.', 'error');
     } finally {
-      btn.disabled = false;
-      btn.textContent = '➕ Add Coupon to Inventory';
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🎟️ Publish Coupon';
+      }
     }
   });
 }

@@ -532,36 +532,35 @@ tbody td strong{color:#e2ecff;font-weight:600}
 
       <!-- ADD COUPON FORM -->
       <div class="tab-content" id="ctab-add">
-        <div class="card">
+        <form class="card" id="addCouponForm">
           <div class="card-title"><span class="ct-icon">🎟️</span> Add New Coupon</div>
           <div class="form-grid form-grid-2">
-            <div class="form-group"><label class="form-label">Store / Brand *</label><input class="form-input" type="text" placeholder="e.g. Nykaa, Swiggy, Myntra"></div>
-            <div class="form-group"><label class="form-label">Coupon Title *</label><input class="form-input" type="text" placeholder="e.g. 30% Off on Skincare"></div>
-            <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" placeholder="e.g. SAVE30" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase"></div>
-            <div class="form-group"><label class="form-label">Coupon Type *</label><select class="form-select"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
-            <div class="form-group"><label class="form-label">Discount *</label><input class="form-input" type="text" placeholder="e.g. 20% OFF or ₹500 OFF"></div>
-            <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" placeholder="e.g. 15"></div>
-            <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" placeholder="e.g. 999"></div>
-            <div class="form-group"><label class="form-label">Maximum Discount (₹)</label><input class="form-input" type="number" placeholder="e.g. 500"></div>
-            <div class="form-group"><label class="form-label">Valid From *</label><input class="form-input" type="date"></div>
-            <div class="form-group"><label class="form-label">Expiry Date *</label><input class="form-input" type="date"></div>
-            <div class="form-group"><label class="form-label">Category *</label><select class="form-select"><option>Makeup</option><option>Electronics</option><option>Fashion</option><option>Food</option><option>Travel</option><option>Health</option><option>Other</option></select></div>
-            <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select"><option>Admin</option><option>Partner</option><option>User Submitted</option></select></div>
-            <div class="form-group"><label class="form-label">Status</label><select class="form-select"><option>Active</option><option>Scheduled</option><option>Draft</option></select></div>
-            <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" placeholder="https://..."></div>
+            <div class="form-group"><label class="form-label">Store / Brand *</label><input class="form-input" type="text" id="acBrand" placeholder="e.g. Nykaa, Swiggy, Myntra" required></div>
+            <div class="form-group"><label class="form-label">Coupon Title *</label><input class="form-input" type="text" id="acTitle" placeholder="e.g. 30% Off on Skincare"></div>
+            <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" id="acCode" placeholder="e.g. SAVE30" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase" required></div>
+            <div class="form-group"><label class="form-label">Coupon Type</label><select class="form-select" id="acType"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
+            <div class="form-group"><label class="form-label">Discount Value *</label><input class="form-input" type="text" id="acDiscount" placeholder="e.g. 20% OFF or ₹500 OFF"></div>
+            <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" id="acPrice" placeholder="e.g. 15" value="15"></div>
+            <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" id="acMinOrder" placeholder="e.g. 999"></div>
+            <div class="form-group"><label class="form-label">Original Value / Max Discount (₹)</label><input class="form-input" type="number" id="acValue" placeholder="e.g. 500"></div>
+            <div class="form-group"><label class="form-label">Valid From</label><input class="form-input" type="date" id="acValidFrom"></div>
+            <div class="form-group"><label class="form-label">Expiry Date</label><input class="form-input" type="date" id="acExpiry"></div>
+            <div class="form-group"><label class="form-label">Category *</label><select class="form-select" id="acCategory"><option>Makeup</option><option>Electronics</option><option>Fashion</option><option>Food</option><option>Travel</option><option>Health</option><option>Other</option></select></div>
+            <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select" id="acSource"><option value="admin">Admin</option><option value="partner">Partner</option><option value="user-submitted">User Submitted</option></select></div>
+            <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="acStatus"><option value="available">Active (Available)</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option></select></div>
+            <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" id="acLink" placeholder="https://..."></div>
           </div>
-          <div class="form-group" style="margin-top:14px"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" placeholder="Enter terms and conditions..."></textarea></div>
+          <div class="form-group" style="margin-top:14px"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" id="acTerms" placeholder="Enter terms and conditions..."></textarea></div>
           <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">
-            <label class="form-check"><input type="checkbox"> Featured Coupon</label>
-            <label class="form-check"><input type="checkbox"> Exclusive Deal</label>
-            <label class="form-check"><input type="checkbox"> Verified Code</label>
+            <label class="form-check"><input type="checkbox" id="acFeatured"> Featured Coupon</label>
+            <label class="form-check"><input type="checkbox" id="acExclusive"> Exclusive Deal</label>
+            <label class="form-check"><input type="checkbox" id="acVerified" checked> Verified Code</label>
           </div>
-          <div class="form-group" style="margin-top:14px"><label class="form-label">Coupon Banner / Image (optional)</label><input class="form-input" type="file" accept="image/*"></div>
           <div style="display:flex;gap:10px;margin-top:20px">
-            <button class="btn btn-primary btn-lg">🎟️ Publish Coupon</button>
-            <button class="btn btn-ghost btn-lg">Save as Draft</button>
+            <button type="submit" class="btn btn-primary btn-lg" id="addCouponBtn">🎟️ Publish Coupon</button>
+            <button type="button" class="btn btn-ghost btn-lg" onclick="document.getElementById('addCouponForm').reset()">Clear Form</button>
           </div>
-        </div>
+        </form>
       </div>
 
       <!-- PENDING -->
