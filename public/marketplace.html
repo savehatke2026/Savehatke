@@ -453,227 +453,14 @@
 </div>
 
 <script src="js/app.js"></script>
+<script src="js/marketplace.js"></script>
 <script>
-  // ─── DATA ───────────────────────────────────────────────────────────────────
-  const ALL_COUPONS = [
-    {id:1, brand:'Nykaa',       off:'30% OFF',  desc:'On all beauty & skincare products above ₹999',              price:15,  cat:'Makeup',      source:'admin',          validity:'31 Aug 2026', minOrder:'₹999'},
-    {id:2, brand:'Myntra',      off:'₹500 OFF', desc:'Min purchase ₹1,999 on fashion & accessories',              price:20,  cat:'Fashion',     source:'user-submitted', validity:'30 Aug 2026', minOrder:'₹1,999'},
-    {id:3, brand:'Swiggy',      off:'50% OFF',  desc:'Up to ₹100 off on your next 2 orders',                      price:10,  cat:'Food',        source:'user-submitted', validity:'15 Sep 2026', minOrder:'₹199'},
-    {id:4, brand:'boAt',        off:'₹800 OFF', desc:'On headphones & earbuds above ₹1,999',                      price:25,  cat:'Electronics', source:'admin',          validity:'20 Sep 2026', minOrder:'₹1,999'},
-    {id:5, brand:'Puma',        off:'₹600 OFF', desc:'On footwear & sports apparel above ₹2,499',                price:20,  cat:'Fashion',     source:'user-submitted', validity:'10 Sep 2026', minOrder:'₹2,499'},
-    {id:6, brand:'Zomato',      off:'40% OFF',  desc:'On orders above ₹299, valid all restaurants',              price:10,  cat:'Food',        source:'user-submitted', validity:'30 Sep 2026', minOrder:'₹299'},
-    {id:7, brand:'Lakme',       off:'25% OFF',  desc:'On all Lakme makeup & skincare products',                   price:12,  cat:'Makeup',      source:'admin',          validity:'25 Aug 2026', minOrder:'₹499'},
-    {id:8, brand:'Noise',       off:'₹500 OFF', desc:'On smartwatches & fitness bands above ₹1,599',             price:18,  cat:'Electronics', source:'user-submitted', validity:'5 Oct 2026',  minOrder:'₹1,599'},
-    {id:9, brand:'H&M',         off:'20% OFF',  desc:'Sitewide on all clothing & accessories',                    price:15,  cat:'Fashion',     source:'admin',          validity:'1 Sep 2026',  minOrder:'₹999'},
-    {id:10,brand:'Sugar',       off:'35% OFF',  desc:'On all lip & eye makeup above ₹699',                       price:10,  cat:'Makeup',      source:'user-submitted', validity:'28 Aug 2026', minOrder:'₹699'},
-    {id:11,brand:'Dominos',     off:'₹150 OFF', desc:'On any 2 medium or large pizzas',                          price:8,   cat:'Food',        source:'user-submitted', validity:'31 Aug 2026', minOrder:'₹499'},
-    {id:12,brand:'Samsung',     off:'₹2,000 OFF',desc:'On Galaxy smartphones above ₹25,000',                     price:60,  cat:'Electronics', source:'admin',          validity:'15 Sep 2026', minOrder:'₹25,000'},
-    {id:13,brand:'Fastrack',    off:'₹400 OFF', desc:'On watches & sunglasses above ₹1,499',                     price:14,  cat:'Fashion',     source:'user-submitted', validity:'20 Sep 2026', minOrder:'₹1,499'},
-    {id:14,brand:'Colorbar',    off:'40% OFF',  desc:'On all face & nail products sitewide',                     price:10,  cat:'Makeup',      source:'user-submitted', validity:'5 Sep 2026',  minOrder:'₹599'},
-    {id:15,brand:'Blinkit',     off:'₹75 OFF',  desc:'On grocery orders above ₹499',                             price:5,   cat:'Food',        source:'user-submitted', validity:'30 Sep 2026', minOrder:'₹499'},
-    {id:16,brand:'Apple',       off:'₹3,000 OFF',desc:'On MacBook, iPad & iPhone above ₹60,000',                 price:90,  cat:'Electronics', source:'admin',          validity:'31 Oct 2026', minOrder:'₹60,000'},
-    {id:17,brand:'Zara',        off:'₹800 OFF', desc:'On clothing & accessories above ₹3,999',                   price:28,  cat:'Fashion',     source:'admin',          validity:'15 Oct 2026', minOrder:'₹3,999'},
-    {id:18,brand:'M.A.C',       off:'20% OFF',  desc:'On all MAC makeup and skincare products',                  price:22,  cat:'Makeup',      source:'admin',          validity:'10 Oct 2026', minOrder:'₹1,299'},
-  ];
-
-  const FREE_CODES = [
-    {id:'f1', brand:'Flipkart', off:'10% OFF',  desc:'On electronics & gadgets — web-sourced code', cat:'Electronics', code:'FLIP10FREE'},
-    {id:'f2', brand:'Amazon',   off:'₹200 OFF', desc:'On orders above ₹1,499 across all categories',cat:'Fashion',     code:'AMZ200OFF'},
-    {id:'f3', brand:'Meesho',   off:'15% OFF',  desc:'On fashion & lifestyle products sitewide',    cat:'Fashion',     code:'MSH15'},
-  ];
-
-  const PER_PAGE = 9;
-  let currentPage = 1;
-  let activeCategory = 'all';
-  let activeSource = '';
-  let searchQuery = '';
-
-  // ─── FILTER & RENDER ────────────────────────────────────────────────────────
-  function getFiltered() {
-    return ALL_COUPONS.filter(c => {
-      const matchCat    = activeCategory === 'all' || c.cat === activeCategory;
-      const matchSrc    = !activeSource  || c.source === activeSource;
-      const matchSearch = !searchQuery   ||
-        c.brand.toLowerCase().includes(searchQuery) ||
-        c.desc.toLowerCase().includes(searchQuery)  ||
-        c.cat.toLowerCase().includes(searchQuery);
-      return matchCat && matchSrc && matchSearch;
-    });
-  }
-
-  function renderCoupons() {
-    const filtered = getFiltered();
-    const total    = filtered.length;
-    const pages    = Math.ceil(total / PER_PAGE);
-    if (currentPage > pages) currentPage = 1;
-    const slice = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-
-    const grid = document.getElementById('couponGrid');
-    document.getElementById('resultsText').textContent =
-      total === 0 ? 'No coupons found' : `${total} coupon${total !== 1 ? 's' : ''} found`;
-
-    if (slice.length === 0) {
-      grid.innerHTML = `<div class="empty-state">
-        <div class="empty-ico">🔍</div>
-        <div class="empty-title">No coupons match your search</div>
-        <div class="empty-sub">Try a different brand name, category, or clear the filters</div>
-      </div>`;
-    } else {
-      grid.innerHTML = slice.map(c => couponCard(c)).join('');
-    }
-
-    renderPagination(pages);
-  }
-
-  function couponCard(c) {
-    const isVerified = c.source === 'admin';
-    return `
-      <div class="coupon-card" onclick="buyCoupon(${c.id})">
-        <div class="ctop">
-          <div>
-            ${isVerified ? '<div class="cverified">✓ Verified</div>' : ''}
-            <div class="cbrand">${c.brand}</div>
-          </div>
-          <div class="coff">${c.off}</div>
-        </div>
-        <div class="cdesc">${c.desc}</div>
-        <div class="cmeta">
-          <div><span class="clbl">Buy for</span><span class="cval">₹${c.price}</span></div>
-          <span class="ccat ${c.cat}">${c.cat}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:.75rem;color:#6b88aa">
-          <span>Min: ${c.minOrder}</span>
-          <span>Valid till ${c.validity}</span>
-        </div>
-        <button class="cbuy-btn">🛒 Buy for ₹${c.price}</button>
-      </div>`;
-  }
-
-  function renderPagination(pages) {
-    const bar = document.getElementById('paginationBar');
-    if (pages <= 1) { bar.style.display = 'none'; return; }
-    bar.style.display = 'flex';
-
-    const pgPages = document.getElementById('pgPages');
-    pgPages.innerHTML = '';
-    for (let i = 1; i <= pages; i++) {
-      const btn = document.createElement('button');
-      btn.className = 'pg-btn' + (i === currentPage ? ' active' : '');
-      btn.textContent = i;
-      btn.onclick = () => { currentPage = i; renderCoupons(); window.scrollTo({top: 400, behavior:'smooth'}); };
-      pgPages.appendChild(btn);
-    }
-    document.getElementById('pgPrev').disabled = currentPage === 1;
-    document.getElementById('pgNext').disabled = currentPage === pages;
-  }
-
-  function changePage(dir) {
-    currentPage += dir;
-    renderCoupons();
-    window.scrollTo({top: 400, behavior:'smooth'});
-  }
-
-  function renderFreeCodes() {
-    const hasFilter = activeSource === 'auto-scraped' || (!activeSource && activeCategory === 'all' && !searchQuery);
-    const sec = document.getElementById('freeCodesSection');
-    if (!hasFilter) { sec.style.display = 'none'; return; }
-    sec.style.display = 'block';
-    document.getElementById('freeCodesGrid').innerHTML = FREE_CODES.map(c => `
-      <div class="coupon-card">
-        <span class="cfree-badge">FREE</span>
-        <div class="ctop">
-          <div class="cbrand">${c.brand}</div>
-          <div class="coff">${c.off}</div>
-        </div>
-        <div class="cdesc">${c.desc}</div>
-        <div class="cmeta">
-          <div><span class="clbl">Price</span><span class="cval" style="color:#00e676">FREE</span></div>
-          <span class="ccat Free">Free</span>
-        </div>
-        <button class="cbuy-btn" onclick="copyFreeCode('${c.code}', this)" style="margin-top:14px">📋 Copy Code</button>
-      </div>`).join('');
-  }
-
-  function buyCoupon(id) {
-    if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
-      showToast?.('Please log in to buy coupons.', 'warning');
-      setTimeout(() => {
-        window.location.href = 'login.html';
-      }, 500);
-      return;
-    }
-    window.location.href = 'checkout.html?id=' + id;
-  }
-
-  function copyFreeCode(code, btn) {
-    navigator.clipboard.writeText(code).catch(() => {});
-    btn.textContent = '✅ Copied: ' + code;
-    btn.style.background = 'linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.1))';
-    setTimeout(() => {
-      btn.textContent = '📋 Copy Code';
-      btn.style.background = '';
-    }, 3000);
-  }
-
-  // ─── CATEGORY PILLS ─────────────────────────────────────────────────────────
-  document.querySelectorAll('.cpill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      document.querySelectorAll('.cpill').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      activeCategory = pill.dataset.category;
-      currentPage = 1;
-      renderCoupons();
-      renderFreeCodes();
-    });
-  });
-
-  // Handle ?cat= URL param
-  const urlCat = new URLSearchParams(window.location.search).get('cat');
-  if (urlCat) {
-    activeCategory = urlCat;
-    document.querySelectorAll('.cpill').forEach(p => {
-      p.classList.toggle('active', p.dataset.category === urlCat || (p.dataset.category === 'all' && !urlCat));
-    });
-  }
-
-  // ─── SEARCH & FILTER ────────────────────────────────────────────────────────
-  let searchTimer;
-  document.getElementById('searchInput').addEventListener('input', e => {
-    clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      searchQuery = e.target.value.toLowerCase().trim();
-      currentPage = 1;
-      renderCoupons();
-      renderFreeCodes();
-    }, 280);
-  });
-
-  document.getElementById('sourceFilter').addEventListener('change', e => {
-    activeSource = e.target.value;
-    currentPage = 1;
-    renderCoupons();
-    renderFreeCodes();
-  });
-
-  // ─── INIT ───────────────────────────────────────────────────────────────────
-  setTimeout(() => {
-    renderCoupons();
-    renderFreeCodes();
-  }, 600); // brief skeleton delay for feel
-
-  // ─── SCROLL REVEAL ──────────────────────────────────────────────────────────
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
-  }, {threshold: 0.08});
-  document.querySelectorAll('.fu').forEach(el => obs.observe(el));
-
-  // ─── STICKY NAV ─────────────────────────────────────────────────────────────
+  // ─── NAV TOGGLE & MODAL HELPERS ─────────────────────────────────────────────
   window.addEventListener('scroll', () => {
     const nav = document.getElementById('nav');
     if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
   });
 
-  // ─── MOBILE NAV ─────────────────────────────────────────────────────────────
   const navToggle = document.getElementById('navToggle');
   if (navToggle) {
     navToggle.addEventListener('click', () => {
@@ -682,7 +469,6 @@
     });
   }
 
-  // ─── MODAL ──────────────────────────────────────────────────────────────────
   function openModal(tab) {
     if (typeof openAuthModal === 'function') {
       openAuthModal(tab);
@@ -691,13 +477,16 @@
     const mo = document.getElementById('modalOverlay');
     if (mo) { mo.classList.add('open'); switchTab(tab || 'login'); document.body.style.overflow = 'hidden'; }
   }
+
   function closeModal() {
     const mo = document.getElementById('modalOverlay');
     if (mo) { mo.classList.remove('open'); document.body.style.overflow = ''; }
   }
+
   function handleOverlayClick(e) {
     if (e.target === document.getElementById('modalOverlay')) closeModal();
   }
+
   function switchTab(tab) {
     document.getElementById('tabLogin')?.classList.toggle('active', tab === 'login');
     document.getElementById('tabRegister')?.classList.toggle('active', tab === 'register');
@@ -705,6 +494,7 @@
     document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
     document.getElementById('modalTitle').textContent = tab === 'login' ? 'Welcome Back' : 'Join SaveHatke';
   }
+
   async function submitModalForm(type) {
     if (typeof api === 'function' && typeof Auth === 'object') {
       try {
