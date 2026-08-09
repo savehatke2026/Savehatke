@@ -23,10 +23,10 @@ document.addEventListener('DOMContentLoaded', () => {
 async function loadCoupons() {
   try {
     const data = await api('/coupons');
-    allCoupons = data.coupons;
+    allCoupons = data.coupons || [];
     renderFilteredCoupons();
-  } catch {
-    allCoupons = getDemoMarketplaceCoupons();
+  } catch (err) {
+    allCoupons = [];
     renderFilteredCoupons();
   }
 }
@@ -36,14 +36,14 @@ function renderFilteredCoupons() {
 
   // Category filter
   if (currentCategory !== 'all') {
-    filtered = filtered.filter((c) => c.category === currentCategory);
+    filtered = filtered.filter((c) => (c.category || '').toLowerCase() === currentCategory.toLowerCase());
   }
 
   // Search filter
   const search = document.getElementById('searchInput')?.value?.toLowerCase() || '';
   if (search) {
     filtered = filtered.filter(
-      (c) => c.brand.toLowerCase().includes(search) || (c.description || '').toLowerCase().includes(search)
+      (c) => (c.brand || '').toLowerCase().includes(search) || (c.description || '').toLowerCase().includes(search) || (c.title || '').toLowerCase().includes(search)
     );
   }
 
@@ -51,6 +51,11 @@ function renderFilteredCoupons() {
   const source = document.getElementById('sourceFilter')?.value || '';
   if (source) {
     filtered = filtered.filter((c) => c.source === source);
+  }
+
+  const resultsText = document.getElementById('resultsText');
+  if (resultsText) {
+    resultsText.textContent = `Showing ${filtered.length} verified coupon${filtered.length === 1 ? '' : 's'} from database`;
   }
 
   // Separate paid and free coupons
@@ -75,10 +80,10 @@ function renderCouponGrid(gridId, coupons) {
 
   if (coupons.length === 0) {
     grid.innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1;">
-        <div class="empty-state-icon">🏷️</div>
-        <h3>No coupons found</h3>
-        <p>Try changing your filters or check back later.</p>
+      <div class="empty-state">
+        <div class="empty-ico">🏷️</div>
+        <div class="empty-title">No coupons found in database</div>
+        <div class="empty-sub">Add your first coupon in the Admin panel or sell a coupon to make it appear here.</div>
       </div>
     `;
     return;
@@ -86,63 +91,40 @@ function renderCouponGrid(gridId, coupons) {
 
   const categoryEmojis = {
     'Makeup': '💄',
-    'Electronics': '🎧',
+    'Electronics': '⚡',
     'Fashion': '👟',
     'Food': '🍔',
-  };
-
-  const badgeClass = {
-    'Makeup': 'badge-makeup',
-    'Electronics': 'badge-electronics',
-    'Fashion': 'badge-fashion',
-    'Food': 'badge-food',
+    'Travel': '✈️',
+    'Health': '💊',
   };
 
   grid.innerHTML = coupons.map((c) => {
     const emoji = categoryEmojis[c.category] || '🏷️';
-    const bClass = badgeClass[c.category] || 'badge-electronics';
     const isFree = c.source === 'auto-scraped';
-    const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '20'}`;
-    const origVal = c.originalValue || '500';
-    const cJson = JSON.stringify(c).replace(/"/g, '&quot;');
-
-    const origNum = Number(origVal) || 500;
-    const sellNum = isFree ? 0 : (Number(c.sellingPrice) || 20);
-    const savePct = Math.min(99, Math.max(85, Math.round(((origNum - sellNum) / origNum) * 100)));
+    const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '15'}`;
+    const origVal = c.originalValue || c.discount || '100';
 
     return `
       <div class="coupon-card">
-        <div class="coupon-card-top">
-          <div class="coupon-brand">${emoji} ${c.brand}</div>
-          <span class="coupon-category-badge ${bClass}">${c.category}</span>
+        ${isFree ? '<span class="cfree-badge">FREE</span>' : '<div class="cverified">✓ VERIFIED DEAL</div>'}
+        <div class="ctop">
+          <div class="cbrand">${emoji} ${c.brand}</div>
+          <div class="coff">₹${origVal} OFF</div>
         </div>
-        <div class="coupon-value">₹${origVal} OFF</div>
-        <div class="coupon-value-label">${c.description || 'Face Value Discount'}</div>
-        <div class="coupon-price-row">
+        <div class="cdesc">${c.title || c.description || c.discount || 'Verified Discount Offer'}</div>
+        <div class="cmeta">
           <div>
-            <div class="coupon-price">${priceText}</div>
-            <div class="coupon-price-label">Our Price</div>
+            <span class="clbl">Selling Price</span>
+            <span class="cval">${priceText}</span>
           </div>
-          <span class="coupon-discount-badge">Save ${savePct}%</span>
+          <span class="ccat ${c.category}">${c.category}</span>
         </div>
-        <div class="coupon-code-row">
-          <span class="coupon-code">${c.code ? c.code.slice(0, 6) : 'SAVE2026'}</span>
-          <span class="coupon-code-label">🔒 Unlock to reveal</span>
-        </div>
-        <button class="coupon-tc-btn" onclick="openCouponTermsModal(${cJson})">
-          📜 Terms & How to Use
-        </button>
-        <button class="btn-coupon" onclick="buyCoupon('${c.id}', ${isFree})">
+        <button class="cbuy-btn" onclick="buyCoupon('${c.id}', ${isFree})">
           ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
         </button>
       </div>
     `;
   }).join('');
-}
-
-function getCatBadge(category) {
-  const map = { 'Makeup': 'purple', 'Electronics': 'blue', 'Fashion': 'teal', 'Food': 'amber' };
-  return map[category] || 'blue';
 }
 
 async function buyCoupon(id, isFree) {
@@ -210,11 +192,11 @@ function showCouponModal(coupon) {
 
 function initFilters() {
   // Category pills
-  document.querySelectorAll('#categoryPills .category-pill').forEach((pill) => {
+  document.querySelectorAll('#categoryPills .cpill').forEach((pill) => {
     pill.addEventListener('click', () => {
-      document.querySelectorAll('#categoryPills .category-pill').forEach((p) => p.classList.remove('active'));
+      document.querySelectorAll('#categoryPills .cpill').forEach((p) => p.classList.remove('active'));
       pill.classList.add('active');
-      currentCategory = pill.dataset.category;
+      currentCategory = pill.dataset.category || 'all';
       renderFilteredCoupons();
     });
   });
@@ -232,17 +214,4 @@ function debounce(fn, ms) {
     clearTimeout(timer);
     timer = setTimeout(() => fn.apply(this, args), ms);
   };
-}
-
-function getDemoMarketplaceCoupons() {
-  return [
-    { id: 'c001', category: 'Makeup', brand: 'Nykaa', description: '₹200 off on orders above ₹999', originalValue: '200', sellingPrice: '20', source: 'user-submitted', addedAt: new Date(Date.now() - 3600000).toISOString() },
-    { id: 'c002', category: 'Fashion', brand: 'Puma', description: 'Flat 30% off on Puma shoes', originalValue: '500', sellingPrice: '25', source: 'user-submitted', addedAt: new Date(Date.now() - 7200000).toISOString() },
-    { id: 'c003', category: 'Electronics', brand: 'boAt', description: '15% off on boAt earbuds', originalValue: '300', sellingPrice: '20', source: 'admin', addedAt: new Date(Date.now() - 10800000).toISOString() },
-    { id: 'c004', category: 'Food', brand: 'Swiggy', description: '₹100 off on first 3 orders', originalValue: '100', sellingPrice: '15', source: 'admin', addedAt: new Date(Date.now() - 14400000).toISOString() },
-    { id: 'c005', category: 'Fashion', brand: 'Myntra', description: '₹500 off on ₹2000+ purchase', originalValue: '500', sellingPrice: '30', source: 'user-submitted', addedAt: new Date(Date.now() - 18000000).toISOString() },
-    { id: 'c006', category: 'Makeup', brand: 'Mamaearth', description: '20% off on skincare range', originalValue: '250', sellingPrice: '0', source: 'auto-scraped', addedAt: new Date(Date.now() - 21600000).toISOString() },
-    { id: 'c007', category: 'Electronics', brand: 'Croma', description: '10% off on electronics (max ₹1000)', originalValue: '1000', sellingPrice: '35', source: 'admin', addedAt: new Date(Date.now() - 25200000).toISOString() },
-    { id: 'c008', category: 'Food', brand: 'Zomato', description: 'Free delivery on 5 orders', originalValue: '150', sellingPrice: '0', source: 'auto-scraped', addedAt: new Date(Date.now() - 28800000).toISOString() },
-  ];
 }
