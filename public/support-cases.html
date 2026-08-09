@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Support Cases — Admin Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Outfit',sans-serif;background:#060d1f;color:#e2ecff;-webkit-font-smoothing:antialiased;overflow-x:hidden;display:flex;min-height:100vh}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#060d1f}
+::-webkit-scrollbar-thumb{background:#1a3055;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#00e676}
+a{text-decoration:none;color:inherit}
+input,select,textarea,button{font-family:'Outfit',sans-serif}
+
+@keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+
+.gtext{background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.shimmer{background:linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3.5s linear infinite}
+
+/* SIDEBAR */
+.sidebar{width:240px;flex-shrink:0;background:rgba(9,18,40,.98);border-right:1px solid rgba(79,195,247,.1);display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:50;transition:transform .3s;overflow-y:auto;overflow-x:hidden}
+.sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid rgba(79,195,247,.08);display:flex;align-items:center;gap:10px;font-size:1.15rem;font-weight:800;flex-shrink:0}
+.brand-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.bhl{color:#00e676}
+.admin-badge{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,230,118,.15);color:#00e676;border:1px solid rgba(0,230,118,.25);border-radius:5px;padding:2px 7px;margin-left:auto}
+.sidebar-nav{flex:1;padding:12px 0}
+.nav-group-label{font-size:.65rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(107,136,170,.6);padding:14px 20px 6px;display:block}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 20px;font-size:.88rem;font-weight:500;color:#6b88aa;cursor:pointer;transition:all .2s;border-left:2px solid transparent;position:relative}
+.nav-item:hover{color:#e2ecff;background:rgba(79,195,247,.05)}
+.nav-item.active{color:#e2ecff;background:rgba(0,230,118,.07);border-left-color:#00e676}
+.nav-item .ni{font-size:1rem;flex-shrink:0;width:20px;text-align:center}
+.nav-item .nbadge{margin-left:auto;font-size:.65rem;font-weight:700;background:rgba(255,80,80,.2);color:#ff6b6b;border-radius:9999px;padding:2px 7px;min-width:20px;text-align:center}
+.nav-item .nbadge.green{background:rgba(0,230,118,.15);color:#00e676}
+.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(79,195,247,.08)}
+.sidebar-user{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.su-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#060d1f;flex-shrink:0}
+.su-name{font-size:.85rem;font-weight:600}
+.su-role{font-size:.72rem;color:#6b88aa;margin-top:1px}
+.logout-btn{width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.15);color:#ff6b6b;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .2s}
+.logout-btn:hover{background:rgba(255,80,80,.15)}
+
+/* MAIN */
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+
+/* TOPBAR */
+.topbar{height:64px;background:rgba(6,13,31,.95);backdrop-filter:blur(20px);border-bottom:1px solid rgba(79,195,247,.1);display:flex;align-items:center;padding:0 28px;gap:16px;position:sticky;top:0;z-index:40}
+.topbar-title{font-size:1rem;font-weight:700;color:#e2ecff;flex:1}
+.topbar-title span{font-size:.8rem;font-weight:400;color:#6b88aa;margin-left:8px}
+.topbar-search{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:8px 14px;width:260px}
+.topbar-search input{background:none;border:none;color:#e2ecff;font-size:.88rem;outline:none;width:100%}
+.topbar-search input::placeholder{color:#6b88aa}
+.topbar-actions{display:flex;align-items:center;gap:10px}
+.icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;position:relative}
+.icon-btn:hover{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.06)}
+.notif-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#ff6b6b;border:2px solid #060d1f}
+.mob-toggle{display:none;width:36px;height:36px;border-radius:8px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px}
+.mob-toggle span{display:block;width:18px;height:2px;background:#e2ecff;border-radius:2px}
+
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .mob-toggle{display:flex}
+  .topbar-search{display:none}
+}
+
+/* CONTENT */
+.content{flex:1;padding:28px;animation:fadeIn .4s ease}
+
+/* STAT CARDS */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:28px}
+.stat-card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:22px;transition:all .3s;cursor:pointer;position:relative;overflow:hidden}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .3s}
+.stat-card:hover{border-color:rgba(0,230,118,.25);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
+.stat-card:hover::before{opacity:1}
+.sc-green::before{background:linear-gradient(90deg,#00e676,#00c853)}
+.sc-blue::before{background:linear-gradient(90deg,#4fc3f7,#0288d1)}
+.sc-purple::before{background:linear-gradient(90deg,#ce93d8,#9c27b0)}
+.sc-orange::before{background:linear-gradient(90deg,#ffb74d,#f57c00)}
+.sc-teal::before{background:linear-gradient(90deg,#80cbc4,#009688)}
+.sc-red::before{background:linear-gradient(90deg,#ef9a9a,#e53935)}
+.stat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.stat-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.si-green{background:rgba(0,230,118,.12)}
+.si-blue{background:rgba(79,195,247,.12)}
+.si-purple{background:rgba(206,147,216,.12)}
+.si-orange{background:rgba(255,183,77,.12)}
+.si-teal{background:rgba(128,203,196,.12)}
+.si-red{background:rgba(239,154,154,.12)}
+.stat-trend{font-size:.75rem;font-weight:600;padding:3px 8px;border-radius:6px;display:flex;align-items:center;gap:3px}
+.trend-up{background:rgba(0,230,118,.12);color:#00e676}
+.trend-down{background:rgba(239,154,154,.12);color:#ef9a9a}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:600;line-height:1;margin-bottom:4px}
+.stat-lbl{font-size:.78rem;color:#6b88aa;font-weight:500}
+@media(max-width:1100px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.stats-grid{grid-template-columns:1fr}}
+
+/* TABLES */
+.table-card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;overflow:hidden;margin-bottom:24px}
+.table-header{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid rgba(79,195,247,.08);flex-wrap:wrap;gap:10px}
+.table-header h3{font-size:.95rem;font-weight:700}
+.table-header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+table{width:100%;border-collapse:collapse}
+thead th{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:10px 16px;text-align:left;background:rgba(0,0,0,.2)}
+tbody tr{border-top:1px solid rgba(79,195,247,.05);transition:background .2s}
+tbody tr:hover{background:rgba(79,195,247,.04)}
+tbody td{padding:12px 16px;font-size:.86rem;color:#a8c0dc;vertical-align:middle}
+tbody td strong{color:#e2ecff;font-weight:600}
+.overflow-x{overflow-x:auto}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
+.badge-green{background:rgba(0,230,118,.12);color:#00e676}
+.badge-blue{background:rgba(79,195,247,.12);color:#4fc3f7}
+.badge-orange{background:rgba(255,183,77,.12);color:#ffb74d}
+.badge-red{background:rgba(239,154,154,.12);color:#ef9a9a}
+.badge-purple{background:rgba(206,147,216,.12);color:#ce93d8}
+.badge-gray{background:rgba(107,136,170,.12);color:#6b88aa}
+.badge-teal{background:rgba(128,203,196,.12);color:#80cbc4}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:0 18px;height:36px;border-radius:8px;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:700;border:none;cursor:pointer;white-space:nowrap;transition:all .22s}
+.btn-lg{height:44px;padding:0 24px;font-size:.92rem;border-radius:10px}
+.btn-sm{height:30px;padding:0 12px;font-size:.78rem;border-radius:6px}
+.btn-primary{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,230,118,.35)}
+.btn-ghost{background:transparent;color:#e2ecff;border:1px solid rgba(79,195,247,.25)}
+.btn-ghost:hover{border-color:rgba(79,195,247,.5);background:rgba(79,195,247,.07)}
+.btn-danger{background:rgba(239,154,154,.1);color:#ef9a9a;border:1px solid rgba(239,154,154,.2)}
+.btn-danger:hover{background:rgba(239,154,154,.2)}
+.btn-warning{background:rgba(255,183,77,.1);color:#ffb74d;border:1px solid rgba(255,183,77,.2)}
+.btn-warning:hover{background:rgba(255,183,77,.2)}
+.btn-success{background:rgba(0,230,118,.1);color:#00e676;border:1px solid rgba(0,230,118,.2)}
+.btn-success:hover{background:rgba(0,230,118,.2)}
+.btn-info{background:rgba(79,195,247,.1);color:#4fc3f7;border:1px solid rgba(79,195,247,.2)}
+.btn-info:hover{background:rgba(79,195,247,.2)}
+
+/* FORMS */
+.form-grid{display:grid;gap:18px}
+.form-grid-2{grid-template-columns:1fr 1fr}
+.form-group{display:flex;flex-direction:column;gap:7px}
+.form-label{font-size:.8rem;font-weight:600;color:#a8c0dc}
+.form-input,.form-select,.form-textarea{background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);color:#e2ecff;border-radius:10px;padding:10px 14px;font-size:.88rem;transition:border-color .2s;outline:none;width:100%}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:rgba(0,230,118,.4)}
+.form-input::placeholder,.form-textarea::placeholder{color:#6b88aa}
+.form-select option{background:#0c1835;color:#e2ecff}
+.form-textarea{resize:vertical;min-height:100px}
+@media(max-width:700px){.form-grid-2{grid-template-columns:1fr}}
+
+/* CARD */
+.card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:22px;margin-bottom:24px}
+.card-title{font-size:.95rem;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:10px}
+.card-title .ct-icon{font-size:1.1rem}
+
+/* TABS */
+.tab-row{display:flex;gap:4px;margin-bottom:22px;background:rgba(255,255,255,.03);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap}
+.tab-btn{padding:7px 18px;border-radius:8px;border:none;background:transparent;color:#6b88aa;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px}
+.tab-btn.active{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f}
+.tab-btn:hover:not(.active){color:#e2ecff;background:rgba(255,255,255,.05)}
+.tab-content{display:none}
+.tab-content.active{display:block;animation:fadeIn .3s ease}
+
+/* PAGE TITLE */
+.page-title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px}
+.page-title{font-family:'DM Serif Display',serif;font-size:1.7rem;line-height:1.2}
+.page-subtitle{font-size:.85rem;color:#6b88aa;margin-top:4px}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{width:100%;max-width:640px;border-radius:20px;padding:32px;background:#0c1835;border:1px solid rgba(79,195,247,.15);box-shadow:0 40px 100px rgba(0,0,0,.6);transform:translateY(16px) scale(.97);transition:transform .25s;max-height:90vh;overflow-y:auto}
+.modal-overlay.open .modal{transform:translateY(0) scale(1)}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.modal-title{font-family:'DM Serif Display',serif;font-size:1.5rem}
+.modal-close{background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1.3rem;padding:2px 6px;transition:color .2s}
+.modal-close:hover{color:#e2ecff}
+.modal-footer{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
+
+/* ACTIVITY */
+.activity-item{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.activity-text{font-size:.85rem;color:#a8c0dc;line-height:1.5;flex:1}
+.activity-text strong{color:#e2ecff}
+.activity-time{font-size:.75rem;color:#6b88aa;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+
+/* PRIORITY DOT */
+.priority-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0}
+
+/* CASE DETAIL PANEL */
+.detail-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.detail-meta-item{background:rgba(255,255,255,.04);border-radius:10px;padding:10px 14px}
+.detail-meta-label{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px}
+.detail-meta-value{font-size:.88rem;color:#e2ecff;font-weight:600}
+
+.msg-bubble{padding:12px 16px;border-radius:12px;font-size:.86rem;line-height:1.6;margin-bottom:10px;max-width:90%}
+.msg-user{background:rgba(79,195,247,.08);border:1px solid rgba(79,195,247,.12);border-radius:12px 12px 12px 2px;color:#a8c0dc}
+.msg-support{background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.15);border-radius:12px 12px 2px 12px;color:#a8c0dc;margin-left:auto}
+.msg-meta{font-size:.72rem;color:#6b88aa;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+
+/* SEARCH BAR */
+.search-bar{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.12);border-radius:10px;padding:8px 14px;margin-bottom:20px}
+.search-bar input{background:none;border:none;color:#e2ecff;font-size:.88rem;outline:none;flex:1}
+.search-bar input::placeholder{color:#6b88aa}
+
+/* INFO ROW */
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(79,195,247,.06);font-size:.85rem}
+.info-row:last-child{border-bottom:none}
+.info-row .irl{color:#6b88aa}
+.info-row .irv{color:#e2ecff;font-weight:600;font-family:'JetBrains Mono',monospace}
+
+/* PROG BAR */
+.prog-bar{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-top:6px}
+.prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#00e676,#4fc3f7)}
+
+/* TOAST */
+.toast-container{position:fixed;bottom:28px;right:28px;z-index:999;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:12px;padding:14px 20px;border-radius:12px;font-size:.88rem;font-weight:600;color:#e2ecff;background:rgba(12,24,48,.95);backdrop-filter:blur(16px);border:1px solid rgba(79,195,247,.2);box-shadow:0 20px 50px rgba(0,0,0,.5);pointer-events:auto;animation:slideInRight .3s cubic-bezier(0.16,1,0.3,1) forwards;max-width:400px}
+.toast-success{border-color:rgba(0,230,118,.4)}
+.toast-error{border-color:rgba(255,80,80,.4)}
+.toast-close{background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1.1rem;margin-left:auto}
+
+/* SIDEBAR OVERLAY */
+.sidebar-overlay{display:none;position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.6)}
+.sidebar-overlay.show{display:block}
+
+/* u-avatar */
+.u-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#060d1f;flex-shrink:0}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:60px 20px;color:#6b88aa}
+.empty-state .es-icon{font-size:3rem;margin-bottom:14px;opacity:.5}
+.empty-state .es-title{font-size:1rem;font-weight:700;color:#a8c0dc;margin-bottom:6px}
+.empty-state .es-sub{font-size:.85rem}
+
+/* TWO COL */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+@media(max-width:900px){.two-col{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR OVERLAY -->
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="brand-icon">💰</div>
+    Save<span class="bhl">Hatke</span>
+    <span class="admin-badge">ADMIN</span>
+  </div>
+
+  <nav class="sidebar-nav">
+    <span class="nav-group-label">Main</span>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">🏠</span> Dashboard</div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">👥</span> Users <span class="nbadge green">1.2k</span></div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">🎟️</span> Coupons <span class="nbadge">14</span></div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">💰</span> Payouts <span class="nbadge">7</span></div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">🛍️</span> Brands</div>
+
+    <span class="nav-group-label">Operations</span>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">📦</span> Price Tracker</div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">📈</span> Analytics</div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">📢</span> Content</div>
+    <div class="nav-item active"><span class="ni">🎧</span> Support Cases <span class="nbadge" id="sidebarOpenBadge">0</span></div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">⭐</span> Reports <span class="nbadge">3</span></div>
+
+    <span class="nav-group-label">Admin</span>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">👤</span> Admins &amp; Roles</div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">🔒</span> Security</div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">⚙️</span> Settings</div>
+    <div class="nav-item" onclick="location.href='admin.html'"><span class="ni">📄</span> Audit Logs</div>
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="sidebar-user">
+      <div class="su-avatar">SA</div>
+      <div><div class="su-name">Super Admin</div><div class="su-role">admin@savehatke.com</div></div>
+    </div>
+    <button class="logout-btn">🚪 Logout</button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="mob-toggle" onclick="toggleSidebar()"><span></span><span></span><span></span></div>
+    <div class="topbar-title">Support Cases <span>/ Management</span></div>
+    <div class="topbar-search">
+      <span>🔍</span>
+      <input type="text" id="globalSearch" placeholder="Search cases, users, subjects..." oninput="globalSearchCases(this.value)">
+    </div>
+    <div class="topbar-actions">
+      <div class="icon-btn" title="Notifications"><span>🔔</span><div class="notif-dot"></div></div>
+      <div class="icon-btn" title="Messages"><span>💬</span></div>
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(79,195,247,0.2);border-radius:20px;cursor:pointer;">
+        <div style="width:24px;height:24px;border-radius:50%;background:#00e676;color:#060d1f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.75rem;">A</div>
+        <span style="font-size:0.82rem;font-weight:600;color:#e2ecff;">Admin</span>
+        <span style="font-size:0.75rem;color:#ff6b6b;">🚪</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONTENT -->
+  <div class="content">
+
+    <!-- PAGE TITLE -->
+    <div class="page-title-row">
+      <div>
+        <div class="page-title">Support <span class="gtext">Cases</span></div>
+        <div class="page-subtitle">Manage customer support tickets and resolve issues efficiently.</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-lg" onclick="exportCases()">📥 Export</button>
+        <button class="btn btn-primary btn-lg" onclick="openModal('newCaseModal')">+ New Case</button>
+      </div>
+    </div>
+
+    <!-- STAT CARDS -->
+    <div class="stats-grid">
+      <div class="stat-card sc-orange" onclick="switchTab('open')" style="cursor:pointer">
+        <div class="stat-card-top">
+          <div class="stat-icon si-orange">📬</div>
+          <span class="stat-trend trend-down" id="trendOpen">↑ 3</span>
+        </div>
+        <div class="stat-val" style="color:#ffb74d" id="statOpen">0</div>
+        <div class="stat-lbl">Open Cases</div>
+        <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progOpen" style="background:linear-gradient(90deg,#ffb74d,#f57c00);width:0%"></div></div>
+      </div>
+      <div class="stat-card sc-blue" onclick="switchTab('inprogress')" style="cursor:pointer">
+        <div class="stat-card-top">
+          <div class="stat-icon si-blue">⚙️</div>
+          <span class="stat-trend trend-up" id="trendProgress">↑ 5%</span>
+        </div>
+        <div class="stat-val" style="color:#4fc3f7" id="statProgress">0</div>
+        <div class="stat-lbl">In Progress</div>
+        <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progProgress" style="background:linear-gradient(90deg,#4fc3f7,#0288d1);width:0%"></div></div>
+      </div>
+      <div class="stat-card sc-green" onclick="switchTab('resolved')" style="cursor:pointer">
+        <div class="stat-card-top">
+          <div class="stat-icon si-green">✅</div>
+          <span class="stat-trend trend-up" id="trendResolved">↑ 12%</span>
+        </div>
+        <div class="stat-val gtext" id="statResolved">0</div>
+        <div class="stat-lbl">Resolved</div>
+        <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progResolved" style="width:0%"></div></div>
+      </div>
+      <div class="stat-card sc-purple" onclick="switchTab('closed')" style="cursor:pointer">
+        <div class="stat-card-top">
+          <div class="stat-icon si-purple">🔒</div>
+          <span class="stat-trend trend-up" id="trendClosed">↑ 8%</span>
+        </div>
+        <div class="stat-val" style="color:#ce93d8" id="statClosed">0</div>
+        <div class="stat-lbl">Closed</div>
+        <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progClosed" style="background:linear-gradient(90deg,#ce93d8,#9c27b0);width:0%"></div></div>
+      </div>
+    </div>
+
+    <!-- TABS -->
+    <div class="tab-row" id="mainTabRow">
+      <button class="tab-btn active" id="tab-open" onclick="switchTab('open',this)">📬 Open Cases <span id="tabBadgeOpen" style="background:rgba(255,183,77,.2);color:#ffb74d;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:2px;">0</span></button>
+      <button class="tab-btn" id="tab-inprogress" onclick="switchTab('inprogress',this)">⚙️ In Progress <span id="tabBadgeProgress" style="background:rgba(79,195,247,.2);color:#4fc3f7;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:2px;">0</span></button>
+      <button class="tab-btn" id="tab-resolved" onclick="switchTab('resolved',this)">✅ Resolved <span id="tabBadgeResolved" style="background:rgba(0,230,118,.2);color:#00e676;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:2px;">0</span></button>
+      <button class="tab-btn" id="tab-closed" onclick="switchTab('closed',this)">🔒 Closed <span id="tabBadgeClosed" style="background:rgba(206,147,216,.2);color:#ce93d8;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:2px;">0</span></button>
+    </div>
+
+    <!-- OPEN CASES -->
+    <div class="tab-content active" id="tcontent-open">
+      <div class="table-card">
+        <div class="table-header">
+          <h3>📬 Open Cases</h3>
+          <div class="table-header-actions">
+            <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter open cases..." oninput="filterTable('open',this.value)" id="filterOpen">
+            <select class="form-select btn-sm" style="width:120px" onchange="filterByPriority('open',this.value)">
+              <option value="">All Priority</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="sortTable('open','date')">Sort by Date</button>
+          </div>
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Subject</th>
+                <th>User</th>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Created</th>
+                <th>SLA</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-open"></tbody>
+          </table>
+        </div>
+        <div id="empty-open" class="empty-state" style="display:none">
+          <div class="es-icon">📭</div>
+          <div class="es-title">No open cases</div>
+          <div class="es-sub">All caught up! No open support cases right now.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IN PROGRESS -->
+    <div class="tab-content" id="tcontent-inprogress">
+      <div class="table-card">
+        <div class="table-header">
+          <h3>⚙️ In Progress Cases</h3>
+          <div class="table-header-actions">
+            <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter..." oninput="filterTable('inprogress',this.value)" id="filterProgress">
+            <select class="form-select btn-sm" style="width:120px" onchange="filterByPriority('inprogress',this.value)">
+              <option value="">All Priority</option>
+              <option value="Critical">Critical</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="sortTable('inprogress','date')">Sort by Date</button>
+          </div>
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Subject</th>
+                <th>User</th>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Assigned To</th>
+                <th>Last Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-inprogress"></tbody>
+          </table>
+        </div>
+        <div id="empty-inprogress" class="empty-state" style="display:none">
+          <div class="es-icon">⚙️</div>
+          <div class="es-title">No cases in progress</div>
+          <div class="es-sub">No cases are currently being worked on.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESOLVED -->
+    <div class="tab-content" id="tcontent-resolved">
+      <div class="table-card">
+        <div class="table-header">
+          <h3>✅ Resolved Cases</h3>
+          <div class="table-header-actions">
+            <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter..." oninput="filterTable('resolved',this.value)" id="filterResolved">
+            <select class="form-select btn-sm" style="width:130px" onchange="filterByCategory('resolved',this.value)">
+              <option value="">All Categories</option>
+              <option value="Billing">Billing</option>
+              <option value="Technical">Technical</option>
+              <option value="Coupon">Coupon</option>
+              <option value="Account">Account</option>
+              <option value="Other">Other</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="exportCases('resolved')">Export</button>
+          </div>
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Subject</th>
+                <th>User</th>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Resolved By</th>
+                <th>Resolution Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-resolved"></tbody>
+          </table>
+        </div>
+        <div id="empty-resolved" class="empty-state" style="display:none">
+          <div class="es-icon">✅</div>
+          <div class="es-title">No resolved cases yet</div>
+          <div class="es-sub">Resolved cases will appear here.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CLOSED -->
+    <div class="tab-content" id="tcontent-closed">
+      <div class="table-card">
+        <div class="table-header">
+          <h3>🔒 Closed Cases</h3>
+          <div class="table-header-actions">
+            <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter..." oninput="filterTable('closed',this.value)" id="filterClosed">
+            <select class="form-select btn-sm" style="width:130px" onchange="filterByCategory('closed',this.value)">
+              <option value="">All Categories</option>
+              <option value="Billing">Billing</option>
+              <option value="Technical">Technical</option>
+              <option value="Coupon">Coupon</option>
+              <option value="Account">Account</option>
+              <option value="Other">Other</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="exportCases('closed')">Export</button>
+          </div>
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead>
+              <tr>
+                <th>Case ID</th>
+                <th>Subject</th>
+                <th>User</th>
+                <th>Category</th>
+                <th>Priority</th>
+                <th>Closed By</th>
+                <th>Close Reason</th>
+                <th>Closed On</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-closed"></tbody>
+          </table>
+        </div>
+        <div id="empty-closed" class="empty-state" style="display:none">
+          <div class="es-icon">🔒</div>
+          <div class="es-title">No closed cases</div>
+          <div class="es-sub">Closed cases will appear here.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM ANALYTICS ROW -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📊</span> Case Breakdown by Category</div>
+        <div id="categoryBreakdown"></div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">🕐</span> Recent Activity</div>
+        <div id="recentActivity" class="activity-list"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── MODAL: NEW CASE ── -->
+<div class="modal-overlay" id="newCaseModal">
+  <div class="modal">
+    <div class="modal-hdr">
+      <div class="modal-title">Create New <span class="gtext">Case</span></div>
+      <button class="modal-close" onclick="closeModal('newCaseModal')">✕</button>
+    </div>
+    <form id="newCaseForm" onsubmit="createCase(event)">
+      <div class="form-grid form-grid-2">
+        <div class="form-group">
+          <label class="form-label">User Name *</label>
+          <input class="form-input" type="text" id="nc-user" placeholder="e.g. Rahul Kumar" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">User Email *</label>
+          <input class="form-input" type="email" id="nc-email" placeholder="e.g. rahul@gmail.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category *</label>
+          <select class="form-select" id="nc-category" required>
+            <option value="">— Select —</option>
+            <option value="Billing">💳 Billing</option>
+            <option value="Technical">🔧 Technical</option>
+            <option value="Coupon">🎟️ Coupon</option>
+            <option value="Account">👤 Account</option>
+            <option value="Other">📦 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority *</label>
+          <select class="form-select" id="nc-priority" required>
+            <option value="Low">🟢 Low</option>
+            <option value="Medium" selected>🟡 Medium</option>
+            <option value="High">🟠 High</option>
+            <option value="Critical">🔴 Critical</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">Subject *</label>
+        <input class="form-input" type="text" id="nc-subject" placeholder="Briefly describe the issue..." required>
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="nc-desc" placeholder="Provide detailed information about the issue..."></textarea>
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">Assign To</label>
+        <select class="form-select" id="nc-assign">
+          <option value="Unassigned">— Unassigned —</option>
+          <option value="Rupayan">Rupayan</option>
+          <option value="Jaggik">Jaggik</option>
+          <option value="Priya Support">Priya Support</option>
+          <option value="Aditya Support">Aditya Support</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('newCaseModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">🎧 Create Case</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── MODAL: VIEW / EDIT CASE ── -->
+<div class="modal-overlay" id="viewCaseModal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title" id="vcTitle">Case Detail</div>
+        <div style="font-size:.78rem;color:#6b88aa;margin-top:4px" id="vcSubtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('viewCaseModal')">✕</button>
+    </div>
+
+    <!-- META -->
+    <div class="detail-meta" id="vcMeta"></div>
+
+    <!-- MESSAGES -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:.8rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:12px">💬 Conversation</div>
+      <div id="vcMessages" style="max-height:260px;overflow-y:auto;padding-right:4px;display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+
+    <!-- REPLY -->
+    <div style="border-top:1px solid rgba(79,195,247,.08);padding-top:16px;margin-top:8px">
+      <div class="form-group">
+        <label class="form-label">Reply / Add Note</label>
+        <textarea class="form-textarea" id="vcReplyText" placeholder="Type your reply here..." style="min-height:80px"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="sendReply()">📨 Send Reply</button>
+        <button class="btn btn-success btn-sm" onclick="changeStatus('resolved')">✅ Mark Resolved</button>
+        <button class="btn btn-info btn-sm" onclick="changeStatus('inprogress')">⚙️ In Progress</button>
+        <button class="btn btn-warning btn-sm" onclick="changeStatus('open')">📬 Reopen</button>
+        <button class="btn btn-danger btn-sm" onclick="changeStatus('closed')">🔒 Close Case</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ─────────────────────────────────────────
+// DATA
+// ─────────────────────────────────────────
+let cases = [
+  { id:'SC-1001', subject:'Coupon code not working at checkout', user:'Rahul Kumar', email:'rahul@gmail.com', category:'Coupon', priority:'High', status:'open', created:'Aug 8, 2026 · 10:24 AM', updated:'Aug 8, 2026 · 10:24 AM', assignedTo:'Rupayan', sla:'2h remaining', messages:[{from:'user',name:'Rahul Kumar',text:'I tried applying SAVE30 at checkout but it says invalid. Please help!',time:'10:24 AM'},{from:'support',name:'Rupayan',text:'Hi Rahul, let me check this for you right away.',time:'10:30 AM'}], closeReason:'' },
+  { id:'SC-1002', subject:'Unable to login to my account', user:'Priya Sharma', email:'priya@gmail.com', category:'Account', priority:'Critical', status:'open', created:'Aug 8, 2026 · 09:11 AM', updated:'Aug 8, 2026 · 09:45 AM', assignedTo:'Unassigned', sla:'OVERDUE', messages:[{from:'user',name:'Priya Sharma',text:'I keep getting "Invalid credentials" even after password reset.',time:'09:11 AM'}], closeReason:'' },
+  { id:'SC-1003', subject:'Payout not received after 7 days', user:'Aditya Mehta', email:'aditya@outlook.com', category:'Billing', priority:'High', status:'inprogress', created:'Aug 7, 2026 · 02:00 PM', updated:'Aug 8, 2026 · 08:00 AM', assignedTo:'Jaggik', sla:'4h remaining', messages:[{from:'user',name:'Aditya Mehta',text:'My payout of ₹640 was supposed to arrive 7 days ago.',time:'2:00 PM'},{from:'support',name:'Jaggik',text:'We are investigating with the payment gateway. ETA 24 hrs.',time:'8:00 AM'}], closeReason:'' },
+  { id:'SC-1004', subject:'Duplicate charge on my account', user:'Neha Patel', email:'neha.p@gmail.com', category:'Billing', priority:'Critical', status:'inprogress', created:'Aug 6, 2026 · 11:30 AM', updated:'Aug 8, 2026 · 09:00 AM', assignedTo:'Priya Support', sla:'1h remaining', messages:[{from:'user',name:'Neha Patel',text:'I was charged twice for coupon #C-8810. Please refund immediately.',time:'11:30 AM'},{from:'support',name:'Priya Support',text:'We have escalated this to the billing team.',time:'9:00 AM'}], closeReason:'' },
+  { id:'SC-1005', subject:'App crashes on Android 14', user:'Vikram Rao', email:'vikram.r@yahoo.com', category:'Technical', priority:'Medium', status:'inprogress', created:'Aug 5, 2026 · 03:15 PM', updated:'Aug 7, 2026 · 05:00 PM', assignedTo:'Aditya Support', sla:'6h remaining', messages:[{from:'user',name:'Vikram Rao',text:'Every time I open the coupons section the app crashes.',time:'3:15 PM'},{from:'support',name:'Aditya Support',text:'We have reproduced the bug on Android 14. Fix is in review.',time:'5:00 PM'}], closeReason:'' },
+  { id:'SC-1006', subject:'Wrong cashback percentage shown', user:'Meena Joshi', email:'meena.j@gmail.com', category:'Coupon', priority:'Low', status:'resolved', created:'Aug 4, 2026 · 01:00 PM', updated:'Aug 5, 2026 · 10:00 AM', assignedTo:'Rupayan', resolvedBy:'Rupayan', resolutionTime:'21h 00m', messages:[{from:'user',name:'Meena Joshi',text:'The app shows 30% cashback but I only received 15%.',time:'1:00 PM'},{from:'support',name:'Rupayan',text:'This has been corrected. The listing was incorrect. Apologies!',time:'10:00 AM'},{from:'support',name:'Rupayan',text:'Cashback difference of ₹150 has been credited to your wallet.',time:'10:05 AM'}], closeReason:'' },
+  { id:'SC-1007', subject:'Profile photo not uploading', user:'Sanjay Das', email:'sanjay.d@gmail.com', category:'Technical', priority:'Low', status:'resolved', created:'Aug 3, 2026 · 04:30 PM', updated:'Aug 4, 2026 · 11:00 AM', assignedTo:'Jaggik', resolvedBy:'Jaggik', resolutionTime:'18h 30m', messages:[{from:'user',name:'Sanjay Das',text:'Profile picture fails to upload, shows an error.',time:'4:30 PM'},{from:'support',name:'Jaggik',text:'Bug fixed in latest app version 2.1.4. Please update the app.',time:'11:00 AM'}], closeReason:'' },
+  { id:'SC-1008', subject:'Referral bonus not credited', user:'Ananya Singh', email:'ananya.s@gmail.com', category:'Billing', priority:'Medium', status:'resolved', created:'Aug 2, 2026 · 08:00 AM', updated:'Aug 3, 2026 · 02:00 PM', assignedTo:'Priya Support', resolvedBy:'Priya Support', resolutionTime:'30h 00m', messages:[{from:'user',name:'Ananya Singh',text:'My friend signed up using my referral code but I got no bonus.',time:'8:00 AM'},{from:'support',name:'Priya Support',text:'Referral bonus of ₹100 has been manually credited. Sorry for the delay!',time:'2:00 PM'}], closeReason:'' },
+  { id:'SC-1009', subject:'Account suspended without notice', user:'Rohan Verma', email:'rohan.v@gmail.com', category:'Account', priority:'High', status:'closed', created:'Jul 28, 2026 · 10:00 AM', updated:'Jul 30, 2026 · 03:00 PM', assignedTo:'Rupayan', closedBy:'Rupayan', closedOn:'Jul 30, 2026', closeReason:'Policy Violation', messages:[{from:'user',name:'Rohan Verma',text:'My account was suspended. I did not violate any terms.',time:'10:00 AM'},{from:'support',name:'Rupayan',text:'Upon review, the account was flagged for multiple invalid coupon submissions. Suspension stands.',time:'3:00 PM'}] },
+  { id:'SC-1010', subject:'Cannot update payment method', user:'Pooja Nair', email:'pooja.n@gmail.com', category:'Billing', priority:'Low', status:'closed', created:'Jul 25, 2026 · 09:00 AM', updated:'Jul 26, 2026 · 04:00 PM', assignedTo:'Jaggik', closedBy:'Jaggik', closedOn:'Jul 26, 2026', closeReason:'Resolved & Confirmed', messages:[{from:'user',name:'Pooja Nair',text:'The app does not let me add a new UPI ID.',time:'9:00 AM'},{from:'support',name:'Jaggik',text:'Updated in the latest app version. Issue resolved.',time:'4:00 PM'}] },
+  { id:'SC-1011', subject:'Missing discount on Myntra order', user:'Kavya Reddy', email:'kavya.r@gmail.com', category:'Coupon', priority:'Medium', status:'open', created:'Aug 9, 2026 · 07:30 AM', updated:'Aug 9, 2026 · 07:30 AM', assignedTo:'Unassigned', sla:'5h remaining', messages:[{from:'user',name:'Kavya Reddy',text:'The MYNTRA200 coupon did not apply any discount on my order.',time:'7:30 AM'}], closeReason:'' },
+  { id:'SC-1012', subject:'Two-factor authentication not sending OTP', user:'Kiran Bose', email:'kiran.b@gmail.com', category:'Technical', priority:'High', status:'open', created:'Aug 9, 2026 · 06:00 AM', updated:'Aug 9, 2026 · 06:00 AM', assignedTo:'Unassigned', sla:'3h remaining', messages:[{from:'user',name:'Kiran Bose',text:'2FA OTP is not being delivered to my registered number.',time:'6:00 AM'}], closeReason:'' },
+];
+
+let currentViewId = null;
+let activeFilters = { open:'', inprogress:'', resolved:'', closed:'' };
+let activePriorityFilter = { open:'', inprogress:'', resolved:'', closed:'' };
+let activeCategoryFilter = { open:'', inprogress:'', resolved:'', closed:'' };
+
+// ─────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────
+function priorityBadge(p) {
+  const map = { Critical:'badge-red', High:'badge-orange', Medium:'badge-blue', Low:'badge-gray' };
+  const dot = { Critical:'#ef9a9a', High:'#ffb74d', Medium:'#4fc3f7', Low:'#6b88aa' };
+  return `<span class="badge ${map[p]||'badge-gray'}"><span class="priority-dot" style="background:${dot[p]||'#6b88aa'}"></span>${p}</span>`;
+}
+
+function categoryBadge(c) {
+  const map = { Billing:'badge-purple', Technical:'badge-blue', Coupon:'badge-orange', Account:'badge-teal', Other:'badge-gray' };
+  const icon = { Billing:'💳', Technical:'🔧', Coupon:'🎟️', Account:'👤', Other:'📦' };
+  return `<span class="badge ${map[c]||'badge-gray'}">${icon[c]||''}${c}</span>`;
+}
+
+function slaSpan(sla) {
+  if (!sla) return '—';
+  const overdue = sla === 'OVERDUE';
+  return `<span style="font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;color:${overdue?'#ef9a9a':'#00e676'}">${sla}</span>`;
+}
+
+function avatarHtml(name) {
+  const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  return `<div class="u-avatar" title="${name}">${initials}</div>`;
+}
+
+function nowStr() {
+  const d = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const h = d.getHours(); const m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function timeOnly() {
+  const d = new Date();
+  const h = d.getHours(); const m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+// ─────────────────────────────────────────
+// RENDER TABLES
+// ─────────────────────────────────────────
+function getFilteredCases(status) {
+  let filtered = cases.filter(c => c.status === status);
+  const search = activeFilters[status] || '';
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(c => c.id.toLowerCase().includes(q) || c.subject.toLowerCase().includes(q) || c.user.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
+  }
+  const pf = activePriorityFilter[status] || '';
+  if (pf) filtered = filtered.filter(c => c.priority === pf);
+  const cf = activeCategoryFilter[status] || '';
+  if (cf) filtered = filtered.filter(c => c.category === cf);
+  return filtered;
+}
+
+function renderTable(status) {
+  const filtered = getFilteredCases(status);
+  const tbody = document.getElementById(`tbody-${status}`);
+  const empty = document.getElementById(`empty-${status}`);
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    tbody.closest('.overflow-x').style.display = 'none';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  tbody.closest('.overflow-x').style.display = '';
+
+  tbody.innerHTML = filtered.map(c => {
+    if (status === 'open') {
+      return `<tr>
+        <td><strong style="font-family:'JetBrains Mono',monospace">${c.id}</strong></td>
+        <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.subject}"><strong>${c.subject}</strong></td>
+        <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${c.user}</div></td>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${priorityBadge(c.priority)}</td>
+        <td style="font-size:.78rem;color:#6b88aa">${c.created}</td>
+        <td>${slaSpan(c.sla)}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewCase('${c.id}')">View</button>
+            <button class="btn btn-info btn-sm" onclick="quickStatus('${c.id}','inprogress')">Start</button>
+            <button class="btn btn-danger btn-sm" onclick="quickStatus('${c.id}','closed')">Close</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    if (status === 'inprogress') {
+      return `<tr>
+        <td><strong style="font-family:'JetBrains Mono',monospace">${c.id}</strong></td>
+        <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.subject}"><strong>${c.subject}</strong></td>
+        <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${c.user}</div></td>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${priorityBadge(c.priority)}</td>
+        <td><span style="font-size:.82rem;color:#e2ecff;font-weight:600">${c.assignedTo}</span></td>
+        <td style="font-size:.78rem;color:#6b88aa">${c.updated}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewCase('${c.id}')">View</button>
+            <button class="btn btn-success btn-sm" onclick="quickStatus('${c.id}','resolved')">Resolve</button>
+            <button class="btn btn-danger btn-sm" onclick="quickStatus('${c.id}','closed')">Close</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    if (status === 'resolved') {
+      return `<tr>
+        <td><strong style="font-family:'JetBrains Mono',monospace">${c.id}</strong></td>
+        <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.subject}"><strong>${c.subject}</strong></td>
+        <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${c.user}</div></td>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${priorityBadge(c.priority)}</td>
+        <td><span style="font-size:.82rem;color:#00e676;font-weight:600">${c.resolvedBy||c.assignedTo}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#00e676">${c.resolutionTime||'—'}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewCase('${c.id}')">View</button>
+            <button class="btn btn-warning btn-sm" onclick="quickStatus('${c.id}','open')">Reopen</button>
+            <button class="btn btn-danger btn-sm" onclick="quickStatus('${c.id}','closed')">Close</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    if (status === 'closed') {
+      return `<tr>
+        <td><strong style="font-family:'JetBrains Mono',monospace">${c.id}</strong></td>
+        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.subject}"><strong>${c.subject}</strong></td>
+        <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${c.user}</div></td>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${priorityBadge(c.priority)}</td>
+        <td><span style="font-size:.82rem;color:#ce93d8;font-weight:600">${c.closedBy||c.assignedTo}</span></td>
+        <td><span class="badge badge-gray">${c.closeReason||'—'}</span></td>
+        <td style="font-size:.78rem;color:#6b88aa">${c.closedOn||c.updated}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewCase('${c.id}')">View</button>
+            <button class="btn btn-warning btn-sm" onclick="quickStatus('${c.id}','open')">Reopen</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    return '';
+  }).join('');
+}
+
+// ─────────────────────────────────────────
+// STATS
+// ─────────────────────────────────────────
+function updateStats() {
+  const counts = { open:0, inprogress:0, resolved:0, closed:0 };
+  cases.forEach(c => counts[c.status]++);
+  const total = cases.length || 1;
+
+  document.getElementById('statOpen').textContent = counts.open;
+  document.getElementById('statProgress').textContent = counts.inprogress;
+  document.getElementById('statResolved').textContent = counts.resolved;
+  document.getElementById('statClosed').textContent = counts.closed;
+
+  document.getElementById('tabBadgeOpen').textContent = counts.open;
+  document.getElementById('tabBadgeProgress').textContent = counts.inprogress;
+  document.getElementById('tabBadgeResolved').textContent = counts.resolved;
+  document.getElementById('tabBadgeClosed').textContent = counts.closed;
+  document.getElementById('sidebarOpenBadge').textContent = counts.open;
+
+  document.getElementById('progOpen').style.width = ((counts.open/total)*100)+'%';
+  document.getElementById('progProgress').style.width = ((counts.inprogress/total)*100)+'%';
+  document.getElementById('progResolved').style.width = ((counts.resolved/total)*100)+'%';
+  document.getElementById('progClosed').style.width = ((counts.closed/total)*100)+'%';
+}
+
+// ─────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────
+function switchTab(status) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${status}`).classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tcontent-${status}`).classList.add('active');
+}
+
+// ─────────────────────────────────────────
+// FILTERS & SORT
+// ─────────────────────────────────────────
+function filterTable(status, value) {
+  activeFilters[status] = value;
+  renderTable(status);
+}
+function filterByPriority(status, value) {
+  activePriorityFilter[status] = value;
+  renderTable(status);
+}
+function filterByCategory(status, value) {
+  activeCategoryFilter[status] = value;
+  renderTable(status);
+}
+function sortTable(status, by) {
+  // Toggle sort direction
+  cases.sort((a,b) => a.created < b.created ? 1 : -1);
+  renderTable(status);
+  showToast('Sorted by date (newest first)', 'success');
+}
+function globalSearchCases(val) {
+  ['open','inprogress','resolved','closed'].forEach(s => { activeFilters[s] = val; renderTable(s); });
+}
+
+// ─────────────────────────────────────────
+// VIEW CASE DETAIL
+// ─────────────────────────────────────────
+function viewCase(id) {
+  const c = cases.find(x => x.id === id);
+  if (!c) return;
+  currentViewId = id;
+
+  document.getElementById('vcTitle').innerHTML = `${c.id} <span class="gtext">Detail</span>`;
+  document.getElementById('vcSubtitle').textContent = c.subject;
+
+  const statusBadge = { open:'badge-orange', inprogress:'badge-blue', resolved:'badge-green', closed:'badge-purple' };
+  const statusLabel = { open:'Open', inprogress:'In Progress', resolved:'Resolved', closed:'Closed' };
+
+  document.getElementById('vcMeta').innerHTML = `
+    <div class="detail-meta-item"><div class="detail-meta-label">Status</div><div class="detail-meta-value"><span class="badge ${statusBadge[c.status]}">${statusLabel[c.status]}</span></div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">Priority</div><div class="detail-meta-value">${priorityBadge(c.priority)}</div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">User</div><div class="detail-meta-value">${c.user} (${c.email})</div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">Category</div><div class="detail-meta-value">${categoryBadge(c.category)}</div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">Created</div><div class="detail-meta-value">${c.created}</div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">Assigned To</div><div class="detail-meta-value">${c.assignedTo||'Unassigned'}</div></div>
+  `;
+
+  document.getElementById('vcMessages').innerHTML = (c.messages || []).map(m => `
+    <div>
+      <div class="msg-meta">${m.name} · ${m.time}</div>
+      <div class="msg-bubble ${m.from==='user'?'msg-user':'msg-support'}">${m.text}</div>
+    </div>
+  `).join('');
+
+  openModal('viewCaseModal');
+  setTimeout(() => {
+    const msgBox = document.getElementById('vcMessages');
+    msgBox.scrollTop = msgBox.scrollHeight;
+  }, 100);
+}
+
+// ─────────────────────────────────────────
+// SEND REPLY
+// ─────────────────────────────────────────
+function sendReply() {
+  const text = document.getElementById('vcReplyText').value.trim();
+  if (!text || !currentViewId) return;
+
+  const c = cases.find(x => x.id === currentViewId);
+  if (!c) return;
+
+  c.messages.push({ from:'support', name:'Admin', text, time:timeOnly() });
+  c.updated = nowStr();
+  document.getElementById('vcReplyText').value = '';
+  viewCase(currentViewId);
+  showToast('Reply sent successfully!', 'success');
+}
+
+// ─────────────────────────────────────────
+// CHANGE STATUS
+// ─────────────────────────────────────────
+function changeStatus(newStatus) {
+  if (!currentViewId) return;
+  const c = cases.find(x => x.id === currentViewId);
+  if (!c) return;
+
+  c.status = newStatus;
+  c.updated = nowStr();
+  if (newStatus === 'resolved') { c.resolvedBy = 'Admin'; c.resolutionTime = 'Just now'; }
+  if (newStatus === 'closed') { c.closedBy = 'Admin'; c.closedOn = nowStr(); c.closeReason = c.closeReason || 'Resolved & Confirmed'; }
+
+  closeModal('viewCaseModal');
+  renderAll();
+  showToast(`Case ${c.id} moved to ${newStatus}`, 'success');
+}
+
+function quickStatus(id, newStatus) {
+  const c = cases.find(x => x.id === id);
+  if (!c) return;
+
+  c.status = newStatus;
+  c.updated = nowStr();
+  if (newStatus === 'inprogress' && c.assignedTo === 'Unassigned') c.assignedTo = 'Admin';
+  if (newStatus === 'resolved') { c.resolvedBy = 'Admin'; c.resolutionTime = 'Just now'; }
+  if (newStatus === 'closed') { c.closedBy = 'Admin'; c.closedOn = nowStr(); c.closeReason = c.closeReason || 'Resolved & Confirmed'; }
+
+  renderAll();
+  showToast(`Case ${c.id} → ${newStatus}`, 'success');
+}
+
+// ─────────────────────────────────────────
+// CREATE CASE
+// ─────────────────────────────────────────
+function createCase(e) {
+  e.preventDefault();
+  const nextId = 'SC-' + (1000 + cases.length + 1);
+
+  const newCase = {
+    id: nextId,
+    subject: document.getElementById('nc-subject').value.trim(),
+    user: document.getElementById('nc-user').value.trim(),
+    email: document.getElementById('nc-email').value.trim(),
+    category: document.getElementById('nc-category').value,
+    priority: document.getElementById('nc-priority').value,
+    status: 'open',
+    created: nowStr(),
+    updated: nowStr(),
+    assignedTo: document.getElementById('nc-assign').value,
+    sla: '6h remaining',
+    messages: [{ from:'user', name:document.getElementById('nc-user').value.trim(), text:document.getElementById('nc-desc').value.trim() || document.getElementById('nc-subject').value.trim(), time:timeOnly() }],
+    closeReason: '',
+  };
+
+  cases.unshift(newCase);
+  closeModal('newCaseModal');
+  document.getElementById('newCaseForm').reset();
+  switchTab('open');
+  renderAll();
+  showToast(`Case ${nextId} created successfully!`, 'success');
+}
+
+// ─────────────────────────────────────────
+// EXPORT
+// ─────────────────────────────────────────
+function exportCases(status) {
+  const data = status ? cases.filter(c => c.status === status) : cases;
+  const csv = ['ID,Subject,User,Email,Category,Priority,Status,Created,Assigned To'];
+  data.forEach(c => csv.push(`${c.id},"${c.subject}",${c.user},${c.email},${c.category},${c.priority},${c.status},"${c.created}",${c.assignedTo}`));
+  const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `support-cases-${status||'all'}-${Date.now()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${data.length} cases as CSV`, 'success');
+}
+
+// ─────────────────────────────────────────
+// CATEGORY BREAKDOWN
+// ─────────────────────────────────────────
+function renderCategoryBreakdown() {
+  const cats = {};
+  cases.forEach(c => cats[c.category] = (cats[c.category] || 0) + 1);
+  const total = cases.length || 1;
+  const colors = { Billing:'#ce93d8', Technical:'#4fc3f7', Coupon:'#ffb74d', Account:'#80cbc4', Other:'#6b88aa' };
+
+  document.getElementById('categoryBreakdown').innerHTML = Object.entries(cats).map(([cat, count]) => `
+    <div class="info-row">
+      <span class="irl">${categoryBadge(cat)}</span>
+      <span class="irv">${count}</span>
+    </div>
+    <div class="prog-bar" style="margin-bottom:12px"><div class="prog-fill" style="width:${(count/total)*100}%;background:${colors[cat]||'#4fc3f7'}"></div></div>
+  `).join('');
+}
+
+// ─────────────────────────────────────────
+// RECENT ACTIVITY
+// ─────────────────────────────────────────
+function renderRecentActivity() {
+  const recent = [...cases].sort((a,b) => a.updated < b.updated ? 1 : -1).slice(0, 6);
+  const dotColors = { open:'#ffb74d', inprogress:'#4fc3f7', resolved:'#00e676', closed:'#ce93d8' };
+  const statusVerbs = { open:'opened', inprogress:'started working on', resolved:'resolved', closed:'closed' };
+
+  document.getElementById('recentActivity').innerHTML = recent.map(c => `
+    <div class="activity-item">
+      <div class="activity-dot" style="background:${dotColors[c.status]}"></div>
+      <div class="activity-text"><strong>${c.assignedTo||'System'}</strong> ${statusVerbs[c.status]||'updated'} <strong>${c.id}</strong> — ${c.subject}</div>
+      <div class="activity-time">${c.updated.split('·')[1]?.trim()||''}</div>
+    </div>
+  `).join('');
+}
+
+// ─────────────────────────────────────────
+// MODALS
+// ─────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(ov => {
+  ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); });
+});
+
+// ─────────────────────────────────────────
+// SIDEBAR
+// ─────────────────────────────────────────
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('show');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('show');
+}
+
+// ─────────────────────────────────────────
+// TOAST
+// ─────────────────────────────────────────
+function showToast(msg, type='success') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `<span>${type==='success'?'✅':'❌'} ${msg}</span><button class="toast-close" onclick="this.parentElement.remove()">✕</button>`;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.animation = 'slideOutRight .3s forwards'; setTimeout(() => toast.remove(), 300); }, 4000);
+}
+
+// ─────────────────────────────────────────
+// RENDER ALL
+// ─────────────────────────────────────────
+function renderAll() {
+  ['open','inprogress','resolved','closed'].forEach(renderTable);
+  updateStats();
+  renderCategoryBreakdown();
+  renderRecentActivity();
+}
+
+// Init
+renderAll();
+</script>
+</body>
+</html>
