@@ -350,16 +350,12 @@ function openAuthModal(mode = 'login') {
         });
         Auth.setAuth(data.token, data.user);
 
-        // Admin role → redirect to admin panel
-        if (data.user.role === 'admin') {
+        if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
           Auth.setAdminAuth(data.token, data.user);
-          showToast(`Welcome Admin ${data.user.name}! 🛡️`, 'success');
           closeAuthModal();
-          setTimeout(() => window.location.href = 'vault', 150);
+          window.location.href = 'vault';
           return;
         }
-
-        showToast('Welcome back! 👋', 'success');
       } else {
         const name = document.getElementById('authName').value;
         const data = await api('/auth/register', {
@@ -367,7 +363,6 @@ function openAuthModal(mode = 'login') {
           body: { email, password, name },
         });
         Auth.setAuth(data.token, data.user);
-        showToast('Account created successfully! 🎉', 'success');
       }
 
       closeAuthModal();
@@ -375,7 +370,7 @@ function openAuthModal(mode = 'login') {
 
       const currentPage = window.location.pathname.split('/').pop();
       if (currentPage === 'login.html' || currentPage === 'login') {
-        setTimeout(() => window.location.href = 'index', 150);
+        window.location.href = 'index';
       }
     } catch (err) {
       showToast(err.message, 'error');

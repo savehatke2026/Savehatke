@@ -294,15 +294,12 @@
                     body: { email: profile.email, name: profile.name, picture: profile.picture }
                   });
                   Auth.setAuth(data.token, data.user);
-                  showToast('🎉 Logged in with Google!', 'success', 800);
-                  setTimeout(() => {
-                    if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-                      Auth.setAdminAuth(data.token, data.user);
-                      window.location.replace('vault');
-                    } else {
-                      window.location.replace('index');
-                    }
-                  }, 150);
+                  if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+                    Auth.setAdminAuth(data.token, data.user);
+                    window.location.replace('vault');
+                  } else {
+                    window.location.replace('index');
+                  }
                   return;
                 }
               } catch (e) {
@@ -398,17 +395,12 @@
         body: { email },
       });
       Auth.setAuth(data.token, data.user);
-
-      showToast('🎉 Login successful! Redirecting...', 'success', 800);
-
-      setTimeout(() => {
-        if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-          Auth.setAdminAuth(data.token, data.user);
-          window.location.replace('vault');
-        } else {
-          window.location.replace('index');
-        }
-      }, 150);
+      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+        Auth.setAdminAuth(data.token, data.user);
+        window.location.replace('vault');
+      } else {
+        window.location.replace('index');
+      }
     } catch (err) {
       showToast(err.message || 'Authentication failed. Please check your email.', 'error');
       if (btn) {

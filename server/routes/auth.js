@@ -445,9 +445,9 @@ router.post('/google', async (req, res) => {
       });
     }
 
-    // Save/Find user EXCLUSIVELY in Google Sheets (Users tab)
+    // Save/Find user in Google Sheets (Users tab) asynchronously
     const now = new Date().toISOString();
-    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail);
+    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
       const userId = uuidv4();
       sheetUser = {
@@ -462,12 +462,12 @@ router.post('/google', async (req, res) => {
         last_login_at: now,
         last_logout_at: '',
       };
-      await db.appendRow(db.SHEETS.USERS, sheetUser);
+      db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
     } else {
-      await db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
+      db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
         last_login_at: now,
         updated_at: now,
-      });
+      }).catch((e) => console.warn('GSheet update notice:', e.message));
     }
 
     const token = generateToken({
