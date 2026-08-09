@@ -7,6 +7,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
+const supabase = require('../services/supabase');
 
 const router = express.Router();
 
@@ -53,8 +54,23 @@ router.post('/register', async (req, res) => {
       last_logout_at: '',
     };
 
-    // Save exclusively to Google Sheets (Users tab)
+    // Save profile details to Google Sheets (Users tab)
     await db.appendRow(db.SHEETS.USERS, sheetUser);
+
+    // Dual-sync password hash securely to Supabase (not stored in Sheets)
+    if (supabase.isConfigured()) {
+      try {
+        await supabase.createUser({
+          user_id: userId,
+          name: cleanName,
+          email: cleanEmail,
+          password_hash: passwordHash,
+          username: cleanUsername,
+        });
+      } catch (spErr) {
+        console.warn('Supabase password hash storage notice:', spErr.message);
+      }
+    }
 
     // Generate token
     const token = generateToken({
@@ -179,10 +195,11 @@ router.post('/login', async (req, res) => {
       }
 
       const now = new Date().toISOString();
-      await db.updateRow(db.SHEETS.USERS, 'email', loginEmail, {
+      // Non-blocking background timestamp update to ensure instant response
+      db.updateRow(db.SHEETS.USERS, 'email', loginEmail, {
         last_login_at: now,
         updated_at: now,
-      });
+      }).catch((e) => console.warn('Background timestamp update notice:', e.message));
 
       const token = generateToken({
         id: sheetUser.user_id || sheetUser.id,

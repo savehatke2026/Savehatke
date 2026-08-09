@@ -341,10 +341,12 @@
   async function handleAuthSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
-    btn.disabled = true;
-    btn.textContent = 'Please wait...';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+    }
 
-    const email = document.getElementById('inputEmail').value.trim();
+    const email = document.getElementById('inputEmail')?.value?.trim();
 
     try {
       const data = await api('/auth/login', {
@@ -353,16 +355,22 @@
       });
       Auth.setAuth(data.token, data.user);
 
-      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-        Auth.setAdminAuth(data.token, data.user);
-        window.location.replace('admin.html');
-      } else {
-        window.location.replace('index.html');
-      }
+      showToast('🎉 Login successful! Redirecting...', 'success', 1000);
+
+      setTimeout(() => {
+        if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+          Auth.setAdminAuth(data.token, data.user);
+          window.location.replace('admin.html');
+        } else {
+          window.location.replace('index.html');
+        }
+      }, 1000);
     } catch (err) {
       showToast(err.message || 'Authentication failed. Please check your email.', 'error');
-      btn.disabled = false;
-      btn.textContent = 'Continue →';
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Continue →';
+      }
     }
   }
 </script>
