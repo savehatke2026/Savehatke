@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const UAParser = require('ua-parser-js');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
@@ -10,6 +11,71 @@ const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 
 const router = express.Router();
+
+/**
+ * Extract device info from User-Agent and create a session in Supabase.
+ * Runs non-blocking (fire-and-forget) so it never delays login response.
+ */
+async function createLoginSession(req, userId, loginMethod) {
+  try {
+    const ua = new UAParser(req.headers['user-agent'] || '');
+    const device = ua.getDevice();
+    const os = ua.getOS();
+    const browser = ua.getBrowser();
+
+    // Build friendly device string
+    let deviceStr = '';
+    if (device.vendor && device.model) {
+      deviceStr = `${device.vendor} ${device.model}`;
+    } else if (device.vendor) {
+      deviceStr = device.vendor;
+    } else {
+      deviceStr = device.type || 'Desktop';
+    }
+
+    const osStr = os.name ? `${os.name}${os.version ? ' ' + os.version : ''}` : '';
+    const browserStr = browser.name ? `${browser.name}${browser.version ? ' ' + browser.version.split('.')[0] : ''}` : '';
+
+    // IP address
+    const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
+      || req.headers['x-real-ip']
+      || req.connection?.remoteAddress
+      || req.ip
+      || '';
+
+    // Geo-IP lookup (free service, best-effort)
+    let country = '', state = '', city = '';
+    if (ip && ip !== '127.0.0.1' && ip !== '::1' && !ip.startsWith('192.168')) {
+      try {
+        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=country,regionName,city`);
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          country = geo.country || '';
+          state = geo.regionName || '';
+          city = geo.city || '';
+          // Add flag for India
+          if (country === 'India') country = 'India 🇮🇳';
+        }
+      } catch (e) {
+        // Geo lookup failed, continue without it
+      }
+    }
+
+    await supabase.createSession({
+      user_id: userId,
+      device: deviceStr,
+      os: osStr,
+      browser: browserStr,
+      country,
+      state,
+      city,
+      ip_address: ip,
+      login_method: loginMethod,
+    });
+  } catch (err) {
+    console.warn('Session creation notice:', err.message);
+  }
+}
 
 function getSheetsFallbackError(message) {
   return db.getWriteAvailabilityError(message);
@@ -80,6 +146,9 @@ router.post('/register', async (req, res) => {
       role: 'user',
     });
 
+    // Fire-and-forget session tracking
+    createLoginSession(req, userId, 'Email').catch(() => {});
+
     res.status(201).json({
       message: 'Account created successfully in Google Sheets! 📊',
       token,
@@ -136,6 +205,9 @@ router.post('/login', async (req, res) => {
               role: 'admin',
             }, '12h');
 
+            // Fire-and-forget session tracking
+            createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Email').catch(() => {});
+
             return res.json({
               message: 'Admin login successful.',
               token,
@@ -167,11 +239,15 @@ router.post('/login', async (req, res) => {
         role: 'admin',
       }, '12h');
 
+      const hardcodedId = uuidv4();
+      // Fire-and-forget session tracking
+      createLoginSession(req, hardcodedId, 'Email').catch(() => {});
+
       return res.json({
         message: 'Admin login successful.',
         token,
         user: {
-          id: uuidv4(),
+          id: hardcodedId,
           email: hardcoded.email,
           name: hardcoded.name,
           role: 'admin',
@@ -207,6 +283,9 @@ router.post('/login', async (req, res) => {
         name: sheetUser.name,
         role: 'user',
       });
+
+      // Fire-and-forget session tracking
+      createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email').catch(() => {});
 
       return res.json({
         message: 'Login successful.',
@@ -249,6 +328,9 @@ router.post('/login', async (req, res) => {
       name: displayName,
       role: 'user',
     });
+
+    // Fire-and-forget session tracking
+    createLoginSession(req, newUserId, 'Email').catch(() => {});
 
     res.json({
       message: 'Login successful.',
@@ -334,6 +416,9 @@ router.post('/google', async (req, res) => {
         role: 'admin',
       }, '12h');
 
+      // Fire-and-forget session tracking
+      createLoginSession(req, adminId, 'Google').catch(() => {});
+
       return res.json({
         message: 'Admin Google login successful.',
         token,
@@ -379,6 +464,9 @@ router.post('/google', async (req, res) => {
       role: 'user',
     });
 
+    // Fire-and-forget session tracking
+    createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google').catch(() => {});
+
     res.json({
       message: 'Google login successful.',
       token,
@@ -399,20 +487,36 @@ router.post('/google', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout — Record last_logout_at timestamp in Google Sheets
+// POST /api/auth/logout — Record last_logout_at in G Sheet + end Supabase session
 router.post('/logout', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, user_id, session_id } = req.body;
+    const now = new Date().toISOString();
+
+    // Update G Sheet user record
     if (email) {
-      const now = new Date().toISOString();
-      await db.updateRow(db.SHEETS.USERS, 'email', email.toLowerCase().trim(), {
+      db.updateRow(db.SHEETS.USERS, 'email', email.toLowerCase().trim(), {
         last_logout_at: now,
         updated_at: now,
-      });
+      }).catch((e) => console.warn('Logout G Sheet notice:', e.message));
     }
+
+    // End session(s) in Supabase
+    if (session_id) {
+      supabase.endSession(session_id).catch(() => {});
+    } else if (user_id) {
+      supabase.endAllUserSessions(user_id).catch(() => {});
+    } else if (email) {
+      // Find user_id from G Sheet then end sessions
+      const sheetUser = await db.findRow(db.SHEETS.USERS, 'email', email.toLowerCase().trim());
+      if (sheetUser && (sheetUser.user_id || sheetUser.id)) {
+        supabase.endAllUserSessions(sheetUser.user_id || sheetUser.id).catch(() => {});
+      }
+    }
+
     res.json({ message: 'Logged out successfully.' });
   } catch (err) {
-    console.warn('Logout timestamp notice:', err.message);
+    console.warn('Logout notice:', err.message);
     res.json({ message: 'Logged out.' });
   }
 });

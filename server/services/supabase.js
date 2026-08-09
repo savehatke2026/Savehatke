@@ -382,6 +382,203 @@ async function countCoupons(filters = {}) {
   return count || 0;
 }
 
+// ── Session Tracking Operations ─────────────────────────────────────────
+
+/**
+ * Ensure the sessions table exists in Supabase.
+ * Called once on startup; silently succeeds if already present.
+ */
+async function ensureSessionsTable() {
+  const client = getClient();
+  if (!client) return;
+
+  try {
+    // Try a lightweight probe — if it succeeds, the table exists
+    await client.from('sessions').select('session_id').limit(1);
+  } catch (err) {
+    // Table likely doesn't exist — try to create it via rpc or just log
+    console.warn('Sessions table probe failed (may need manual creation):', err.message);
+    console.warn('Run server/setup_sessions_table.sql in Supabase SQL Editor.');
+  }
+}
+
+/**
+ * Create a new session record when a user logs in.
+ * @param {object} sessionData
+ * @returns {object|null} The created session row
+ */
+async function createSession(sessionData) {
+  const client = getClient();
+  if (!client) return null;
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
+
+  const row = {
+    user_id: sessionData.user_id || '',
+    device: sessionData.device || '',
+    os: sessionData.os || '',
+    browser: sessionData.browser || '',
+    country: sessionData.country || '',
+    state: sessionData.state || '',
+    city: sessionData.city || '',
+    ip_address: sessionData.ip_address || '',
+    login_method: sessionData.login_method || 'Email',
+    login_time: now.toISOString(),
+    last_active: now.toISOString(),
+    expires_at: expiresAt.toISOString(),
+    status: 'Active',
+  };
+
+  try {
+    const { data, error } = await client
+      .from('sessions')
+      .insert(row)
+      .select()
+      .single();
+
+    if (error) {
+      console.warn('Create session warning:', error.message);
+      return null;
+    }
+    return data;
+  } catch (err) {
+    console.warn('Create session exception:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Update last_active timestamp for a session (heartbeat).
+ */
+async function updateSessionActivity(sessionId) {
+  const client = getClient();
+  if (!client) return;
+
+  try {
+    await client
+      .from('sessions')
+      .update({ last_active: new Date().toISOString() })
+      .eq('session_id', sessionId);
+  } catch (err) {
+    console.warn('Update session activity warning:', err.message);
+  }
+}
+
+/**
+ * End a session (logout or expiry).
+ * @param {string} sessionId
+ * @param {string} reason - 'Logged out' or 'Expired'
+ */
+async function endSession(sessionId, reason = 'Logged out') {
+  const client = getClient();
+  if (!client) return;
+
+  const now = new Date().toISOString();
+  const updates = {
+    status: reason,
+    last_active: now,
+  };
+  if (reason === 'Logged out') {
+    updates.logged_out_at = now;
+  }
+
+  try {
+    await client
+      .from('sessions')
+      .update(updates)
+      .eq('session_id', sessionId);
+  } catch (err) {
+    console.warn('End session warning:', err.message);
+  }
+}
+
+/**
+ * End all active sessions for a user (used during logout when session_id is unknown).
+ */
+async function endAllUserSessions(userId) {
+  const client = getClient();
+  if (!client) return;
+
+  const now = new Date().toISOString();
+  try {
+    await client
+      .from('sessions')
+      .update({
+        status: 'Logged out',
+        logged_out_at: now,
+        last_active: now,
+      })
+      .eq('user_id', userId)
+      .eq('status', 'Active');
+  } catch (err) {
+    console.warn('End all user sessions warning:', err.message);
+  }
+}
+
+/**
+ * Get all sessions (for admin panel).
+ */
+async function getAllSessions() {
+  const client = getClient();
+  if (!client) return [];
+
+  try {
+    const { data, error } = await client
+      .from('sessions')
+      .select('*')
+      .order('login_time', { ascending: false })
+      .limit(200);
+
+    if (error) return [];
+    return data || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Get sessions for a specific user.
+ */
+async function getUserSessions(userId) {
+  const client = getClient();
+  if (!client) return [];
+
+  try {
+    const { data, error } = await client
+      .from('sessions')
+      .select('*')
+      .eq('user_id', userId)
+      .order('login_time', { ascending: false })
+      .limit(50);
+
+    if (error) return [];
+    return data || [];
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Count active sessions.
+ */
+async function countActiveSessions() {
+  const client = getClient();
+  if (!client) return 0;
+
+  try {
+    const { count, error } = await client
+      .from('sessions')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'Active');
+
+    if (error) return 0;
+    return count || 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
 module.exports = {
   getClient,
   isConfigured,
@@ -401,4 +598,14 @@ module.exports = {
   updateCoupon,
   deleteCoupon,
   countCoupons,
+  // Session methods
+  ensureSessionsTable,
+  createSession,
+  updateSessionActivity,
+  endSession,
+  endAllUserSessions,
+  getAllSessions,
+  getUserSessions,
+  countActiveSessions,
 };
+

@@ -109,6 +109,12 @@ async function initServices() {
   if (!sheetsConnected) {
     console.warn('⚠️  Google Sheets unavailable. Operating in memory fallback mode.');
   }
+
+  // Ensure Supabase sessions table exists
+  const supabase = require('./services/supabase');
+  if (supabase.isConfigured()) {
+    await supabase.ensureSessionsTable();
+  }
 }
 
 // Run initialization immediately

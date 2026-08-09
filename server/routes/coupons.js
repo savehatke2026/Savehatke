@@ -16,28 +16,27 @@ router.get('/', optionalAuth, async (req, res) => {
     const { category, search, source } = req.query;
     let available = [];
 
-    if (supabase.isConfigured()) {
+    // Primary source: Google Sheets (admin-managed coupons)
+    try {
+      const allCoupons = await db.getRows(db.SHEETS.COUPONS);
+      available = allCoupons.filter((c) => c.status === 'available');
+    } catch (e) {
+      console.warn('G Sheet coupons read warning:', e.message);
+    }
+
+    // Fallback: Supabase if G Sheet returned nothing
+    if (available.length === 0 && supabase.isConfigured()) {
       try {
-        available = await supabase.getCoupons({ status: 'available', category, source });
+        available = await supabase.getCoupons({ status: 'available' });
       } catch (e) {}
     }
 
-    if (available.length === 0) {
-      const allCoupons = await db.getRows(db.SHEETS.COUPONS);
-      available = allCoupons.filter((c) => c.status === 'available');
-
-      if (category && category !== 'all') {
-        available = available.filter((c) => c.category.toLowerCase() === category.toLowerCase());
-      }
-      if (search) {
-        const q = search.toLowerCase();
-        available = available.filter(
-          (c) => c.brand.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)
-        );
-      }
-      if (source) {
-        available = available.filter((c) => c.source === source);
-      }
+    // Apply filters
+    if (category && category !== 'all') {
+      available = available.filter((c) => (c.category || '').toLowerCase() === category.toLowerCase());
+    }
+    if (source) {
+      available = available.filter((c) => c.source === source);
     }
 
     if (search) {
@@ -52,7 +51,9 @@ router.get('/', optionalAuth, async (req, res) => {
       id: c.id,
       category: c.category,
       brand: c.brand,
+      title: c.title || '',
       description: c.description,
+      discount: c.discount || '',
       originalValue: c.originalValue,
       sellingPrice: c.sellingPrice,
       source: c.source,

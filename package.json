@@ -8,6 +8,7 @@
     "dev": "node --watch server/server.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.48.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -17,7 +18,7 @@
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^9.9.1",
-    "@supabase/supabase-js": "^2.48.1",
+    "ua-parser-js": "^2.0.10",
     "uuid": "^10.0.0"
   }
 }
