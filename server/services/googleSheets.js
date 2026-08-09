@@ -22,7 +22,6 @@ const HEADERS = {
     'name',
     'username',
     'email',
-    'passwordHash',
     'status',
     'created_at',
     'updated_at',
