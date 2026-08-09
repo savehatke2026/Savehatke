@@ -18,8 +18,10 @@ const SHEETS = {
 const HEADERS = {
   [SHEETS.USERS]: ['id', 'email', 'passwordHash', 'name', 'createdAt'],
   [SHEETS.COUPONS]: [
-    'id', 'code', 'category', 'brand', 'description',
-    'originalValue', 'sellingPrice', 'sellerEmail', 'status',
+    'id', 'code', 'title', 'type', 'category', 'brand', 'description',
+    'discount', 'originalValue', 'sellingPrice', 'minOrderValue',
+    'validFrom', 'expiryDate', 'affiliateLink', 'terms',
+    'isFeatured', 'isExclusive', 'isVerified', 'sellerEmail', 'status',
     'source', 'addedAt', 'soldAt', 'buyerEmail',
   ],
   [SHEETS.PRICE_TRACKING]: [
@@ -102,12 +104,18 @@ async function ensureSheets() {
         requestBody: { values: [headers] },
       });
     } else {
-      // Verify headers exist
+      // Keep headers in sync so new columns become available in existing sheets.
       const headerRow = await sheetsClient.spreadsheets.values.get({
         spreadsheetId,
         range: `${sheetName}!1:1`,
       });
-      if (!headerRow.data.values || headerRow.data.values.length === 0) {
+      const existingHeaders = headerRow.data.values?.[0] || [];
+      const needsHeaderSync =
+        existingHeaders.length === 0 ||
+        headers.some((header, index) => existingHeaders[index] !== header) ||
+        existingHeaders.length !== headers.length;
+
+      if (needsHeaderSync) {
         await sheetsClient.spreadsheets.values.update({
           spreadsheetId,
           range: `${sheetName}!A1`,

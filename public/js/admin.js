@@ -130,13 +130,22 @@ function initAddCouponForm() {
       const code = document.getElementById('acCode')?.value?.trim() || '';
       const brand = document.getElementById('acBrand')?.value?.trim() || '';
       const title = document.getElementById('acTitle')?.value?.trim() || '';
+      const type = document.getElementById('acType')?.value?.trim() || 'Public';
       const category = document.getElementById('acCategory')?.value || 'General';
       const discount = document.getElementById('acDiscount')?.value?.trim() || '';
       const originalValue = document.getElementById('acValue')?.value?.trim() || discount || '0';
+      const minOrderValue = document.getElementById('acMinOrder')?.value?.trim() || '';
+      const validFrom = document.getElementById('acValidFrom')?.value || '';
+      const expiryDate = document.getElementById('acExpiry')?.value || '';
+      const affiliateLink = document.getElementById('acLink')?.value?.trim() || '';
+      const terms = document.getElementById('acTerms')?.value?.trim() || '';
       const description = title || discount || '';
       const sellingPrice = document.getElementById('acPrice')?.value?.trim() || '15';
       const status = document.getElementById('acStatus')?.value || 'available';
       const source = document.getElementById('acSource')?.value || 'admin';
+      const isFeatured = !!document.getElementById('acFeatured')?.checked;
+      const isExclusive = !!document.getElementById('acExclusive')?.checked;
+      const isVerified = !!document.getElementById('acVerified')?.checked;
 
       if (!code || !brand) {
         showToast('Please select a Brand and enter a Coupon Code.', 'warning');
@@ -151,17 +160,26 @@ function initAddCouponForm() {
           brand,
           category,
           title,
+          type,
           discount,
           originalValue,
+          minOrderValue,
+          validFrom,
+          expiryDate,
+          affiliateLink,
+          terms,
           description,
           sellingPrice,
           status,
           source,
+          isFeatured,
+          isExclusive,
+          isVerified,
         },
       });
 
       showToast(data.message || 'Coupon published to Google Sheets! 📊', 'success');
-      form.reset();
+      resetAddCouponForm(form);
 
       // Automatically switch to All Coupons tab
       if (typeof showCouponTab === 'function') {
@@ -180,6 +198,21 @@ function initAddCouponForm() {
       }
     }
   });
+}
+
+function resetAddCouponForm(form) {
+  form.reset();
+
+  const brandInput = document.getElementById('acBrand');
+  if (brandInput) brandInput.value = '';
+
+  const brandSelectedText = document.getElementById('brandSelectedText');
+  if (brandSelectedText) {
+    brandSelectedText.innerHTML = `
+      <span class="brand-logo-fallback">🏬</span>
+      <span>— Select Brand —</span>
+    `;
+  }
 }
 
 // ── Inventory ───────────────────────────────────────────────────────────
@@ -488,4 +521,3 @@ async function deleteAdminUser(id) {
     showToast(err.message, 'error');
   }
 }
-

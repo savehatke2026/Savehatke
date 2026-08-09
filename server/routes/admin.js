@@ -281,13 +281,34 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
 // POST /api/admin/coupons — Add offline coupon codes manually to Google Sheets
 router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { code, category, brand, title, description, originalValue, discount, sellingPrice, status, source } = req.body;
+    const {
+      code,
+      category,
+      brand,
+      title,
+      type,
+      description,
+      originalValue,
+      discount,
+      minOrderValue,
+      validFrom,
+      expiryDate,
+      affiliateLink,
+      terms,
+      sellingPrice,
+      status,
+      source,
+      isFeatured,
+      isExclusive,
+      isVerified,
+    } = req.body;
 
     if (!code || !brand) {
       return res.status(400).json({ error: 'Coupon code and brand are required.' });
     }
 
     const cleanCode = code.toUpperCase().trim();
+    const sellerEmail = req.user?.email || 'admin@savehatke.com';
 
     // Check for duplicate code in Google Sheets
     const existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
@@ -298,12 +319,23 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
     const coupon = {
       id: uuidv4(),
       code: cleanCode,
+      title: title ? title.trim() : '',
+      type: type ? type.trim() : 'Public',
       category: category ? category.trim() : 'General',
       brand: brand.trim(),
       description: title || description || discount || '',
+      discount: discount ? discount.trim() : '',
       originalValue: originalValue || discount || '0',
       sellingPrice: sellingPrice || '15',
-      sellerEmail: 'admin@savehatke.com',
+      minOrderValue: minOrderValue || '',
+      validFrom: validFrom || '',
+      expiryDate: expiryDate || '',
+      affiliateLink: affiliateLink ? affiliateLink.trim() : '',
+      terms: terms ? terms.trim() : '',
+      isFeatured: String(Boolean(isFeatured)),
+      isExclusive: String(Boolean(isExclusive)),
+      isVerified: String(isVerified !== false),
+      sellerEmail,
       status: status ? status.toLowerCase() : 'available',
       source: source ? source.toLowerCase().replace(/\s+/g, '-') : 'admin',
       addedAt: new Date().toISOString(),
