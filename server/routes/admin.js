@@ -376,30 +376,20 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       buyerEmail: '',
     };
 
-    let saved = null;
-    let savedStorage = 'memory';
+    // Save coupon EXCLUSIVELY to Google Sheets (Coupons tab)
+    const saved = await db.appendRow(db.SHEETS.COUPONS, coupon);
 
-    // Primary: Supabase PostgreSQL
+    // Dual-sync to Supabase as backup if configured
     if (supabase.isConfigured()) {
       try {
-        saved = await supabase.createCoupon(coupon);
-        savedStorage = 'Supabase';
+        await supabase.createCoupon(coupon);
       } catch (err) {
-        console.warn('Supabase createCoupon notice:', err.message);
+        console.warn('Supabase backup createCoupon notice:', err.message);
       }
     }
 
-    // Secondary / Fallback: Google Sheets & memory store
-    try {
-      const gSaved = await db.appendRow(db.SHEETS.COUPONS, coupon);
-      if (!saved) {
-        saved = gSaved;
-        savedStorage = 'Google Sheets/Memory';
-      }
-    } catch (e) {}
-
     res.status(201).json({
-      message: `Coupon published successfully to ${savedStorage}! 🚀`,
+      message: 'Coupon published successfully to Google Sheets! 📊',
       coupon: saved || coupon,
     });
   } catch (err) {
