@@ -4,12 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Log in or create an account on SaveHatke — India's smartest price tracker & coupon marketplace.">
-  <title>Log In / Sign Up — SaveHatke</title>
+  <title>Login — SaveHatke</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
-  <link rel="stylesheet" href="css/styles.css">
   <!-- Google Identity Services SDK -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
@@ -40,84 +39,97 @@
     .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; width: 100%; }
 
     /* NAVBAR */
-    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:64px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); }
+    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
     .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
-    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.2rem; font-weight:800; flex-shrink:0; }
-    .brand-icon { width:32px; height:32px; border-radius:8px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:0.95rem; }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
+    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
     .bhl { color:#00e676; }
-    .nav-links { display:flex; align-items:center; gap:24px; }
-    .nav-links a { font-size:.85rem; font-weight:500; color:#6b88aa; transition:color .2s; }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; }
     .nav-links a:hover { color:#e2ecff; }
     .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
+    .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
+    @media(max-width:768px){
+      .nav-links,.nav-actions{display:none}
+      .nav-toggle{display:flex}
+      .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
+    }
 
-    /* WIDE & LOW HEIGHT AUTH CARD */
-    .auth-section { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; padding: 84px 0 40px; overflow: hidden; }
+    /* BUTTONS */
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; width:100%; text-decoration:none; }
+    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+    .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); width:auto; }
+    .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
+    .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
+
+    /* AUTH SECTION */
+    .auth-section { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; padding: 88px 0 40px; overflow: hidden; }
     .hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 70% 55% at 50% 30%,rgba(0,230,118,.09) 0%,transparent 65%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.08) 0%,transparent 65%); pointer-events:none; }
     .hero-gridbg { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.04) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
 
-    .auth-card { width: 100%; max-width: 520px; border-radius: 20px; padding: 24px 32px; background: rgba(12, 24, 53, 0.88); backdrop-filter: blur(24px); border: 1px solid rgba(79, 195, 247, 0.18); box-shadow: 0 24px 60px rgba(0,0,0,0.55); position: relative; z-index: 10; animation: float 6s ease-in-out infinite; }
-    .auth-hdr { text-align: center; margin-bottom: 16px; }
-    .auth-icon { width: 38px; height: 38px; border-radius: 10px; background: linear-gradient(135deg, rgba(0,230,118,0.2), rgba(79,195,247,0.2)); border: 1px solid rgba(0,230,118,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.15rem; margin: 0 auto 8px; }
-    .auth-title { font-family: 'DM Serif Display', serif; font-size: 1.55rem; margin-bottom: 4px; }
-    .auth-sub { font-size: 0.82rem; color: #a8c0dc; }
+    .auth-card { width:100%; max-width:440px; border-radius:22px; padding:36px 36px 32px; background:rgba(12,24,53,.92); backdrop-filter:blur(24px); border:1px solid rgba(79,195,247,.18); box-shadow:0 32px 80px rgba(0,0,0,.55); position:relative; z-index:10; animation:float 6s ease-in-out infinite; }
 
-    .auth-tabs { display: flex; margin-bottom: 16px; border-radius: 10px; background: rgba(255,255,255,0.04); padding: 3px; border: 1px solid rgba(79,195,247,0.1); }
-    .auth-tab { flex: 1; padding: 8px; border-radius: 7px; border: none; background: transparent; color: #6b88aa; font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; text-align: center; }
-    .auth-tab.active { background: linear-gradient(135deg, #00e676, #00c853); color: #060d1f; box-shadow: 0 4px 14px rgba(0,230,118,0.3); }
+    .auth-hdr { text-align:center; margin-bottom:28px; }
+    .auth-icon { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(79,195,247,.2)); border:1px solid rgba(0,230,118,.3); display:flex; align-items:center; justify-content:center; font-size:1.25rem; margin:0 auto 12px; }
+    .auth-title { font-family:'DM Serif Display',serif; font-size:1.65rem; margin-bottom:6px; }
+    .auth-sub { font-size:.84rem; color:#a8c0dc; line-height:1.5; }
 
-    /* HORIZONTAL TWO-COLUMN FORM LAYOUT */
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
-    .full-width { grid-column: 1 / -1; }
+    .fgroup { margin-bottom:16px; }
+    .flabel { display:block; font-size:.8rem; font-weight:600; color:#a8c0dc; margin-bottom:7px; }
+    .finput { width:100%; padding:12px 15px; border-radius:10px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.18); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem; transition:all .2s; outline:none; }
+    .finput:focus { border-color:rgba(0,230,118,.5); background:rgba(255,255,255,.08); box-shadow:0 0 0 3px rgba(0,230,118,.12); }
+    .finput::placeholder { color:#5a789a; }
 
-    .fgroup { margin-bottom: 0; }
-    .flabel { display: block; font-size: 0.78rem; font-weight: 600; color: #a8c0dc; margin-bottom: 5px; }
-    .finput { width: 100%; padding: 10px 13px; border-radius: 9px; background: rgba(255,255,255,0.05); border: 1.5px solid rgba(79,195,247,0.18); color: #e2ecff; font-family: 'Outfit', sans-serif; font-size: 0.88rem; transition: all 0.2s; outline: none; }
-    .finput:focus { border-color: rgba(0,230,118,0.5); background: rgba(255,255,255,0.08); box-shadow: 0 0 0 3px rgba(0,230,118,0.12); }
-    .finput::placeholder { color: #5a789a; }
+    .auth-divider { display:flex; align-items:center; text-align:center; margin:16px 0; color:#6b88aa; font-size:.7rem; font-weight:700; letter-spacing:.1em; }
+    .auth-divider::before, .auth-divider::after { content:''; flex:1; border-bottom:1px solid rgba(79,195,247,.12); }
+    .auth-divider span { padding:0 12px; }
 
-    .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 20px; height:42px; border-radius:9px; font-family:'Outfit',sans-serif; font-size:0.9rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .2s; width:100%; text-decoration:none; }
-    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
-    .btn-primary:hover { opacity:.9; transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,230,118,.35); }
-    .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); }
+    .social-btn { display:flex; align-items:center; justify-content:center; gap:9px; padding:12px 16px; border-radius:10px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.2); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s; width:100%; }
+    .social-btn:hover { background:rgba(255,255,255,.1); border-color:rgba(0,230,118,.4); transform:translateY(-2px); box-shadow:0 8px 22px rgba(0,0,0,.3); }
 
-    /* GOOGLE PROVIDER AT BOTTOM */
-    .auth-divider { display: flex; align-items: center; text-align: center; margin: 12px 0; color: #6b88aa; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; }
-    .auth-divider::before, .auth-divider::after { content: ''; flex: 1; border-bottom: 1px solid rgba(79,195,247,0.12); }
-    .auth-divider span { padding: 0 10px; }
+    .auth-footer-text { text-align:center; margin-top:16px; font-size:.82rem; color:#6b88aa; }
+    .auth-footer-text a { color:#00e676; font-weight:600; text-decoration:none; border-bottom:1px solid rgba(0,230,118,.3); transition:border-color .2s; }
+    .auth-footer-text a:hover { border-color:#00e676; }
 
-    .social-providers { margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-    .social-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 14px; border-radius: 9px; background: rgba(255,255,255,0.06); border: 1.5px solid rgba(79,195,247,0.2); color: #e2ecff; font-family: 'Outfit', sans-serif; font-size: 0.86rem; font-weight: 600; cursor: pointer; transition: all 0.2s; width: 100%; }
-    .social-btn:hover { background: rgba(255,255,255,0.12); border-color: rgba(0,230,118,0.4); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.3); }
+    /* TOAST */
+    .toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; }
+    .toast { padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; box-shadow:0 12px 40px rgba(0,0,0,.5); display:flex; align-items:center; gap:10px; max-width:320px; animation:fadeUp .3s ease; }
+    .toast-success { background:rgba(0,200,83,.15); border:1px solid rgba(0,200,83,.3); color:#00e676; }
+    .toast-error { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.25); color:#f87171; }
+    .toast-warning { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
 
-    .auth-footer-text { text-align: center; margin-top: 12px; font-size: 0.8rem; color: #6b88aa; }
-    .auth-footer-text a { color: #00e676; font-weight: 600; text-decoration: underline; }
+    /* FOOTER */
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:20px 0; text-align:center; font-size:.8rem; color:#6b88aa; margin-top:auto; }
 
-    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:18px 0; text-align:center; font-size:.78rem; color:#6b88aa; margin-top:auto; }
-
-    @media (max-width: 540px) {
-      .auth-card { max-width: 100%; padding: 20px 16px; }
-      .form-grid { grid-template-columns: 1fr; }
+    @media(max-width:500px) {
+      .auth-card { max-width:100%; padding:28px 20px; }
     }
   </style>
 </head>
 <body>
 
 <!-- NAVBAR -->
-<nav class="navbar">
+<nav class="navbar" id="nav">
   <div class="container">
     <a href="index.html" class="nav-brand">
       <div class="brand-icon">💰</div>
       Save<span class="bhl">Hatke</span>
     </a>
-    <div class="nav-links">
+    <div class="nav-links" id="navLinks">
       <a href="index.html">Home</a>
       <a href="marketplace.html">Coupons</a>
       <a href="sell.html">Sell Coupons</a>
       <a href="support.html">Support</a>
     </div>
     <div class="nav-actions">
-      <a href="index.html" class="btn btn-ghost" style="height:32px;padding:0 12px;font-size:.8rem;border-radius:6px">← Home</a>
+      <a href="index.html" class="btn btn-ghost btn-sm">← Home</a>
     </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
 
@@ -130,62 +142,42 @@
   <div class="auth-card">
     <div class="auth-hdr">
       <div class="auth-icon">🔐</div>
-      <h1 class="auth-title" id="pageTitle">Welcome Back</h1>
-      <p class="auth-sub" id="pageSub">Log in to manage your coupons and price alerts.</p>
+      <h1 class="auth-title">Welcome to <span class="gtext">SaveHatke</span></h1>
+      <p class="auth-sub">Enter your email to continue to your account.</p>
     </div>
 
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tabBtnLogin" onclick="setMode('login')">Log In</button>
-      <button class="auth-tab" id="tabBtnRegister" onclick="setMode('register')">Sign Up</button>
-    </div>
-
-    <!-- Wide Two-Column Form -->
     <form id="loginPageForm" onsubmit="handleAuthSubmit(event)">
-      <div class="form-grid">
-        <div class="fgroup full-width" id="nameGroup" style="display:none">
-          <label class="flabel" for="inputName">Full Name</label>
-          <input type="text" class="finput" id="inputName" placeholder="Rahul Kumar">
-        </div>
-
-        <div class="fgroup" id="emailGroup">
-          <label class="flabel" for="inputEmail">Email Address</label>
-          <input type="email" class="finput" id="inputEmail" placeholder="you@example.com" required>
-        </div>
-
-        <div class="fgroup" id="passGroup">
-          <label class="flabel" for="inputPassword">Password</label>
-          <input type="password" class="finput" id="inputPassword" placeholder="Enter password" required minlength="6">
-        </div>
-
-        <div class="fgroup full-width">
-          <button type="submit" class="btn btn-primary" id="submitBtn">
-            Log In to SaveHatke →
-          </button>
-        </div>
+      <div class="fgroup">
+        <label class="flabel" for="inputEmail">Email Address</label>
+        <input type="email" class="finput" id="inputEmail" placeholder="you@example.com" required autocomplete="email">
       </div>
+      <button type="submit" class="btn btn-primary" id="submitBtn">
+        Continue →
+      </button>
     </form>
 
-    <div class="auth-divider">
-      <span>OR</span>
+    <div class="auth-divider"><span>OR</span></div>
+
+    <!-- Google Login -->
+    <button class="social-btn" id="googleBtn" onclick="handleRealGoogleAuth()">
+      <svg width="18" height="18" viewBox="0 0 24 24">
+        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/>
+        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/>
+        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+      </svg>
+      <span>Continue with Google</span>
+    </button>
+
+    <div id="g_id_onload"
+         data-client_id=""
+         data-callback="handleGoogleCredentialResponse"
+         data-auto_prompt="false"
+         style="display:none;">
     </div>
 
-    <!-- Real Google Login Button -->
-    <div class="social-providers">
-      <button class="social-btn" id="googleBtn" onclick="handleRealGoogleAuth()">
-        <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
-        <span>Continue with Google</span>
-      </button>
-
-      <div id="g_id_onload"
-           data-client_id=""
-           data-callback="handleGoogleCredentialResponse"
-           data-auto_prompt="false"
-           style="display:none;">
-      </div>
-    </div>
-
-    <div class="auth-footer-text" id="toggleFooterText">
-      Don't have an account? <a href="javascript:void(0)" onclick="setMode('register')">Sign up free</a>
+    <div class="auth-footer-text">
+      Don't have an account? <a href="login.html?tab=register">Sign up free</a>
     </div>
   </div>
 </main>
@@ -197,43 +189,41 @@
   </div>
 </footer>
 
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
 <script src="js/app.js"></script>
 <script>
-  let currentMode = 'login';
+  // Sticky nav
+  window.addEventListener('scroll', () => {
+    const nav = document.getElementById('nav');
+    if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
+  });
 
-  // Check URL params for ?tab=register
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('tab') === 'register') {
-    setMode('register');
+  // Mobile nav toggle
+  const navToggle = document.getElementById('navToggle');
+  if (navToggle) {
+    navToggle.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.toggle('open');
+    });
   }
 
-  function setMode(mode) {
-    currentMode = mode;
-    const isLogin = mode === 'login';
-
-    document.getElementById('tabBtnLogin').classList.toggle('active', isLogin);
-    document.getElementById('tabBtnRegister').classList.toggle('active', !isLogin);
-
-    document.getElementById('pageTitle').textContent = isLogin ? 'Welcome Back' : 'Create Free Account';
-    document.getElementById('pageSub').textContent = isLogin 
-      ? 'Log in to manage your coupons and price alerts.' 
-      : 'Start tracking prices and trading coupons in seconds.';
-
-    document.getElementById('nameGroup').style.display = isLogin ? 'none' : 'block';
-    if (!isLogin) {
-      document.getElementById('inputName').setAttribute('required', 'required');
-    } else {
-      document.getElementById('inputName').removeAttribute('required');
+  // Spawn particles
+  (function spawnParticles() {
+    const container = document.getElementById('loginParticles');
+    if (!container) return;
+    for (let i = 0; i < 18; i++) {
+      const p = document.createElement('div');
+      p.className = 'particle';
+      p.style.left = Math.random() * 100 + '%';
+      p.style.animationDuration = (6 + Math.random() * 10) + 's';
+      p.style.animationDelay = (Math.random() * 8) + 's';
+      p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
+      container.appendChild(p);
     }
+  })();
 
-    document.getElementById('submitBtn').textContent = isLogin ? 'Log In to SaveHatke →' : 'Create Free Account →';
-
-    document.getElementById('toggleFooterText').innerHTML = isLogin
-      ? `Don't have an account? <a href="javascript:void(0)" onclick="setMode('register')">Sign up free</a>`
-      : `Already have an account? <a href="javascript:void(0)" onclick="setMode('login')">Log in</a>`;
-  }
-
-  // Initialize Google Identity Services
+  // ── Google Auth ────────────────────────────────────────────────────────────
   const DEFAULT_GOOGLE_CLIENT_ID = "930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com";
   let activeGoogleClientId = DEFAULT_GOOGLE_CLIENT_ID;
 
@@ -252,7 +242,6 @@
   async function initGoogleAuth() {
     checkGoogleRedirect();
     const clientId = await fetchGoogleClientId();
-
     if (window.google && window.google.accounts && clientId) {
       try {
         google.accounts.id.initialize({
@@ -276,28 +265,22 @@
     if (googleBtn) {
       googleBtn.disabled = true;
       googleBtn.innerHTML = `
-        <svg width="17" height="17" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
         <span>Redirecting to Google...</span>
       `;
     }
 
     let clientId = activeGoogleClientId;
-    if (!clientId) {
-      clientId = await fetchGoogleClientId();
-    }
+    if (!clientId) clientId = await fetchGoogleClientId();
 
     if (!clientId) {
-      if (googleBtn) {
-        googleBtn.disabled = false;
-        googleBtn.innerHTML = originalBtnHtml;
-      }
+      if (googleBtn) { googleBtn.disabled = false; googleBtn.innerHTML = originalBtnHtml; }
       showToast('Google login is not configured. Missing Client ID.', 'error');
       return;
     }
 
     const redirectUri = window.location.origin + window.location.pathname;
     const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token%20id_token&scope=openid%20email%20profile&nonce=${Date.now()}&prompt=select_account`;
-    
     window.location.href = googleAuthUrl;
   }
 
@@ -317,19 +300,19 @@
         try {
           const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
           const profile = await res.json();
-            if (profile.email) {
-              const data = await api('/auth/google', {
-                method: 'POST',
-                body: { email: profile.email, name: profile.name, picture: profile.picture }
-              });
-              Auth.setAuth(data.token, data.user);
-              if (data.user.role === 'admin') {
-                Auth.setAdminAuth(data.token, data.user);
-                window.location.href = 'admin.html';
-              } else {
-                window.location.href = 'index.html';
-              }
+          if (profile.email) {
+            const data = await api('/auth/google', {
+              method: 'POST',
+              body: { email: profile.email, name: profile.name, picture: profile.picture }
+            });
+            Auth.setAuth(data.token, data.user);
+            if (data.user.role === 'admin') {
+              Auth.setAdminAuth(data.token, data.user);
+              window.location.href = 'admin.html';
+            } else {
+              window.location.href = 'index.html';
             }
+          }
         } catch (e) {
           showToast('Google authentication failed.', 'error');
         }
@@ -356,6 +339,7 @@
     }
   }
 
+  // ── Email Continue Submit ──────────────────────────────────────────────────
   async function handleAuthSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
@@ -363,37 +347,24 @@
     btn.textContent = 'Please wait...';
 
     const email = document.getElementById('inputEmail').value.trim();
-    const password = document.getElementById('inputPassword').value.trim();
 
     try {
-      let redirectUrl = 'index.html';
+      const data = await api('/auth/login', {
+        method: 'POST',
+        body: { email },
+      });
+      Auth.setAuth(data.token, data.user);
 
-      if (currentMode === 'login') {
-        const data = await api('/auth/login', {
-          method: 'POST',
-          body: { email, password },
-        });
-        Auth.setAuth(data.token, data.user);
-
-        // Check if the logged-in user is an admin
-        if (data.user.role === 'admin') {
-          Auth.setAdminAuth(data.token, data.user);
-          redirectUrl = 'admin.html';
-        }
+      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+        Auth.setAdminAuth(data.token, data.user);
+        window.location.href = 'admin.html';
       } else {
-        const name = document.getElementById('inputName').value.trim();
-        const data = await api('/auth/register', {
-          method: 'POST',
-          body: { name, email, password },
-        });
-        Auth.setAuth(data.token, data.user);
+        window.location.href = 'index.html';
       }
-
-      window.location.href = redirectUrl;
     } catch (err) {
-      showToast(err.message || 'Authentication failed. Please check details.', 'error');
+      showToast(err.message || 'Authentication failed. Please check your email.', 'error');
       btn.disabled = false;
-      btn.textContent = currentMode === 'login' ? 'Log In to SaveHatke →' : 'Create Free Account →';
+      btn.textContent = 'Continue →';
     }
   }
 </script>
