@@ -573,8 +573,8 @@
     const list = activeCat === 'all' ? COUPONS : COUPONS.filter(c => c.cat === activeCat);
     const grid = document.getElementById('couponGrid');
     if (grid) {
-      grid.innerHTML = list.slice(0,6).map(c => `
-        <div class="coupon-card">
+      grid.innerHTML = list.slice(0,6).map((c, idx) => `
+        <div class="coupon-card" style="cursor:pointer" onclick="handleIndexCouponClick(${idx + 1})">
           <div class="ctop"><div class="cbrand">${c.brand}</div><div class="coff">${c.off}</div></div>
           <div class="cdesc">${c.desc}</div>
           <div class="cmeta">
@@ -585,6 +585,17 @@
     }
   }
   renderCoupons();
+
+  function handleIndexCouponClick(id) {
+    if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
+      if (typeof showToast === 'function') showToast('Please log in to buy coupons.', 'warning');
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 500);
+      return;
+    }
+    window.location.href = 'checkout.html?id=' + id;
+  }
 
   document.querySelectorAll('.cpill').forEach(pill => {
     pill.addEventListener('click', () => {

@@ -620,13 +620,20 @@
     if (document.getElementById('succAmount')) document.getElementById('succAmount').textContent = '₹' + totalPrice;
     if (document.getElementById('succExpiry')) document.getElementById('succExpiry').textContent = currentCoupon.expiry;
 
+    // Check auth requirement for buying
+    if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
+      showToastLocal('Please log in to purchase coupons.', 'warning');
+      setTimeout(() => {
+        window.location.replace('login.html');
+      }, 600);
+      return;
+    }
+
     // Auto-fill buyer details if logged in
-    if (typeof Auth === 'object' && Auth.isLoggedIn()) {
-      const user = Auth.getUser();
-      if (user) {
-        if (user.name && document.getElementById('buyerName')) document.getElementById('buyerName').value = user.name;
-        if (user.email && document.getElementById('buyerEmail')) document.getElementById('buyerEmail').value = user.email;
-      }
+    const user = Auth.getUser();
+    if (user) {
+      if (user.name && document.getElementById('buyerName')) document.getElementById('buyerName').value = user.name;
+      if (user.email && document.getElementById('buyerEmail')) document.getElementById('buyerEmail').value = user.email;
     }
   });
 
@@ -653,6 +660,14 @@
 
   // --- RAZORPAY PAYMENT ---
   function initiatePayment() {
+    if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
+      showToastLocal('Please log in to complete your purchase.', 'warning');
+      setTimeout(() => {
+        window.location.replace('login.html');
+      }, 500);
+      return;
+    }
+
     const termsCheck = document.getElementById('termsCheck');
     if (termsCheck && !termsCheck.checked) {
       showToastLocal('Please accept the Terms & Conditions to proceed.', 'warning');

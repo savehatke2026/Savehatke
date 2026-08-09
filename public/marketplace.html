@@ -595,6 +595,13 @@
   }
 
   function buyCoupon(id) {
+    if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
+      showToast?.('Please log in to buy coupons.', 'warning');
+      setTimeout(() => {
+        window.location.href = 'login.html';
+      }, 500);
+      return;
+    }
     window.location.href = 'checkout.html?id=' + id;
   }
 
