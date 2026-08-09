@@ -535,7 +535,86 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <form class="card" id="addCouponForm">
           <div class="card-title"><span class="ct-icon">🎟️</span> Add New Coupon</div>
           <div class="form-grid form-grid-2">
-            <div class="form-group"><label class="form-label">Store / Brand *</label><select class="form-select" id="acBrand" required><option value="">— Select Brand —</option><optgroup label="🛒 E-commerce"><option>Amazon</option><option>Flipkart</option><option>Myntra</option><option>Ajio</option><option>Meesho</option><option>Tata CLiQ</option><option>Croma</option></optgroup><optgroup label="👗 Fashion"><option>H&amp;M</option><option>Adidas</option><option>Puma</option><option>Nike</option><option>Levi's</option><option>Bewakoof</option><option>Nykaa Fashion</option></optgroup><optgroup label="💄 Beauty"><option>Nykaa</option><option>Mamaearth</option><option>The Derma Co</option><option>Minimalist</option><option>Plum</option><option>Sugar Cosmetics</option></optgroup><optgroup label="🍔 Food"><option>Swiggy</option><option>Zomato</option><option>Blinkit</option><option>Zepto</option><option>BigBasket</option><option>Domino's</option></optgroup><optgroup label="✈️ Travel"><option>MakeMyTrip</option><option>Goibibo</option><option>Cleartrip</option><option>EaseMyTrip</option><option>Booking.com</option></optgroup><optgroup label="⚡ Electronics"><option>Croma</option><option>Reliance Digital</option><option>Samsung</option><option>OnePlus</option><option>Xiaomi</option></optgroup></select></div>
+            <div class="form-group">
+              <label class="form-label">Store / Brand *</label>
+              <select class="form-select" id="acBrand" required>
+                <option value="">— Select Brand —</option>
+                <optgroup label="🛒 Major E-Commerce & Retail">
+                  <option value="Amazon">🛒 Amazon</option>
+                  <option value="Flipkart">🛍️ Flipkart</option>
+                  <option value="Myntra">👗 Myntra</option>
+                  <option value="Ajio">🏷️ Ajio</option>
+                  <option value="Meesho">📦 Meesho</option>
+                  <option value="Tata CLiQ">💎 Tata CLiQ</option>
+                  <option value="Croma">⚡ Croma</option>
+                  <option value="Reliance Digital">🏬 Reliance Digital</option>
+                </optgroup>
+                <optgroup label="👗 Fashion & Apparel">
+                  <option value="H&M">👚 H&M</option>
+                  <option value="Adidas">👟 Adidas</option>
+                  <option value="Puma">🐾 Puma</option>
+                  <option value="Nike">🏃 Nike</option>
+                  <option value="Levi's">👖 Levi's</option>
+                  <option value="Bewakoof">😜 Bewakoof</option>
+                  <option value="Nykaa Fashion">💃 Nykaa Fashion</option>
+                  <option value="Urbanic">✨ Urbanic</option>
+                  <option value="Zudio">🛍️ Zudio</option>
+                  <option value="Zara">👠 Zara</option>
+                </optgroup>
+                <optgroup label="💄 Beauty & Personal Care">
+                  <option value="Nykaa">💄 Nykaa</option>
+                  <option value="Mamaearth">🌿 Mamaearth</option>
+                  <option value="The Derma Co">🧴 The Derma Co</option>
+                  <option value="Minimalist">✨ Minimalist</option>
+                  <option value="Plum">🫐 Plum</option>
+                  <option value="Sugar Cosmetics">💋 Sugar Cosmetics</option>
+                  <option value="Lakme">💅 Lakme</option>
+                  <option value="Biotique">🌱 Biotique</option>
+                  <option value="MCaffeine">☕ MCaffeine</option>
+                </optgroup>
+                <optgroup label="🍔 Food, Grocery & Dining">
+                  <option value="Swiggy">🍔 Swiggy</option>
+                  <option value="Zomato">🍕 Zomato</option>
+                  <option value="Blinkit">⚡ Blinkit</option>
+                  <option value="Zepto">🚀 Zepto</option>
+                  <option value="BigBasket">🧺 BigBasket</option>
+                  <option value="Domino's">🍕 Domino's</option>
+                  <option value="Pizza Hut">🍕 Pizza Hut</option>
+                  <option value="KFC">🍗 KFC</option>
+                  <option value="Starbucks">☕ Starbucks</option>
+                  <option value="EatClub">🍱 EatClub</option>
+                </optgroup>
+                <optgroup label="✈️ Travel, Hotels & Flights">
+                  <option value="MakeMyTrip">✈️ MakeMyTrip</option>
+                  <option value="Goibibo">🏨 Goibibo</option>
+                  <option value="Cleartrip">🎫 Cleartrip</option>
+                  <option value="EaseMyTrip">✈️ EaseMyTrip</option>
+                  <option value="Booking.com">🏨 Booking.com</option>
+                  <option value="Ixigo">🚆 Ixigo</option>
+                  <option value="RedBus">🚌 RedBus</option>
+                  <option value="Uber">🚖 Uber</option>
+                  <option value="Ola">🚖 Ola</option>
+                </optgroup>
+                <optgroup label="⚡ Electronics & Gadgets">
+                  <option value="Apple">📱 Apple</option>
+                  <option value="Samsung">📱 Samsung</option>
+                  <option value="OnePlus">📱 OnePlus</option>
+                  <option value="Xiaomi">📱 Xiaomi / Mi</option>
+                  <option value="boAt">🎧 boAt</option>
+                  <option value="Noise">🎧 Noise</option>
+                  <option value="Boult Audio">🔊 Boult Audio</option>
+                  <option value="Realme">📱 Realme</option>
+                  <option value="Lenovo">💻 Lenovo</option>
+                </optgroup>
+                <optgroup label="💳 Rewards & Digital Wallets">
+                  <option value="PhonePe">💳 PhonePe</option>
+                  <option value="Paytm">💳 Paytm</option>
+                  <option value="Google Pay">💳 Google Pay</option>
+                  <option value="Cred">🪙 Cred</option>
+                  <option value="Freecharge">⚡ Freecharge</option>
+                </optgroup>
+              </select>
+            </div>
             <div class="form-group"><label class="form-label">Coupon Title *</label><input class="form-input" type="text" id="acTitle" placeholder="e.g. 30% Off on Skincare"></div>
             <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" id="acCode" placeholder="e.g. SAVE30" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase" required></div>
             <div class="form-group"><label class="form-label">Coupon Type</label><select class="form-select" id="acType"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
