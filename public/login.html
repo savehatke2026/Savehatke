@@ -242,6 +242,7 @@
     const clientId = await fetchGoogleClientId();
     if (window.google && window.google.accounts && clientId) {
       try {
+       
         google.accounts.id.initialize({
           client_id: clientId,
           callback: handleGoogleCredentialResponse,
