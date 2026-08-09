@@ -546,14 +546,14 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ COUPONS ════════════════ -->
     <div class="section-view" id="sec-coupons">
       <div class="page-title-row">
-        <div><div class="page-title">Coupon <span class="gtext">Management</span></div><div class="page-subtitle">4,217 total coupons across all categories</div></div>
+        <div><div class="page-title">Coupon <span class="gtext">Management</span></div><div class="page-subtitle">Manage inventory, pending submissions, and publish new coupons</div></div>
         <button class="btn btn-primary btn-lg" onclick="showCouponTab('add')">+ Add Coupon</button>
       </div>
 
       <div class="tab-row">
         <button class="tab-btn active" onclick="showCouponTab('all',this)">📋 All Coupons</button>
         <button class="tab-btn" onclick="showCouponTab('add',this)">➕ Add Coupon</button>
-        <button class="tab-btn" onclick="showCouponTab('pending',this)">⏳ Pending <span class="nbadge" style="background:rgba(255,183,77,.2);color:#ffb74d;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:4px">14</span></button>
+        <button class="tab-btn" onclick="showCouponTab('pending',this)">⏳ Pending <span class="nbadge" id="pendingTabBadge" style="background:rgba(255,183,77,.2);color:#ffb74d;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:4px;display:none;">0</span></button>
         <button class="tab-btn" onclick="showCouponTab('active',this)">✅ Active</button>
         <button class="tab-btn" onclick="showCouponTab('expired',this)">❌ Expired</button>
         <button class="tab-btn" onclick="showCouponTab('cats',this)">🗂️ Categories</button>
@@ -562,12 +562,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <!-- ALL COUPONS -->
       <div class="tab-content active" id="ctab-all">
         <div class="search-bar"><input type="text" id="invSearch" placeholder="Search coupons, brands, codes..."></div>
-        <div style="display:grid;gap:12px" id="inventoryTable">
-          <div class="coupon-item"><div class="ci-brand">💄</div><div class="ci-body"><div class="ci-name">Nykaa — 30% OFF Beauty</div><div class="ci-code">NYKAA30</div><div class="ci-meta"><span class="badge badge-green">Active</span><span class="badge badge-blue">Makeup</span><span style="font-size:.78rem;color:#6b88aa">Exp: Sep 30, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹15 · Sold 142x</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
-          <div class="coupon-item"><div class="ci-brand">👟</div><div class="ci-body"><div class="ci-name">Myntra — ₹500 OFF Fashion</div><div class="ci-code">MYNTRA500</div><div class="ci-meta"><span class="badge badge-green">Active</span><span class="badge badge-purple">Fashion</span><span style="font-size:.78rem;color:#6b88aa">Exp: Oct 15, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹20 · Sold 87x</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
-          <div class="coupon-item"><div class="ci-brand">🍔</div><div class="ci-body"><div class="ci-name">Swiggy — 50% OFF Up to ₹100</div><div class="ci-code">SWIG50</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span class="badge badge-orange">Food</span><span style="font-size:.78rem;color:#6b88aa">Exp: Aug 20, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹10 · Sold 0x</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">Approve</button><button class="btn btn-danger btn-sm">Reject</button></div></div>
-          <div class="coupon-item"><div class="ci-brand">⚡</div><div class="ci-body"><div class="ci-name">boAt — ₹800 OFF Headphones</div><div class="ci-code">BOAT800</div><div class="ci-meta"><span class="badge badge-red">Expired</span><span class="badge badge-blue">Electronics</span><span style="font-size:.78rem;color:#6b88aa">Exp: Jul 31, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹25 · Sold 63x</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
-        </div>
+        <div style="display:grid;gap:12px" id="inventoryTable"></div>
       </div>
 
       <!-- ADD COUPON FORM -->
@@ -622,31 +617,24 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <!-- PENDING -->
       <div class="tab-content" id="ctab-pending">
         <div class="card">
-          <div class="card-title"><span class="ct-icon">⏳</span> Pending Approvals (14)</div>
-          <div style="display:grid;gap:10px">
-            <div class="coupon-item"><div class="ci-brand">🍔</div><div class="ci-body"><div class="ci-name">Zomato — 40% OFF</div><div class="ci-code">ZOM40NOW</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span style="font-size:.78rem;color:#6b88aa">Submitted by: @rahul_k · Aug 7</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">✅ Approve</button><button class="btn btn-danger btn-sm">❌ Reject</button></div></div>
-            <div class="coupon-item"><div class="ci-brand">👟</div><div class="ci-body"><div class="ci-name">H&amp;M — 20% Sitewide</div><div class="ci-code">HMSITE20</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span style="font-size:.78rem;color:#6b88aa">Submitted by: @priya_s · Aug 6</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">✅ Approve</button><button class="btn btn-danger btn-sm">❌ Reject</button></div></div>
-            <div class="coupon-item"><div class="ci-brand">💄</div><div class="ci-body"><div class="ci-name">Lakme — 25% OFF Skincare</div><div class="ci-code">LAK25SK</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span style="font-size:.78rem;color:#6b88aa">Submitted by: @neha_p · Aug 5</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">✅ Approve</button><button class="btn btn-danger btn-sm">❌ Reject</button></div></div>
-          </div>
+          <div class="card-title"><span class="ct-icon">⏳</span> Pending Approvals</div>
+          <div id="pendingList"></div>
         </div>
       </div>
 
       <!-- ACTIVE -->
       <div class="tab-content" id="ctab-active">
-        <div class="card"><div class="card-title"><span class="ct-icon">✅</span> Active Coupons (3,840)</div><p style="color:#6b88aa;font-size:.88rem">Showing top performing active coupons.</p>
-          <div style="margin-top:16px;display:grid;gap:10px">
-            <div class="coupon-item"><div class="ci-brand">💄</div><div class="ci-body"><div class="ci-name">Nykaa — 30% OFF Beauty</div><div class="ci-code">NYKAA30</div><div class="ci-meta"><span class="badge badge-green">Active</span><span style="font-size:.78rem;color:#a8c0dc">Sold 142x · ₹2,130 earned</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></div>
-            <div class="coupon-item"><div class="ci-brand">👟</div><div class="ci-body"><div class="ci-name">Myntra — ₹500 OFF</div><div class="ci-code">MYNTRA500</div><div class="ci-meta"><span class="badge badge-green">Active</span><span style="font-size:.78rem;color:#a8c0dc">Sold 87x · ₹1,740 earned</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button></div></div>
-          </div>
+        <div class="card">
+          <div class="card-title"><span class="ct-icon">✅</span> Active Coupons</div>
+          <div id="activeList" style="margin-top:16px;"></div>
         </div>
       </div>
 
       <!-- EXPIRED -->
       <div class="tab-content" id="ctab-expired">
-        <div class="card"><div class="card-title"><span class="ct-icon">❌</span> Expired Coupons (377)</div>
-          <div style="margin-top:16px;display:grid;gap:10px">
-            <div class="coupon-item" style="opacity:.6"><div class="ci-brand">⚡</div><div class="ci-body"><div class="ci-name">boAt — ₹800 OFF</div><div class="ci-code">BOAT800</div><div class="ci-meta"><span class="badge badge-red">Expired</span><span style="font-size:.78rem;color:#6b88aa">Exp: Jul 31, 2026</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Renew</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
-          </div>
+        <div class="card">
+          <div class="card-title"><span class="ct-icon">❌</span> Expired Coupons</div>
+          <div id="expiredList" style="margin-top:16px;"></div>
         </div>
       </div>
 
@@ -654,13 +642,13 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="tab-content" id="ctab-cats">
         <div class="card"><div class="card-title"><span class="ct-icon">🗂️</span> Coupon Categories</div>
           <div class="two-col">
-            <div>
-              <div class="info-row"><span class="irl">💄 Makeup</span><span class="irv">1,240 coupons</span></div>
-              <div class="info-row"><span class="irl">⚡ Electronics</span><span class="irv">884 coupons</span></div>
-              <div class="info-row"><span class="irl">👟 Fashion</span><span class="irv">762 coupons</span></div>
-              <div class="info-row"><span class="irl">🍔 Food</span><span class="irv">621 coupons</span></div>
-              <div class="info-row"><span class="irl">✈️ Travel</span><span class="irv">310 coupons</span></div>
-              <div class="info-row"><span class="irl">💊 Health</span><span class="irv">400 coupons</span></div>
+            <div id="categoryStatsList">
+              <div class="info-row"><span class="irl">💄 Makeup</span><span class="irv">0 coupons</span></div>
+              <div class="info-row"><span class="irl">⚡ Electronics</span><span class="irv">0 coupons</span></div>
+              <div class="info-row"><span class="irl">👟 Fashion</span><span class="irv">0 coupons</span></div>
+              <div class="info-row"><span class="irl">🍔 Food</span><span class="irv">0 coupons</span></div>
+              <div class="info-row"><span class="irl">✈️ Travel</span><span class="irv">0 coupons</span></div>
+              <div class="info-row"><span class="irl">💊 Health</span><span class="irv">0 coupons</span></div>
             </div>
             <div>
               <button class="btn btn-primary" style="width:100%;margin-bottom:10px">+ Add Category</button>
@@ -918,6 +906,11 @@ function showCouponTab(tab, el) {
   if (targetTab) targetTab.classList.add('active');
 
   if (el) el.classList.add('active');
+
+  if (tab === 'all' && typeof loadInventory === 'function') loadInventory();
+  if (tab === 'pending' && typeof loadPending === 'function') loadPending();
+  if (tab === 'active' && typeof loadActiveCoupons === 'function') loadActiveCoupons();
+  if (tab === 'expired' && typeof loadExpiredCoupons === 'function') loadExpiredCoupons();
 }
 
 // ── Mobile Sidebar Toggles ──

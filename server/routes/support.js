@@ -18,6 +18,13 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'All fields are required: name, email, subject, message.' });
     }
 
+    const storageError = db.getWriteAvailabilityError(
+      'Support ticket submission is temporarily unavailable because Google Sheets is not connected.'
+    );
+    if (storageError) {
+      return res.status(503).json(storageError);
+    }
+
     const ticket = {
       id: uuidv4(),
       name: name.trim(),

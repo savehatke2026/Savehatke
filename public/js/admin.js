@@ -299,12 +299,24 @@ async function loadInventory() {
 // ── Pending Submissions ─────────────────────────────────────────────────
 async function loadPending() {
   const container = document.getElementById('pendingList');
-  if (!container) return;
+  const badge = document.getElementById('pendingTabBadge');
 
   try {
     const data = await api('/admin/coupons?status=pending', { useAdmin: true });
+    const count = data.coupons ? data.coupons.length : 0;
 
-    if (data.coupons.length === 0) {
+    if (badge) {
+      if (count > 0) {
+        badge.textContent = count;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    if (!container) return;
+
+    if (count === 0) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">✅</div>
@@ -321,7 +333,7 @@ async function loadPending() {
           <div style="font-weight: 700; color: var(--color-white); margin-bottom: 0.25rem;">${c.brand} — ${c.category}</div>
           <code style="background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 4px; color: var(--color-teal-400); font-weight: 600;">${c.code}</code>
           <div style="font-size: 0.75rem; color: var(--color-slate-500); margin-top: 0.5rem;">${c.description || 'No description'}</div>
-          <div style="font-size: 0.75rem; color: var(--color-slate-500);">Submitted by: ${c.sellerEmail} · ${formatDate(c.addedAt)}</div>
+          <div style="font-size: 0.75rem; color: var(--color-slate-500);">Submitted by: ${c.sellerEmail || 'Admin'} · ${formatDate(c.addedAt)}</div>
         </div>
         <div style="display: flex; gap: 0.5rem;">
           <button class="btn btn-success btn-sm" onclick="approveCoupon('${c.id}')">✅ Approve</button>
@@ -330,9 +342,90 @@ async function loadPending() {
       </div>
     `).join('');
   } catch (err) {
-    container.innerHTML = `<p class="text-danger">Failed to load: ${err.message}</p>`;
+    if (container) container.innerHTML = `<p class="text-danger">Failed to load: ${err.message}</p>`;
   }
 }
+
+// ── Active Coupons ──────────────────────────────────────────────────────
+async function loadActiveCoupons() {
+  const container = document.getElementById('activeList');
+  if (!container) return;
+
+  try {
+    const data = await api('/admin/coupons?status=available', { useAdmin: true });
+    if (data.coupons.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🏷️</div>
+          <h3>No active coupons found</h3>
+          <p>Publish a new coupon to make it active.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = data.coupons.map((c) => `
+      <div class="coupon-item" style="margin-bottom: 8px;">
+        <div class="ci-brand">🏷️</div>
+        <div class="ci-body">
+          <div class="ci-name">${c.brand} — ${c.title || c.description || c.discount || 'Active Offer'}</div>
+          <div class="ci-code">${c.code}</div>
+          <div class="ci-meta">
+            <span class="badge badge-green">Active</span>
+            <span class="badge badge-blue">${c.category}</span>
+            <span style="font-size:.78rem;color:#a8c0dc">₹${c.sellingPrice} · ${c.source}</span>
+          </div>
+        </div>
+        <div class="ci-actions">
+          <button class="btn btn-danger btn-sm" onclick="deleteCoupon('${c.id}')">🗑 Delete</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<p class="text-danger">Failed to load active coupons: ${err.message}</p>`;
+  }
+}
+
+// ── Expired Coupons ─────────────────────────────────────────────────────
+async function loadExpiredCoupons() {
+  const container = document.getElementById('expiredList');
+  if (!container) return;
+
+  try {
+    const data = await api('/admin/coupons?status=expired', { useAdmin: true });
+    if (data.coupons.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">🎉</div>
+          <h3>No expired coupons</h3>
+          <p>All active coupons are valid and up to date.</p>
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = data.coupons.map((c) => `
+      <div class="coupon-item" style="opacity:.6; margin-bottom: 8px;">
+        <div class="ci-brand">⏰</div>
+        <div class="ci-body">
+          <div class="ci-name">${c.brand} — ${c.code}</div>
+          <div class="ci-meta"><span class="badge badge-red">Expired</span></div>
+        </div>
+        <div class="ci-actions">
+          <button class="btn btn-danger btn-sm" onclick="deleteCoupon('${c.id}')">🗑 Delete</button>
+        </div>
+      </div>
+    `).join('');
+  } catch (err) {
+    container.innerHTML = `<p class="text-danger">Failed to load expired coupons: ${err.message}</p>`;
+  }
+}
+
+// Global functions for inline onclick handlers
+window.loadInventory = loadInventory;
+window.loadPending = loadPending;
+window.loadActiveCoupons = loadActiveCoupons;
+window.loadExpiredCoupons = loadExpiredCoupons;
 
 // ── Actions ─────────────────────────────────────────────────────────────
 async function approveCoupon(id) {
@@ -362,6 +455,8 @@ async function deleteCoupon(id) {
     loadAdminStats();
     loadPending();
     loadInventory();
+    loadActiveCoupons();
+    loadExpiredCoupons();
   } catch (err) {
     showToast(err.message, 'error');
   }

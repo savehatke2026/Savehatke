@@ -66,7 +66,17 @@ app.use('/api/support', apiLimiter, supportRoutes);
 
 // ── Health Check ────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString(), name: 'SaveHatke API' });
+  const storageStatus = db.getStorageStatus();
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    name: 'SaveHatke API',
+    storage: {
+      connected: storageStatus.connected,
+      mode: storageStatus.mode,
+      lastError: storageStatus.lastError,
+    },
+  });
 });
 
 // ── SPA Fallback — serve index.html for unmatched routes ────────────────────
@@ -97,8 +107,7 @@ async function initServices() {
   // Initialize Google Sheets connection
   const sheetsConnected = await db.initialize();
   if (!sheetsConnected) {
-    db.seedDemoData();
-    console.log('📦 Demo data seeded for development.');
+    console.warn('⚠️  Google Sheets unavailable. Operating in memory fallback mode.');
   }
 }
 
@@ -132,4 +141,3 @@ if (!process.env.VERCEL) {
 
 // ── Export for Vercel Serverless ─────────────────────────────────────────────
 module.exports = app;
-

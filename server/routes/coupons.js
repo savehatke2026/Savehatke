@@ -76,6 +76,13 @@ const handleCouponSubmission = async (req, res) => {
       return res.status(400).json({ error: 'Coupon code, category, and brand are required.' });
     }
 
+    const storageError = db.getWriteAvailabilityError(
+      'Coupon storage is unavailable because Google Sheets is not connected.'
+    );
+    if (storageError) {
+      return res.status(503).json(storageError);
+    }
+
     const value = faceValue || originalValue || '0';
 
     // Check for duplicate codes
@@ -138,6 +145,13 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
     }
     if (coupon.sellerEmail === req.user.email) {
       return res.status(400).json({ error: 'You cannot buy your own coupon.' });
+    }
+
+    const storageError = db.getWriteAvailabilityError(
+      'Coupon purchases are temporarily unavailable because Google Sheets is not connected.'
+    );
+    if (storageError) {
+      return res.status(503).json(storageError);
     }
 
     // Mark as sold

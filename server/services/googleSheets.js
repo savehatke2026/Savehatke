@@ -37,8 +37,10 @@ const HEADERS = {
 
 let sheetsClient = null;
 let spreadsheetId = null;
+let lastSheetsError = null;
+let serviceAccountEmail = null;
 
-function reportDebug(hypothesisId, location, msg, data = {}, runId = 'pre-fix') {
+function reportDebug(hypothesisId, location, msg, data = {}, runId = process.env.DEBUG_RUN_ID || 'pre-fix') {
   try {
     let debugUrl = 'http://127.0.0.1:7777/event';
     let sessionId = 'coupon-gsheet-sync';
@@ -64,6 +66,8 @@ async function initialize() {
   spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY;
+  serviceAccountEmail = email || null;
+  lastSheetsError = null;
 
   // #region debug-point A:init-sheets
   reportDebug('A', 'server/services/googleSheets.js:62', 'Initializing Google Sheets client', {
@@ -76,6 +80,10 @@ async function initialize() {
   // #endregion
 
   if (!spreadsheetId || !email || !privateKey || spreadsheetId === 'your_spreadsheet_id_here') {
+    lastSheetsError = {
+      type: 'missing-config',
+      message: 'Google Sheets credentials are not fully configured.',
+    };
     // #region debug-point A:missing-sheets-config
     reportDebug('A', 'server/services/googleSheets.js:73', 'Google Sheets config missing, using fallback database', {
       hasSpreadsheetId: Boolean(spreadsheetId),
@@ -111,6 +119,12 @@ async function initialize() {
     await ensureSheets();
     return true;
   } catch (err) {
+    const looksLikeAccessOrMissingSheet = err.code === 404 || err.status === 404;
+    lastSheetsError = {
+      type: looksLikeAccessOrMissingSheet ? 'sheet-not-found-or-no-access' : 'connect-failed',
+      message: err.message,
+      code: err.code || err.status || '',
+    };
     // #region debug-point A:sheets-connect-failed
     reportDebug('A', 'server/services/googleSheets.js:100', 'Failed to connect to Google Sheets database', {
       error: err.message,
@@ -123,6 +137,34 @@ async function initialize() {
     sheetsClient = null;
     return false;
   }
+}
+
+function isSheetsConnected() {
+  return Boolean(sheetsClient);
+}
+
+function getStorageStatus() {
+  return {
+    connected: Boolean(sheetsClient),
+    mode: sheetsClient ? 'google-sheets' : 'memory-fallback',
+    spreadsheetId,
+    serviceAccountEmail,
+    lastError: lastSheetsError,
+  };
+}
+
+function getWriteAvailabilityError(message = 'Google Sheets is not connected.') {
+  if (sheetsClient) return null;
+
+  return {
+    error: message,
+    details: {
+      spreadsheetId,
+      serviceAccountEmail,
+      reason: lastSheetsError?.message || 'Google Sheets connection unavailable.',
+      type: lastSheetsError?.type || 'unavailable',
+    },
+  };
 }
 
 /**
@@ -193,7 +235,7 @@ async function ensureSheets() {
 }
 
 // ── In-Memory Fallback Database ─────────────────────────────────────────────
-// Used when Google Sheets credentials are not available (dev mode)
+// Used when Google Sheets credentials are not available
 const memoryDB = {
   [SHEETS.USERS]: [],
   [SHEETS.COUPONS]: [],
@@ -201,23 +243,8 @@ const memoryDB = {
   [SHEETS.SUPPORT_TICKETS]: [],
 };
 
-// Seed some demo coupons for dev mode
 function seedDemoData() {
-  if (memoryDB[SHEETS.COUPONS].length > 0) return;
-
-  const demoCoupons = [
-    { id: 'c001', code: 'NYKAA-SAVE200', category: 'Makeup', brand: 'Nykaa', description: '₹200 off on orders above ₹999', originalValue: '200', sellingPrice: '20', sellerEmail: 'user@demo.com', status: 'available', source: 'user-submitted', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c002', code: 'PUMA-FLAT30', category: 'Fashion', brand: 'Puma', description: 'Flat 30% off on Puma shoes', originalValue: '500', sellingPrice: '25', sellerEmail: 'user2@demo.com', status: 'available', source: 'user-submitted', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c003', code: 'BOAT-EXTRA15', category: 'Electronics', brand: 'boAt', description: '15% off on boAt earbuds', originalValue: '300', sellingPrice: '20', sellerEmail: '', status: 'available', source: 'admin', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c004', code: 'SWIGGY100', category: 'Food', brand: 'Swiggy', description: '₹100 off on first 3 orders', originalValue: '100', sellingPrice: '15', sellerEmail: '', status: 'available', source: 'admin', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c005', code: 'MYNTRA-FLAT500', category: 'Fashion', brand: 'Myntra', description: '₹500 off on ₹2000+ purchase', originalValue: '500', sellingPrice: '30', sellerEmail: 'seller@demo.com', status: 'available', source: 'user-submitted', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c006', code: 'MAMAEARTH20', category: 'Makeup', brand: 'Mamaearth', description: '20% off on skincare range', originalValue: '250', sellingPrice: '20', sellerEmail: '', status: 'available', source: 'auto-scraped', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c007', code: 'CROMA-ELEC10', category: 'Electronics', brand: 'Croma', description: '10% off on electronics (max ₹1000)', originalValue: '1000', sellingPrice: '35', sellerEmail: '', status: 'available', source: 'admin', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c008', code: 'ZOMATO-FREE-DEL', category: 'Food', brand: 'Zomato', description: 'Free delivery on 5 orders', originalValue: '150', sellingPrice: '10', sellerEmail: '', status: 'available', source: 'auto-scraped', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c009', code: 'AJIO-NEW40', category: 'Fashion', brand: 'AJIO', description: '40% off for new users', originalValue: '600', sellingPrice: '25', sellerEmail: 'user3@demo.com', status: 'available', source: 'user-submitted', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-    { id: 'c010', code: 'LAKME-BEAUTY', category: 'Makeup', brand: 'Lakme', description: 'Buy 2 Get 1 free on Lakme products', originalValue: '400', sellingPrice: '20', sellerEmail: '', status: 'available', source: 'admin', addedAt: new Date().toISOString(), soldAt: '', buyerEmail: '' },
-  ];
-  memoryDB[SHEETS.COUPONS] = demoCoupons;
+  // No-op: Demo coupons removed per requirements
 }
 
 // ── CRUD Operations ─────────────────────────────────────────────────────────
@@ -456,6 +483,9 @@ module.exports = {
   SHEETS,
   HEADERS,
   initialize,
+  isSheetsConnected,
+  getStorageStatus,
+  getWriteAvailabilityError,
   seedDemoData,
   getRows,
   appendRow,

@@ -52,6 +52,13 @@ router.post('/add', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Please provide a valid URL.' });
     }
 
+    const storageError = db.getWriteAvailabilityError(
+      'Price tracking is temporarily unavailable because Google Sheets is not connected.'
+    );
+    if (storageError) {
+      return res.status(503).json(storageError);
+    }
+
     // Check duplicate tracking
     const userTracked = await db.findRows(db.SHEETS.PRICE_TRACKING, 'userEmail', req.user.email);
     const duplicate = userTracked.find((t) => t.productUrl === productUrl);
@@ -122,6 +129,13 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
+    const storageError = db.getWriteAvailabilityError(
+      'Removing tracked products is temporarily unavailable because Google Sheets is not connected.'
+    );
+    if (storageError) {
+      return res.status(503).json(storageError);
+    }
+
     const tracking = await db.findRow(db.SHEETS.PRICE_TRACKING, 'id', id);
     if (!tracking) {
       return res.status(404).json({ error: 'Tracked product not found.' });
@@ -142,6 +156,13 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 router.get('/check/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
+
+    const storageError = db.getWriteAvailabilityError(
+      'Price refresh is temporarily unavailable because Google Sheets is not connected.'
+    );
+    if (storageError) {
+      return res.status(503).json(storageError);
+    }
 
     const tracking = await db.findRow(db.SHEETS.PRICE_TRACKING, 'id', id);
     if (!tracking) {

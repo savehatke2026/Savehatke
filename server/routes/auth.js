@@ -11,6 +11,10 @@ const supabase = require('../services/supabase');
 
 const router = express.Router();
 
+function getSheetsFallbackError(message) {
+  return db.getWriteAvailabilityError(message);
+}
+
 // POST /api/auth/register
 router.post('/register', async (req, res) => {
   try {
@@ -58,6 +62,13 @@ router.post('/register', async (req, res) => {
 
     // Fallback to Google Sheets if Supabase is offline/unconfigured
     if (!newUser) {
+      const storageError = getSheetsFallbackError(
+        'Account creation is temporarily unavailable because Google Sheets is not connected.'
+      );
+      if (storageError) {
+        return res.status(503).json(storageError);
+      }
+
       const existing = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
       if (existing) {
         return res.status(409).json({ error: 'An account with this email already exists.' });
@@ -231,6 +242,13 @@ router.post('/login', async (req, res) => {
     }
 
     // ── 4. Fallback Google Sheets Users lookup ────────────────────────
+    const storageError = getSheetsFallbackError(
+      'Login is temporarily unavailable because Google Sheets is not connected.'
+    );
+    if (storageError) {
+      return res.status(503).json(storageError);
+    }
+
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
     if (!sheetUser) {
       // Auto-create user if email does not exist yet (email-only flow)
@@ -390,6 +408,13 @@ router.post('/google', async (req, res) => {
 
     // Google Sheets Fallback
     if (!userId) {
+      const storageError = getSheetsFallbackError(
+        'Google sign-in is temporarily unavailable because Google Sheets is not connected.'
+      );
+      if (storageError) {
+        return res.status(503).json(storageError);
+      }
+
       let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail);
       if (!sheetUser) {
         sheetUser = {
