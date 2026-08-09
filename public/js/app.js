@@ -233,7 +233,7 @@ function updateNavAuth() {
               <div class="npd-email">${email}</div>
             </div>
           </div>
-          <a href="dashboard.html" class="npd-item">
+          <a href="dashboard" class="npd-item">
             <span>📊</span> Dashboard
           </a>
           <button class="npd-item npd-item-logout" id="npdLogoutBtn">
