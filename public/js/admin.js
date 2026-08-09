@@ -2,7 +2,7 @@
 // SaveHatke — Admin Panel Logic
 // ============================================
 
-document.addEventListener('DOMContentLoaded', async () => {
+function initAdminApp() {
   if (!Auth.isAdminLoggedIn()) {
     window.location.href = 'login.html';
     return;
@@ -13,7 +13,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   initAdminTabs();
   initAddCouponForm();
   initCreateAdminForm();
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAdminApp);
+} else {
+  initAdminApp();
+}
 
 // ── Admin Dashboard Initializer ─────────────────────────────────────────
 function showAdminDashboard() {
@@ -75,12 +81,16 @@ async function loadAdminStats() {
     const data = await api('/admin/stats', { useAdmin: true });
     const s = data.stats;
 
-    document.getElementById('statUsers').textContent = s.totalUsers;
-    document.getElementById('statCoupons').textContent = s.availableCoupons;
-    document.getElementById('statPending').textContent = s.pendingCoupons;
-    document.getElementById('statRevenue').textContent = s.revenue;
+    const uEl = document.getElementById('statUsers');
+    if (uEl) uEl.textContent = s.totalUsers;
+    const cEl = document.getElementById('statCoupons');
+    if (cEl) cEl.textContent = s.availableCoupons;
+    const pEl = document.getElementById('statPending');
+    if (pEl) pEl.textContent = s.pendingCoupons;
+    const rEl = document.getElementById('statRevenue');
+    if (rEl) rEl.textContent = s.revenue;
   } catch (err) {
-    console.error('Failed to load stats:', err);
+    console.warn('Stats warning:', err.message);
   }
 }
 
@@ -129,7 +139,7 @@ function initAddCouponForm() {
       const source = document.getElementById('acSource')?.value || 'admin';
 
       if (!code || !brand) {
-        showToast('Please enter Brand and Coupon Code.', 'warning');
+        showToast('Please select a Brand and enter a Coupon Code.', 'warning');
         return;
       }
 
@@ -152,10 +162,17 @@ function initAddCouponForm() {
 
       showToast(data.message || 'Coupon published to Google Sheets! 📊', 'success');
       form.reset();
+
+      // Automatically switch to All Coupons tab
+      if (typeof showCouponTab === 'function') {
+        const allTabBtn = document.querySelector('#sec-coupons .tab-btn');
+        showCouponTab('all', allTabBtn);
+      }
+
       if (typeof loadInventory === 'function') loadInventory();
       if (typeof loadAdminStats === 'function') loadAdminStats();
     } catch (err) {
-      showToast(err.message || 'Failed to add coupon.', 'error');
+      showToast(err.message || 'Failed to publish coupon to Google Sheets.', 'error');
     } finally {
       if (btn) {
         btn.disabled = false;

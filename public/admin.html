@@ -301,6 +301,16 @@ tbody td strong{color:#e2ecff;font-weight:600}
 /* sidebar overlay for mobile */
 .sidebar-overlay{display:none;position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.6)}
 .sidebar-overlay.show{display:block}
+
+/* ── TOAST NOTIFICATIONS ── */
+.toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
+.toast { display:flex; align-items:center; gap:12px; padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; color:#e2ecff; background:rgba(12,24,48,.95); backdrop-filter:blur(16px); border:1px solid rgba(79,195,247,.2); box-shadow:0 20px 50px rgba(0,0,0,.5); pointer-events:auto; animation:slideInRight .3s cubic-bezier(0.16,1,0.3,1) forwards; max-width:400px; }
+.toast-success { border-color:rgba(0,230,118,.4); }
+.toast-error { border-color:rgba(255,80,80,.4); }
+.toast-warning { border-color:rgba(255,183,77,.4); }
+.toast-close { background:none; border:none; color:#6b88aa; cursor:pointer; font-size:1.1rem; margin-left:auto; }
+@keyframes slideInRight { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
+@keyframes slideOutRight { from { transform:translateX(0); opacity:1; } to { transform:translateX(100%); opacity:0; } }
 </style>
 </head>
 <body>
@@ -521,8 +531,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
 
       <!-- ALL COUPONS -->
       <div class="tab-content active" id="ctab-all">
-        <div class="search-bar"><input type="text" placeholder="Search coupons, brands, codes..."></div>
-        <div style="display:grid;gap:12px">
+        <div class="search-bar"><input type="text" id="invSearch" placeholder="Search coupons, brands, codes..."></div>
+        <div style="display:grid;gap:12px" id="inventoryTable">
           <div class="coupon-item"><div class="ci-brand">💄</div><div class="ci-body"><div class="ci-name">Nykaa — 30% OFF Beauty</div><div class="ci-code">NYKAA30</div><div class="ci-meta"><span class="badge badge-green">Active</span><span class="badge badge-blue">Makeup</span><span style="font-size:.78rem;color:#6b88aa">Exp: Sep 30, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹15 · Sold 142x</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
           <div class="coupon-item"><div class="ci-brand">👟</div><div class="ci-body"><div class="ci-name">Myntra — ₹500 OFF Fashion</div><div class="ci-code">MYNTRA500</div><div class="ci-meta"><span class="badge badge-green">Active</span><span class="badge badge-purple">Fashion</span><span style="font-size:.78rem;color:#6b88aa">Exp: Oct 15, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹20 · Sold 87x</span></div></div><div class="ci-actions"><button class="btn btn-ghost btn-sm">Edit</button><button class="btn btn-danger btn-sm">Delete</button></div></div>
           <div class="coupon-item"><div class="ci-brand">🍔</div><div class="ci-body"><div class="ci-name">Swiggy — 50% OFF Up to ₹100</div><div class="ci-code">SWIG50</div><div class="ci-meta"><span class="badge badge-orange">Pending</span><span class="badge badge-orange">Food</span><span style="font-size:.78rem;color:#6b88aa">Exp: Aug 20, 2026</span><span style="font-size:.78rem;color:#a8c0dc">₹10 · Sold 0x</span></div></div><div class="ci-actions"><button class="btn btn-success btn-sm">Approve</button><button class="btn btn-danger btn-sm">Reject</button></div></div>

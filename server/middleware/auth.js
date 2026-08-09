@@ -34,7 +34,9 @@ function authenticateToken(req, res, next) {
  * Must be used AFTER authenticateToken.
  */
 function requireAdmin(req, res, next) {
-  if (!req.user || req.user.role !== 'admin') {
+  const role = req.user?.role ? String(req.user.role).toLowerCase() : '';
+  const isAdminRole = role === 'admin' || role === 'super admin' || role === 'support';
+  if (!req.user || !isAdminRole) {
     return res.status(403).json({ error: 'Admin access required.' });
   }
   next();
