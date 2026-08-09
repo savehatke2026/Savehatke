@@ -3,104 +3,1156 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="SaveHatke Dashboard — Track prices, manage coupons, and view your savings all in one place.">
-  <title>Dashboard — SaveHatke</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+  <meta name="description" content="My Dashboard — SaveHatke">
+  <title>My Dashboard — SaveHatke</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+
+    /* ===================================================
+       RESET & BASE — identical to index.html
+    =================================================== */
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    html{scroll-behavior:smooth}
+    body{font-family:'Outfit',sans-serif;background:#060d1f;color:#e2ecff;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+    ::-webkit-scrollbar{width:5px}
+    ::-webkit-scrollbar-track{background:#060d1f}
+    ::-webkit-scrollbar-thumb{background:#1a3055;border-radius:3px}
+    ::-webkit-scrollbar-thumb:hover{background:#00e676}
+    a{text-decoration:none;color:inherit}
+    button,input,select,textarea{font-family:'Outfit',sans-serif}
+
+    /* ===================================================
+       ANIMATIONS
+    =================================================== */
+    @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes slideDown{from{opacity:0;transform:translateY(-10px) scale(.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @keyframes pulse-ring{0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,.45)}50%{box-shadow:0 0 0 8px rgba(0,230,118,0)}}
+    @keyframes slideInRight{from{transform:translateX(110%);opacity:0}to{transform:translateX(0);opacity:1}}
+    @keyframes slideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(110%);opacity:0}}
+    @keyframes countUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+    /* ===================================================
+       UTILITY — same tokens as index.html
+    =================================================== */
+    .gtext{background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .shimmer{background:linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3.5s linear infinite}
+    .slabel{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00e676;margin-bottom:10px}
+    .container{max-width:1160px;margin:0 auto;padding:0 24px}
+    .text-green{color:#00e676}
+    .text-red{color:#ef9a9a}
+    .text-muted{color:#6b88aa}
+    .mono{font-family:'JetBrains Mono',monospace}
+
+    /* ===================================================
+       BUTTONS — identical to index.html
+    =================================================== */
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:0 24px;height:44px;border-radius:10px;font-family:'Outfit',sans-serif;font-size:.88rem;font-weight:700;border:none;cursor:pointer;white-space:nowrap;transition:all .22s}
+    .btn-sm{height:34px;padding:0 14px;font-size:.8rem;border-radius:8px}
+    .btn-xs{height:28px;padding:0 10px;font-size:.75rem;border-radius:6px}
+    .btn-full{width:100%;justify-content:center}
+    .btn-primary{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f}
+    .btn-primary:hover{opacity:.88;transform:translateY(-2px);box-shadow:0 10px 28px rgba(0,230,118,.38)}
+    .btn-ghost{background:transparent;color:#e2ecff;border:1.5px solid rgba(79,195,247,.25)}
+    .btn-ghost:hover{border-color:rgba(79,195,247,.5);background:rgba(79,195,247,.07)}
+    .btn-outline{background:transparent;color:#00e676;border:1.5px solid rgba(0,230,118,.35)}
+    .btn-outline:hover{background:rgba(0,230,118,.08);border-color:#00e676}
+    .btn-danger{background:rgba(239,154,154,.1);color:#ef9a9a;border:1px solid rgba(239,154,154,.2)}
+    .btn-danger:hover{background:rgba(239,154,154,.18)}
+
+    /* ===================================================
+       BADGES
+    =================================================== */
+    .badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:6px;white-space:nowrap}
+    .badge-green{background:rgba(0,230,118,.12);color:#00e676}
+    .badge-blue{background:rgba(79,195,247,.12);color:#4fc3f7}
+    .badge-orange{background:rgba(255,183,77,.12);color:#ffb74d}
+    .badge-red{background:rgba(239,154,154,.12);color:#ef9a9a}
+    .badge-purple{background:rgba(206,147,216,.12);color:#ce93d8}
+    .badge-gray{background:rgba(107,136,170,.12);color:#6b88aa}
+
+    /* ===================================================
+       NAVBAR — mirrors index.html exactly
+    =================================================== */
+    .navbar{position:fixed;top:0;left:0;right:0;z-index:200;height:68px;background:rgba(6,13,31,.92);backdrop-filter:blur(20px);border-bottom:1px solid rgba(79,195,247,.1);transition:background .3s}
+    .navbar .container{height:100%;display:flex;align-items:center;gap:28px}
+    .nav-brand{display:flex;align-items:center;gap:10px;font-size:1.25rem;font-weight:800;flex-shrink:0;color:#e2ecff}
+    .brand-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+    .bhl{color:#00e676}
+    .nav-links{display:flex;align-items:center;gap:22px}
+    .nav-links a{font-size:.88rem;font-weight:500;color:#6b88aa;transition:color .2s;position:relative;padding-bottom:3px}
+    .nav-links a:hover,.nav-links a.active{color:#e2ecff}
+    .nav-links a.active::after{content:'';position:absolute;bottom:-4px;left:0;right:0;height:2px;background:#00e676;border-radius:1px}
+    .nav-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+
+    /* Notification bell */
+    .notif-wrapper{position:relative}
+    .notif-btn{width:38px;height:38px;border-radius:9px;background:rgba(255,255,255,.04);border:1px solid rgba(79,195,247,.15);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;color:#a8c0dc;font-size:1.1rem;position:relative}
+    .notif-btn:hover{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.06);color:#00e676}
+    .notif-badge{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:#ff6b6b;border:2px solid #060d1f}
+
+    /* Profile */
+    .profile-wrapper{position:relative;display:flex;align-items:center;gap:9px;cursor:pointer}
+    .profile-avatar{width:38px;height:38px;border-radius:50%;border:2px solid #00e676;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.88rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .22s;box-shadow:0 0 12px rgba(0,230,118,.3)}
+    .profile-wrapper:hover .profile-avatar{transform:scale(1.08);box-shadow:0 0 20px rgba(0,230,118,.5)}
+    .profile-name{font-size:.85rem;font-weight:600;color:#e2ecff;white-space:nowrap}
+    .profile-chevron{font-size:.65rem;color:#6b88aa;transition:transform .2s}
+    .profile-wrapper.open .profile-chevron{transform:rotate(180deg)}
+
+    /* Mobile toggle */
+    .nav-toggle{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:4px;margin-left:4px}
+    .nav-toggle span{display:block;width:22px;height:2px;background:#e2ecff;border-radius:2px;transition:all .3s}
+
+    /* ===================================================
+       PROFILE DROPDOWN
+    =================================================== */
+    .profile-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:230px;background:rgba(10,22,50,.98);backdrop-filter:blur(20px);border:1px solid rgba(79,195,247,.2);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.7);padding:10px;display:none;flex-direction:column;gap:3px;z-index:999;animation:slideDown .2s ease-out forwards}
+    .profile-dropdown.open{display:flex}
+    .pd-header{display:flex;align-items:center;gap:10px;padding:8px 8px 10px;border-bottom:1px solid rgba(79,195,247,.1);margin-bottom:4px}
+    .pd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .pd-name{font-size:.88rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pd-email{font-size:.72rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .pd-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;color:#a8c0dc;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .18s;background:transparent;border:none;width:100%;text-align:left}
+    .pd-item:hover{background:rgba(0,230,118,.1);color:#00e676}
+    .pd-item-danger{color:#ff6b6b}
+    .pd-item-danger:hover{background:rgba(255,80,80,.1);color:#ff8585}
+    .pd-divider{height:1px;background:rgba(79,195,247,.1);margin:4px 0}
+
+    /* ===================================================
+       NOTIFICATION PANEL
+    =================================================== */
+    .notif-panel{position:absolute;top:calc(100% + 12px);right:0;width:350px;background:rgba(10,22,50,.98);backdrop-filter:blur(20px);border:1px solid rgba(79,195,247,.2);border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.7);display:none;flex-direction:column;z-index:999;animation:slideDown .2s ease-out forwards;overflow:hidden}
+    .notif-panel.open{display:flex}
+    .notif-panel-hdr{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid rgba(79,195,247,.1)}
+    .notif-panel-title{font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:8px}
+    .notif-unread-count{font-size:.65rem;font-weight:700;background:rgba(255,107,107,.2);color:#ff6b6b;border-radius:9999px;padding:2px 7px}
+    .mark-read-btn{font-size:.75rem;color:#00e676;cursor:pointer;background:none;border:none;font-weight:600;font-family:'Outfit',sans-serif}
+    .mark-read-btn:hover{text-decoration:underline}
+    .notif-list{max-height:380px;overflow-y:auto}
+    .notif-item{display:flex;align-items:flex-start;gap:12px;padding:13px 16px;border-bottom:1px solid rgba(79,195,247,.06);transition:background .2s;cursor:pointer}
+    .notif-item:last-child{border-bottom:none}
+    .notif-item.unread{background:rgba(0,230,118,.03)}
+    .notif-item:hover{background:rgba(79,195,247,.05)}
+    .notif-dot{width:8px;height:8px;border-radius:50%;background:#00e676;flex-shrink:0;margin-top:5px;transition:all .2s}
+    .notif-dot.read{background:rgba(107,136,170,.3)}
+    .notif-content{flex:1;min-width:0}
+    .notif-text{font-size:.82rem;color:#a8c0dc;line-height:1.55}
+    .notif-text strong{color:#e2ecff}
+    .notif-time{font-size:.7rem;color:#6b88aa;margin-top:3px;font-family:'JetBrains Mono',monospace}
+    .notif-icon{font-size:1.1rem;flex-shrink:0;margin-top:1px}
+
+    /* ===================================================
+       MAIN LAYOUT
+    =================================================== */
+    .db-wrap{padding-top:68px;min-height:100vh}
+    .db-bg{position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 10% 10%,rgba(0,230,118,.05) 0%,transparent 60%),radial-gradient(ellipse 60% 70% at 90% 90%,rgba(79,195,247,.04) 0%,transparent 60%),linear-gradient(180deg,#060d1f 0%,#070f24 100%);pointer-events:none;z-index:0}
+    .db-content{position:relative;z-index:1;padding:32px 0 72px;animation:fadeIn .45s ease}
+
+    /* Section heading style */
+    .sec-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+    .sec-heading{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#a8c0dc;display:flex;align-items:center;gap:8px}
+    .sec-heading::after{content:'';flex:1;height:1px;background:rgba(79,195,247,.1);display:none}
+
+    /* ===================================================
+       WELCOME SECTION
+    =================================================== */
+    .welcome-section{padding:28px 0 24px;margin-bottom:28px;border-bottom:1px solid rgba(79,195,247,.07)}
+    .welcome-inner{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
+    .welcome-greeting{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.2vw,2.3rem);line-height:1.15;margin-bottom:8px}
+    .welcome-sub{font-size:.92rem;color:#a8c0dc;margin-bottom:16px}
+    .welcome-tags{display:flex;gap:8px;flex-wrap:wrap}
+    .wtag{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;padding:4px 12px;border-radius:9999px}
+    .wtag-verified{background:rgba(0,230,118,.1);color:#00e676;border:1px solid rgba(0,230,118,.25)}
+    .wtag-member{background:rgba(79,195,247,.08);color:#4fc3f7;border:1px solid rgba(79,195,247,.2)}
+    .welcome-date{font-size:.82rem;color:#6b88aa;text-align:right}
+    .welcome-date span{display:block;font-size:1rem;color:#a8c0dc;font-weight:600;margin-top:2px}
+
+    /* ===================================================
+       STAT CARDS — same design language as index.html
+    =================================================== */
+    .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px}
+    .stat-card{background:rgba(15,30,58,.78);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:20px;transition:all .3s;cursor:default;position:relative;overflow:hidden}
+    .stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .3s}
+    .stat-card:hover{border-color:rgba(0,230,118,.22);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
+    .stat-card:hover::before{opacity:1}
+    .sc-green::before{background:linear-gradient(90deg,#00e676,#00c853)}
+    .sc-blue::before{background:linear-gradient(90deg,#4fc3f7,#0288d1)}
+    .sc-purple::before{background:linear-gradient(90deg,#ce93d8,#9c27b0)}
+    .sc-orange::before{background:linear-gradient(90deg,#ffb74d,#f57c00)}
+    .sc-teal::before{background:linear-gradient(90deg,#80cbc4,#009688)}
+    .stat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+    .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+    .si-green{background:rgba(0,230,118,.12)}
+    .si-blue{background:rgba(79,195,247,.12)}
+    .si-purple{background:rgba(206,147,216,.12)}
+    .si-orange{background:rgba(255,183,77,.12)}
+    .si-teal{background:rgba(128,203,196,.12)}
+    .stat-trend{font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:5px}
+    .trend-up{background:rgba(0,230,118,.12);color:#00e676}
+    .trend-dn{background:rgba(239,154,154,.12);color:#ef9a9a}
+    .stat-val{font-family:'JetBrains Mono',monospace;font-size:1.55rem;font-weight:600;line-height:1;margin-bottom:4px;animation:countUp .5s ease}
+    .stat-lbl{font-size:.74rem;color:#6b88aa;font-weight:500}
+
+    /* ===================================================
+       QUICK ACTIONS
+    =================================================== */
+    .qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}
+    .qa-card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:22px 18px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;transition:all .3s;color:inherit;border:1px solid rgba(79,195,247,.1)}
+    .qa-card:hover{border-color:rgba(0,230,118,.28);transform:translateY(-4px);box-shadow:0 20px 44px rgba(0,0,0,.28);background:rgba(18,36,72,.85)}
+    .qa-ico{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:14px;transition:transform .3s}
+    .qa-card:hover .qa-ico{transform:scale(1.1) rotate(-4deg)}
+    .qa-ico-green{background:linear-gradient(135deg,rgba(0,230,118,.15),rgba(0,230,118,.06))}
+    .qa-ico-blue{background:linear-gradient(135deg,rgba(79,195,247,.15),rgba(79,195,247,.06))}
+    .qa-ico-purple{background:linear-gradient(135deg,rgba(206,147,216,.15),rgba(206,147,216,.06))}
+    .qa-ico-orange{background:linear-gradient(135deg,rgba(255,183,77,.15),rgba(255,183,77,.06))}
+    .qa-title{font-size:.9rem;font-weight:700;margin-bottom:6px;color:#e2ecff}
+    .qa-desc{font-size:.76rem;color:#6b88aa;line-height:1.5}
+
+    /* ===================================================
+       GRID LAYOUTS
+    =================================================== */
+    .two-col{display:grid;grid-template-columns:minmax(0,1.65fr) minmax(0,1fr);gap:20px;margin-bottom:20px}
+    .three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px;margin-bottom:20px}
+
+    /* ===================================================
+       CARD BASE — mirrors index.html card feel
+    =================================================== */
+    .card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:22px}
+    .card-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    .card-title{font-size:.92rem;font-weight:700;display:flex;align-items:center;gap:7px}
+    .card-title .ico{font-size:.95rem}
+
+    /* ===================================================
+       ACTIVITY TABLE
+    =================================================== */
+    .overflow-x{overflow-x:auto}
+    table{width:100%;border-collapse:collapse}
+    thead th{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:8px 14px;text-align:left;background:rgba(0,0,0,.18);white-space:nowrap}
+    tbody tr{border-top:1px solid rgba(79,195,247,.05);transition:background .2s}
+    tbody tr:hover{background:rgba(79,195,247,.04)}
+    tbody td{padding:11px 14px;font-size:.83rem;color:#a8c0dc;vertical-align:middle}
+    tbody td strong{color:#e2ecff;font-weight:600}
+
+    /* Mobile activity cards */
+    .activity-mobile{display:none}
+    .act-mob-card{background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.07);border-radius:12px;padding:14px;margin-bottom:9px}
+    .act-mob-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+    .act-mob-title{font-size:.85rem;font-weight:600;color:#e2ecff}
+    .act-mob-amount{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:700}
+    .act-mob-meta{display:flex;justify-content:space-between;align-items:center;font-size:.74rem;color:#6b88aa}
+
+    /* ===================================================
+       COUPON SUMMARY
+    =================================================== */
+    .cs-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+    .cs-item{background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:12px;padding:14px;text-align:center;transition:all .22s;cursor:pointer}
+    .cs-item:hover{border-color:rgba(0,230,118,.2);background:rgba(0,230,118,.03)}
+    .cs-num{font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:600;line-height:1;margin-bottom:5px}
+    .cs-lbl{font-size:.72rem;font-weight:600;color:#6b88aa;text-transform:uppercase;letter-spacing:.06em}
+
+    /* ===================================================
+       WALLET CARD
+    =================================================== */
+    .wallet-bal{font-family:'JetBrains Mono',monospace;font-size:2.2rem;font-weight:600;color:#00e676;line-height:1;margin-bottom:4px;animation:countUp .6s ease}
+    .wallet-sub{font-size:.78rem;color:#6b88aa;margin-bottom:18px}
+    .wallet-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+    .ws-row{background:rgba(255,255,255,.04);border-radius:10px;padding:10px 12px}
+    .ws-lbl{font-size:.7rem;color:#6b88aa;margin-bottom:3px}
+    .ws-val{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600;color:#e2ecff}
+    .wallet-btns{display:flex;gap:8px}
+
+    /* ===================================================
+       SUPPORT CARD
+    =================================================== */
+    .support-case-box{background:rgba(255,183,77,.04);border:1px solid rgba(255,183,77,.18);border-radius:12px;padding:14px;margin-bottom:16px}
+    .sc-case-id{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#6b88aa;margin-bottom:5px}
+    .sc-case-sub{font-size:.88rem;font-weight:700;color:#e2ecff;margin-bottom:10px}
+    .sc-case-meta{font-size:.75rem;color:#6b88aa;display:flex;gap:12px;flex-wrap:wrap}
+    .support-btns{display:flex;gap:8px}
+
+    /* ===================================================
+       SECURITY CARD
+    =================================================== */
+    .sec-row-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(79,195,247,.06);font-size:.83rem}
+    .sec-row-item:last-child{border-bottom:none}
+    .sec-lbl{color:#6b88aa}
+    .sec-val{color:#e2ecff;font-weight:600;display:flex;align-items:center;gap:6px}
+    .sec-dot{width:7px;height:7px;border-radius:50%}
+    .dot-green{background:#00e676}
+    .dot-blue{background:#4fc3f7}
+    .dot-orange{background:#ffb74d}
+
+    /* ===================================================
+       FOOTER — matches index.html footer exactly
+    =================================================== */
+    .footer{background:rgba(9,16,34,.95);border-top:1px solid rgba(79,195,247,.1);padding:52px 0 0;margin-top:52px;position:relative;z-index:1}
+    .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:44px;padding-bottom:44px}
+    .fbrand p{font-size:.86rem;color:#6b88aa;line-height:1.7;margin-top:14px;max-width:268px}
+    .fcol h4{font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px;color:#a8c0dc}
+    .fcol a{display:block;font-size:.85rem;color:#6b88aa;margin-bottom:10px;transition:color .2s}
+    .fcol a:hover{color:#00e676}
+    .fbot{border-top:1px solid rgba(79,195,247,.1);padding:18px 0;display:flex;justify-content:space-between;font-size:.8rem;color:#6b88aa}
+
+    /* ===================================================
+       MODALS
+    =================================================== */
+    .modal-overlay{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s}
+    .modal-overlay.open{opacity:1;pointer-events:auto}
+    .modal{width:100%;max-width:420px;border-radius:20px;padding:36px;background:#0b1a40;border:1px solid rgba(79,195,247,.18);box-shadow:0 40px 100px rgba(0,0,0,.7);transform:translateY(18px) scale(.97);transition:transform .25s;position:relative}
+    .modal-overlay.open .modal{transform:translateY(0) scale(1)}
+    .modal-lg{max-width:480px}
+    .modal-hdr{margin-bottom:20px}
+    .modal-title{font-family:'DM Serif Display',serif;font-size:1.55rem;margin-bottom:5px}
+    .modal-sub{font-size:.85rem;color:#6b88aa}
+    .modal-close-btn{position:absolute;top:16px;right:16px;background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1.2rem;padding:4px 8px;transition:color .2s;line-height:1}
+    .modal-close-btn:hover{color:#e2ecff}
+    .modal-body{margin-bottom:0}
+    .modal-footer{display:flex;gap:10px;margin-top:24px}
+    .form-grp{margin-bottom:16px}
+    .form-lbl{display:block;font-size:.78rem;font-weight:600;color:#a8c0dc;margin-bottom:7px}
+    .form-inp{width:100%;padding:11px 14px;border-radius:10px;background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);color:#e2ecff;font-size:.9rem;transition:border-color .2s;outline:none}
+    .form-inp:focus{border-color:rgba(0,230,118,.4)}
+    .form-inp::placeholder{color:#6b88aa}
+    .wallet-modal-bal{background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.2);border-radius:10px;padding:14px;margin-bottom:18px;text-align:center}
+    .wallet-modal-bal p{font-size:.78rem;color:#6b88aa;margin-bottom:4px}
+    .wallet-modal-bal strong{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600;color:#00e676}
+
+    /* ===================================================
+       TOAST
+    =================================================== */
+    .toast-container{position:fixed;bottom:28px;right:28px;z-index:900;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+    .toast{display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:12px;font-size:.84rem;font-weight:600;color:#e2ecff;background:rgba(10,22,50,.97);backdrop-filter:blur(16px);border:1px solid rgba(79,195,247,.2);box-shadow:0 20px 50px rgba(0,0,0,.5);pointer-events:auto;animation:slideInRight .3s cubic-bezier(0.16,1,0.3,1) forwards;max-width:360px}
+    .toast-success{border-color:rgba(0,230,118,.4)}
+    .toast-error{border-color:rgba(255,80,80,.4)}
+    .toast-warn{border-color:rgba(255,183,77,.4)}
+
+    /* ===================================================
+       RESPONSIVE
+    =================================================== */
+    @media(max-width:1100px){
+      .stats-grid{grid-template-columns:repeat(3,1fr)}
+    }
+    @media(max-width:960px){
+      .nav-links{display:none}
+      .nav-links.mob-open{display:flex;flex-direction:column;position:fixed;top:68px;left:0;right:0;background:rgba(8,16,38,.99);backdrop-filter:blur(20px);padding:24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:199;animation:slideDown .25s ease}
+      .nav-toggle{display:flex}
+      .two-col{grid-template-columns:1fr}
+      .three-col{grid-template-columns:1fr 1fr}
+      .qa-grid{grid-template-columns:repeat(2,1fr)}
+    }
+    @media(max-width:720px){
+      .stats-grid{grid-template-columns:repeat(2,1fr)}
+      .three-col{grid-template-columns:1fr}
+      .footer-grid{grid-template-columns:1fr 1fr;gap:28px}
+      table.activity-desktop{display:none}
+      .activity-mobile{display:block}
+      .profile-name{display:none}
+      .profile-chevron{display:none}
+    }
+    @media(max-width:480px){
+      .stats-grid{grid-template-columns:1fr 1fr}
+      .qa-grid{grid-template-columns:1fr 1fr}
+      .footer-grid{grid-template-columns:1fr}
+      .fbot{flex-direction:column;gap:8px;text-align:center}
+      .notif-panel{width:300px}
+      .welcome-date{display:none}
+    }
+
+  </style>
 </head>
 <body>
-  <!-- Navigation -->
-  <nav class="navbar" id="mainNav">
-    <div class="container">
-      <a href="index.html" class="nav-brand">
-        <div class="brand-icon">💰</div>
-        Save<span class="brand-highlight">Hatke</span>
-      </a>
-      <div class="nav-links" id="navLinks">
-        <a href="index.html">Home</a>
-        <a href="marketplace.html">Coupons</a>
-        <a href="sell.html">Sell Coupons</a>
-        <a href="dashboard.html">Dashboard</a>
-        <a href="support.html">Support</a>
+
+<!-- =====================================================
+     NAVBAR
+===================================================== -->
+<nav class="navbar" id="mainNav">
+  <div class="container">
+
+    <a href="index.html" class="nav-brand">
+      <div class="brand-icon">💰</div>
+      Save<span class="bhl">Hatke</span>
+    </a>
+
+    <div class="nav-links" id="navLinks">
+      <a href="#" class="active">Dashboard</a>
+      <a href="marketplace.html">Buy Coupons</a>
+      <a href="sell.html">Sell Coupons</a>
+      <a href="#my-coupons" id="navMyCoupons">My Coupons</a>
+      <a href="#wallet" id="navWallet">Wallet</a>
+      <a href="support-cases.html">Support</a>
+    </div>
+
+    <div class="nav-right">
+
+      <!-- Notification Bell -->
+      <div class="notif-wrapper" id="notifWrapper">
+        <button class="notif-btn" id="notifBtn" onclick="toggleNotif(event)" title="Notifications">
+          🔔
+          <span class="notif-badge" id="notifBadge"></span>
+        </button>
+
+        <!-- Notification Panel -->
+        <div class="notif-panel" id="notifPanel">
+          <div class="notif-panel-hdr">
+            <div class="notif-panel-title">
+              Notifications
+              <span class="notif-unread-count" id="notifCount">4</span>
+            </div>
+            <button class="mark-read-btn" onclick="markAllRead()">Mark all as read</button>
+          </div>
+          <div class="notif-list" id="notifList"></div>
+        </div>
       </div>
-      <div class="nav-actions" id="navActions"></div>
-      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+
+      <!-- Profile -->
+      <div class="profile-wrapper" id="profileWrapper" onclick="toggleProfile(event)">
+        <div class="profile-avatar" id="profileAvatar">RK</div>
+        <span class="profile-name" id="profileNameNav">Rahul Kumar</span>
+        <span class="profile-chevron">▼</span>
+
+        <!-- Profile Dropdown -->
+        <div class="profile-dropdown" id="profileDropdown">
+          <div class="pd-header">
+            <div class="pd-avatar" id="pdAvatar">RK</div>
+            <div>
+              <div class="pd-name" id="pdName">Rahul Kumar</div>
+              <div class="pd-email" id="pdEmail">rahul@gmail.com</div>
+            </div>
+          </div>
+          <button class="pd-item" onclick="showToast('Profile page coming soon!','warn')">👤 My Profile</button>
+          <button class="pd-item" onclick="scrollToSec('security')">🔒 Security Settings</button>
+          <button class="pd-item" onclick="scrollToSec('my-coupons')">🎟️ My Coupons</button>
+          <button class="pd-item" onclick="scrollToSec('wallet')">💰 Wallet</button>
+          <button class="pd-item" onclick="location.href='support-cases.html'">🎧 Support</button>
+          <div class="pd-divider"></div>
+          <button class="pd-item pd-item-danger" onclick="openModal('logoutModal')">🚪 Logout</button>
+        </div>
+      </div>
+
+      <!-- Mobile toggle -->
+      <button class="nav-toggle" id="navToggle" onclick="toggleMobileNav()" aria-label="Menu">
         <span></span><span></span><span></span>
       </button>
-    </div>
-  </nav>
-
-  <!-- Page Content -->
-  <main class="page">
-    <div class="container">
-      <div class="page-header">
-        <h1 class="page-title">Your Dashboard</h1>
-        <p class="page-subtitle" id="dashGreeting">Welcome back! Here's your savings overview.</p>
-      </div>
-
-      <!-- Dashboard Tabs (mobile-friendly instead of sidebar) -->
-      <div class="category-pills mb-8" id="dashTabs">
-        <button class="category-pill active" data-tab="tracker">📊 Price Tracker</button>
-        <button class="category-pill" data-tab="purchases">🛒 My Purchases</button>
-        <button class="category-pill" data-tab="sales">💰 My Sales</button>
-      </div>
-
-      <!-- ═══ Price Tracker Tab ═══ -->
-      <div class="dash-tab active" id="tab-tracker">
-        <!-- Add Product Form -->
-        <div class="card mb-6">
-          <h3 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-4);">📌 Track a New Product</h3>
-          <form id="addTrackerForm" style="display: flex; gap: var(--space-4); flex-wrap: wrap; align-items: end;">
-            <div class="form-group" style="flex: 2; min-width: 200px; margin-bottom: 0;">
-              <label class="form-label" for="productUrl">Product URL</label>
-              <input class="form-input" type="url" id="productUrl" placeholder="Paste Amazon or Flipkart product link..." required>
-            </div>
-            <div class="form-group" style="flex: 1; min-width: 120px; margin-bottom: 0;">
-              <label class="form-label" for="targetPrice">Target Price (₹)</label>
-              <input class="form-input" type="number" id="targetPrice" placeholder="Optional">
-            </div>
-            <button type="submit" class="btn btn-primary" id="addTrackerBtn">+ Track Price</button>
-          </form>
-        </div>
-
-        <!-- Tracked Products List -->
-        <div id="trackedProducts">
-          <div class="shimmer" style="height: 80px; margin-bottom: 1rem;"></div>
-          <div class="shimmer" style="height: 80px; margin-bottom: 1rem;"></div>
-          <div class="shimmer" style="height: 80px;"></div>
-        </div>
-      </div>
-
-      <!-- ═══ My Purchases Tab ═══ -->
-      <div class="dash-tab" id="tab-purchases" style="display: none;">
-        <div id="purchasesList">
-          <div class="shimmer" style="height: 200px;"></div>
-        </div>
-      </div>
-
-      <!-- ═══ My Sales Tab ═══ -->
-      <div class="dash-tab" id="tab-sales" style="display: none;">
-        <div id="salesList">
-          <div class="shimmer" style="height: 200px;"></div>
-        </div>
-      </div>
 
     </div>
-  </main>
+  </div>
+</nav>
 
-  <!-- Footer -->
-  <footer class="footer" style="margin-top: var(--space-16);">
-    <div class="container">
-      <div class="footer-bottom" style="border-top: none; padding-top: 0;">
-        <span>© 2026 SaveHatke. All rights reserved.</span>
-        <span>
-          <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="support.html">Support</a>
-        </span>
+<!-- =====================================================
+     BACKGROUND
+===================================================== -->
+<div class="db-bg"></div>
+
+<!-- =====================================================
+     MAIN DASHBOARD
+===================================================== -->
+<div class="db-wrap">
+<div class="db-content">
+<div class="container">
+
+  <!-- ─── WELCOME SECTION ─── -->
+  <section class="welcome-section">
+    <div class="welcome-inner">
+      <div>
+        <p class="slabel">Dashboard</p>
+        <h1 class="welcome-greeting">Welcome back, <span class="gtext" id="welcomeFirstName">Rahul</span> 👋</h1>
+        <p class="welcome-sub">Here's what's happening with your SaveHatke account.</p>
+        <div class="welcome-tags">
+          <span class="wtag wtag-verified">✅ Email Verified</span>
+          <span class="wtag wtag-member">🏅 Member since Jan 2026</span>
+        </div>
+      </div>
+      <div class="welcome-date">
+        <div style="font-size:.78rem;color:#6b88aa">Today</div>
+        <span id="currentDate"></span>
+        <div style="margin-top:8px">
+          <button class="btn btn-primary btn-sm" onclick="openModal('withdrawModal')">💸 Withdraw ₹850</button>
+        </div>
       </div>
     </div>
-  </footer>
+  </section>
 
-  <script src="js/app.js"></script>
-  <script src="js/dashboard.js"></script>
+  <!-- ─── STATS CARDS ─── -->
+  <div class="stats-grid" style="margin-top:8px">
+
+    <div class="stat-card sc-blue">
+      <div class="stat-card-top">
+        <div class="stat-icon si-blue">📤</div>
+        <span class="stat-trend trend-up">↑ 4</span>
+      </div>
+      <div class="stat-val" style="color:#4fc3f7">12</div>
+      <div class="stat-lbl">Coupons Submitted</div>
+    </div>
+
+    <div class="stat-card sc-purple">
+      <div class="stat-card-top">
+        <div class="stat-icon si-purple">🛒</div>
+        <span class="stat-trend trend-up">↑ 2</span>
+      </div>
+      <div class="stat-val" style="color:#ce93d8">8</div>
+      <div class="stat-lbl">Coupons Purchased</div>
+    </div>
+
+    <div class="stat-card sc-orange">
+      <div class="stat-card-top">
+        <div class="stat-icon si-orange">💼</div>
+        <span class="stat-trend trend-up">↑ 1</span>
+      </div>
+      <div class="stat-val" style="color:#ffb74d">5</div>
+      <div class="stat-lbl">Coupons Sold</div>
+    </div>
+
+    <div class="stat-card sc-green">
+      <div class="stat-card-top">
+        <div class="stat-icon si-green">📈</div>
+        <span class="stat-trend trend-up">↑ 18%</span>
+      </div>
+      <div class="stat-val gtext">₹1,250</div>
+      <div class="stat-lbl">Total Earnings</div>
+    </div>
+
+    <div class="stat-card sc-teal">
+      <div class="stat-card-top">
+        <div class="stat-icon si-teal">💰</div>
+        <span class="stat-trend trend-up">↑ ₹200</span>
+      </div>
+      <div class="stat-val" style="color:#80cbc4">₹850</div>
+      <div class="stat-lbl">Available Balance</div>
+    </div>
+
+  </div>
+
+  <!-- ─── QUICK ACTIONS ─── -->
+  <div class="sec-row" style="margin-bottom:16px">
+    <p class="slabel" style="margin-bottom:0">Quick Actions</p>
+  </div>
+  <div class="qa-grid">
+
+    <a href="marketplace.html" class="qa-card">
+      <div class="qa-ico qa-ico-blue">🏷️</div>
+      <div class="qa-title">Buy Coupons</div>
+      <div class="qa-desc">Browse verified coupons at unreal prices</div>
+    </a>
+
+    <a href="sell.html" class="qa-card">
+      <div class="qa-ico qa-ico-green">💰</div>
+      <div class="qa-title">Sell Coupons</div>
+      <div class="qa-desc">Sell unused coupons and earn instant cash</div>
+    </a>
+
+    <div class="qa-card" onclick="openModal('submitCouponModal')">
+      <div class="qa-ico qa-ico-purple">📤</div>
+      <div class="qa-title">Submit Coupon</div>
+      <div class="qa-desc">Submit a new coupon code for review</div>
+    </div>
+
+    <div class="qa-card" onclick="openModal('withdrawModal')">
+      <div class="qa-ico qa-ico-orange">🏦</div>
+      <div class="qa-title">Withdraw Money</div>
+      <div class="qa-desc">Withdraw balance to your bank or UPI</div>
+    </div>
+
+  </div>
+
+  <!-- ─── ACTIVITY + MY COUPONS ─── -->
+  <div class="two-col">
+
+    <!-- Recent Activity -->
+    <div class="card" id="activity">
+      <div class="card-hdr">
+        <div class="card-title"><span class="ico">⚡</span> Recent Activity</div>
+        <button class="btn btn-ghost btn-sm" onclick="showToast('Showing all activity...','warn')">View All</button>
+      </div>
+
+      <!-- Desktop table -->
+      <div class="overflow-x activity-desktop">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Details</th>
+              <th>Amount</th>
+              <th>Date</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="activityTableBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Mobile cards -->
+      <div class="activity-mobile" id="activityMobile"></div>
+
+    </div>
+
+    <!-- My Coupons -->
+    <div class="card" id="my-coupons">
+      <div class="card-hdr">
+        <div class="card-title"><span class="ico">🎟️</span> My Coupons</div>
+        <a href="marketplace.html" class="btn btn-ghost btn-sm">View All</a>
+      </div>
+
+      <div class="cs-grid">
+        <div class="cs-item" onclick="showToast('5 active coupons','warn')">
+          <div class="cs-num" style="color:#00e676">5</div>
+          <div class="cs-lbl">Active</div>
+        </div>
+        <div class="cs-item" onclick="showToast('2 pending review','warn')">
+          <div class="cs-num" style="color:#ffb74d">2</div>
+          <div class="cs-lbl">Pending</div>
+        </div>
+        <div class="cs-item" onclick="showToast('5 coupons sold','warn')">
+          <div class="cs-num" style="color:#ce93d8">5</div>
+          <div class="cs-lbl">Sold</div>
+        </div>
+        <div class="cs-item" onclick="showToast('1 expired coupon','warn')">
+          <div class="cs-num" style="color:#6b88aa">1</div>
+          <div class="cs-lbl">Expired</div>
+        </div>
+      </div>
+
+      <!-- Active coupons list -->
+      <div style="margin-top:4px">
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Active Coupons</div>
+        <div id="myCouponsList"></div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ─── WALLET + SUPPORT + SECURITY ─── -->
+  <div class="three-col">
+
+    <!-- Wallet -->
+    <div class="card" id="wallet">
+      <div class="card-hdr">
+        <div class="card-title"><span class="ico">💰</span> Wallet</div>
+        <span class="badge badge-green">Active</span>
+      </div>
+      <div class="wallet-bal">₹850</div>
+      <div class="wallet-sub">Available balance</div>
+      <div class="wallet-stats">
+        <div class="ws-row">
+          <div class="ws-lbl">Pending</div>
+          <div class="ws-val" style="color:#ffb74d">₹200</div>
+        </div>
+        <div class="ws-row">
+          <div class="ws-lbl">Total Earned</div>
+          <div class="ws-val" style="color:#00e676">₹1,250</div>
+        </div>
+        <div class="ws-row">
+          <div class="ws-lbl">Withdrawn</div>
+          <div class="ws-val">₹400</div>
+        </div>
+        <div class="ws-row">
+          <div class="ws-lbl">This Month</div>
+          <div class="ws-val" style="color:#80cbc4">₹320</div>
+        </div>
+      </div>
+      <div class="wallet-btns">
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('Transactions coming soon!','warn')">Transactions</button>
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('withdrawModal')">💸 Withdraw</button>
+      </div>
+    </div>
+
+    <!-- Support -->
+    <div class="card">
+      <div class="card-hdr">
+        <div class="card-title"><span class="ico">🎧</span> Support</div>
+        <a href="support-cases.html" class="btn btn-ghost btn-sm">All Cases</a>
+      </div>
+
+      <div class="support-case-box">
+        <div class="sc-case-id">Case #SH-10245</div>
+        <div class="sc-case-sub">Payment issue with withdrawal</div>
+        <div class="sc-case-meta">
+          <span><span class="badge badge-orange">Open</span></span>
+          <span>Updated: Today, 11:42 AM</span>
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px">
+        <div style="font-size:.72rem;color:#6b88aa;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Summary</div>
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0;border-bottom:1px solid rgba(79,195,247,.06)">
+          <span style="color:#6b88aa">Open cases</span>
+          <span style="color:#ffb74d;font-weight:700">1</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0">
+          <span style="color:#6b88aa">Total resolved</span>
+          <span style="color:#00e676;font-weight:700">4</span>
+        </div>
+      </div>
+
+      <div class="support-btns">
+        <a href="support-cases.html" class="btn btn-ghost btn-sm" style="flex:1">View Case</a>
+        <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('newCaseModal')">+ New Case</button>
+      </div>
+    </div>
+
+    <!-- Security -->
+    <div class="card" id="security">
+      <div class="card-hdr">
+        <div class="card-title"><span class="ico">🔒</span> Security</div>
+        <span class="badge badge-green">Secure</span>
+      </div>
+
+      <div class="sec-row-item">
+        <span class="sec-lbl">Email</span>
+        <span class="sec-val"><span class="sec-dot dot-green"></span>Verified</span>
+      </div>
+      <div class="sec-row-item">
+        <span class="sec-lbl">Account Status</span>
+        <span class="sec-val"><span class="sec-dot dot-green"></span>Secure</span>
+      </div>
+      <div class="sec-row-item">
+        <span class="sec-lbl">Active Sessions</span>
+        <span class="sec-val"><span class="sec-dot dot-blue"></span>2 devices</span>
+      </div>
+      <div class="sec-row-item">
+        <span class="sec-lbl">2FA</span>
+        <span class="sec-val"><span class="sec-dot dot-orange"></span>Not enabled</span>
+      </div>
+      <div class="sec-row-item">
+        <span class="sec-lbl">Last Login</span>
+        <span class="sec-val" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">Today, 4:32 PM</span>
+      </div>
+
+      <button class="btn btn-ghost btn-sm btn-full" style="margin-top:16px" onclick="showToast('Security settings coming soon!','warn')">🛡️ Security Settings</button>
+    </div>
+
+  </div>
+
+</div><!-- /container -->
+</div><!-- /db-content -->
+</div><!-- /db-wrap -->
+
+<!-- =====================================================
+     FOOTER — matches index.html
+===================================================== -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="fbrand">
+        <a href="index.html" class="nav-brand" style="font-size:1.2rem;display:inline-flex">
+          <div class="brand-icon">💰</div>
+          Save<span class="bhl">Hatke</span>
+        </a>
+        <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
+      </div>
+      <div class="fcol">
+        <h4>Platform</h4>
+        <a href="marketplace.html">Coupon Marketplace</a>
+        <a href="sell.html">Sell Coupons</a>
+        <a href="index.html">Price Tracker</a>
+        <a href="#">Browser Extension</a>
+      </div>
+      <div class="fcol">
+        <h4>Company</h4>
+        <a href="support-cases.html">Help Center</a>
+        <a href="support-cases.html">Contact Us</a>
+        <a href="#">Terms &amp; Conditions</a>
+        <a href="#">Privacy Policy</a>
+      </div>
+      <div class="fcol">
+        <h4>Categories</h4>
+        <a href="marketplace.html">Makeup Coupons</a>
+        <a href="marketplace.html">Electronics Deals</a>
+        <a href="marketplace.html">Fashion Codes</a>
+        <a href="marketplace.html">Food &amp; Delivery</a>
+      </div>
+    </div>
+    <div class="fbot">
+      <span>© 2026 SaveHatke. All rights reserved.</span>
+      <span>Made with ❤️ in India</span>
+    </div>
+  </div>
+</footer>
+
+<!-- =====================================================
+     MODALS
+===================================================== -->
+
+<!-- LOGOUT MODAL -->
+<div class="modal-overlay" id="logoutModal" onclick="handleOverlayClick(event,'logoutModal')">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('logoutModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Log <span class="gtext">Out</span></div>
+      <div class="modal-sub">Are you sure you want to log out of SaveHatke?</div>
+    </div>
+    <div style="background:rgba(255,80,80,.06);border:1px solid rgba(255,80,80,.15);border-radius:10px;padding:14px;font-size:.84rem;color:#a8c0dc;margin-bottom:4px">
+      ⚠️ You will need to log back in to access your dashboard, wallet and coupons.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('logoutModal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" onclick="performLogout()">🚪 Yes, Logout</button>
+    </div>
+  </div>
+</div>
+
+<!-- WITHDRAW MODAL -->
+<div class="modal-overlay" id="withdrawModal" onclick="handleOverlayClick(event,'withdrawModal')">
+  <div class="modal modal-lg">
+    <button class="modal-close-btn" onclick="closeModal('withdrawModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Withdraw <span class="gtext">Balance</span></div>
+      <div class="modal-sub">Transfer your earnings to your bank or UPI</div>
+    </div>
+    <div class="wallet-modal-bal">
+      <p>Available Balance</p>
+      <strong>₹850</strong>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Withdrawal Amount (₹)</label>
+      <input type="number" class="form-inp" id="withdrawAmount" placeholder="e.g. 500" max="850" min="1">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Payment Method</label>
+      <select class="form-inp" id="withdrawMethod" onchange="toggleWithdrawField(this.value)">
+        <option value="upi">UPI ID</option>
+        <option value="bank">Bank Account</option>
+      </select>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl" id="withdrawFieldLbl">UPI ID</label>
+      <input type="text" class="form-inp" id="withdrawField" placeholder="yourname@upi">
+    </div>
+    <div style="font-size:.76rem;color:#6b88aa;margin-bottom:4px">⏱️ Processing time: 1–3 business days. Minimum withdrawal: ₹50.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('withdrawModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="confirmWithdraw()">💸 Confirm Withdraw</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUBMIT COUPON MODAL -->
+<div class="modal-overlay" id="submitCouponModal" onclick="handleOverlayClick(event,'submitCouponModal')">
+  <div class="modal modal-lg">
+    <button class="modal-close-btn" onclick="closeModal('submitCouponModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Submit <span class="gtext">Coupon</span></div>
+      <div class="modal-sub">Submit a new coupon code for review and earn money when it's approved.</div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Brand / Store Name *</label>
+      <input type="text" class="form-inp" id="scBrand" placeholder="e.g. Nykaa, Amazon, Myntra">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Coupon Code *</label>
+      <input type="text" class="form-inp" id="scCode" placeholder="e.g. SAVE30" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase">
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-grp">
+        <label class="form-lbl">Discount Value *</label>
+        <input type="text" class="form-inp" id="scDiscount" placeholder="e.g. 30% OFF or ₹500 OFF">
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Expiry Date *</label>
+        <input type="date" class="form-inp" id="scExpiry">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('submitCouponModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="submitCoupon()">📤 Submit for Review</button>
+    </div>
+  </div>
+</div>
+
+<!-- NEW SUPPORT CASE MODAL -->
+<div class="modal-overlay" id="newCaseModal" onclick="handleOverlayClick(event,'newCaseModal')">
+  <div class="modal modal-lg">
+    <button class="modal-close-btn" onclick="closeModal('newCaseModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">New Support <span class="gtext">Case</span></div>
+      <div class="modal-sub">Our support team typically responds within 2 hours.</div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Subject *</label>
+      <input type="text" class="form-inp" id="caseSubject" placeholder="Briefly describe your issue">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Category</label>
+      <select class="form-inp" id="caseCategory">
+        <option>💳 Billing / Payment</option>
+        <option>🎟️ Coupon Issue</option>
+        <option>👤 Account Issue</option>
+        <option>🔧 Technical Problem</option>
+        <option>📦 Other</option>
+      </select>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Description</label>
+      <textarea class="form-inp" id="caseDesc" rows="4" placeholder="Provide more details about your issue..." style="resize:vertical"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('newCaseModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" onclick="createCase()">🎧 Create Case</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- =====================================================
+     JAVASCRIPT
+===================================================== -->
+<script src="js/app.js"></script>
+<script>
+
+  /* ─── DATA ─── */
+  const USER = {
+    name: 'Rahul Kumar',
+    email: 'rahul@gmail.com',
+    initials: 'RK',
+    memberSince: 'January 2026',
+    balance: 850,
+    pendingBalance: 200,
+    totalEarnings: 1250,
+    totalWithdrawn: 400
+  };
+
+  const ACTIVITIES = [
+    { type:'Purchase',   icon:'🛒', detail:'Amazon ₹500 Gift Coupon',   amount:'-₹420', amountClass:'text-red',   date:'Today, 2:30 PM',   status:'Completed', statusClass:'badge-green'  },
+    { type:'Sale',       icon:'💼', detail:'Flipkart ₹1,000 Voucher',   amount:'+₹850', amountClass:'text-green', date:'Yesterday',         status:'Completed', statusClass:'badge-green'  },
+    { type:'Submission', icon:'📤', detail:'Myntra ₹500 Coupon',        amount:'—',     amountClass:'',           date:'Aug 8',             status:'Pending',   statusClass:'badge-orange' },
+    { type:'Withdrawal', icon:'🏦', detail:'Bank Withdrawal',           amount:'-₹500', amountClass:'text-red',   date:'Aug 7',             status:'Completed', statusClass:'badge-green'  },
+    { type:'Purchase',   icon:'🛒', detail:'Nykaa ₹200 OFF Code',       amount:'-₹120', amountClass:'text-red',   date:'Aug 5',             status:'Completed', statusClass:'badge-green'  }
+  ];
+
+  const MY_COUPONS = [
+    { brand:'Puma', code:'PUMA500', val:'₹500 OFF', exp:'Dec 31, 2026', status:'Active', badge:'badge-green' },
+    { brand:'Swiggy', code:'SWIGGY150', val:'₹150 Cashback', exp:'Dec 31, 2026', status:'Active', badge:'badge-green' },
+    { brand:'boAt', code:'BOAT300', val:'₹300 OFF', exp:'Dec 31, 2026', status:'Active', badge:'badge-green' }
+  ];
+
+  const NOTIFICATIONS = [
+    { icon:'🎉', text:'Your coupon <strong>PUMA500</strong> was purchased! ₹850 added to wallet.', time:'10m ago', unread:true },
+    { icon:'💸', text:'Withdrawal request of <strong>₹500</strong> has been processed.', time:'2h ago', unread:true },
+    { icon:'🎧', text:'Support ticket <strong>#SH-10245</strong> received a new response.', time:'5h ago', unread:true },
+    { icon:'✅', text:'Welcome to SaveHatke! Your account is verified.', time:'1d ago', unread:true }
+  ];
+
+  // ─── INITIALIZATION ───
+  document.addEventListener('DOMContentLoaded', () => {
+    // Populate logged in user info if available via Auth helper
+    if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
+      const u = Auth.getUser();
+      if (u) {
+        USER.name = u.name || USER.name;
+        USER.email = u.email || USER.email;
+        USER.initials = USER.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+      }
+    }
+
+    // Populate UI elements
+    const firstName = USER.name.split(' ')[0];
+    document.getElementById('welcomeFirstName').textContent = firstName;
+    document.getElementById('profileNameNav').textContent = USER.name;
+    document.getElementById('profileAvatar').textContent = USER.initials;
+    document.getElementById('pdAvatar').textContent = USER.initials;
+    document.getElementById('pdName').textContent = USER.name;
+    document.getElementById('pdEmail').textContent = USER.email;
+
+    // Date
+    const d = new Date();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    document.getElementById('currentDate').textContent = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+
+    // Render lists
+    renderActivity();
+    renderMyCoupons();
+    renderNotifications();
+  });
+
+  /* ─── RENDER FUNCTIONS ─── */
+  function renderActivity() {
+    const tbody = document.getElementById('activityTableBody');
+    const mobContainer = document.getElementById('activityMobile');
+
+    tbody.innerHTML = ACTIVITIES.map(a => `
+      <tr>
+        <td><strong>${a.icon} ${a.type}</strong></td>
+        <td>${a.detail}</td>
+        <td class="mono ${a.amountClass}"><strong>${a.amount}</strong></td>
+        <td class="mono" style="font-size:.78rem">${a.date}</td>
+        <td><span class="badge ${a.statusClass}">${a.status}</span></td>
+      </tr>
+    `).join('');
+
+    mobContainer.innerHTML = ACTIVITIES.map(a => `
+      <div class="act-mob-card">
+        <div class="act-mob-top">
+          <div class="act-mob-title">${a.icon} ${a.detail}</div>
+          <div class="act-mob-amount ${a.amountClass}">${a.amount}</div>
+        </div>
+        <div class="act-mob-meta">
+          <span>${a.date}</span>
+          <span class="badge ${a.statusClass}">${a.status}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderMyCoupons() {
+    const container = document.getElementById('myCouponsList');
+    container.innerHTML = MY_COUPONS.map(c => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px">
+        <div>
+          <div style="font-size:.85rem;font-weight:700;color:#e2ecff">${c.brand} — ${c.val}</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#00e676;margin-top:2px">${c.code}</div>
+        </div>
+        <div style="text-align:right">
+          <span class="badge ${c.badge}">${c.status}</span>
+          <div style="font-size:.7rem;color:#6b88aa;margin-top:4px">Exp: ${c.exp}</div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderNotifications() {
+    const list = document.getElementById('notifList');
+    const badge = document.getElementById('notifBadge');
+    const countEl = document.getElementById('notifCount');
+
+    const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
+    countEl.textContent = unreadCount;
+    badge.style.display = unreadCount > 0 ? 'block' : 'none';
+
+    list.innerHTML = NOTIFICATIONS.map(n => `
+      <div class="notif-item ${n.unread ? 'unread' : ''}" onclick="this.classList.remove('unread')">
+        <span class="notif-icon">${n.icon}</span>
+        <div class="notif-content">
+          <div class="notif-text">${n.text}</div>
+          <div class="notif-time">${n.time}</div>
+        </div>
+        <div class="notif-dot ${n.unread ? '' : 'read'}"></div>
+      </div>
+    `).join('');
+  }
+
+  /* ─── INTERACTION HANDLERS ─── */
+  function toggleNotif(e) {
+    e.stopPropagation();
+    document.getElementById('profileDropdown').classList.remove('open');
+    document.getElementById('notifPanel').classList.toggle('open');
+  }
+
+  function toggleProfile(e) {
+    e.stopPropagation();
+    document.getElementById('notifPanel').classList.remove('open');
+    document.getElementById('profileDropdown').classList.toggle('open');
+  }
+
+  function markAllRead() {
+    NOTIFICATIONS.forEach(n => n.unread = false);
+    renderNotifications();
+    showToast('All notifications marked as read', 'success');
+  }
+
+  function toggleMobileNav() {
+    document.getElementById('navLinks').classList.toggle('mob-open');
+  }
+
+  // Close dropdowns on outside click
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#notifWrapper')) document.getElementById('notifPanel')?.classList.remove('open');
+    if (!e.target.closest('#profileWrapper')) document.getElementById('profileDropdown')?.classList.remove('open');
+  });
+
+  /* ─── MODAL FUNCTIONS ─── */
+  function openModal(id) {
+    document.getElementById(id)?.classList.add('open');
+  }
+
+  function closeModal(id) {
+    document.getElementById(id)?.classList.remove('open');
+  }
+
+  function handleOverlayClick(e, id) {
+    if (e.target.classList.contains('modal-overlay')) closeModal(id);
+  }
+
+  function toggleWithdrawField(val) {
+    const lbl = document.getElementById('withdrawFieldLbl');
+    const input = document.getElementById('withdrawField');
+    if (val === 'upi') {
+      lbl.textContent = 'UPI ID';
+      input.placeholder = 'yourname@upi';
+    } else {
+      lbl.textContent = 'Bank Account Number & IFSC';
+      input.placeholder = 'Account No, IFSC Code';
+    }
+  }
+
+  /* ─── ACTION HANDLERS ─── */
+  function performLogout() {
+    closeModal('logoutModal');
+    if (typeof Auth !== 'undefined') {
+      Auth.clearAuth();
+    } else {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
+    showToast('Logged out successfully. Redirecting...', 'success');
+    setTimeout(() => window.location.href = 'index.html', 500);
+  }
+
+  function confirmWithdraw() {
+    const amount = document.getElementById('withdrawAmount')?.value;
+    if (!amount || amount < 50) {
+      showToast('Minimum withdrawal amount is ₹50', 'error');
+      return;
+    }
+    closeModal('withdrawModal');
+    showToast(`Withdrawal request of ₹${amount} submitted!`, 'success');
+  }
+
+  function submitCoupon() {
+    const brand = document.getElementById('scBrand')?.value;
+    const code = document.getElementById('scCode')?.value;
+    if (!brand || !code) {
+      showToast('Please enter brand name and coupon code', 'error');
+      return;
+    }
+    closeModal('submitCouponModal');
+    showToast('Coupon submitted for verification! 🎉', 'success');
+  }
+
+  function createCase() {
+    const subject = document.getElementById('caseSubject')?.value;
+    if (!subject) {
+      showToast('Please enter a subject for your ticket', 'error');
+      return;
+    }
+    closeModal('newCaseModal');
+    showToast('Support ticket created successfully! 🎧', 'success');
+  }
+
+  /* ─── TOAST NOTIFICATION ─── */
+  function showToast(msg, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️';
+    toast.innerHTML = `<span>${icon} ${msg}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.animation = 'slideOutRight .3s forwards';
+      setTimeout(() => toast.remove(), 300);
+    }, 3500);
+  }
+
+  /* ─── SMOOTH SCROLL ─── */
+  function scrollToSec(id) {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('profileDropdown')?.classList.remove('open');
+  }
+
+</script>
 </body>
 </html>
