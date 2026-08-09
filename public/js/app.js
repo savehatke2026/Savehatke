@@ -10,7 +10,7 @@ const API_BASE = '/api';
   try {
     const path = window.location.pathname.toLowerCase();
     const filename = path.split('/').pop() || 'index.html';
-    if (filename === 'admin.html') return;
+    if (filename === 'vault.html') return;
 
     const adminToken = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
     const adminUserRaw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
@@ -26,7 +26,7 @@ const API_BASE = '/api';
 
     if (isAdmin) {
       if (document.documentElement) document.documentElement.style.display = 'none';
-      window.location.replace('admin.html');
+      window.location.replace('vault.html');
     }
   } catch (e) {}
 })();
@@ -355,7 +355,7 @@ function openAuthModal(mode = 'login') {
           Auth.setAdminAuth(data.token, data.user);
           showToast(`Welcome Admin ${data.user.name}! 🛡️`, 'success');
           closeAuthModal();
-          setTimeout(() => window.location.href = 'admin.html', 150);
+          setTimeout(() => window.location.href = 'vault.html', 150);
           return;
         }
 

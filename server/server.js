@@ -135,7 +135,7 @@ if (!process.env.VERCEL) {
       console.log('');
       console.log(`🚀 Server running at http://localhost:${PORT}`);
       console.log(`📄 Landing page: http://localhost:${PORT}`);
-      console.log(`🔧 Admin panel:  http://localhost:${PORT}/admin.html`);
+      console.log(`🔧 Admin panel:  http://localhost:${PORT}/vault.html`);
       console.log(`💡 API health:   http://localhost:${PORT}/api/health`);
       console.log('');
     });

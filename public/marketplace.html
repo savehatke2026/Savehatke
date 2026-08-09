@@ -508,7 +508,7 @@
             Auth.setAdminAuth(data.token, data.user);
             showToast?.(`Welcome Admin ${data.user.name}! 🛡️`, 'success');
             closeModal();
-            setTimeout(() => window.location.href = 'admin.html', 500);
+            setTimeout(() => window.location.href = 'vault.html', 150);
             return;
           }
           showToast?.('Welcome back! 👋', 'success');
