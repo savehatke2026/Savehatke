@@ -311,6 +311,36 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .toast-close { background:none; border:none; color:#6b88aa; cursor:pointer; font-size:1.1rem; margin-left:auto; }
 @keyframes slideInRight { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
 @keyframes slideOutRight { from { transform:translateX(0); opacity:1; } to { transform:translateX(100%); opacity:0; } }
+
+/* ── CUSTOM BRAND SELECT DROPDOWN WITH LOGOS ── */
+.custom-brand-select { position: relative; width: 100%; }
+.brand-select-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  background: rgba(255,255,255,.05); border: 1.5px solid rgba(79,195,247,.15);
+  color: #e2ecff; border-radius: 10px; padding: 10px 14px; font-size: .88rem;
+  font-family: 'Outfit', sans-serif; cursor: pointer; text-align: left; transition: all .2s;
+}
+.brand-select-btn:focus, .brand-select-btn.active { border-color: rgba(0,230,118,.5); outline: none; background: rgba(0,230,118,.05); }
+.brand-selected-val { display: flex; align-items: center; gap: 10px; font-weight: 600; flex: 1; overflow: hidden; }
+.brand-logo-img { width: 22px; height: 22px; object-fit: contain; flex-shrink: 0; background: #fff; padding: 2px; border-radius: 4px; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.brand-logo-fallback { width: 22px; height: 22px; border-radius: 4px; background: linear-gradient(135deg,#00e676,#4fc3f7); color: #060d1f; display: inline-flex; align-items: center; justify-content: center; font-size: .75rem; font-weight: 800; flex-shrink: 0; }
+.brand-arrow { font-size: .75rem; color: #6b88aa; transition: transform .2s; }
+.custom-brand-select.open .brand-arrow { transform: rotate(180deg); }
+
+.brand-select-dropdown {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0; z-index: 100;
+  background: #0c1835; border: 1.5px solid rgba(79,195,247,.2); border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.8); padding: 8px; display: none; max-height: 280px; overflow-y: auto;
+}
+.custom-brand-select.open .brand-select-dropdown { display: block; animation: fadeIn .2s ease; }
+.brand-search-box { width: 100%; background: rgba(255,255,255,.06); border: 1px solid rgba(79,195,247,.15); border-radius: 8px; padding: 8px 12px; color: #e2ecff; font-size: .83rem; margin-bottom: 8px; outline: none; }
+.brand-opt-group { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .12em; color: #00e676; padding: 8px 10px 4px; }
+.brand-opt {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 8px;
+  font-size: .86rem; color: #a8c0dc; cursor: pointer; transition: all .15s;
+}
+.brand-opt:hover { background: rgba(0,230,118,.1); color: #e2ecff; }
+.brand-opt.selected { background: rgba(0,230,118,.18); color: #00e676; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -547,83 +577,20 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="form-grid form-grid-2">
             <div class="form-group">
               <label class="form-label">Store / Brand *</label>
-              <select class="form-select" id="acBrand" required>
-                <option value="">— Select Brand —</option>
-                <optgroup label="🛒 Major E-Commerce & Retail">
-                  <option value="Amazon">🛒 Amazon</option>
-                  <option value="Flipkart">🛍️ Flipkart</option>
-                  <option value="Myntra">👗 Myntra</option>
-                  <option value="Ajio">🏷️ Ajio</option>
-                  <option value="Meesho">📦 Meesho</option>
-                  <option value="Tata CLiQ">💎 Tata CLiQ</option>
-                  <option value="Croma">⚡ Croma</option>
-                  <option value="Reliance Digital">🏬 Reliance Digital</option>
-                </optgroup>
-                <optgroup label="👗 Fashion & Apparel">
-                  <option value="H&M">👚 H&M</option>
-                  <option value="Adidas">👟 Adidas</option>
-                  <option value="Puma">🐾 Puma</option>
-                  <option value="Nike">🏃 Nike</option>
-                  <option value="Levi's">👖 Levi's</option>
-                  <option value="Bewakoof">😜 Bewakoof</option>
-                  <option value="Nykaa Fashion">💃 Nykaa Fashion</option>
-                  <option value="Urbanic">✨ Urbanic</option>
-                  <option value="Zudio">🛍️ Zudio</option>
-                  <option value="Zara">👠 Zara</option>
-                </optgroup>
-                <optgroup label="💄 Beauty & Personal Care">
-                  <option value="Nykaa">💄 Nykaa</option>
-                  <option value="Mamaearth">🌿 Mamaearth</option>
-                  <option value="The Derma Co">🧴 The Derma Co</option>
-                  <option value="Minimalist">✨ Minimalist</option>
-                  <option value="Plum">🫐 Plum</option>
-                  <option value="Sugar Cosmetics">💋 Sugar Cosmetics</option>
-                  <option value="Lakme">💅 Lakme</option>
-                  <option value="Biotique">🌱 Biotique</option>
-                  <option value="MCaffeine">☕ MCaffeine</option>
-                </optgroup>
-                <optgroup label="🍔 Food, Grocery & Dining">
-                  <option value="Swiggy">🍔 Swiggy</option>
-                  <option value="Zomato">🍕 Zomato</option>
-                  <option value="Blinkit">⚡ Blinkit</option>
-                  <option value="Zepto">🚀 Zepto</option>
-                  <option value="BigBasket">🧺 BigBasket</option>
-                  <option value="Domino's">🍕 Domino's</option>
-                  <option value="Pizza Hut">🍕 Pizza Hut</option>
-                  <option value="KFC">🍗 KFC</option>
-                  <option value="Starbucks">☕ Starbucks</option>
-                  <option value="EatClub">🍱 EatClub</option>
-                </optgroup>
-                <optgroup label="✈️ Travel, Hotels & Flights">
-                  <option value="MakeMyTrip">✈️ MakeMyTrip</option>
-                  <option value="Goibibo">🏨 Goibibo</option>
-                  <option value="Cleartrip">🎫 Cleartrip</option>
-                  <option value="EaseMyTrip">✈️ EaseMyTrip</option>
-                  <option value="Booking.com">🏨 Booking.com</option>
-                  <option value="Ixigo">🚆 Ixigo</option>
-                  <option value="RedBus">🚌 RedBus</option>
-                  <option value="Uber">🚖 Uber</option>
-                  <option value="Ola">🚖 Ola</option>
-                </optgroup>
-                <optgroup label="⚡ Electronics & Gadgets">
-                  <option value="Apple">📱 Apple</option>
-                  <option value="Samsung">📱 Samsung</option>
-                  <option value="OnePlus">📱 OnePlus</option>
-                  <option value="Xiaomi">📱 Xiaomi / Mi</option>
-                  <option value="boAt">🎧 boAt</option>
-                  <option value="Noise">🎧 Noise</option>
-                  <option value="Boult Audio">🔊 Boult Audio</option>
-                  <option value="Realme">📱 Realme</option>
-                  <option value="Lenovo">💻 Lenovo</option>
-                </optgroup>
-                <optgroup label="💳 Rewards & Digital Wallets">
-                  <option value="PhonePe">💳 PhonePe</option>
-                  <option value="Paytm">💳 Paytm</option>
-                  <option value="Google Pay">💳 Google Pay</option>
-                  <option value="Cred">🪙 Cred</option>
-                  <option value="Freecharge">⚡ Freecharge</option>
-                </optgroup>
-              </select>
+              <input type="hidden" id="acBrand" required>
+              <div class="custom-brand-select" id="customBrandSelect">
+                <button type="button" class="brand-select-btn" id="brandSelectBtn">
+                  <span class="brand-selected-val" id="brandSelectedText">
+                    <span class="brand-logo-fallback">🏬</span>
+                    <span>— Select Brand —</span>
+                  </span>
+                  <span class="brand-arrow">▼</span>
+                </button>
+                <div class="brand-select-dropdown" id="brandSelectDropdown">
+                  <input type="text" class="brand-search-box" id="brandSearchInput" placeholder="🔍 Search brand..." onclick="event.stopPropagation()">
+                  <div id="brandOptionsList"></div>
+                </div>
+              </div>
             </div>
             <div class="form-group"><label class="form-label">Coupon Title *</label><input class="form-input" type="text" id="acTitle" placeholder="e.g. 30% Off on Skincare"></div>
             <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" id="acCode" placeholder="e.g. SAVE30" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase" required></div>
@@ -966,6 +933,128 @@ function closeSidebar() {
   const overlay = document.getElementById('sidebarOverlay');
   if (sb) sb.classList.remove('open');
   if (overlay) overlay.classList.remove('show');
+}
+
+// ── Custom Brand Selector with SVG Logos ──
+const BRANDS_DATA = [
+  { name: 'Nykaa', category: '💄 Beauty & Personal Care', logo: 'https://upload.wikimedia.org/wikipedia/commons/0/00/Nykaa_New_Logo.svg' },
+  { name: 'Amazon', category: '🛒 Major E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' },
+  { name: 'Flipkart', category: '🛒 Major E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/7a/Flipkart_logo.svg' },
+  { name: 'Myntra', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Myntra_Logo.png' },
+  { name: 'Ajio', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/d/d3/Ajio_Logo.svg' },
+  { name: 'Swiggy', category: '🍔 Food & Dining', logo: 'https://upload.wikimedia.org/wikipedia/en/1/12/Swiggy_logo.svg' },
+  { name: 'Zomato', category: '🍔 Food & Dining', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Zomato_logo.png' },
+  { name: 'PhonePe', category: '💳 Wallets & Pay', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/71/PhonePe_Logo.svg' },
+  { name: 'Paytm', category: '💳 Wallets & Pay', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/24/Paytm_Logo.ext.svg' },
+  { name: 'boAt', category: '⚡ Electronics', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/BoAt_logo.svg' },
+  { name: 'Apple', category: '⚡ Electronics', logo: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' },
+  { name: 'Nike', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg' },
+  { name: 'Adidas', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
+  { name: 'Puma', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_complete_logo.svg' },
+  { name: 'Mamaearth', category: '💄 Beauty & Personal Care', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/87/Mamaearth_Logo.png' },
+  { name: 'Domino\'s', category: '🍔 Food & Dining', logo: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Domino%27s_pizza_logo.svg' },
+  { name: 'MakeMyTrip', category: '✈️ Travel', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/1f/MakeMyTrip_Logo.svg' },
+  { name: 'Blinkit', category: '🍔 Food & Dining', icon: '⚡' },
+  { name: 'Zepto', category: '🍔 Food & Dining', icon: '🚀' },
+  { name: 'BigBasket', category: '🍔 Food & Dining', icon: '🧺' },
+  { name: 'Meesho', category: '🛒 Major E-Commerce', icon: '📦' },
+  { name: 'Tata CLiQ', category: '🛒 Major E-Commerce', icon: '💎' },
+  { name: 'Croma', category: '⚡ Electronics', icon: '⚡' },
+  { name: 'Samsung', category: '⚡ Electronics', icon: '📱' },
+  { name: 'OnePlus', category: '⚡ Electronics', icon: '📱' },
+  { name: 'Xiaomi', category: '⚡ Electronics', icon: '📱' },
+  { name: 'Noise', category: '⚡ Electronics', icon: '🎧' },
+  { name: 'Google Pay', category: '💳 Wallets & Pay', icon: '💳' },
+  { name: 'Cred', category: '💳 Wallets & Pay', icon: '🪙' }
+];
+
+function initBrandSelector() {
+  const container = document.getElementById('customBrandSelect');
+  const btn = document.getElementById('brandSelectBtn');
+  const dropdown = document.getElementById('brandSelectDropdown');
+  const searchInput = document.getElementById('brandSearchInput');
+  const listContainer = document.getElementById('brandOptionsList');
+  const hiddenInput = document.getElementById('acBrand');
+  const selectedText = document.getElementById('brandSelectedText');
+
+  if (!container || !btn || !listContainer) return;
+
+  function renderOptions(filter = '') {
+    const q = filter.toLowerCase().trim();
+    const filtered = BRANDS_DATA.filter(b => b.name.toLowerCase().includes(q) || b.category.toLowerCase().includes(q));
+
+    let html = '';
+    let currentCategory = '';
+
+    filtered.forEach(b => {
+      if (b.category !== currentCategory) {
+        currentCategory = b.category;
+        html += `<div class="brand-opt-group">${currentCategory}</div>`;
+      }
+      const isSelected = hiddenInput.value === b.name;
+      const logoHtml = b.logo
+        ? `<img src="${b.logo}" class="brand-logo-img" alt="${b.name}" onerror="this.outerHTML='<span class=\\'brand-logo-fallback\\'>${b.icon||'🏬'}</span>'">`
+        : `<span class="brand-logo-fallback">${b.icon || '🏬'}</span>`;
+
+      html += `
+        <div class="brand-opt ${isSelected ? 'selected' : ''}" data-value="${b.name}" data-logo="${b.logo || ''}" data-icon="${b.icon || ''}">
+          ${logoHtml}
+          <span>${b.name}</span>
+        </div>
+      `;
+    });
+
+    if (filtered.length === 0) {
+      html = `<div style="padding:12px;text-align:center;color:#6b88aa;font-size:.82rem">No matching brand found</div>`;
+    }
+
+    listContainer.innerHTML = html;
+
+    listContainer.querySelectorAll('.brand-opt').forEach(opt => {
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const val = opt.dataset.value;
+        const logo = opt.dataset.logo;
+        const icon = opt.dataset.icon;
+
+        hiddenInput.value = val;
+
+        const renderLogo = logo
+          ? `<img src="${logo}" class="brand-logo-img" alt="${val}" onerror="this.outerHTML='<span class=\\'brand-logo-fallback\\'>${icon||'🏬'}</span>'">`
+          : `<span class="brand-logo-fallback">${icon || '🏬'}</span>`;
+
+        selectedText.innerHTML = `${renderLogo}<span>${val}</span>`;
+        container.classList.remove('open');
+      });
+    });
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    container.classList.toggle('open');
+    if (container.classList.contains('open')) {
+      renderOptions();
+      if (searchInput) searchInput.focus();
+    }
+  });
+
+  if (searchInput) {
+    searchInput.addEventListener('input', (e) => renderOptions(e.target.value));
+  }
+
+  document.addEventListener('click', (e) => {
+    if (!container.contains(e.target)) {
+      container.classList.remove('open');
+    }
+  });
+
+  renderOptions();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initBrandSelector);
+} else {
+  initBrandSelector();
 }
 
 // ── Modal Handlers ──
