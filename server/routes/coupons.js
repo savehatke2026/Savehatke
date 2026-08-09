@@ -67,20 +67,24 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// POST /api/coupons/sell — Submit a coupon to sell (authenticated)
-router.post('/sell', authenticateToken, async (req, res) => {
+// POST /api/coupons/sell & /api/coupons/submit — Submit a coupon to sell
+const handleCouponSubmission = async (req, res) => {
   try {
-    const { code, category, brand, description, originalValue } = req.body;
+    const { code, category, brand, description, originalValue, faceValue } = req.body;
 
     if (!code || !category || !brand) {
       return res.status(400).json({ error: 'Coupon code, category, and brand are required.' });
     }
 
+    const value = faceValue || originalValue || '0';
+
     // Check for duplicate codes
-    const existing = await db.findRow(db.SHEETS.COUPONS, 'code', code.toUpperCase());
+    const existing = await db.findRow(db.SHEETS.COUPONS, 'code', code.toUpperCase().trim());
     if (existing) {
       return res.status(409).json({ error: 'This coupon code has already been submitted.' });
     }
+
+    const sellerEmail = (req.user && req.user.email) ? req.user.email : 'user@savehatke.com';
 
     const coupon = {
       id: uuidv4(),
@@ -88,9 +92,9 @@ router.post('/sell', authenticateToken, async (req, res) => {
       category: category.trim(),
       brand: brand.trim(),
       description: description || '',
-      originalValue: originalValue || '0',
+      originalValue: value.toString(),
       sellingPrice: '20', // Our markup price
-      sellerEmail: req.user.email,
+      sellerEmail: sellerEmail,
       status: 'pending', // Needs admin approval
       source: 'user-submitted',
       addedAt: new Date().toISOString(),
@@ -115,7 +119,10 @@ router.post('/sell', authenticateToken, async (req, res) => {
     console.error('Sell coupon error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
-});
+};
+
+router.post('/sell', optionalAuth, handleCouponSubmission);
+router.post('/submit', optionalAuth, handleCouponSubmission);
 
 // POST /api/coupons/buy/:id — Purchase a coupon (authenticated)
 router.post('/buy/:id', authenticateToken, async (req, res) => {

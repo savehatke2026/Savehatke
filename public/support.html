@@ -5,183 +5,652 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="SaveHatke Support — Get help with price tracking, coupon marketplace, account issues, and more. We're here 24/7.">
   <title>Customer Support — SaveHatke</title>
-  <link rel="stylesheet" href="css/styles.css">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Outfit', sans-serif; background: #060d1f; color: #e2ecff; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #060d1f; }
+    ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+    a { text-decoration: none; color: inherit; }
+
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+    @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,0.45)} 50%{box-shadow:0 0 0 10px rgba(0,230,118,0)} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+
+    .fu { opacity: 0; transform: translateY(26px); transition: opacity 0.65s ease, transform 0.65s ease; }
+    .fu.in { opacity: 1; transform: translateY(0); }
+    .d1{transition-delay:.1s} .d2{transition-delay:.22s} .d3{transition-delay:.34s}
+
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+    .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .shimmer { background: linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 3.5s linear infinite; }
+    .slabel { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:12px; }
+    .stitle { font-family:'DM Serif Display',serif; font-size:clamp(1.9rem,4vw,2.8rem); line-height:1.15; margin-bottom:16px; }
+    .ssub { font-size:1rem; color:#a8c0dc; line-height:1.75; max-width:560px; margin:0 auto; }
+
+    /* Buttons */
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; }
+    .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
+    .btn-lg { height:54px; padding:0 36px; font-size:1rem; border-radius:12px; }
+    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+    .btn-secondary { background:rgba(255,255,255,.06); color:#a8c0dc; border:1.5px solid rgba(79,195,247,.15); }
+    .btn-secondary:hover { background:rgba(79,195,247,.1); border-color:rgba(79,195,247,.3); color:#e2ecff; }
+    .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); }
+    .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
+    .btn-success { background:linear-gradient(135deg,#00c853,#009624); color:#fff; }
+    .btn-success:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,200,83,.38); }
+    .btn-outline { background:transparent; color:#00e676; border:1.5px solid rgba(0,230,118,.35); }
+    .btn-outline:hover { background:rgba(0,230,118,.08); border-color:#00e676; }
+    .w-full { width:100%; justify-content:center; }
+
+    /* NAVBAR */
+    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
+    .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
+    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .bhl { color:#00e676; }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
+    .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
+    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00e676; border-radius:1px; }
+    .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
+    .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
+    @media(max-width:768px){
+      .nav-links,.nav-actions{display:none}
+      .nav-toggle{display:flex}
+      .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
+      .nav-actions.open{display:flex;position:absolute;top:240px;right:24px;flex-direction:column;gap:10px;z-index:99}
+    }
+
+    /* PAGE HERO */
+    .page-hero { padding: 120px 0 72px; position: relative; overflow: hidden; }
+    .page-hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 60% 70% at 50% 0%,rgba(0,230,118,.08) 0%,transparent 65%),radial-gradient(ellipse 40% 50% at 80% 80%,rgba(79,195,247,.06) 0%,transparent 65%); pointer-events:none; }
+    .page-hero-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.03) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
+    .page-hero-inner { position:relative; z-index:1; text-align:center; }
+    .page-hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; border-radius:9999px; font-size:.8rem; font-weight:600; padding:6px 16px; margin-bottom:24px; }
+    .page-hero-title { font-family:'DM Serif Display',serif; font-size:clamp(2.2rem,5vw,3.5rem); line-height:1.12; margin-bottom:18px; }
+    .page-hero-sub { font-size:1.05rem; color:#a8c0dc; line-height:1.75; max-width:500px; margin:0 auto; }
+
+    /* TRUST BAR */
+    .trust-bar { border-top:1px solid rgba(79,195,247,.1); border-bottom:1px solid rgba(79,195,247,.1); background:rgba(15,30,58,.5); overflow:hidden; }
+    .trust-wrap { padding:14px 0; overflow:hidden; }
+    .trust-ticker { display:flex; white-space:nowrap; animation:ticker 22s linear infinite; width:max-content; }
+    .trust-item { display:inline-flex; align-items:center; gap:10px; padding:0 48px; font-size:.85rem; font-weight:600; color:#a8c0dc; border-right:1px solid rgba(79,195,247,.1); }
+
+    /* MAIN CONTENT SECTION */
+    .section { padding:72px 0; }
+
+    /* CONTACT CARDS */
+    .contact-cards { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-bottom:60px; }
+    @media(max-width:700px){ .contact-cards{grid-template-columns:1fr} }
+    .contact-card { padding:32px 24px; border-radius:18px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); text-align:center; transition:all .3s; position:relative; overflow:hidden; }
+    .contact-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transition:transform .3s; transform-origin:left; }
+    .contact-card:hover { border-color:rgba(0,230,118,.25); transform:translateY(-5px); box-shadow:0 20px 50px rgba(0,0,0,.3); }
+    .contact-card:hover::before { transform:scaleX(1); }
+    .contact-icon { font-size:2.2rem; margin-bottom:14px; }
+    .contact-label { font-weight:700; font-size:1rem; color:#e2ecff; margin-bottom:6px; }
+    .contact-val { font-size:.875rem; color:#a8c0dc; }
+    .contact-val a { color:#4fc3f7; transition:color .2s; }
+    .contact-val a:hover { color:#00e676; }
+
+    /* TWO-COLUMN LAYOUT */
+    .support-grid { display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:flex-start; }
+    @media(max-width:900px){ .support-grid{grid-template-columns:1fr} }
+
+    /* SECTION HEADINGS */
+    .section-heading { font-family:'DM Serif Display',serif; font-size:1.7rem; color:#e2ecff; margin-bottom:28px; display:flex; align-items:center; gap:10px; }
+
+    /* ACCORDION */
+    .accordion { display:flex; flex-direction:column; gap:10px; }
+    .accordion-item { border-radius:14px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); overflow:hidden; transition:border-color .3s; }
+    .accordion-item.open { border-color:rgba(0,230,118,.25); }
+    .accordion-header { width:100%; background:none; border:none; color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.93rem; font-weight:600; padding:18px 22px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; gap:12px; text-align:left; transition:color .2s; }
+    .accordion-header:hover { color:#00e676; }
+    .accordion-item.open .accordion-header { color:#00e676; }
+    .accordion-icon { font-size:.75rem; color:#6b88aa; transition:transform .3s, color .3s; flex-shrink:0; }
+    .accordion-item.open .accordion-icon { transform:rotate(180deg); color:#00e676; }
+    .accordion-body { max-height:0; overflow:hidden; transition:max-height .35s ease; }
+    .accordion-item.open .accordion-body { max-height:300px; }
+    .accordion-content { padding:0 22px 20px; font-size:.88rem; color:#a8c0dc; line-height:1.75; border-top:1px solid rgba(79,195,247,.08); padding-top:16px; }
+    .accordion-content a { color:#4fc3f7; text-decoration:underline; }
+    .accordion-content a:hover { color:#00e676; }
+
+    /* FORM CARD */
+    .form-card { padding:36px; border-radius:20px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); }
+    .fgroup { margin-bottom:20px; }
+    .flabel { display:block; font-size:.82rem; font-weight:600; color:#a8c0dc; margin-bottom:8px; }
+    .finput, .fselect, .ftextarea {
+      width:100%; padding:12px 16px; border-radius:10px;
+      background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15);
+      color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem;
+      transition:border-color .2s; outline:none;
+    }
+    .finput:focus, .fselect:focus, .ftextarea:focus { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.03); }
+    .finput::placeholder, .ftextarea::placeholder { color:#6b88aa; }
+    .fselect { appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b88aa' d='M6 8L1 3h10z'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 16px center; cursor:pointer; }
+    .fselect option { background:#0c1835; color:#e2ecff; }
+    .ftextarea { resize:vertical; min-height:120px; }
+    .fsubmit { width:100%; margin-top:8px; font-size:1rem; height:52px; border-radius:12px; }
+
+    /* TOAST */
+    .toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; }
+    .toast { padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; box-shadow:0 12px 40px rgba(0,0,0,.5); display:flex; align-items:center; gap:10px; animation:fadeUp .3s ease; max-width:320px; }
+    .toast-success { background:rgba(0,200,83,.15); border:1px solid rgba(0,200,83,.3); color:#00e676; }
+    .toast-error { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.25); color:#f87171; }
+    .toast-warning { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
+
+    /* FOOTER */
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; padding-bottom:52px; }
+    .fbrand p { font-size:.88rem; color:#6b88aa; line-height:1.7; margin-top:16px; max-width:280px; }
+    .fcol h4 { font-size:.8rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:20px; color:#a8c0dc; }
+    .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
+    .fcol a:hover { color:#00e676; }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
+    @media(max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;gap:32px} }
+    @media(max-width:600px){ .footer-grid{grid-template-columns:1fr} .fbot{flex-direction:column;gap:8px;text-align:center} }
+
+    /* MODAL */
+    .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
+    .modal-overlay.open { opacity:1; pointer-events:auto; }
+    .modal { width:100%; max-width:420px; border-radius:22px; padding:40px; background:#0c1835; border:1px solid rgba(79,195,247,.15); box-shadow:0 40px 100px rgba(0,0,0,.6); transform:translateY(20px) scale(.97); transition:transform .25s; }
+    .modal-overlay.open .modal { transform:translateY(0) scale(1); }
+    .mhdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; }
+    .mtitle { font-family:'DM Serif Display',serif; font-size:1.7rem; }
+    .mclose { background:none; border:none; color:#6b88aa; cursor:pointer; font-size:1.4rem; padding:2px 6px; transition:color .2s; }
+    .mclose:hover { color:#e2ecff; }
+    .mtabs { display:flex; margin-bottom:28px; border-radius:10px; background:rgba(255,255,255,.04); padding:4px; }
+    .mtab { flex:1; padding:10px; border-radius:8px; border:none; background:transparent; color:#6b88aa; font-family:'Outfit',sans-serif; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s; }
+    .mtab.active { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .text-center { text-align:center; }
+  </style>
 </head>
 <body>
-  <nav class="navbar" id="mainNav">
-    <div class="container">
-      <a href="index.html" class="nav-brand">
-        <div class="brand-icon">💰</div>
-        Save<span class="brand-highlight">Hatke</span>
-      </a>
-      <div class="nav-links" id="navLinks">
-        <a href="index.html">Home</a>
-        <a href="marketplace.html">Coupons</a>
+
+<!-- NAVBAR -->
+<nav class="navbar" id="mainNav">
+  <div class="container">
+    <a href="index.html" class="nav-brand">
+      <div class="brand-icon">💰</div>
+      Save<span class="bhl">Hatke</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="index.html">Home</a>
+      <a href="marketplace.html">Coupons</a>
+      <a href="sell.html">Sell Coupons</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="support.html" class="active">Support</a>
+    </div>
+    <div class="nav-actions" id="navActions"></div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- PAGE HERO -->
+<div class="page-hero">
+  <div class="page-hero-mesh"></div>
+  <div class="page-hero-grid"></div>
+  <div class="container">
+    <div class="page-hero-inner fu in">
+      <div class="page-hero-badge">📞 We're here 24/7 to help you</div>
+      <h1 class="page-hero-title">Help &amp; <span class="gtext">Support</span></h1>
+      <p class="page-hero-sub">Have a question or issue? We're here to help you 24/7.</p>
+    </div>
+  </div>
+</div>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+  <div class="trust-wrap">
+    <div class="trust-ticker">
+      <div class="trust-item">📧 Email Support</div>
+      <div class="trust-item">📱 WhatsApp Available</div>
+      <div class="trust-item">⚡ Fast Responses</div>
+      <div class="trust-item">🛡️ Money-Back Guarantee</div>
+      <div class="trust-item">⏰ 24-Hour Resolution</div>
+      <div class="trust-item">✅ Verified Coupons</div>
+      <div class="trust-item">🇮🇳 Made in India</div>
+      <div class="trust-item">📧 Email Support</div>
+      <div class="trust-item">📱 WhatsApp Available</div>
+      <div class="trust-item">⚡ Fast Responses</div>
+      <div class="trust-item">🛡️ Money-Back Guarantee</div>
+      <div class="trust-item">⏰ 24-Hour Resolution</div>
+      <div class="trust-item">✅ Verified Coupons</div>
+      <div class="trust-item">🇮🇳 Made in India</div>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<main class="section">
+  <div class="container">
+
+    <!-- Contact Cards -->
+    <div class="contact-cards">
+      <div class="contact-card fu">
+        <div class="contact-icon">📧</div>
+        <div class="contact-label">Email Us</div>
+        <div class="contact-val"><a href="mailto:support@savehatke.com">support@savehatke.com</a></div>
+      </div>
+      <div class="contact-card fu d1">
+        <div class="contact-icon">📱</div>
+        <div class="contact-label">WhatsApp</div>
+        <div class="contact-val"><a href="https://wa.me/919876543210">+91 98765 43210</a></div>
+      </div>
+      <div class="contact-card fu d2">
+        <div class="contact-icon">⏰</div>
+        <div class="contact-label">Response Time</div>
+        <div class="contact-val">Within 24 hours</div>
+      </div>
+    </div>
+
+    <!-- FAQ + Contact Form -->
+    <div class="support-grid">
+
+      <!-- FAQ -->
+      <div class="fu">
+        <h2 class="section-heading">❓ Frequently Asked Questions</h2>
+        <div class="accordion" id="faqAccordion">
+
+          <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion(this)">
+              How does the coupon marketplace work?
+              <span class="accordion-icon">▼</span>
+            </button>
+            <div class="accordion-body">
+              <div class="accordion-content">
+                SaveHatke connects people who have unused coupons with those who want them. Sellers submit their unused reward codes (from PhonePe, Paytm, etc.) and receive ₹10 per verified coupon. Buyers can browse and purchase these coupons at a fraction of their face value. We verify every code before listing it.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion(this)">
+              How much do I get for selling a coupon?
+              <span class="accordion-icon">▼</span>
+            </button>
+            <div class="accordion-body">
+              <div class="accordion-content">
+                We offer a flat rate of ₹10 per verified coupon, regardless of the coupon's face value. Payment is processed within 24 hours of verification. We accept coupons from all major brands and platforms.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion(this)">
+              Are the coupons guaranteed to work?
+              <span class="accordion-icon">▼</span>
+            </button>
+            <div class="accordion-body">
+              <div class="accordion-content">
+                We verify all paid coupons before listing them. However, some coupons may have expiry dates or usage conditions set by the issuing brand. If a purchased coupon doesn't work, contact our support team for a full refund or replacement.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion(this)">
+              How does price tracking work?
+              <span class="accordion-icon">▼</span>
+            </button>
+            <div class="accordion-body">
+              <div class="accordion-content">
+                Simply paste a product link from Amazon or Flipkart into your dashboard. We'll monitor the price and notify you when it drops below your target price. You can track multiple products simultaneously. Our upcoming browser extension will provide real-time price comparisons as you shop.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion(this)">
+              Is my data safe?
+              <span class="accordion-icon">▼</span>
+            </button>
+            <div class="accordion-body">
+              <div class="accordion-content">
+                Yes! We use industry-standard encryption (SSL/TLS) for all data transmission. Your passwords are hashed using bcrypt. We never store or share your coupon codes with unauthorized parties. Read our <a href="privacy.html">Privacy Policy</a> for full details.
+              </div>
+            </div>
+          </div>
+
+          <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion(this)">
+              What's the refund policy?
+              <span class="accordion-icon">▼</span>
+            </button>
+            <div class="accordion-body">
+              <div class="accordion-content">
+                If a purchased coupon code doesn't work as described, we offer a full refund or replacement within 48 hours of purchase. Contact our support team with your order details and we'll resolve it immediately. See our <a href="terms.html">Terms &amp; Conditions</a> for the complete policy.
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Contact Form -->
+      <div class="fu d1">
+        <h2 class="section-heading">✉️ Send Us a Message</h2>
+        <div class="form-card">
+          <form id="supportForm" onsubmit="handleSupportSubmit(event)">
+            <div class="fgroup">
+              <label class="flabel" for="supportName">Your Name *</label>
+              <input class="finput" type="text" id="supportName" placeholder="Enter your name" required>
+            </div>
+            <div class="fgroup">
+              <label class="flabel" for="supportEmail">Email Address *</label>
+              <input class="finput" type="email" id="supportEmail" placeholder="you@example.com" required>
+            </div>
+            <div class="fgroup">
+              <label class="flabel" for="supportSubject">Subject *</label>
+              <select class="fselect" id="supportSubject" required>
+                <option value="">Select a topic</option>
+                <option value="Coupon Not Working">Coupon Not Working</option>
+                <option value="Refund Request">Refund Request</option>
+                <option value="Selling Payment Issue">Selling Payment Issue</option>
+                <option value="Price Tracker Issue">Price Tracker Issue</option>
+                <option value="Account Issue">Account Issue</option>
+                <option value="Feature Request">Feature Request</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="fgroup">
+              <label class="flabel" for="supportMessage">Message *</label>
+              <textarea class="ftextarea" id="supportMessage" placeholder="Describe your issue or question in detail..." required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-lg w-full fsubmit" id="supportSubmitBtn">
+              📨 Submit Ticket
+            </button>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="fbrand">
+        <a href="index.html" class="nav-brand" style="font-size:1.2rem">
+          <div class="brand-icon">💰</div>Save<span class="bhl">Hatke</span>
+        </a>
+        <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
+      </div>
+      <div class="fcol">
+        <h4>Platform</h4>
+        <a href="marketplace.html">Coupon Marketplace</a>
         <a href="sell.html">Sell Coupons</a>
-        <a href="dashboard.html">Dashboard</a>
-        <a href="support.html">Support</a>
+        <a href="dashboard.html">Price Tracker</a>
       </div>
-      <div class="nav-actions" id="navActions"></div>
-      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
-        <span></span><span></span><span></span>
-      </button>
-    </div>
-  </nav>
-
-  <main class="page">
-    <div class="container">
-      <div class="page-header text-center">
-        <h1 class="page-title">📞 Help & Support</h1>
-        <p class="page-subtitle">Have a question or issue? We're here to help you 24/7.</p>
+      <div class="fcol">
+        <h4>Company</h4>
+        <a href="support.html">Help Center</a>
+        <a href="support.html">Contact Us</a>
+        <a href="terms.html">Terms &amp; Conditions</a>
+        <a href="privacy.html">Privacy Policy</a>
       </div>
-
-      <!-- Contact Cards -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--space-5); margin-bottom: var(--space-10);">
-        <div class="card text-center">
-          <div style="font-size: 2rem; margin-bottom: 0.75rem;">📧</div>
-          <div style="font-weight: 700; color: var(--color-white); margin-bottom: 0.25rem;">Email Us</div>
-          <a href="mailto:support@savehatke.com" style="font-size: 0.875rem;">support@savehatke.com</a>
-        </div>
-        <div class="card text-center">
-          <div style="font-size: 2rem; margin-bottom: 0.75rem;">📱</div>
-          <div style="font-weight: 700; color: var(--color-white); margin-bottom: 0.25rem;">WhatsApp</div>
-          <a href="https://wa.me/919876543210" style="font-size: 0.875rem;">+91 98765 43210</a>
-        </div>
-        <div class="card text-center">
-          <div style="font-size: 2rem; margin-bottom: 0.75rem;">⏰</div>
-          <div style="font-weight: 700; color: var(--color-white); margin-bottom: 0.25rem;">Response Time</div>
-          <span style="font-size: 0.875rem; color: var(--color-slate-400);">Within 24 hours</span>
-        </div>
-      </div>
-
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8);">
-        <!-- FAQ Section -->
-        <div>
-          <h2 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-6);">❓ Frequently Asked Questions</h2>
-          <div class="accordion" id="faqAccordion">
-            <div class="accordion-item">
-              <button class="accordion-header" onclick="toggleAccordion(this)">
-                How does the coupon marketplace work?
-                <span class="icon">▼</span>
-              </button>
-              <div class="accordion-body">
-                <div class="accordion-content">
-                  SaveHatke connects people who have unused coupons with those who want them. Sellers submit their unused reward codes (from PhonePe, Paytm, etc.) and receive ₹10 per verified coupon. Buyers can browse and purchase these coupons at a fraction of their face value. We verify every code before listing it.
-                </div>
-              </div>
-            </div>
-            <div class="accordion-item">
-              <button class="accordion-header" onclick="toggleAccordion(this)">
-                How much do I get for selling a coupon?
-                <span class="icon">▼</span>
-              </button>
-              <div class="accordion-body">
-                <div class="accordion-content">
-                  We offer a flat rate of ₹10 per verified coupon, regardless of the coupon's face value. Payment is processed within 24 hours of verification. We accept coupons from all major brands and platforms.
-                </div>
-              </div>
-            </div>
-            <div class="accordion-item">
-              <button class="accordion-header" onclick="toggleAccordion(this)">
-                Are the coupons guaranteed to work?
-                <span class="icon">▼</span>
-              </button>
-              <div class="accordion-body">
-                <div class="accordion-content">
-                  We verify all paid coupons before listing them. However, some coupons may have expiry dates or usage conditions set by the issuing brand. If a purchased coupon doesn't work, contact our support team for a full refund or replacement.
-                </div>
-              </div>
-            </div>
-            <div class="accordion-item">
-              <button class="accordion-header" onclick="toggleAccordion(this)">
-                How does price tracking work?
-                <span class="icon">▼</span>
-              </button>
-              <div class="accordion-body">
-                <div class="accordion-content">
-                  Simply paste a product link from Amazon or Flipkart into your dashboard. We'll monitor the price and notify you when it drops below your target price. You can track multiple products simultaneously. Our upcoming browser extension will provide real-time price comparisons as you shop.
-                </div>
-              </div>
-            </div>
-            <div class="accordion-item">
-              <button class="accordion-header" onclick="toggleAccordion(this)">
-                Is my data safe?
-                <span class="icon">▼</span>
-              </button>
-              <div class="accordion-body">
-                <div class="accordion-content">
-                  Yes! We use industry-standard encryption (SSL/TLS) for all data transmission. Your passwords are hashed using bcrypt. We never store or share your coupon codes with unauthorized parties. Read our <a href="privacy.html">Privacy Policy</a> for full details.
-                </div>
-              </div>
-            </div>
-            <div class="accordion-item">
-              <button class="accordion-header" onclick="toggleAccordion(this)">
-                What's the refund policy?
-                <span class="icon">▼</span>
-              </button>
-              <div class="accordion-body">
-                <div class="accordion-content">
-                  If a purchased coupon code doesn't work as described, we offer a full refund or replacement within 48 hours of purchase. Contact our support team with your order details and we'll resolve it immediately. See our <a href="terms.html">Terms & Conditions</a> for the complete policy.
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Contact Form -->
-        <div>
-          <h2 style="color: var(--color-white); font-weight: 700; margin-bottom: var(--space-6);">✉️ Send Us a Message</h2>
-          <div class="card">
-            <form id="supportForm">
-              <div class="form-group">
-                <label class="form-label" for="supportName">Your Name *</label>
-                <input class="form-input" type="text" id="supportName" placeholder="Enter your name" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="supportEmail">Email Address *</label>
-                <input class="form-input" type="email" id="supportEmail" placeholder="you@example.com" required>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="supportSubject">Subject *</label>
-                <select class="form-select" id="supportSubject" required>
-                  <option value="">Select a topic</option>
-                  <option value="Coupon Not Working">Coupon Not Working</option>
-                  <option value="Refund Request">Refund Request</option>
-                  <option value="Selling Payment Issue">Selling Payment Issue</option>
-                  <option value="Price Tracker Issue">Price Tracker Issue</option>
-                  <option value="Account Issue">Account Issue</option>
-                  <option value="Feature Request">Feature Request</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label" for="supportMessage">Message *</label>
-                <textarea class="form-textarea" id="supportMessage" placeholder="Describe your issue or question in detail..." required></textarea>
-              </div>
-              <button type="submit" class="btn btn-primary btn-lg w-full" id="supportSubmitBtn">
-                📨 Submit Ticket
-              </button>
-            </form>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  </main>
-
-  <footer class="footer" style="margin-top: var(--space-16);">
-    <div class="container">
-      <div class="footer-bottom" style="border-top: none; padding-top: 0;">
-        <span>© 2026 SaveHatke. All rights reserved.</span>
-        <span>
-          <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a>
-        </span>
+      <div class="fcol">
+        <h4>Categories</h4>
+        <a href="marketplace.html?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace.html?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace.html?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace.html?cat=Food">Food &amp; Delivery</a>
       </div>
     </div>
-  </footer>
+    <div class="fbot">
+      <span>© 2026 SaveHatke. All rights reserved.</span>
+      <span>Made with ❤️ in India · <a href="terms.html" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Terms</a> · <a href="privacy.html" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Privacy</a></span>
+    </div>
+  </div>
+</footer>
 
-  <script src="js/app.js"></script>
-  <script src="js/support.js"></script>
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="mhdr">
+      <div class="mtitle" id="modalTitle">Welcome Back</div>
+      <button class="mclose" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mtabs">
+      <button class="mtab active" id="tabLogin" onclick="switchTab('login')">Log In</button>
+      <button class="mtab" id="tabRegister" onclick="switchTab('register')">Sign Up</button>
+    </div>
+    <div id="loginForm">
+      <div class="fgroup"><label class="flabel">Email Address</label><input type="email" class="finput" id="mEmail" placeholder="you@example.com"></div>
+      <div class="fgroup"><label class="flabel">Password</label><input type="password" class="finput" id="mPass" placeholder="Enter password"></div>
+      <button class="btn btn-primary w-full fsubmit" onclick="submitModalForm('login')">Log In to SaveHatke</button>
+    </div>
+    <div id="registerForm" style="display:none">
+      <div class="fgroup"><label class="flabel">Full Name</label><input type="text" class="finput" id="mName" placeholder="Rahul Kumar"></div>
+      <div class="fgroup"><label class="flabel">Email Address</label><input type="email" class="finput" id="mRegEmail" placeholder="you@example.com"></div>
+      <div class="fgroup"><label class="flabel">Create Password</label><input type="password" class="finput" id="mRegPass" placeholder="Min. 8 characters"></div>
+      <button class="btn btn-primary w-full fsubmit" onclick="submitModalForm('register')">Create Free Account</button>
+    </div>
+    <div style="display:flex;align-items:center;margin:20px 0 16px;color:#6b88aa;font-size:.8rem">
+      <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+      <span style="padding:0 10px">OR</span>
+      <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+    </div>
+    <button type="button" class="btn btn-secondary w-full" onclick="handleGoogleAuthRedirect()" style="display:flex;align-items:center;justify-content:center;gap:10px;height:46px;border-radius:10px;">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+      <span>Continue with Google</span>
+    </button>
+  </div>
+</div>
+
+<script>
+  /* =====================
+     TOAST UTILITY
+  ===================== */
+  function showToast(message, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    const icons = { success: '✅', error: '❌', warning: '⚠️' };
+    toast.innerHTML = `<span>${icons[type] || '📢'}</span><span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => toast.remove(), 4000);
+  }
+
+  /* =====================
+     ACCORDION LOGIC
+  ===================== */
+  function toggleAccordion(btn) {
+    const item = btn.closest('.accordion-item');
+    const isOpen = item.classList.contains('open');
+    // Close all
+    document.querySelectorAll('.accordion-item.open').forEach(el => el.classList.remove('open'));
+    // Open clicked if it was closed
+    if (!isOpen) item.classList.add('open');
+  }
+
+  /* =====================
+     SUPPORT FORM SUBMIT
+  ===================== */
+  async function handleSupportSubmit(e) {
+    e.preventDefault();
+    const btn = document.getElementById('supportSubmitBtn');
+    const name = document.getElementById('supportName').value.trim();
+    const email = document.getElementById('supportEmail').value.trim();
+    const subject = document.getElementById('supportSubject').value;
+    const message = document.getElementById('supportMessage').value.trim();
+
+    if (!name || !email || !subject || !message) {
+      showToast('Please fill in all required fields.', 'warning');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Submitting...';
+
+    try {
+      if (typeof api === 'function') {
+        await api('/support/ticket', {
+          method: 'POST',
+          body: { name, email, subject, message }
+        });
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      showToast('✅ Ticket submitted! We\'ll get back to you within 24 hours.', 'success');
+      document.getElementById('supportForm').reset();
+    } catch (err) {
+      showToast(err.message || 'Something went wrong. Please try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '📨 Submit Ticket';
+    }
+  }
+
+  /* =====================
+     AUTH / NAV
+  ===================== */
+  const Auth = window.Auth || {
+    getUser() { try { return JSON.parse(localStorage.getItem('sh_user')); } catch { return null; } },
+    getToken() { return localStorage.getItem('sh_token'); },
+    setAuth(token, user) {
+      localStorage.setItem('sh_token', token);
+      localStorage.setItem('sh_user', JSON.stringify(user));
+    },
+    clear() { localStorage.removeItem('sh_token'); localStorage.removeItem('sh_user'); }
+  };
+
+  function updateNavAuth() {
+    const user = Auth.getUser();
+    const navActions = document.getElementById('navActions');
+    if (!navActions) return;
+    if (user) {
+      navActions.innerHTML = `
+        <span style="font-size:.85rem;color:#a8c0dc;font-weight:500">Hi, ${user.name?.split(' ')[0] || 'User'}</span>
+        <a href="dashboard.html" class="btn btn-ghost btn-sm">Dashboard</a>
+        <button class="btn btn-outline btn-sm" onclick="logoutUser()">Log Out</button>`;
+    } else {
+      navActions.innerHTML = `<button class="btn btn-primary btn-sm" onclick="openModal('login')">Log In</button>`;
+    }
+  }
+
+  function logoutUser() {
+    Auth.clear();
+    showToast('Logged out successfully.', 'success');
+    updateNavAuth();
+  }
+
+  async function api(path, options = {}) {
+    const BASE = window.API_BASE || '/api';
+    const res = await fetch(BASE + path, {
+      headers: {
+        'Content-Type': 'application/json',
+        ...(Auth.getToken() ? { Authorization: `Bearer ${Auth.getToken()}` } : {})
+      },
+      method: options.method || 'GET',
+      body: options.body ? JSON.stringify(options.body) : undefined
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.message || 'Request failed');
+    }
+    return res.json();
+  }
+
+  function handleGoogleAuthRedirect() {
+    window.location.href = 'login.html';
+  }
+
+  /* =====================
+     MODAL
+  ===================== */
+  function openModal(tab = 'login') {
+    document.getElementById('modalOverlay').classList.add('open');
+    switchTab(tab);
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    document.getElementById('modalOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  function handleOverlayClick(e) {
+    if (e.target === document.getElementById('modalOverlay')) closeModal();
+  }
+  function switchTab(tab) {
+    document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+    document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+    document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+    document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+    document.getElementById('modalTitle').textContent = tab === 'login' ? 'Welcome Back' : 'Join SaveHatke';
+  }
+  async function submitModalForm(type) {
+    try {
+      if (type === 'login') {
+        const email = document.getElementById('mEmail').value;
+        const password = document.getElementById('mPass').value;
+        if (!email || !password) return showToast('Please fill email and password', 'warning');
+        const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+        Auth.setAuth(data.token, data.user);
+        showToast('Welcome back! 👋', 'success');
+      } else {
+        const name = document.getElementById('mName').value;
+        const email = document.getElementById('mRegEmail').value;
+        const password = document.getElementById('mRegPass').value;
+        if (!email || !password || !name) return showToast('Please fill all fields', 'warning');
+        const data = await api('/auth/register', { method: 'POST', body: { name, email, password } });
+        Auth.setAuth(data.token, data.user);
+        showToast('Account created! 🎉', 'success');
+      }
+      closeModal();
+      updateNavAuth();
+      setTimeout(() => window.location.href = 'dashboard.html', 500);
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
+  /* =====================
+     NAV SCROLL + MOBILE
+  ===================== */
+  window.addEventListener('scroll', () => {
+    const nav = document.getElementById('mainNav');
+    if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
+  });
+
+  const navToggle = document.getElementById('navToggle');
+  if (navToggle) {
+    navToggle.addEventListener('click', () => {
+      document.getElementById('navLinks').classList.toggle('open');
+      document.getElementById('navActions').classList.toggle('open');
+    });
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  /* =====================
+     SCROLL REVEAL
+  ===================== */
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.fu').forEach(el => obs.observe(el));
+
+  // Init nav on load
+  updateNavAuth();
+</script>
 </body>
 </html>

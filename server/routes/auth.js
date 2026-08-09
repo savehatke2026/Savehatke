@@ -281,8 +281,13 @@ router.post('/google', async (req, res) => {
     // If ID token is passed, parse payload
     if (credential) {
       try {
-        const payloadBase64 = credential.split('.')[1];
+        let payloadBase64 = credential.split('.')[1];
         if (payloadBase64) {
+          payloadBase64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+          const pad = payloadBase64.length % 4;
+          if (pad) {
+            payloadBase64 += '='.repeat(4 - pad);
+          }
           const decodedJson = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
           if (decodedJson.email) userEmail = decodedJson.email;
           if (decodedJson.name) userName = decodedJson.name;
