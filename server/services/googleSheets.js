@@ -5,6 +5,7 @@
 // Sheets: Users | Coupons | PriceTracking | SupportTickets
 
 const { google } = require('googleapis');
+const fs = require('fs');
 
 // Sheet names (tabs inside the spreadsheet)
 const SHEETS = {
@@ -37,6 +38,23 @@ const HEADERS = {
 let sheetsClient = null;
 let spreadsheetId = null;
 
+function reportDebug(hypothesisId, location, msg, data = {}, runId = 'pre-fix') {
+  try {
+    let debugUrl = 'http://127.0.0.1:7777/event';
+    let sessionId = 'coupon-gsheet-sync';
+    try {
+      const env = fs.readFileSync('.dbg/coupon-gsheet-sync.env', 'utf8');
+      debugUrl = env.match(/DEBUG_SERVER_URL=(.+)/)?.[1] || debugUrl;
+      sessionId = env.match(/DEBUG_SESSION_ID=(.+)/)?.[1] || sessionId;
+    } catch {}
+    fetch(debugUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, runId, hypothesisId, location, msg: `[DEBUG] ${msg}`, data, ts: Date.now() }),
+    }).catch(() => {});
+  } catch {}
+}
+
 /**
  * Initialize the Google Sheets client using Service Account credentials.
  * Falls back to a local in-memory store if credentials are not configured,
@@ -47,7 +65,24 @@ async function initialize() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const privateKey = process.env.GOOGLE_PRIVATE_KEY;
 
+  // #region debug-point A:init-sheets
+  reportDebug('A', 'server/services/googleSheets.js:62', 'Initializing Google Sheets client', {
+    hasSpreadsheetId: Boolean(spreadsheetId),
+    spreadsheetIdSuffix: spreadsheetId ? spreadsheetId.slice(-8) : '',
+    hasEmail: Boolean(email),
+    emailHint: email ? email.slice(0, 6) : '',
+    hasPrivateKey: Boolean(privateKey),
+  });
+  // #endregion
+
   if (!spreadsheetId || !email || !privateKey || spreadsheetId === 'your_spreadsheet_id_here') {
+    // #region debug-point A:missing-sheets-config
+    reportDebug('A', 'server/services/googleSheets.js:73', 'Google Sheets config missing, using fallback database', {
+      hasSpreadsheetId: Boolean(spreadsheetId),
+      hasEmail: Boolean(email),
+      hasPrivateKey: Boolean(privateKey),
+    });
+    // #endregion
     console.warn('⚠️  Google Sheets credentials not configured. Using in-memory fallback database.');
     console.warn('   To connect Google Sheets, fill in your .env file. See .env.example for details.');
     return false;
@@ -65,12 +100,24 @@ async function initialize() {
 
     // Verify connection by reading spreadsheet metadata
     await sheetsClient.spreadsheets.get({ spreadsheetId });
+    // #region debug-point A:sheets-connected
+    reportDebug('A', 'server/services/googleSheets.js:91', 'Connected to Google Sheets database', {
+      spreadsheetIdSuffix: spreadsheetId.slice(-8),
+    });
+    // #endregion
     console.log('✅ Connected to Google Sheets database.');
 
     // Ensure all sheet tabs exist with headers
     await ensureSheets();
     return true;
   } catch (err) {
+    // #region debug-point A:sheets-connect-failed
+    reportDebug('A', 'server/services/googleSheets.js:100', 'Failed to connect to Google Sheets database', {
+      error: err.message,
+      code: err.code || '',
+      status: err.status || '',
+    });
+    // #endregion
     console.error('❌ Failed to connect to Google Sheets:', err.message);
     console.warn('   Falling back to in-memory database.');
     sheetsClient = null;
@@ -86,9 +133,20 @@ async function ensureSheets() {
 
   const res = await sheetsClient.spreadsheets.get({ spreadsheetId });
   const existingSheets = res.data.sheets.map((s) => s.properties.title);
+  // #region debug-point B:ensure-sheets
+  reportDebug('B', 'server/services/googleSheets.js:118', 'Fetched spreadsheet tabs for setup', {
+    spreadsheetIdSuffix: spreadsheetId ? spreadsheetId.slice(-8) : '',
+    tabs: existingSheets,
+  });
+  // #endregion
 
   for (const [sheetName, headers] of Object.entries(HEADERS)) {
     if (!existingSheets.includes(sheetName)) {
+      // #region debug-point B:create-sheet
+      reportDebug('B', 'server/services/googleSheets.js:126', 'Creating missing sheet tab', {
+        sheetName,
+      });
+      // #endregion
       // Create the sheet tab
       await sheetsClient.spreadsheets.batchUpdate({
         spreadsheetId,
@@ -116,6 +174,13 @@ async function ensureSheets() {
         existingHeaders.length !== headers.length;
 
       if (needsHeaderSync) {
+        // #region debug-point B:sync-headers
+        reportDebug('B', 'server/services/googleSheets.js:152', 'Syncing sheet headers', {
+          sheetName,
+          existingHeaderCount: existingHeaders.length,
+          targetHeaderCount: headers.length,
+        });
+        // #endregion
         await sheetsClient.spreadsheets.values.update({
           spreadsheetId,
           range: `${sheetName}!A1`,
@@ -192,20 +257,57 @@ async function appendRow(sheetName, data) {
   const headers = HEADERS[sheetName];
   if (!headers) throw new Error(`Unknown sheet: ${sheetName}`);
 
+  // #region debug-point C:append-row-start
+  reportDebug('C', 'server/services/googleSheets.js:229', 'Appending row to storage', {
+    sheetName,
+    hasSheetsClient: Boolean(sheetsClient),
+    rowId: data.id || '',
+    couponCode: data.code || '',
+  });
+  // #endregion
+
   if (!sheetsClient) {
     memoryDB[sheetName] = memoryDB[sheetName] || [];
     memoryDB[sheetName].push(data);
+    // #region debug-point C:append-memory-fallback
+    reportDebug('C', 'server/services/googleSheets.js:239', 'Stored row in memory fallback', {
+      sheetName,
+      rowId: data.id || '',
+      couponCode: data.code || '',
+    });
+    // #endregion
     return data;
   }
 
   const row = headers.map((h) => data[h] || '');
-  await sheetsClient.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${sheetName}!A1`,
-    valueInputOption: 'RAW',
-    insertDataOption: 'INSERT_ROWS',
-    requestBody: { values: [row] },
-  });
+  try {
+    await sheetsClient.spreadsheets.values.append({
+      spreadsheetId,
+      range: `${sheetName}!A1`,
+      valueInputOption: 'RAW',
+      insertDataOption: 'INSERT_ROWS',
+      requestBody: { values: [row] },
+    });
+    // #region debug-point C:append-row-success
+    reportDebug('C', 'server/services/googleSheets.js:255', 'Appended row to Google Sheets', {
+      sheetName,
+      rowId: data.id || '',
+      couponCode: data.code || '',
+    });
+    // #endregion
+  } catch (err) {
+    // #region debug-point C:append-row-failed
+    reportDebug('C', 'server/services/googleSheets.js:264', 'Append to Google Sheets failed', {
+      sheetName,
+      rowId: data.id || '',
+      couponCode: data.code || '',
+      error: err.message,
+      code: err.code || '',
+      status: err.status || '',
+    });
+    // #endregion
+    throw err;
+  }
 
   return data;
 }
