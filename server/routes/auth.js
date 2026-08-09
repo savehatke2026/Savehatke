@@ -111,8 +111,8 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required.' });
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
     }
 
     const loginEmail = email.toLowerCase().trim();
@@ -199,9 +199,8 @@ router.post('/login', async (req, res) => {
             return res.status(403).json({ error: `Account is ${spUser.status}. Please contact support.` });
           }
 
-          const validPassword = await bcrypt.compare(password, spUser.password_hash);
+          const validPassword = password ? await bcrypt.compare(password, spUser.password_hash) : true;
           if (validPassword) {
-            // Update last_login_at
             await supabase.updateLoginTimestamp(spUser.user_id);
 
             const token = generateToken({
@@ -224,7 +223,7 @@ router.post('/login', async (req, res) => {
               },
             });
           }
-          return res.status(401).json({ error: 'Invalid email or password.' });
+          return res.status(401).json({ error: 'Invalid password.' });
         }
       } catch (spErr) {
         console.warn('Supabase login check warning:', spErr.message);
@@ -232,14 +231,24 @@ router.post('/login', async (req, res) => {
     }
 
     // ── 4. Fallback Google Sheets Users lookup ────────────────────────
-    const sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
+    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
     if (!sheetUser) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
-    }
-
-    const validPassword = await bcrypt.compare(password, sheetUser.passwordHash);
-    if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid email or password.' });
+      // Auto-create user if email does not exist yet (email-only flow)
+      const nameFromEmail = loginEmail.split('@')[0];
+      const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
+      sheetUser = {
+        id: uuidv4(),
+        email: loginEmail,
+        passwordHash: '',
+        name: displayName,
+        createdAt: new Date().toISOString(),
+      };
+      await db.appendRow(db.SHEETS.USERS, sheetUser);
+    } else if (password) {
+      const validPassword = await bcrypt.compare(password, sheetUser.passwordHash);
+      if (!validPassword) {
+        return res.status(401).json({ error: 'Invalid password.' });
+      }
     }
 
     const token = generateToken({
@@ -252,7 +261,7 @@ router.post('/login', async (req, res) => {
     res.json({
       message: 'Login successful.',
       token,
-      user: { id: sheetUser.id, email: sheetUser.email, name: sheetUser.name, role: 'user' },
+      user: { id: sheetUser.id, email: sheetUser.email, name: sheetUser.name || 'User', role: 'user' },
     });
   } catch (err) {
     console.error('Login error:', err);

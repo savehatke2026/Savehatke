@@ -143,7 +143,7 @@
     <div class="auth-hdr">
       <div class="auth-icon">🔐</div>
       <h1 class="auth-title">Welcome to <span class="gtext">SaveHatke</span></h1>
-      <p class="auth-sub">Sign in with your email and password.</p>
+      <p class="auth-sub">Enter your email to continue to your account.</p>
     </div>
 
     <form id="loginPageForm" onsubmit="handleAuthSubmit(event)">
@@ -151,12 +151,8 @@
         <label class="flabel" for="inputEmail">Email Address</label>
         <input type="email" class="finput" id="inputEmail" placeholder="you@example.com" required autocomplete="email">
       </div>
-      <div class="fgroup">
-        <label class="flabel" for="inputPassword">Password</label>
-        <input type="password" class="finput" id="inputPassword" placeholder="Enter your password" required autocomplete="current-password">
-      </div>
       <button type="submit" class="btn btn-primary" id="submitBtn">
-        Log In →
+        Continue →
       </button>
     </form>
 
@@ -349,12 +345,11 @@
     btn.textContent = 'Please wait...';
 
     const email = document.getElementById('inputEmail').value.trim();
-    const password = document.getElementById('inputPassword').value;
 
     try {
       const data = await api('/auth/login', {
         method: 'POST',
-        body: { email, password },
+        body: { email },
       });
       Auth.setAuth(data.token, data.user);
 
@@ -365,9 +360,9 @@
         window.location.replace('index.html');
       }
     } catch (err) {
-      showToast(err.message || 'Authentication failed. Please check your credentials.', 'error');
+      showToast(err.message || 'Authentication failed. Please check your email.', 'error');
       btn.disabled = false;
-      btn.textContent = 'Log In →';
+      btn.textContent = 'Continue →';
     }
   }
 </script>
