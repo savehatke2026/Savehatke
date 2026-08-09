@@ -355,7 +355,7 @@ function openAuthModal(mode = 'login') {
           Auth.setAdminAuth(data.token, data.user);
           showToast(`Welcome Admin ${data.user.name}! 🛡️`, 'success');
           closeAuthModal();
-          setTimeout(() => window.location.href = 'admin.html', 500);
+          setTimeout(() => window.location.href = 'admin.html', 150);
           return;
         }
 
@@ -375,7 +375,7 @@ function openAuthModal(mode = 'login') {
 
       const currentPage = window.location.pathname.split('/').pop();
       if (currentPage === 'login.html') {
-        setTimeout(() => window.location.href = 'index.html', 500);
+        setTimeout(() => window.location.href = 'index.html', 150);
       }
     } catch (err) {
       showToast(err.message, 'error');

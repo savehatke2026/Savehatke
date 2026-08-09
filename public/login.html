@@ -355,7 +355,7 @@
       });
       Auth.setAuth(data.token, data.user);
 
-      showToast('🎉 Login successful! Redirecting...', 'success', 1000);
+      showToast('🎉 Login successful! Redirecting...', 'success', 800);
 
       setTimeout(() => {
         if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
@@ -364,7 +364,7 @@
         } else {
           window.location.replace('index.html');
         }
-      }, 1000);
+      }, 150);
     } catch (err) {
       showToast(err.message || 'Authentication failed. Please check your email.', 'error');
       if (btn) {

@@ -240,12 +240,23 @@ function seedDemoData() {
   // No-op: Demo coupons removed per requirements
 }
 
-// ── CRUD Operations ─────────────────────────────────────────────────────────
+// Short-term in-memory cache to speed up repeated queries (e.g. user logins)
+const rowsCache = {};
+const CACHE_TTL_MS = 3000; // 3 seconds
+
+function invalidateCache(sheetName) {
+  delete rowsCache[sheetName];
+}
 
 /**
  * Get all rows from a sheet. Returns array of objects keyed by column header.
  */
 async function getRows(sheetName) {
+  const now = Date.now();
+  if (rowsCache[sheetName] && (now - rowsCache[sheetName].timestamp < CACHE_TTL_MS)) {
+    return [...rowsCache[sheetName].data];
+  }
+
   if (sheetsClient) {
     try {
       const res = await sheetsClient.spreadsheets.values.get({
@@ -254,7 +265,11 @@ async function getRows(sheetName) {
       });
 
       const rows = res.data.values;
-      if (!rows || rows.length <= 1) return [...(memoryDB[sheetName] || [])];
+      if (!rows || rows.length <= 1) {
+        const fallback = [...(memoryDB[sheetName] || [])];
+        rowsCache[sheetName] = { data: fallback, timestamp: now };
+        return fallback;
+      }
 
       const headers = rows[0];
       const gsheetRows = rows.slice(1).map((row) => {
@@ -280,13 +295,16 @@ async function getRows(sheetName) {
         }
       });
 
+      rowsCache[sheetName] = { data: combined, timestamp: Date.now() };
       return combined;
     } catch (err) {
       console.warn(`getRows warning for ${sheetName}:`, err.message);
     }
   }
 
-  return [...(memoryDB[sheetName] || [])];
+  const fallback = [...(memoryDB[sheetName] || [])];
+  rowsCache[sheetName] = { data: fallback, timestamp: Date.now() };
+  return fallback;
 }
 
 /**
@@ -323,6 +341,7 @@ async function appendRow(sheetName, data) {
     }
   }
 
+  invalidateCache(sheetName);
   return data;
 }
 
@@ -392,6 +411,7 @@ async function updateRow(sheetName, field, value, updatedData) {
     requestBody: { values: [newRow] },
   });
 
+  invalidateCache(sheetName);
   return merged;
 }
 
@@ -454,6 +474,7 @@ async function deleteRow(sheetName, field, value) {
     },
   });
 
+  invalidateCache(sheetName);
   return true;
 }
 
