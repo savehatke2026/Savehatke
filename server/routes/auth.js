@@ -7,7 +7,6 @@ require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
-const supabase = require('../services/supabase');
 
 const router = express.Router();
 
@@ -15,10 +14,10 @@ function getSheetsFallbackError(message) {
   return db.getWriteAvailabilityError(message);
 }
 
-// POST /api/auth/register
+// POST /api/auth/register — Save user EXCLUSIVELY to Google Sheets (Users tab)
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, username } = req.body;
+    const { email, password, name } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required.' });
@@ -27,7 +26,7 @@ router.post('/register', async (req, res) => {
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name.trim();
 
-    // 1. Primary Check: Check for existing user in Google Sheets
+    // Check for existing user in Google Sheets
     const existingSheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
     if (existingSheetUser) {
       return res.status(409).json({ error: 'An account with this email already exists.' });
@@ -46,22 +45,8 @@ router.post('/register', async (req, res) => {
       createdAt: new Date().toISOString(),
     };
 
-    // Save to Google Sheets
+    // Save exclusively to Google Sheets (Users tab)
     await db.appendRow(db.SHEETS.USERS, sheetUser);
-
-    // 2. Dual Sync: Save to Supabase as backup if configured
-    if (supabase.isConfigured()) {
-      try {
-        await supabase.createUser({
-          name: cleanName,
-          email: cleanEmail,
-          password_hash: passwordHash,
-          username: username || cleanEmail.split('@')[0],
-        });
-      } catch (spErr) {
-        console.warn('Supabase dual-sync notice:', spErr.message);
-      }
-    }
 
     // Generate token
     const token = generateToken({
@@ -88,7 +73,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login
+// POST /api/auth/login — Read user EXCLUSIVELY from Google Sheets
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -168,7 +153,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // ── 3. Primary User Check: Google Sheets Users tab ───────────────
+    // ── 3. Read user EXCLUSIVELY from Google Sheets (Users tab) ──────
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
 
     if (sheetUser) {
@@ -193,55 +178,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // ── 4. Supabase Lookup Fallback & Sync ───────────────────────────
-    if (supabase.isConfigured()) {
-      try {
-        const spUser = await supabase.findUserByEmail(loginEmail);
-        if (spUser) {
-          if (spUser.status && spUser.status !== 'active') {
-            return res.status(403).json({ error: `Account is ${spUser.status}. Please contact support.` });
-          }
-
-          const validPassword = password ? await bcrypt.compare(password, spUser.password_hash) : true;
-          if (validPassword) {
-            // Auto-sync into Google Sheets
-            const syncedUser = {
-              id: spUser.user_id,
-              email: spUser.email,
-              passwordHash: spUser.password_hash,
-              name: spUser.name,
-              createdAt: spUser.created_at || new Date().toISOString(),
-            };
-            await db.appendRow(db.SHEETS.USERS, syncedUser);
-
-            const token = generateToken({
-              id: spUser.user_id,
-              email: spUser.email,
-              name: spUser.name,
-              role: 'user',
-            });
-
-            return res.json({
-              message: 'Login successful.',
-              token,
-              user: {
-                id: spUser.user_id,
-                user_id: spUser.user_id,
-                email: spUser.email,
-                name: spUser.name,
-                username: spUser.username,
-                role: 'user',
-              },
-            });
-          }
-          return res.status(401).json({ error: 'Invalid password.' });
-        }
-      } catch (spErr) {
-        console.warn('Supabase login check notice:', spErr.message);
-      }
-    }
-
-    // ── 5. Auto-register user in Google Sheets if email only flow ────
+    // ── 4. Auto-register user in Google Sheets if email-only flow ────
     const nameFromEmail = loginEmail.split('@')[0];
     const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
     const newUserId = uuidv4();
@@ -281,7 +218,7 @@ router.get('/google-config', (req, res) => {
   });
 });
 
-// POST /api/auth/google
+// POST /api/auth/google — Google login stored EXCLUSIVELY to Google Sheets
 router.post('/google', async (req, res) => {
   try {
     const { credential, email, name, picture } = req.body;
@@ -350,7 +287,7 @@ router.post('/google', async (req, res) => {
       });
     }
 
-    // Regular user Google login stored directly to Google Sheets
+    // Save/Find user EXCLUSIVELY in Google Sheets (Users tab)
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail);
     if (!sheetUser) {
       sheetUser = {
@@ -361,17 +298,6 @@ router.post('/google', async (req, res) => {
         createdAt: new Date().toISOString(),
       };
       await db.appendRow(db.SHEETS.USERS, sheetUser);
-
-      if (supabase.isConfigured()) {
-        try {
-          await supabase.createUser({
-            name: userName,
-            email: userEmail,
-            password_hash: 'GOOGLE_OAUTH_ACCOUNT',
-            username: userEmail.split('@')[0],
-          });
-        } catch (e) {}
-      }
     }
 
     const token = generateToken({
@@ -399,27 +325,9 @@ router.post('/google', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout — Record last_logout_at timestamp
+// POST /api/auth/logout
 router.post('/logout', async (req, res) => {
-  try {
-    const { userId, email } = req.body;
-
-    if (supabase.isConfigured()) {
-      let targetId = userId;
-      if (!targetId && email) {
-        const u = await supabase.findUserByEmail(email);
-        if (u) targetId = u.user_id;
-      }
-      if (targetId) {
-        await supabase.updateLogoutTimestamp(targetId);
-      }
-    }
-
-    res.json({ message: 'Logged out successfully.' });
-  } catch (err) {
-    console.warn('Logout timestamp error:', err.message);
-    res.json({ message: 'Logged out.' });
-  }
+  res.json({ message: 'Logged out successfully.' });
 });
 
 // GET /api/auth/me
