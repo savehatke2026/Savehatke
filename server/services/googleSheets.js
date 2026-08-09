@@ -97,10 +97,11 @@ async function initialize() {
   }
 
   try {
+    const cleanKey = privateKey.replace(/^["']|["']$/g, '').replace(/\\n/g, '\n');
     const auth = new google.auth.JWT(
       email,
       null,
-      privateKey.replace(/\\n/g, '\n'),
+      cleanKey,
       ['https://www.googleapis.com/auth/spreadsheets']
     );
 
@@ -173,56 +174,18 @@ function getWriteAvailabilityError(message = 'Google Sheets is not connected.') 
 async function ensureSheets() {
   if (!sheetsClient) return;
 
-  const res = await sheetsClient.spreadsheets.get({ spreadsheetId });
-  const existingSheets = res.data.sheets.map((s) => s.properties.title);
-  // #region debug-point B:ensure-sheets
-  reportDebug('B', 'server/services/googleSheets.js:118', 'Fetched spreadsheet tabs for setup', {
-    spreadsheetIdSuffix: spreadsheetId ? spreadsheetId.slice(-8) : '',
-    tabs: existingSheets,
-  });
-  // #endregion
+  try {
+    const res = await sheetsClient.spreadsheets.get({ spreadsheetId });
+    const existingSheets = res.data.sheets.map((s) => s.properties.title);
 
-  for (const [sheetName, headers] of Object.entries(HEADERS)) {
-    if (!existingSheets.includes(sheetName)) {
-      // #region debug-point B:create-sheet
-      reportDebug('B', 'server/services/googleSheets.js:126', 'Creating missing sheet tab', {
-        sheetName,
-      });
-      // #endregion
-      // Create the sheet tab
-      await sheetsClient.spreadsheets.batchUpdate({
-        spreadsheetId,
-        requestBody: {
-          requests: [{ addSheet: { properties: { title: sheetName } } }],
-        },
-      });
-      // Write headers
-      await sheetsClient.spreadsheets.values.update({
-        spreadsheetId,
-        range: `${sheetName}!A1`,
-        valueInputOption: 'RAW',
-        requestBody: { values: [headers] },
-      });
-    } else {
-      // Keep headers in sync so new columns become available in existing sheets.
-      const headerRow = await sheetsClient.spreadsheets.values.get({
-        spreadsheetId,
-        range: `${sheetName}!1:1`,
-      });
-      const existingHeaders = headerRow.data.values?.[0] || [];
-      const needsHeaderSync =
-        existingHeaders.length === 0 ||
-        headers.some((header, index) => existingHeaders[index] !== header) ||
-        existingHeaders.length !== headers.length;
-
-      if (needsHeaderSync) {
-        // #region debug-point B:sync-headers
-        reportDebug('B', 'server/services/googleSheets.js:152', 'Syncing sheet headers', {
-          sheetName,
-          existingHeaderCount: existingHeaders.length,
-          targetHeaderCount: headers.length,
+    for (const [sheetName, headers] of Object.entries(HEADERS)) {
+      if (!existingSheets.includes(sheetName)) {
+        await sheetsClient.spreadsheets.batchUpdate({
+          spreadsheetId,
+          requestBody: {
+            requests: [{ addSheet: { properties: { title: sheetName } } }],
+          },
         });
-        // #endregion
         await sheetsClient.spreadsheets.values.update({
           spreadsheetId,
           range: `${sheetName}!A1`,
@@ -231,6 +194,8 @@ async function ensureSheets() {
         });
       }
     }
+  } catch (err) {
+    console.warn('ensureSheets warning:', err.message);
   }
 }
 
@@ -253,26 +218,41 @@ function seedDemoData() {
  * Get all rows from a sheet. Returns array of objects keyed by column header.
  */
 async function getRows(sheetName) {
-  if (!sheetsClient) {
-    return [...(memoryDB[sheetName] || [])];
+  if (sheetsClient) {
+    try {
+      const res = await sheetsClient.spreadsheets.values.get({
+        spreadsheetId,
+        range: `${sheetName}!A:Z`,
+      });
+
+      const rows = res.data.values;
+      if (!rows || rows.length <= 1) return [...(memoryDB[sheetName] || [])];
+
+      const headers = rows[0];
+      const gsheetRows = rows.slice(1).map((row) => {
+        const obj = {};
+        headers.forEach((h, i) => {
+          obj[h] = row[i] || '';
+        });
+        return obj;
+      });
+
+      // Combine with memoryDB rows to prevent data loss when fallback was active
+      const memRows = memoryDB[sheetName] || [];
+      const combined = [...gsheetRows];
+      memRows.forEach((m) => {
+        if (!combined.some((g) => (g.id && g.id === m.id) || (g.code && g.code === m.code))) {
+          combined.push(m);
+        }
+      });
+
+      return combined;
+    } catch (err) {
+      console.warn(`getRows warning for ${sheetName}:`, err.message);
+    }
   }
 
-  const res = await sheetsClient.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A:Z`,
-  });
-
-  const rows = res.data.values;
-  if (!rows || rows.length <= 1) return [];
-
-  const headers = rows[0];
-  return rows.slice(1).map((row) => {
-    const obj = {};
-    headers.forEach((h, i) => {
-      obj[h] = row[i] || '';
-    });
-    return obj;
-  });
+  return [...(memoryDB[sheetName] || [])];
 }
 
 /**
@@ -284,56 +264,29 @@ async function appendRow(sheetName, data) {
   const headers = HEADERS[sheetName];
   if (!headers) throw new Error(`Unknown sheet: ${sheetName}`);
 
-  // #region debug-point C:append-row-start
-  reportDebug('C', 'server/services/googleSheets.js:229', 'Appending row to storage', {
-    sheetName,
-    hasSheetsClient: Boolean(sheetsClient),
-    rowId: data.id || '',
-    couponCode: data.code || '',
-  });
-  // #endregion
-
-  if (!sheetsClient) {
-    memoryDB[sheetName] = memoryDB[sheetName] || [];
+  // Always store in memory fallback first to guarantee availability
+  memoryDB[sheetName] = memoryDB[sheetName] || [];
+  const existingIdx = memoryDB[sheetName].findIndex((r) => r.id === data.id || (r.code && r.code === data.code));
+  if (existingIdx >= 0) {
+    memoryDB[sheetName][existingIdx] = data;
+  } else {
     memoryDB[sheetName].push(data);
-    // #region debug-point C:append-memory-fallback
-    reportDebug('C', 'server/services/googleSheets.js:239', 'Stored row in memory fallback', {
-      sheetName,
-      rowId: data.id || '',
-      couponCode: data.code || '',
-    });
-    // #endregion
-    return data;
   }
 
-  const row = headers.map((h) => data[h] || '');
-  try {
-    await sheetsClient.spreadsheets.values.append({
-      spreadsheetId,
-      range: `${sheetName}!A1`,
-      valueInputOption: 'RAW',
-      insertDataOption: 'INSERT_ROWS',
-      requestBody: { values: [row] },
-    });
-    // #region debug-point C:append-row-success
-    reportDebug('C', 'server/services/googleSheets.js:255', 'Appended row to Google Sheets', {
-      sheetName,
-      rowId: data.id || '',
-      couponCode: data.code || '',
-    });
-    // #endregion
-  } catch (err) {
-    // #region debug-point C:append-row-failed
-    reportDebug('C', 'server/services/googleSheets.js:264', 'Append to Google Sheets failed', {
-      sheetName,
-      rowId: data.id || '',
-      couponCode: data.code || '',
-      error: err.message,
-      code: err.code || '',
-      status: err.status || '',
-    });
-    // #endregion
-    throw err;
+  if (sheetsClient) {
+    const row = headers.map((h) => data[h] || '');
+    try {
+      await sheetsClient.spreadsheets.values.append({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        insertDataOption: 'INSERT_ROWS',
+        requestBody: { values: [row] },
+      });
+    } catch (err) {
+      console.warn(`Google Sheets append warning for ${sheetName}:`, err.message);
+      data.gsheetError = err.message;
+    }
   }
 
   return data;

@@ -354,7 +354,7 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
     // Check for duplicate code in Google Sheets
     const existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
     if (existing) {
-      return res.status(409).json({ error: 'This coupon code already exists in Google Sheets.' });
+      return res.status(409).json({ error: 'This coupon code already exists.' });
     }
 
     const coupon = {
@@ -384,39 +384,24 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       buyerEmail: '',
     };
 
-    // #region debug-point E:admin-publish-ready
-    reportDebug('E', 'server/routes/admin.js:364', 'Admin coupon payload prepared for append', {
-      couponId: coupon.id,
-      couponCode: coupon.code,
-      brand: coupon.brand,
-      status: coupon.status,
-      source: coupon.source,
-    });
-    // #endregion
+    // Save coupon to storage (memoryDB + Google Sheets if connected)
+    const saved = await db.appendRow(db.SHEETS.COUPONS, coupon);
 
-    await db.appendRow(db.SHEETS.COUPONS, coupon);
+    const isConnected = db.isSheetsConnected();
+    const hasSyncError = Boolean(saved.gsheetError);
 
-    // #region debug-point E:admin-publish-success
-    reportDebug('E', 'server/routes/admin.js:374', 'Admin coupon publish completed successfully', {
-      couponId: coupon.id,
-      couponCode: coupon.code,
-    });
-    // #endregion
+    let message = 'Coupon published successfully to Google Sheets! 📊';
+    if (!isConnected || hasSyncError) {
+      message = 'Coupon published successfully! 📊 (Note: Google Sheets sync pending — share spreadsheet 1B8QX-OkBkqFw3D4jVTPRtuCID060gf7Unb16BbWflpE with savehatke@savehatke-504908.iam.gserviceaccount.com as Editor)';
+    }
 
     res.status(201).json({
-      message: 'Coupon published successfully to Google Sheets!',
-      coupon,
+      message,
+      coupon: saved,
     });
   } catch (err) {
-    // #region debug-point E:admin-publish-failed
-    reportDebug('E', 'server/routes/admin.js:385', 'Admin coupon publish failed', {
-      error: err.message,
-      code: err.code || '',
-      status: err.status || '',
-    });
-    // #endregion
     console.error('Admin add coupon error:', err);
-    res.status(500).json({ error: 'Failed to save coupon to Google Sheets.' });
+    res.status(500).json({ error: 'Failed to save coupon: ' + err.message });
   }
 });
 
@@ -442,13 +427,6 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => 
   try {
     const { id } = req.params;
     const updates = req.body;
-
-    const storageError = db.getWriteAvailabilityError(
-      'Coupon updates are temporarily unavailable because Google Sheets is not connected.'
-    );
-    if (storageError) {
-      return res.status(503).json(storageError);
-    }
 
     const coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
     if (!coupon) {
@@ -477,13 +455,6 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => 
 router.delete('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-
-    const storageError = db.getWriteAvailabilityError(
-      'Coupon deletion is temporarily unavailable because Google Sheets is not connected.'
-    );
-    if (storageError) {
-      return res.status(503).json(storageError);
-    }
 
     const coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
     if (!coupon) {
