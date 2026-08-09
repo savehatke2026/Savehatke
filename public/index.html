@@ -605,7 +605,7 @@
       const offText = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`) : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
 
       return `
-        <div class="coupon-card" style="cursor:pointer" onclick="location.href='marketplace'">
+        <div class="coupon-card" style="cursor:pointer" onclick="goToCheckout('${c.id}')">
           <div class="ctop">
             <div class="cbrand">${emoji} ${c.brand}</div>
             <div class="coff">${offText}</div>
@@ -621,6 +621,25 @@
         </div>
       `;
     }).join('');
+  }
+
+  function goToCheckout(id) {
+    const coupon = liveCoupons.find(c => String(c.id) === String(id));
+    if (coupon) {
+      const params = new URLSearchParams({
+        id: coupon.id,
+        brand: coupon.brand || '',
+        category: coupon.category || '',
+        title: coupon.title || coupon.description || 'Verified Discount Offer',
+        price: coupon.sellingPrice || 15,
+        value: coupon.originalValue || coupon.discount || 200,
+        code: coupon.code || '',
+        minOrder: coupon.minOrderValue || '999'
+      });
+      window.location.href = `checkout?${params.toString()}`;
+    } else {
+      window.location.href = `checkout?id=${encodeURIComponent(id)}`;
+    }
   }
 
   document.addEventListener('DOMContentLoaded', loadIndexCoupons);

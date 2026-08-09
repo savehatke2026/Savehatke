@@ -125,7 +125,7 @@ function renderCouponGrid(gridId, coupons) {
       const origVal = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`) : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
 
       return `
-        <div class="coupon-card">
+        <div class="coupon-card" style="cursor:pointer" onclick="buyCoupon('${c.id}', ${isFree})">
           ${isFree ? '<span class="cfree-badge">FREE</span>' : '<div class="cverified">✓ VERIFIED DEAL</div>'}
           <div class="ctop">
             <div class="cbrand">${emoji} ${c.brand}</div>
@@ -139,7 +139,7 @@ function renderCouponGrid(gridId, coupons) {
             </div>
             <span class="ccat ${c.category}">${c.category}</span>
           </div>
-          <button class="cbuy-btn" onclick="buyCoupon('${c.id}', ${isFree})">
+          <button class="cbuy-btn" onclick="event.stopPropagation(); buyCoupon('${c.id}', ${isFree})">
             ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
           </button>
         </div>
@@ -182,28 +182,22 @@ function goToPage(page) {
   document.getElementById('couponGrid')?.scrollIntoView({ behavior: 'smooth' });
 }
 
-async function buyCoupon(id, isFree) {
-  if (typeof Auth !== 'undefined' && !Auth.isLoggedIn()) {
-    if (typeof showToast === 'function') showToast('Please log in to buy coupons.', 'warning');
-    if (typeof openAuthModal === 'function') openAuthModal('login');
-    else window.location.href = 'login.html';
-    return;
-  }
-
-  const confirmMsg = isFree
-    ? 'Get this free coupon code?'
-    : 'Purchase this coupon? The code will be revealed instantly in your dashboard.';
-
-  if (!confirm(confirmMsg)) return;
-
-  try {
-    const data = await api(`/coupons/buy/${id}`, { method: 'POST' });
-    if (typeof showToast === 'function') showToast(`🎉 Coupon purchased! Code: ${data.coupon.code}`, 'success', 8000);
-
-    showCouponModal(data.coupon);
-    loadCoupons();
-  } catch (err) {
-    if (typeof showToast === 'function') showToast(err.message, 'error');
+function buyCoupon(id, isFree) {
+  const coupon = allCoupons.find(c => String(c.id) === String(id));
+  if (coupon) {
+    const params = new URLSearchParams({
+      id: coupon.id,
+      brand: coupon.brand || '',
+      category: coupon.category || '',
+      title: coupon.title || coupon.description || 'Verified Discount Offer',
+      price: coupon.sellingPrice || 15,
+      value: coupon.originalValue || coupon.discount || 200,
+      code: coupon.code || '',
+      minOrder: coupon.minOrderValue || '999'
+    });
+    window.location.href = `checkout?${params.toString()}`;
+  } else {
+    window.location.href = `checkout?id=${encodeURIComponent(id)}`;
   }
 }
 

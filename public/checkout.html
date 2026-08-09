@@ -565,8 +565,8 @@
     <p style="font-size:.8rem;color:#6b88aa;margin-bottom:24px">📧 A confirmation email with the coupon code has been sent to <strong style="color:#a8c0dc" id="confirmEmail">buyer@example.com</strong></p>
 
     <div class="success-actions">
-      <a href="marketplace.html" class="btn btn-primary">🏷️ Browse More Coupons</a>
-      <a href="dashboard.html" class="btn btn-ghost">📊 My Orders</a>
+      <a href="marketplace" class="btn btn-primary">🏷️ Browse More Coupons</a>
+      <a href="dashboard" class="btn btn-ghost">📊 My Orders</a>
     </div>
   </div>
 </div>
@@ -624,7 +624,7 @@
     if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
       showToastLocal('Please log in to purchase coupons.', 'warning');
       setTimeout(() => {
-        window.location.replace('login.html');
+        window.location.replace('login');
       }, 600);
       return;
     }
@@ -663,7 +663,7 @@
     if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
       showToastLocal('Please log in to complete your purchase.', 'warning');
       setTimeout(() => {
-        window.location.replace('login.html');
+        window.location.replace('login');
       }, 500);
       return;
     }
