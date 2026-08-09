@@ -27,70 +27,41 @@ router.post('/register', async (req, res) => {
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name.trim();
 
+    // 1. Primary Check: Check for existing user in Google Sheets
+    const existingSheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
+    if (existingSheetUser) {
+      return res.status(409).json({ error: 'An account with this email already exists.' });
+    }
+
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    let newUser = null;
+    const userId = uuidv4();
+    const sheetUser = {
+      id: userId,
+      email: cleanEmail,
+      passwordHash,
+      name: cleanName,
+      createdAt: new Date().toISOString(),
+    };
 
-    // Try Supabase first if configured
+    // Save to Google Sheets
+    await db.appendRow(db.SHEETS.USERS, sheetUser);
+
+    // 2. Dual Sync: Save to Supabase as backup if configured
     if (supabase.isConfigured()) {
       try {
-        const existing = await supabase.findUserByEmail(cleanEmail);
-        if (existing) {
-          return res.status(409).json({ error: 'An account with this email already exists.' });
-        }
-
-        newUser = await supabase.createUser({
+        await supabase.createUser({
           name: cleanName,
           email: cleanEmail,
           password_hash: passwordHash,
           username: username || cleanEmail.split('@')[0],
         });
-
-        // Set initial login timestamp
-        if (newUser && newUser.user_id) {
-          await supabase.updateLoginTimestamp(newUser.user_id);
-        }
       } catch (spErr) {
-        console.warn('Supabase register error, trying fallback:', spErr.message);
-        if (spErr.message.includes('already exists')) {
-          return res.status(409).json({ error: spErr.message });
-        }
+        console.warn('Supabase dual-sync notice:', spErr.message);
       }
     }
-
-    // Fallback to Google Sheets if Supabase is offline/unconfigured
-    if (!newUser) {
-      const storageError = getSheetsFallbackError(
-        'Account creation is temporarily unavailable because Google Sheets is not connected.'
-      );
-      if (storageError) {
-        return res.status(503).json(storageError);
-      }
-
-      const existing = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
-      if (existing) {
-        return res.status(409).json({ error: 'An account with this email already exists.' });
-      }
-
-      const sheetUser = {
-        id: uuidv4(),
-        email: cleanEmail,
-        passwordHash,
-        name: cleanName,
-        createdAt: new Date().toISOString(),
-      };
-
-      await db.appendRow(db.SHEETS.USERS, sheetUser);
-      newUser = {
-        user_id: sheetUser.id,
-        email: sheetUser.email,
-        name: sheetUser.name,
-      };
-    }
-
-    const userId = newUser.user_id || newUser.id;
 
     // Generate token
     const token = generateToken({
@@ -101,7 +72,7 @@ router.post('/register', async (req, res) => {
     });
 
     res.status(201).json({
-      message: 'Account created successfully.',
+      message: 'Account created successfully in Google Sheets! 📊',
       token,
       user: {
         id: userId,
@@ -128,13 +99,11 @@ router.post('/login', async (req, res) => {
 
     const loginEmail = email.toLowerCase().trim();
 
-    // ── 1. Check MongoDB Admin collection first ──────────────────────
+    // ── 1. Check MongoDB Admin collection ─────────────────────────────
     let Admin;
     try {
       Admin = require('../models/Admin');
-    } catch (e) {
-      // Admin model not available, skip
-    }
+    } catch (e) {}
 
     if (Admin) {
       try {
@@ -169,9 +138,7 @@ router.post('/login', async (req, res) => {
             });
           }
         }
-      } catch (e) {
-        console.warn('MongoDB Admin lookup during login:', e.message);
-      }
+      } catch (e) {}
     }
 
     // ── 2. Hardcoded admin fallback ──────────────────────────────────
@@ -201,7 +168,32 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // ── 3. Check Supabase Users table ────────────────────────────────
+    // ── 3. Primary User Check: Google Sheets Users tab ───────────────
+    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
+
+    if (sheetUser) {
+      if (password && sheetUser.passwordHash) {
+        const validPassword = await bcrypt.compare(password, sheetUser.passwordHash);
+        if (!validPassword) {
+          return res.status(401).json({ error: 'Invalid password.' });
+        }
+      }
+
+      const token = generateToken({
+        id: sheetUser.id,
+        email: sheetUser.email,
+        name: sheetUser.name,
+        role: 'user',
+      });
+
+      return res.json({
+        message: 'Login successful.',
+        token,
+        user: { id: sheetUser.id, user_id: sheetUser.id, email: sheetUser.email, name: sheetUser.name || 'User', role: 'user' },
+      });
+    }
+
+    // ── 4. Supabase Lookup Fallback & Sync ───────────────────────────
     if (supabase.isConfigured()) {
       try {
         const spUser = await supabase.findUserByEmail(loginEmail);
@@ -212,7 +204,15 @@ router.post('/login', async (req, res) => {
 
           const validPassword = password ? await bcrypt.compare(password, spUser.password_hash) : true;
           if (validPassword) {
-            await supabase.updateLoginTimestamp(spUser.user_id);
+            // Auto-sync into Google Sheets
+            const syncedUser = {
+              id: spUser.user_id,
+              email: spUser.email,
+              passwordHash: spUser.password_hash,
+              name: spUser.name,
+              createdAt: spUser.created_at || new Date().toISOString(),
+            };
+            await db.appendRow(db.SHEETS.USERS, syncedUser);
 
             const token = generateToken({
               id: spUser.user_id,
@@ -237,49 +237,34 @@ router.post('/login', async (req, res) => {
           return res.status(401).json({ error: 'Invalid password.' });
         }
       } catch (spErr) {
-        console.warn('Supabase login check warning:', spErr.message);
+        console.warn('Supabase login check notice:', spErr.message);
       }
     }
 
-    // ── 4. Fallback Google Sheets Users lookup ────────────────────────
-    const storageError = getSheetsFallbackError(
-      'Login is temporarily unavailable because Google Sheets is not connected.'
-    );
-    if (storageError) {
-      return res.status(503).json(storageError);
-    }
-
-    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
-    if (!sheetUser) {
-      // Auto-create user if email does not exist yet (email-only flow)
-      const nameFromEmail = loginEmail.split('@')[0];
-      const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
-      sheetUser = {
-        id: uuidv4(),
-        email: loginEmail,
-        passwordHash: '',
-        name: displayName,
-        createdAt: new Date().toISOString(),
-      };
-      await db.appendRow(db.SHEETS.USERS, sheetUser);
-    } else if (password) {
-      const validPassword = await bcrypt.compare(password, sheetUser.passwordHash);
-      if (!validPassword) {
-        return res.status(401).json({ error: 'Invalid password.' });
-      }
-    }
+    // ── 5. Auto-register user in Google Sheets if email only flow ────
+    const nameFromEmail = loginEmail.split('@')[0];
+    const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
+    const newUserId = uuidv4();
+    sheetUser = {
+      id: newUserId,
+      email: loginEmail,
+      passwordHash: password ? await bcrypt.hash(password, 10) : '',
+      name: displayName,
+      createdAt: new Date().toISOString(),
+    };
+    await db.appendRow(db.SHEETS.USERS, sheetUser);
 
     const token = generateToken({
-      id: sheetUser.id,
-      email: sheetUser.email,
-      name: sheetUser.name,
+      id: newUserId,
+      email: loginEmail,
+      name: displayName,
       role: 'user',
     });
 
     res.json({
       message: 'Login successful.',
       token,
-      user: { id: sheetUser.id, email: sheetUser.email, name: sheetUser.name || 'User', role: 'user' },
+      user: { id: newUserId, user_id: newUserId, email: loginEmail, name: displayName, role: 'user' },
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -305,24 +290,20 @@ router.post('/google', async (req, res) => {
     let userName = name;
     let userPicture = picture;
 
-    // If ID token is passed, parse payload
+    // Parse payload if credential passed
     if (credential) {
       try {
         let payloadBase64 = credential.split('.')[1];
         if (payloadBase64) {
           payloadBase64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
           const pad = payloadBase64.length % 4;
-          if (pad) {
-            payloadBase64 += '='.repeat(4 - pad);
-          }
+          if (pad) payloadBase64 += '='.repeat(4 - pad);
           const decodedJson = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
           if (decodedJson.email) userEmail = decodedJson.email;
           if (decodedJson.name) userName = decodedJson.name;
           if (decodedJson.picture) userPicture = decodedJson.picture;
         }
-      } catch (e) {
-        console.warn('Could not parse Google JWT credential payload:', e.message);
-      }
+      } catch (e) {}
     }
 
     if (!userEmail) {
@@ -332,7 +313,7 @@ router.post('/google', async (req, res) => {
     userEmail = userEmail.toLowerCase();
     userName = userName || userEmail.split('@')[0];
 
-    // ── Check if this Google email belongs to an admin ─────────────
+    // Admin check
     const adminEmails = ['rupayandas2024@gmail.com', 'jaggik8888@gmail.com'];
     let isAdmin = adminEmails.includes(userEmail);
     let adminData = null;
@@ -341,22 +322,13 @@ router.post('/google', async (req, res) => {
       try {
         const AdminModel = require('../models/Admin');
         adminData = await AdminModel.findOne({ email: userEmail });
-        if (adminData && adminData.is_active) {
-          isAdmin = true;
-        }
-      } catch (e) {
-        // Admin model not available, skip
-      }
+        if (adminData && adminData.is_active) isAdmin = true;
+      } catch (e) {}
     }
 
     if (isAdmin) {
       const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
-
-      if (adminData) {
-        adminData.last_login = new Date();
-        await adminData.save();
-      }
 
       const token = generateToken({
         id: adminId,
@@ -372,69 +344,40 @@ router.post('/google', async (req, res) => {
           id: adminId,
           email: userEmail,
           name: adminName,
-          picture: userPicture || (adminData ? adminData.profile_image : ''),
+          picture: userPicture || '',
           role: 'admin',
         },
       });
     }
 
-    // ── Regular user Google login ────────────────────────────────────
-    let userId = null;
-    let finalName = userName;
+    // Regular user Google login stored directly to Google Sheets
+    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail);
+    if (!sheetUser) {
+      sheetUser = {
+        id: uuidv4(),
+        email: userEmail,
+        passwordHash: 'GOOGLE_OAUTH_ACCOUNT',
+        name: userName,
+        createdAt: new Date().toISOString(),
+      };
+      await db.appendRow(db.SHEETS.USERS, sheetUser);
 
-    // Check Supabase first
-    if (supabase.isConfigured()) {
-      try {
-        let spUser = await supabase.findUserByEmail(userEmail);
-        if (!spUser) {
-          const defaultHash = await bcrypt.hash('GOOGLE_OAUTH_ACCOUNT_' + uuidv4(), 10);
-          spUser = await supabase.createUser({
+      if (supabase.isConfigured()) {
+        try {
+          await supabase.createUser({
             name: userName,
             email: userEmail,
-            password_hash: defaultHash,
+            password_hash: 'GOOGLE_OAUTH_ACCOUNT',
             username: userEmail.split('@')[0],
           });
-        }
-
-        if (spUser) {
-          await supabase.updateLoginTimestamp(spUser.user_id);
-          userId = spUser.user_id;
-          finalName = spUser.name;
-        }
-      } catch (spErr) {
-        console.warn('Supabase Google auth error, using fallback:', spErr.message);
+        } catch (e) {}
       }
-    }
-
-    // Google Sheets Fallback
-    if (!userId) {
-      const storageError = getSheetsFallbackError(
-        'Google sign-in is temporarily unavailable because Google Sheets is not connected.'
-      );
-      if (storageError) {
-        return res.status(503).json(storageError);
-      }
-
-      let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail);
-      if (!sheetUser) {
-        sheetUser = {
-          id: uuidv4(),
-          email: userEmail,
-          passwordHash: 'GOOGLE_OAUTH_ACCOUNT',
-          name: userName,
-          picture: userPicture || '',
-          createdAt: new Date().toISOString(),
-        };
-        await db.appendRow(db.SHEETS.USERS, sheetUser);
-      }
-      userId = sheetUser.id;
-      finalName = sheetUser.name;
     }
 
     const token = generateToken({
-      id: userId,
+      id: sheetUser.id,
       email: userEmail,
-      name: finalName,
+      name: sheetUser.name || userName,
       role: 'user',
     });
 
@@ -442,10 +385,10 @@ router.post('/google', async (req, res) => {
       message: 'Google login successful.',
       token,
       user: {
-        id: userId,
-        user_id: userId,
+        id: sheetUser.id,
+        user_id: sheetUser.id,
         email: userEmail,
-        name: finalName,
+        name: sheetUser.name || userName,
         picture: userPicture,
         role: 'user',
       },
