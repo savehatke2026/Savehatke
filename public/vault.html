@@ -365,7 +365,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="nav-item" onclick="showSection('brands',this)"><span class="ni">🛍️</span> Brands</div>
 
     <span class="nav-group-label">Operations</span>
-    <div class="nav-item" onclick="location.href='support-cases.html'"><span class="ni">🎧</span> Support Cases <span class="nbadge green">Live</span></div>
+    <div class="nav-item" onclick="openSupportCases()"><span class="ni">🎧</span> Support Cases <span class="nbadge green">Live</span></div>
     <div class="nav-item" onclick="showSection('tracker',this)"><span class="ni">📦</span> Price Tracker</div>
     <div class="nav-item" onclick="showSection('analytics',this)"><span class="ni">📈</span> Analytics</div>
     <div class="nav-item" onclick="showSection('content',this)"><span class="ni">📢</span> Content</div>
@@ -399,7 +399,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <input type="text" placeholder="Search anything...">
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-ghost btn-sm" onclick="location.href='support-cases.html'" title="Support Cases">🎧 Support Cases</button>
+      <button class="btn btn-ghost btn-sm" onclick="openSupportCases()" title="Support Cases">🎧 Support Cases</button>
       <div class="icon-btn" title="Notifications"><span>🔔</span><div class="notif-dot"></div></div>
       <div class="icon-btn" title="Messages"><span>💬</span></div>
       <div class="topbar-user-badge" id="topbarAdminBadge" onclick="adminLogout()" title="Click to Logout" style="display:flex;align-items:center;gap:8px;padding:4px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(79,195,247,0.2);border-radius:20px;cursor:pointer;">
@@ -418,7 +418,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="page-title-row">
         <div><div class="page-title">Good morning, <span class="gtext">Admin</span> 👋</div><div class="page-subtitle">Here's what's happening with SaveHatke today.</div></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-lg" onclick="location.href='support-cases.html'">🎧 Support Cases</button>
+          <button class="btn btn-ghost btn-lg" onclick="openSupportCases()">🎧 Support Cases</button>
           <button class="btn btn-primary btn-lg">📊 Export Report</button>
         </div>
       </div>
@@ -1053,6 +1053,11 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initBrandSelector);
 } else {
   initBrandSelector();
+}
+
+function openSupportCases() {
+  sessionStorage.setItem('sh_vault_accessed', 'true');
+  window.location.href = 'support-cases.html';
 }
 
 // ── Modal Handlers ──

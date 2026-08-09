@@ -3,10 +3,43 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Support Cases — Admin Panel</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="js/app.js"></script>
+<script>
+  (function verifyAdminVaultAccess() {
+    // 1. Must be logged in as Admin
+    const adminToken = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
+    const adminUserRaw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
+
+    let isAdmin = false;
+    if (adminToken && adminUserRaw) {
+      try {
+        const u = JSON.parse(adminUserRaw);
+        if (u && (u.role === 'admin' || u.role === 'Super Admin' || u.role === 'Admin' || u.role === 'Support')) {
+          isAdmin = true;
+        }
+      } catch (e) {}
+    }
+
+    if (!isAdmin) {
+      alert('🔒 Access Denied: Admin authentication required.');
+      window.location.replace('login.html');
+      return;
+    }
+
+    // 2. Must be accessed via vault.html
+    const referrer = document.referrer.toLowerCase();
+    const isFromVault = referrer.includes('vault.html') || sessionStorage.getItem('sh_vault_accessed') === 'true';
+
+    if (!isFromVault) {
+      alert('🔒 Access Denied: Support Cases can only be accessed through Vault (vault.html).');
+      window.location.replace('vault.html');
+      return;
+    }
+
+    // Keep vault access active for session navigation within support cases
+    sessionStorage.setItem('sh_vault_accessed', 'true');
+  })();
+</script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
