@@ -16,19 +16,29 @@ router.get('/', optionalAuth, async (req, res) => {
     const { category, search, source } = req.query;
     let available = [];
 
-    // Primary source: Google Sheets (admin-managed coupons)
-    try {
-      const allCoupons = await db.getRows(db.SHEETS.COUPONS);
-      available = allCoupons.filter((c) => c.status === 'available');
-    } catch (e) {
-      console.warn('G Sheet coupons read warning:', e.message);
+    // Primary source: Supabase database
+    if (supabase.isConfigured()) {
+      try {
+        const supaCoupons = await supabase.getCoupons({ status: 'available' });
+        if (Array.isArray(supaCoupons)) {
+          available = supaCoupons;
+        }
+      } catch (e) {
+        console.warn('Supabase coupons read notice:', e.message);
+      }
     }
 
-    // Fallback: Supabase if G Sheet returned nothing
-    if (available.length === 0 && supabase.isConfigured()) {
-      try {
-        available = await supabase.getCoupons({ status: 'available' });
-      } catch (e) {}
+    // Also include Google Sheets coupons (merging without duplicates)
+    try {
+      const gsheetCoupons = await db.getRows(db.SHEETS.COUPONS);
+      const availableGsheet = gsheetCoupons.filter((c) => c.status === 'available');
+      availableGsheet.forEach((gc) => {
+        if (!available.some((sc) => sc.id === gc.id || (sc.code && gc.code && sc.code === gc.code))) {
+          available.push(gc);
+        }
+      });
+    } catch (e) {
+      console.warn('G Sheet coupons read notice:', e.message);
     }
 
     // Apply filters
