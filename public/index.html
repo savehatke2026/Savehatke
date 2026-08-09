@@ -555,53 +555,80 @@
 
 <script src="js/app.js"></script>
 <script src="js/landing.js"></script>
-<script>
-  const COUPONS = [
-    {brand:'Nykaa',off:'30% OFF',desc:'On all beauty & skincare products above ₹999',price:15,cat:'Makeup'},
-    {brand:'Myntra',off:'₹500 OFF',desc:'Min purchase ₹1,499 on fashion & accessories',price:20,cat:'Fashion'},
-    {brand:'Swiggy',off:'50% OFF',desc:'Up to ₹100 off on your next 2 orders',price:10,cat:'Food'},
-    {brand:'boAt',off:'₹800 OFF',desc:'On headphones & earbuds above ₹1,999',price:25,cat:'Electronics'},
-    {brand:'Puma',off:'₹600 OFF',desc:'On footwear & sports apparel above ₹2,499',price:20,cat:'Fashion'},
-    {brand:'Zomato',off:'40% OFF',desc:'On orders above ₹299, valid all restaurants',price:10,cat:'Food'},
-    {brand:'Lakme',off:'25% OFF',desc:'On all Lakme makeup & skincare products',price:12,cat:'Makeup'},
-    {brand:'Noise',off:'₹500 OFF',desc:'On smartwatches & fitness bands above ₹1,599',price:18,cat:'Electronics'},
-    {brand:'H&M',off:'20% OFF',desc:'Sitewide on all clothing & accessories',price:15,cat:'Fashion'},
-  ];
+  let liveCoupons = [];
   let activeCat = 'all';
 
-  function renderCoupons() {
-    const list = activeCat === 'all' ? COUPONS : COUPONS.filter(c => c.cat === activeCat);
-    const grid = document.getElementById('couponGrid');
-    if (grid) {
-      grid.innerHTML = list.slice(0,6).map((c, idx) => `
-        <div class="coupon-card" style="cursor:pointer" onclick="handleIndexCouponClick(${idx + 1})">
-          <div class="ctop"><div class="cbrand">${c.brand}</div><div class="coff">${c.off}</div></div>
-          <div class="cdesc">${c.desc}</div>
-          <div class="cmeta">
-            <div><span class="clbl">Buy for</span><span class="cval">₹${c.price}</span></div>
-            <span class="ccat">${c.cat}</span>
-          </div>
-        </div>`).join('');
+  const categoryEmojis = {
+    'Makeup': '💄',
+    'Electronics': '⚡',
+    'Fashion': '👟',
+    'Food': '🍔',
+    'Travel': '✈️',
+    'Health': '💊',
+  };
+
+  async function loadIndexCoupons() {
+    try {
+      const data = await api('/coupons');
+      liveCoupons = data.coupons || [];
+      renderCoupons();
+    } catch (e) {
+      liveCoupons = [];
+      renderCoupons();
     }
   }
-  renderCoupons();
 
-  function handleIndexCouponClick(id) {
-    if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
-      if (typeof showToast === 'function') showToast('Please log in to buy coupons.', 'warning');
-      setTimeout(() => {
-        window.location.href = 'login.html';
-      }, 500);
+  function renderCoupons() {
+    const grid = document.getElementById('couponGrid');
+    if (!grid) return;
+
+    let filtered = activeCat === 'all'
+      ? liveCoupons
+      : liveCoupons.filter(c => (c.category || '').toLowerCase() === activeCat.toLowerCase());
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-state" style="grid-column:1/-1;text-align:center;padding:30px;background:rgba(255,255,255,0.02);border:1px solid rgba(79,195,247,0.1);border-radius:16px;">
+          <div style="font-size:2rem;margin-bottom:8px;">🏷️</div>
+          <div style="font-weight:700;color:#e2ecff;margin-bottom:4px;">No coupons found in database</div>
+          <div style="font-size:0.82rem;color:#6b88aa;">Check out the marketplace for all available offers!</div>
+        </div>
+      `;
       return;
     }
-    window.location.href = 'checkout.html?id=' + id;
+
+    grid.innerHTML = filtered.slice(0, 6).map((c) => {
+      const emoji = categoryEmojis[c.category] || '🏷️';
+      const isFree = c.source === 'auto-scraped';
+      const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '15'}`;
+      const offText = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`) : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
+
+      return `
+        <div class="coupon-card" style="cursor:pointer" onclick="location.href='marketplace.html'">
+          <div class="ctop">
+            <div class="cbrand">${emoji} ${c.brand}</div>
+            <div class="coff">${offText}</div>
+          </div>
+          <div class="cdesc">${c.title || c.description || 'Verified Discount Offer'}</div>
+          <div class="cmeta">
+            <div>
+              <span class="clbl">Selling Price</span>
+              <span class="cval">${priceText}</span>
+            </div>
+            <span class="ccat ${c.category}">${c.category}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
+
+  document.addEventListener('DOMContentLoaded', loadIndexCoupons);
 
   document.querySelectorAll('.cpill').forEach(pill => {
     pill.addEventListener('click', () => {
       document.querySelectorAll('.cpill').forEach(p => p.classList.remove('active'));
       pill.classList.add('active');
-      activeCat = pill.dataset.cat;
+      activeCat = pill.dataset.cat || 'all';
       renderCoupons();
     });
   });
