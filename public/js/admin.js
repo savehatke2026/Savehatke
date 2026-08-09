@@ -123,7 +123,7 @@ function initAddCouponForm() {
     const btn = document.getElementById('addCouponBtn');
     if (btn) {
       btn.disabled = true;
-      btn.textContent = 'Publishing to Google Sheets...';
+      btn.textContent = 'Publishing Coupon...';
     }
 
     try {
@@ -178,7 +178,7 @@ function initAddCouponForm() {
         },
       });
 
-      showToast(data.message || 'Coupon published to Google Sheets! 📊', 'success');
+      showToast(data.message || 'Coupon published successfully! 🚀', 'success');
       resetAddCouponForm(form);
 
       // Automatically switch to All Coupons tab
@@ -190,7 +190,7 @@ function initAddCouponForm() {
       if (typeof loadInventory === 'function') loadInventory();
       if (typeof loadAdminStats === 'function') loadAdminStats();
     } catch (err) {
-      showToast(err.message || 'Failed to publish coupon to Google Sheets.', 'error');
+      showToast(err.message || 'Failed to publish coupon.', 'error');
     } finally {
       if (btn) {
         btn.disabled = false;

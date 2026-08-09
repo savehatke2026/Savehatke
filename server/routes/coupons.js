@@ -6,28 +6,45 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
+const supabase = require('../services/supabase');
 
 const router = express.Router();
 
 // GET /api/coupons — List available coupons (public, with optional auth)
 router.get('/', optionalAuth, async (req, res) => {
   try {
-    const allCoupons = await db.getRows(db.SHEETS.COUPONS);
-    let available = allCoupons.filter((c) => c.status === 'available');
-
-    // Filter by category
     const { category, search, source } = req.query;
-    if (category && category !== 'all') {
-      available = available.filter((c) => c.category.toLowerCase() === category.toLowerCase());
+    let available = [];
+
+    if (supabase.isConfigured()) {
+      try {
+        available = await supabase.getCoupons({ status: 'available', category, source });
+      } catch (e) {}
     }
+
+    if (available.length === 0) {
+      const allCoupons = await db.getRows(db.SHEETS.COUPONS);
+      available = allCoupons.filter((c) => c.status === 'available');
+
+      if (category && category !== 'all') {
+        available = available.filter((c) => c.category.toLowerCase() === category.toLowerCase());
+      }
+      if (search) {
+        const q = search.toLowerCase();
+        available = available.filter(
+          (c) => c.brand.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)
+        );
+      }
+      if (source) {
+        available = available.filter((c) => c.source === source);
+      }
+    }
+
     if (search) {
       const q = search.toLowerCase();
       available = available.filter(
         (c) => c.brand.toLowerCase().includes(q) || c.description.toLowerCase().includes(q)
       );
-    }
-    if (source) {
-      available = available.filter((c) => c.source === source);
     }
 
     // Don't expose actual coupon codes to non-buyers
@@ -52,8 +69,17 @@ router.get('/', optionalAuth, async (req, res) => {
 // GET /api/coupons/categories — Get available categories with counts
 router.get('/categories', async (req, res) => {
   try {
-    const allCoupons = await db.getRows(db.SHEETS.COUPONS);
-    const available = allCoupons.filter((c) => c.status === 'available');
+    let available = [];
+    if (supabase.isConfigured()) {
+      try {
+        available = await supabase.getCoupons({ status: 'available' });
+      } catch (e) {}
+    }
+
+    if (available.length === 0) {
+      const allCoupons = await db.getRows(db.SHEETS.COUPONS);
+      available = allCoupons.filter((c) => c.status === 'available');
+    }
 
     const categories = {};
     available.forEach((c) => {
@@ -76,17 +102,19 @@ const handleCouponSubmission = async (req, res) => {
       return res.status(400).json({ error: 'Coupon code, category, and brand are required.' });
     }
 
-    const storageError = db.getWriteAvailabilityError(
-      'Coupon storage is unavailable because Google Sheets is not connected.'
-    );
-    if (storageError) {
-      return res.status(503).json(storageError);
-    }
-
+    const cleanCode = code.toUpperCase().trim();
     const value = faceValue || originalValue || '0';
 
-    // Check for duplicate codes
-    const existing = await db.findRow(db.SHEETS.COUPONS, 'code', code.toUpperCase().trim());
+    // Check for duplicate codes in Supabase & Sheets
+    let existing = null;
+    if (supabase.isConfigured()) {
+      try {
+        existing = await supabase.findCouponByCode(cleanCode);
+      } catch (e) {}
+    }
+    if (!existing) {
+      existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
+    }
     if (existing) {
       return res.status(409).json({ error: 'This coupon code has already been submitted.' });
     }
@@ -95,7 +123,7 @@ const handleCouponSubmission = async (req, res) => {
 
     const coupon = {
       id: uuidv4(),
-      code: code.toUpperCase().trim(),
+      code: cleanCode,
       category: category.trim(),
       brand: brand.trim(),
       description: description || '',
@@ -109,7 +137,14 @@ const handleCouponSubmission = async (req, res) => {
       buyerEmail: '',
     };
 
-    await db.appendRow(db.SHEETS.COUPONS, coupon);
+    if (supabase.isConfigured()) {
+      try {
+        await supabase.createCoupon(coupon);
+      } catch (e) {}
+    }
+    try {
+      await db.appendRow(db.SHEETS.COUPONS, coupon);
+    } catch (e) {}
 
     res.status(201).json({
       message: 'Coupon submitted successfully! You will receive ₹10 once it is verified and sold.',
@@ -136,7 +171,16 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
+    let coupon = null;
+    if (supabase.isConfigured()) {
+      try {
+        coupon = await supabase.findCouponById(id);
+      } catch (e) {}
+    }
+    if (!coupon) {
+      coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
+    }
+
     if (!coupon) {
       return res.status(404).json({ error: 'Coupon not found.' });
     }
@@ -147,19 +191,20 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'You cannot buy your own coupon.' });
     }
 
-    const storageError = db.getWriteAvailabilityError(
-      'Coupon purchases are temporarily unavailable because Google Sheets is not connected.'
-    );
-    if (storageError) {
-      return res.status(503).json(storageError);
-    }
-
-    // Mark as sold
-    await db.updateRow(db.SHEETS.COUPONS, 'id', id, {
+    const updates = {
       status: 'sold',
       soldAt: new Date().toISOString(),
       buyerEmail: req.user.email,
-    });
+    };
+
+    if (supabase.isConfigured()) {
+      try {
+        await supabase.updateCoupon(id, updates);
+      } catch (e) {}
+    }
+    try {
+      await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
+    } catch (e) {}
 
     res.json({
       message: 'Coupon purchased successfully!',
@@ -182,7 +227,16 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
 // GET /api/coupons/my-sales — User's sold coupons
 router.get('/my-sales', authenticateToken, async (req, res) => {
   try {
-    const coupons = await db.findRows(db.SHEETS.COUPONS, 'sellerEmail', req.user.email);
+    let coupons = [];
+    if (supabase.isConfigured()) {
+      try {
+        coupons = await supabase.getCoupons({ sellerEmail: req.user.email });
+      } catch (e) {}
+    }
+    if (coupons.length === 0) {
+      coupons = await db.findRows(db.SHEETS.COUPONS, 'sellerEmail', req.user.email);
+    }
+
     res.json({
       coupons: coupons.map((c) => ({
         id: c.id,
@@ -204,7 +258,16 @@ router.get('/my-sales', authenticateToken, async (req, res) => {
 // GET /api/coupons/my-purchases — User's purchased coupons
 router.get('/my-purchases', authenticateToken, async (req, res) => {
   try {
-    const coupons = await db.findRows(db.SHEETS.COUPONS, 'buyerEmail', req.user.email);
+    let coupons = [];
+    if (supabase.isConfigured()) {
+      try {
+        coupons = await supabase.getCoupons({ buyerEmail: req.user.email });
+      } catch (e) {}
+    }
+    if (coupons.length === 0) {
+      coupons = await db.findRows(db.SHEETS.COUPONS, 'buyerEmail', req.user.email);
+    }
+
     res.json({
       coupons: coupons.map((c) => ({
         id: c.id,

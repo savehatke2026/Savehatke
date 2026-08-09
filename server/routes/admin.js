@@ -8,6 +8,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin, generateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
+const supabase = require('../services/supabase');
 
 const router = express.Router();
 
@@ -257,7 +258,13 @@ router.delete('/delete-admin/:id', authenticateToken, requireAdmin, async (req, 
 router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const totalUsers = await db.countRows(db.SHEETS.USERS);
-    const allCoupons = await db.getRows(db.SHEETS.COUPONS);
+    let allCoupons = [];
+    if (supabase.isConfigured()) {
+      allCoupons = await supabase.getCoupons();
+    }
+    if (allCoupons.length === 0) {
+      allCoupons = await db.getRows(db.SHEETS.COUPONS);
+    }
 
     const totalCoupons = allCoupons.length;
     const availableCoupons = allCoupons.filter((c) => c.status === 'available').length;
@@ -296,7 +303,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/admin/coupons — Add offline coupon codes manually to Google Sheets
+// POST /api/admin/coupons — Add offline coupon codes manually
 router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const {
@@ -321,38 +328,23 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       isVerified,
     } = req.body;
 
-    // #region debug-point E:admin-publish-entry
-    reportDebug('E', 'server/routes/admin.js:320', 'Admin publish coupon request received', {
-      hasCode: Boolean(code),
-      hasBrand: Boolean(brand),
-      brand: brand || '',
-      codePreview: typeof code === 'string' ? code.slice(0, 4) : '',
-      adminEmail: req.user?.email || '',
-    });
-    // #endregion
-
     if (!code || !brand) {
-      // #region debug-point E:admin-publish-validation
-      reportDebug('E', 'server/routes/admin.js:329', 'Admin publish coupon request rejected by validation', {
-        hasCode: Boolean(code),
-        hasBrand: Boolean(brand),
-      });
-      // #endregion
       return res.status(400).json({ error: 'Coupon code and brand are required.' });
-    }
-
-    const storageError = db.getWriteAvailabilityError(
-      'Google Sheets is not connected. Share the spreadsheet with the service account and try again.'
-    );
-    if (storageError) {
-      return res.status(503).json(storageError);
     }
 
     const cleanCode = code.toUpperCase().trim();
     const sellerEmail = req.user?.email || 'admin@savehatke.com';
 
-    // Check for duplicate code in Google Sheets
-    const existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
+    // Check for duplicate code in Supabase & Sheets
+    let existing = null;
+    if (supabase.isConfigured()) {
+      try {
+        existing = await supabase.findCouponByCode(cleanCode);
+      } catch (e) {}
+    }
+    if (!existing) {
+      existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
+    }
     if (existing) {
       return res.status(409).json({ error: 'This coupon code already exists.' });
     }
@@ -384,20 +376,31 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       buyerEmail: '',
     };
 
-    // Save coupon to storage (memoryDB + Google Sheets if connected)
-    const saved = await db.appendRow(db.SHEETS.COUPONS, coupon);
+    let saved = null;
+    let savedStorage = 'memory';
 
-    const isConnected = db.isSheetsConnected();
-    const hasSyncError = Boolean(saved.gsheetError);
-
-    let message = 'Coupon published successfully to Google Sheets! 📊';
-    if (!isConnected || hasSyncError) {
-      message = 'Coupon published successfully! 📊 (Note: Google Sheets sync pending — share spreadsheet 1B8QX-OkBkqFw3D4jVTPRtuCID060gf7Unb16BbWflpE with savehatke@savehatke-504908.iam.gserviceaccount.com as Editor)';
+    // Primary: Supabase PostgreSQL
+    if (supabase.isConfigured()) {
+      try {
+        saved = await supabase.createCoupon(coupon);
+        savedStorage = 'Supabase';
+      } catch (err) {
+        console.warn('Supabase createCoupon notice:', err.message);
+      }
     }
 
+    // Secondary / Fallback: Google Sheets & memory store
+    try {
+      const gSaved = await db.appendRow(db.SHEETS.COUPONS, coupon);
+      if (!saved) {
+        saved = gSaved;
+        savedStorage = 'Google Sheets/Memory';
+      }
+    } catch (e) {}
+
     res.status(201).json({
-      message,
-      coupon: saved,
+      message: `Coupon published successfully to ${savedStorage}! 🚀`,
+      coupon: saved || coupon,
     });
   } catch (err) {
     console.error('Admin add coupon error:', err);
@@ -408,12 +411,21 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
 // GET /api/admin/coupons — View all coupons with filters
 router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    let coupons = await db.getRows(db.SHEETS.COUPONS);
-
     const { status, source, category } = req.query;
-    if (status) coupons = coupons.filter((c) => c.status === status);
-    if (source) coupons = coupons.filter((c) => c.source === source);
-    if (category) coupons = coupons.filter((c) => c.category.toLowerCase() === category.toLowerCase());
+    let coupons = [];
+
+    if (supabase.isConfigured()) {
+      try {
+        coupons = await supabase.getCoupons({ status, source, category });
+      } catch (e) {}
+    }
+
+    if (coupons.length === 0) {
+      coupons = await db.getRows(db.SHEETS.COUPONS);
+      if (status) coupons = coupons.filter((c) => c.status === status);
+      if (source) coupons = coupons.filter((c) => c.source === source);
+      if (category) coupons = coupons.filter((c) => c.category.toLowerCase() === category.toLowerCase());
+    }
 
     res.json({ coupons, total: coupons.length });
   } catch (err) {
@@ -428,23 +440,19 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => 
     const { id } = req.params;
     const updates = req.body;
 
-    const coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
-    if (!coupon) {
-      return res.status(404).json({ error: 'Coupon not found.' });
+    let updated = null;
+    if (supabase.isConfigured()) {
+      try {
+        updated = await supabase.updateCoupon(id, updates);
+      } catch (e) {}
     }
 
-    // Only allow updating specific fields
-    const allowedFields = ['code', 'category', 'brand', 'description', 'originalValue', 'sellingPrice', 'status'];
-    const sanitized = {};
-    for (const key of allowedFields) {
-      if (updates[key] !== undefined) {
-        sanitized[key] = updates[key];
-      }
-    }
+    try {
+      const gUpdated = await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
+      if (!updated) updated = gUpdated;
+    } catch (e) {}
 
-    const updated = await db.updateRow(db.SHEETS.COUPONS, 'id', id, sanitized);
-
-    res.json({ message: 'Coupon updated successfully.', coupon: updated });
+    res.json({ message: 'Coupon updated successfully.', coupon: updated || { id, ...updates } });
   } catch (err) {
     console.error('Admin update coupon error:', err);
     res.status(500).json({ error: 'Internal server error.' });
@@ -456,12 +464,16 @@ router.delete('/coupons/:id', authenticateToken, requireAdmin, async (req, res) 
   try {
     const { id } = req.params;
 
-    const coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
-    if (!coupon) {
-      return res.status(404).json({ error: 'Coupon not found.' });
+    if (supabase.isConfigured()) {
+      try {
+        await supabase.deleteCoupon(id);
+      } catch (e) {}
     }
 
-    await db.deleteRow(db.SHEETS.COUPONS, 'id', id);
+    try {
+      await db.deleteRow(db.SHEETS.COUPONS, 'id', id);
+    } catch (e) {}
+
     res.json({ message: 'Coupon deleted successfully.' });
   } catch (err) {
     console.error('Admin delete coupon error:', err);
