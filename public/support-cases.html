@@ -22,17 +22,17 @@
 
     if (!isAdmin) {
       alert('🔒 Access Denied: Admin authentication required.');
-      window.location.replace('login.html');
+      window.location.replace('login');
       return;
     }
 
     // 2. Must be accessed via vault.html
     const referrer = document.referrer.toLowerCase();
-    const isFromVault = referrer.includes('vault.html') || sessionStorage.getItem('sh_vault_accessed') === 'true';
+    const isFromVault = referrer.includes('vault') || sessionStorage.getItem('sh_vault_accessed') === 'true';
 
     if (!isFromVault) {
-      alert('🔒 Access Denied: Support Cases can only be accessed through Vault (vault.html).');
-      window.location.replace('vault.html');
+      alert('🔒 Access Denied: Support Cases can only be accessed through Vault.');
+      window.location.replace('vault');
       return;
     }
 
@@ -297,24 +297,24 @@ tbody td strong{color:#e2ecff;font-weight:600}
 
   <nav class="sidebar-nav">
     <span class="nav-group-label">Main</span>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">🏠</span> Dashboard</div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">👥</span> Users <span class="nbadge green">1.2k</span></div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">🎟️</span> Coupons <span class="nbadge">14</span></div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">💰</span> Payouts <span class="nbadge">7</span></div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">🛍️</span> Brands</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">🏠</span> Dashboard</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">👥</span> Users <span class="nbadge green">1.2k</span></div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">🎟️</span> Coupons <span class="nbadge">14</span></div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">💰</span> Payouts <span class="nbadge">7</span></div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">🛍️</span> Brands</div>
 
     <span class="nav-group-label">Operations</span>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">📦</span> Price Tracker</div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">📈</span> Analytics</div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">📢</span> Content</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">📦</span> Price Tracker</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">📈</span> Analytics</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">📢</span> Content</div>
     <div class="nav-item active"><span class="ni">🎧</span> Support Cases <span class="nbadge" id="sidebarOpenBadge">0</span></div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">⭐</span> Reports <span class="nbadge">3</span></div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">⭐</span> Reports <span class="nbadge">3</span></div>
 
     <span class="nav-group-label">Admin</span>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">👤</span> Admins &amp; Roles</div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">🔒</span> Security</div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">⚙️</span> Settings</div>
-    <div class="nav-item" onclick="location.href='vault.html'"><span class="ni">📄</span> Audit Logs</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">👤</span> Admins &amp; Roles</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">🔒</span> Security</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">⚙️</span> Settings</div>
+    <div class="nav-item" onclick="location.href='vault'"><span class="ni">📄</span> Audit Logs</div>
   </nav>
 
   <div class="sidebar-footer">

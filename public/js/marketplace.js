@@ -231,7 +231,7 @@ function showCouponModal(coupon) {
         ${coupon.description || ''}<br>
         Worth ₹${coupon.originalValue || coupon.discount || ''} · Paid ₹${coupon.pricePaid || coupon.sellingPrice || ''}
       </p>
-      <a href="dashboard.html" class="btn btn-ghost btn-sm" style="margin-top: 16px;">View in Dashboard</a>
+      <a href="dashboard" class="btn btn-ghost btn-sm" style="margin-top: 16px;">View in Dashboard</a>
     </div>
   `;
 

@@ -10,7 +10,7 @@ const API_BASE = '/api';
   try {
     const path = window.location.pathname.toLowerCase();
     const filename = path.split('/').pop() || 'index.html';
-    if (filename === 'vault.html') return;
+    if (filename === 'vault.html' || filename === 'vault') return;
 
     const adminToken = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
     const adminUserRaw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
@@ -26,7 +26,7 @@ const API_BASE = '/api';
 
     if (isAdmin) {
       if (document.documentElement) document.documentElement.style.display = 'none';
-      window.location.replace('vault.html');
+      window.location.replace('vault');
     }
   } catch (e) {}
 })();
@@ -271,12 +271,12 @@ function updateNavAuth() {
         } catch (e) {}
         // Instant clear and redirect
         Auth.clear();
-        window.location.href = 'index.html';
+        window.location.href = 'index';
       });
     }
   } else {
     navActions.innerHTML = `
-      <a href="login.html" class="btn btn-primary btn-sm">Log In</a>
+      <a href="login" class="btn btn-primary btn-sm">Log In</a>
     `;
   }
 }
@@ -355,7 +355,7 @@ function openAuthModal(mode = 'login') {
           Auth.setAdminAuth(data.token, data.user);
           showToast(`Welcome Admin ${data.user.name}! 🛡️`, 'success');
           closeAuthModal();
-          setTimeout(() => window.location.href = 'vault.html', 150);
+          setTimeout(() => window.location.href = 'vault', 150);
           return;
         }
 
@@ -374,8 +374,8 @@ function openAuthModal(mode = 'login') {
       updateNavAuth();
 
       const currentPage = window.location.pathname.split('/').pop();
-      if (currentPage === 'login.html') {
-        setTimeout(() => window.location.href = 'index.html', 150);
+      if (currentPage === 'login.html' || currentPage === 'login') {
+        setTimeout(() => window.location.href = 'index', 150);
       }
     } catch (err) {
       showToast(err.message, 'error');

@@ -114,18 +114,18 @@
 <!-- NAVBAR -->
 <nav class="navbar" id="nav">
   <div class="container">
-    <a href="index.html" class="nav-brand">
+    <a href="index" class="nav-brand">
       <div class="brand-icon">💰</div>
       Save<span class="bhl">Hatke</span>
     </a>
     <div class="nav-links" id="navLinks">
-      <a href="index.html">Home</a>
-      <a href="marketplace.html">Coupons</a>
-      <a href="sell.html">Sell Coupons</a>
-      <a href="support.html">Support</a>
+      <a href="index">Home</a>
+      <a href="marketplace">Coupons</a>
+      <a href="sell">Sell Coupons</a>
+      <a href="support">Support</a>
     </div>
     <div class="nav-actions">
-      <a href="index.html" class="btn btn-ghost btn-sm">← Home</a>
+      <a href="index" class="btn btn-ghost btn-sm">← Home</a>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
       <span></span><span></span><span></span>
@@ -306,9 +306,9 @@
             Auth.setAuth(data.token, data.user);
             if (data.user.role === 'admin') {
               Auth.setAdminAuth(data.token, data.user);
-              window.location.replace('vault.html');
+              window.location.replace('vault');
             } else {
-              window.location.replace('index.html');
+              window.location.replace('index');
             }
           }
         } catch (e) {
@@ -328,9 +328,9 @@
       Auth.setAuth(data.token, data.user);
       if (data.user.role === 'admin') {
         Auth.setAdminAuth(data.token, data.user);
-        window.location.replace('vault.html');
+        window.location.replace('vault');
       } else {
-        window.location.replace('index.html');
+        window.location.replace('index');
       }
     } catch (err) {
       showToast(err.message || 'Google authentication failed.', 'error');
@@ -360,9 +360,9 @@
       setTimeout(() => {
         if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
           Auth.setAdminAuth(data.token, data.user);
-          window.location.replace('vault.html');
+          window.location.replace('vault');
         } else {
-          window.location.replace('index.html');
+          window.location.replace('index');
         }
       }, 150);
     } catch (err) {

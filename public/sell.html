@@ -239,16 +239,16 @@
 <!-- NAVBAR -->
 <nav class="navbar" id="mainNav">
   <div class="container">
-    <a href="index.html" class="nav-brand">
+    <a href="index" class="nav-brand">
       <div class="brand-icon">💰</div>
       Save<span class="bhl">Hatke</span>
     </a>
     <div class="nav-links" id="navLinks">
-      <a href="index.html">Home</a>
-      <a href="marketplace.html">Coupons</a>
-      <a href="sell.html" class="active">Sell Coupons</a>
-      <a href="dashboard.html">Dashboard</a>
-      <a href="support.html">Support</a>
+      <a href="index">Home</a>
+      <a href="marketplace">Coupons</a>
+      <a href="sell" class="active">Sell Coupons</a>
+      <a href="dashboard">Dashboard</a>
+      <a href="support">Support</a>
     </div>
     <div class="nav-actions" id="navActions"></div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
@@ -425,7 +425,7 @@
           Track your submission in your dashboard.
         </p>
         <div class="success-actions">
-          <a href="dashboard.html" class="btn btn-primary btn-lg">View in Dashboard</a>
+          <a href="dashboard" class="btn btn-primary btn-lg">View in Dashboard</a>
           <button class="btn btn-secondary btn-lg" onclick="resetForm()">Sell Another Coupon</button>
         </div>
       </div>
@@ -439,35 +439,35 @@
   <div class="container">
     <div class="footer-grid">
       <div class="fbrand">
-        <a href="index.html" class="nav-brand" style="font-size:1.2rem">
+        <a href="index" class="nav-brand" style="font-size:1.2rem">
           <div class="brand-icon">💰</div>Save<span class="bhl">Hatke</span>
         </a>
         <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
       </div>
       <div class="fcol">
         <h4>Platform</h4>
-        <a href="marketplace.html">Coupon Marketplace</a>
-        <a href="sell.html">Sell Coupons</a>
-        <a href="dashboard.html">Price Tracker</a>
+        <a href="marketplace">Coupon Marketplace</a>
+        <a href="sell">Sell Coupons</a>
+        <a href="dashboard">Price Tracker</a>
       </div>
       <div class="fcol">
         <h4>Company</h4>
-        <a href="support.html">Help Center</a>
-        <a href="support.html">Contact Us</a>
-        <a href="terms.html">Terms &amp; Conditions</a>
-        <a href="privacy.html">Privacy Policy</a>
+        <a href="support">Help Center</a>
+        <a href="support">Contact Us</a>
+        <a href="terms">Terms &amp; Conditions</a>
+        <a href="privacy">Privacy Policy</a>
       </div>
       <div class="fcol">
         <h4>Categories</h4>
-        <a href="marketplace.html?cat=Makeup">Makeup Coupons</a>
-        <a href="marketplace.html?cat=Electronics">Electronics Deals</a>
-        <a href="marketplace.html?cat=Fashion">Fashion Codes</a>
-        <a href="marketplace.html?cat=Food">Food &amp; Delivery</a>
+        <a href="marketplace?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace?cat=Food">Food &amp; Delivery</a>
       </div>
     </div>
     <div class="fbot">
       <span>© 2026 SaveHatke. All rights reserved.</span>
-      <span>Made with ❤️ in India · <a href="terms.html" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Terms</a> · <a href="privacy.html" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Privacy</a> · <a href="support.html" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Support</a></span>
+      <span>Made with ❤️ in India · <a href="terms" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Terms</a> · <a href="privacy" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Privacy</a> · <a href="support" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Support</a></span>
     </div>
   </div>
 </footer>
@@ -682,7 +682,7 @@
   }
 
   function handleGoogleAuthRedirect() {
-    window.location.href = 'login.html';
+    window.location.href = 'login';
   }
 
   /* =====================
@@ -725,7 +725,7 @@
       }
       closeModal();
       updateNavAuth();
-      setTimeout(() => window.location.href = 'dashboard.html', 500);
+      setTimeout(() => window.location.href = 'dashboard', 500);
     } catch (err) { showToast(err.message, 'error'); }
   }
 
