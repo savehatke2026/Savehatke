@@ -17,7 +17,18 @@ const SHEETS = {
 
 // Column headers for each sheet (used for initialization and row mapping)
 const HEADERS = {
-  [SHEETS.USERS]: ['id', 'email', 'passwordHash', 'name', 'createdAt'],
+  [SHEETS.USERS]: [
+    'user_id',
+    'name',
+    'username',
+    'email',
+    'passwordHash',
+    'status',
+    'created_at',
+    'updated_at',
+    'last_login_at',
+    'last_logout_at',
+  ],
   [SHEETS.COUPONS]: [
     'id', 'code', 'title', 'type', 'category', 'brand', 'description',
     'discount', 'originalValue', 'sellingPrice', 'minOrderValue',
@@ -234,6 +245,12 @@ async function getRows(sheetName) {
         headers.forEach((h, i) => {
           obj[h] = row[i] || '';
         });
+        if (sheetName === SHEETS.USERS) {
+          obj.id = obj.user_id || obj.id || '';
+          obj.user_id = obj.user_id || obj.id || '';
+          obj.createdAt = obj.created_at || obj.createdAt || '';
+          obj.created_at = obj.created_at || obj.createdAt || '';
+        }
         return obj;
       });
 

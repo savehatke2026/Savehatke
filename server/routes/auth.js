@@ -17,7 +17,7 @@ function getSheetsFallbackError(message) {
 // POST /api/auth/register — Save user EXCLUSIVELY to Google Sheets (Users tab)
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, username } = req.body;
 
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'Email, password, and name are required.' });
@@ -25,6 +25,7 @@ router.post('/register', async (req, res) => {
 
     const cleanEmail = email.toLowerCase().trim();
     const cleanName = name.trim();
+    const cleanUsername = (username || cleanEmail.split('@')[0]).trim();
 
     // Check for existing user in Google Sheets
     const existingSheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
@@ -36,13 +37,21 @@ router.post('/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
+    const now = new Date().toISOString();
     const userId = uuidv4();
+
     const sheetUser = {
+      user_id: userId,
       id: userId,
+      name: cleanName,
+      username: cleanUsername,
       email: cleanEmail,
       passwordHash,
-      name: cleanName,
-      createdAt: new Date().toISOString(),
+      status: 'active',
+      created_at: now,
+      updated_at: now,
+      last_login_at: now,
+      last_logout_at: '',
     };
 
     // Save exclusively to Google Sheets (Users tab)
@@ -62,8 +71,10 @@ router.post('/register', async (req, res) => {
       user: {
         id: userId,
         user_id: userId,
-        email: cleanEmail,
         name: cleanName,
+        username: cleanUsername,
+        email: cleanEmail,
+        status: 'active',
         role: 'user',
       },
     });
@@ -157,6 +168,10 @@ router.post('/login', async (req, res) => {
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
 
     if (sheetUser) {
+      if (sheetUser.status && sheetUser.status !== 'active') {
+        return res.status(403).json({ error: `Account is ${sheetUser.status}. Please contact support.` });
+      }
+
       if (password && sheetUser.passwordHash) {
         const validPassword = await bcrypt.compare(password, sheetUser.passwordHash);
         if (!validPassword) {
@@ -164,8 +179,14 @@ router.post('/login', async (req, res) => {
         }
       }
 
+      const now = new Date().toISOString();
+      await db.updateRow(db.SHEETS.USERS, 'email', loginEmail, {
+        last_login_at: now,
+        updated_at: now,
+      });
+
       const token = generateToken({
-        id: sheetUser.id,
+        id: sheetUser.user_id || sheetUser.id,
         email: sheetUser.email,
         name: sheetUser.name,
         role: 'user',
@@ -174,7 +195,15 @@ router.post('/login', async (req, res) => {
       return res.json({
         message: 'Login successful.',
         token,
-        user: { id: sheetUser.id, user_id: sheetUser.id, email: sheetUser.email, name: sheetUser.name || 'User', role: 'user' },
+        user: {
+          id: sheetUser.user_id || sheetUser.id,
+          user_id: sheetUser.user_id || sheetUser.id,
+          email: sheetUser.email,
+          name: sheetUser.name || 'User',
+          username: sheetUser.username || sheetUser.email.split('@')[0],
+          status: sheetUser.status || 'active',
+          role: 'user',
+        },
       });
     }
 
@@ -182,12 +211,20 @@ router.post('/login', async (req, res) => {
     const nameFromEmail = loginEmail.split('@')[0];
     const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
     const newUserId = uuidv4();
+    const now = new Date().toISOString();
+
     sheetUser = {
+      user_id: newUserId,
       id: newUserId,
+      name: displayName,
+      username: nameFromEmail,
       email: loginEmail,
       passwordHash: password ? await bcrypt.hash(password, 10) : '',
-      name: displayName,
-      createdAt: new Date().toISOString(),
+      status: 'active',
+      created_at: now,
+      updated_at: now,
+      last_login_at: now,
+      last_logout_at: '',
     };
     await db.appendRow(db.SHEETS.USERS, sheetUser);
 
@@ -201,7 +238,15 @@ router.post('/login', async (req, res) => {
     res.json({
       message: 'Login successful.',
       token,
-      user: { id: newUserId, user_id: newUserId, email: loginEmail, name: displayName, role: 'user' },
+      user: {
+        id: newUserId,
+        user_id: newUserId,
+        name: displayName,
+        username: nameFromEmail,
+        email: loginEmail,
+        status: 'active',
+        role: 'user',
+      },
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -288,20 +333,33 @@ router.post('/google', async (req, res) => {
     }
 
     // Save/Find user EXCLUSIVELY in Google Sheets (Users tab)
+    const now = new Date().toISOString();
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail);
     if (!sheetUser) {
+      const userId = uuidv4();
       sheetUser = {
-        id: uuidv4(),
+        user_id: userId,
+        id: userId,
+        name: userName,
+        username: userEmail.split('@')[0],
         email: userEmail,
         passwordHash: 'GOOGLE_OAUTH_ACCOUNT',
-        name: userName,
-        createdAt: new Date().toISOString(),
+        status: 'active',
+        created_at: now,
+        updated_at: now,
+        last_login_at: now,
+        last_logout_at: '',
       };
       await db.appendRow(db.SHEETS.USERS, sheetUser);
+    } else {
+      await db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
+        last_login_at: now,
+        updated_at: now,
+      });
     }
 
     const token = generateToken({
-      id: sheetUser.id,
+      id: sheetUser.user_id || sheetUser.id,
       email: userEmail,
       name: sheetUser.name || userName,
       role: 'user',
@@ -311,11 +369,13 @@ router.post('/google', async (req, res) => {
       message: 'Google login successful.',
       token,
       user: {
-        id: sheetUser.id,
-        user_id: sheetUser.id,
+        id: sheetUser.user_id || sheetUser.id,
+        user_id: sheetUser.user_id || sheetUser.id,
         email: userEmail,
         name: sheetUser.name || userName,
+        username: sheetUser.username || userEmail.split('@')[0],
         picture: userPicture,
+        status: sheetUser.status || 'active',
         role: 'user',
       },
     });
@@ -325,9 +385,22 @@ router.post('/google', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout
+// POST /api/auth/logout — Record last_logout_at timestamp in Google Sheets
 router.post('/logout', async (req, res) => {
-  res.json({ message: 'Logged out successfully.' });
+  try {
+    const { email } = req.body;
+    if (email) {
+      const now = new Date().toISOString();
+      await db.updateRow(db.SHEETS.USERS, 'email', email.toLowerCase().trim(), {
+        last_logout_at: now,
+        updated_at: now,
+      });
+    }
+    res.json({ message: 'Logged out successfully.' });
+  } catch (err) {
+    console.warn('Logout timestamp notice:', err.message);
+    res.json({ message: 'Logged out.' });
+  }
 });
 
 // GET /api/auth/me
