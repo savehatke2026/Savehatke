@@ -261,20 +261,17 @@ function updateNavAuth() {
     }
 
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', async () => {
+      logoutBtn.addEventListener('click', () => {
+        // Fire-and-forget logout API call (don't wait for it)
         try {
-          await api('/auth/logout', {
+          api('/auth/logout', {
             method: 'POST',
             body: { userId: user.user_id || user.id, email: user.email },
-          });
-        } catch (e) {
-          // Ignore API error on logout
-        }
+          }).catch(() => {});
+        } catch (e) {}
+        // Instant clear and redirect
         Auth.clear();
-        showToast('Logged out successfully. 👋', 'info');
-        setTimeout(() => {
-          window.location.href = 'index.html';
-        }, 400);
+        window.location.href = 'index.html';
       });
     }
   } else {
@@ -599,16 +596,29 @@ function updateScrollProgress() {
 
 // ── Floating Green Particles ────────────────────────────────────────────
 function initParticles() {
-  const containers = document.querySelectorAll('.particles');
+  let containers = document.querySelectorAll('.particles');
+  if (containers.length === 0) {
+    const parent = document.querySelector('.hero') || document.querySelector('.page-hero') || document.querySelector('.page') || document.querySelector('main') || document.body;
+    if (parent) {
+      const pContainer = document.createElement('div');
+      pContainer.className = 'particles';
+      if (getComputedStyle(parent).position === 'static') {
+        parent.style.position = 'relative';
+      }
+      parent.insertBefore(pContainer, parent.firstChild);
+      containers = [pContainer];
+    }
+  }
+
   containers.forEach((container) => {
     if (container.children.length > 0) return;
-    const count = 30;
+    const count = 22;
     for (let i = 0; i < count; i++) {
       const p = document.createElement('div');
       p.className = 'particle';
       p.style.left = `${Math.random() * 100}%`;
-      p.style.animationDuration = `${4 + Math.random() * 7}s`;
-      p.style.animationDelay = `${Math.random() * 5}s`;
+      p.style.animationDuration = `${5 + Math.random() * 8}s`;
+      p.style.animationDelay = `${Math.random() * 6}s`;
       const size = 2 + Math.random() * 3;
       p.style.width = `${size}px`;
       p.style.height = `${size}px`;

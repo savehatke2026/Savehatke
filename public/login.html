@@ -176,9 +176,7 @@
          style="display:none;">
     </div>
 
-    <div class="auth-footer-text">
-      Don't have an account? <a href="login.html?tab=register">Sign up free</a>
-    </div>
+
   </div>
 </main>
 
@@ -308,9 +306,9 @@
             Auth.setAuth(data.token, data.user);
             if (data.user.role === 'admin') {
               Auth.setAdminAuth(data.token, data.user);
-              window.location.href = 'admin.html';
+              window.location.replace('admin.html');
             } else {
-              window.location.href = 'index.html';
+              window.location.replace('index.html');
             }
           }
         } catch (e) {
@@ -330,9 +328,9 @@
       Auth.setAuth(data.token, data.user);
       if (data.user.role === 'admin') {
         Auth.setAdminAuth(data.token, data.user);
-        window.location.href = 'admin.html';
+        window.location.replace('admin.html');
       } else {
-        window.location.href = 'index.html';
+        window.location.replace('index.html');
       }
     } catch (err) {
       showToast(err.message || 'Google authentication failed.', 'error');
@@ -357,9 +355,9 @@
 
       if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
         Auth.setAdminAuth(data.token, data.user);
-        window.location.href = 'admin.html';
+        window.location.replace('admin.html');
       } else {
-        window.location.href = 'index.html';
+        window.location.replace('index.html');
       }
     } catch (err) {
       showToast(err.message || 'Authentication failed. Please check your email.', 'error');
