@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const cat = params.get('cat');
   if (cat) {
     currentCategory = cat;
-    document.querySelectorAll('#categoryPills .category-pill').forEach((p) => {
+    document.querySelectorAll('#categoryPills .cpill').forEach((p) => {
       p.classList.toggle('active', p.dataset.category === cat);
     });
   }
