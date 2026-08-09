@@ -1420,6 +1420,80 @@ button, input, select, textarea { font-family: inherit; }
   .hero-actions .btn { width: 100%; justify-content: center; }
 }
 
+/* ═══ Universal Mobile Optimization Enhancements ═══ */
+@media (max-width: 768px) {
+  .container { padding-left: 16px; padding-right: 16px; }
+  .page { padding-top: 84px; padding-bottom: 40px; }
+  .page-header { margin-bottom: 24px; text-align: center; }
+  .page-title { font-size: 1.8rem; }
+  .page-subtitle { font-size: 0.9rem; }
+  
+  /* Tables & Touch Scrolling */
+  .table-wrapper, .table-card, .overflow-x {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    max-width: 100% !important;
+    margin-bottom: 20px !important;
+  }
+  .table th, .table td { padding: 10px 12px; font-size: 0.8rem; }
+
+  /* Modals */
+  .modal {
+    width: 92vw !important;
+    max-width: 480px !important;
+    padding: 24px 18px !important;
+    margin: 0 auto !important;
+    max-height: 90vh !important;
+    overflow-y: auto !important;
+  }
+
+  /* Form & Grid Layouts */
+  .two-col, .three-col, .form-grid-2, .form-grid-3, .form-row, .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  /* Category pills horizontal scroll on mobile */
+  .category-pills, .tab-row {
+    display: flex !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 8px !important;
+    gap: 8px !important;
+    white-space: nowrap !important;
+  }
+  .category-pill, .tab-btn {
+    flex-shrink: 0 !important;
+  }
+
+  /* Dashboard tracker form */
+  #addTrackerForm {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  #addTrackerForm .form-group {
+    width: 100% !important;
+    min-width: 100% !important;
+  }
+  #addTrackerBtn {
+    width: 100% !important;
+    margin-top: 8px !important;
+  }
+
+  /* Buttons & Inputs Touch Targets */
+  .btn, .form-input, .form-select, .finput {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title { font-size: 2rem; }
+  .coupon-card, .card { padding: 18px 14px; }
+  .ctop { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .cbuy-btn { width: 100%; text-align: center; justify-content: center; }
+  .stats-grid { grid-template-columns: 1fr !important; }
+}
+
 /* ═══ Background Particle Animation ═══ */
 @keyframes float-particle {
   0% { transform: translateY(100vh) scale(0); opacity: 0; }
