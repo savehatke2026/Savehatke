@@ -90,6 +90,182 @@ async function createLoginSession(req, userId, loginMethod) {
   }
 }
 
+// ── OTP Store (In-memory with TTL) ─────────────────────────────────────────────
+// For production, replace with Redis or database storage
+const otpStore = new Map();
+
+// Clean up expired OTPs every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of otpStore.entries()) {
+    if (value.expiresAt < now) {
+      otpStore.delete(key);
+    }
+  }
+}, 5 * 60 * 1000);
+
+function generateOTP() {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+function storeOTP(email, otp) {
+  const cleanEmail = email.toLowerCase().trim();
+  otpStore.set(cleanEmail, {
+    otp,
+    expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+    attempts: 0,
+  });
+}
+
+function getOTP(email) {
+  const cleanEmail = email.toLowerCase().trim();
+  const entry = otpStore.get(cleanEmail);
+  if (!entry) return null;
+  if (entry.expiresAt < Date.now()) {
+    otpStore.delete(cleanEmail);
+    return null;
+  }
+  return entry;
+}
+
+function verifyOTP(email, otp) {
+  const cleanEmail = email.toLowerCase().trim();
+  const entry = otpStore.get(cleanEmail);
+  if (!entry) return { valid: false, error: 'OTP not found or expired.' };
+  if (entry.expiresAt < Date.now()) {
+    otpStore.delete(cleanEmail);
+    return { valid: false, error: 'OTP has expired. Please request a new one.' };
+  }
+  if (entry.attempts >= 5) {
+    otpStore.delete(cleanEmail);
+    return { valid: false, error: 'Too many failed attempts. Please request a new OTP.' };
+  }
+  if (entry.otp !== otp) {
+    entry.attempts++;
+    return { valid: false, error: 'Invalid OTP. Please try again.' };
+  }
+  otpStore.delete(cleanEmail);
+  return { valid: true };
+}
+
+// Simulate sending OTP via email (replace with actual email service in production)
+async function sendOTPEmail(email, otp) {
+  // In production, integrate with email service (SendGrid, Nodemailer, etc.)
+  console.log(`📧 OTP for ${email}: ${otp}`);
+  console.log(`📧 [DEV MODE] OTP sent to ${email}. Check server console for code.`);
+  return true;
+}
+
+// POST /api/auth/send-otp — Send OTP to email for login/registration
+router.post('/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' });
+    }
+
+    // Generate and store OTP
+    const otp = generateOTP();
+    storeOTP(cleanEmail, otp);
+
+    // Send OTP via email (mock)
+    await sendOTPEmail(cleanEmail, otp);
+
+    res.json({
+      message: 'Verification code sent to your email.',
+      // In development, return OTP for testing (remove in production)
+      devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+    });
+  } catch (err) {
+    console.error('Send OTP error:', err);
+    res.status(500).json({ error: 'Failed to send verification code. Please try again.' });
+  }
+});
+
+// POST /api/auth/verify-otp — Verify OTP and login/register user
+router.post('/verify-otp', async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ error: 'Email and OTP are required.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+
+    // Verify OTP
+    const verification = verifyOTP(cleanEmail, otp);
+    if (!verification.valid) {
+      return res.status(400).json({ error: verification.error });
+    }
+
+    const now = new Date().toISOString();
+
+    // Find or create user in Google Sheets
+    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
+    if (!sheetUser) {
+      // New user - create account
+      const userId = uuidv4();
+      sheetUser = {
+        user_id: userId,
+        id: userId,
+        name: cleanEmail.split('@')[0],
+        username: cleanEmail.split('@')[0],
+        email: cleanEmail,
+        status: 'active',
+        created_at: now,
+        updated_at: now,
+        last_login_at: now,
+        last_logout_at: '',
+      };
+      await db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
+    } else {
+      // Existing user - update last login
+      await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
+        last_login_at: now,
+        updated_at: now,
+      }).catch((e) => console.warn('GSheet update notice:', e.message));
+    }
+
+    // Generate JWT token
+    const token = generateToken({
+      id: sheetUser.user_id || sheetUser.id,
+      email: cleanEmail,
+      name: sheetUser.name || cleanEmail.split('@')[0],
+      role: 'user',
+    });
+
+    // Fire-and-forget session tracking
+    createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP').catch(() => {});
+
+    res.json({
+      message: 'Email verified successfully!',
+      token,
+      user: {
+        id: sheetUser.user_id || sheetUser.id,
+        user_id: sheetUser.user_id || sheetUser.id,
+        email: cleanEmail,
+        name: sheetUser.name || cleanEmail.split('@')[0],
+        username: sheetUser.username || cleanEmail.split('@')[0],
+        status: sheetUser.status || 'active',
+        role: 'user',
+      },
+    });
+  } catch (err) {
+    console.error('Verify OTP error:', err);
+    res.status(500).json({ error: 'Failed to verify code. Please try again.' });
+  }
+});
+
 function getSheetsFallbackError(message) {
   return db.getWriteAvailabilityError(message);
 }

@@ -538,6 +538,9 @@ async function getSettings() {
     savedByUsers: '₹2L+',
     platformName: 'SaveHatke',
     adminEmail: 'rupayandas2024@gmail.com',
+    showActiveUsers: true,
+    showCouponsTraded: true,
+    showSavedByUsers: true,
     updatedAt: new Date().toISOString(),
   };
 
@@ -547,6 +550,9 @@ async function getSettings() {
       return {
         ...defaultSettings,
         ...existing,
+        showActiveUsers: existing.showActiveUsers !== undefined ? (existing.showActiveUsers === 'true' || existing.showActiveUsers === true) : true,
+        showCouponsTraded: existing.showCouponsTraded !== undefined ? (existing.showCouponsTraded === 'true' || existing.showCouponsTraded === true) : true,
+        showSavedByUsers: existing.showSavedByUsers !== undefined ? (existing.showSavedByUsers === 'true' || existing.showSavedByUsers === true) : true,
       };
     }
   } catch (err) {
@@ -566,6 +572,9 @@ async function saveSettings(data) {
     savedByUsers: data.savedByUsers || '₹2L+',
     platformName: data.platformName || 'SaveHatke',
     adminEmail: data.adminEmail || 'rupayandas2024@gmail.com',
+    showActiveUsers: data.showActiveUsers !== undefined ? Boolean(data.showActiveUsers) : true,
+    showCouponsTraded: data.showCouponsTraded !== undefined ? Boolean(data.showCouponsTraded) : true,
+    showSavedByUsers: data.showSavedByUsers !== undefined ? Boolean(data.showSavedByUsers) : true,
     updatedAt: new Date().toISOString(),
   };
 

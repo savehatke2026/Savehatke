@@ -549,6 +549,9 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
             savedByUsers: mongoSetting.savedByUsers || settings.savedByUsers,
             platformName: mongoSetting.platformName || settings.platformName,
             adminEmail: mongoSetting.adminEmail || settings.adminEmail,
+            showActiveUsers: mongoSetting.showActiveUsers !== undefined ? mongoSetting.showActiveUsers : settings.showActiveUsers,
+            showCouponsTraded: mongoSetting.showCouponsTraded !== undefined ? mongoSetting.showCouponsTraded : settings.showCouponsTraded,
+            showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
           };
         }
       } catch (e) {}
@@ -564,6 +567,9 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
         savedByUsers: '₹2L+',
         platformName: 'SaveHatke',
         adminEmail: 'rupayandas2024@gmail.com',
+        showActiveUsers: true,
+        showCouponsTraded: true,
+        showSavedByUsers: true,
       },
     });
   }
@@ -572,7 +578,7 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
 // PUT /api/admin/settings — Update system settings (saved to Google Sheets & MongoDB)
 router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail } = req.body;
+    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers } = req.body;
 
     const payload = {
       activeUsers: activeUsers ? String(activeUsers).trim() : '10K+',
@@ -580,6 +586,9 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
       savedByUsers: savedByUsers ? String(savedByUsers).trim() : '₹2L+',
       platformName: platformName ? String(platformName).trim() : 'SaveHatke',
       adminEmail: adminEmail ? String(adminEmail).trim() : 'rupayandas2024@gmail.com',
+      showActiveUsers: showActiveUsers !== undefined ? Boolean(showActiveUsers) : true,
+      showCouponsTraded: showCouponsTraded !== undefined ? Boolean(showCouponsTraded) : true,
+      showSavedByUsers: showSavedByUsers !== undefined ? Boolean(showSavedByUsers) : true,
     };
 
     // 1. Save to Google Sheets / memoryDB

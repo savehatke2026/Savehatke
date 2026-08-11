@@ -759,17 +759,32 @@
         const data = await res.json();
         if (data && data.settings) {
           const s = data.settings;
-          if (s.activeUsers) {
-            const el = document.getElementById('stat-active-users');
-            if (el) el.textContent = s.activeUsers;
+          // Active Users
+          const activeUsersEl = document.getElementById('stat-active-users');
+          const activeUsersContainer = activeUsersEl ? activeUsersEl.closest('div') : null;
+          if (s.showActiveUsers !== false && s.activeUsers) {
+            if (activeUsersEl) activeUsersEl.textContent = s.activeUsers;
+            if (activeUsersContainer) activeUsersContainer.style.display = '';
+          } else if (activeUsersContainer) {
+            activeUsersContainer.style.display = 'none';
           }
-          if (s.couponsTraded) {
-            const el = document.getElementById('stat-coupons-traded');
-            if (el) el.textContent = s.couponsTraded;
+          // Coupons Traded
+          const couponsTradedEl = document.getElementById('stat-coupons-traded');
+          const couponsTradedContainer = couponsTradedEl ? couponsTradedEl.closest('div') : null;
+          if (s.showCouponsTraded !== false && s.couponsTraded) {
+            if (couponsTradedEl) couponsTradedEl.textContent = s.couponsTraded;
+            if (couponsTradedContainer) couponsTradedContainer.style.display = '';
+          } else if (couponsTradedContainer) {
+            couponsTradedContainer.style.display = 'none';
           }
-          if (s.savedByUsers) {
-            const el = document.getElementById('stat-saved-by-users');
-            if (el) el.textContent = s.savedByUsers;
+          // Saved by Users
+          const savedByUsersEl = document.getElementById('stat-saved-by-users');
+          const savedByUsersContainer = savedByUsersEl ? savedByUsersEl.closest('div') : null;
+          if (s.showSavedByUsers !== false && s.savedByUsers) {
+            if (savedByUsersEl) savedByUsersEl.textContent = s.savedByUsers;
+            if (savedByUsersContainer) savedByUsersContainer.style.display = '';
+          } else if (savedByUsersContainer) {
+            savedByUsersContainer.style.display = 'none';
           }
         }
       }

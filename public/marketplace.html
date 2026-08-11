@@ -275,9 +275,9 @@
       <h1 class="page-hero-title">Premium Coupons at <span class="gtext">Unreal Prices</span></h1>
       <p class="page-hero-sub">Verified coupons from real users — at a fraction of their face value. Why pay full price when you can save big?</p>
       <div class="page-hero-stats">
-        <div><div class="stat-val gtext">50K+</div><div class="stat-lbl">Coupons Traded</div></div>
-        <div><div class="stat-val gtext">10K+</div><div class="stat-lbl">Happy Buyers</div></div>
-        <div><div class="stat-val gtext">₹2L+</div><div class="stat-lbl">Saved by Users</div></div>
+        <div id="marketplace-stat-coupons-traded"><div class="stat-val gtext">50K+</div><div class="stat-lbl">Coupons Traded</div></div>
+        <div id="marketplace-stat-active-users"><div class="stat-val gtext">10K+</div><div class="stat-lbl">Active Users</div></div>
+        <div id="marketplace-stat-saved-by-users"><div class="stat-val gtext">₹2L+</div><div class="stat-lbl">Saved by Users</div></div>
       </div>
     </div>
   </div>
@@ -546,6 +546,48 @@
       p.style.animationDelay = (Math.random() * 8) + 's';
       p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
       container.appendChild(p);
+    }
+  })();
+
+  // Dynamically load site stats from /api/settings
+  (async function loadMarketplaceHeroStats() {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.settings) {
+          const s = data.settings;
+          // Coupons Traded
+          const couponsTradedEl = document.getElementById('marketplace-stat-coupons-traded');
+          if (s.showCouponsTraded !== false && s.couponsTraded) {
+            const valEl = couponsTradedEl?.querySelector('.stat-val');
+            if (valEl) valEl.textContent = s.couponsTraded;
+            if (couponsTradedEl) couponsTradedEl.style.display = '';
+          } else if (couponsTradedEl) {
+            couponsTradedEl.style.display = 'none';
+          }
+          // Active Users
+          const activeUsersEl = document.getElementById('marketplace-stat-active-users');
+          if (s.showActiveUsers !== false && s.activeUsers) {
+            const valEl = activeUsersEl?.querySelector('.stat-val');
+            if (valEl) valEl.textContent = s.activeUsers;
+            if (activeUsersEl) activeUsersEl.style.display = '';
+          } else if (activeUsersEl) {
+            activeUsersEl.style.display = 'none';
+          }
+          // Saved by Users
+          const savedByUsersEl = document.getElementById('marketplace-stat-saved-by-users');
+          if (s.showSavedByUsers !== false && s.savedByUsers) {
+            const valEl = savedByUsersEl?.querySelector('.stat-val');
+            if (valEl) valEl.textContent = s.savedByUsers;
+            if (savedByUsersEl) savedByUsersEl.style.display = '';
+          } else if (savedByUsersEl) {
+            savedByUsersEl.style.display = 'none';
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Marketplace hero stats notice:', err);
     }
   })();
 </script>

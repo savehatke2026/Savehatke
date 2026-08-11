@@ -830,19 +830,40 @@ tbody td strong{color:#e2ecff;font-weight:600}
 
       <div class="card" style="margin-bottom:24px">
         <div class="card-title">📊 Website Hero Statistics (Landing Page Counters)</div>
-        <p style="color:#6b88aa;font-size:0.88rem;margin-bottom:16px">Control the statistics shown on the index.html landing page hero section.</p>
+        <p style="color:#6b88aa;font-size:0.88rem;margin-bottom:16px">Control the statistics shown on the index.html landing page hero section. Toggle visibility and edit values.</p>
         <div class="form-grid form-grid-3">
           <div class="form-group">
             <label class="form-label">Active Users Counter</label>
-            <input class="form-input" id="setActiveUsers" value="10K+" placeholder="e.g. 10K+">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <input class="form-input" id="setActiveUsers" value="10K+" placeholder="e.g. 10K+" style="flex:1;">
+              <label class="toggle" style="flex-shrink:0;">
+                <input type="checkbox" id="toggleActiveUsers" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <small style="color:#6b88aa;">Show on landing page</small>
           </div>
           <div class="form-group">
             <label class="form-label">Coupons Traded Counter</label>
-            <input class="form-input" id="setCouponsTraded" value="50K+" placeholder="e.g. 50K+">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <input class="form-input" id="setCouponsTraded" value="50K+" placeholder="e.g. 50K+" style="flex:1;">
+              <label class="toggle" style="flex-shrink:0;">
+                <input type="checkbox" id="toggleCouponsTraded" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <small style="color:#6b88aa;">Show on landing page</small>
           </div>
           <div class="form-group">
             <label class="form-label">Saved by Users Counter</label>
-            <input class="form-input" id="setSavedByUsers" value="₹2L+" placeholder="e.g. ₹2L+">
+            <div style="display:flex; align-items:center; gap:12px;">
+              <input class="form-input" id="setSavedByUsers" value="₹2L+" placeholder="e.g. ₹2L+" style="flex:1;">
+              <label class="toggle" style="flex-shrink:0;">
+                <input type="checkbox" id="toggleSavedByUsers" checked>
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+            <small style="color:#6b88aa;">Show on landing page</small>
           </div>
         </div>
       </div>

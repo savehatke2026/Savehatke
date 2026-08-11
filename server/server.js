@@ -90,6 +90,9 @@ app.get('/api/settings', async (req, res) => {
             savedByUsers: mongoSetting.savedByUsers || settings.savedByUsers,
             platformName: mongoSetting.platformName || settings.platformName,
             adminEmail: mongoSetting.adminEmail || settings.adminEmail,
+            showActiveUsers: mongoSetting.showActiveUsers !== undefined ? mongoSetting.showActiveUsers : settings.showActiveUsers,
+            showCouponsTraded: mongoSetting.showCouponsTraded !== undefined ? mongoSetting.showCouponsTraded : settings.showCouponsTraded,
+            showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
           };
         }
       } catch (e) {}
@@ -105,6 +108,9 @@ app.get('/api/settings', async (req, res) => {
         savedByUsers: '₹2L+',
         platformName: 'SaveHatke',
         adminEmail: 'rupayandas2024@gmail.com',
+        showActiveUsers: true,
+        showCouponsTraded: true,
+        showSavedByUsers: true,
       },
     });
   }

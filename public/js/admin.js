@@ -629,6 +629,10 @@ async function loadSystemSettings() {
       if (document.getElementById('setSavedByUsers')) document.getElementById('setSavedByUsers').value = s.savedByUsers || '₹2L+';
       if (document.getElementById('setPlatformName')) document.getElementById('setPlatformName').value = s.platformName || 'SaveHatke';
       if (document.getElementById('setAdminEmail')) document.getElementById('setAdminEmail').value = s.adminEmail || 'rupayandas2024@gmail.com';
+      // Load toggle states
+      if (document.getElementById('toggleActiveUsers')) document.getElementById('toggleActiveUsers').checked = s.showActiveUsers !== false;
+      if (document.getElementById('toggleCouponsTraded')) document.getElementById('toggleCouponsTraded').checked = s.showCouponsTraded !== false;
+      if (document.getElementById('toggleSavedByUsers')) document.getElementById('toggleSavedByUsers').checked = s.showSavedByUsers !== false;
     }
   } catch (err) {
     console.warn('Failed to load system settings:', err.message);
@@ -648,6 +652,10 @@ async function saveSystemSettings() {
     const savedByUsers = document.getElementById('setSavedByUsers')?.value?.trim() || '₹2L+';
     const platformName = document.getElementById('setPlatformName')?.value?.trim() || 'SaveHatke';
     const adminEmail = document.getElementById('setAdminEmail')?.value?.trim() || 'rupayandas2024@gmail.com';
+    // Get toggle states
+    const showActiveUsers = document.getElementById('toggleActiveUsers')?.checked !== false;
+    const showCouponsTraded = document.getElementById('toggleCouponsTraded')?.checked !== false;
+    const showSavedByUsers = document.getElementById('toggleSavedByUsers')?.checked !== false;
 
     const data = await api('/admin/settings', {
       method: 'PUT',
@@ -658,6 +666,9 @@ async function saveSystemSettings() {
         savedByUsers,
         platformName,
         adminEmail,
+        showActiveUsers,
+        showCouponsTraded,
+        showSavedByUsers,
       },
     });
 
