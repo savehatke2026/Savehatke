@@ -9,14 +9,21 @@ const Admin = require('../models/Admin');
 
 let isConnected = false;
 
+// Disable query buffering if MongoDB is disconnected
+mongoose.set('bufferCommands', false);
+
 async function connectDB() {
-  if (isConnected) return;
+  if (isConnected || mongoose.connection.readyState === 1) {
+    isConnected = true;
+    return;
+  }
 
   const mongoUri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/savehatke';
 
   try {
     const conn = await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 3000,
+      bufferCommands: false,
     });
     isConnected = true;
     console.log(`🍃 MongoDB Connected: ${conn.connection.host}/${conn.connection.name}`);
@@ -24,6 +31,7 @@ async function connectDB() {
     // Seed initial admin users into MongoDB
     await seedAdminUsers();
   } catch (err) {
+    isConnected = false;
     console.warn(`⚠️ MongoDB connection warning: ${err.message}. Admin auth will use fallback credentials if offline.`);
   }
 }

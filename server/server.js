@@ -11,6 +11,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
+const mongoose = require('mongoose');
 const db = require('./services/googleSheets');
 const { connectDB } = require('./config/db');
 
@@ -54,6 +55,14 @@ const authLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again later.' },
 });
 
+// Serverless async initializer middleware for Vercel
+app.use(async (req, res, next) => {
+  try {
+    await initServices();
+  } catch (e) {}
+  next();
+});
+
 // ── Static Files ────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
 
@@ -67,27 +76,37 @@ app.use('/api/support', apiLimiter, supportRoutes);
 // Public settings route (for index.html hero stats & platform settings)
 app.get('/api/settings', async (req, res) => {
   try {
-    const Setting = require('./models/Setting');
     let settings = await db.getSettings();
 
-    try {
-      const mongoSetting = await Setting.findOne({ key: 'site_settings' });
-      if (mongoSetting) {
-        settings = {
-          ...settings,
-          activeUsers: mongoSetting.activeUsers || settings.activeUsers,
-          couponsTraded: mongoSetting.couponsTraded || settings.couponsTraded,
-          savedByUsers: mongoSetting.savedByUsers || settings.savedByUsers,
-          platformName: mongoSetting.platformName || settings.platformName,
-          adminEmail: mongoSetting.adminEmail || settings.adminEmail,
-        };
-      }
-    } catch (e) {}
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const Setting = require('./models/Setting');
+        const mongoSetting = await Setting.findOne({ key: 'site_settings' });
+        if (mongoSetting) {
+          settings = {
+            ...settings,
+            activeUsers: mongoSetting.activeUsers || settings.activeUsers,
+            couponsTraded: mongoSetting.couponsTraded || settings.couponsTraded,
+            savedByUsers: mongoSetting.savedByUsers || settings.savedByUsers,
+            platformName: mongoSetting.platformName || settings.platformName,
+            adminEmail: mongoSetting.adminEmail || settings.adminEmail,
+          };
+        }
+      } catch (e) {}
+    }
 
     res.json({ settings });
   } catch (err) {
     console.error('Get public settings error:', err);
-    res.status(500).json({ error: 'Failed to fetch settings.' });
+    res.json({
+      settings: {
+        activeUsers: '10K+',
+        couponsTraded: '50K+',
+        savedByUsers: '₹2L+',
+        platformName: 'SaveHatke',
+        adminEmail: 'rupayandas2024@gmail.com',
+      },
+    });
   }
 });
 

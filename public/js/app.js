@@ -114,7 +114,16 @@ async function api(endpoint, options = {}) {
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      if (!res.ok) {
+        throw new Error(`Server returned HTTP ${res.status}: ${text.slice(0, 80) || 'Error'}`);
+      }
+      data = {};
+    }
 
     if (!res.ok) {
       throw new Error(data.error || `HTTP ${res.status}`);
