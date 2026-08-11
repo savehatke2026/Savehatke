@@ -378,46 +378,56 @@ async function updateRow(sheetName, field, value, updatedData) {
     return arr[idx];
   }
 
-  const res = await sheetsClient.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A:Z`,
-  });
+  try {
+    const res = await sheetsClient.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+    });
 
-  const rows = res.data.values;
-  if (!rows || rows.length <= 1) return null;
+    const rows = res.data.values;
+    if (!rows || rows.length <= 1) return null;
 
-  const headers = rows[0];
-  const fieldIdx = headers.indexOf(field);
-  if (fieldIdx === -1) return null;
+    const headers = rows[0];
+    const fieldIdx = headers.indexOf(field);
+    if (fieldIdx === -1) return null;
 
-  // Find the row index (1-indexed, +1 for header)
-  let rowIndex = -1;
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][fieldIdx] === value) {
-      rowIndex = i + 1; // Sheets is 1-indexed
-      break;
+    // Find the row index (1-indexed, +1 for header)
+    let rowIndex = -1;
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][fieldIdx] === value) {
+        rowIndex = i + 1; // Sheets is 1-indexed
+        break;
+      }
     }
+
+    if (rowIndex === -1) return null;
+
+    // Merge existing row with updates
+    const existingRow = rows[rowIndex - 1];
+    const merged = {};
+    headers.forEach((h, i) => {
+      merged[h] = updatedData[h] !== undefined ? updatedData[h] : (existingRow[i] || '');
+    });
+
+    const newRow = headers.map((h) => merged[h] || '');
+    await sheetsClient.spreadsheets.values.update({
+      spreadsheetId,
+      range: `${sheetName}!A${rowIndex}`,
+      valueInputOption: 'RAW',
+      requestBody: { values: [newRow] },
+    });
+
+    invalidateCache(sheetName);
+    return merged;
+  } catch (err) {
+    console.warn(`Google Sheets update warning for ${sheetName}:`, err.message);
+    // Fall back to memoryDB
+    const arr = memoryDB[sheetName] || [];
+    const idx = arr.findIndex((r) => r[field] === value);
+    if (idx === -1) return null;
+    arr[idx] = { ...arr[idx], ...updatedData };
+    return arr[idx];
   }
-
-  if (rowIndex === -1) return null;
-
-  // Merge existing row with updates
-  const existingRow = rows[rowIndex - 1];
-  const merged = {};
-  headers.forEach((h, i) => {
-    merged[h] = updatedData[h] !== undefined ? updatedData[h] : (existingRow[i] || '');
-  });
-
-  const newRow = headers.map((h) => merged[h] || '');
-  await sheetsClient.spreadsheets.values.update({
-    spreadsheetId,
-    range: `${sheetName}!A${rowIndex}`,
-    valueInputOption: 'RAW',
-    requestBody: { values: [newRow] },
-  });
-
-  invalidateCache(sheetName);
-  return merged;
 }
 
 /**
@@ -432,55 +442,89 @@ async function deleteRow(sheetName, field, value) {
     return true;
   }
 
-  // For Sheets, we need the sheet's gid to delete a row
-  const spreadsheet = await sheetsClient.spreadsheets.get({ spreadsheetId });
-  const sheet = spreadsheet.data.sheets.find(
-    (s) => s.properties.title === sheetName
-  );
-  if (!sheet) return false;
+  try {
+    // For Sheets, we need the sheet's gid to delete a row
+    const spreadsheet = await sheetsClient.spreadsheets.get({ spreadsheetId });
+    const sheet = spreadsheet.data.sheets.find(
+      (s) => s.properties.title === sheetName
+    );
+    if (!sheet) return false;
 
-  const sheetId = sheet.properties.sheetId;
+    const sheetId = sheet.properties.sheetId;
 
-  const res = await sheetsClient.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A:Z`,
-  });
+    const res = await sheetsClient.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+    });
 
-  const rows = res.data.values;
-  if (!rows || rows.length <= 1) return false;
+    const rows = res.data.values;
+    if (!rows || rows.length <= 1) return false;
 
-  const headers = rows[0];
-  const fieldIdx = headers.indexOf(field);
-  if (fieldIdx === -1) return false;
+    const headers = rows[0];
+    const fieldIdx = headers.indexOf(field);
+    if (fieldIdx === -1) return false;
 
-  let rowIndex = -1;
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i][fieldIdx] === value) {
-      rowIndex = i;
-      break;
+    let rowIndex = -1;
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][fieldIdx] === value) {
+        rowIndex = i;
+        break;
+      }
     }
+
+    if (rowIndex === -1) return false;
+
+    await sheetsClient.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [{
+          deleteDimension: {
+            range: {
+              sheetId,
+              dimension: 'ROWS',
+              startIndex: rowIndex,
+              endIndex: rowIndex + 1,
+            },
+          },
+        }],
+      },
+    });
+
+    invalidateCache(sheetName);
+    return true;
+  } catch (err) {
+    console.warn(`Google Sheets delete warning for ${sheetName}:`, err.message);
+    // Fall back to memoryDB
+    const arr = memoryDB[sheetName] || [];
+    const idx = arr.findIndex((r) => r[field] === value);
+    if (idx === -1) return false;
+    arr.splice(idx, 1);
+    return true;
+  }
+}
+
+/**
+ * Count rows in a sheet
+ */
+async function countRows(sheetName) {
+  if (!sheetsClient) {
+    return (memoryDB[sheetName] || []).length;
   }
 
-  if (rowIndex === -1) return false;
+  try {
+    const res = await sheetsClient.spreadsheets.values.get({
+      spreadsheetId,
+      range: `${sheetName}!A:Z`,
+    });
 
-  await sheetsClient.spreadsheets.batchUpdate({
-    spreadsheetId,
-    requestBody: {
-      requests: [{
-        deleteDimension: {
-          range: {
-            sheetId,
-            dimension: 'ROWS',
-            startIndex: rowIndex,
-            endIndex: rowIndex + 1,
-          },
-        },
-      }],
-    },
-  });
-
-  invalidateCache(sheetName);
-  return true;
+    const rows = res.data.values;
+    if (!rows || rows.length <= 1) return 0;
+    return rows.length - 1; // Subtract header row
+  } catch (err) {
+    console.warn(`Google Sheets countRows warning for ${sheetName}:`, err.message);
+    // Fall back to memoryDB
+    return (memoryDB[sheetName] || []).length;
+  }
 }
 
 /**
