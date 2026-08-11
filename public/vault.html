@@ -819,13 +819,36 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ SETTINGS ════════════════ -->
     <div class="section-view" id="sec-settings">
       <div class="page-title-row">
-        <div><div class="page-title">System <span class="gtext">Settings</span></div><div class="page-subtitle">Configure SaveHatke application defaults</div></div>
+        <div><div class="page-title">System <span class="gtext">Settings</span></div><div class="page-subtitle">Configure SaveHatke application &amp; homepage defaults (Saved in Google Sheets)</div></div>
       </div>
+
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-title">📊 Website Hero Statistics (Landing Page Counters)</div>
+        <p style="color:#6b88aa;font-size:0.88rem;margin-bottom:16px">Control the statistics shown on the index.html landing page hero section.</p>
+        <div class="form-grid form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Active Users Counter</label>
+            <input class="form-input" id="setActiveUsers" value="10K+" placeholder="e.g. 10K+">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Coupons Traded Counter</label>
+            <input class="form-input" id="setCouponsTraded" value="50K+" placeholder="e.g. 50K+">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Saved by Users Counter</label>
+            <input class="form-input" id="setSavedByUsers" value="₹2L+" placeholder="e.g. ₹2L+">
+          </div>
+        </div>
+      </div>
+
       <div class="card">
-        <div class="card-title">⚙️ General Settings</div>
+        <div class="card-title">⚙️ General Platform Settings</div>
         <div class="form-grid form-grid-2">
-          <div class="form-group"><label class="form-label">Platform Name</label><input class="form-input" value="SaveHatke"></div>
-          <div class="form-group"><label class="form-label">Admin Notification Email</label><input class="form-input" value="rupayandas2024@gmail.com"></div>
+          <div class="form-group"><label class="form-label">Platform Name</label><input class="form-input" id="setPlatformName" value="SaveHatke"></div>
+          <div class="form-group"><label class="form-label">Admin Notification Email</label><input class="form-input" id="setAdminEmail" value="rupayandas2024@gmail.com"></div>
+        </div>
+        <div style="margin-top:24px; display:flex; justify-content:flex-end;">
+          <button type="button" class="btn btn-primary btn-lg" id="saveSettingsBtn" onclick="saveSystemSettings()">💾 Save Website Settings</button>
         </div>
       </div>
     </div>
@@ -896,6 +919,9 @@ function showSection(name, el) {
   }
   if (name === 'coupons' && typeof loadInventory === 'function') {
     loadInventory();
+  }
+  if (name === 'settings' && typeof loadSystemSettings === 'function') {
+    loadSystemSettings();
   }
 
   closeSidebar();

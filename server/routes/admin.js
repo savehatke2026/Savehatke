@@ -13,6 +13,7 @@ const supabase = require('../services/supabase');
 const router = express.Router();
 
 const Admin = require('../models/Admin');
+const Setting = require('../models/Setting');
 
 function reportDebug(hypothesisId, location, msg, data = {}, runId = process.env.DEBUG_RUN_ID || 'pre-fix') {
   try {
@@ -487,6 +488,70 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('Admin list users error:', err);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// GET /api/admin/settings — Fetch system settings
+router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    let settings = await db.getSettings();
+
+    // Dual lookup in MongoDB Atlas if available
+    try {
+      const mongoSetting = await Setting.findOne({ key: 'site_settings' });
+      if (mongoSetting) {
+        settings = {
+          ...settings,
+          activeUsers: mongoSetting.activeUsers || settings.activeUsers,
+          couponsTraded: mongoSetting.couponsTraded || settings.couponsTraded,
+          savedByUsers: mongoSetting.savedByUsers || settings.savedByUsers,
+          platformName: mongoSetting.platformName || settings.platformName,
+          adminEmail: mongoSetting.adminEmail || settings.adminEmail,
+        };
+      }
+    } catch (e) {}
+
+    res.json({ settings });
+  } catch (err) {
+    console.error('Admin get settings error:', err);
+    res.status(500).json({ error: 'Failed to fetch settings.' });
+  }
+});
+
+// PUT /api/admin/settings — Update system settings (saved to Google Sheets & MongoDB)
+router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail } = req.body;
+
+    const payload = {
+      activeUsers: activeUsers ? String(activeUsers).trim() : '10K+',
+      couponsTraded: couponsTraded ? String(couponsTraded).trim() : '50K+',
+      savedByUsers: savedByUsers ? String(savedByUsers).trim() : '₹2L+',
+      platformName: platformName ? String(platformName).trim() : 'SaveHatke',
+      adminEmail: adminEmail ? String(adminEmail).trim() : 'rupayandas2024@gmail.com',
+    };
+
+    // 1. Save to Google Sheets
+    const savedSheet = await db.saveSettings(payload);
+
+    // 2. Dual sync to MongoDB Atlas if available
+    try {
+      await Setting.findOneAndUpdate(
+        { key: 'site_settings' },
+        { ...payload, updated_at: new Date() },
+        { upsert: true, new: true }
+      );
+    } catch (e) {
+      console.warn('MongoDB Setting save warning:', e.message);
+    }
+
+    res.json({
+      message: 'Website settings updated successfully in Google Sheets & MongoDB! 📊',
+      settings: savedSheet || payload,
+    });
+  } catch (err) {
+    console.error('Admin update settings error:', err);
+    res.status(500).json({ error: 'Failed to update settings.' });
   }
 });
 

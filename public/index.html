@@ -287,9 +287,9 @@
           <a href="marketplace.html" class="btn btn-ghost btn-lg">🏷️ Browse Coupons</a>
         </div>
         <div class="hero-stats">
-          <div><div class="stat-val gtext">10K+</div><div class="stat-lbl">Active Users</div></div>
-          <div><div class="stat-val gtext">50K+</div><div class="stat-lbl">Coupons Traded</div></div>
-          <div><div class="stat-val gtext">₹2L+</div><div class="stat-lbl">Saved by Users</div></div>
+          <div><div class="stat-val gtext" id="stat-active-users">10K+</div><div class="stat-lbl">Active Users</div></div>
+          <div><div class="stat-val gtext" id="stat-coupons-traded">50K+</div><div class="stat-lbl">Coupons Traded</div></div>
+          <div><div class="stat-val gtext" id="stat-saved-by-users">₹2L+</div><div class="stat-lbl">Saved by Users</div></div>
         </div>
       </div>
       <div class="hero-visual fu in d2">
@@ -744,6 +744,33 @@
     }
   }
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+  // Dynamically load site stats from Google Sheets database via /api/settings
+  (async function loadDynamicHeroStats() {
+    try {
+      const res = await fetch('/api/settings');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.settings) {
+          const s = data.settings;
+          if (s.activeUsers) {
+            const el = document.getElementById('stat-active-users');
+            if (el) el.textContent = s.activeUsers;
+          }
+          if (s.couponsTraded) {
+            const el = document.getElementById('stat-coupons-traded');
+            if (el) el.textContent = s.couponsTraded;
+          }
+          if (s.savedByUsers) {
+            const el = document.getElementById('stat-saved-by-users');
+            if (el) el.textContent = s.savedByUsers;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Dynamic hero stats notice:', err);
+    }
+  })();
 </script>
 </body>
 </html>

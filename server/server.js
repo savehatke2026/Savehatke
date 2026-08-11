@@ -64,6 +64,33 @@ app.use('/api/tracker', apiLimiter, trackerRoutes);
 app.use('/api/admin', apiLimiter, adminRoutes);
 app.use('/api/support', apiLimiter, supportRoutes);
 
+// Public settings route (for index.html hero stats & platform settings)
+app.get('/api/settings', async (req, res) => {
+  try {
+    const Setting = require('./models/Setting');
+    let settings = await db.getSettings();
+
+    try {
+      const mongoSetting = await Setting.findOne({ key: 'site_settings' });
+      if (mongoSetting) {
+        settings = {
+          ...settings,
+          activeUsers: mongoSetting.activeUsers || settings.activeUsers,
+          couponsTraded: mongoSetting.couponsTraded || settings.couponsTraded,
+          savedByUsers: mongoSetting.savedByUsers || settings.savedByUsers,
+          platformName: mongoSetting.platformName || settings.platformName,
+          adminEmail: mongoSetting.adminEmail || settings.adminEmail,
+        };
+      }
+    } catch (e) {}
+
+    res.json({ settings });
+  } catch (err) {
+    console.error('Get public settings error:', err);
+    res.status(500).json({ error: 'Failed to fetch settings.' });
+  }
+});
+
 // ── Health Check ────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   const storageStatus = db.getStorageStatus();

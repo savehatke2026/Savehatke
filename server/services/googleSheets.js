@@ -13,6 +13,7 @@ const SHEETS = {
   COUPONS: 'Coupons',
   PRICE_TRACKING: 'PriceTracking',
   SUPPORT_TICKETS: 'SupportTickets',
+  SETTINGS: 'Settings',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -60,6 +61,9 @@ const HEADERS = {
   [SHEETS.SUPPORT_TICKETS]: [
     'id', 'name', 'userEmail', 'subject', 'message',
     'status', 'createdAt', 'resolvedAt',
+  ],
+  [SHEETS.SETTINGS]: [
+    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'updatedAt',
   ],
 };
 
@@ -234,6 +238,7 @@ const memoryDB = {
   [SHEETS.COUPONS]: [],
   [SHEETS.PRICE_TRACKING]: [],
   [SHEETS.SUPPORT_TICKETS]: [],
+  [SHEETS.SETTINGS]: [],
 };
 
 function seedDemoData() {
@@ -479,12 +484,58 @@ async function deleteRow(sheetName, field, value) {
 }
 
 /**
- * Count rows in a sheet, optionally filtered.
+ * Get website settings from Google Sheets
  */
-async function countRows(sheetName, field, value) {
-  const rows = await getRows(sheetName);
-  if (!field) return rows.length;
-  return rows.filter((r) => r[field] === value).length;
+async function getSettings() {
+  const defaultSettings = {
+    key: 'site_settings',
+    activeUsers: '10K+',
+    couponsTraded: '50K+',
+    savedByUsers: '₹2L+',
+    platformName: 'SaveHatke',
+    adminEmail: 'rupayandas2024@gmail.com',
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    const existing = await findRow(SHEETS.SETTINGS, 'key', 'site_settings');
+    if (existing) {
+      return {
+        ...defaultSettings,
+        ...existing,
+      };
+    }
+  } catch (err) {
+    console.warn('getSettings warning:', err.message);
+  }
+  return defaultSettings;
+}
+
+/**
+ * Save website settings to Google Sheets
+ */
+async function saveSettings(data) {
+  const record = {
+    key: 'site_settings',
+    activeUsers: data.activeUsers || '10K+',
+    couponsTraded: data.couponsTraded || '50K+',
+    savedByUsers: data.savedByUsers || '₹2L+',
+    platformName: data.platformName || 'SaveHatke',
+    adminEmail: data.adminEmail || 'rupayandas2024@gmail.com',
+    updatedAt: new Date().toISOString(),
+  };
+
+  try {
+    const existing = await findRow(SHEETS.SETTINGS, 'key', 'site_settings');
+    if (existing) {
+      await updateRow(SHEETS.SETTINGS, 'key', 'site_settings', record);
+    } else {
+      await appendRow(SHEETS.SETTINGS, record);
+    }
+  } catch (err) {
+    console.warn('saveSettings error:', err.message);
+  }
+  return record;
 }
 
 module.exports = {
@@ -502,4 +553,6 @@ module.exports = {
   updateRow,
   deleteRow,
   countRows,
+  getSettings,
+  saveSettings,
 };

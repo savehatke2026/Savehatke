@@ -13,6 +13,7 @@ function initAdminApp() {
   initAdminTabs();
   initAddCouponForm();
   initCreateAdminForm();
+  loadSystemSettings();
 }
 
 if (document.readyState === 'loading') {
@@ -614,5 +615,67 @@ async function deleteAdminUser(id) {
     loadAdminsList();
   } catch (err) {
     showToast(err.message, 'error');
+  }
+}
+
+// ── System Settings Handlers ──────────────────────────────────────────────
+async function loadSystemSettings() {
+  try {
+    const data = await api('/admin/settings', { useAdmin: true });
+    if (data && data.settings) {
+      const s = data.settings;
+      if (document.getElementById('setActiveUsers')) document.getElementById('setActiveUsers').value = s.activeUsers || '10K+';
+      if (document.getElementById('setCouponsTraded')) document.getElementById('setCouponsTraded').value = s.couponsTraded || '50K+';
+      if (document.getElementById('setSavedByUsers')) document.getElementById('setSavedByUsers').value = s.savedByUsers || '₹2L+';
+      if (document.getElementById('setPlatformName')) document.getElementById('setPlatformName').value = s.platformName || 'SaveHatke';
+      if (document.getElementById('setAdminEmail')) document.getElementById('setAdminEmail').value = s.adminEmail || 'rupayandas2024@gmail.com';
+    }
+  } catch (err) {
+    console.warn('Failed to load system settings:', err.message);
+  }
+}
+
+async function saveSystemSettings() {
+  const btn = document.getElementById('saveSettingsBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Saving Settings...';
+  }
+
+  try {
+    const activeUsers = document.getElementById('setActiveUsers')?.value?.trim() || '10K+';
+    const couponsTraded = document.getElementById('setCouponsTraded')?.value?.trim() || '50K+';
+    const savedByUsers = document.getElementById('setSavedByUsers')?.value?.trim() || '₹2L+';
+    const platformName = document.getElementById('setPlatformName')?.value?.trim() || 'SaveHatke';
+    const adminEmail = document.getElementById('setAdminEmail')?.value?.trim() || 'rupayandas2024@gmail.com';
+
+    const data = await api('/admin/settings', {
+      method: 'PUT',
+      useAdmin: true,
+      body: {
+        activeUsers,
+        couponsTraded,
+        savedByUsers,
+        platformName,
+        adminEmail,
+      },
+    });
+
+    if (typeof showToast === 'function') {
+      showToast(data.message || 'Website settings updated successfully! 📊', 'success');
+    } else {
+      alert(data.message || 'Website settings updated successfully!');
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') {
+      showToast(err.message || 'Failed to save settings.', 'error');
+    } else {
+      alert(err.message || 'Failed to save settings.');
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '💾 Save Website Settings';
+    }
   }
 }
