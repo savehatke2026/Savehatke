@@ -3,6 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Google Identity Services SDK - Preload for faster auth -->
+<link rel="preconnect" href="https://accounts.google.com" crossorigin>
+<link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+<link rel="dns-prefetch" href="https://accounts.google.com">
+<link rel="dns-prefetch" href="https://www.googleapis.com">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="js/app.js"></script>
 <script>
   (function verifyAdminVaultAccess() {

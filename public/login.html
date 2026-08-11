@@ -9,7 +9,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
-  <!-- Google Identity Services SDK -->
+  <!-- Google Identity Services SDK - Preload for faster auth -->
+  <link rel="preconnect" href="https://accounts.google.com" crossorigin>
+  <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://accounts.google.com">
+  <link rel="dns-prefetch" href="https://www.googleapis.com">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -63,6 +67,74 @@
     .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); width:auto; }
     .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
     .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
+
+    /* OTP INPUTS */
+    .otp-group { display:flex; justify-content:center; gap:8px; margin:20px 0 16px; }
+    .otp-input {
+      width:52px; height:52px; border-radius:10px;
+      background:rgba(255,255,255,.05);
+      border:1.5px solid rgba(79,195,247,.18);
+      color:#e2ecff;
+      font-family:'Outfit',sans-serif;
+      font-size:1.4rem; font-weight:600;
+      text-align:center;
+      outline:none;
+      transition:all .2s;
+      caret-color:#00e676;
+    }
+    .otp-input:focus {
+      border-color:rgba(0,230,118,.5);
+      background:rgba(255,255,255,.08);
+      box-shadow:0 0 0 3px rgba(0,230,118,.12);
+    }
+    .otp-input.filled {
+      border-color:rgba(0,230,118,.4);
+      background:rgba(255,255,255,.07);
+    }
+    .otp-input.error {
+      border-color:rgba(239,68,68,.55) !important;
+      background:rgba(239,68,68,.06) !important;
+      box-shadow:0 0 0 3px rgba(239,68,68,.12) !important;
+      color:#f87171 !important;
+    }
+    .otp-input.success {
+      border-color:rgba(0,230,118,.5) !important;
+      background:rgba(255,255,255,.08) !important;
+      box-shadow:0 0 0 3px rgba(0,230,118,.12) !important;
+    }
+    .otp-group.shake { animation:shake .4s ease; }
+
+    /* TIMER & RESEND */
+    .resend-area { text-align:center; margin-top:14px; font-size:.83rem; color:#6b88aa; }
+    .resend-btn { background:none; border:none; font-family:'Outfit',sans-serif; font-size:.83rem; font-weight:700; color:#00e676; cursor:pointer; border-bottom:1px solid rgba(0,230,118,.3); transition:border-color .2s; padding:0; }
+    .resend-btn:hover { border-color:#00e676; }
+    .resend-btn:disabled { color:#6b88aa; border-bottom-color:rgba(107,136,170,.3); cursor:not-allowed; }
+    .timer { font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:600; color:#4fc3f7; }
+
+    /* BACK LINK */
+    .back-link { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:18px; font-size:.82rem; color:#6b88aa; cursor:pointer; transition:color .2s; background:none; border:none; font-family:'Outfit',sans-serif; width:100%; }
+    .back-link:hover { color:#e2ecff; }
+    .back-link svg { transition:transform .2s; }
+    .back-link:hover svg { transform:translateX(-3px); }
+
+    /* SPINNER */
+    .spinner { width:18px; height:18px; border:2.5px solid rgba(6,13,31,.4); border-top-color:#060d1f; border-radius:50%; animation:spin .7s linear infinite; display:inline-block; }
+
+    /* SUCCESS STATE */
+    .success-state { text-align:center; display:none; }
+    .success-icon { font-size:3rem; margin-bottom:12px; display:block; }
+    .success-title { font-family:'DM Serif Display',serif; font-size:1.5rem; margin-bottom:8px; }
+    .success-sub { font-size:.84rem; color:#a8c0dc; line-height:1.6; }
+
+    @media(max-width:500px) {
+      .auth-card { max-width:100%; padding:28px 16px; }
+      .otp-input { width:44px; height:44px; font-size:1.15rem; }
+      .otp-group { gap:6px; }
+    }
+    @media(max-width:380px) {
+      .otp-input { width:38px; height:38px; font-size:1rem; }
+      .otp-group { gap:5px; }
+    }
 
     /* AUTH SECTION */
     .auth-section { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; padding: 88px 0 40px; overflow: hidden; }
@@ -176,6 +248,46 @@
          style="display:none;">
     </div>
 
+    <!-- OTP VERIFICATION STATE (hidden by default) -->
+    <div id="verifyState" style="display:none;">
+      <div class="auth-hdr">
+        <div class="auth-icon">✉️</div>
+        <h1 class="auth-title">Verify your <span class="gtext">email</span></h1>
+        <p class="auth-sub">We sent a 6-digit code to <strong id="displayEmail">user@example.com</strong>. Enter it below to continue.</p>
+      </div>
+
+      <!-- 6 OTP boxes -->
+      <div class="otp-group" id="otpGroup" role="group" aria-label="Enter 6-digit OTP">
+        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp0" autocomplete="one-time-code" aria-label="Digit 1">
+        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp1" aria-label="Digit 2">
+        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp2" aria-label="Digit 3">
+        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp3" aria-label="Digit 4">
+        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp4" aria-label="Digit 5">
+        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp5" aria-label="Digit 6">
+      </div>
+
+      <button class="btn btn-primary" id="verifyBtn" onclick="handleVerify()" disabled>
+        Verify Code →
+      </button>
+
+      <div class="resend-area" id="resendArea">
+        Didn't receive the code?&nbsp;
+        <button class="resend-btn" id="resendBtn" onclick="handleResend()" disabled>Resend</button>
+        <span id="timerText"> in <span class="timer" id="timerCount">30s</span></span>
+      </div>
+
+      <button class="back-link" onclick="goBack()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        Back to login
+      </button>
+    </div>
+
+    <!-- SUCCESS STATE -->
+    <div class="success-state" id="successState">
+      <span class="success-icon">🎉</span>
+      <h2 class="success-title">You're <span class="gtext">verified!</span></h2>
+      <p class="success-sub">Your email has been confirmed successfully.<br>Redirecting you to your account…</p>
+    </div>
 
   </div>
 </main>
@@ -277,7 +389,7 @@
       `;
     }
 
-    // Use Popup flow via GIS JS SDK if available (No redirect URI mismatch!)
+    // Use Popup flow via GIS JS SDK (Same-page authentication - No redirect!)
     if (window.google && google.accounts && google.accounts.oauth2) {
       try {
         const tokenClient = google.accounts.oauth2.initTokenClient({
@@ -312,15 +424,14 @@
         tokenClient.requestAccessToken({ prompt: 'select_account' });
         return;
       } catch (e) {
-        console.warn('Token client popup fallback:', e);
+        console.warn('Token client popup error:', e);
+        showToast('Google Sign-In popup blocked. Please allow popups for this site.', 'error');
       }
     }
 
-    // Fallback: Redirect flow with clean URL normalization
-    const cleanPath = window.location.pathname.replace(/\/$/, '') || '/login';
-    const redirectUri = window.location.origin + cleanPath;
-    const googleAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token%20id_token&scope=openid%20email%20profile&nonce=${Date.now()}&prompt=select_account`;
-    window.location.href = googleAuthUrl;
+    // Fallback: Show error if popup fails (No redirect to new page)
+    showToast('Google Sign-In unavailable. Please enable popups or try email login.', 'error');
+    if (googleBtn) { googleBtn.disabled = false; googleBtn.innerHTML = originalBtnHtml; }
   }
 
   // Handle return redirect from Google OAuth
@@ -384,30 +495,240 @@
     const btn = document.getElementById('submitBtn');
     if (btn) {
       btn.disabled = true;
-      btn.textContent = 'Logging in...';
+      btn.textContent = 'Sending code...';
     }
 
     const email = document.getElementById('inputEmail')?.value?.trim();
 
     try {
-      const data = await api('/auth/login', {
+      // Send OTP to email
+      await api('/auth/send-otp', {
         method: 'POST',
         body: { email },
       });
-      Auth.setAuth(data.token, data.user);
-      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-        Auth.setAdminAuth(data.token, data.user);
-        window.location.replace('vault');
-      } else {
-        window.location.replace('index');
-      }
+
+      // Store email and show OTP verification form
+      sessionStorage.setItem('otp_email', email);
+      document.getElementById('displayEmail').textContent = email;
+      
+      // Hide login form, show OTP verification
+      document.getElementById('loginPageForm').style.display = 'none';
+      document.querySelector('.auth-divider').style.display = 'none';
+      document.getElementById('googleBtn').style.display = 'none';
+      document.getElementById('verifyState').style.display = 'block';
+      
+      // Focus first OTP input
+      document.getElementById('otp0').focus();
+      
+      showToast('Verification code sent to ' + email, 'success');
+
     } catch (err) {
-      showToast(err.message || 'Authentication failed. Please check your email.', 'error');
+      showToast(err.message || 'Failed to send verification code. Please try again.', 'error');
       if (btn) {
         btn.disabled = false;
         btn.textContent = 'Continue →';
       }
     }
+  }
+
+  /* ── OTP Verification Logic ──────────────────────────────────────────────── */
+  const otpInputs = Array.from(document.querySelectorAll('.otp-input'));
+  const verifyBtn = document.getElementById('verifyBtn');
+
+  function getOTP() { return otpInputs.map(i => i.value).join(''); }
+
+  function updateOTPState() {
+    otpInputs.forEach(inp => {
+      if (inp.value) inp.classList.add('filled');
+      else inp.classList.remove('filled');
+    });
+    verifyBtn.disabled = getOTP().length < 6;
+  }
+
+  function clearOTPErrors() {
+    otpInputs.forEach(i => i.classList.remove('error'));
+    document.getElementById('otpGroup').classList.remove('shake');
+  }
+
+  otpInputs.forEach((input, idx) => {
+    input.addEventListener('focus', () => clearOTPErrors());
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace') {
+        if (input.value) {
+          input.value = '';
+          updateOTPState();
+        } else if (idx > 0) {
+          otpInputs[idx - 1].focus();
+          otpInputs[idx - 1].value = '';
+          updateOTPState();
+        }
+        e.preventDefault();
+        return;
+      }
+      if (e.key === 'ArrowLeft' && idx > 0) { otpInputs[idx - 1].focus(); e.preventDefault(); return; }
+      if (e.key === 'ArrowRight' && idx < 5) { otpInputs[idx + 1].focus(); e.preventDefault(); return; }
+      if (e.key === 'Enter' && getOTP().length === 6) { handleVerify(); return; }
+    });
+
+    input.addEventListener('input', (e) => {
+      const val = e.target.value.replace(/\D/g, '');
+      if (!val) { input.value = ''; updateOTPState(); return; }
+      // Handle paste of multiple digits
+      if (val.length > 1) {
+        const digits = val.split('');
+        digits.forEach((d, di) => { if (otpInputs[idx + di]) otpInputs[idx + di].value = d; });
+        const next = Math.min(idx + digits.length, 5);
+        otpInputs[next].focus();
+        updateOTPState();
+        return;
+      }
+      input.value = val[0];
+      updateOTPState();
+      if (idx < 5) otpInputs[idx + 1].focus();
+    });
+
+    input.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+      if (!pasted) return;
+      pasted.split('').forEach((d, di) => { if (otpInputs[di]) otpInputs[di].value = d; });
+      const next = Math.min(pasted.length, 5);
+      otpInputs[next].focus();
+      updateOTPState();
+    });
+  });
+
+  // Auto-focus first input on OTP form show
+  function focusFirstOTP() {
+    otpInputs[0]?.focus();
+    updateOTPState();
+  }
+
+  /* ── Countdown Timer ─────────────────────────────────────────────────────── */
+  let timerInterval = null;
+  let secondsLeft = 30;
+
+  function startTimer(seconds = 30) {
+    secondsLeft = seconds;
+    const resendBtn = document.getElementById('resendBtn');
+    const timerText = document.getElementById('timerText');
+    const timerCount = document.getElementById('timerCount');
+    resendBtn.disabled = true;
+    timerText.style.display = 'inline';
+    timerCount.textContent = secondsLeft + 's';
+
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+      secondsLeft--;
+      timerCount.textContent = secondsLeft + 's';
+      if (secondsLeft <= 0) {
+        clearInterval(timerInterval);
+        resendBtn.disabled = false;
+        timerText.style.display = 'none';
+      }
+    }, 1000);
+  }
+
+  // Start timer when OTP form is shown
+  startTimer(30);
+
+  /* ── Resend OTP ──────────────────────────────────────────────────────────── */
+  async function handleResend() {
+    const btn = document.getElementById('resendBtn');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    const email = sessionStorage.getItem('otp_email') || document.getElementById('displayEmail').textContent;
+
+    try {
+      await api('/auth/send-otp', {
+        method: 'POST',
+        body: { email },
+      });
+
+      showToast('A new code has been sent to ' + email, 'success');
+      otpInputs.forEach(i => { i.value = ''; i.classList.remove('filled', 'error', 'success'); });
+      otpInputs[0].focus();
+      updateOTPState();
+      clearOTPErrors();
+    } catch (err) {
+      showToast(err.message || 'Could not resend OTP. Try again.', 'error');
+    }
+
+    btn.textContent = 'Resend';
+    startTimer(30);
+  }
+
+  /* ── Verify OTP ──────────────────────────────────────────────────────────── */
+  async function handleVerify() {
+    const otp = getOTP();
+    if (otp.length < 6) return;
+
+    const btn = document.getElementById('verifyBtn');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span> Verifying…`;
+
+    const email = sessionStorage.getItem('otp_email') || document.getElementById('displayEmail').textContent;
+
+    try {
+      const data = await api('/auth/verify-otp', {
+        method: 'POST',
+        body: { email, otp },
+      });
+
+      // Store auth and redirect
+      Auth.setAuth(data.token, data.user);
+      
+      otpInputs.forEach(i => { i.classList.remove('filled', 'error'); i.classList.add('success'); });
+      showToast('Email verified successfully!', 'success', 3000);
+
+      setTimeout(() => {
+        document.getElementById('verifyState').style.display = 'none';
+        document.getElementById('successState').style.display = 'block';
+
+        // Redirect after 2.5s based on role
+        setTimeout(() => {
+          if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+            Auth.setAdminAuth(data.token, data.user);
+            window.location.replace('vault');
+          } else {
+            window.location.replace('index');
+          }
+        }, 2500);
+      }, 600);
+
+    } catch (err) {
+      otpInputs.forEach(i => i.classList.add('error'));
+      const group = document.getElementById('otpGroup');
+      group.classList.add('shake');
+      setTimeout(() => group.classList.remove('shake'), 500);
+      showToast(err.message || 'Invalid code. Please try again.', 'error');
+      btn.disabled = false;
+      btn.innerHTML = 'Verify Code →';
+      // Clear inputs and re-focus after error
+      setTimeout(() => {
+        otpInputs.forEach(i => { i.value = ''; i.classList.remove('error', 'filled'); });
+        otpInputs[0].focus();
+        updateOTPState();
+      }, 900);
+    }
+  }
+
+  function goBack() {
+    // Show login form again, hide OTP form
+    document.getElementById('verifyState').style.display = 'none';
+    document.getElementById('successState').style.display = 'none';
+    document.getElementById('loginPageForm').style.display = 'block';
+    document.querySelector('.auth-divider').style.display = 'flex';
+    document.getElementById('googleBtn').style.display = 'flex';
+    
+    const email = sessionStorage.getItem('otp_email') || '';
+    if (email) {
+      document.getElementById('inputEmail').value = email;
+    }
+    document.getElementById('submitBtn').disabled = false;
+    document.getElementById('submitBtn').textContent = 'Continue →';
   }
 </script>
 </body>

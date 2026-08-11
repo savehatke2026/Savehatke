@@ -8,6 +8,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Google Identity Services SDK - Preload for faster auth -->
+  <link rel="preconnect" href="https://accounts.google.com" crossorigin>
+  <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://accounts.google.com">
+  <link rel="dns-prefetch" href="https://www.googleapis.com">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
@@ -622,8 +628,12 @@
     if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
       showToastLocal('Please log in to purchase coupons.', 'warning');
       setTimeout(() => {
-        window.location.replace('login');
-      }, 600);
+        if (typeof openAuthModal === 'function') {
+          openAuthModal('login');
+        } else {
+          window.location.replace('login');
+        }
+      }, 100); // Faster redirect - reduced from 600ms to 100ms
       return;
     }
 
@@ -661,8 +671,12 @@
     if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
       showToastLocal('Please log in to complete your purchase.', 'warning');
       setTimeout(() => {
-        window.location.replace('login');
-      }, 500);
+        if (typeof openAuthModal === 'function') {
+          openAuthModal('login');
+        } else {
+          window.location.replace('login');
+        }
+      }, 100); // Faster redirect - reduced from 500ms to 100ms
       return;
     }
 

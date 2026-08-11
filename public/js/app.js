@@ -324,6 +324,15 @@ function openAuthModal(mode = 'login') {
           ${isLogin ? 'Log In' : 'Create Account'}
         </button>
       </form>
+      <div style="display:flex;align-items:center;margin:20px 0 16px;color:var(--color-slate-400);font-size:.8rem">
+        <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+        <span style="padding:0 10px">OR</span>
+        <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+      </div>
+      <button type="button" class="btn btn-secondary w-full" onclick="handleAuthGooglePopup()" style="display:flex;align-items:center;justify-content:center;gap:10px;height:46px;border-radius:10px;">
+        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
+        <span>Continue with Google</span>
+      </button>
       <p class="text-center mt-6" style="font-size: 0.875rem; color: var(--color-slate-400);">
         ${isLogin
           ? 'Don\'t have an account? <a href="#" onclick="openAuthModal(\'register\')">Sign up free</a>'
@@ -395,6 +404,52 @@ function closeAuthModal() {
     overlay.classList.remove('active');
     setTimeout(() => overlay.remove(), 300);
   }
+}
+
+// ── Google Auth Popup (Same-page authentication for modals) ─────────────────
+async function handleAuthGooglePopup() {
+  if (window.google && google.accounts && google.accounts.oauth2) {
+    try {
+      const clientId = window.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
+      const tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
+        scope: 'openid email profile',
+        callback: async (response) => {
+          if (response.access_token) {
+            try {
+              const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${response.access_token}`);
+              const profile = await res.json();
+              if (profile.email) {
+                const data = await api('/auth/google', {
+                  method: 'POST',
+                  body: { email: profile.email, name: profile.name, picture: profile.picture }
+                });
+                Auth.setAuth(data.token, data.user);
+                if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+                  Auth.setAdminAuth(data.token, data.user);
+                  closeAuthModal();
+                  window.location.replace('vault');
+                } else {
+                  closeAuthModal();
+                  updateNavAuth();
+                  window.location.reload();
+                }
+                return;
+              }
+            } catch (e) {
+              showToast('Google authentication failed.', 'error');
+            }
+          }
+        },
+      });
+      tokenClient.requestAccessToken({ prompt: 'select_account' });
+      return;
+    } catch (e) {
+      console.warn('Token client popup error:', e);
+      showToast('Google Sign-In popup blocked. Please allow popups for this site.', 'error');
+    }
+  }
+  showToast('Google Sign-In unavailable. Please enable popups or try email login.', 'error');
 }
 
 // ── Scroll Reveal ───────────────────────────────────────────────────────

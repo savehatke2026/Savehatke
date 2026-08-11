@@ -9,6 +9,12 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <!-- Google Identity Services SDK - Preload for faster auth -->
+  <link rel="preconnect" href="https://accounts.google.com" crossorigin>
+  <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://accounts.google.com">
+  <link rel="dns-prefetch" href="https://www.googleapis.com">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
@@ -573,7 +579,49 @@
   }
 
   function handleGoogleAuthRedirect() {
-    window.location.href = 'login';
+    // Use Popup flow via GIS JS SDK (Same-page authentication)
+    if (window.google && google.accounts && google.accounts.oauth2) {
+      try {
+        const clientId = window.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID'; // Will be replaced by login.html's fetch
+        const tokenClient = google.accounts.oauth2.initTokenClient({
+          client_id: clientId,
+          scope: 'openid email profile',
+          callback: async (response) => {
+            if (response.access_token) {
+              try {
+                const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${response.access_token}`);
+                const profile = await res.json();
+                if (profile.email) {
+                  const data = await api('/auth/google', {
+                    method: 'POST',
+                    body: { email: profile.email, name: profile.name, picture: profile.picture }
+                  });
+                  Auth.setAuth(data.token, data.user);
+                  if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+                    Auth.setAdminAuth(data.token, data.user);
+                    window.location.replace('vault');
+                  } else {
+                    // Close modal and refresh page
+                    closeModal();
+                    window.location.reload();
+                  }
+                  return;
+                }
+              } catch (e) {
+                showToast('Google authentication failed.', 'error');
+              }
+            }
+          },
+        });
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+        return;
+      } catch (e) {
+        console.warn('Token client popup error:', e);
+        showToast('Google Sign-In popup blocked. Please allow popups for this site.', 'error');
+      }
+    }
+    // Fallback: Show error if popup fails
+    showToast('Google Sign-In unavailable. Please enable popups or try email login.', 'error');
   }
 
   /* =====================
@@ -618,7 +666,7 @@
       }
       closeModal();
       updateNavAuth();
-      setTimeout(() => window.location.href = 'dashboard', 500);
+      setTimeout(() => window.location.href = 'dashboard', 100); // Faster redirect
     } catch (err) {
       showToast(err.message, 'error');
     }
