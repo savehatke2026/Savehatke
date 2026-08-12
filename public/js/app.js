@@ -290,6 +290,92 @@ function updateNavAuth() {
   }
 }
 
+const DEFAULT_GOOGLE_CLIENT_ID = '930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com';
+let cachedGoogleClientId = '';
+
+async function fetchGoogleClientId() {
+  if (cachedGoogleClientId) return cachedGoogleClientId;
+
+  try {
+    const cfg = await api('/auth/google-config');
+    if (cfg && cfg.clientId && cfg.clientId.trim() !== '') {
+      cachedGoogleClientId = cfg.clientId;
+      return cachedGoogleClientId;
+    }
+  } catch (err) {
+    console.warn('Could not fetch Google client ID, using fallback:', err.message);
+  }
+
+  cachedGoogleClientId = DEFAULT_GOOGLE_CLIENT_ID;
+  return cachedGoogleClientId;
+}
+
+async function authenticateGoogleCredential(response, { closeModalOnSuccess = false } = {}) {
+  try {
+    const data = await api('/auth/google', {
+      method: 'POST',
+      body: { credential: response.credential }
+    });
+
+    Auth.setAuth(data.token, data.user);
+
+    if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+      Auth.setAdminAuth(data.token, data.user);
+      if (closeModalOnSuccess) closeAuthModal();
+      window.location.replace('vault');
+      return;
+    }
+
+    if (closeModalOnSuccess) {
+      closeAuthModal();
+      updateNavAuth();
+      window.location.reload();
+      return;
+    }
+
+    updateNavAuth();
+  } catch (err) {
+    showToast(err.message || 'Google authentication failed.', 'error');
+  }
+}
+
+async function initAuthGoogleButton() {
+  const container = document.getElementById('authGoogleButton');
+  if (!container) return;
+
+  container.innerHTML = '<div style="font-size:0.82rem;color:#6b88aa;text-align:center;">Loading Google sign-in...</div>';
+
+  const clientId = await fetchGoogleClientId();
+  if (!(window.google && google.accounts && google.accounts.id && clientId)) {
+    container.innerHTML = '<div style="font-size:0.82rem;color:#fbbf24;text-align:center;">Google sign-in is unavailable right now.</div>';
+    return;
+  }
+
+  try {
+    const redirectUrl = window.location.origin + '/api/auth/google-redirect';
+    google.accounts.id.initialize({
+      client_id: clientId,
+      callback: (response) => authenticateGoogleCredential(response, { closeModalOnSuccess: true }),
+      ux_mode: 'redirect',
+      login_uri: redirectUrl,
+      cancel_on_tap_outside: true,
+    });
+
+    container.innerHTML = '';
+    google.accounts.id.renderButton(container, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'continue_with',
+      shape: 'rectangular',
+      width: Math.min(container.offsetWidth || 360, 360),
+    });
+  } catch (err) {
+    console.warn('Inline Google button error:', err);
+    container.innerHTML = '<div style="font-size:0.82rem;color:#f87171;text-align:center;">Google sign-in could not be loaded.</div>';
+  }
+}
+
 // ── Auth Modal ──────────────────────────────────────────────────────────
 function openAuthModal(mode = 'login') {
   // Remove existing modal
@@ -329,10 +415,7 @@ function openAuthModal(mode = 'login') {
         <span style="padding:0 10px">OR</span>
         <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
       </div>
-      <button type="button" class="btn btn-secondary w-full" onclick="handleAuthGooglePopup()" style="display:flex;align-items:center;justify-content:center;gap:10px;height:46px;border-radius:10px;">
-        <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
-        <span>Continue with Google</span>
-      </button>
+      <div id="authGoogleButton" style="display:flex;justify-content:center;min-height:44px;"></div>
       <p class="text-center mt-6" style="font-size: 0.875rem; color: var(--color-slate-400);">
         ${isLogin
           ? 'Don\'t have an account? <a href="#" onclick="openAuthModal(\'register\')">Sign up free</a>'
@@ -344,6 +427,7 @@ function openAuthModal(mode = 'login') {
 
   document.body.appendChild(overlay);
   requestAnimationFrame(() => overlay.classList.add('active'));
+  requestAnimationFrame(() => initAuthGoogleButton());
 
   // Close on overlay click
   overlay.addEventListener('click', (e) => {
@@ -408,48 +492,7 @@ function closeAuthModal() {
 
 // ── Google Auth Popup (Same-page authentication for modals) ─────────────────
 async function handleAuthGooglePopup() {
-  if (window.google && google.accounts && google.accounts.oauth2) {
-    try {
-      const clientId = window.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID';
-      const tokenClient = google.accounts.oauth2.initTokenClient({
-        client_id: clientId,
-        scope: 'openid email profile',
-        callback: async (response) => {
-          if (response.access_token) {
-            try {
-              const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${response.access_token}`);
-              const profile = await res.json();
-              if (profile.email) {
-                const data = await api('/auth/google', {
-                  method: 'POST',
-                  body: { email: profile.email, name: profile.name, picture: profile.picture }
-                });
-                Auth.setAuth(data.token, data.user);
-                if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-                  Auth.setAdminAuth(data.token, data.user);
-                  closeAuthModal();
-                  window.location.replace('vault');
-                } else {
-                  closeAuthModal();
-                  updateNavAuth();
-                  window.location.reload();
-                }
-                return;
-              }
-            } catch (e) {
-              showToast('Google authentication failed.', 'error');
-            }
-          }
-        },
-      });
-      tokenClient.requestAccessToken({ prompt: 'select_account' });
-      return;
-    } catch (e) {
-      console.warn('Token client popup error:', e);
-      showToast('Google Sign-In popup blocked. Please allow popups for this site.', 'error');
-    }
-  }
-  showToast('Google Sign-In unavailable. Please enable popups or try email login.', 'error');
+  await initAuthGoogleButton();
 }
 
 // ── Scroll Reveal ───────────────────────────────────────────────────────

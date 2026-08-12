@@ -549,6 +549,162 @@ router.get('/google-config', (req, res) => {
   });
 });
 
+// POST /api/auth/google-redirect — Handle Google OAuth redirect mode (same-page login)
+router.post('/google-redirect', async (req, res) => {
+  try {
+    const { credential } = req.body;
+    let userEmail = '';
+    let userName = '';
+    let userPicture = '';
+
+    if (credential) {
+      try {
+        let payloadBase64 = credential.split('.')[1];
+        if (payloadBase64) {
+          payloadBase64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
+          const pad = payloadBase64.length % 4;
+          if (pad) payloadBase64 += '='.repeat(4 - pad);
+          const decodedJson = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
+          if (decodedJson.email) userEmail = decodedJson.email;
+          if (decodedJson.name) userName = decodedJson.name;
+          if (decodedJson.picture) userPicture = decodedJson.picture;
+        }
+      } catch (e) {}
+    }
+
+    if (!userEmail) {
+      return res.status(400).send('<h3>Google authentication failed: Email missing.</h3><a href="/login">Return to Login</a>');
+    }
+
+    userEmail = userEmail.toLowerCase();
+    userName = userName || userEmail.split('@')[0];
+
+    // Admin check
+    const adminEmails = ['rupayandas2024@gmail.com', 'jaggik8888@gmail.com'];
+    let isAdmin = adminEmails.includes(userEmail);
+    let adminData = null;
+
+    if (!isAdmin) {
+      try {
+        const AdminModel = require('../models/Admin');
+        adminData = await AdminModel.findOne({ email: userEmail });
+        if (adminData && adminData.is_active) isAdmin = true;
+      } catch (e) {}
+    }
+
+    if (isAdmin) {
+      const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
+      const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
+
+      const token = generateToken({
+        id: adminId,
+        email: userEmail,
+        name: adminName,
+        role: 'admin',
+      }, '12h');
+
+      createLoginSession(req, adminId, 'Google').catch(() => {});
+
+      const adminUser = {
+        id: adminId,
+        email: userEmail,
+        name: adminName,
+        picture: userPicture || '',
+        role: 'admin',
+      };
+
+      res.setHeader('Content-Type', 'text/html');
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authenticating...</title></head>
+        <body style="font-family:sans-serif;background:#090d16;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+          <div style="text-align:center;">
+            <h2>Logging you in...</h2>
+            <script>
+              try {
+                localStorage.setItem('sh_auth_token', ${JSON.stringify(token)});
+                localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(adminUser)}));
+                localStorage.setItem('sh_admin_token', ${JSON.stringify(token)});
+                localStorage.setItem('sh_admin_user', JSON.stringify(${JSON.stringify(adminUser)}));
+              } catch(e) {}
+              window.location.replace('/vault');
+            </script>
+          </div>
+        </body>
+        </html>
+      `);
+    }
+
+    // Save/Find user in Google Sheets (Users tab) asynchronously
+    const now = new Date().toISOString();
+    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
+    if (!sheetUser) {
+      const userId = uuidv4();
+      sheetUser = {
+        user_id: userId,
+        id: userId,
+        name: userName,
+        username: userEmail.split('@')[0],
+        email: userEmail,
+        status: 'active',
+        created_at: now,
+        updated_at: now,
+        last_login_at: now,
+        last_logout_at: '',
+      };
+      db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
+    } else {
+      db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
+        last_login_at: now,
+        updated_at: now,
+      }).catch((e) => console.warn('GSheet update notice:', e.message));
+    }
+
+    const userId = sheetUser.user_id || sheetUser.id;
+    const token = generateToken({
+      id: userId,
+      email: userEmail,
+      name: sheetUser.name || userName,
+      role: 'user',
+    });
+
+    createLoginSession(req, userId, 'Google').catch(() => {});
+
+    const regularUser = {
+      id: userId,
+      email: userEmail,
+      name: sheetUser.name || userName,
+      username: sheetUser.username || userEmail.split('@')[0],
+      picture: userPicture || '',
+      role: 'user',
+    };
+
+    res.setHeader('Content-Type', 'text/html');
+    return res.send(`
+      <!DOCTYPE html>
+      <html>
+      <head><title>Authenticating...</title></head>
+      <body style="font-family:sans-serif;background:#090d16;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+        <div style="text-align:center;">
+          <h2>Logging you in...</h2>
+          <script>
+            try {
+              localStorage.setItem('sh_auth_token', ${JSON.stringify(token)});
+              localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(regularUser)}));
+            } catch(e) {}
+            window.location.replace('/index');
+          </script>
+        </div>
+      </body>
+      </html>
+    `);
+  } catch (err) {
+    console.error('Google redirect handler error:', err);
+    res.status(500).send('<h3>Google authentication failed.</h3><a href="/login">Return to Login</a>');
+  }
+});
+
 // POST /api/auth/google — Google login stored EXCLUSIVELY to Google Sheets
 router.post('/google', async (req, res) => {
   try {

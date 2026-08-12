@@ -66,6 +66,11 @@ app.use(async (req, res, next) => {
 // ── Static Files ────────────────────────────────────────────────────────────
 app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
 
+// Handle Google OAuth redirect POSTs to static login page
+app.post(['/login', '/login.html'], (req, res) => {
+  res.redirect(307, '/api/auth/google-redirect');
+});
+
 // ── API Routes ──────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/coupons', apiLimiter, couponRoutes);

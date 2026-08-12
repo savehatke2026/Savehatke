@@ -578,50 +578,24 @@
     return res.json();
   }
 
-  function handleGoogleAuthRedirect() {
-    // Use Popup flow via GIS JS SDK (Same-page authentication)
-    if (window.google && google.accounts && google.accounts.oauth2) {
-      try {
-        const clientId = window.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID'; // Will be replaced by login.html's fetch
-        const tokenClient = google.accounts.oauth2.initTokenClient({
+  async function handleGoogleAuthRedirect() {
+    try {
+      const clientId = await fetchGoogleClientId();
+      if (window.google && window.google.accounts && window.google.accounts.id && clientId) {
+        const redirectUrl = window.location.origin + '/api/auth/google-redirect';
+        google.accounts.id.initialize({
           client_id: clientId,
-          scope: 'openid email profile',
-          callback: async (response) => {
-            if (response.access_token) {
-              try {
-                const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${response.access_token}`);
-                const profile = await res.json();
-                if (profile.email) {
-                  const data = await api('/auth/google', {
-                    method: 'POST',
-                    body: { email: profile.email, name: profile.name, picture: profile.picture }
-                  });
-                  Auth.setAuth(data.token, data.user);
-                  if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-                    Auth.setAdminAuth(data.token, data.user);
-                    window.location.replace('vault');
-                  } else {
-                    // Close modal and refresh page
-                    closeModal();
-                    window.location.reload();
-                  }
-                  return;
-                }
-              } catch (e) {
-                showToast('Google authentication failed.', 'error');
-              }
-            }
-          },
+          ux_mode: 'redirect',
+          login_uri: redirectUrl,
+          cancel_on_tap_outside: true,
         });
-        tokenClient.requestAccessToken({ prompt: 'select_account' });
+        google.accounts.id.prompt();
         return;
-      } catch (e) {
-        console.warn('Token client popup error:', e);
-        showToast('Google Sign-In popup blocked. Please allow popups for this site.', 'error');
       }
+    } catch (e) {
+      console.warn('Google redirect error:', e);
     }
-    // Fallback: Show error if popup fails
-    showToast('Google Sign-In unavailable. Please enable popups or try email login.', 'error');
+    window.location.href = 'login';
   }
 
   /* =====================
