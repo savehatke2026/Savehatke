@@ -369,6 +369,8 @@ async function initAuthGoogleButton() {
       text: 'continue_with',
       shape: 'rectangular',
       width: Math.min(container.offsetWidth || 360, 360),
+      ux_mode: 'redirect',
+      login_uri: redirectUrl,
     });
   } catch (err) {
     console.warn('Inline Google button error:', err);

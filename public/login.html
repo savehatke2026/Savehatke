@@ -386,6 +386,8 @@
         text: 'continue_with',
         shape: 'rectangular',
         width: Math.min(googleBtn.offsetWidth || 368, 368),
+        ux_mode: 'redirect',
+        login_uri: window.location.origin + '/api/auth/google-redirect',
       });
     } catch (err) {
       console.warn('Render Google button error:', err);
