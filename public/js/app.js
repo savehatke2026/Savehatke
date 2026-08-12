@@ -285,7 +285,7 @@ function updateNavAuth() {
     }
   } else {
     navActions.innerHTML = `
-      <a href="login" class="btn btn-primary btn-sm">Log In</a>
+      <button type="button" class="btn btn-primary btn-sm" onclick="openAuthModal('login')">Log In</button>
     `;
   }
 }
@@ -693,4 +693,3 @@ document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
   initScrollReveal();
 });
-
