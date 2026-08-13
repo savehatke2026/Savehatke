@@ -211,9 +211,9 @@
 
     /* MODAL */
     .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
-    .modal-overlay.open { opacity:1; pointer-events:auto; }
+    .modal-overlay.open, .modal-overlay.active { opacity:1; pointer-events:auto; }
     .modal { width:100%; max-width:420px; border-radius:22px; padding:40px; background:#0c1835; border:1px solid rgba(79,195,247,.15); box-shadow:0 40px 100px rgba(0,0,0,.6); transform:translateY(20px) scale(.97); transition:transform .25s; }
-    .modal-overlay.open .modal { transform:translateY(0) scale(1); }
+    .modal-overlay.open .modal, .modal-overlay.active .modal { transform:translateY(0) scale(1); }
     .mhdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; }
     .mtitle { font-family:'DM Serif Display',serif; font-size:1.7rem; }
     .mclose { background:none; border:none; color:#6b88aa; cursor:pointer; font-size:1.4rem; padding:2px 6px; transition:color .2s; }
@@ -266,7 +266,7 @@
       <a href="support">Support</a>
     </div>
     <div class="nav-actions" id="navActions">
-      <a href="login" class="btn btn-primary btn-sm">Log In</a>
+      <button type="button" class="btn btn-primary btn-sm" onclick="openModal('login')">Log In</button>
     </div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
       <span></span><span></span><span></span>

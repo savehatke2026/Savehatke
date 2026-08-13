@@ -24,3 +24,9 @@ dist/
 build/
 .dbg/
 .vercel/
+
+# Temporary / Debug files
+*.backup
+test_body*.json
+debug-login-google-button.md
+
