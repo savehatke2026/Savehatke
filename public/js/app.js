@@ -428,7 +428,7 @@ function openAuthModal(mode = 'login') {
   `;
 
   document.body.appendChild(overlay);
-  requestAnimationFrame(() => overlay.classList.add('active', 'open'));
+  requestAnimationFrame(() => overlay.classList.add('active'));
   requestAnimationFrame(() => initAuthGoogleButton());
 
   // Close on overlay click
@@ -487,7 +487,7 @@ function openAuthModal(mode = 'login') {
 function closeAuthModal() {
   const overlay = document.querySelector('.modal-overlay');
   if (overlay) {
-    overlay.classList.remove('active', 'open');
+    overlay.classList.remove('active');
     setTimeout(() => overlay.remove(), 300);
   }
 }

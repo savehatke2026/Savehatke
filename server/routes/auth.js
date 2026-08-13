@@ -148,90 +148,12 @@ function verifyOTP(email, otp) {
   return { valid: true };
 }
 
-const nodemailer = require('nodemailer');
-
-function createEmailTransporter() {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.SMTP_PORT || '587', 10);
-  const user = process.env.SMTP_USER || process.env.GMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.GMAIL_APP_PASSWORD;
-
-  if (!user || !pass) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: {
-      user,
-      pass,
-    },
-  });
-}
-
-// Send real OTP email using Nodemailer (with console fallback if SMTP not configured)
+// Simulate sending OTP via email (replace with actual email service in production)
 async function sendOTPEmail(email, otp) {
-  const transporter = createEmailTransporter();
-
-  if (!transporter) {
-    console.log(`⚠️ [EMAIL NOTICE] SMTP credentials not set in .env. Logging OTP to console.`);
-    console.log(`📧 OTP for ${email}: ${otp}`);
-    return false;
-  }
-
-  const fromUser = process.env.SMTP_USER || process.env.GMAIL_USER;
-  const fromAddress = process.env.EMAIL_FROM || `"SaveHatke" <${fromUser}>`;
-
-  const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #060d1f; color: #ffffff; margin: 0; padding: 20px; }
-        .container { max-width: 500px; margin: 0 auto; background: #0c1835; border: 1px solid rgba(79, 195, 247, 0.2); border-radius: 16px; padding: 32px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-        .logo { font-size: 26px; font-weight: 800; color: #4fc3f7; text-align: center; margin-bottom: 24px; }
-        .logo span { color: #00e676; }
-        .title { font-size: 20px; font-weight: 600; text-align: center; margin-bottom: 12px; color: #ffffff; }
-        .subtitle { font-size: 14px; color: #94a3b8; text-align: center; margin-bottom: 24px; line-height: 1.5; }
-        .otp-box { background: rgba(79, 195, 247, 0.08); border: 2px dashed #4fc3f7; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px; }
-        .otp-code { font-size: 38px; font-weight: 800; letter-spacing: 10px; color: #00e676; font-family: monospace; }
-        .footer { font-size: 12px; color: #64748b; text-align: center; margin-top: 28px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px; }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="logo">💰 Save<span>Hatke</span></div>
-        <div class="title">Verification Code</div>
-        <div class="subtitle">Use the verification code below to sign in or complete your registration.</div>
-        <div class="otp-box">
-          <div class="otp-code">${otp}</div>
-        </div>
-        <div class="subtitle">This code is valid for <strong>5 minutes</strong>. Do not share this code with anyone.</div>
-        <div class="footer">
-          &copy; ${new Date().getFullYear()} SaveHatke — India's Smartest Price Tracker & Coupon Marketplace
-        </div>
-      </div>
-    </body>
-    </html>
-  `;
-
-  try {
-    await transporter.sendMail({
-      from: fromAddress,
-      to: email,
-      subject: `🔒 ${otp} is your SaveHatke verification code`,
-      text: `Your SaveHatke verification code is: ${otp}. It will expire in 5 minutes.`,
-      html: htmlContent,
-    });
-    console.log(`✅ [REAL EMAIL SENT] OTP ${otp} successfully sent to ${email}`);
-    return true;
-  } catch (err) {
-    console.error(`❌ [EMAIL ERROR] Failed to send email to ${email}:`, err.message);
-    throw new Error(`Failed to send verification email: ${err.message}`);
-  }
+  // In production, integrate with email service (SendGrid, Nodemailer, etc.)
+  console.log(`📧 OTP for ${email}: ${otp}`);
+  console.log(`📧 [DEV MODE] OTP sent to ${email}. Check server console for code.`);
+  return true;
 }
 
 // POST /api/auth/send-otp — Send OTP to email for login/registration
