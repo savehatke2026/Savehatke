@@ -578,24 +578,32 @@
     return res.json();
   }
 
-  async function handleGoogleAuthRedirect() {
-    try {
-      const clientId = await fetchGoogleClientId();
-      if (window.google && window.google.accounts && window.google.accounts.id && clientId) {
-        const redirectUrl = window.location.origin + '/api/auth/google-redirect';
-        google.accounts.id.initialize({
-          client_id: clientId,
-          ux_mode: 'redirect',
-          login_uri: redirectUrl,
-          cancel_on_tap_outside: true,
-        });
-        google.accounts.id.prompt();
-        return;
-      }
-    } catch (e) {
-      console.warn('Google redirect error:', e);
-    }
-    window.location.href = 'login';
+  async function handleGoogleAuthRedirect() {\r
+    try {\r
+      const clientId = await fetchGoogleClientId();\r
+      if (window.google && window.google.accounts && window.google.accounts.id && clientId) {\r
+        google.accounts.id.initialize({\r
+          client_id: clientId,\r
+          callback: async (response) => {\r
+            try {\r
+              const data = await apiFetch('/auth/google', { method: 'POST', body: { credential: response.credential } });\r
+              Auth.setAuth(data.token, data.user);\r
+              window.location.reload();\r
+            } catch (e) {\r
+              console.warn('Google auth error:', e);\r
+              window.location.href = 'login';\r
+            }\r
+          },\r
+          ux_mode: 'popup',\r
+          cancel_on_tap_outside: true,\r
+        });\r
+        google.accounts.id.prompt();\r
+        return;\r
+      }\r
+    } catch (e) {\r
+      console.warn('Google redirect error:', e);\r
+    }\r
+    window.location.href = 'login';\r
   }
 
   /* =====================

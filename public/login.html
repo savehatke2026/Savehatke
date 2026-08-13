@@ -444,26 +444,17 @@
 
   async function initGoogleAuth() {
     if (loginPageGoogleInitStarted) return;
-    checkGoogleRedirect();
     const clientId = await fetchLoginPageGoogleClientId();
     loginPageGoogleInitStarted = true;
 
     if (window.google && window.google.accounts) {
       try {
-        const redirectUrl = window.location.origin + '/api/auth/google-redirect';
         google.accounts.id.initialize({
           client_id: clientId,
           callback: handleLoginPageGoogleCredentialResponse,
-          ux_mode: 'redirect',
-          login_uri: redirectUrl,
+          ux_mode: 'popup',
           cancel_on_tap_outside: true
         });
-        const gOnload = document.getElementById('g_id_onload');
-        if (gOnload) {
-          gOnload.setAttribute('data-client_id', clientId);
-          gOnload.setAttribute('data-ux_mode', 'redirect');
-          gOnload.setAttribute('data-login_uri', redirectUrl);
-        }
       } catch (err) {
         console.warn('GSI init error:', err);
       }
@@ -508,51 +499,29 @@
     const btn = document.getElementById('googleSignInBtn');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="g-spinner"></span><span class="g-btn-text">Redirecting to Google&hellip;</span>';
+      btn.innerHTML = '<span class="g-spinner"></span><span class="g-btn-text">Signing in with Google&hellip;</span>';
     }
 
-    // Direct same-page redirect to Google login (no popups)
-    triggerGoogleOAuthRedirect();
-  }
-
-  function triggerGoogleOAuthRedirect() {
-    const clientId = loginPageActiveGoogleClientId || LOGIN_PAGE_DEFAULT_GOOGLE_CLIENT_ID;
-    const redirectUri = window.location.origin + '/api/auth/google-redirect';
-    const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=openid%20email%20profile&prompt=select_account`;
-    window.location.href = oauthUrl;
-  }
-
-  /* ── Google redirect hash handler ── */
-  async function checkGoogleRedirect() {
-    const hash = window.location.hash;
-    if (hash && (hash.includes('id_token=') || hash.includes('access_token='))) {
-      const params = new URLSearchParams(hash.substring(1));
-      const idToken = params.get('id_token');
-      const accessToken = params.get('access_token');
-      window.history.replaceState(null, null, window.location.pathname);
-      if (idToken) {
-        handleLoginPageGoogleCredentialResponse({ credential: idToken });
-      } else if (accessToken) {
-        try {
-          const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
-          const profile = await res.json();
-          if (profile.email) {
-            const data = await api('/auth/google', {
-              method: 'POST',
-              body: { email: profile.email, name: profile.name, picture: profile.picture }
-            });
-            Auth.setAuth(data.token, data.user);
-            if (data.user.role === 'admin') {
-              Auth.setAdminAuth(data.token, data.user);
-              window.location.replace('vault');
-            } else {
-              window.location.replace('index');
-            }
-          }
-        } catch (e) {
-          showToast('Google authentication failed.', 'error');
+    // Use GSI popup mode — no redirect URI needed
+    if (window.google && window.google.accounts && window.google.accounts.id) {
+      google.accounts.id.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          // Fallback: render a hidden Google button and click it
+          const tempDiv = document.createElement('div');
+          tempDiv.style.position = 'fixed';
+          tempDiv.style.top = '-9999px';
+          document.body.appendChild(tempDiv);
+          google.accounts.id.renderButton(tempDiv, {
+            type: 'standard', size: 'large', text: 'signin_with'
+          });
+          const innerBtn = tempDiv.querySelector('[role="button"]') || tempDiv.querySelector('div[style]') || tempDiv.firstElementChild;
+          if (innerBtn) innerBtn.click();
+          setTimeout(() => tempDiv.remove(), 5000);
         }
-      }
+      });
+    } else {
+      restoreGoogleBtn();
+      showToast('Google Sign-In is not available right now.', 'error');
     }
   }
 

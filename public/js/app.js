@@ -339,43 +339,39 @@ async function authenticateGoogleCredential(response, { closeModalOnSuccess = fa
   }
 }
 
-async function initAuthGoogleButton() {
-  const container = document.getElementById('authGoogleButton');
-  if (!container) return;
-
-  container.innerHTML = '<div style="font-size:0.82rem;color:#6b88aa;text-align:center;">Loading Google sign-in...</div>';
-
-  const clientId = await fetchGoogleClientId();
-  if (!(window.google && google.accounts && google.accounts.id && clientId)) {
-    container.innerHTML = '<div style="font-size:0.82rem;color:#fbbf24;text-align:center;">Google sign-in is unavailable right now.</div>';
-    return;
-  }
-
-  try {
-    const redirectUrl = window.location.origin + '/api/auth/google-redirect';
-    google.accounts.id.initialize({
-      client_id: clientId,
-      callback: (response) => authenticateGoogleCredential(response, { closeModalOnSuccess: true }),
-      ux_mode: 'redirect',
-      login_uri: redirectUrl,
-      cancel_on_tap_outside: true,
-    });
-
-    container.innerHTML = '';
-    google.accounts.id.renderButton(container, {
-      type: 'standard',
-      theme: 'outline',
-      size: 'large',
-      text: 'continue_with',
-      shape: 'rectangular',
-      width: Math.min(container.offsetWidth || 360, 360),
-      ux_mode: 'redirect',
-      login_uri: redirectUrl,
-    });
-  } catch (err) {
-    console.warn('Inline Google button error:', err);
-    container.innerHTML = '<div style="font-size:0.82rem;color:#f87171;text-align:center;">Google sign-in could not be loaded.</div>';
-  }
+async function initAuthGoogleButton() {\r
+  const container = document.getElementById('authGoogleButton');\r
+  if (!container) return;\r
+\r
+  container.innerHTML = '<div style="font-size:0.82rem;color:#6b88aa;text-align:center;">Loading Google sign-in...</div>';\r
+\r
+  const clientId = await fetchGoogleClientId();\r
+  if (!(window.google && google.accounts && google.accounts.id && clientId)) {\r
+    container.innerHTML = '<div style="font-size:0.82rem;color:#fbbf24;text-align:center;">Google sign-in is unavailable right now.</div>';\r
+    return;\r
+  }\r
+\r
+  try {\r
+    google.accounts.id.initialize({\r
+      client_id: clientId,\r
+      callback: (response) => authenticateGoogleCredential(response, { closeModalOnSuccess: true }),\r
+      ux_mode: 'popup',\r
+      cancel_on_tap_outside: true,\r
+    });\r
+\r
+    container.innerHTML = '';\r
+    google.accounts.id.renderButton(container, {\r
+      type: 'standard',\r
+      theme: 'outline',\r
+      size: 'large',\r
+      text: 'continue_with',\r
+      shape: 'rectangular',\r
+      width: Math.min(container.offsetWidth || 360, 360),\r
+    });\r
+  } catch (err) {\r
+    console.warn('Inline Google button error:', err);\r
+    container.innerHTML = '<div style="font-size:0.82rem;color:#f87171;text-align:center;">Google sign-in could not be loaded.</div>';\r
+  }\r
 }
 
 // ── Auth Modal ──────────────────────────────────────────────────────────
