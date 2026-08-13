@@ -8,8 +8,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
-  <!-- Google Identity Services SDK - Preload for faster auth -->
   <link rel="preconnect" href="https://accounts.google.com" crossorigin>
   <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
   <link rel="dns-prefetch" href="https://accounts.google.com">
@@ -27,26 +25,42 @@
 
     @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
     @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes shake {
+      0%,100%{transform:translateX(0)}
+      20%{transform:translateX(-6px)}
+      40%{transform:translateX(6px)}
+      60%{transform:translateX(-4px)}
+      80%{transform:translateX(4px)}
+    }
     @keyframes float-particle {
       0% { transform:translateY(100vh) scale(0); opacity:0; }
       20% { opacity:0.6; }
       80% { opacity:0.3; }
       100% { transform:translateY(-100px) scale(1.2); opacity:0; }
     }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes googlePulse {
+      0%,100% { box-shadow: 0 0 0 0 rgba(79,195,247,.0); }
+      50% { box-shadow: 0 0 0 4px rgba(79,195,247,.12); }
+    }
 
     .particles { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:1; }
     .particle { position:absolute; width:3px; height:3px; background:#00e676; border-radius:50%; opacity:0; animation:float-particle linear infinite; box-shadow:0 0 8px #00e676; }
 
     .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-    .shimmer { background: linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 3.5s linear infinite; }
-
     .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; width: 100%; }
 
-    /* NAVBAR */
+    /* ── Navbar ── */
     .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
     .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
     .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
-    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .brand-icon {
+      width:34px; height:34px; border-radius:9px;
+      background:linear-gradient(135deg,#00e676,#4fc3f7);
+      display:flex; align-items:center; justify-content:center;
+      font-size:.9rem; font-weight:900; color:#060d1f;
+    }
     .bhl { color:#00e676; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; }
@@ -60,7 +74,7 @@
       .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
     }
 
-    /* BUTTONS */
+    /* ── Buttons ── */
     .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; width:100%; text-decoration:none; }
     .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
     .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
@@ -68,7 +82,78 @@
     .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
     .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
 
-    /* OTP INPUTS */
+    /* ── Custom Google Button ── */
+    .google-custom-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+      height: 48px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.04);
+      border: 1.5px solid rgba(79,195,247,.22);
+      color: #e2ecff;
+      font-family: 'Outfit', sans-serif;
+      font-size: .93rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .22s;
+      position: relative;
+      overflow: hidden;
+      letter-spacing: .01em;
+    }
+    .google-custom-btn::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(79,195,247,.06), rgba(0,230,118,.04));
+      opacity: 0;
+      transition: opacity .22s;
+    }
+    .google-custom-btn:hover {
+      border-color: rgba(79,195,247,.45);
+      background: rgba(255,255,255,.07);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(79,195,247,.1);
+    }
+    .google-custom-btn:hover::before { opacity: 1; }
+    .google-custom-btn:active { transform: translateY(0); }
+    .google-custom-btn:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+    .google-custom-btn .g-logo {
+      flex-shrink: 0;
+      width: 20px;
+      height: 20px;
+    }
+    .google-custom-btn .g-btn-text {
+      position: relative;
+      z-index: 1;
+    }
+    .google-custom-btn .g-spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(79,195,247,.25);
+      border-top-color: #4fc3f7;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      flex-shrink: 0;
+    }
+    .google-btn-unavailable {
+      text-align: center;
+      font-size: .8rem;
+      color: #fbbf24;
+      padding: 10px 0;
+      border-radius: 8px;
+      background: rgba(251,191,36,.06);
+      border: 1px solid rgba(251,191,36,.15);
+    }
+
+    /* ── OTP ── */
     .otp-group { display:flex; justify-content:center; gap:8px; margin:20px 0 16px; }
     .otp-input {
       width:52px; height:52px; border-radius:10px;
@@ -82,61 +167,33 @@
       transition:all .2s;
       caret-color:#00e676;
     }
-    .otp-input:focus {
-      border-color:rgba(0,230,118,.5);
-      background:rgba(255,255,255,.08);
-      box-shadow:0 0 0 3px rgba(0,230,118,.12);
-    }
-    .otp-input.filled {
-      border-color:rgba(0,230,118,.4);
-      background:rgba(255,255,255,.07);
-    }
-    .otp-input.error {
-      border-color:rgba(239,68,68,.55) !important;
-      background:rgba(239,68,68,.06) !important;
-      box-shadow:0 0 0 3px rgba(239,68,68,.12) !important;
-      color:#f87171 !important;
-    }
-    .otp-input.success {
-      border-color:rgba(0,230,118,.5) !important;
-      background:rgba(255,255,255,.08) !important;
-      box-shadow:0 0 0 3px rgba(0,230,118,.12) !important;
-    }
+    .otp-input:focus { border-color:rgba(0,230,118,.5); background:rgba(255,255,255,.08); box-shadow:0 0 0 3px rgba(0,230,118,.12); }
+    .otp-input.filled { border-color:rgba(0,230,118,.4); background:rgba(255,255,255,.07); }
+    .otp-input.error { border-color:rgba(239,68,68,.55) !important; background:rgba(239,68,68,.06) !important; box-shadow:0 0 0 3px rgba(239,68,68,.12) !important; color:#f87171 !important; }
+    .otp-input.success { border-color:rgba(0,230,118,.5) !important; background:rgba(255,255,255,.08) !important; box-shadow:0 0 0 3px rgba(0,230,118,.12) !important; }
     .otp-group.shake { animation:shake .4s ease; }
 
-    /* TIMER & RESEND */
     .resend-area { text-align:center; margin-top:14px; font-size:.83rem; color:#6b88aa; }
     .resend-btn { background:none; border:none; font-family:'Outfit',sans-serif; font-size:.83rem; font-weight:700; color:#00e676; cursor:pointer; border-bottom:1px solid rgba(0,230,118,.3); transition:border-color .2s; padding:0; }
     .resend-btn:hover { border-color:#00e676; }
     .resend-btn:disabled { color:#6b88aa; border-bottom-color:rgba(107,136,170,.3); cursor:not-allowed; }
     .timer { font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:600; color:#4fc3f7; }
 
-    /* BACK LINK */
     .back-link { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:18px; font-size:.82rem; color:#6b88aa; cursor:pointer; transition:color .2s; background:none; border:none; font-family:'Outfit',sans-serif; width:100%; }
     .back-link:hover { color:#e2ecff; }
     .back-link svg { transition:transform .2s; }
     .back-link:hover svg { transform:translateX(-3px); }
 
-    /* SPINNER */
     .spinner { width:18px; height:18px; border:2.5px solid rgba(6,13,31,.4); border-top-color:#060d1f; border-radius:50%; animation:spin .7s linear infinite; display:inline-block; }
 
-    /* SUCCESS STATE */
+    /* ── Success ── */
     .success-state { text-align:center; display:none; }
-    .success-icon { font-size:3rem; margin-bottom:12px; display:block; }
+    .success-icon-wrap { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(79,195,247,.15)); border:1px solid rgba(0,230,118,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+    .success-check { width:28px; height:28px; }
     .success-title { font-family:'DM Serif Display',serif; font-size:1.5rem; margin-bottom:8px; }
     .success-sub { font-size:.84rem; color:#a8c0dc; line-height:1.6; }
 
-    @media(max-width:500px) {
-      .auth-card { max-width:100%; padding:28px 16px; }
-      .otp-input { width:44px; height:44px; font-size:1.15rem; }
-      .otp-group { gap:6px; }
-    }
-    @media(max-width:380px) {
-      .otp-input { width:38px; height:38px; font-size:1rem; }
-      .otp-group { gap:5px; }
-    }
-
-    /* AUTH SECTION */
+    /* ── Auth Section ── */
     .auth-section { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; padding: 88px 0 40px; overflow: hidden; }
     .hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 70% 55% at 50% 30%,rgba(0,230,118,.09) 0%,transparent 65%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.08) 0%,transparent 65%); pointer-events:none; }
     .hero-gridbg { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.04) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
@@ -144,7 +201,14 @@
     .auth-card { width:100%; max-width:440px; border-radius:22px; padding:36px 36px 32px; background:rgba(12,24,53,.92); backdrop-filter:blur(24px); border:1px solid rgba(79,195,247,.18); box-shadow:0 32px 80px rgba(0,0,0,.55); position:relative; z-index:10; animation:float 6s ease-in-out infinite; }
 
     .auth-hdr { text-align:center; margin-bottom:28px; }
-    .auth-icon { width:44px; height:44px; border-radius:12px; background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(79,195,247,.2)); border:1px solid rgba(0,230,118,.3); display:flex; align-items:center; justify-content:center; font-size:1.25rem; margin:0 auto 12px; }
+    .auth-icon {
+      width:44px; height:44px; border-radius:12px;
+      background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(79,195,247,.2));
+      border:1px solid rgba(0,230,118,.3);
+      display:flex; align-items:center; justify-content:center;
+      margin:0 auto 12px;
+    }
+    .auth-icon svg { width:22px; height:22px; }
     .auth-title { font-family:'DM Serif Display',serif; font-size:1.65rem; margin-bottom:6px; }
     .auth-sub { font-size:.84rem; color:#a8c0dc; line-height:1.5; }
 
@@ -158,35 +222,33 @@
     .auth-divider::before, .auth-divider::after { content:''; flex:1; border-bottom:1px solid rgba(79,195,247,.12); }
     .auth-divider span { padding:0 12px; }
 
-    .google-btn-host { width:100%; min-height:44px; display:flex; justify-content:center; }
-
-    .auth-footer-text { text-align:center; margin-top:16px; font-size:.82rem; color:#6b88aa; }
-    .auth-footer-text a { color:#00e676; font-weight:600; text-decoration:none; border-bottom:1px solid rgba(0,230,118,.3); transition:border-color .2s; }
-    .auth-footer-text a:hover { border-color:#00e676; }
-
-    /* TOAST */
+    /* ── Toasts ── */
     .toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; }
     .toast { padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; box-shadow:0 12px 40px rgba(0,0,0,.5); display:flex; align-items:center; gap:10px; max-width:320px; animation:fadeUp .3s ease; }
     .toast-success { background:rgba(0,200,83,.15); border:1px solid rgba(0,200,83,.3); color:#00e676; }
     .toast-error { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.25); color:#f87171; }
     .toast-warning { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
-    @keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
 
-    /* FOOTER */
     .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:20px 0; text-align:center; font-size:.8rem; color:#6b88aa; margin-top:auto; }
 
     @media(max-width:500px) {
-      .auth-card { max-width:100%; padding:28px 20px; }
+      .auth-card { max-width:100%; padding:28px 16px; }
+      .otp-input { width:44px; height:44px; font-size:1.15rem; }
+      .otp-group { gap:6px; }
+    }
+    @media(max-width:380px) {
+      .otp-input { width:38px; height:38px; font-size:1rem; }
+      .otp-group { gap:5px; }
     }
   </style>
 </head>
 <body>
 
-<!-- NAVBAR -->
+<!-- ══ Navbar ══ -->
 <nav class="navbar" id="nav">
   <div class="container">
     <a href="index" class="nav-brand">
-      <div class="brand-icon">💰</div>
+      <div class="brand-icon">SH</div>
       Save<span class="bhl">Hatke</span>
     </a>
     <div class="nav-links" id="navLinks">
@@ -204,50 +266,81 @@
   </div>
 </nav>
 
-<!-- AUTH CONTENT -->
+<!-- ══ Main Auth Section ══ -->
 <main class="auth-section">
   <div class="hero-mesh"></div>
   <div class="hero-gridbg"></div>
   <div class="particles" id="loginParticles"></div>
 
   <div class="auth-card">
-    <div class="auth-hdr">
-      <div class="auth-icon">🔐</div>
-      <h1 class="auth-title">Welcome to <span class="gtext">SaveHatke</span></h1>
-      <p class="auth-sub">Enter your email to continue to your account.</p>
-    </div>
 
-    <form id="loginPageForm" onsubmit="handleAuthSubmit(event)">
-      <div class="fgroup">
-        <label class="flabel" for="inputEmail">Email Address</label>
-        <input type="email" class="finput" id="inputEmail" placeholder="you@example.com" required autocomplete="email">
+    <!-- Login Form State -->
+    <div id="loginState">
+      <div class="auth-hdr">
+        <div class="auth-icon">
+          <!-- Lock icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h1 class="auth-title">Welcome to <span class="gtext">SaveHatke</span></h1>
+        <p class="auth-sub">Sign in to access deals, coupons &amp; savings.</p>
       </div>
-      <button type="submit" class="btn btn-primary" id="submitBtn">
-        Continue →
+
+      <form id="loginPageForm" onsubmit="handleAuthSubmit(event)">
+        <div class="fgroup">
+          <label class="flabel" for="inputEmail">Email Address</label>
+          <input type="email" class="finput" id="inputEmail" placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <button type="submit" class="btn btn-primary" id="submitBtn">
+          Continue &rarr;
+        </button>
+      </form>
+
+      <div class="auth-divider"><span>OR CONTINUE WITH</span></div>
+
+      <!-- Custom Google Sign-In Button -->
+      <button
+        class="google-custom-btn"
+        id="googleSignInBtn"
+        onclick="handleGoogleSignIn()"
+        type="button"
+        aria-label="Sign in with Google"
+      >
+        <!-- Google G SVG Logo -->
+        <svg class="g-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        <span class="g-btn-text">Continue with Google</span>
       </button>
-    </form>
 
-    <div class="auth-divider"><span>OR</span></div>
-
-    <!-- Google Login -->
-    <div class="google-btn-host" id="googleBtn"></div>
-
-    <div id="g_id_onload"
-         data-client_id=""
-         data-callback="handleGoogleCredentialResponse"
-         data-auto_prompt="false"
-         style="display:none;">
+      <!-- Hidden GSI onload div -->
+      <div id="g_id_onload"
+           data-client_id=""
+           data-callback="handleLoginPageGoogleCredentialResponse"
+           data-auto_prompt="false"
+           style="display:none;">
+      </div>
     </div>
 
-    <!-- OTP VERIFICATION STATE (hidden by default) -->
+    <!-- OTP Verify State -->
     <div id="verifyState" style="display:none;">
       <div class="auth-hdr">
-        <div class="auth-icon">✉️</div>
+        <div class="auth-icon">
+          <!-- Envelope icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="#4fc3f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+            <polyline points="22,6 12,13 2,6"/>
+          </svg>
+        </div>
         <h1 class="auth-title">Verify your <span class="gtext">email</span></h1>
         <p class="auth-sub">We sent a 6-digit code to <strong id="displayEmail">user@example.com</strong>. Enter it below to continue.</p>
       </div>
 
-      <!-- 6 OTP boxes -->
       <div class="otp-group" id="otpGroup" role="group" aria-label="Enter 6-digit OTP">
         <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp0" autocomplete="one-time-code" aria-label="Digit 1">
         <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp1" aria-label="Digit 2">
@@ -258,7 +351,7 @@
       </div>
 
       <button class="btn btn-primary" id="verifyBtn" onclick="handleVerify()" disabled>
-        Verify Code →
+        Verify Code &rarr;
       </button>
 
       <div class="resend-area" id="resendArea">
@@ -268,40 +361,45 @@
       </div>
 
       <button class="back-link" onclick="goBack()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/>
+          <path d="m12 19-7-7 7-7"/>
+        </svg>
         Back to login
       </button>
     </div>
 
-    <!-- SUCCESS STATE -->
+    <!-- Success State -->
     <div class="success-state" id="successState">
-      <span class="success-icon">🎉</span>
+      <div class="success-icon-wrap">
+        <svg class="success-check" viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
       <h2 class="success-title">You're <span class="gtext">verified!</span></h2>
-      <p class="success-sub">Your email has been confirmed successfully.<br>Redirecting you to your account…</p>
+      <p class="success-sub">Your email has been confirmed successfully.<br>Redirecting you to your account&hellip;</p>
     </div>
 
   </div>
 </main>
 
-<!-- FOOTER -->
 <footer class="footer">
   <div class="container">
-    <span>© 2026 SaveHatke. All rights reserved. Made with ❤️ in India</span>
+    <span>&copy; 2026 SaveHatke. All rights reserved. Made with love in India</span>
   </div>
 </footer>
 
-<!-- TOAST CONTAINER -->
 <div class="toast-container" id="toastContainer"></div>
 
 <script src="js/app.js"></script>
 <script>
-  // Sticky nav
+  /* ── Scroll nav ── */
   window.addEventListener('scroll', () => {
     const nav = document.getElementById('nav');
     if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
   });
 
-  // Mobile nav toggle
+  /* ── Mobile nav toggle ── */
   const navToggle = document.getElementById('navToggle');
   if (navToggle) {
     navToggle.addEventListener('click', () => {
@@ -309,7 +407,7 @@
     });
   }
 
-  // Spawn particles
+  /* ── Particles ── */
   (function spawnParticles() {
     const container = document.getElementById('loginParticles');
     if (!container) return;
@@ -324,31 +422,38 @@
     }
   })();
 
-  // ── Google Auth ────────────────────────────────────────────────────────────
-  const DEFAULT_GOOGLE_CLIENT_ID = "930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com";
-  let activeGoogleClientId = DEFAULT_GOOGLE_CLIENT_ID;
+  /* ══════════════════════════════════════════
+     GOOGLE AUTH
+  ══════════════════════════════════════════ */
+  const LOGIN_PAGE_DEFAULT_GOOGLE_CLIENT_ID = "930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com";
+  let loginPageActiveGoogleClientId = LOGIN_PAGE_DEFAULT_GOOGLE_CLIENT_ID;
+  let loginPageGoogleInitStarted = false;
+  let tokenClient = null;
 
-  async function fetchGoogleClientId() {
+  async function fetchLoginPageGoogleClientId() {
     try {
       const cfg = await api('/auth/google-config');
       if (cfg && cfg.clientId && cfg.clientId.trim() !== '') {
-        activeGoogleClientId = cfg.clientId;
+        loginPageActiveGoogleClientId = cfg.clientId;
       }
     } catch (e) {
-      console.warn('Could not fetch server google-config, using fallback client ID:', e.message);
+      console.warn('Could not fetch google-config, using fallback client ID:', e.message);
     }
-    return activeGoogleClientId;
+    return loginPageActiveGoogleClientId;
   }
 
   async function initGoogleAuth() {
+    if (loginPageGoogleInitStarted) return;
     checkGoogleRedirect();
-    const clientId = await fetchGoogleClientId();
-    if (window.google && window.google.accounts && clientId) {
+    const clientId = await fetchLoginPageGoogleClientId();
+    loginPageGoogleInitStarted = true;
+
+    if (window.google && window.google.accounts) {
       try {
         const redirectUrl = window.location.origin + '/api/auth/google-redirect';
         google.accounts.id.initialize({
           client_id: clientId,
-          callback: handleGoogleCredentialResponse,
+          callback: handleLoginPageGoogleCredentialResponse,
           ux_mode: 'redirect',
           login_uri: redirectUrl,
           cancel_on_tap_outside: true
@@ -359,54 +464,74 @@
           gOnload.setAttribute('data-ux_mode', 'redirect');
           gOnload.setAttribute('data-login_uri', redirectUrl);
         }
-        renderGoogleButton();
       } catch (err) {
         console.warn('GSI init error:', err);
       }
     }
+
+    const btn = document.getElementById('googleSignInBtn');
+    if (btn) btn.disabled = false;
   }
 
-  document.addEventListener('DOMContentLoaded', initGoogleAuth);
+  function restoreGoogleBtn() {
+    const btn = document.getElementById('googleSignInBtn');
+    if (!btn) return;
+    btn.disabled = false;
+    btn.innerHTML = `
+      <svg class="g-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      <span class="g-btn-text">Continue with Google</span>`;
+  }
 
-  function renderGoogleButton() {
-    const googleBtn = document.getElementById('googleBtn');
-    if (!googleBtn) return;
-
-    if (!(window.google && google.accounts && google.accounts.id)) {
-      googleBtn.innerHTML = '<div style="font-size:0.82rem;color:#fbbf24;text-align:center;">Google sign-in is unavailable right now.</div>';
+  function scheduleLoginPageGoogleInit(attempt = 0) {
+    if (loginPageGoogleInitStarted) return;
+    if (window.google && window.google.accounts) {
+      initGoogleAuth();
       return;
     }
-
-    try {
-      googleBtn.innerHTML = '';
-      google.accounts.id.renderButton(googleBtn, {
-        type: 'standard',
-        theme: 'outline',
-        size: 'large',
-        text: 'continue_with',
-        shape: 'rectangular',
-        width: Math.min(googleBtn.offsetWidth || 368, 368),
-        ux_mode: 'redirect',
-        login_uri: window.location.origin + '/api/auth/google-redirect',
-      });
-    } catch (err) {
-      console.warn('Render Google button error:', err);
-      googleBtn.innerHTML = '<div style="font-size:0.82rem;color:#f87171;text-align:center;">Google sign-in could not be loaded.</div>';
+    if (attempt < 20) {
+      window.setTimeout(() => scheduleLoginPageGoogleInit(attempt + 1), 250);
+    } else {
+      initGoogleAuth();
     }
   }
 
-  // Handle return redirect from Google OAuth
+  document.addEventListener('DOMContentLoaded', () => scheduleLoginPageGoogleInit());
+  window.addEventListener('load', () => scheduleLoginPageGoogleInit());
+
+  /* ── Google button click handler ── */
+  function handleGoogleSignIn() {
+    const btn = document.getElementById('googleSignInBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<span class="g-spinner"></span><span class="g-btn-text">Redirecting to Google&hellip;</span>';
+    }
+
+    // Direct same-page redirect to Google login (no popups)
+    triggerGoogleOAuthRedirect();
+  }
+
+  function triggerGoogleOAuthRedirect() {
+    const clientId = loginPageActiveGoogleClientId || LOGIN_PAGE_DEFAULT_GOOGLE_CLIENT_ID;
+    const redirectUri = window.location.origin + window.location.pathname;
+    const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=token&scope=openid%20email%20profile&prompt=select_account`;
+    window.location.href = oauthUrl;
+  }
+
+  /* ── Google redirect hash handler ── */
   async function checkGoogleRedirect() {
     const hash = window.location.hash;
     if (hash && (hash.includes('id_token=') || hash.includes('access_token='))) {
       const params = new URLSearchParams(hash.substring(1));
       const idToken = params.get('id_token');
       const accessToken = params.get('access_token');
-
       window.history.replaceState(null, null, window.location.pathname);
-
       if (idToken) {
-        handleGoogleCredentialResponse({ credential: idToken });
+        handleLoginPageGoogleCredentialResponse({ credential: idToken });
       } else if (accessToken) {
         try {
           const res = await fetch(`https://www.googleapis.com/oauth2/v3/userinfo?access_token=${accessToken}`);
@@ -431,68 +556,70 @@
     }
   }
 
-  // Callback after real Google OAuth login completes
-  async function handleGoogleCredentialResponse(response) {
+  /* ── Google credential callback ── */
+  async function handleLoginPageGoogleCredentialResponse(response) {
+    // Restore button state in case of failure
+    const restoreGoogleBtn = () => {
+      const btn = document.getElementById('googleSignInBtn');
+      if (!btn) return;
+      btn.disabled = false;
+      btn.innerHTML = `
+        <svg class="g-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        <span class="g-btn-text">Continue with Google</span>`;
+    };
     try {
       const data = await api('/auth/google', {
         method: 'POST',
         body: { credential: response.credential }
       });
       Auth.setAuth(data.token, data.user);
-      if (data.user.role === 'admin') {
-        Auth.setAdminAuth(data.token, data.user);
-        window.location.replace('vault');
-      } else {
-        window.location.replace('index');
-      }
+      showToast('Signed in with Google!', 'success');
+      setTimeout(() => {
+        if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+          Auth.setAdminAuth(data.token, data.user);
+          window.location.replace('vault');
+        } else {
+          window.location.replace('index');
+        }
+      }, 800);
     } catch (err) {
+      restoreGoogleBtn();
       showToast(err.message || 'Google authentication failed.', 'error');
     }
   }
 
-  // ── Email Continue Submit ──────────────────────────────────────────────────
+  /* ══════════════════════════════════════════
+     EMAIL OTP FLOW
+  ══════════════════════════════════════════ */
   async function handleAuthSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Sending code...';
-    }
-
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending code...'; }
     const email = document.getElementById('inputEmail')?.value?.trim();
-
     try {
-      // Send OTP to email
-      await api('/auth/send-otp', {
-        method: 'POST',
-        body: { email },
-      });
-
-      // Store email and show OTP verification form
+      await api('/auth/send-otp', { method: 'POST', body: { email } });
       sessionStorage.setItem('otp_email', email);
       document.getElementById('displayEmail').textContent = email;
-      
-      // Hide login form, show OTP verification
-      document.getElementById('loginPageForm').style.display = 'none';
-      document.querySelector('.auth-divider').style.display = 'none';
-      document.getElementById('googleBtn').style.display = 'none';
-      document.getElementById('verifyState').style.display = 'block';
-      
-      // Focus first OTP input
+      showVerifyState();
       document.getElementById('otp0').focus();
-      
       showToast('Verification code sent to ' + email, 'success');
-
     } catch (err) {
       showToast(err.message || 'Failed to send verification code. Please try again.', 'error');
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = 'Continue →';
-      }
+      if (btn) { btn.disabled = false; btn.textContent = 'Continue \u2192'; }
     }
   }
 
-  /* ── OTP Verification Logic ──────────────────────────────────────────────── */
+  function showVerifyState() {
+    document.getElementById('loginState').style.display = 'none';
+    document.getElementById('verifyState').style.display = 'block';
+  }
+
+  /* ── OTP Inputs ── */
   const otpInputs = Array.from(document.querySelectorAll('.otp-input'));
   const verifyBtn = document.getElementById('verifyBtn');
 
@@ -513,60 +640,39 @@
 
   otpInputs.forEach((input, idx) => {
     input.addEventListener('focus', () => clearOTPErrors());
-
     input.addEventListener('keydown', (e) => {
       if (e.key === 'Backspace') {
-        if (input.value) {
-          input.value = '';
-          updateOTPState();
-        } else if (idx > 0) {
-          otpInputs[idx - 1].focus();
-          otpInputs[idx - 1].value = '';
-          updateOTPState();
-        }
-        e.preventDefault();
-        return;
+        if (input.value) { input.value = ''; updateOTPState(); }
+        else if (idx > 0) { otpInputs[idx - 1].focus(); otpInputs[idx - 1].value = ''; updateOTPState(); }
+        e.preventDefault(); return;
       }
       if (e.key === 'ArrowLeft' && idx > 0) { otpInputs[idx - 1].focus(); e.preventDefault(); return; }
       if (e.key === 'ArrowRight' && idx < 5) { otpInputs[idx + 1].focus(); e.preventDefault(); return; }
       if (e.key === 'Enter' && getOTP().length === 6) { handleVerify(); return; }
     });
-
     input.addEventListener('input', (e) => {
       const val = e.target.value.replace(/\D/g, '');
       if (!val) { input.value = ''; updateOTPState(); return; }
-      // Handle paste of multiple digits
       if (val.length > 1) {
-        const digits = val.split('');
-        digits.forEach((d, di) => { if (otpInputs[idx + di]) otpInputs[idx + di].value = d; });
-        const next = Math.min(idx + digits.length, 5);
-        otpInputs[next].focus();
-        updateOTPState();
-        return;
+        val.split('').forEach((d, di) => { if (otpInputs[idx + di]) otpInputs[idx + di].value = d; });
+        otpInputs[Math.min(idx + val.length, 5)].focus();
+        updateOTPState(); return;
       }
       input.value = val[0];
       updateOTPState();
       if (idx < 5) otpInputs[idx + 1].focus();
     });
-
     input.addEventListener('paste', (e) => {
       e.preventDefault();
       const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
       if (!pasted) return;
       pasted.split('').forEach((d, di) => { if (otpInputs[di]) otpInputs[di].value = d; });
-      const next = Math.min(pasted.length, 5);
-      otpInputs[next].focus();
+      otpInputs[Math.min(pasted.length, 5)].focus();
       updateOTPState();
     });
   });
 
-  // Auto-focus first input on OTP form show
-  function focusFirstOTP() {
-    otpInputs[0]?.focus();
-    updateOTPState();
-  }
-
-  /* ── Countdown Timer ─────────────────────────────────────────────────────── */
+  /* ── Timer ── */
   let timerInterval = null;
   let secondsLeft = 30;
 
@@ -578,7 +684,6 @@
     resendBtn.disabled = true;
     timerText.style.display = 'inline';
     timerCount.textContent = secondsLeft + 's';
-
     clearInterval(timerInterval);
     timerInterval = setInterval(() => {
       secondsLeft--;
@@ -591,23 +696,15 @@
     }, 1000);
   }
 
-  // Start timer when OTP form is shown
   startTimer(30);
 
-  /* ── Resend OTP ──────────────────────────────────────────────────────────── */
   async function handleResend() {
     const btn = document.getElementById('resendBtn');
     btn.disabled = true;
-    btn.textContent = 'Sending…';
-
+    btn.textContent = 'Sending\u2026';
     const email = sessionStorage.getItem('otp_email') || document.getElementById('displayEmail').textContent;
-
     try {
-      await api('/auth/send-otp', {
-        method: 'POST',
-        body: { email },
-      });
-
+      await api('/auth/send-otp', { method: 'POST', body: { email } });
       showToast('A new code has been sent to ' + email, 'success');
       otpInputs.forEach(i => { i.value = ''; i.classList.remove('filled', 'error', 'success'); });
       otpInputs[0].focus();
@@ -616,39 +713,25 @@
     } catch (err) {
       showToast(err.message || 'Could not resend OTP. Try again.', 'error');
     }
-
     btn.textContent = 'Resend';
     startTimer(30);
   }
 
-  /* ── Verify OTP ──────────────────────────────────────────────────────────── */
   async function handleVerify() {
     const otp = getOTP();
     if (otp.length < 6) return;
-
     const btn = document.getElementById('verifyBtn');
     btn.disabled = true;
-    btn.innerHTML = `<span class="spinner"></span> Verifying…`;
-
+    btn.innerHTML = '<span class="spinner"></span> Verifying\u2026';
     const email = sessionStorage.getItem('otp_email') || document.getElementById('displayEmail').textContent;
-
     try {
-      const data = await api('/auth/verify-otp', {
-        method: 'POST',
-        body: { email, otp },
-      });
-
-      // Store auth and redirect
+      const data = await api('/auth/verify-otp', { method: 'POST', body: { email, otp } });
       Auth.setAuth(data.token, data.user);
-      
       otpInputs.forEach(i => { i.classList.remove('filled', 'error'); i.classList.add('success'); });
       showToast('Email verified successfully!', 'success', 3000);
-
       setTimeout(() => {
         document.getElementById('verifyState').style.display = 'none';
         document.getElementById('successState').style.display = 'block';
-
-        // Redirect after 2.5s based on role
         setTimeout(() => {
           if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
             Auth.setAdminAuth(data.token, data.user);
@@ -658,7 +741,6 @@
           }
         }, 2500);
       }, 600);
-
     } catch (err) {
       otpInputs.forEach(i => i.classList.add('error'));
       const group = document.getElementById('otpGroup');
@@ -666,8 +748,7 @@
       setTimeout(() => group.classList.remove('shake'), 500);
       showToast(err.message || 'Invalid code. Please try again.', 'error');
       btn.disabled = false;
-      btn.innerHTML = 'Verify Code →';
-      // Clear inputs and re-focus after error
+      btn.innerHTML = 'Verify Code \u2192';
       setTimeout(() => {
         otpInputs.forEach(i => { i.value = ''; i.classList.remove('error', 'filled'); });
         otpInputs[0].focus();
@@ -677,19 +758,31 @@
   }
 
   function goBack() {
-    // Show login form again, hide OTP form
     document.getElementById('verifyState').style.display = 'none';
     document.getElementById('successState').style.display = 'none';
-    document.getElementById('loginPageForm').style.display = 'block';
-    document.querySelector('.auth-divider').style.display = 'flex';
-    document.getElementById('googleBtn').style.display = 'flex';
-    
+    document.getElementById('loginState').style.display = 'block';
     const email = sessionStorage.getItem('otp_email') || '';
-    if (email) {
-      document.getElementById('inputEmail').value = email;
-    }
+    if (email) document.getElementById('inputEmail').value = email;
     document.getElementById('submitBtn').disabled = false;
-    document.getElementById('submitBtn').textContent = 'Continue →';
+    document.getElementById('submitBtn').textContent = 'Continue \u2192';
+  }
+
+  /* ══════════════════════════════════════════
+     TOAST UTILITY
+  ══════════════════════════════════════════ */
+  function showToast(msg, type = 'success', duration = 4000) {
+    const container = document.getElementById('toastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = 'toast toast-' + type;
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(10px)';
+      toast.style.transition = 'all .3s';
+      setTimeout(() => toast.remove(), 300);
+    }, duration);
   }
 </script>
 </body>
