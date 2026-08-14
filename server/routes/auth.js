@@ -9,6 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 const { authenticateToken, generateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -148,15 +149,7 @@ function verifyOTP(email, otp) {
   return { valid: true };
 }
 
-// Simulate sending OTP via email (replace with actual email service in production)
-async function sendOTPEmail(email, otp) {
-  // In production, integrate with email service (SendGrid, Nodemailer, etc.)
-  console.log(`📧 OTP for ${email}: ${otp}`);
-  console.log(`📧 [DEV MODE] OTP sent to ${email}. Check server console for code.`);
-  return true;
-}
-
-// POST /api/auth/send-otp — Send OTP to email for login/registration
+// POST /api/auth/send-otp — Send real OTP to email for login/registration
 router.post('/send-otp', async (req, res) => {
   try {
     const { email } = req.body;
@@ -177,13 +170,17 @@ router.post('/send-otp', async (req, res) => {
     const otp = generateOTP();
     storeOTP(cleanEmail, otp);
 
-    // Send OTP via email (mock)
-    await sendOTPEmail(cleanEmail, otp);
+    // Send real OTP via Nodemailer email service
+    const emailResult = await emailService.sendOTPEmail(cleanEmail, otp);
+
+    if (!emailResult.success && !emailResult.isSimulated) {
+      console.warn('Email sending failed:', emailResult.error);
+    }
 
     res.json({
-      message: 'Verification code sent to your email.',
-      // In development, return OTP for testing (remove in production)
-      devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+      message: 'Verification code sent to ' + cleanEmail + '.',
+      // In development or if SMTP is simulated, return OTP for easy testing
+      devOtp: process.env.NODE_ENV !== 'production' || emailResult.isSimulated ? otp : undefined,
     });
   } catch (err) {
     console.error('Send OTP error:', err);
@@ -613,7 +610,8 @@ router.get('/google-redirect', (req, res) => {
 // POST /api/auth/google-redirect — Handle Google OAuth redirect mode (same-page login)
 router.post('/google-redirect', async (req, res) => {
   try {
-    const { credential } = req.body;
+    // Google form_post sends the token as 'id_token', but we also support 'credential'
+    const credential = req.body.credential || req.body.id_token;
     let userEmail = '';
     let userName = '';
     let userPicture = '';

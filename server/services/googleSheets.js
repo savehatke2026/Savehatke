@@ -63,7 +63,7 @@ const HEADERS = {
     'status', 'createdAt', 'resolvedAt',
   ],
   [SHEETS.SETTINGS]: [
-    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'updatedAt',
+    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'updatedAt',
   ],
 };
 

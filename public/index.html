@@ -761,7 +761,7 @@
           const s = data.settings;
           // Active Users
           const activeUsersEl = document.getElementById('stat-active-users');
-          const activeUsersContainer = activeUsersEl ? activeUsersEl.closest('div') : null;
+          const activeUsersContainer = activeUsersEl ? activeUsersEl.parentElement : null;
           if (s.showActiveUsers !== false && s.activeUsers) {
             if (activeUsersEl) activeUsersEl.textContent = s.activeUsers;
             if (activeUsersContainer) activeUsersContainer.style.display = '';
@@ -770,7 +770,7 @@
           }
           // Coupons Traded
           const couponsTradedEl = document.getElementById('stat-coupons-traded');
-          const couponsTradedContainer = couponsTradedEl ? couponsTradedEl.closest('div') : null;
+          const couponsTradedContainer = couponsTradedEl ? couponsTradedEl.parentElement : null;
           if (s.showCouponsTraded !== false && s.couponsTraded) {
             if (couponsTradedEl) couponsTradedEl.textContent = s.couponsTraded;
             if (couponsTradedContainer) couponsTradedContainer.style.display = '';
@@ -779,7 +779,7 @@
           }
           // Saved by Users
           const savedByUsersEl = document.getElementById('stat-saved-by-users');
-          const savedByUsersContainer = savedByUsersEl ? savedByUsersEl.closest('div') : null;
+          const savedByUsersContainer = savedByUsersEl ? savedByUsersEl.parentElement : null;
           if (s.showSavedByUsers !== false && s.savedByUsers) {
             if (savedByUsersEl) savedByUsersEl.textContent = s.savedByUsers;
             if (savedByUsersContainer) savedByUsersContainer.style.display = '';

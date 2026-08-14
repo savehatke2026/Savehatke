@@ -339,39 +339,67 @@ async function authenticateGoogleCredential(response, { closeModalOnSuccess = fa
   }
 }
 
-async function initAuthGoogleButton() {\r
-  const container = document.getElementById('authGoogleButton');\r
-  if (!container) return;\r
-\r
-  container.innerHTML = '<div style="font-size:0.82rem;color:#6b88aa;text-align:center;">Loading Google sign-in...</div>';\r
-\r
-  const clientId = await fetchGoogleClientId();\r
-  if (!(window.google && google.accounts && google.accounts.id && clientId)) {\r
-    container.innerHTML = '<div style="font-size:0.82rem;color:#fbbf24;text-align:center;">Google sign-in is unavailable right now.</div>';\r
-    return;\r
-  }\r
-\r
-  try {\r
-    google.accounts.id.initialize({\r
-      client_id: clientId,\r
-      callback: (response) => authenticateGoogleCredential(response, { closeModalOnSuccess: true }),\r
-      ux_mode: 'popup',\r
-      cancel_on_tap_outside: true,\r
-    });\r
-\r
-    container.innerHTML = '';\r
-    google.accounts.id.renderButton(container, {\r
-      type: 'standard',\r
-      theme: 'outline',\r
-      size: 'large',\r
-      text: 'continue_with',\r
-      shape: 'rectangular',\r
-      width: Math.min(container.offsetWidth || 360, 360),\r
-    });\r
-  } catch (err) {\r
-    console.warn('Inline Google button error:', err);\r
-    container.innerHTML = '<div style="font-size:0.82rem;color:#f87171;text-align:center;">Google sign-in could not be loaded.</div>';\r
-  }\r
+async function initAuthGoogleButton() {
+  const container = document.getElementById('authGoogleButton');
+  if (!container) return;
+
+  const clientId = await fetchGoogleClientId();
+  if (!clientId) {
+    container.innerHTML = '<div style="font-size:0.82rem;color:#fbbf24;text-align:center;">Google sign-in is unavailable right now.</div>';
+    return;
+  }
+
+  // Create a styled redirect button instead of using GSI popup
+  container.innerHTML = `
+    <button type="button" id="authGoogleRedirectBtn" style="
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      width:100%;max-width:360px;height:44px;border-radius:10px;
+      background:rgba(255,255,255,.04);border:1.5px solid rgba(79,195,247,.22);
+      color:#e2ecff;font-family:'Outfit',sans-serif;font-size:.9rem;font-weight:600;
+      cursor:pointer;transition:all .22s;
+    ">
+      <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+      </svg>
+      Continue with Google
+    </button>
+  `;
+
+  const btn = document.getElementById('authGoogleRedirectBtn');
+  if (btn) {
+    btn.addEventListener('click', () => {
+      btn.disabled = true;
+      btn.textContent = 'Redirecting to Google…';
+
+      const redirectUri = window.location.origin + '/api/auth/google-redirect';
+      const scope = 'openid email profile';
+      const nonce = Math.random().toString(36).substring(2, 15);
+
+      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        response_type: 'id_token',
+        scope: scope,
+        nonce: nonce,
+        response_mode: 'form_post',
+        prompt: 'select_account',
+      }).toString();
+
+      window.location.href = authUrl;
+    });
+
+    btn.addEventListener('mouseenter', () => {
+      btn.style.borderColor = 'rgba(79,195,247,.45)';
+      btn.style.background = 'rgba(255,255,255,.07)';
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.borderColor = 'rgba(79,195,247,.22)';
+      btn.style.background = 'rgba(255,255,255,.04)';
+    });
+  }
 }
 
 // ── Auth Modal ──────────────────────────────────────────────────────────

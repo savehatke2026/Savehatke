@@ -32,6 +32,18 @@ const settingSchema = new mongoose.Schema(
       type: String,
       default: 'rupayandas2024@gmail.com',
     },
+    showActiveUsers: {
+      type: Boolean,
+      default: true,
+    },
+    showCouponsTraded: {
+      type: Boolean,
+      default: true,
+    },
+    showSavedByUsers: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );

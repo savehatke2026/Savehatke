@@ -423,12 +423,11 @@
   })();
 
   /* ══════════════════════════════════════════
-     GOOGLE AUTH
+     GOOGLE AUTH — Redirect Mode (same-page)
   ══════════════════════════════════════════ */
   const LOGIN_PAGE_DEFAULT_GOOGLE_CLIENT_ID = "930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com";
   let loginPageActiveGoogleClientId = LOGIN_PAGE_DEFAULT_GOOGLE_CLIENT_ID;
   let loginPageGoogleInitStarted = false;
-  let tokenClient = null;
 
   async function fetchLoginPageGoogleClientId() {
     try {
@@ -444,21 +443,8 @@
 
   async function initGoogleAuth() {
     if (loginPageGoogleInitStarted) return;
-    const clientId = await fetchLoginPageGoogleClientId();
+    await fetchLoginPageGoogleClientId();
     loginPageGoogleInitStarted = true;
-
-    if (window.google && window.google.accounts) {
-      try {
-        google.accounts.id.initialize({
-          client_id: clientId,
-          callback: handleLoginPageGoogleCredentialResponse,
-          ux_mode: 'popup',
-          cancel_on_tap_outside: true
-        });
-      } catch (err) {
-        console.warn('GSI init error:', err);
-      }
-    }
 
     const btn = document.getElementById('googleSignInBtn');
     if (btn) btn.disabled = false;
@@ -494,72 +480,33 @@
   document.addEventListener('DOMContentLoaded', () => scheduleLoginPageGoogleInit());
   window.addEventListener('load', () => scheduleLoginPageGoogleInit());
 
-  /* ── Google button click handler ── */
+  /* ── Google button click handler — REDIRECT mode (same page) ── */
   function handleGoogleSignIn() {
     const btn = document.getElementById('googleSignInBtn');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="g-spinner"></span><span class="g-btn-text">Signing in with Google&hellip;</span>';
+      btn.innerHTML = '<span class="g-spinner"></span><span class="g-btn-text">Redirecting to Google&hellip;</span>';
     }
 
-    // Use GSI popup mode — no redirect URI needed
-    if (window.google && window.google.accounts && window.google.accounts.id) {
-      google.accounts.id.prompt((notification) => {
-        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-          // Fallback: render a hidden Google button and click it
-          const tempDiv = document.createElement('div');
-          tempDiv.style.position = 'fixed';
-          tempDiv.style.top = '-9999px';
-          document.body.appendChild(tempDiv);
-          google.accounts.id.renderButton(tempDiv, {
-            type: 'standard', size: 'large', text: 'signin_with'
-          });
-          const innerBtn = tempDiv.querySelector('[role="button"]') || tempDiv.querySelector('div[style]') || tempDiv.firstElementChild;
-          if (innerBtn) innerBtn.click();
-          setTimeout(() => tempDiv.remove(), 5000);
-        }
-      });
-    } else {
-      restoreGoogleBtn();
-      showToast('Google Sign-In is not available right now.', 'error');
-    }
-  }
+    const clientId = loginPageActiveGoogleClientId;
 
-  /* ── Google credential callback ── */
-  async function handleLoginPageGoogleCredentialResponse(response) {
-    // Restore button state in case of failure
-    const restoreGoogleBtn = () => {
-      const btn = document.getElementById('googleSignInBtn');
-      if (!btn) return;
-      btn.disabled = false;
-      btn.innerHTML = `
-        <svg class="g-logo" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z" fill="#FBBC05"/>
-          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
-        </svg>
-        <span class="g-btn-text">Continue with Google</span>`;
-    };
-    try {
-      const data = await api('/auth/google', {
-        method: 'POST',
-        body: { credential: response.credential }
-      });
-      Auth.setAuth(data.token, data.user);
-      showToast('Signed in with Google!', 'success');
-      setTimeout(() => {
-        if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-          Auth.setAdminAuth(data.token, data.user);
-          window.location.replace('vault');
-        } else {
-          window.location.replace('index');
-        }
-      }, 800);
-    } catch (err) {
-      restoreGoogleBtn();
-      showToast(err.message || 'Google authentication failed.', 'error');
-    }
+    // Build the Google OAuth2 redirect URL — opens in same tab
+    const redirectUri = window.location.origin + '/api/auth/google-redirect';
+    const scope = 'openid email profile';
+    const nonce = Math.random().toString(36).substring(2, 15);
+
+    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      response_type: 'id_token',
+      scope: scope,
+      nonce: nonce,
+      response_mode: 'form_post',
+      prompt: 'select_account',
+    }).toString();
+
+    // Navigate in the same tab — Google accounts page opens here
+    window.location.href = authUrl;
   }
 
   /* ══════════════════════════════════════════
