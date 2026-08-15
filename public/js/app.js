@@ -284,6 +284,9 @@ function updateNavAuth() {
       });
     }
   } else {
+    // Don't overwrite login page's custom nav-actions (← Home button)
+    const currentPage = window.location.pathname.split('/').pop() || '';
+    if (currentPage === 'login' || currentPage === 'login.html') return;
     navActions.innerHTML = `
       <button type="button" class="btn btn-primary btn-sm" onclick="openAuthModal('login')">Log In</button>
     `;
@@ -494,12 +497,7 @@ function openAuthModal(mode = 'login') {
       }
 
       closeAuthModal();
-      updateNavAuth();
-
-      const currentPage = window.location.pathname.split('/').pop();
-      if (currentPage === 'login.html' || currentPage === 'login') {
-        window.location.href = 'index';
-      }
+      window.location.reload();
     } catch (err) {
       showToast(err.message, 'error');
       btn.disabled = false;

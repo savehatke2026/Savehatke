@@ -421,7 +421,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ DASHBOARD ════════════════ -->
     <div class="section-view active" id="sec-dashboard">
       <div class="page-title-row">
-        <div><div class="page-title">Good morning, <span class="gtext">Admin</span> 👋</div><div class="page-subtitle">Here's what's happening with SaveHatke today.</div></div>
+        <div><div class="page-title" id="adminGreeting">Good morning, <span class="gtext" id="adminNameSpan">Admin</span> 👋</div><div class="page-subtitle">Here's what's happening with SaveHatke today.</div></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-lg" onclick="openSupportCases()">🎧 Support Cases</button>
           <button class="btn btn-primary btn-lg">📊 Export Report</button>
@@ -703,44 +703,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <button class="btn btn-primary btn-lg" onclick="openModal('addAdminModal')">➕ Create Admin in MongoDB Atlas</button>
       </div>
 
-      <div class="card mb-6">
-        <div class="card-title"><span class="ct-icon">👤</span> Add Admin User (MongoDB Atlas)</div>
-        <form id="createAdminForm">
-          <div class="form-grid form-grid-3">
-            <div class="form-group">
-              <label class="form-label" for="newAdminName">Name *</label>
-              <input class="form-input" type="text" id="newAdminName" placeholder="e.g. Rupayan" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="newAdminEmail">Email *</label>
-              <input class="form-input" type="email" id="newAdminEmail" placeholder="e.g. rupayandas2024@gmail.com" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="newAdminPassword">Password *</label>
-              <input class="form-input" type="password" id="newAdminPassword" placeholder="••••••••" required>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="newAdminRole">Role *</label>
-              <select class="form-select" id="newAdminRole" required>
-                <option value="Super Admin">Super Admin</option>
-                <option value="Admin">Admin</option>
-                <option value="Support">Support</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="newAdminPhone">Phone</label>
-              <input class="form-input" type="tel" id="newAdminPhone" placeholder="+91 9876543210">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="newAdminAvatar">Profile Image URL</label>
-              <input class="form-input" type="url" id="newAdminAvatar" placeholder="https://example.com/avatar.jpg">
-            </div>
-          </div>
-          <button type="submit" class="btn btn-primary btn-lg mt-4" id="createAdminBtn">
-            ➕ Save Admin to MongoDB Atlas
-          </button>
-        </form>
-      </div>
 
       <div class="table-card">
         <div class="table-header">
@@ -916,6 +878,31 @@ tbody td strong{color:#e2ecff;font-weight:600}
 <script src="js/admin.js"></script>
 
 <script>
+// ── Time-Based Greeting with Admin First Name ──
+(function initAdminGreeting() {
+  const hour = new Date().getHours();
+  let greeting;
+  if (hour >= 5 && hour < 12) greeting = 'Good morning';
+  else if (hour >= 12 && hour < 17) greeting = 'Good afternoon';
+  else if (hour >= 17 && hour < 21) greeting = 'Good evening';
+  else greeting = 'Good night';
+
+  let firstName = 'Admin';
+  try {
+    const adminUser = Auth.getAdminUser();
+    if (adminUser && adminUser.name) {
+      firstName = adminUser.name.split(' ')[0];
+    }
+  } catch (e) {}
+
+  const greetingEl = document.getElementById('adminGreeting');
+  const nameSpan = document.getElementById('adminNameSpan');
+  if (nameSpan) nameSpan.textContent = firstName;
+  if (greetingEl) {
+    greetingEl.innerHTML = `${greeting}, <span class="gtext" id="adminNameSpan">${firstName}</span> 👋`;
+  }
+})();
+
 // ── Section View Switcher ──
 function showSection(name, el) {
   document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
