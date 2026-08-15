@@ -10,6 +10,8 @@ const { authenticateToken, generateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const emailService = require('../services/emailService');
+const otpService = require('../services/otpService');
+const getClientIP = require('../middleware/getClientIP');
 
 const router = express.Router();
 
@@ -38,13 +40,9 @@ async function createLoginSession(req, userId, loginMethod) {
     const browserStr = browser.name ? `${browser.name}${browser.version ? ' ' + browser.version.split('.')[0] : ''}` : 'Chrome';
 
     // IP address
-    let ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
-      || req.headers['x-real-ip']
-      || req.connection?.remoteAddress
-      || req.ip
-      || '103.15.24.1';
+    let ip = getClientIP(req);
 
-    if (ip === '::1' || ip === '127.0.0.1' || ip.includes('127.0.0.1')) {
+    if (ip === '127.0.0.1' || ip === 'localhost') {
       ip = '103.15.24.1'; // Use sample Indian IP for local testing so Geo-IP succeeds
     }
 
@@ -91,65 +89,9 @@ async function createLoginSession(req, userId, loginMethod) {
   }
 }
 
-// ── OTP Store (In-memory with TTL) ─────────────────────────────────────────────
-// For production, replace with Redis or database storage
-const otpStore = new Map();
-
-// Clean up expired OTPs every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of otpStore.entries()) {
-    if (value.expiresAt < now) {
-      otpStore.delete(key);
-    }
-  }
-}, 5 * 60 * 1000);
-
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-function storeOTP(email, otp) {
-  const cleanEmail = email.toLowerCase().trim();
-  otpStore.set(cleanEmail, {
-    otp,
-    expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
-    attempts: 0,
-  });
-}
-
-function getOTP(email) {
-  const cleanEmail = email.toLowerCase().trim();
-  const entry = otpStore.get(cleanEmail);
-  if (!entry) return null;
-  if (entry.expiresAt < Date.now()) {
-    otpStore.delete(cleanEmail);
-    return null;
-  }
-  return entry;
-}
-
-function verifyOTP(email, otp) {
-  const cleanEmail = email.toLowerCase().trim();
-  const entry = otpStore.get(cleanEmail);
-  if (!entry) return { valid: false, error: 'OTP not found or expired.' };
-  if (entry.expiresAt < Date.now()) {
-    otpStore.delete(cleanEmail);
-    return { valid: false, error: 'OTP has expired. Please request a new one.' };
-  }
-  if (entry.attempts >= 5) {
-    otpStore.delete(cleanEmail);
-    return { valid: false, error: 'Too many failed attempts. Please request a new OTP.' };
-  }
-  if (entry.otp !== otp) {
-    entry.attempts++;
-    return { valid: false, error: 'Invalid OTP. Please try again.' };
-  }
-  otpStore.delete(cleanEmail);
-  return { valid: true };
-}
-
-// POST /api/auth/send-otp — Send real OTP to email for login/registration
+// ── POST /api/auth/send-otp ────────────────────────────────────────────────
+// Send OTP to email with full security: rate limiting, hashing, audit trail.
+// Identity is derived server-side — never trust frontend-supplied userId or IP.
 router.post('/send-otp', async (req, res) => {
   try {
     const { email } = req.body;
@@ -166,12 +108,36 @@ router.post('/send-otp', async (req, res) => {
       return res.status(400).json({ error: 'Please enter a valid email address.' });
     }
 
-    // Generate and store OTP
-    const otp = generateOTP();
-    storeOTP(cleanEmail, otp);
+    // Derive userId server-side (look up existing user, or use a temp ID)
+    let userId = '';
+    try {
+      const existingUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
+      if (existingUser) {
+        userId = existingUser.user_id || existingUser.id || '';
+      }
+    } catch (e) {
+      // User lookup failed — continue with empty userId (new user flow)
+    }
+    if (!userId) {
+      userId = `pending_${Date.now()}`;
+    }
+
+    // Derive IP address server-side
+    const ipAddress = getClientIP(req);
+
+    // Request OTP through the security service
+    const result = await otpService.requestOTP(userId, cleanEmail, ipAddress);
+
+    if (!result.success) {
+      // Return rate-limit errors with 429 status
+      return res.status(429).json({
+        error: result.error,
+        retryAfter: result.retryAfter || undefined,
+      });
+    }
 
     // Send real OTP via Nodemailer email service
-    const emailResult = await emailService.sendOTPEmail(cleanEmail, otp);
+    const emailResult = await emailService.sendOTPEmail(cleanEmail, result.otp);
 
     if (!emailResult.success && !emailResult.isSimulated) {
       console.warn('Email sending failed:', emailResult.error);
@@ -180,7 +146,7 @@ router.post('/send-otp', async (req, res) => {
     res.json({
       message: 'Verification code sent to ' + cleanEmail + '.',
       // In development or if SMTP is simulated, return OTP for easy testing
-      devOtp: process.env.NODE_ENV !== 'production' || emailResult.isSimulated ? otp : undefined,
+      devOtp: process.env.NODE_ENV !== 'production' || emailResult.isSimulated ? result.otp : undefined,
     });
   } catch (err) {
     console.error('Send OTP error:', err);
@@ -188,19 +154,20 @@ router.post('/send-otp', async (req, res) => {
   }
 });
 
-// POST /api/auth/verify-otp — Verify OTP and login/register user
+// ── POST /api/auth/verify-otp ──────────────────────────────────────────────
+// Verify OTP, log the attempt, and create an authenticated session.
 router.post('/verify-otp', async (req, res) => {
   try {
     const { email, otp } = req.body;
 
     if (!email || !otp) {
-      return res.status(400).json({ error: 'Email and OTP are required.' });
+      return res.status(400).json({ error: 'Email and verification code are required.' });
     }
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // Verify OTP
-    const verification = verifyOTP(cleanEmail, otp);
+    // Verify OTP through the security service (handles hash comparison, expiry, attempts)
+    const verification = await otpService.verifyOTP(cleanEmail, otp);
     if (!verification.valid) {
       return res.status(400).json({ error: verification.error });
     }

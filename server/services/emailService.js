@@ -12,35 +12,39 @@ let transporter = null;
  * Creates or retrieves the Nodemailer transporter based on .env config.
  */
 function getTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT, 10) || 587;
-  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
-  const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
-  const service = process.env.EMAIL_SERVICE; // e.g. 'gmail'
+  const user = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const rawPass = (process.env.SMTP_PASS || process.env.EMAIL_PASS || '').trim();
+  const host = (process.env.SMTP_HOST || '').trim();
+  const port = parseInt(process.env.SMTP_PORT, 10) || 465;
+  const service = (process.env.EMAIL_SERVICE || '').trim();
 
-  // If already initialized and config is present, reuse transporter
-  if (transporter) return transporter;
-
-  if (service) {
-    transporter = nodemailer.createTransport({
-      service,
-      auth: { user, pass },
-    });
-    return transporter;
+  if (!user || !rawPass) {
+    return null;
   }
 
-  if (host && user && pass) {
+  // Strip spaces commonly copied from Google App Password UI (e.g. "abcd efgh ijkl mnop")
+  const pass = service.toLowerCase() === 'gmail' || host.includes('gmail')
+    ? rawPass.replace(/\s+/g, '')
+    : rawPass;
+
+  if (service.toLowerCase() === 'gmail') {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass },
+    });
+  }
+
+  if (host) {
     const isSecure = process.env.SMTP_SECURE === 'true' || port === 465;
-    transporter = nodemailer.createTransport({
+    return nodemailer.createTransport({
       host,
       port,
       secure: isSecure,
       auth: { user, pass },
       tls: {
-        rejectUnauthorized: false, // Prevents self-signed certificate failures
+        rejectUnauthorized: false,
       },
     });
-    return transporter;
   }
 
   return null;

@@ -102,6 +102,12 @@ app.get('/api/settings', async (req, res) => {
         }
       } catch (e) {}
     }
+    // Normalize toggle booleans — Google Sheets stores as strings ('true'/'false')
+    // which breaks strict comparison on the frontend. Force-cast to real booleans.
+    const toBool = (v) => v === true || v === 'true';
+    settings.showActiveUsers = toBool(settings.showActiveUsers);
+    settings.showCouponsTraded = toBool(settings.showCouponsTraded);
+    settings.showSavedByUsers = toBool(settings.showSavedByUsers);
 
     res.json({ settings });
   } catch (err) {

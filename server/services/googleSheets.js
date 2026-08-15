@@ -14,15 +14,16 @@ const SHEETS = {
   PRICE_TRACKING: 'PriceTracking',
   SUPPORT_TICKETS: 'SupportTickets',
   SETTINGS: 'Settings',
+  OTP_REQUESTS: 'OTPRequests',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
 const HEADERS = {
   [SHEETS.USERS]: [
     'user_id',
+    'email',
     'name',
     'username',
-    'email',
     'status',
     'created_at',
     'updated_at',
@@ -64,6 +65,12 @@ const HEADERS = {
   ],
   [SHEETS.SETTINGS]: [
     'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'updatedAt',
+  ],
+  [SHEETS.OTP_REQUESTS]: [
+    'id', 'userId', 'email', 'ipAddress', 'otpHash',
+    'requestedAt', 'expiresAt', 'verifiedAt',
+    'status', 'requestNumber', 'dailyRequestCount',
+    'hourlyRequestCount', 'verifyAttempts',
   ],
 };
 
@@ -239,6 +246,7 @@ const memoryDB = {
   [SHEETS.PRICE_TRACKING]: [],
   [SHEETS.SUPPORT_TICKETS]: [],
   [SHEETS.SETTINGS]: [],
+  [SHEETS.OTP_REQUESTS]: [],
 };
 
 function seedDemoData() {
@@ -370,12 +378,16 @@ async function findRows(sheetName, field, value) {
  * Update a row by finding it via a field match and replacing values.
  */
 async function updateRow(sheetName, field, value, updatedData) {
-  if (!sheetsClient) {
-    const arr = memoryDB[sheetName] || [];
-    const idx = arr.findIndex((r) => r[field] === value);
-    if (idx === -1) return null;
+  // Always update memoryDB to guarantee local consistency
+  const arr = memoryDB[sheetName] || [];
+  const idx = arr.findIndex((r) => r[field] === value);
+  if (idx !== -1) {
     arr[idx] = { ...arr[idx], ...updatedData };
-    return arr[idx];
+  }
+
+  if (!sheetsClient) {
+    invalidateCache(sheetName);
+    return idx !== -1 ? arr[idx] : null;
   }
 
   try {
@@ -385,11 +397,17 @@ async function updateRow(sheetName, field, value, updatedData) {
     });
 
     const rows = res.data.values;
-    if (!rows || rows.length <= 1) return null;
+    if (!rows || rows.length <= 1) {
+      invalidateCache(sheetName);
+      return idx !== -1 ? arr[idx] : null;
+    }
 
     const headers = rows[0];
     const fieldIdx = headers.indexOf(field);
-    if (fieldIdx === -1) return null;
+    if (fieldIdx === -1) {
+      invalidateCache(sheetName);
+      return idx !== -1 ? arr[idx] : null;
+    }
 
     // Find the row index (1-indexed, +1 for header)
     let rowIndex = -1;
@@ -400,7 +418,10 @@ async function updateRow(sheetName, field, value, updatedData) {
       }
     }
 
-    if (rowIndex === -1) return null;
+    if (rowIndex === -1) {
+      invalidateCache(sheetName);
+      return idx !== -1 ? arr[idx] : null;
+    }
 
     // Merge existing row with updates
     const existingRow = rows[rowIndex - 1];
@@ -421,12 +442,8 @@ async function updateRow(sheetName, field, value, updatedData) {
     return merged;
   } catch (err) {
     console.warn(`Google Sheets update warning for ${sheetName}:`, err.message);
-    // Fall back to memoryDB
-    const arr = memoryDB[sheetName] || [];
-    const idx = arr.findIndex((r) => r[field] === value);
-    if (idx === -1) return null;
-    arr[idx] = { ...arr[idx], ...updatedData };
-    return arr[idx];
+    invalidateCache(sheetName);
+    return idx !== -1 ? arr[idx] : null;
   }
 }
 
@@ -434,12 +451,16 @@ async function updateRow(sheetName, field, value, updatedData) {
  * Delete a row by finding it via a field match.
  */
 async function deleteRow(sheetName, field, value) {
-  if (!sheetsClient) {
-    const arr = memoryDB[sheetName] || [];
-    const idx = arr.findIndex((r) => r[field] === value);
-    if (idx === -1) return false;
+  // Always update memoryDB
+  const arr = memoryDB[sheetName] || [];
+  const idx = arr.findIndex((r) => r[field] === value);
+  if (idx !== -1) {
     arr.splice(idx, 1);
-    return true;
+  }
+  invalidateCache(sheetName);
+
+  if (!sheetsClient) {
+    return idx !== -1;
   }
 
   try {
