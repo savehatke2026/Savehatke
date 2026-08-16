@@ -13,6 +13,22 @@
   <link rel="dns-prefetch" href="https://accounts.google.com">
   <link rel="dns-prefetch" href="https://www.googleapis.com">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    // Logged-in users never see the login page — always send them to home
+    (function redirectIfLoggedIn() {
+      try {
+        const token = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
+        const userRaw = localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user');
+        if (token && userRaw) {
+          const u = JSON.parse(userRaw);
+          if (u && (u.email || u.id || u.name)) {
+            document.documentElement.style.display = 'none';
+            window.location.replace('index.html');
+          }
+        }
+      } catch (e) {}
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; height: 100%; }

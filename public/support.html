@@ -15,6 +15,24 @@
   <link rel="dns-prefetch" href="https://accounts.google.com">
   <link rel="dns-prefetch" href="https://www.googleapis.com">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script>
+    // Support page is for logged-in users only
+    (function requireLoginForSupport() {
+      let loggedIn = false;
+      try {
+        const token = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
+        const userRaw = localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user');
+        if (token && userRaw) {
+          const u = JSON.parse(userRaw);
+          loggedIn = !!(u && (u.email || u.id || u.name));
+        }
+      } catch (e) {}
+      if (!loggedIn) {
+        document.documentElement.style.display = 'none';
+        window.location.replace('login.html');
+      }
+    })();
+  </script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
@@ -205,6 +223,24 @@
     .npd-item:hover { background:rgba(0,230,118,.12); color:#00e676; }
     .npd-item-logout { color:#ff6b6b; }
     .npd-item-logout:hover { background:rgba(255,80,80,.12); color:#ff8585; }
+
+    /* RECENT CASES */
+    .case-item { padding:16px 0; border-bottom:1px solid rgba(79,195,247,.08); }
+    .case-item:last-child { border-bottom:none; }
+    .case-top { display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:6px; }
+    .case-subject { font-size:.9rem; font-weight:700; color:#e2ecff; }
+    .case-badge { font-size:.62rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:6px; flex-shrink:0; }
+    .case-badge.open { background:rgba(255,183,77,.12); color:#ffb74d; }
+    .case-badge.in-progress { background:rgba(79,195,247,.12); color:#4fc3f7; }
+    .case-badge.resolved { background:rgba(0,230,118,.12); color:#00e676; }
+    .case-badge.closed { background:rgba(206,147,216,.12); color:#ce93d8; }
+    .case-msg { font-size:.82rem; color:#a8c0dc; line-height:1.6; margin-bottom:6px; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .case-time { font-size:.72rem; color:#6b88aa; font-family:'JetBrains Mono',monospace; }
+    .case-empty { text-align:center; padding:40px 10px; color:#6b88aa; }
+    .case-empty .ce-icon { font-size:2.4rem; margin-bottom:10px; opacity:.5; }
+
+    /* READONLY IDENTITY FIELD */
+    .finput[readonly] { opacity:.65; cursor:not-allowed; }
   </style>
 </head>
 <body>
@@ -291,83 +327,13 @@
     <!-- FAQ + Contact Form -->
     <div class="support-grid">
 
-      <!-- FAQ -->
+      <!-- Recent Cases (logged-in user's submitted tickets) -->
       <div class="fu">
-        <h2 class="section-heading">❓ Frequently Asked Questions</h2>
-        <div class="accordion" id="faqAccordion">
-
-          <div class="accordion-item">
-            <button class="accordion-header" onclick="toggleAccordion(this)">
-              How does the coupon marketplace work?
-              <span class="accordion-icon">▼</span>
-            </button>
-            <div class="accordion-body">
-              <div class="accordion-content">
-                SaveHatke connects people who have unused coupons with those who want them. Sellers submit their unused reward codes (from PhonePe, Paytm, etc.) and receive ₹10 per verified coupon. Buyers can browse and purchase these coupons at a fraction of their face value. We verify every code before listing it.
-              </div>
-            </div>
+        <h2 class="section-heading">🗂️ Your Recent Cases</h2>
+        <div class="form-card" style="padding:8px 22px">
+          <div id="recentCasesList">
+            <div class="case-empty"><div class="ce-icon">⏳</div><div style="font-size:.85rem">Loading your cases…</div></div>
           </div>
-
-          <div class="accordion-item">
-            <button class="accordion-header" onclick="toggleAccordion(this)">
-              How much do I get for selling a coupon?
-              <span class="accordion-icon">▼</span>
-            </button>
-            <div class="accordion-body">
-              <div class="accordion-content">
-                We offer a flat rate of ₹10 per verified coupon, regardless of the coupon's face value. Payment is processed within 24 hours of verification. We accept coupons from all major brands and platforms.
-              </div>
-            </div>
-          </div>
-
-          <div class="accordion-item">
-            <button class="accordion-header" onclick="toggleAccordion(this)">
-              Are the coupons guaranteed to work?
-              <span class="accordion-icon">▼</span>
-            </button>
-            <div class="accordion-body">
-              <div class="accordion-content">
-                We verify all paid coupons before listing them. However, some coupons may have expiry dates or usage conditions set by the issuing brand. If a purchased coupon doesn't work, contact our support team for a full refund or replacement.
-              </div>
-            </div>
-          </div>
-
-          <div class="accordion-item">
-            <button class="accordion-header" onclick="toggleAccordion(this)">
-              How does price tracking work?
-              <span class="accordion-icon">▼</span>
-            </button>
-            <div class="accordion-body">
-              <div class="accordion-content">
-                Simply paste a product link from Amazon or Flipkart into your dashboard. We'll monitor the price and notify you when it drops below your target price. You can track multiple products simultaneously. Our upcoming browser extension will provide real-time price comparisons as you shop.
-              </div>
-            </div>
-          </div>
-
-          <div class="accordion-item">
-            <button class="accordion-header" onclick="toggleAccordion(this)">
-              Is my data safe?
-              <span class="accordion-icon">▼</span>
-            </button>
-            <div class="accordion-body">
-              <div class="accordion-content">
-                Yes! We use industry-standard encryption (SSL/TLS) for all data transmission. Your passwords are hashed using bcrypt. We never store or share your coupon codes with unauthorized parties. Read our <a href="privacy.html">Privacy Policy</a> for full details.
-              </div>
-            </div>
-          </div>
-
-          <div class="accordion-item">
-            <button class="accordion-header" onclick="toggleAccordion(this)">
-              What's the refund policy?
-              <span class="accordion-icon">▼</span>
-            </button>
-            <div class="accordion-body">
-              <div class="accordion-content">
-                If a purchased coupon code doesn't work as described, we offer a full refund or replacement within 48 hours of purchase. Contact our support team with your order details and we'll resolve it immediately. See our <a href="terms.html">Terms &amp; Conditions</a> for the complete policy.
-              </div>
-            </div>
-          </div>
-
         </div>
       </div>
 
@@ -408,6 +374,86 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- FAQ (moved below the form section) -->
+    <div class="fu" style="margin-top:64px">
+      <h2 class="section-heading">❓ Frequently Asked Questions</h2>
+      <div class="accordion" id="faqAccordion">
+
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">
+            How does the coupon marketplace work?
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            <div class="accordion-content">
+              SaveHatke connects people who have unused coupons with those who want them. Sellers submit their unused reward codes (from PhonePe, Paytm, etc.) and receive ₹10 per verified coupon. Buyers can browse and purchase these coupons at a fraction of their face value. We verify every code before listing it.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">
+            How much do I get for selling a coupon?
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            <div class="accordion-content">
+              We offer a flat rate of ₹10 per verified coupon, regardless of the coupon's face value. Payment is processed within 24 hours of verification. We accept coupons from all major brands and platforms.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">
+            Are the coupons guaranteed to work?
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            <div class="accordion-content">
+              We verify all paid coupons before listing them. However, some coupons may have expiry dates or usage conditions set by the issuing brand. If a purchased coupon doesn't work, contact our support team for a full refund or replacement.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">
+            How does price tracking work?
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            <div class="accordion-content">
+              Simply paste a product link from Amazon or Flipkart into your dashboard. We'll monitor the price and notify you when it drops below your target price. You can track multiple products simultaneously. Our upcoming browser extension will provide real-time price comparisons as you shop.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">
+            Is my data safe?
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            <div class="accordion-content">
+              Yes! We use industry-standard encryption (SSL/TLS) for all data transmission. Your passwords are hashed using bcrypt. We never store or share your coupon codes with unauthorized parties. Read our <a href="privacy.html">Privacy Policy</a> for full details.
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <button class="accordion-header" onclick="toggleAccordion(this)">
+            What's the refund policy?
+            <span class="accordion-icon">▼</span>
+          </button>
+          <div class="accordion-body">
+            <div class="accordion-content">
+              If a purchased coupon code doesn't work as described, we offer a full refund or replacement within 48 hours of purchase. Contact our support team with your order details and we'll resolve it immediately. See our <a href="terms.html">Terms &amp; Conditions</a> for the complete policy.
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </div>
 </main>
@@ -515,6 +561,70 @@
   }
 
   /* =====================
+     RECENT CASES (logged-in user's tickets)
+  ===================== */
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  }
+
+  function formatCaseDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return iso || '';
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) +
+      ' · ' + d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  async function loadRecentCases() {
+    const list = document.getElementById('recentCasesList');
+    if (!list) return;
+    try {
+      const data = await api('/support/tickets');
+      const tickets = (data.tickets || []).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+      if (!tickets.length) {
+        list.innerHTML = `
+          <div class="case-empty">
+            <div class="ce-icon">📭</div>
+            <div style="font-weight:700;color:#a8c0dc;margin-bottom:4px">No cases yet</div>
+            <div style="font-size:.85rem">Submit your first ticket using the form — we reply within 24 hours.</div>
+          </div>`;
+        return;
+      }
+      list.innerHTML = tickets.slice(0, 6).map(t => `
+        <div class="case-item">
+          <div class="case-top">
+            <span class="case-subject">${escapeHtml(t.subject)}</span>
+            <span class="case-badge ${String(t.status || 'open').toLowerCase().replace(/\s+/g, '-')}">${escapeHtml(t.status || 'open')}</span>
+          </div>
+          <div class="case-msg">${escapeHtml(t.message)}</div>
+          <div class="case-time">🕐 ${formatCaseDate(t.createdAt)}</div>
+        </div>`).join('');
+    } catch (err) {
+      list.innerHTML = `
+        <div class="case-empty">
+          <div class="ce-icon">⚠️</div>
+          <div style="font-size:.85rem">Could not load your cases. Please refresh the page.</div>
+        </div>`;
+    }
+  }
+
+  /* =====================
+     IDENTITY — email locked to the logged-in account
+  ===================== */
+  function initSupportFormIdentity() {
+    let user = null;
+    try { user = JSON.parse(localStorage.getItem('sh_user') || 'null'); } catch (e) {}
+    if (!user) return;
+    const emailInput = document.getElementById('supportEmail');
+    if (emailInput && user.email) {
+      emailInput.value = user.email;
+      emailInput.setAttribute('readonly', '');
+      emailInput.title = 'Tickets are submitted from your logged-in account email';
+    }
+    const nameInput = document.getElementById('supportName');
+    if (nameInput && user.name && !nameInput.value) nameInput.value = user.name;
+  }
+
+  /* =====================
      SUPPORT FORM SUBMIT
   ===================== */
   async function handleSupportSubmit(e) {
@@ -544,6 +654,8 @@
       }
       showToast('✅ Ticket submitted! We\'ll get back to you within 24 hours.', 'success');
       document.getElementById('supportForm').reset();
+      initSupportFormIdentity();
+      loadRecentCases();
     } catch (err) {
       showToast(err.message || 'Something went wrong. Please try again.', 'error');
     } finally {
@@ -573,7 +685,7 @@
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || 'Request failed');
+      throw new Error(err.error || err.message || 'Request failed');
     }
     return res.json();
   }
@@ -696,6 +808,12 @@
 
   // Init nav on load
   if (typeof updateNavAuth === 'function') updateNavAuth();
+
+  // After all scripts (incl. js/app.js) have loaded — Auth is available then
+  window.addEventListener('load', () => {
+    initSupportFormIdentity();
+    loadRecentCases();
+  });
 </script>
 <script src="js/app.js"></script>
 </body>
