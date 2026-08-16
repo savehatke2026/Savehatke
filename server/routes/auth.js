@@ -514,63 +514,82 @@ router.get('/google-config', (req, res) => {
 });
 
 // GET /api/auth/google-redirect — Handle OAuth fragment redirects (#access_token=... or #id_token=...)
-router.get('/google-redirect', (req, res) => {
+// OAuth handoff page — stores auth state and redirects immediately.
+// Renders no visible "logging in" window: just the site background and the
+// same top progress bar every page shows, so the hop reads as a page load.
+function sendAuthHandoff(res, innerScript) {
   res.setHeader('Content-Type', 'text/html');
-  res.send(`
-    <!DOCTYPE html>
-    <html>
-    <head><title>Processing Google Login...</title></head>
-    <body style="font-family:sans-serif;background:#090d16;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-      <div style="text-align:center;">
-        <h2>Processing Google Login...</h2>
-        <script>
-          (async function() {
-            const hash = window.location.hash;
-            if (hash && (hash.includes('id_token=') || hash.includes('access_token='))) {
-              const params = new URLSearchParams(hash.substring(1));
-              const idToken = params.get('id_token');
-              const accessToken = params.get('access_token');
-              try {
-                let payload = {};
-                if (idToken) {
-                  payload = { credential: idToken };
-                } else if (accessToken) {
-                  const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo?access_token=' + accessToken);
-                  const profile = await res.json();
-                  if (profile.email) {
-                    payload = { email: profile.email, name: profile.name, picture: profile.picture };
-                  }
-                }
-                if (payload.credential || payload.email) {
-                  const apiRes = await fetch('/api/auth/google', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                  });
-                  const data = await apiRes.json();
-                  if (data.token && data.user) {
-                    localStorage.setItem('sh_token', data.token);
-                    localStorage.setItem('sh_user', JSON.stringify(data.user));
-                    if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-                      localStorage.setItem('sh_admin_token', data.token);
-                      localStorage.setItem('sh_admin_user', JSON.stringify(data.user));
-                      window.location.replace('/vault');
-                    } else {
-                      window.location.replace('/index');
-                    }
-                    return;
-                  }
-                }
-              } catch(e) {
-                console.error(e);
-              }
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>SaveHatke</title>
+<style>
+  body{background:#060d1f;margin:0;min-height:100vh}
+  #shPageProgressBar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;
+    background:linear-gradient(90deg,#00e676,#4fc3f7);box-shadow:0 0 10px rgba(0,230,118,.6);
+    border-radius:0 3px 3px 0;transition:width .25s ease,opacity .4s ease;opacity:1;pointer-events:none}
+</style>
+</head>
+<body>
+<div id="shPageProgressBar"></div>
+<script>
+(function(){
+  var bar=document.getElementById('shPageProgressBar');
+  requestAnimationFrame(function(){bar.style.width='35%';});
+  setTimeout(function(){bar.style.width='70%';},160);
+})();
+</script>
+<script>${innerScript}</script>
+</body>
+</html>`);
+}
+
+router.get('/google-redirect', (req, res) => {
+  sendAuthHandoff(res, `
+    (async function() {
+      const hash = window.location.hash;
+      if (hash && (hash.includes('id_token=') || hash.includes('access_token='))) {
+        const params = new URLSearchParams(hash.substring(1));
+        const idToken = params.get('id_token');
+        const accessToken = params.get('access_token');
+        try {
+          let payload = {};
+          if (idToken) {
+            payload = { credential: idToken };
+          } else if (accessToken) {
+            const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo?access_token=' + accessToken);
+            const profile = await res.json();
+            if (profile.email) {
+              payload = { email: profile.email, name: profile.name, picture: profile.picture };
             }
-            window.location.replace('/login');
-          })();
-        </script>
-      </div>
-    </body>
-    </html>
+          }
+          if (payload.credential || payload.email) {
+            const apiRes = await fetch('/api/auth/google', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const data = await apiRes.json();
+            if (data.token && data.user) {
+              localStorage.setItem('sh_token', data.token);
+              localStorage.setItem('sh_user', JSON.stringify(data.user));
+              if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+                localStorage.setItem('sh_admin_token', data.token);
+                localStorage.setItem('sh_admin_user', JSON.stringify(data.user));
+                window.location.replace('/vault');
+              } else {
+                window.location.replace('/index');
+              }
+              return;
+            }
+          }
+        } catch(e) {
+          console.error(e);
+        }
+      }
+      window.location.replace('/login');
+    })();
   `);
 });
 
@@ -639,26 +658,14 @@ router.post('/google-redirect', async (req, res) => {
         role: 'admin',
       };
 
-      res.setHeader('Content-Type', 'text/html');
-      return res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head><title>Authenticating...</title></head>
-        <body style="font-family:sans-serif;background:#090d16;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-          <div style="text-align:center;">
-            <h2>Logging you in...</h2>
-            <script>
-              try {
-                localStorage.setItem('sh_token', ${JSON.stringify(token)});
-                localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(adminUser)}));
-                localStorage.setItem('sh_admin_token', ${JSON.stringify(token)});
-                localStorage.setItem('sh_admin_user', JSON.stringify(${JSON.stringify(adminUser)}));
-              } catch(e) {}
-              window.location.replace('/vault');
-            </script>
-          </div>
-        </body>
-        </html>
+      return sendAuthHandoff(res, `
+        try {
+          localStorage.setItem('sh_token', ${JSON.stringify(token)});
+          localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(adminUser)}));
+          localStorage.setItem('sh_admin_token', ${JSON.stringify(token)});
+          localStorage.setItem('sh_admin_user', JSON.stringify(${JSON.stringify(adminUser)}));
+        } catch(e) {}
+        window.location.replace('/vault');
       `);
     }
 
@@ -706,24 +713,12 @@ router.post('/google-redirect', async (req, res) => {
       role: 'user',
     };
 
-    res.setHeader('Content-Type', 'text/html');
-    return res.send(`
-      <!DOCTYPE html>
-      <html>
-      <head><title>Authenticating...</title></head>
-      <body style="font-family:sans-serif;background:#090d16;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
-        <div style="text-align:center;">
-          <h2>Logging you in...</h2>
-          <script>
-            try {
-              localStorage.setItem('sh_token', ${JSON.stringify(token)});
-              localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(regularUser)}));
-            } catch(e) {}
-            window.location.replace('/index');
-          </script>
-        </div>
-      </body>
-      </html>
+    return sendAuthHandoff(res, `
+      try {
+        localStorage.setItem('sh_token', ${JSON.stringify(token)});
+        localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(regularUser)}));
+      } catch(e) {}
+      window.location.replace('/index');
     `);
   } catch (err) {
     console.error('Google redirect handler error:', err);
