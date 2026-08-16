@@ -162,63 +162,18 @@
     .step-content.active { display:block; }
     .step-title { font-family:'DM Serif Display',serif; font-size:1.5rem; color:#e2ecff; margin-bottom:28px; }
 
-    /* ── Category Grid — REDESIGNED ── */
-    .category-grid { display:flex; flex-direction:column; gap:12px; }
-    .cat-btn {
-      display:flex; align-items:center; gap:18px;
-      padding:18px 22px;
-      background:rgba(255,255,255,.03);
-      border:1.5px solid rgba(79,195,247,.12);
-      border-radius:14px;
-      cursor:pointer;
-      text-align:left;
-      transition:all .22s;
-      color:#e2ecff;
-      font-family:'Outfit',sans-serif;
-      position:relative;
-      overflow:hidden;
-      width:100%;
+    /* ── Category Select ── */
+    .cat-select {
+      width:100%; padding:16px 18px; border-radius:12px;
+      background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15);
+      color:#e2ecff; font-family:'Outfit',sans-serif; font-size:1rem;
+      cursor:pointer; outline:none; appearance:none;
+      background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b88aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat:no-repeat; background-position:right 16px center; background-size:18px;
+      transition:border-color .2s, box-shadow .2s;
     }
-    .cat-btn::before {
-      content:'';
-      position:absolute;
-      left:0; top:0; bottom:0;
-      width:3px;
-      background:linear-gradient(180deg,#00e676,#4fc3f7);
-      transform:scaleY(0);
-      transition:transform .3s;
-      transform-origin:top;
-      border-radius:0 2px 2px 0;
-    }
-    .cat-btn:hover { border-color:rgba(0,230,118,.3); transform:translateX(4px); background:rgba(0,230,118,.04); }
-    .cat-btn:hover::before { transform:scaleY(1); }
-    .cat-btn.selected { border-color:#00e676; background:rgba(0,230,118,.08); box-shadow:0 0 0 3px rgba(0,230,118,.1); }
-    .cat-btn.selected::before { transform:scaleY(1); }
-    .cat-icon-wrap {
-      width:48px; height:48px; border-radius:12px;
-      background:rgba(0,230,118,.08);
-      border:1px solid rgba(0,230,118,.15);
-      display:flex; align-items:center; justify-content:center;
-      flex-shrink:0;
-      transition:background .22s, border-color .22s;
-    }
-    .cat-btn:hover .cat-icon-wrap,
-    .cat-btn.selected .cat-icon-wrap {
-      background:rgba(0,230,118,.15);
-      border-color:rgba(0,230,118,.35);
-    }
-    .cat-icon { font-size:1.5rem; line-height:1; }
-    .cat-text { flex:1; }
-    .cat-name { font-weight:700; font-size:.95rem; margin-bottom:3px; }
-    .cat-sub { font-size:.75rem; color:#6b88aa; }
-    .cat-arrow {
-      color:#6b88aa;
-      font-size:1.1rem;
-      flex-shrink:0;
-      transition:color .22s, transform .22s;
-    }
-    .cat-btn:hover .cat-arrow,
-    .cat-btn.selected .cat-arrow { color:#00e676; transform:translateX(3px); }
+    .cat-select:focus { border-color:rgba(0,230,118,.45); box-shadow:0 0 0 3px rgba(0,230,118,.1); }
+    .cat-select option { background:#0c1835; color:#e2ecff; }
 
     /* ── Form Inputs ── */
     .fgroup { margin-bottom:20px; }
@@ -289,8 +244,6 @@
     .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
     .fcol a:hover { color:#00e676; }
     .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
-    .fbot-link { color:#6b88aa; transition:color .2s; }
-    .fbot-link:hover { color:#00e676; }
     @media(max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;gap:32px} }
     @media(max-width:600px){ .footer-grid{grid-template-columns:1fr} .fbot{flex-direction:column;gap:8px;text-align:center} }
 
@@ -514,39 +467,36 @@
   <div class="container">
     <div class="footer-grid">
       <div class="fbrand">
-        <a href="index.html" class="nav-brand" style="font-size:1.2rem">
+        <a href="index" class="nav-brand" style="font-size:1.2rem">
           <div class="brand-icon">💰</div><span class="brand-name">Save<span class="bhl">Hatke</span></span>
         </a>
         <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
       </div>
       <div class="fcol">
         <h4>Platform</h4>
-        <a href="marketplace.html">Coupon Marketplace</a>
-        <a href="sell.html">Sell Coupons</a>
-        <a href="dashboard.html">Price Tracker</a>
+        <a href="marketplace">Coupon Marketplace</a>
+        <a href="sell">Sell Coupons</a>
+        <a href="dashboard">Price Tracker</a>
+        <a href="index#extension">Browser Extension</a>
       </div>
       <div class="fcol">
         <h4>Company</h4>
-        <a href="support.html">Help Center</a>
-        <a href="support.html">Contact Us</a>
-        <a href="terms.html">Terms &amp; Conditions</a>
-        <a href="privacy.html">Privacy Policy</a>
+        <a href="support">Help Center</a>
+        <a href="support">Contact Us</a>
+        <a href="terms">Terms &amp; Conditions</a>
+        <a href="privacy">Privacy Policy</a>
       </div>
       <div class="fcol">
         <h4>Categories</h4>
-        <a href="marketplace.html?cat=Makeup">Makeup Coupons</a>
-        <a href="marketplace.html?cat=Electronics">Electronics Deals</a>
-        <a href="marketplace.html?cat=Fashion">Fashion Codes</a>
-        <a href="marketplace.html?cat=Food">Food &amp; Delivery</a>
+        <a href="marketplace?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace?cat=Food">Food &amp; Delivery</a>
       </div>
     </div>
     <div class="fbot">
       <span>© 2026 SaveHatke. All rights reserved.</span>
-      <span>Made with ❤️ in India ·
-        <a href="terms.html" class="fbot-link">Terms</a> ·
-        <a href="privacy.html" class="fbot-link">Privacy</a> ·
-        <a href="support.html" class="fbot-link">Support</a>
-      </span>
+      <span>Made with ❤️ in India</span>
     </div>
   </div>
 </footer>
@@ -839,11 +789,11 @@ function buildReviewSummary() {
 }
 
 /* ── Category select ── */
-function selectCategory(btn) {
-  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedCategory = btn.dataset.cat;
-  setTimeout(() => goToStep(2), 300);
+function selectCategory(sel) {
+  selectedCategory = sel.value;
+  if (selectedCategory) {
+    setTimeout(() => goToStep(2), 300);
+  }
 }
 
 /* ── Step navigation ── */
@@ -950,7 +900,8 @@ function resetForm() {
   addCoupon();
 
   // Reset category
-  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  const catSelect = document.getElementById('categorySelect');
+  if (catSelect) catSelect.value = '';
 
   // Reset steps
   document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));

@@ -129,9 +129,7 @@
     @media(max-width:560px){.coupon-grid{grid-template-columns:1fr}}
 
     .coupon-card { padding:24px; border-radius:16px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); transition:all .3s; cursor:pointer; position:relative; overflow:hidden; }
-    .coupon-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transition:transform .3s; transform-origin:left; }
     .coupon-card:hover { border-color:rgba(0,230,118,.28); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.35); }
-    .coupon-card:hover::before { transform:scaleX(1); }
     .ctop { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
     .cbrand { font-weight:800; font-size:1.02rem; }
     .coff { font-family:'JetBrains Mono',monospace; font-size:1.05rem; font-weight:700; color:#00e676; }

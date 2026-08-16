@@ -220,12 +220,15 @@
     .trust-item { display:inline-flex; align-items:center; gap:10px; padding:0 40px; font-size:.82rem; font-weight:600; color:#a8c0dc; border-right:1px solid rgba(79,195,247,.1); }
 
     /* FOOTER */
-    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:40px 0; }
-    .footer-inner { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; }
-    .footer-links { display:flex; gap:24px; flex-wrap:wrap; }
-    .footer-links a { font-size:.82rem; color:#6b88aa; transition:color .2s; }
-    .footer-links a:hover { color:#00e676; }
-    .footer-copy { font-size:.82rem; color:#6b88aa; }
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; padding-bottom:52px; }
+    .fbrand p { font-size:.88rem; color:#6b88aa; line-height:1.7; margin-top:16px; max-width:280px; }
+    .fcol h4 { font-size:.8rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:20px; }
+    .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
+    .fcol a:hover { color:#00e676; }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
+    @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:32px}}
+    @media(max-width:600px){.footer-grid{grid-template-columns:1fr}.fbot{flex-direction:column;gap:8px;text-align:center}}
 
     /* PROFILE AVATAR & DROPDOWN */
     .nav-profile-wrapper { position:relative; display:inline-block; }
@@ -516,18 +519,38 @@
 <!-- FOOTER -->
 <footer class="footer">
   <div class="container">
-    <div class="footer-inner">
-      <a href="index.html" class="nav-brand" style="font-size:1.1rem">
-        <div class="brand-icon" style="width:28px;height:28px;font-size:.85rem">💰</div>
-        <span class="brand-name">Save<span class="bhl">Hatke</span></span>
-      </a>
-      <div class="footer-links">
-        <a href="terms.html">Terms &amp; Conditions</a>
-        <a href="privacy.html">Privacy Policy</a>
-        <a href="support.html">Help Center</a>
-        <a href="marketplace.html">Coupons</a>
+    <div class="footer-grid">
+      <div class="fbrand">
+        <a href="index" class="nav-brand" style="font-size:1.2rem">
+          <div class="brand-icon">💰</div><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+        </a>
+        <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
       </div>
-      <div class="footer-copy">© 2026 SaveHatke. Made with ❤️ in India</div>
+      <div class="fcol">
+        <h4>Platform</h4>
+        <a href="marketplace">Coupon Marketplace</a>
+        <a href="sell">Sell Coupons</a>
+        <a href="dashboard">Price Tracker</a>
+        <a href="index#extension">Browser Extension</a>
+      </div>
+      <div class="fcol">
+        <h4>Company</h4>
+        <a href="support">Help Center</a>
+        <a href="support">Contact Us</a>
+        <a href="terms">Terms &amp; Conditions</a>
+        <a href="privacy">Privacy Policy</a>
+      </div>
+      <div class="fcol">
+        <h4>Categories</h4>
+        <a href="marketplace?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace?cat=Food">Food &amp; Delivery</a>
+      </div>
+    </div>
+    <div class="fbot">
+      <span>© 2026 SaveHatke. All rights reserved.</span>
+      <span>Made with ❤️ in India</span>
     </div>
   </div>
 </footer>
