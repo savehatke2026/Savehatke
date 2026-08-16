@@ -64,7 +64,7 @@ const HEADERS = {
     'status', 'createdAt', 'resolvedAt', 'attachmentUrl', 'attachmentName',
   ],
   [SHEETS.SETTINGS]: [
-    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'updatedAt',
+    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'heroBadge', 'showHeroBadge', 'updatedAt',
   ],
   [SHEETS.OTP_REQUESTS]: [
     'id', 'userId', 'email', 'ipAddress', 'otpHash',
@@ -658,6 +658,8 @@ async function getSettings() {
     showActiveUsers: true,
     showCouponsTraded: true,
     showSavedByUsers: true,
+    heroBadge: "🚀 India's #1 Coupon Marketplace — Now Live!",
+    showHeroBadge: true,
     updatedAt: new Date().toISOString(),
   };
 
@@ -670,6 +672,7 @@ async function getSettings() {
         showActiveUsers: toSettingBool(existing.showActiveUsers),
         showCouponsTraded: toSettingBool(existing.showCouponsTraded),
         showSavedByUsers: toSettingBool(existing.showSavedByUsers),
+        showHeroBadge: toSettingBool(existing.showHeroBadge),
       };
     }
   } catch (err) {
@@ -694,6 +697,8 @@ async function saveSettings(data) {
     showActiveUsers: data.showActiveUsers !== undefined ? String(Boolean(data.showActiveUsers)) : 'true',
     showCouponsTraded: data.showCouponsTraded !== undefined ? String(Boolean(data.showCouponsTraded)) : 'true',
     showSavedByUsers: data.showSavedByUsers !== undefined ? String(Boolean(data.showSavedByUsers)) : 'true',
+    heroBadge: data.heroBadge !== undefined ? String(data.heroBadge).slice(0, 120) : "🚀 India's #1 Coupon Marketplace — Now Live!",
+    showHeroBadge: data.showHeroBadge !== undefined ? String(Boolean(data.showHeroBadge)) : 'true',
     updatedAt: new Date().toISOString(),
   };
 

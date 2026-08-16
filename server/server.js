@@ -98,6 +98,8 @@ app.get('/api/settings', async (req, res) => {
             showActiveUsers: mongoSetting.showActiveUsers !== undefined ? mongoSetting.showActiveUsers : settings.showActiveUsers,
             showCouponsTraded: mongoSetting.showCouponsTraded !== undefined ? mongoSetting.showCouponsTraded : settings.showCouponsTraded,
             showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
+            heroBadge: mongoSetting.heroBadge || settings.heroBadge,
+            showHeroBadge: mongoSetting.showHeroBadge !== undefined ? mongoSetting.showHeroBadge : settings.showHeroBadge,
           };
         }
       } catch (e) {}
@@ -108,6 +110,7 @@ app.get('/api/settings', async (req, res) => {
     settings.showActiveUsers = toBool(settings.showActiveUsers);
     settings.showCouponsTraded = toBool(settings.showCouponsTraded);
     settings.showSavedByUsers = toBool(settings.showSavedByUsers);
+    settings.showHeroBadge = toBool(settings.showHeroBadge);
 
     res.json({ settings });
   } catch (err) {
@@ -122,6 +125,8 @@ app.get('/api/settings', async (req, res) => {
         showActiveUsers: true,
         showCouponsTraded: true,
         showSavedByUsers: true,
+        heroBadge: "🚀 India's #1 Coupon Marketplace — Now Live!",
+        showHeroBadge: true,
       },
     });
   }

@@ -769,6 +769,8 @@ async function loadSystemSettings() {
       if (document.getElementById('toggleActiveUsers')) document.getElementById('toggleActiveUsers').checked = s.showActiveUsers !== false;
       if (document.getElementById('toggleCouponsTraded')) document.getElementById('toggleCouponsTraded').checked = s.showCouponsTraded !== false;
       if (document.getElementById('toggleSavedByUsers')) document.getElementById('toggleSavedByUsers').checked = s.showSavedByUsers !== false;
+      if (document.getElementById('setHeroBadge')) document.getElementById('setHeroBadge').value = s.heroBadge || "🚀 India's #1 Coupon Marketplace — Now Live!";
+      if (document.getElementById('toggleHeroBadge')) document.getElementById('toggleHeroBadge').checked = s.showHeroBadge !== false;
     }
   } catch (err) {
     console.warn('Failed to load system settings:', err.message);
@@ -792,6 +794,8 @@ async function saveSystemSettings() {
     const showActiveUsers = document.getElementById('toggleActiveUsers')?.checked !== false;
     const showCouponsTraded = document.getElementById('toggleCouponsTraded')?.checked !== false;
     const showSavedByUsers = document.getElementById('toggleSavedByUsers')?.checked !== false;
+    const heroBadge = document.getElementById('setHeroBadge')?.value?.trim() || "🚀 India's #1 Coupon Marketplace — Now Live!";
+    const showHeroBadge = document.getElementById('toggleHeroBadge')?.checked !== false;
 
     const data = await api('/admin/settings', {
       method: 'PUT',
@@ -805,6 +809,8 @@ async function saveSystemSettings() {
         showActiveUsers,
         showCouponsTraded,
         showSavedByUsers,
+        heroBadge,
+        showHeroBadge,
       },
     });
 

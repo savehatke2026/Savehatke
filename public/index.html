@@ -291,7 +291,7 @@
   <div class="container">
     <div class="hero-inner">
       <div class="fu in">
-        <div class="hero-badge">🚀 India's #1 Coupon Marketplace — Now Live!</div>
+        <div class="hero-badge" id="heroBadge">🚀 India's #1 Coupon Marketplace — Now Live!</div>
         <h1 class="hero-title">
           Save Smarter.<br>
           <span class="shimmer">Shop Hatke.</span>
@@ -778,6 +778,17 @@
           const s = data.settings;
           // Helper: treat both boolean false and string 'false' as hidden
           const isVisible = (val) => val !== false && val !== 'false' && val !== 0 && val !== '0';
+
+          // Hero badge (top announcement pill)
+          const heroBadgeEl = document.getElementById('heroBadge');
+          if (heroBadgeEl) {
+            if (isVisible(s.showHeroBadge)) {
+              if (s.heroBadge) heroBadgeEl.textContent = s.heroBadge;
+              heroBadgeEl.style.display = '';
+            } else {
+              heroBadgeEl.style.display = 'none';
+            }
+          }
 
           // Active Users
           const activeUsersEl = document.getElementById('stat-active-users');

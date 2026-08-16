@@ -635,6 +635,8 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
             showActiveUsers: mongoSetting.showActiveUsers !== undefined ? mongoSetting.showActiveUsers : settings.showActiveUsers,
             showCouponsTraded: mongoSetting.showCouponsTraded !== undefined ? mongoSetting.showCouponsTraded : settings.showCouponsTraded,
             showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
+            heroBadge: mongoSetting.heroBadge || settings.heroBadge,
+            showHeroBadge: mongoSetting.showHeroBadge !== undefined ? mongoSetting.showHeroBadge : settings.showHeroBadge,
           };
         }
       } catch (e) {}
@@ -653,6 +655,8 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
         showActiveUsers: true,
         showCouponsTraded: true,
         showSavedByUsers: true,
+        heroBadge: "🚀 India's #1 Coupon Marketplace — Now Live!",
+        showHeroBadge: true,
       },
     });
   }
@@ -661,7 +665,7 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
 // PUT /api/admin/settings — Update system settings (saved to Google Sheets & MongoDB)
 router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers } = req.body;
+    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers, heroBadge, showHeroBadge } = req.body;
 
     const payload = {
       activeUsers: activeUsers ? String(activeUsers).trim() : '10K+',
@@ -672,6 +676,8 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
       showActiveUsers: showActiveUsers !== undefined ? Boolean(showActiveUsers) : true,
       showCouponsTraded: showCouponsTraded !== undefined ? Boolean(showCouponsTraded) : true,
       showSavedByUsers: showSavedByUsers !== undefined ? Boolean(showSavedByUsers) : true,
+      heroBadge: heroBadge !== undefined ? String(heroBadge).trim().slice(0, 120) : "🚀 India's #1 Coupon Marketplace — Now Live!",
+      showHeroBadge: showHeroBadge !== undefined ? Boolean(showHeroBadge) : true,
     };
 
     // 1. Save to Google Sheets / memoryDB
