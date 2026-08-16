@@ -634,7 +634,26 @@ function requireAuth() {
 }
 
 // ── Floating Green Particles ────────────────────────────────────────────
+// Self-contained: injects its own styles so the green particles render on
+// every page, even ones without local .particle CSS.
 function initParticles() {
+  if (!document.getElementById('shParticlesStyle')) {
+    const style = document.createElement('style');
+    style.id = 'shParticlesStyle';
+    style.textContent = `
+      .particles{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
+      .particle{position:absolute;width:3px;height:3px;background:#00e676;border-radius:50%;opacity:0;
+        animation:shParticleFloat linear infinite;box-shadow:0 0 8px #00e676}
+      @keyframes shParticleFloat{
+        0%{transform:translateY(100vh) scale(0);opacity:0}
+        20%{opacity:.6}
+        80%{opacity:.3}
+        100%{transform:translateY(-100px) scale(1.2);opacity:0}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   let containers = document.querySelectorAll('.particles');
   if (containers.length === 0) {
     const parent = document.querySelector('.hero') || document.querySelector('.page-hero') || document.querySelector('.page') || document.querySelector('main') || document.body;
