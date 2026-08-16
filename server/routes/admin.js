@@ -579,6 +579,8 @@ router.get('/support-cases', authenticateToken, requireAdmin, async (req, res) =
       status: normStatus(t.status),
       createdAt: t.createdAt || '',
       resolvedAt: t.resolvedAt || '',
+      attachmentUrl: t.attachmentUrl || '',
+      attachmentName: t.attachmentName || '',
     })).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
 
     const counts = { total: list.length, open: 0, inprogress: 0, resolved: 0, closed: 0 };

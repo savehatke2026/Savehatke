@@ -15,6 +15,35 @@ document.addEventListener('DOMContentLoaded', () => {
   initSupportForm();
 });
 
+const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB
+const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
+
+// Read a File as base64 (without the data: prefix)
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('Could not read the file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadAttachment(file) {
+  if (file.size > ATTACHMENT_MAX_BYTES) {
+    throw new Error('Attachment is too large. Maximum size is 3MB.');
+  }
+  const type = (file.type || '').toLowerCase();
+  if (!ATTACHMENT_ALLOWED_TYPES.includes(type)) {
+    throw new Error('Unsupported file type. Allowed: PNG, JPG, WEBP, GIF, PDF, TXT.');
+  }
+  const dataBase64 = await fileToBase64(file);
+  const data = await api('/support/attachment', {
+    method: 'POST',
+    body: { filename: file.name, contentType: file.type, dataBase64 },
+  });
+  return data; // { url, path, name }
+}
+
 function initSupportForm() {
   const form = document.getElementById('supportForm');
   if (!form) return;
@@ -23,9 +52,23 @@ function initSupportForm() {
     e.preventDefault();
     const btn = document.getElementById('supportSubmitBtn');
     btn.disabled = true;
-    btn.textContent = 'Submitting...';
+
+    const fileInput = document.getElementById('supportAttachment');
+    const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+    let attachment = null;
 
     try {
+      // Upload the attachment first (if any); ticket still submits without it on failure
+      if (file) {
+        btn.textContent = 'Uploading attachment…';
+        try {
+          attachment = await uploadAttachment(file);
+        } catch (err) {
+          showToast(err.message + ' — submitting ticket without attachment.', 'warning', 6000);
+        }
+      }
+
+      btn.textContent = 'Submitting...';
       const data = await api('/support/ticket', {
         method: 'POST',
         body: {
@@ -33,6 +76,8 @@ function initSupportForm() {
           email: document.getElementById('supportEmail').value.trim(),
           subject: document.getElementById('supportSubject').value,
           message: document.getElementById('supportMessage').value.trim(),
+          attachmentUrl: attachment ? attachment.url : '',
+          attachmentName: attachment ? attachment.name : '',
         },
       });
 

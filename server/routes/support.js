@@ -9,13 +9,77 @@ const db = require('../services/googleSheets');
 
 const router = express.Router();
 
+const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB
+const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
+const ATTACHMENT_BUCKET = 'support-attachments';
+
+// POST /api/support/attachment — Upload a support ticket attachment to Supabase Storage
+router.post('/attachment', optionalAuth, async (req, res) => {
+  try {
+    const { filename, contentType, dataBase64 } = req.body;
+
+    if (!dataBase64 || !filename) {
+      return res.status(400).json({ error: 'filename and dataBase64 are required.' });
+    }
+    const type = String(contentType || '').toLowerCase().split(';')[0].trim();
+    if (!ATTACHMENT_ALLOWED_TYPES.includes(type)) {
+      return res.status(400).json({ error: 'Unsupported file type. Allowed: PNG, JPG, WEBP, GIF, PDF, TXT.' });
+    }
+
+    const buffer = Buffer.from(dataBase64, 'base64');
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ error: 'File could not be read.' });
+    }
+    if (buffer.length > ATTACHMENT_MAX_BYTES) {
+      return res.status(400).json({ error: 'File is too large. Maximum size is 3MB.' });
+    }
+
+    const supabase = require('../services/supabase').getClient();
+    if (!supabase) {
+      return res.status(503).json({ error: 'Attachment uploads are temporarily unavailable.' });
+    }
+
+    // Ensure the bucket exists (created once, then reused)
+    const buckets = await supabase.storage.listBuckets();
+    const exists = (buckets.data || []).some((b) => b.name === ATTACHMENT_BUCKET);
+    if (!exists) {
+      const created = await supabase.storage.createBucket(ATTACHMENT_BUCKET, { public: true });
+      if (created.error) throw new Error(created.error.message);
+    }
+
+    const ext = (String(filename).match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
+    const safeName = String(filename).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+    const path = `tickets/${uuidv4()}-${safeName || 'attachment' + ext}`;
+
+    const upload = await supabase.storage
+      .from(ATTACHMENT_BUCKET)
+      .upload(path, buffer, { contentType: type, upsert: false });
+    if (upload.error) throw new Error(upload.error.message);
+
+    const { data: urlData } = supabase.storage.from(ATTACHMENT_BUCKET).getPublicUrl(path);
+    res.status(201).json({ url: urlData.publicUrl, path, name: filename });
+  } catch (err) {
+    console.error('Support attachment error:', err);
+    res.status(500).json({ error: 'Failed to upload attachment.' });
+  }
+});
+
 // POST /api/support/ticket — Submit a support ticket
 router.post('/ticket', optionalAuth, async (req, res) => {
   try {
-    const { name, email, subject, message } = req.body;
+    const { name, email, subject, message, attachmentUrl, attachmentName } = req.body;
 
     if (!name || !email || !subject || !message) {
       return res.status(400).json({ error: 'All fields are required: name, email, subject, message.' });
+    }
+
+    // Only accept attachment URLs that point at our own storage
+    let safeAttachmentUrl = '';
+    if (attachmentUrl) {
+      const supabaseUrl = process.env.SUPABASE_URL || '';
+      if (supabaseUrl && String(attachmentUrl).startsWith(supabaseUrl + '/storage/')) {
+        safeAttachmentUrl = String(attachmentUrl).slice(0, 500);
+      }
     }
 
     const storageError = db.getWriteAvailabilityError(
@@ -34,6 +98,8 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       status: 'open',
       createdAt: new Date().toISOString(),
       resolvedAt: '',
+      attachmentUrl: safeAttachmentUrl,
+      attachmentName: attachmentName ? String(attachmentName).slice(0, 120) : '',
     };
 
     await db.appendRow(db.SHEETS.SUPPORT_TICKETS, ticket);
@@ -70,6 +136,8 @@ router.get('/tickets', optionalAuth, async (req, res) => {
         status: t.status,
         createdAt: t.createdAt,
         resolvedAt: t.resolvedAt,
+        attachmentUrl: t.attachmentUrl || '',
+        attachmentName: t.attachmentName || '',
       })),
     });
   } catch (err) {

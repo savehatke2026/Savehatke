@@ -135,7 +135,7 @@
     .contact-val a:hover { color:#00e676; }
 
     /* TWO-COLUMN LAYOUT */
-    .support-grid { display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:flex-start; }
+    .support-grid { display:grid; grid-template-columns:1fr 1fr; gap:40px; align-items:stretch; }
     @media(max-width:900px){ .support-grid{grid-template-columns:1fr} }
 
     /* SECTION HEADINGS */
@@ -328,9 +328,9 @@
     <div class="support-grid">
 
       <!-- Recent Cases (logged-in user's submitted tickets) -->
-      <div class="fu">
+      <div class="fu" style="display:flex;flex-direction:column">
         <h2 class="section-heading">🗂️ Your Recent Cases</h2>
-        <div class="form-card">
+        <div class="form-card" style="flex:1">
           <div id="recentCasesList">
             <div class="case-empty"><div class="ce-icon">⏳</div><div style="font-size:.85rem">Loading your cases…</div></div>
           </div>
@@ -366,6 +366,11 @@
             <div class="fgroup">
               <label class="flabel" for="supportMessage">Message *</label>
               <textarea class="ftextarea" id="supportMessage" placeholder="Describe your issue or question in detail..." required></textarea>
+            </div>
+            <div class="fgroup">
+              <label class="flabel" for="supportAttachment">📎 Attachment (optional)</label>
+              <input type="file" class="finput" id="supportAttachment" accept=".png,.jpg,.jpeg,.webp,.gif,.pdf,.txt" style="padding:9px 15px">
+              <small style="display:block;margin-top:6px;color:#6b88aa;font-size:.74rem">Screenshot or document (PNG, JPG, WEBP, GIF, PDF, TXT) — max 3MB</small>
             </div>
             <button type="submit" class="btn btn-primary btn-lg w-full fsubmit" id="supportSubmitBtn">
               📨 Submit Ticket

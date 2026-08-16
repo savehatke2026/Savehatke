@@ -1572,6 +1572,7 @@ function viewCase(id) {
     <div class="detail-meta-item"><div class="detail-meta-label">User</div><div class="detail-meta-value">${esc(c.user)} (${esc(c.email || '—')})</div></div>
     <div class="detail-meta-item"><div class="detail-meta-label">Submitted</div><div class="detail-meta-value">${fmtDT(c.createdAt)}</div></div>
     <div class="detail-meta-item"><div class="detail-meta-label">Resolved At</div><div class="detail-meta-value">${fmtDT(c.resolvedAt)}</div></div>
+    ${c.attachmentUrl ? `<div class="detail-meta-item"><div class="detail-meta-label">Attachment</div><div class="detail-meta-value"><a href="${esc(c.attachmentUrl)}" target="_blank" rel="noopener noreferrer" style="color:#4fc3f7;text-decoration:underline">📎 ${esc(c.attachmentName || 'View file')}</a></div></div>` : ''}
   `;
 
   document.getElementById('vcMessages').innerHTML = `
