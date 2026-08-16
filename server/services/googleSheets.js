@@ -512,7 +512,9 @@ async function updateRow(sheetName, field, value, updatedData) {
       if (String(h).trim() !== '' || v !== '') merged[h] = v;
     });
 
-    const newRow = headers.map((h) => merged[h] || '');
+    // Keep falsy values (false, 0) — `merged[h] || ''` used to wipe a `false`
+    // toggle into an empty cell, which read back as the default (true).
+    const newRow = headers.map((h) => (merged[h] === undefined || merged[h] === null ? '' : merged[h]));
     await sheetsClient.spreadsheets.values.update({
       spreadsheetId,
       range: `${sheetName}!A${rowIndex}`,
@@ -687,9 +689,11 @@ async function saveSettings(data) {
     savedByUsers: data.savedByUsers || '₹2L+',
     platformName: data.platformName || 'SaveHatke',
     adminEmail: data.adminEmail || 'rupayandas2024@gmail.com',
-    showActiveUsers: data.showActiveUsers !== undefined ? Boolean(data.showActiveUsers) : true,
-    showCouponsTraded: data.showCouponsTraded !== undefined ? Boolean(data.showCouponsTraded) : true,
-    showSavedByUsers: data.showSavedByUsers !== undefined ? Boolean(data.showSavedByUsers) : true,
+    // Store toggles as 'true'/'false' strings: RAW sheet writes of booleans
+    // are ambiguous and empty-string cells read back as the default (true).
+    showActiveUsers: data.showActiveUsers !== undefined ? String(Boolean(data.showActiveUsers)) : 'true',
+    showCouponsTraded: data.showCouponsTraded !== undefined ? String(Boolean(data.showCouponsTraded)) : 'true',
+    showSavedByUsers: data.showSavedByUsers !== undefined ? String(Boolean(data.showSavedByUsers)) : 'true',
     updatedAt: new Date().toISOString(),
   };
 
