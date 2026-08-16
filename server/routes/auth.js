@@ -549,7 +549,7 @@ router.get('/google-redirect', (req, res) => {
                   });
                   const data = await apiRes.json();
                   if (data.token && data.user) {
-                    localStorage.setItem('sh_auth_token', data.token);
+                    localStorage.setItem('sh_token', data.token);
                     localStorage.setItem('sh_user', JSON.stringify(data.user));
                     if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
                       localStorage.setItem('sh_admin_token', data.token);
@@ -649,7 +649,7 @@ router.post('/google-redirect', async (req, res) => {
             <h2>Logging you in...</h2>
             <script>
               try {
-                localStorage.setItem('sh_auth_token', ${JSON.stringify(token)});
+                localStorage.setItem('sh_token', ${JSON.stringify(token)});
                 localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(adminUser)}));
                 localStorage.setItem('sh_admin_token', ${JSON.stringify(token)});
                 localStorage.setItem('sh_admin_user', JSON.stringify(${JSON.stringify(adminUser)}));
@@ -716,7 +716,7 @@ router.post('/google-redirect', async (req, res) => {
           <h2>Logging you in...</h2>
           <script>
             try {
-              localStorage.setItem('sh_auth_token', ${JSON.stringify(token)});
+              localStorage.setItem('sh_token', ${JSON.stringify(token)});
               localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(regularUser)}));
             } catch(e) {}
             window.location.replace('/index');

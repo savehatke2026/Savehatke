@@ -59,6 +59,23 @@
       .nav-actions.open{display:flex;position:absolute;top:220px;right:24px;flex-direction:column;gap:10px;z-index:99}
     }
 
+    /* ── Nav Profile (logged-in state) ── */
+    .nav-profile-wrapper { position:relative; display:inline-block; }
+    .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00e676; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,230,118,.35); outline:none; overflow:hidden; }
+    .nav-profile-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(0,230,118,.65); border-color:#4fc3f7; }
+    .nav-profile-btn img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .nav-profile-dropdown { position:absolute; top:calc(100% + 12px); right:0; width:230px; background:rgba(12,24,53,.96); backdrop-filter:blur(20px); border:1px solid rgba(79,195,247,.25); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.65); padding:10px; display:none; flex-direction:column; gap:6px; z-index:1000; }
+    .nav-profile-dropdown.active { display:flex; }
+    .npd-header { display:flex; align-items:center; gap:10px; padding:8px 10px 10px; border-bottom:1px solid rgba(79,195,247,.12); margin-bottom:4px; }
+    .npd-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+    .npd-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .npd-name { font-weight:700; font-size:.88rem; color:#e2ecff; }
+    .npd-email { font-size:.75rem; color:#6b88aa; }
+    .npd-item { display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; font-size:.84rem; font-weight:600; color:#a8c0dc; cursor:pointer; transition:all .18s; background:none; border:none; font-family:'Outfit',sans-serif; width:100%; text-align:left; text-decoration:none; }
+    .npd-item:hover { background:rgba(79,195,247,.08); color:#e2ecff; }
+    .npd-item-logout { color:#ef9a9a; }
+    .npd-item-logout:hover { background:rgba(239,68,68,.1); color:#f87171; }
+
     /* PAGE HERO */
     .page-hero {
       padding: 140px 0 72px;
@@ -271,10 +288,7 @@
       <a href="sell">Sell Coupons</a>
       <a href="support">Support</a>
     </div>
-    <div class="nav-actions" id="navActions">
-      <a href="login" class="btn btn-ghost btn-sm">Log In</a>
-      <a href="login?mode=register" class="btn btn-primary btn-sm">Sign Up Free</a>
-    </div>
+    <div class="nav-actions" id="navActions"></div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
       <span></span><span></span><span></span>
     </button>

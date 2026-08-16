@@ -32,17 +32,6 @@
       return;
     }
 
-    // 2. Must be accessed via vault.html
-    const referrer = document.referrer.toLowerCase();
-    const isFromVault = referrer.includes('vault') || sessionStorage.getItem('sh_vault_accessed') === 'true';
-
-    if (!isFromVault) {
-      alert('🔒 Access Denied: Support Cases can only be accessed through Vault.');
-      window.location.replace('vault');
-      return;
-    }
-
-    // Keep vault access active for session navigation within support cases
     sessionStorage.setItem('sh_vault_accessed', 'true');
   })();
 </script>
