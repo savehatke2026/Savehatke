@@ -289,7 +289,7 @@ function updateNavAuth() {
     const currentPage = window.location.pathname.split('/').pop() || '';
     if (currentPage === 'login' || currentPage === 'login.html') return;
     navActions.innerHTML = `
-      <button type="button" class="btn btn-primary btn-sm" onclick="openAuthModal('login')">Log In</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="location.href='login.html'">Log In</button>
     `;
   }
 }
@@ -408,103 +408,8 @@ async function initAuthGoogleButton() {
 
 // ── Auth Modal ──────────────────────────────────────────────────────────
 function openAuthModal(mode = 'login') {
-  // Remove existing modal
-  document.querySelector('.modal-overlay')?.remove();
-
-  const isLogin = mode === 'login';
-
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal">
-      <div class="modal-header">
-        <h2 class="modal-title">${isLogin ? 'Welcome Back' : 'Create Account'}</h2>
-        <button class="modal-close" onclick="closeAuthModal()">×</button>
-      </div>
-      <form id="authForm">
-        ${!isLogin ? `
-          <div class="form-group">
-            <label class="form-label" for="authName">Full Name</label>
-            <input class="form-input" type="text" id="authName" placeholder="Enter your name" required>
-          </div>
-        ` : ''}
-        <div class="form-group">
-          <label class="form-label" for="authEmail">Email Address</label>
-          <input class="form-input" type="email" id="authEmail" placeholder="you@example.com" required>
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="authPassword">Password</label>
-          <input class="form-input" type="password" id="authPassword" placeholder="Min 6 characters" required minlength="6">
-        </div>
-        <button type="submit" class="btn btn-primary btn-lg w-full" id="authSubmitBtn">
-          ${isLogin ? 'Log In' : 'Create Account'}
-        </button>
-      </form>
-      <div style="display:flex;align-items:center;margin:20px 0 16px;color:var(--color-slate-400);font-size:.8rem">
-        <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
-        <span style="padding:0 10px">OR</span>
-        <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
-      </div>
-      <div id="authGoogleButton" style="display:flex;justify-content:center;min-height:44px;"></div>
-      <p class="text-center mt-6" style="font-size: 0.875rem; color: var(--color-slate-400);">
-        ${isLogin
-          ? 'Don\'t have an account? <a href="#" onclick="openAuthModal(\'register\')">Sign up free</a>'
-          : 'Already have an account? <a href="#" onclick="openAuthModal(\'login\')">Log in</a>'
-        }
-      </p>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-  requestAnimationFrame(() => overlay.classList.add('active'));
-  requestAnimationFrame(() => initAuthGoogleButton());
-
-  // Close on overlay click
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeAuthModal();
-  });
-
-  // Form submit
-  document.getElementById('authForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const btn = document.getElementById('authSubmitBtn');
-    btn.disabled = true;
-    btn.textContent = 'Please wait...';
-
-    try {
-      const email = document.getElementById('authEmail').value;
-      const password = document.getElementById('authPassword').value;
-
-      if (isLogin) {
-        const data = await api('/auth/login', {
-          method: 'POST',
-          body: { email, password },
-        });
-        Auth.setAuth(data.token, data.user);
-
-        if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-          Auth.setAdminAuth(data.token, data.user);
-          closeAuthModal();
-          window.location.href = 'vault';
-          return;
-        }
-      } else {
-        const name = document.getElementById('authName').value;
-        const data = await api('/auth/register', {
-          method: 'POST',
-          body: { email, password, name },
-        });
-        Auth.setAuth(data.token, data.user);
-      }
-
-      closeAuthModal();
-      window.location.reload();
-    } catch (err) {
-      showToast(err.message, 'error');
-      btn.disabled = false;
-      btn.textContent = isLogin ? 'Log In' : 'Create Account';
-    }
-  });
+  // All login/signup entry points route to the dedicated login page
+  window.location.href = 'login.html';
 }
 
 function closeAuthModal() {

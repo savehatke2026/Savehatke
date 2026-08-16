@@ -473,12 +473,8 @@
   }
 
   function openModal(tab) {
-    if (typeof openAuthModal === 'function') {
-      openAuthModal(tab);
-      return;
-    }
-    const mo = document.getElementById('modalOverlay');
-    if (mo) { mo.classList.add('open'); switchTab(tab || 'login'); document.body.style.overflow = 'hidden'; }
+    // All login/signup entry points route to the dedicated login page
+    window.location.href = 'login.html';
   }
 
   function closeModal() {
