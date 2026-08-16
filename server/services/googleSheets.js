@@ -207,8 +207,22 @@ function getWriteAvailabilityError(message = 'Google Sheets is not connected.') 
   };
 }
 
+// Convert a 1-indexed column number to A1 notation (1→A, 27→AA, …)
+function columnToLetter(col) {
+  let s = '';
+  while (col > 0) {
+    const m = (col - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    col = Math.floor((col - 1) / 26);
+  }
+  return s;
+}
+
 /**
  * Ensure all required sheets exist and have headers.
+ * Existing tabs are upgraded: any configured headers missing from the tab's
+ * header row are appended as new columns on the right (existing data is
+ * never moved or shifted).
  */
 async function ensureSheets() {
   if (!sheetsClient) return;
@@ -231,6 +245,29 @@ async function ensureSheets() {
           valueInputOption: 'RAW',
           requestBody: { values: [headers] },
         });
+      } else {
+        // Top up the header row of an existing tab with any missing columns
+        try {
+          const hdrRes = await sheetsClient.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${sheetName}!1:1`,
+          });
+          const current = ((hdrRes.data.values && hdrRes.data.values[0]) || [])
+            .map((h) => String(h).trim());
+          const missing = headers.filter((h) => !current.includes(h));
+          if (missing.length) {
+            const startCol = columnToLetter(current.length + 1);
+            await sheetsClient.spreadsheets.values.update({
+              spreadsheetId,
+              range: `${sheetName}!${startCol}1`,
+              valueInputOption: 'RAW',
+              requestBody: { values: [missing] },
+            });
+            console.log(`ensureSheets: added missing headers to ${sheetName}: ${missing.join(', ')}`);
+          }
+        } catch (e) {
+          // Header top-up is best-effort
+        }
       }
     }
   } catch (err) {
@@ -594,6 +631,17 @@ async function countRows(sheetName) {
   }
 }
 
+// Cast stored toggle values ('true'/'TRUE'/true/'1' → true, 'false'/'FALSE'/false/'0' → false)
+function toSettingBool(v, dflt = true) {
+  if (typeof v === 'boolean') return v;
+  if (typeof v === 'string') {
+    const s = v.trim().toLowerCase();
+    if (s === 'true' || s === '1') return true;
+    if (s === 'false' || s === '0') return false;
+  }
+  return dflt;
+}
+
 /**
  * Get website settings from Google Sheets
  */
@@ -617,9 +665,9 @@ async function getSettings() {
       return {
         ...defaultSettings,
         ...existing,
-        showActiveUsers: existing.showActiveUsers !== undefined ? (existing.showActiveUsers === 'true' || existing.showActiveUsers === true) : true,
-        showCouponsTraded: existing.showCouponsTraded !== undefined ? (existing.showCouponsTraded === 'true' || existing.showCouponsTraded === true) : true,
-        showSavedByUsers: existing.showSavedByUsers !== undefined ? (existing.showSavedByUsers === 'true' || existing.showSavedByUsers === true) : true,
+        showActiveUsers: toSettingBool(existing.showActiveUsers),
+        showCouponsTraded: toSettingBool(existing.showCouponsTraded),
+        showSavedByUsers: toSettingBool(existing.showSavedByUsers),
       };
     }
   } catch (err) {
