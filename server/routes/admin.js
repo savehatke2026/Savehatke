@@ -562,6 +562,57 @@ router.put('/users/status', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
+// GET /api/admin/support-cases — List support tickets (live Google Sheets data)
+router.get('/support-cases', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const tickets = await db.getRows(db.SHEETS.SUPPORT_TICKETS);
+    const normStatus = (s) => {
+      const v = String(s || 'open').toLowerCase().trim().replace(/[\s_-]+/g, '');
+      return ['open', 'inprogress', 'resolved', 'closed'].includes(v) ? v : 'open';
+    };
+    const list = tickets.map((t) => ({
+      id: t.id || '',
+      subject: t.subject || '(no subject)',
+      user: t.name || String(t.userEmail || '').split('@')[0] || 'Unknown',
+      email: t.userEmail || '',
+      message: t.message || '',
+      status: normStatus(t.status),
+      createdAt: t.createdAt || '',
+      resolvedAt: t.resolvedAt || '',
+    })).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
+
+    const counts = { total: list.length, open: 0, inprogress: 0, resolved: 0, closed: 0 };
+    list.forEach((t) => { counts[t.status]++; });
+
+    res.json({ cases: list, counts });
+  } catch (err) {
+    console.error('Admin support cases error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// PUT /api/admin/support-cases/:id/status — Move a ticket between statuses in the sheet
+router.put('/support-cases/:id/status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const id = req.params.id;
+    if (!id || !['open', 'inprogress', 'resolved', 'closed'].includes(status)) {
+      return res.status(400).json({ error: 'A status of open/inprogress/resolved/closed is required.' });
+    }
+
+    const existing = await db.findRow(db.SHEETS.SUPPORT_TICKETS, 'id', id);
+    if (!existing) return res.status(404).json({ error: 'Support case not found.' });
+
+    const now = new Date().toISOString();
+    const resolvedAt = (status === 'resolved' || status === 'closed') ? (existing.resolvedAt || now) : '';
+    await db.updateRow(db.SHEETS.SUPPORT_TICKETS, 'id', id, { status, resolvedAt });
+    res.json({ message: `Case moved to ${status}.`, status, resolvedAt });
+  } catch (err) {
+    console.error('Admin support case status error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // GET /api/admin/settings — Fetch system settings
 router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
   try {

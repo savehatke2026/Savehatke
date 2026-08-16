@@ -336,22 +336,19 @@
 <body>
 
 <!-- ── NAVBAR ── -->
-<nav class="navbar" id="mainNav">
+<nav class="navbar" id="nav">
   <div class="container">
-    <a href="index.html" class="nav-brand">
+    <a href="index" class="nav-brand">
       <div class="brand-icon">💰</div>
       Save<span class="bhl">Hatke</span>
     </a>
     <div class="nav-links" id="navLinks">
-      <a href="index.html">Home</a>
-      <a href="marketplace.html">Coupons</a>
-      <a href="sell.html" class="active">Sell Coupons</a>
-      <a href="dashboard.html">Dashboard</a>
-      <a href="support.html">Support</a>
+      <a href="index">Home</a>
+      <a href="marketplace">Coupons</a>
+      <a href="sell" class="active">Sell Coupons</a>
+      <a href="support">Support</a>
     </div>
-    <div class="nav-actions" id="navActions">
-      <button class="btn btn-primary btn-sm" onclick="openModal('login')">Log In</button>
-    </div>
+    <div class="nav-actions" id="navActions"></div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
       <span></span><span></span><span></span>
     </button>
@@ -489,15 +486,6 @@
 
         <!-- Dynamic coupon cards will be injected here -->
         <div class="coupon-cards-container" id="couponCardsContainer"></div>
-
-        <!-- Add Another Coupon -->
-        <div class="add-coupon-row">
-          <button class="add-coupon-btn" id="addCouponBtn" onclick="addCoupon()">
-            <span>＋</span> Add Another Coupon
-          </button>
-          <span class="coupon-count-hint" id="couponCountHint">You can add up to 5 coupons per submission.</span>
-          <span class="coupon-limit-msg" id="couponLimitMsg">⚠️ Maximum 5 coupons reached.</span>
-        </div>
 
         <div class="step-actions">
           <button type="button" class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
@@ -783,11 +771,12 @@ function updateAddButton() {
   const btn = document.getElementById('addCouponBtn');
   const limitMsg = document.getElementById('couponLimitMsg');
   const countHint = document.getElementById('couponCountHint');
+  if (!btn && !limitMsg && !countHint) return;
 
   const atMax = couponIds.length >= MAX_COUPONS;
-  btn.disabled = atMax;
-  limitMsg.style.display = atMax ? 'inline' : 'none';
-  countHint.style.display = atMax ? 'none' : 'inline';
+  if (btn) btn.disabled = atMax;
+  if (limitMsg) limitMsg.style.display = atMax ? 'inline' : 'none';
+  if (countHint) countHint.style.display = atMax ? 'none' : 'inline';
 }
 
 /* ── Collect all coupon data ── */
