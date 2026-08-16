@@ -255,7 +255,42 @@ function initNavigation() {
   updateNavAuth();
 }
 
+// Navbar profile box styles — injected once so the avatar + dropdown render
+// identically on every page, even ones without local rules for them.
+function ensureNavProfileStyles() {
+  if (document.getElementById('shNavProfileStyle')) return;
+  const style = document.createElement('style');
+  style.id = 'shNavProfileStyle';
+  style.textContent = `
+    .nav-profile-wrapper{position:relative;display:inline-block}
+    .nav-profile-btn{width:38px;height:38px;border-radius:50%;padding:0;border:2px solid #00e676;
+      background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-family:'Outfit',sans-serif;
+      font-weight:800;font-size:.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer;
+      transition:all .22s ease;box-shadow:0 0 14px rgba(0,230,118,.35);outline:none;overflow:hidden}
+    .nav-profile-btn:hover{transform:scale(1.08);box-shadow:0 0 22px rgba(0,230,118,.65);border-color:#4fc3f7}
+    .nav-profile-btn img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+    .nav-profile-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:230px;
+      background:rgba(12,24,53,.96);backdrop-filter:blur(20px);border:1px solid rgba(79,195,247,.25);
+      border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.65);padding:10px;display:none;
+      flex-direction:column;gap:6px;z-index:1000;animation:shDropdownFadeIn .2s ease-out forwards}
+    .nav-profile-dropdown.active{display:flex}
+    @keyframes shDropdownFadeIn{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+    .npd-header{display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid rgba(79,195,247,.12);margin-bottom:4px;padding-bottom:10px}
+    .npd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+    .npd-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+    .npd-info{display:flex;flex-direction:column;overflow:hidden}
+    .npd-name{font-size:.88rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .npd-email{font-size:.74rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .npd-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:#e2ecff;font-size:.86rem;font-weight:600;text-decoration:none;cursor:pointer;transition:all .18s;background:transparent;border:none;width:100%;text-align:left;font-family:'Outfit',sans-serif}
+    .npd-item:hover{background:rgba(0,230,118,.12);color:#00e676}
+    .npd-item-logout{color:#ff6b6b}
+    .npd-item-logout:hover{background:rgba(255,80,80,.12);color:#ff8585}
+  `;
+  document.head.appendChild(style);
+}
+
 function updateNavAuth() {
+  ensureNavProfileStyles();
   const navActions = document.querySelector('.nav-actions');
   if (!navActions) return;
 
