@@ -9,13 +9,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- Google Identity Services SDK - Preload for faster auth -->
-  <link rel="preconnect" href="https://accounts.google.com" crossorigin>
-  <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
-  <link rel="dns-prefetch" href="https://accounts.google.com">
-  <link rel="dns-prefetch" href="https://www.googleapis.com">
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
+    /* ── Reset & Base ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body { font-family: 'Outfit', sans-serif; background: #060d1f; color: #e2ecff; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
@@ -25,31 +20,37 @@
     ::-webkit-scrollbar-thumb:hover { background: #00e676; }
     a { text-decoration: none; color: inherit; }
 
+    /* ── Animations ── */
     @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
     @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
     @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
     @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,0.45)} 50%{box-shadow:0 0 0 10px rgba(0,230,118,0)} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes popIn { 0%{transform:scale(0)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
     @keyframes float-particle {
       0% { transform:translateY(100vh) scale(0); opacity:0; }
       20% { opacity:0.6; }
       80% { opacity:0.3; }
       100% { transform:translateY(-100px) scale(1.2); opacity:0; }
     }
-    .particles { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:1; }
-    .particle { position:absolute; width:3px; height:3px; background:#00e676; border-radius:50%; opacity:0; animation:float-particle linear infinite; box-shadow:0 0 8px #00e676; }
 
+    /* ── Scroll Reveal ── */
     .fu { opacity: 0; transform: translateY(26px); transition: opacity 0.65s ease, transform 0.65s ease; }
     .fu.in { opacity: 1; transform: translateY(0); }
     .d1{transition-delay:.1s} .d2{transition-delay:.22s} .d3{transition-delay:.34s}
 
+    /* ── Layout ── */
     .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
     .container-sm { max-width: 700px; margin: 0 auto; padding: 0 24px; }
 
+    /* ── Text Utilities ── */
     .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
     .shimmer { background: linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 3.5s linear infinite; }
     .slabel { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:12px; }
+    .stitle { font-family:'DM Serif Display',serif; font-size:clamp(1.9rem,4vw,2.8rem); line-height:1.15; margin-bottom:16px; }
+    .ssub { font-size:1rem; color:#a8c0dc; line-height:1.75; max-width:560px; margin:0 auto; }
 
-    /* BUTTONS */
+    /* ── Buttons ── */
     .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; text-decoration:none; }
     .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
     .btn-lg { height:54px; padding:0 36px; font-size:1rem; border-radius:12px; }
@@ -65,9 +66,11 @@
     .btn-success:disabled { opacity:.4; cursor:not-allowed; transform:none; box-shadow:none; }
     .btn-outline { background:transparent; color:#00e676; border:1.5px solid rgba(0,230,118,.35); }
     .btn-outline:hover { background:rgba(0,230,118,.08); border-color:#00e676; }
+    .btn-danger { background:transparent; color:#f87171; border:1.5px solid rgba(239,68,68,.3); font-size:.8rem; height:34px; padding:0 14px; border-radius:8px; }
+    .btn-danger:hover { background:rgba(239,68,68,.1); border-color:#f87171; }
     .w-full { width:100%; }
 
-    /* NAVBAR */
+    /* ── Navbar ── */
     .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
     .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
     .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
@@ -87,36 +90,60 @@
       .nav-actions.open{display:flex;position:absolute;top:240px;right:24px;flex-direction:column;gap:10px;z-index:99}
     }
 
-    /* PAGE HERO */
+    /* ── Page Hero ── */
     .page-hero { padding:120px 0 64px; position:relative; overflow:hidden; text-align:center; }
     .page-hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 60% 70% at 50% 0%,rgba(0,230,118,.08) 0%,transparent 65%),radial-gradient(ellipse 40% 50% at 80% 80%,rgba(79,195,247,.05) 0%,transparent 65%); pointer-events:none; }
     .page-hero-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.03) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
+    .particles { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:1; }
+    .particle { position:absolute; width:3px; height:3px; background:#00e676; border-radius:50%; opacity:0; animation:float-particle linear infinite; box-shadow:0 0 8px #00e676; }
     .page-hero-inner { position:relative; z-index:1; }
     .page-hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; border-radius:9999px; font-size:.8rem; font-weight:600; padding:6px 16px; margin-bottom:22px; }
     .page-hero-title { font-family:'DM Serif Display',serif; font-size:clamp(2.2rem,5vw,3.5rem); line-height:1.12; margin-bottom:16px; }
     .page-hero-sub { font-size:1.05rem; color:#a8c0dc; line-height:1.75; max-width:520px; margin:0 auto; }
     .page-hero-sub strong { color:#00e676; }
 
-    /* TRUST BAR */
+    /* ── Trust Bar ── */
     .trust-bar { border-top:1px solid rgba(79,195,247,.1); border-bottom:1px solid rgba(79,195,247,.1); background:rgba(15,30,58,.5); overflow:hidden; }
     .trust-wrap { padding:14px 0; overflow:hidden; }
     .trust-ticker { display:flex; white-space:nowrap; animation:ticker 22s linear infinite; width:max-content; }
     .trust-item { display:inline-flex; align-items:center; gap:10px; padding:0 48px; font-size:.85rem; font-weight:600; color:#a8c0dc; border-right:1px solid rgba(79,195,247,.1); }
 
-    /* MAIN SECTION */
+    /* ── Section ── */
     .section { padding:60px 0 80px; }
 
-    /* HOW IT WORKS MINI */
-    .how-mini { border-radius:20px; padding:28px 32px; background:linear-gradient(135deg,rgba(0,230,118,.06) 0%,rgba(79,195,247,.04) 100%); border:1px solid rgba(0,230,118,.15); margin-bottom:40px; }
-    .how-mini-grid { display:flex; gap:0; flex-wrap:wrap; justify-content:center; }
-    .how-mini-item { flex:1; min-width:140px; text-align:center; padding:16px 20px; position:relative; }
-    .how-mini-item:not(:last-child)::after { content:'→'; position:absolute; right:-8px; top:50%; transform:translateY(-50%); color:#00e676; font-size:1rem; font-weight:700; }
-    .how-mini-icon { font-size:1.8rem; margin-bottom:10px; }
-    .how-mini-title { font-weight:700; color:#e2ecff; font-size:.9rem; margin-bottom:4px; }
-    .how-mini-sub { font-size:.75rem; color:#6b88aa; }
-    @media(max-width:600px){ .how-mini-item:not(:last-child)::after{display:none} .how-mini-grid{gap:8px} }
+    /* ── How It Works Mini — REDESIGNED ── */
+    .how-mini { border-radius:20px; padding:32px 28px; background:linear-gradient(135deg,rgba(0,230,118,.06) 0%,rgba(79,195,247,.04) 100%); border:1px solid rgba(0,230,118,.15); margin-bottom:40px; }
+    .how-mini-label { font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:20px; display:block; }
+    .how-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .how-mini-item {
+      position:relative;
+      background:rgba(6,13,31,.55);
+      border:1px solid rgba(79,195,247,.1);
+      border-radius:14px;
+      padding:20px 16px;
+      text-align:left;
+      transition:border-color .22s, transform .22s;
+    }
+    .how-mini-item:hover { border-color:rgba(0,230,118,.3); transform:translateY(-2px); }
+    .how-mini-step-num {
+      display:inline-flex; align-items:center; justify-content:center;
+      width:26px; height:26px; border-radius:50%;
+      background:linear-gradient(135deg,#00e676,#00c853);
+      color:#060d1f; font-family:'JetBrains Mono',monospace;
+      font-size:.72rem; font-weight:700;
+      margin-bottom:12px;
+    }
+    .how-mini-icon { font-size:1.5rem; margin-bottom:8px; display:block; }
+    .how-mini-title { font-weight:700; color:#e2ecff; font-size:.88rem; margin-bottom:4px; line-height:1.3; }
+    .how-mini-sub { font-size:.72rem; color:#6b88aa; line-height:1.5; }
+    .how-mini-connector {
+      display:none;
+    }
+    @media(max-width:600px){
+      .how-mini-grid { grid-template-columns:1fr; gap:10px; }
+    }
 
-    /* STEPPER */
+    /* ── Stepper ── */
     .stepper { display:flex; align-items:center; margin-bottom:28px; }
     .stepper-step { display:flex; align-items:center; gap:10px; flex-shrink:0; }
     .stepper-circle { width:36px; height:36px; border-radius:50%; border:2px solid rgba(79,195,247,.2); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:700; color:#6b88aa; transition:all .3s; flex-shrink:0; }
@@ -129,26 +156,71 @@
     .stepper-line::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transform-origin:left; transition:transform .4s ease; border-radius:1px; }
     .stepper-line.done::after { transform:scaleX(1); }
 
-    /* FORM CARD */
+    /* ── Form Card ── */
     .form-card { border-radius:20px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); overflow:hidden; }
     .step-content { display:none; padding:36px; }
     .step-content.active { display:block; }
     .step-title { font-family:'DM Serif Display',serif; font-size:1.5rem; color:#e2ecff; margin-bottom:28px; }
 
-    /* CATEGORY GRID */
-    .category-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
-    .cat-btn { padding:24px 20px; background:rgba(255,255,255,.03); border:2px solid rgba(79,195,247,.12); border-radius:16px; cursor:pointer; text-align:center; transition:all .22s; color:#e2ecff; font-family:'Outfit',sans-serif; position:relative; overflow:hidden; }
-    .cat-btn::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transition:transform .3s; transform-origin:left; }
-    .cat-btn:hover { border-color:rgba(0,230,118,.3); transform:translateY(-3px); background:rgba(0,230,118,.04); }
-    .cat-btn:hover::before { transform:scaleX(1); }
+    /* ── Category Grid — REDESIGNED ── */
+    .category-grid { display:flex; flex-direction:column; gap:12px; }
+    .cat-btn {
+      display:flex; align-items:center; gap:18px;
+      padding:18px 22px;
+      background:rgba(255,255,255,.03);
+      border:1.5px solid rgba(79,195,247,.12);
+      border-radius:14px;
+      cursor:pointer;
+      text-align:left;
+      transition:all .22s;
+      color:#e2ecff;
+      font-family:'Outfit',sans-serif;
+      position:relative;
+      overflow:hidden;
+      width:100%;
+    }
+    .cat-btn::before {
+      content:'';
+      position:absolute;
+      left:0; top:0; bottom:0;
+      width:3px;
+      background:linear-gradient(180deg,#00e676,#4fc3f7);
+      transform:scaleY(0);
+      transition:transform .3s;
+      transform-origin:top;
+      border-radius:0 2px 2px 0;
+    }
+    .cat-btn:hover { border-color:rgba(0,230,118,.3); transform:translateX(4px); background:rgba(0,230,118,.04); }
+    .cat-btn:hover::before { transform:scaleY(1); }
     .cat-btn.selected { border-color:#00e676; background:rgba(0,230,118,.08); box-shadow:0 0 0 3px rgba(0,230,118,.1); }
-    .cat-btn.selected::before { transform:scaleX(1); }
-    .cat-icon { font-size:2rem; margin-bottom:10px; }
-    .cat-name { font-weight:700; font-size:.95rem; margin-bottom:4px; }
-    .cat-sub { font-size:.72rem; color:#6b88aa; }
-    @media(max-width:480px){ .category-grid{grid-template-columns:1fr} }
+    .cat-btn.selected::before { transform:scaleY(1); }
+    .cat-icon-wrap {
+      width:48px; height:48px; border-radius:12px;
+      background:rgba(0,230,118,.08);
+      border:1px solid rgba(0,230,118,.15);
+      display:flex; align-items:center; justify-content:center;
+      flex-shrink:0;
+      transition:background .22s, border-color .22s;
+    }
+    .cat-btn:hover .cat-icon-wrap,
+    .cat-btn.selected .cat-icon-wrap {
+      background:rgba(0,230,118,.15);
+      border-color:rgba(0,230,118,.35);
+    }
+    .cat-icon { font-size:1.5rem; line-height:1; }
+    .cat-text { flex:1; }
+    .cat-name { font-weight:700; font-size:.95rem; margin-bottom:3px; }
+    .cat-sub { font-size:.75rem; color:#6b88aa; }
+    .cat-arrow {
+      color:#6b88aa;
+      font-size:1.1rem;
+      flex-shrink:0;
+      transition:color .22s, transform .22s;
+    }
+    .cat-btn:hover .cat-arrow,
+    .cat-btn.selected .cat-arrow { color:#00e676; transform:translateX(3px); }
 
-    /* FORM INPUTS */
+    /* ── Form Inputs ── */
     .fgroup { margin-bottom:20px; }
     .flabel { display:block; font-size:.82rem; font-weight:600; color:#a8c0dc; margin-bottom:8px; }
     .finput {
@@ -161,36 +233,55 @@
     .finput::placeholder { color:#6b88aa; }
     .finput.code { text-transform:uppercase; letter-spacing:2px; font-family:'JetBrains Mono',monospace; font-weight:600; font-size:.9rem; }
     .fhint { font-size:.75rem; color:#6b88aa; margin-top:6px; }
-    .step-actions { display:flex; gap:12px; margin-top:28px; }
+    .step-actions { display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; }
 
-    /* REVIEW SUMMARY */
+    /* ── Multi Coupon Cards ── */
+    .coupon-cards-container { display:flex; flex-direction:column; gap:20px; margin-bottom:24px; }
+    .coupon-entry-card { border-radius:16px; background:rgba(9,18,40,.7); border:1px solid rgba(79,195,247,.12); padding:24px; position:relative; transition:border-color .2s; }
+    .coupon-entry-card:hover { border-color:rgba(79,195,247,.22); }
+    .coupon-entry-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+    .coupon-entry-label { font-family:'JetBrains Mono',monospace; font-size:.8rem; font-weight:700; color:#00e676; letter-spacing:.1em; text-transform:uppercase; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.2); padding:4px 12px; border-radius:9999px; }
+    .add-coupon-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+    .add-coupon-btn { display:inline-flex; align-items:center; gap:8px; padding:10px 20px; border-radius:10px; background:rgba(0,230,118,.08); border:1.5px dashed rgba(0,230,118,.35); color:#00e676; font-family:'Outfit',sans-serif; font-size:.88rem; font-weight:700; cursor:pointer; transition:all .22s; }
+    .add-coupon-btn:hover { background:rgba(0,230,118,.14); border-color:#00e676; }
+    .add-coupon-btn:disabled { opacity:.4; cursor:not-allowed; }
+    .coupon-limit-msg { font-size:.78rem; color:#fbbf24; font-weight:600; display:none; }
+    .coupon-count-hint { font-size:.78rem; color:#6b88aa; }
+
+    /* ── Review ── */
     .review-card { border-radius:14px; background:rgba(9,18,40,.8); border:1px solid rgba(79,195,247,.1); padding:24px; margin-bottom:20px; }
-    .review-row { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(79,195,247,.07); }
+    .review-coupon-block { margin-bottom:20px; }
+    .review-coupon-block:last-child { margin-bottom:0; }
+    .review-coupon-title { font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:700; color:#00e676; letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; padding-bottom:8px; border-bottom:1px solid rgba(79,195,247,.1); }
+    .review-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(79,195,247,.07); }
     .review-row:last-child { border-bottom:none; }
     .review-key { font-size:.82rem; color:#6b88aa; font-weight:500; }
-    .review-val { font-size:.9rem; color:#e2ecff; font-weight:600; font-family:'JetBrains Mono',monospace; }
+    .review-val { font-size:.9rem; color:#e2ecff; font-weight:600; font-family:'JetBrains Mono',monospace; text-align:right; word-break:break-all; max-width:60%; }
+    .review-total-row { display:flex; justify-content:space-between; align-items:center; padding:14px 20px; border-radius:10px; background:linear-gradient(135deg,rgba(0,230,118,.1),rgba(79,195,247,.07)); border:1px solid rgba(0,230,118,.2); margin-bottom:20px; }
+    .review-total-label { font-size:.9rem; color:#a8c0dc; font-weight:600; }
+    .review-total-val { font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:700; color:#00e676; }
 
-    /* EARNINGS PILL */
+    /* ── Earn Pill ── */
     .earn-pill { border-radius:14px; padding:24px; text-align:center; background:linear-gradient(135deg,rgba(0,200,83,.08),rgba(0,230,118,.05)); border:1px solid rgba(0,230,118,.2); margin-bottom:20px; }
     .earn-icon { font-size:2rem; margin-bottom:8px; }
     .earn-amount { font-family:'JetBrains Mono',monospace; font-size:2rem; font-weight:700; color:#00e676; line-height:1; margin-bottom:6px; }
     .earn-sub { font-size:.8rem; color:#6b88aa; }
 
-    /* SUCCESS STATE */
+    /* ── Success State ── */
     .success-state { text-align:center; padding:52px 36px; }
     .success-emoji { font-size:5rem; animation:popIn .6s ease; display:block; margin-bottom:24px; }
     .success-title { font-family:'DM Serif Display',serif; font-size:2rem; color:#e2ecff; margin-bottom:14px; }
     .success-sub { font-size:.95rem; color:#a8c0dc; line-height:1.75; margin-bottom:36px; max-width:400px; margin-left:auto; margin-right:auto; }
     .success-actions { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
 
-    /* TOAST */
+    /* ── Toast ── */
     .toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; }
     .toast { padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; box-shadow:0 12px 40px rgba(0,0,0,.5); display:flex; align-items:center; gap:10px; animation:fadeUp .3s ease; max-width:320px; }
     .toast-success { background:rgba(0,200,83,.15); border:1px solid rgba(0,200,83,.3); color:#00e676; }
     .toast-error { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.25); color:#f87171; }
     .toast-warning { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
 
-    /* FOOTER */
+    /* ── Footer ── */
     .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; margin-top:80px; }
     .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; padding-bottom:52px; }
     .fbrand p { font-size:.88rem; color:#6b88aa; line-height:1.7; margin-top:16px; max-width:280px; }
@@ -198,10 +289,12 @@
     .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
     .fcol a:hover { color:#00e676; }
     .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
+    .fbot-link { color:#6b88aa; transition:color .2s; }
+    .fbot-link:hover { color:#00e676; }
     @media(max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;gap:32px} }
     @media(max-width:600px){ .footer-grid{grid-template-columns:1fr} .fbot{flex-direction:column;gap:8px;text-align:center} }
 
-    /* MODAL */
+    /* ── Modal ── */
     .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
     .modal-overlay.open { opacity:1; pointer-events:auto; }
     .modal { width:100%; max-width:420px; border-radius:22px; padding:40px; background:#0c1835; border:1px solid rgba(79,195,247,.15); box-shadow:0 40px 100px rgba(0,0,0,.6); transform:translateY(20px) scale(.97); transition:transform .25s; }
@@ -219,18 +312,18 @@
     .mfinput:focus { border-color:rgba(0,230,118,.45); }
     .mfinput::placeholder { color:#6b88aa; }
     .mfsubmit { width:100%; margin-top:8px; font-size:1rem; height:50px; border-radius:12px; }
+    .modal-divider { display:flex; align-items:center; margin:20px 0 16px; color:#6b88aa; font-size:.8rem; }
+    .modal-divider-line { flex:1; height:1px; background:rgba(79,195,247,.15); }
+    .modal-divider span { padding:0 10px; }
 
-    /* PROFILE AVATAR & DROPDOWN */
+    /* ── Profile Nav ── */
     .nav-profile-wrapper { position:relative; display:inline-block; }
     .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00e676; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,230,118,.35); outline:none; overflow:hidden; }
     .nav-profile-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(0,230,118,.65); border-color:#4fc3f7; }
-    .nav-profile-btn img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
-    .nav-profile-dropdown { position:absolute; top:calc(100% + 12px); right:0; width:230px; background:rgba(12,24,53,.96); backdrop-filter:blur(20px); border:1px solid rgba(79,195,247,.25); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.65); padding:10px; display:none; flex-direction:column; gap:6px; z-index:1000; animation:dropdownFadeIn .2s ease-out forwards; }
+    .nav-profile-dropdown { position:absolute; top:calc(100% + 12px); right:0; width:230px; background:rgba(12,24,53,.96); backdrop-filter:blur(20px); border:1px solid rgba(79,195,247,.25); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.65); padding:10px; display:none; flex-direction:column; gap:6px; z-index:1000; }
     .nav-profile-dropdown.active { display:flex; }
-    @keyframes dropdownFadeIn { from{opacity:0;transform:translateY(-8px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
     .npd-header { display:flex; align-items:center; gap:10px; padding:8px; border-bottom:1px solid rgba(79,195,247,.12); margin-bottom:4px; padding-bottom:10px; }
-    .npd-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
-    .npd-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .npd-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .npd-info { display:flex; flex-direction:column; overflow:hidden; }
     .npd-name { font-size:.88rem; font-weight:700; color:#e2ecff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .npd-email { font-size:.74rem; color:#6b88aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -242,27 +335,30 @@
 </head>
 <body>
 
-<!-- NAVBAR -->
+<!-- ── NAVBAR ── -->
 <nav class="navbar" id="mainNav">
   <div class="container">
-    <a href="index" class="nav-brand">
+    <a href="index.html" class="nav-brand">
       <div class="brand-icon">💰</div>
       Save<span class="bhl">Hatke</span>
     </a>
     <div class="nav-links" id="navLinks">
-      <a href="index">Home</a>
-      <a href="marketplace">Coupons</a>
-      <a href="sell" class="active">Sell Coupons</a>
-      <a href="support">Support</a>
+      <a href="index.html">Home</a>
+      <a href="marketplace.html">Coupons</a>
+      <a href="sell.html" class="active">Sell Coupons</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="support.html">Support</a>
     </div>
-    <div class="nav-actions" id="navActions"></div>
+    <div class="nav-actions" id="navActions">
+      <button class="btn btn-primary btn-sm" onclick="openModal('login')">Log In</button>
+    </div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
       <span></span><span></span><span></span>
     </button>
   </div>
 </nav>
 
-<!-- PAGE HERO -->
+<!-- ── PAGE HERO ── -->
 <div class="page-hero">
   <div class="page-hero-mesh"></div>
   <div class="page-hero-grid"></div>
@@ -271,26 +367,26 @@
     <div class="page-hero-inner fu in">
       <div class="page-hero-badge">💸 Earn instant cash from unused coupons</div>
       <h1 class="page-hero-title">Sell Your <span class="gtext">Unused Coupons</span></h1>
-      <p class="page-hero-sub">Turn those dusty reward codes into instant cash. We pay <strong>₹10 per coupon</strong> — verified and paid within 24 hours.</p>
+      <p class="page-hero-sub">Turn those dusty reward codes into instant cash. We pay <strong>₹10 per coupon</strong> — verified and paid within 24 hours. Submit up to 5 coupons at once!</p>
     </div>
   </div>
 </div>
 
-<!-- TRUST BAR -->
+<!-- ── TRUST BAR ── -->
 <div class="trust-bar">
   <div class="trust-wrap">
     <div class="trust-ticker">
       <div class="trust-item">💰 ₹10 Per Coupon</div>
       <div class="trust-item">⚡ Paid in 24 Hours</div>
       <div class="trust-item">✅ Instant Verification</div>
-      <div class="trust-item">🛡️ 100% Safe & Secure</div>
+      <div class="trust-item">🛡️ 100% Safe &amp; Secure</div>
       <div class="trust-item">📱 UPI Payments</div>
       <div class="trust-item">🏆 50K+ Coupons Bought</div>
       <div class="trust-item">🇮🇳 Made in India</div>
       <div class="trust-item">💰 ₹10 Per Coupon</div>
       <div class="trust-item">⚡ Paid in 24 Hours</div>
       <div class="trust-item">✅ Instant Verification</div>
-      <div class="trust-item">🛡️ 100% Safe & Secure</div>
+      <div class="trust-item">🛡️ 100% Safe &amp; Secure</div>
       <div class="trust-item">📱 UPI Payments</div>
       <div class="trust-item">🏆 50K+ Coupons Bought</div>
       <div class="trust-item">🇮🇳 Made in India</div>
@@ -298,26 +394,30 @@
   </div>
 </div>
 
-<!-- MAIN CONTENT -->
+<!-- ── MAIN CONTENT ── -->
 <main class="section">
   <div class="container-sm">
 
-    <!-- How It Works Mini -->
+    <!-- How It Works Mini — REDESIGNED -->
     <div class="how-mini fu in">
+      <span class="how-mini-label">How it works</span>
       <div class="how-mini-grid">
         <div class="how-mini-item">
-          <div class="how-mini-icon">📝</div>
-          <div class="how-mini-title">Submit Code</div>
-          <div class="how-mini-sub">Enter your coupon details</div>
+          <div class="how-mini-step-num">1</div>
+          <span class="how-mini-icon">📝</span>
+          <div class="how-mini-title">Submit Codes</div>
+          <div class="how-mini-sub">Enter 1–5 coupons at once</div>
         </div>
         <div class="how-mini-item">
-          <div class="how-mini-icon">✅</div>
+          <div class="how-mini-step-num">2</div>
+          <span class="how-mini-icon">✅</span>
           <div class="how-mini-title">We Verify</div>
           <div class="how-mini-sub">Quick validation check</div>
         </div>
         <div class="how-mini-item">
-          <div class="how-mini-icon">💸</div>
-          <div class="how-mini-title">Get Paid ₹10</div>
+          <div class="how-mini-step-num">3</div>
+          <span class="how-mini-icon">💸</span>
+          <div class="how-mini-title">Get Paid ₹10 Each</div>
           <div class="how-mini-sub">Instant to your UPI</div>
         </div>
       </div>
@@ -344,143 +444,156 @@
     <!-- Form Card -->
     <div class="form-card fu in">
 
-      <!-- Step 1: Category -->
+      <!-- ── Step 1: Category — REDESIGNED ── -->
       <div class="step-content active" id="step-1">
         <h2 class="step-title">Select Coupon Category</h2>
         <div class="category-grid" id="categorySelect">
           <button class="cat-btn" data-cat="Makeup" onclick="selectCategory(this)">
-            <div class="cat-icon">💄</div>
-            <div class="cat-name">Makeup &amp; Beauty</div>
-            <div class="cat-sub">Nykaa, Lakme, Mamaearth</div>
+            <div class="cat-icon-wrap"><span class="cat-icon">💄</span></div>
+            <div class="cat-text">
+              <div class="cat-name">Makeup &amp; Beauty</div>
+              <div class="cat-sub">Nykaa, Lakme, Mamaearth</div>
+            </div>
+            <span class="cat-arrow">›</span>
           </button>
           <button class="cat-btn" data-cat="Electronics" onclick="selectCategory(this)">
-            <div class="cat-icon">⚡</div>
-            <div class="cat-name">Electronics</div>
-            <div class="cat-sub">boAt, Croma, Samsung</div>
+            <div class="cat-icon-wrap"><span class="cat-icon">⚡</span></div>
+            <div class="cat-text">
+              <div class="cat-name">Electronics</div>
+              <div class="cat-sub">boAt, Croma, Samsung</div>
+            </div>
+            <span class="cat-arrow">›</span>
           </button>
           <button class="cat-btn" data-cat="Fashion" onclick="selectCategory(this)">
-            <div class="cat-icon">👟</div>
-            <div class="cat-name">Fashion &amp; Shoes</div>
-            <div class="cat-sub">Puma, Myntra, AJIO</div>
+            <div class="cat-icon-wrap"><span class="cat-icon">👟</span></div>
+            <div class="cat-text">
+              <div class="cat-name">Fashion &amp; Shoes</div>
+              <div class="cat-sub">Puma, Myntra, AJIO</div>
+            </div>
+            <span class="cat-arrow">›</span>
           </button>
           <button class="cat-btn" data-cat="Food" onclick="selectCategory(this)">
-            <div class="cat-icon">🍔</div>
-            <div class="cat-name">Food &amp; Delivery</div>
-            <div class="cat-sub">Swiggy, Zomato, Dominos</div>
+            <div class="cat-icon-wrap"><span class="cat-icon">🍔</span></div>
+            <div class="cat-text">
+              <div class="cat-name">Food &amp; Delivery</div>
+              <div class="cat-sub">Swiggy, Zomato, Dominos</div>
+            </div>
+            <span class="cat-arrow">›</span>
           </button>
         </div>
       </div>
 
-      <!-- Step 2: Coupon Details -->
+      <!-- ── Step 2: Multiple Coupon Details ── -->
       <div class="step-content" id="step-2">
         <h2 class="step-title">Enter Coupon Details</h2>
-        <form id="sellForm" onsubmit="return false;">
-          <div class="fgroup">
-            <label class="flabel" for="sellCode">Coupon Code *</label>
-            <input class="finput code" type="text" id="sellCode" placeholder="e.g. NYKAA200OFF" required>
-            <span class="fhint">Enter the exact code as shown on your reward/voucher</span>
-          </div>
-          <div class="fgroup">
-            <label class="flabel" for="sellBrand">Brand / Platform *</label>
-            <input class="finput" type="text" id="sellBrand" placeholder="e.g. Nykaa, PhonePe, Paytm" required>
-          </div>
-          <div class="fgroup">
-            <label class="flabel" for="sellDescription">What does the coupon offer?</label>
-            <input class="finput" type="text" id="sellDescription" placeholder="e.g. ₹200 off on orders above ₹999">
-          </div>
-          <div class="fgroup">
-            <label class="flabel" for="sellValue">Coupon Face Value (₹)</label>
-            <input class="finput" type="number" id="sellValue" placeholder="e.g. 200" min="0">
-          </div>
-          <div class="step-actions">
-            <button type="button" class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
-            <button type="button" class="btn btn-primary w-full" onclick="goToStep(3)">Review Submission →</button>
-          </div>
-        </form>
+
+        <!-- Dynamic coupon cards will be injected here -->
+        <div class="coupon-cards-container" id="couponCardsContainer"></div>
+
+        <!-- Add Another Coupon -->
+        <div class="add-coupon-row">
+          <button class="add-coupon-btn" id="addCouponBtn" onclick="addCoupon()">
+            <span>＋</span> Add Another Coupon
+          </button>
+          <span class="coupon-count-hint" id="couponCountHint">You can add up to 5 coupons per submission.</span>
+          <span class="coupon-limit-msg" id="couponLimitMsg">⚠️ Maximum 5 coupons reached.</span>
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
+          <button type="button" class="btn btn-primary w-full" onclick="goToStep(3)">Review Submission →</button>
+        </div>
       </div>
 
-      <!-- Step 3: Review & Submit -->
+      <!-- ── Step 3: Review & Submit ── -->
       <div class="step-content" id="step-3">
         <h2 class="step-title">Review &amp; Submit</h2>
 
-        <div class="review-card" id="reviewSummary">
-          <!-- populated by JS -->
+        <div id="reviewTotalRow" class="review-total-row">
+          <span class="review-total-label">Total Coupons</span>
+          <span class="review-total-val" id="reviewTotalCount">0</span>
         </div>
+
+        <div id="reviewAllCoupons"></div>
 
         <div class="earn-pill">
           <div class="earn-icon">💰</div>
-          <div class="earn-amount">₹10</div>
+          <div class="earn-amount" id="earnTotal">₹10</div>
           <div class="earn-sub">Paid to your account after verification (within 24 hours)</div>
         </div>
 
         <div class="step-actions">
           <button type="button" class="btn btn-secondary" onclick="goToStep(2)">← Edit</button>
-          <button type="button" class="btn btn-success btn-lg w-full" id="submitSellBtn" onclick="submitCoupon()">
-            ✅ Submit &amp; Earn ₹10
+          <button type="button" class="btn btn-success btn-lg w-full" id="submitSellBtn" onclick="submitCoupons()">
+            ✅ Submit &amp; Earn
           </button>
         </div>
       </div>
 
-      <!-- Step 4: Success -->
+      <!-- ── Step 4: Success ── -->
       <div class="step-content success-state" id="step-success">
         <span class="success-emoji">🎉</span>
-        <h2 class="success-title">Coupon Submitted!</h2>
-        <p class="success-sub">
-          Your coupon is now under review. You'll receive ₹10 once it's verified.<br>
-          Track your submission in your dashboard.
+        <h2 class="success-title" id="successTitle">Coupons Submitted!</h2>
+        <p class="success-sub" id="successMsg">
+          Your coupons are now under review. You'll receive payment for eligible coupons after verification.<br>
+          Track your submissions in your dashboard.
         </p>
         <div class="success-actions">
-          <a href="dashboard" class="btn btn-primary btn-lg">View in Dashboard</a>
+          <a href="dashboard.html" class="btn btn-primary btn-lg">View in Dashboard</a>
           <button class="btn btn-secondary btn-lg" onclick="resetForm()">Sell Another Coupon</button>
         </div>
       </div>
 
-    </div>
+    </div><!-- /form-card -->
   </div>
 </main>
 
-<!-- FOOTER -->
+<!-- ── FOOTER ── -->
 <footer class="footer">
   <div class="container">
     <div class="footer-grid">
       <div class="fbrand">
-        <a href="index" class="nav-brand" style="font-size:1.2rem">
+        <a href="index.html" class="nav-brand" style="font-size:1.2rem">
           <div class="brand-icon">💰</div>Save<span class="bhl">Hatke</span>
         </a>
         <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
       </div>
       <div class="fcol">
         <h4>Platform</h4>
-        <a href="marketplace">Coupon Marketplace</a>
-        <a href="sell">Sell Coupons</a>
-        <a href="dashboard">Price Tracker</a>
+        <a href="marketplace.html">Coupon Marketplace</a>
+        <a href="sell.html">Sell Coupons</a>
+        <a href="dashboard.html">Price Tracker</a>
       </div>
       <div class="fcol">
         <h4>Company</h4>
-        <a href="support">Help Center</a>
-        <a href="support">Contact Us</a>
-        <a href="terms">Terms &amp; Conditions</a>
-        <a href="privacy">Privacy Policy</a>
+        <a href="support.html">Help Center</a>
+        <a href="support.html">Contact Us</a>
+        <a href="terms.html">Terms &amp; Conditions</a>
+        <a href="privacy.html">Privacy Policy</a>
       </div>
       <div class="fcol">
         <h4>Categories</h4>
-        <a href="marketplace?cat=Makeup">Makeup Coupons</a>
-        <a href="marketplace?cat=Electronics">Electronics Deals</a>
-        <a href="marketplace?cat=Fashion">Fashion Codes</a>
-        <a href="marketplace?cat=Food">Food &amp; Delivery</a>
+        <a href="marketplace.html?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace.html?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace.html?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace.html?cat=Food">Food &amp; Delivery</a>
       </div>
     </div>
     <div class="fbot">
       <span>© 2026 SaveHatke. All rights reserved.</span>
-      <span>Made with ❤️ in India · <a href="terms" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Terms</a> · <a href="privacy" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Privacy</a> · <a href="support" style="color:#6b88aa;transition:color .2s" onmouseover="this.style.color='#00e676'" onmouseout="this.style.color='#6b88aa'">Support</a></span>
+      <span>Made with ❤️ in India ·
+        <a href="terms.html" class="fbot-link">Terms</a> ·
+        <a href="privacy.html" class="fbot-link">Privacy</a> ·
+        <a href="support.html" class="fbot-link">Support</a>
+      </span>
     </div>
   </div>
 </footer>
 
-<!-- TOAST CONTAINER -->
+<!-- ── TOAST CONTAINER ── -->
 <div class="toast-container" id="toastContainer"></div>
 
-<!-- AUTH MODAL -->
+<!-- ── AUTH MODAL ── -->
 <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
   <div class="modal">
     <div class="mhdr">
@@ -502,304 +615,521 @@
       <div class="mfgroup"><label class="mflabel">Create Password</label><input type="password" class="mfinput" id="mRegPass" placeholder="Min. 8 characters"></div>
       <button class="btn btn-primary mfsubmit w-full" onclick="submitModalForm('register')">Create Free Account</button>
     </div>
-    <div style="display:flex;align-items:center;margin:20px 0 16px;color:#6b88aa;font-size:.8rem">
-      <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
-      <span style="padding:0 10px">OR</span>
-      <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+    <div class="modal-divider">
+      <div class="modal-divider-line"></div>
+      <span>OR</span>
+      <div class="modal-divider-line"></div>
     </div>
-    <button type="button" class="btn btn-secondary w-full" onclick="handleGoogleAuthRedirect()" style="display:flex;align-items:center;justify-content:center;gap:10px;height:46px;border-radius:10px;">
-      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/><path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/><path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/></svg>
-      <span>Continue with Google</span>
+    <button type="button" class="btn btn-secondary w-full" onclick="handleGoogleAuthRedirect()" style="height:46px;border-radius:10px;gap:10px;">
+      <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"/>
+        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.24 21.3 7.31 24 12 24z"/>
+        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.17 0 9.99 0 12s.46 3.83 1.26 5.42l4.02-3.15z"/>
+        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.24 2.7 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"/>
+      </svg>
+      Continue with Google
     </button>
   </div>
 </div>
 
 <script>
-  /* =====================
-     TOAST
-  ===================== */
-  function showToast(message, type = 'success') {
-    const container = document.getElementById('toastContainer');
-    if (!container) return;
-    const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    const icons = { success: '✅', error: '❌', warning: '⚠️' };
-    toast.innerHTML = `<span>${icons[type] || '📢'}</span><span>${message}</span>`;
-    container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
+/* ══════════════════════════════════════
+   TOAST
+══════════════════════════════════════ */
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  const icons = { success: '✅', error: '❌', warning: '⚠️' };
+  const iconEl = document.createElement('span');
+  iconEl.textContent = icons[type] || '📢';
+  const msgEl = document.createElement('span');
+  msgEl.textContent = message;
+  toast.appendChild(iconEl);
+  toast.appendChild(msgEl);
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4000);
+}
+
+/* ══════════════════════════════════════
+   AUTH & API
+   Provided by js/app.js (loaded at the end of <body>):
+   Auth (getToken/setAuth/clear/getUser) and api(path, options).
+══════════════════════════════════════ */
+
+/* ══════════════════════════════════════
+   MULTI-COUPON SELL FORM STATE
+══════════════════════════════════════ */
+const MAX_COUPONS = 5;
+let selectedCategory = '';
+let currentStep = 1;
+let couponIdCounter = 0;
+let couponIds = []; // ordered list of active coupon IDs
+
+/* ── Render a single coupon card ── */
+function renderCouponCard(id, index) {
+  const card = document.createElement('div');
+  card.className = 'coupon-entry-card';
+  card.id = 'coupon-card-' + id;
+
+  const header = document.createElement('div');
+  header.className = 'coupon-entry-header';
+
+  const label = document.createElement('span');
+  label.className = 'coupon-entry-label';
+  label.textContent = 'Coupon ' + index;
+  label.id = 'coupon-label-' + id;
+
+  header.appendChild(label);
+
+  // Remove button (not for first coupon if it's the only one)
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'btn btn-danger';
+  removeBtn.type = 'button';
+  removeBtn.textContent = '✕ Remove';
+  removeBtn.setAttribute('aria-label', 'Remove Coupon ' + index);
+  removeBtn.onclick = () => removeCoupon(id);
+  removeBtn.id = 'remove-btn-' + id;
+  header.appendChild(removeBtn);
+
+  card.appendChild(header);
+
+  // Fields
+  card.appendChild(createField('code-' + id, 'Coupon Code *', 'text', 'e.g. NYKAA200OFF', true, 'code', 'Enter the exact code as shown on your reward/voucher'));
+  card.appendChild(createField('brand-' + id, 'Brand / Platform *', 'text', 'e.g. Nykaa, PhonePe, Paytm', true));
+  card.appendChild(createField('desc-' + id, 'What does the coupon offer?', 'text', 'e.g. ₹200 off on orders above ₹999'));
+  card.appendChild(createField('value-' + id, 'Coupon Face Value (₹)', 'number', 'e.g. 200'));
+
+  return card;
+}
+
+function createField(id, labelText, type, placeholder, required = false, extraClass = '', hint = '') {
+  const group = document.createElement('div');
+  group.className = 'fgroup';
+
+  const label = document.createElement('label');
+  label.className = 'flabel';
+  label.setAttribute('for', id);
+  label.textContent = labelText;
+  group.appendChild(label);
+
+  const input = document.createElement('input');
+  input.className = 'finput' + (extraClass ? ' ' + extraClass : '');
+  input.type = type;
+  input.id = id;
+  input.placeholder = placeholder;
+  if (required) input.required = true;
+  if (type === 'number') input.min = '0';
+  group.appendChild(input);
+
+  if (hint) {
+    const hintEl = document.createElement('span');
+    hintEl.className = 'fhint';
+    hintEl.textContent = hint;
+    group.appendChild(hintEl);
   }
 
-  /* =====================
-     SELL FORM STATE
-  ===================== */
-  let selectedCategory = '';
-  let currentStep = 1;
+  return group;
+}
 
-  function selectCategory(btn) {
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    selectedCategory = btn.dataset.cat;
-    // Auto-advance after short delay
-    setTimeout(() => goToStep(2), 300);
+/* ── Add a coupon card ── */
+function addCoupon() {
+  if (couponIds.length >= MAX_COUPONS) return;
+
+  couponIdCounter++;
+  const id = couponIdCounter;
+  couponIds.push(id);
+
+  const container = document.getElementById('couponCardsContainer');
+  const card = renderCouponCard(id, couponIds.length);
+  container.appendChild(card);
+
+  updateCouponNumbers();
+  updateAddButton();
+
+  // Scroll to newly added card
+  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+/* ── Remove a coupon card ── */
+function removeCoupon(id) {
+  if (couponIds.length <= 1) {
+    showToast('You must have at least 1 coupon.', 'warning');
+    return;
   }
+  const idx = couponIds.indexOf(id);
+  if (idx !== -1) couponIds.splice(idx, 1);
 
-  function goToStep(step) {
-    // Validate before advancing
-    if (step === 2 && currentStep === 1) {
-      if (!selectedCategory) {
-        showToast('Please select a category first.', 'warning');
-        return;
-      }
+  const card = document.getElementById('coupon-card-' + id);
+  if (card) card.remove();
+
+  updateCouponNumbers();
+  updateAddButton();
+}
+
+/* ── Renumber visible coupon labels ── */
+function updateCouponNumbers() {
+  couponIds.forEach((id, i) => {
+    const label = document.getElementById('coupon-label-' + id);
+    if (label) label.textContent = 'Coupon ' + (i + 1);
+    const removeBtn = document.getElementById('remove-btn-' + id);
+    if (removeBtn) removeBtn.setAttribute('aria-label', 'Remove Coupon ' + (i + 1));
+  });
+}
+
+/* ── Toggle add button state ── */
+function updateAddButton() {
+  const btn = document.getElementById('addCouponBtn');
+  const limitMsg = document.getElementById('couponLimitMsg');
+  const countHint = document.getElementById('couponCountHint');
+
+  const atMax = couponIds.length >= MAX_COUPONS;
+  btn.disabled = atMax;
+  limitMsg.style.display = atMax ? 'inline' : 'none';
+  countHint.style.display = atMax ? 'none' : 'inline';
+}
+
+/* ── Collect all coupon data ── */
+function collectCoupons() {
+  return couponIds.map(id => ({
+    code: (document.getElementById('code-' + id)?.value || '').trim().toUpperCase(),
+    brand: (document.getElementById('brand-' + id)?.value || '').trim(),
+    description: (document.getElementById('desc-' + id)?.value || '').trim(),
+    faceValue: (document.getElementById('value-' + id)?.value || '').trim()
+  }));
+}
+
+/* ── Validate all coupons ── */
+function validateCoupons() {
+  const coupons = collectCoupons();
+  if (coupons.length === 0) {
+    showToast('Please add at least one coupon.', 'warning');
+    return false;
+  }
+  for (let i = 0; i < coupons.length; i++) {
+    const c = coupons[i];
+    if (!c.code) {
+      showToast('Coupon ' + (i + 1) + ': Coupon Code is required.', 'warning');
+      document.getElementById('code-' + couponIds[i])?.focus();
+      return false;
     }
-    if (step === 3 && currentStep === 2) {
-      const code = document.getElementById('sellCode').value.trim();
-      const brand = document.getElementById('sellBrand').value.trim();
-      if (!code || !brand) {
-        showToast('Please fill in the Coupon Code and Brand fields.', 'warning');
-        return;
-      }
-      buildReviewSummary();
+    if (!c.brand) {
+      showToast('Coupon ' + (i + 1) + ': Brand / Platform is required.', 'warning');
+      document.getElementById('brand-' + couponIds[i])?.focus();
+      return false;
     }
-
-    // Hide all steps
-    document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
-    // Show target step
-    const target = step === 'success' ? document.getElementById('step-success') : document.getElementById(`step-${step}`);
-    if (target) target.classList.add('active');
-
-    currentStep = typeof step === 'number' ? step : currentStep;
-    updateStepper(currentStep);
   }
+  return true;
+}
 
-  function updateStepper(active) {
-    document.querySelectorAll('.stepper-step').forEach(step => {
-      const n = parseInt(step.dataset.step);
-      step.classList.remove('active', 'done');
-      if (n === active) step.classList.add('active');
-      else if (n < active) step.classList.add('done');
+/* ── Build review summary ── */
+function buildReviewSummary() {
+  const coupons = collectCoupons();
+  const container = document.getElementById('reviewAllCoupons');
+  container.innerHTML = '';
+
+  coupons.forEach((c, i) => {
+    const block = document.createElement('div');
+    block.className = 'review-card review-coupon-block';
+
+    const title = document.createElement('div');
+    title.className = 'review-coupon-title';
+    title.textContent = 'Coupon ' + (i + 1);
+    block.appendChild(title);
+
+    const rows = [
+      ['Category', selectedCategory],
+      ['Brand / Platform', c.brand],
+      ['Coupon Code', c.code],
+      ['Description', c.description || '—'],
+      ['Face Value', c.faceValue ? '₹' + c.faceValue : '—']
+    ];
+
+    rows.forEach(([key, val]) => {
+      const row = document.createElement('div');
+      row.className = 'review-row';
+
+      const keyEl = document.createElement('span');
+      keyEl.className = 'review-key';
+      keyEl.textContent = key;
+
+      const valEl = document.createElement('span');
+      valEl.className = 'review-val';
+      valEl.textContent = val;
+
+      row.appendChild(keyEl);
+      row.appendChild(valEl);
+      block.appendChild(row);
     });
-    // Update connector lines
-    const line12 = document.getElementById('line-1-2');
-    const line23 = document.getElementById('line-2-3');
-    if (line12) line12.classList.toggle('done', active > 1);
-    if (line23) line23.classList.toggle('done', active > 2);
-  }
 
-  function buildReviewSummary() {
-    const code = document.getElementById('sellCode').value.trim().toUpperCase();
-    const brand = document.getElementById('sellBrand').value.trim();
-    const desc = document.getElementById('sellDescription').value.trim() || '—';
-    const val = document.getElementById('sellValue').value.trim();
-
-    document.getElementById('reviewSummary').innerHTML = `
-      <div class="review-row">
-        <span class="review-key">Category</span>
-        <span class="review-val">${selectedCategory}</span>
-      </div>
-      <div class="review-row">
-        <span class="review-key">Brand / Platform</span>
-        <span class="review-val">${brand}</span>
-      </div>
-      <div class="review-row">
-        <span class="review-key">Coupon Code</span>
-        <span class="review-val">${code}</span>
-      </div>
-      <div class="review-row">
-        <span class="review-key">Description</span>
-        <span class="review-val" style="font-family:'Outfit',sans-serif;font-size:.85rem">${desc}</span>
-      </div>
-      <div class="review-row">
-        <span class="review-key">Face Value</span>
-        <span class="review-val">${val ? '₹' + val : '—'}</span>
-      </div>
-    `;
-  }
-
-  async function submitCoupon() {
-    const btn = document.getElementById('submitSellBtn');
-    btn.disabled = true;
-    btn.textContent = '⏳ Submitting...';
-
-    try {
-      if (typeof api === 'function') {
-        await api('/coupons/submit', {
-          method: 'POST',
-          body: {
-            category: selectedCategory,
-            code: document.getElementById('sellCode').value.trim().toUpperCase(),
-            brand: document.getElementById('sellBrand').value.trim(),
-            description: document.getElementById('sellDescription').value.trim(),
-            faceValue: document.getElementById('sellValue').value || null
-          }
-        });
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 1200));
-      }
-      // Show success step
-      document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
-      document.getElementById('step-success').classList.add('active');
-      // Hide stepper on success
-      const stepper = document.getElementById('stepper');
-      if (stepper) stepper.style.opacity = '0';
-    } catch (err) {
-      showToast(err.message || 'Submission failed. Please try again.', 'error');
-      btn.disabled = false;
-      btn.innerHTML = '✅ Submit &amp; Earn ₹10';
-    }
-  }
-
-  function resetForm() {
-    selectedCategory = '';
-    currentStep = 1;
-    document.getElementById('sellCode').value = '';
-    document.getElementById('sellBrand').value = '';
-    document.getElementById('sellDescription').value = '';
-    document.getElementById('sellValue').value = '';
-    document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
-    document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
-    document.getElementById('step-1').classList.add('active');
-    const stepper = document.getElementById('stepper');
-    if (stepper) stepper.style.opacity = '1';
-    const btn = document.getElementById('submitSellBtn');
-    btn.disabled = false;
-    btn.innerHTML = '✅ Submit &amp; Earn ₹10';
-    updateStepper(1);
-  }
-
-  /* =====================
-     AUTH / NAV
-  ===================== */
-  function logoutUser() {
-    if (window.Auth) window.Auth.clear();
-    showToast('Logged out.', 'success');
-    if (typeof updateNavAuth === 'function') updateNavAuth();
-  }
-
-  async function api(path, options = {}) {
-    const BASE = window.API_BASE || '/api';
-    const res = await fetch(BASE + path, {
-      headers: { 'Content-Type': 'application/json', ...(Auth.getToken() ? { Authorization: `Bearer ${Auth.getToken()}` } : {}) },
-      method: options.method || 'GET',
-      body: options.body ? JSON.stringify(options.body) : undefined
-    });
-    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err.message || 'Request failed'); }
-    return res.json();
-  }
-
-  async function handleGoogleAuthRedirect() {
-    try {
-      const clientId = await fetchGoogleClientId();
-      if (window.google && window.google.accounts && window.google.accounts.id && clientId) {
-        google.accounts.id.initialize({
-          client_id: clientId,
-          callback: async (response) => {
-            try {
-              const data = await apiFetch('/auth/google', { method: 'POST', body: { credential: response.credential } });
-              Auth.setAuth(data.token, data.user);
-              window.location.reload();
-            } catch (e) {
-              console.warn('Google auth error:', e);
-              window.location.href = 'login.html';
-            }
-          },
-          ux_mode: 'popup',
-          cancel_on_tap_outside: true,
-        });
-        google.accounts.id.prompt();
-        return;
-      }
-    } catch (e) {
-      console.warn('Google redirect error:', e);
-    }
-    window.location.href = 'login.html';
-  }
-
-  /* =====================
-     MODAL
-  ===================== */
-  function openModal(tab = 'login') {
-    // All login/signup entry points route to the dedicated login page
-    window.location.href = 'login.html';
-  }
-  function closeModal() {
-    document.getElementById('modalOverlay').classList.remove('open');
-    document.body.style.overflow = '';
-  }
-  function handleOverlayClick(e) { if (e.target === document.getElementById('modalOverlay')) closeModal(); }
-  function switchTab(tab) {
-    document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
-    document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
-    document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
-    document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
-    document.getElementById('modalTitle').textContent = tab === 'login' ? 'Welcome Back' : 'Join SaveHatke';
-  }
-  async function submitModalForm(type) {
-    try {
-      if (type === 'login') {
-        const email = document.getElementById('mEmail').value;
-        const password = document.getElementById('mPass').value;
-        if (!email || !password) return showToast('Please fill email and password', 'warning');
-        const data = await api('/auth/login', { method: 'POST', body: { email, password } });
-        Auth.setAuth(data.token, data.user);
-        showToast('Welcome back! 👋', 'success');
-      } else {
-        const name = document.getElementById('mName').value;
-        const email = document.getElementById('mRegEmail').value;
-        const password = document.getElementById('mRegPass').value;
-        if (!email || !password || !name) return showToast('Please fill all fields', 'warning');
-        const data = await api('/auth/register', { method: 'POST', body: { name, email, password } });
-        Auth.setAuth(data.token, data.user);
-        showToast('Account created! 🎉', 'success');
-      }
-      closeModal();
-      updateNavAuth();
-      setTimeout(() => window.location.href = 'dashboard', 100); // Faster redirect
-    } catch (err) { showToast(err.message, 'error'); }
-  }
-
-  /* =====================
-     NAV SCROLL + MOBILE
-  ===================== */
-  window.addEventListener('scroll', () => {
-    const nav = document.getElementById('mainNav');
-    if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
+    container.appendChild(block);
   });
 
-  const navToggle = document.getElementById('navToggle');
-  if (navToggle) {
-    navToggle.addEventListener('click', () => {
-      document.getElementById('navLinks').classList.toggle('open');
-      document.getElementById('navActions').classList.toggle('open');
-    });
+  // Update count and earn total
+  const count = coupons.length;
+  document.getElementById('reviewTotalCount').textContent = count;
+  document.getElementById('earnTotal').textContent = '₹' + (count * 10);
+
+  // Update submit button label
+  const submitBtn = document.getElementById('submitSellBtn');
+  if (submitBtn) submitBtn.innerHTML = '✅ Submit &amp; Earn ₹' + (count * 10);
+}
+
+/* ── Category select ── */
+function selectCategory(btn) {
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  selectedCategory = btn.dataset.cat;
+  setTimeout(() => goToStep(2), 300);
+}
+
+/* ── Step navigation ── */
+function goToStep(step) {
+  if (step === 2 && currentStep === 1) {
+    if (!selectedCategory) {
+      showToast('Please select a category first.', 'warning');
+      return;
+    }
   }
 
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  if (step === 3 && currentStep === 2) {
+    if (!validateCoupons()) return;
+    buildReviewSummary();
+  }
 
-  /* =====================
-     SCROLL REVEAL
-  ===================== */
-  const obs = new IntersectionObserver(entries => {
-    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
-  }, { threshold: 0.1 });
-  document.querySelectorAll('.fu').forEach(el => obs.observe(el));
+  document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
 
-  // Spawn background particles
-  (function spawnParticles() {
-    const container = document.getElementById('pageParticles');
-    if (!container) return;
-    for (let i = 0; i < 18; i++) {
-      const p = document.createElement('div');
-      p.className = 'particle';
-      p.style.left = Math.random() * 100 + '%';
-      p.style.animationDuration = (6 + Math.random() * 10) + 's';
-      p.style.animationDelay = (Math.random() * 8) + 's';
-      p.style.width = p.style.height = (2 + Math.random() * 3) + 'px';
-      container.appendChild(p);
+  const target = step === 'success'
+    ? document.getElementById('step-success')
+    : document.getElementById('step-' + step);
+
+  if (target) target.classList.add('active');
+
+  if (typeof step === 'number') currentStep = step;
+  updateStepper(currentStep);
+
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── Update stepper UI ── */
+function updateStepper(active) {
+  document.querySelectorAll('.stepper-step').forEach(s => {
+    const n = parseInt(s.dataset.step);
+    s.classList.remove('active', 'done');
+    if (n === active) s.classList.add('active');
+    else if (n < active) s.classList.add('done');
+  });
+  const line12 = document.getElementById('line-1-2');
+  const line23 = document.getElementById('line-2-3');
+  if (line12) line12.classList.toggle('done', active > 1);
+  if (line23) line23.classList.toggle('done', active > 2);
+}
+
+/* ── Submit all coupons ── */
+async function submitCoupons() {
+  const btn = document.getElementById('submitSellBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Submitting...';
+
+  const coupons = collectCoupons();
+  const count = coupons.length;
+
+  try {
+    const data = await api('/coupons/submit', {
+      method: 'POST',
+      body: {
+        category: selectedCategory,
+        coupons: coupons.map(c => ({
+          code: c.code,
+          brand: c.brand,
+          description: c.description || undefined,
+          faceValue: c.faceValue ? Number(c.faceValue) : undefined
+        }))
+      }
+    });
+
+    // Some coupons may have been skipped (e.g. duplicate codes) — tell the seller
+    if (data && Array.isArray(data.skipped) && data.skipped.length) {
+      showToast(data.skipped.join(' '), 'warning');
     }
-  })();
 
-  // Init
-  if (typeof updateNavAuth === 'function') updateNavAuth();
+    // Update success screen copy
+    const submitted = (data && typeof data.submitted === 'number') ? data.submitted : count;
+    const plural = submitted === 1 ? 'coupon' : 'coupons';
+    document.getElementById('successTitle').textContent = submitted === 1 ? 'Coupon Submitted!' : 'Coupons Submitted!';
+    document.getElementById('successMsg').textContent =
+      'Your ' + submitted + ' ' + plural + ' are now under review. You\'ll receive payment for eligible ' + plural + ' after verification. Track your submissions in your dashboard.';
+
+    // Show success
+    document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+    document.getElementById('step-success').classList.add('active');
+
+    const stepper = document.getElementById('stepper');
+    if (stepper) stepper.style.opacity = '0';
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  } catch (err) {
+    showToast(err.message || 'Submission failed. Please try again.', 'error');
+    btn.disabled = false;
+    const count2 = collectCoupons().length;
+    btn.innerHTML = '✅ Submit &amp; Earn ₹' + (count2 * 10);
+  }
+}
+
+/* ── Reset form ── */
+function resetForm() {
+  selectedCategory = '';
+  currentStep = 1;
+  couponIds = [];
+
+  // Clear coupon cards and re-add first one
+  document.getElementById('couponCardsContainer').innerHTML = '';
+  addCoupon();
+
+  // Reset category
+  document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('selected'));
+
+  // Reset steps
+  document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
+  document.getElementById('step-1').classList.add('active');
+
+  // Restore stepper
+  const stepper = document.getElementById('stepper');
+  if (stepper) stepper.style.opacity = '1';
+
+  // Reset submit button
+  const btn = document.getElementById('submitSellBtn');
+  if (btn) { btn.disabled = false; btn.innerHTML = '✅ Submit &amp; Earn'; }
+
+  updateStepper(1);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ══════════════════════════════════════
+   MODAL
+══════════════════════════════════════ */
+function openModal(tab = 'login') {
+  // All login/signup entry points route to the dedicated login page
+  window.location.href = 'login.html';
+}
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+function switchTab(tab) {
+  document.getElementById('tabLogin').classList.toggle('active', tab === 'login');
+  document.getElementById('tabRegister').classList.toggle('active', tab === 'register');
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('modalTitle').textContent = tab === 'login' ? 'Welcome Back' : 'Join SaveHatke';
+}
+async function submitModalForm(type) {
+  try {
+    if (type === 'login') {
+      const email = document.getElementById('mEmail').value;
+      const password = document.getElementById('mPass').value;
+      if (!email || !password) return showToast('Please fill email and password', 'warning');
+      const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+      Auth.setAuth(data.token, data.user);
+      showToast('Welcome back! 👋', 'success');
+    } else {
+      const name = document.getElementById('mName').value;
+      const email = document.getElementById('mRegEmail').value;
+      const password = document.getElementById('mRegPass').value;
+      if (!email || !password || !name) return showToast('Please fill all fields', 'warning');
+      const data = await api('/auth/register', { method: 'POST', body: { name, email, password } });
+      Auth.setAuth(data.token, data.user);
+      showToast('Account created! 🎉', 'success');
+    }
+    closeModal();
+    setTimeout(() => window.location.href = 'dashboard.html', 500);
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function handleGoogleAuthRedirect() {
+  try {
+    const clientId = (typeof fetchGoogleClientId === 'function')
+      ? await fetchGoogleClientId()
+      : '';
+    if (window.google && window.google.accounts && window.google.accounts.id && clientId) {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (response) => {
+          try {
+            const data = await api('/auth/google', { method: 'POST', body: { credential: response.credential } });
+            Auth.setAuth(data.token, data.user);
+            window.location.reload();
+          } catch (e) {
+            window.location.href = 'login.html';
+          }
+        },
+        ux_mode: 'popup',
+        cancel_on_tap_outside: true,
+      });
+      google.accounts.id.prompt();
+      return;
+    }
+  } catch (e) {
+    console.warn('Google auth error:', e);
+  }
+  window.location.href = 'login.html';
+}
+
+/* ══════════════════════════════════════
+   NAV & SCROLL
+══════════════════════════════════════ */
+window.addEventListener('scroll', () => {
+  const nav = document.getElementById('mainNav');
+  if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
+});
+
+const navToggle = document.getElementById('navToggle');
+if (navToggle) {
+  navToggle.addEventListener('click', () => {
+    document.getElementById('navLinks').classList.toggle('open');
+    document.getElementById('navActions').classList.toggle('open');
+  });
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ══════════════════════════════════════
+   SCROLL REVEAL
+══════════════════════════════════════ */
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fu').forEach(el => obs.observe(el));
+
+/* ══════════════════════════════════════
+   PARTICLES
+══════════════════════════════════════ */
+(function spawnParticles() {
+  const container = document.getElementById('pageParticles');
+  if (!container) return;
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement('div');
+    p.className = 'particle';
+    p.style.left = Math.random() * 100 + '%';
+    p.style.animationDuration = (6 + Math.random() * 10) + 's';
+    p.style.animationDelay = (Math.random() * 8) + 's';
+    const size = (2 + Math.random() * 3) + 'px';
+    p.style.width = size;
+    p.style.height = size;
+    container.appendChild(p);
+  }
+})();
+
+/* ══════════════════════════════════════
+   INIT — add first coupon card
+══════════════════════════════════════ */
+addCoupon();
 </script>
 <script src="js/app.js"></script>
 </body>

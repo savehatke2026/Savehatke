@@ -104,69 +104,110 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// POST /api/coupons/sell & /api/coupons/submit — Submit a coupon to sell
+// POST /api/coupons/sell & /api/coupons/submit — Submit coupon(s) to sell
+// Accepts the multi-coupon format { category, coupons: [{code, brand, description, faceValue}] }
+// and the legacy single-coupon format { code, category, brand, ... }.
 const handleCouponSubmission = async (req, res) => {
   try {
-    const { code, category, brand, description, originalValue, faceValue } = req.body;
+    const { code, category, brand, description, originalValue, faceValue, coupons } = req.body;
 
-    if (!code || !category || !brand) {
-      return res.status(400).json({ error: 'Coupon code, category, and brand are required.' });
-    }
-
-    const cleanCode = code.toUpperCase().trim();
-    const value = faceValue || originalValue || '0';
-
-    // Check for duplicate codes in Supabase & Sheets
-    let existing = null;
-    if (supabase.isConfigured()) {
-      try {
-        existing = await supabase.findCouponByCode(cleanCode);
-      } catch (e) {}
-    }
-    if (!existing) {
-      existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
-    }
-    if (existing) {
-      return res.status(409).json({ error: 'This coupon code has already been submitted.' });
+    // Normalize both formats into a list
+    let list;
+    if (Array.isArray(coupons) && coupons.length > 0) {
+      if (!category) {
+        return res.status(400).json({ error: 'Category is required.' });
+      }
+      list = coupons.map((c) => ({
+        code: c && c.code,
+        category,
+        brand: c && c.brand,
+        description: (c && c.description) || '',
+        faceValue: (c && (c.faceValue || c.originalValue)) || faceValue || originalValue || '0',
+      }));
+    } else {
+      list = [{ code, category, brand, description, faceValue: faceValue || originalValue }];
     }
 
     const sellerEmail = (req.user && req.user.email) ? req.user.email : 'user@savehatke.com';
+    const submitted = [];
+    const skipped = [];
 
-    const coupon = {
-      id: uuidv4(),
-      code: cleanCode,
-      category: category.trim(),
-      brand: brand.trim(),
-      description: description || '',
-      originalValue: value.toString(),
-      sellingPrice: '20', // Our markup price
-      sellerEmail: sellerEmail,
-      status: 'pending', // Needs admin approval
-      source: 'user-submitted',
-      addedAt: new Date().toISOString(),
-      soldAt: '',
-      buyerEmail: '',
-    };
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      if (!c.code || !c.category || !c.brand) {
+        skipped.push(`Coupon ${i + 1}: code, category, and brand are required.`);
+        continue;
+      }
 
-    if (supabase.isConfigured()) {
+      const cleanCode = String(c.code).toUpperCase().trim();
+
+      // Check for duplicate codes in Supabase & Sheets
+      let existing = null;
+      if (supabase.isConfigured()) {
+        try {
+          existing = await supabase.findCouponByCode(cleanCode);
+        } catch (e) {}
+      }
+      if (!existing) {
+        existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
+      }
+      if (existing) {
+        skipped.push(`Coupon ${i + 1} (${cleanCode}): this code has already been submitted.`);
+        continue;
+      }
+
+      const coupon = {
+        id: uuidv4(),
+        code: cleanCode,
+        category: String(c.category).trim(),
+        brand: String(c.brand).trim(),
+        description: c.description || '',
+        originalValue: String(c.faceValue || '0'),
+        sellingPrice: '20', // Our markup price
+        sellerEmail: sellerEmail,
+        status: 'pending', // Needs admin approval
+        source: 'user-submitted',
+        addedAt: new Date().toISOString(),
+        soldAt: '',
+        buyerEmail: '',
+      };
+
+      if (supabase.isConfigured()) {
+        try {
+          await supabase.createCoupon(coupon);
+        } catch (e) {}
+      }
       try {
-        await supabase.createCoupon(coupon);
+        await db.appendRow(db.SHEETS.COUPONS, coupon);
       } catch (e) {}
-    }
-    try {
-      await db.appendRow(db.SHEETS.COUPONS, coupon);
-    } catch (e) {}
 
+      submitted.push(coupon);
+    }
+
+    if (submitted.length === 0) {
+      return res.status(skipped.length ? 409 : 400).json({
+        error: skipped[0] || 'No coupons submitted.',
+        skipped,
+      });
+    }
+
+    const offer = `₹${submitted.length * 10}`;
     res.status(201).json({
-      message: 'Coupon submitted successfully! You will receive ₹10 once it is verified and sold.',
+      message: submitted.length === 1
+        ? 'Coupon submitted successfully! You will receive ₹10 once it is verified and sold.'
+        : `${submitted.length} coupons submitted successfully! You will receive ${offer} once they are verified and sold.`,
       coupon: {
-        id: coupon.id,
-        code: coupon.code,
-        category: coupon.category,
-        brand: coupon.brand,
-        status: coupon.status,
-        offerAmount: '₹10',
+        id: submitted[0].id,
+        code: submitted[0].code,
+        category: submitted[0].category,
+        brand: submitted[0].brand,
+        status: submitted[0].status,
+        offerAmount: offer,
       },
+      coupons: submitted.map((c) => ({ id: c.id, code: c.code, brand: c.brand, status: c.status })),
+      submitted: submitted.length,
+      skipped,
+      offerAmount: offer,
     });
   } catch (err) {
     console.error('Sell coupon error:', err);
