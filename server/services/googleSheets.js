@@ -288,7 +288,13 @@ async function getRows(sheetName) {
       const gsheetRows = rows.slice(1).map((row) => {
         const obj = {};
         headers.forEach((h, i) => {
-          obj[h] = row[i] || '';
+          if (String(h).trim() === '') return;
+          const v = row[i] || '';
+          obj[h] = v;
+          // Also expose the value under the normalized key so code using
+          // "user_id" can read a sheet headed "user_ID".
+          const nk = normKey(h);
+          if (obj[nk] === undefined) obj[nk] = v;
         });
         if (sheetName === SHEETS.USERS) {
           obj.id = obj.user_id || obj.id || '';
@@ -320,10 +326,23 @@ async function getRows(sheetName) {
   return fallback;
 }
 
+// Normalize header names for matching (live sheets may use e.g. "user_ID"
+// while code uses "user_id" — treat them as the same column).
+const normKey = (h) => String(h || '').trim().toLowerCase();
+
+// Build a lookup of data values by normalized key name.
+function dataByNormKey(data) {
+  const map = {};
+  Object.entries(data || {}).forEach(([k, v]) => {
+    map[normKey(k)] = v;
+  });
+  return map;
+}
+
 /**
  * Append a row to a sheet.
  * @param {string} sheetName
- * @param {object} data — object with keys matching column headers
+ * @param {object} data — object with keys matching column headers (case-insensitive)
  */
 async function appendRow(sheetName, data) {
   const headers = HEADERS[sheetName];
@@ -339,8 +358,28 @@ async function appendRow(sheetName, data) {
   }
 
   if (sheetsClient) {
-    const row = headers.map((h) => data[h] || '');
     try {
+      // Align values with the sheet's actual header row (case-insensitive)
+      // so data lands in the correct columns even if the live tab's headers
+      // differ from config in naming or order.
+      let rowHeaders = headers;
+      try {
+        const hdrRes = await sheetsClient.spreadsheets.values.get({
+          spreadsheetId,
+          range: `${sheetName}!1:1`,
+        });
+        const actual = hdrRes.data.values && hdrRes.data.values[0]
+          ? hdrRes.data.values[0].filter((h) => String(h).trim() !== '')
+          : [];
+        if (actual.length) rowHeaders = actual;
+      } catch (e) {
+        // Header read failed — fall back to configured header order
+      }
+      const normData = dataByNormKey(data);
+      const row = rowHeaders.map((h) => {
+        const v = data[h] !== undefined ? data[h] : normData[normKey(h)];
+        return v !== undefined && v !== null ? v : '';
+      });
       await sheetsClient.spreadsheets.values.append({
         spreadsheetId,
         range: `${sheetName}!A1`,
@@ -403,7 +442,8 @@ async function updateRow(sheetName, field, value, updatedData) {
     }
 
     const headers = rows[0];
-    const fieldIdx = headers.indexOf(field);
+    let fieldIdx = headers.indexOf(field);
+    if (fieldIdx === -1) fieldIdx = headers.findIndex((h) => normKey(h) === normKey(field));
     if (fieldIdx === -1) {
       invalidateCache(sheetName);
       return idx !== -1 ? arr[idx] : null;
@@ -423,11 +463,16 @@ async function updateRow(sheetName, field, value, updatedData) {
       return idx !== -1 ? arr[idx] : null;
     }
 
-    // Merge existing row with updates
+    // Merge existing row with updates (match keys case-insensitively so
+    // "user_id" updates land under a sheet headed "user_ID").
     const existingRow = rows[rowIndex - 1];
+    const normUpdates = dataByNormKey(updatedData);
     const merged = {};
     headers.forEach((h, i) => {
-      merged[h] = updatedData[h] !== undefined ? updatedData[h] : (existingRow[i] || '');
+      const v = updatedData[h] !== undefined ? updatedData[h]
+        : normUpdates[normKey(h)] !== undefined ? normUpdates[normKey(h)]
+        : (existingRow[i] || '');
+      if (String(h).trim() !== '' || v !== '') merged[h] = v;
     });
 
     const newRow = headers.map((h) => merged[h] || '');
@@ -482,7 +527,8 @@ async function deleteRow(sheetName, field, value) {
     if (!rows || rows.length <= 1) return false;
 
     const headers = rows[0];
-    const fieldIdx = headers.indexOf(field);
+    let fieldIdx = headers.indexOf(field);
+    if (fieldIdx === -1) fieldIdx = headers.findIndex((h) => normKey(h) === normKey(field));
     if (fieldIdx === -1) return false;
 
     let rowIndex = -1;
