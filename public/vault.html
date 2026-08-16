@@ -346,6 +346,29 @@ tbody td strong{color:#e2ecff;font-weight:600}
 }
 .brand-opt:hover { background: rgba(0,230,118,.1); color: #e2ecff; }
 .brand-opt.selected { background: rgba(0,230,118,.18); color: #00e676; font-weight: 700; }
+
+/* ── SUPPORT CASES ── */
+.badge-teal{background:rgba(128,203,196,.12);color:#80cbc4}
+.btn-info{background:rgba(79,195,247,.1);color:#4fc3f7;border:1px solid rgba(79,195,247,.2)}
+.btn-info:hover{background:rgba(79,195,247,.2)}
+.priority-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0}
+
+.detail-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.detail-meta-item{background:rgba(255,255,255,.04);border-radius:10px;padding:10px 14px}
+.detail-meta-label{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px}
+.detail-meta-value{font-size:.88rem;color:#e2ecff;font-weight:600}
+
+.msg-bubble{padding:12px 16px;border-radius:12px;font-size:.86rem;line-height:1.6;margin-bottom:10px;max-width:90%}
+.msg-user{background:rgba(79,195,247,.08);border:1px solid rgba(79,195,247,.12);border-radius:12px 12px 12px 2px;color:#a8c0dc}
+.msg-support{background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.15);border-radius:12px 12px 2px 12px;color:#a8c0dc;margin-left:auto}
+.msg-meta{font-size:.72rem;color:#6b88aa;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+
+.modal-footer{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
+
+.empty-state{text-align:center;padding:60px 20px;color:#6b88aa}
+.empty-state .es-icon{font-size:3rem;margin-bottom:14px;opacity:.5}
+.empty-state .es-title{font-size:1rem;font-weight:700;color:#a8c0dc;margin-bottom:6px}
+.empty-state .es-sub{font-size:.85rem}
 </style>
 </head>
 <body>
@@ -370,7 +393,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="nav-item" onclick="showSection('brands',this)"><span class="ni">🛍️</span> Brands</div>
 
     <span class="nav-group-label">Operations</span>
-    <div class="nav-item" onclick="openSupportCases()"><span class="ni">🎧</span> Support Cases <span class="nbadge green">Live</span></div>
+    <div class="nav-item" onclick="showSection('support',this)"><span class="ni">🎧</span> Support Cases <span class="nbadge green">Live</span></div>
     <div class="nav-item" onclick="showSection('tracker',this)"><span class="ni">📦</span> Price Tracker</div>
     <div class="nav-item" onclick="showSection('analytics',this)"><span class="ni">📈</span> Analytics</div>
     <div class="nav-item" onclick="showSection('content',this)"><span class="ni">📢</span> Content</div>
@@ -401,7 +424,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="topbar-title" id="topbarTitle">Dashboard <span>/ Overview</span></div>
     <div class="topbar-search">
       <span class="si">🔍</span>
-      <input type="text" placeholder="Search anything...">
+      <input type="text" id="globalSearch" placeholder="Search anything..." oninput="globalSearchCases(this.value)">
     </div>
     <div class="topbar-actions">
       <button class="btn btn-ghost btn-sm" onclick="openSupportCases()" title="Support Cases">🎧 Support Cases</button>
@@ -853,6 +876,249 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="activity-item"><div class="activity-dot" style="background:#00e676"></div><div class="activity-text"><strong>Jaggik</strong> updated Super Admin permissions</div><div class="activity-time">10m ago</div></div>
         </div>
       </div>
+    <!-- ════════════════ SUPPORT CASES ════════════════ -->
+    <div class="section-view" id="sec-support">
+      <div class="page-title-row">
+        <div>
+          <div class="page-title">Support <span class="gtext">Cases</span></div>
+          <div class="page-subtitle">Manage customer support tickets and resolve issues efficiently.</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-lg" onclick="exportCases()">📥 Export</button>
+          <button class="btn btn-primary btn-lg" onclick="openModal('newCaseModal')">+ New Case</button>
+        </div>
+      </div>
+
+      <!-- STAT CARDS -->
+      <div class="stats-grid">
+        <div class="stat-card sc-orange" onclick="switchTab('open')" style="cursor:pointer">
+          <div class="stat-card-top">
+            <div class="stat-icon si-orange">📬</div>
+            <span class="stat-trend trend-down" id="trendOpen">↑ 3</span>
+          </div>
+          <div class="stat-val" style="color:#ffb74d" id="statOpen">0</div>
+          <div class="stat-lbl">Open Cases</div>
+          <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progOpen" style="background:linear-gradient(90deg,#ffb74d,#f57c00);width:0%"></div></div>
+        </div>
+        <div class="stat-card sc-blue" onclick="switchTab('inprogress')" style="cursor:pointer">
+          <div class="stat-card-top">
+            <div class="stat-icon si-blue">⚙️</div>
+            <span class="stat-trend trend-up" id="trendProgress">↑ 5%</span>
+          </div>
+          <div class="stat-val" style="color:#4fc3f7" id="statProgress">0</div>
+          <div class="stat-lbl">In Progress</div>
+          <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progProgress" style="background:linear-gradient(90deg,#4fc3f7,#0288d1);width:0%"></div></div>
+        </div>
+        <div class="stat-card sc-green" onclick="switchTab('resolved')" style="cursor:pointer">
+          <div class="stat-card-top">
+            <div class="stat-icon si-green">✅</div>
+            <span class="stat-trend trend-up" id="trendResolved">↑ 12%</span>
+          </div>
+          <div class="stat-val gtext" id="statResolved">0</div>
+          <div class="stat-lbl">Resolved</div>
+          <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progResolved" style="width:0%"></div></div>
+        </div>
+        <div class="stat-card sc-purple" onclick="switchTab('closed')" style="cursor:pointer">
+          <div class="stat-card-top">
+            <div class="stat-icon si-purple">🔒</div>
+            <span class="stat-trend trend-up" id="trendClosed">↑ 8%</span>
+          </div>
+          <div class="stat-val" style="color:#ce93d8" id="statClosed">0</div>
+          <div class="stat-lbl">Closed</div>
+          <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progClosed" style="background:linear-gradient(90deg,#ce93d8,#9c27b0);width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- TABS -->
+      <div class="tab-row" id="mainTabRow">
+        <button class="tab-btn active" id="tab-open" onclick="switchTab('open',this)">📬 Open Cases <span id="tabBadgeOpen" style="background:rgba(255,183,77,.2);color:#ffb74d;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:2px;">0</span></button>
+        <button class="tab-btn" id="tab-inprogress" onclick="switchTab('inprogress',this)">⚙️ In Progress <span id="tabBadgeProgress" style="background:rgba(79,195,247,.2);color:#4fc3f7;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:2px;">0</span></button>
+        <button class="tab-btn" id="tab-resolved" onclick="switchTab('resolved',this)">✅ Resolved <span id="tabBadgeResolved" style="background:rgba(0,230,118,.2);color:#00e676;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:2px;">0</span></button>
+        <button class="tab-btn" id="tab-closed" onclick="switchTab('closed',this)">🔒 Closed <span id="tabBadgeClosed" style="background:rgba(206,147,216,.2);color:#ce93d8;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:2px;">0</span></button>
+      </div>
+
+      <!-- OPEN CASES -->
+      <div class="tab-content active" id="tcontent-open">
+        <div class="table-card">
+          <div class="table-header">
+            <h3>📬 Open Cases</h3>
+            <div class="table-header-actions">
+              <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter open cases..." oninput="filterTable('open',this.value)" id="filterOpen">
+              <select class="form-select btn-sm" style="width:120px" onchange="filterByPriority('open',this.value)">
+                <option value="">All Priority</option>
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="sortTable('open','date')">Sort by Date</button>
+            </div>
+          </div>
+          <div class="overflow-x">
+            <table>
+              <thead>
+                <tr>
+                  <th>Case ID</th>
+                  <th>Subject</th>
+                  <th>User</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Created</th>
+                  <th>SLA</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-open"></tbody>
+            </table>
+          </div>
+          <div id="empty-open" class="empty-state" style="display:none">
+            <div class="es-icon">📭</div>
+            <div class="es-title">No open cases</div>
+            <div class="es-sub">All caught up! No open support cases right now.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- IN PROGRESS -->
+      <div class="tab-content" id="tcontent-inprogress">
+        <div class="table-card">
+          <div class="table-header">
+            <h3>⚙️ In Progress Cases</h3>
+            <div class="table-header-actions">
+              <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter..." oninput="filterTable('inprogress',this.value)" id="filterProgress">
+              <select class="form-select btn-sm" style="width:120px" onchange="filterByPriority('inprogress',this.value)">
+                <option value="">All Priority</option>
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="sortTable('inprogress','date')">Sort by Date</button>
+            </div>
+          </div>
+          <div class="overflow-x">
+            <table>
+              <thead>
+                <tr>
+                  <th>Case ID</th>
+                  <th>Subject</th>
+                  <th>User</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Assigned To</th>
+                  <th>Last Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-inprogress"></tbody>
+            </table>
+          </div>
+          <div id="empty-inprogress" class="empty-state" style="display:none">
+            <div class="es-icon">⚙️</div>
+            <div class="es-title">No cases in progress</div>
+            <div class="es-sub">No cases are currently being worked on.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RESOLVED -->
+      <div class="tab-content" id="tcontent-resolved">
+        <div class="table-card">
+          <div class="table-header">
+            <h3>✅ Resolved Cases</h3>
+            <div class="table-header-actions">
+              <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter..." oninput="filterTable('resolved',this.value)" id="filterResolved">
+              <select class="form-select btn-sm" style="width:130px" onchange="filterByCategory('resolved',this.value)">
+                <option value="">All Categories</option>
+                <option value="Billing">Billing</option>
+                <option value="Technical">Technical</option>
+                <option value="Coupon">Coupon</option>
+                <option value="Account">Account</option>
+                <option value="Other">Other</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="exportCases('resolved')">Export</button>
+            </div>
+          </div>
+          <div class="overflow-x">
+            <table>
+              <thead>
+                <tr>
+                  <th>Case ID</th>
+                  <th>Subject</th>
+                  <th>User</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Resolved By</th>
+                  <th>Resolution Time</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-resolved"></tbody>
+            </table>
+          </div>
+          <div id="empty-resolved" class="empty-state" style="display:none">
+            <div class="es-icon">✅</div>
+            <div class="es-title">No resolved cases yet</div>
+            <div class="es-sub">Resolved cases will appear here.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CLOSED -->
+      <div class="tab-content" id="tcontent-closed">
+        <div class="table-card">
+          <div class="table-header">
+            <h3>🔒 Closed Cases</h3>
+            <div class="table-header-actions">
+              <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter..." oninput="filterTable('closed',this.value)" id="filterClosed">
+              <select class="form-select btn-sm" style="width:130px" onchange="filterByCategory('closed',this.value)">
+                <option value="">All Categories</option>
+                <option value="Billing">Billing</option>
+                <option value="Technical">Technical</option>
+                <option value="Coupon">Coupon</option>
+                <option value="Account">Account</option>
+                <option value="Other">Other</option>
+              </select>
+              <button class="btn btn-ghost btn-sm" onclick="exportCases('closed')">Export</button>
+            </div>
+          </div>
+          <div class="overflow-x">
+            <table>
+              <thead>
+                <tr>
+                  <th>Case ID</th>
+                  <th>Subject</th>
+                  <th>User</th>
+                  <th>Category</th>
+                  <th>Priority</th>
+                  <th>Closed By</th>
+                  <th>Close Reason</th>
+                  <th>Closed On</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tbody-closed"></tbody>
+            </table>
+          </div>
+          <div id="empty-closed" class="empty-state" style="display:none">
+            <div class="es-icon">🔒</div>
+            <div class="es-title">No closed cases</div>
+            <div class="es-sub">Closed cases will appear here.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- BOTTOM ANALYTICS ROW -->
+      <div class="two-col">
+        <div class="card">
+          <div class="card-title"><span class="ct-icon">📊</span> Case Breakdown by Category</div>
+          <div id="categoryBreakdown"></div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="ct-icon">🕐</span> Recent Activity</div>
+          <div id="recentActivity" class="activity-list"></div>
+        </div>
+      </div>
     </div>
 
   </div> <!-- /content -->
@@ -871,6 +1137,107 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="form-group mb-4"><label class="form-label">Initial Password</label><input class="form-input" type="password" placeholder="••••••••"></div>
       <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create User</button>
     </form>
+  </div>
+</div>
+
+<!-- ── MODAL: NEW CASE ── -->
+<div class="modal-overlay" id="newCaseModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-hdr">
+      <div class="modal-title">Create New <span class="gtext">Case</span></div>
+      <button class="modal-close" onclick="closeModal('newCaseModal')">✕</button>
+    </div>
+    <form id="newCaseForm" onsubmit="createCase(event)">
+      <div class="form-grid form-grid-2">
+        <div class="form-group">
+          <label class="form-label">User Name *</label>
+          <input class="form-input" type="text" id="nc-user" placeholder="e.g. Rahul Kumar" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">User Email *</label>
+          <input class="form-input" type="email" id="nc-email" placeholder="e.g. rahul@gmail.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Category *</label>
+          <select class="form-select" id="nc-category" required>
+            <option value="">— Select —</option>
+            <option value="Billing">💳 Billing</option>
+            <option value="Technical">🔧 Technical</option>
+            <option value="Coupon">🎟️ Coupon</option>
+            <option value="Account">👤 Account</option>
+            <option value="Other">📦 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Priority *</label>
+          <select class="form-select" id="nc-priority" required>
+            <option value="Low">🟢 Low</option>
+            <option value="Medium" selected>🟡 Medium</option>
+            <option value="High">🟠 High</option>
+            <option value="Critical">🔴 Critical</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-top:16px">
+        <label class="form-label">Subject *</label>
+        <input class="form-input" type="text" id="nc-subject" placeholder="Briefly describe the issue..." required>
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">Description</label>
+        <textarea class="form-textarea" id="nc-desc" placeholder="Provide detailed information about the issue..."></textarea>
+      </div>
+      <div class="form-group" style="margin-top:14px">
+        <label class="form-label">Assign To</label>
+        <select class="form-select" id="nc-assign">
+          <option value="Unassigned">— Unassigned —</option>
+          <option value="Rupayan">Rupayan</option>
+          <option value="Jaggik">Jaggik</option>
+          <option value="Priya Support">Priya Support</option>
+          <option value="Aditya Support">Aditya Support</option>
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('newCaseModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">🎧 Create Case</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── MODAL: VIEW / EDIT CASE ── -->
+<div class="modal-overlay" id="viewCaseModal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title" id="vcTitle">Case Detail</div>
+        <div style="font-size:.78rem;color:#6b88aa;margin-top:4px" id="vcSubtitle"></div>
+      </div>
+      <button class="modal-close" onclick="closeModal('viewCaseModal')">✕</button>
+    </div>
+
+    <!-- META -->
+    <div class="detail-meta" id="vcMeta"></div>
+
+    <!-- MESSAGES -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:.8rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:12px">💬 Conversation</div>
+      <div id="vcMessages" style="max-height:260px;overflow-y:auto;padding-right:4px;display:flex;flex-direction:column;gap:8px"></div>
+    </div>
+
+    <!-- REPLY -->
+    <div style="border-top:1px solid rgba(79,195,247,.08);padding-top:16px;margin-top:8px">
+      <div class="form-group">
+        <label class="form-label">Reply / Add Note</label>
+        <textarea class="form-textarea" id="vcReplyText" placeholder="Type your reply here..." style="min-height:80px"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="sendReply()">📨 Send Reply</button>
+        <button class="btn btn-success btn-sm" onclick="changeStatus('resolved')">✅ Mark Resolved</button>
+        <button class="btn btn-info btn-sm" onclick="changeStatus('inprogress')">⚙️ In Progress</button>
+        <button class="btn btn-warning btn-sm" onclick="changeStatus('open')">📬 Reopen</button>
+        <button class="btn btn-danger btn-sm" onclick="changeStatus('closed')">🔒 Close Case</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -923,8 +1290,8 @@ function showSection(name, el) {
 
   const titleEl = document.getElementById('topbarTitle');
   if (titleEl) {
-    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
-    titleEl.innerHTML = `${formatted} <span>/ View</span>`;
+    const specialTitles = { support: 'Support Cases <span>/ Management</span>' };
+    titleEl.innerHTML = specialTitles[name] || `${name.charAt(0).toUpperCase() + name.slice(1)} <span>/ View</span>`;
   }
 
   // Load section-specific data if available
@@ -936,6 +1303,9 @@ function showSection(name, el) {
   }
   if (name === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
+  }
+  if (name === 'support' && typeof renderAll === 'function') {
+    renderAll();
   }
 
   closeSidebar();
@@ -1095,8 +1465,7 @@ if (document.readyState === 'loading') {
 }
 
 function openSupportCases() {
-  sessionStorage.setItem('sh_vault_accessed', 'true');
-  window.location.href = 'support-cases';
+  showSection('support');
 }
 
 // ── Modal Handlers ──
@@ -1109,6 +1478,391 @@ function closeModal(id) {
   const m = document.getElementById(id);
   if (m) m.classList.remove('open');
 }
+
+// ══════════════════════════════════════════
+// SUPPORT CASES
+// ══════════════════════════════════════════
+let cases = [
+  { id:'SC-1001', subject:'Coupon code not working at checkout', user:'Rahul Kumar', email:'rahul@gmail.com', category:'Coupon', priority:'High', status:'open', created:'Aug 8, 2026 · 10:24 AM', updated:'Aug 8, 2026 · 10:24 AM', assignedTo:'Rupayan', sla:'2h remaining', messages:[{from:'user',name:'Rahul Kumar',text:'I tried applying SAVE30 at checkout but it says invalid. Please help!',time:'10:24 AM'},{from:'support',name:'Rupayan',text:'Hi Rahul, let me check this for you right away.',time:'10:30 AM'}], closeReason:'' },
+  { id:'SC-1002', subject:'Unable to login to my account', user:'Priya Sharma', email:'priya@gmail.com', category:'Account', priority:'Critical', status:'open', created:'Aug 8, 2026 · 09:11 AM', updated:'Aug 8, 2026 · 09:45 AM', assignedTo:'Unassigned', sla:'OVERDUE', messages:[{from:'user',name:'Priya Sharma',text:'I keep getting "Invalid credentials" even after password reset.',time:'09:11 AM'}], closeReason:'' },
+  { id:'SC-1003', subject:'Payout not received after 7 days', user:'Aditya Mehta', email:'aditya@outlook.com', category:'Billing', priority:'High', status:'inprogress', created:'Aug 7, 2026 · 02:00 PM', updated:'Aug 8, 2026 · 08:00 AM', assignedTo:'Jaggik', sla:'4h remaining', messages:[{from:'user',name:'Aditya Mehta',text:'My payout of ₹640 was supposed to arrive 7 days ago.',time:'2:00 PM'},{from:'support',name:'Jaggik',text:'We are investigating with the payment gateway. ETA 24 hrs.',time:'8:00 AM'}], closeReason:'' },
+  { id:'SC-1004', subject:'Duplicate charge on my account', user:'Neha Patel', email:'neha.p@gmail.com', category:'Billing', priority:'Critical', status:'inprogress', created:'Aug 6, 2026 · 11:30 AM', updated:'Aug 8, 2026 · 09:00 AM', assignedTo:'Priya Support', sla:'1h remaining', messages:[{from:'user',name:'Neha Patel',text:'I was charged twice for coupon #C-8810. Please refund immediately.',time:'11:30 AM'},{from:'support',name:'Priya Support',text:'We have escalated this to the billing team.',time:'9:00 AM'}], closeReason:'' },
+  { id:'SC-1005', subject:'App crashes on Android 14', user:'Vikram Rao', email:'vikram.r@yahoo.com', category:'Technical', priority:'Medium', status:'inprogress', created:'Aug 5, 2026 · 03:15 PM', updated:'Aug 7, 2026 · 05:00 PM', assignedTo:'Aditya Support', sla:'6h remaining', messages:[{from:'user',name:'Vikram Rao',text:'Every time I open the coupons section the app crashes.',time:'3:15 PM'},{from:'support',name:'Aditya Support',text:'We have reproduced the bug on Android 14. Fix is in review.',time:'5:00 PM'}], closeReason:'' },
+  { id:'SC-1006', subject:'Wrong cashback percentage shown', user:'Meena Joshi', email:'meena.j@gmail.com', category:'Coupon', priority:'Low', status:'resolved', created:'Aug 4, 2026 · 01:00 PM', updated:'Aug 5, 2026 · 10:00 AM', assignedTo:'Rupayan', resolvedBy:'Rupayan', resolutionTime:'21h 00m', messages:[{from:'user',name:'Meena Joshi',text:'The app shows 30% cashback but I only received 15%.',time:'1:00 PM'},{from:'support',name:'Rupayan',text:'This has been corrected. The listing was incorrect. Apologies!',time:'10:00 AM'},{from:'support',name:'Rupayan',text:'Cashback difference of ₹150 has been credited to your wallet.',time:'10:05 AM'}], closeReason:'' },
+  { id:'SC-1007', subject:'Profile photo not uploading', user:'Sanjay Das', email:'sanjay.d@gmail.com', category:'Technical', priority:'Low', status:'resolved', created:'Aug 3, 2026 · 04:30 PM', updated:'Aug 4, 2026 · 11:00 AM', assignedTo:'Jaggik', resolvedBy:'Jaggik', resolutionTime:'18h 30m', messages:[{from:'user',name:'Sanjay Das',text:'Profile picture fails to upload, shows an error.',time:'4:30 PM'},{from:'support',name:'Jaggik',text:'Bug fixed in latest app version 2.1.4. Please update the app.',time:'11:00 AM'}], closeReason:'' },
+  { id:'SC-1008', subject:'Referral bonus not credited', user:'Ananya Singh', email:'ananya.s@gmail.com', category:'Billing', priority:'Medium', status:'resolved', created:'Aug 2, 2026 · 08:00 AM', updated:'Aug 3, 2026 · 02:00 PM', assignedTo:'Priya Support', resolvedBy:'Priya Support', resolutionTime:'30h 00m', messages:[{from:'user',name:'Ananya Singh',text:'My friend signed up using my referral code but I got no bonus.',time:'8:00 AM'},{from:'support',name:'Priya Support',text:'Referral bonus of ₹100 has been manually credited. Sorry for the delay!',time:'2:00 PM'}], closeReason:'' },
+  { id:'SC-1009', subject:'Account suspended without notice', user:'Rohan Verma', email:'rohan.v@gmail.com', category:'Account', priority:'High', status:'closed', created:'Jul 28, 2026 · 10:00 AM', updated:'Jul 30, 2026 · 03:00 PM', assignedTo:'Rupayan', closedBy:'Rupayan', closedOn:'Jul 30, 2026', closeReason:'Policy Violation', messages:[{from:'user',name:'Rohan Verma',text:'My account was suspended. I did not violate any terms.',time:'10:00 AM'},{from:'support',name:'Rupayan',text:'Upon review, the account was flagged for multiple invalid coupon submissions. Suspension stands.',time:'3:00 PM'}] },
+  { id:'SC-1010', subject:'Cannot update payment method', user:'Pooja Nair', email:'pooja.n@gmail.com', category:'Billing', priority:'Low', status:'closed', created:'Jul 25, 2026 · 09:00 AM', updated:'Jul 26, 2026 · 04:00 PM', assignedTo:'Jaggik', closedBy:'Jaggik', closedOn:'Jul 26, 2026', closeReason:'Resolved & Confirmed', messages:[{from:'user',name:'Pooja Nair',text:'The app does not let me add a new UPI ID.',time:'9:00 AM'},{from:'support',name:'Jaggik',text:'Updated in the latest app version. Issue resolved.',time:'4:00 PM'}] },
+  { id:'SC-1011', subject:'Missing discount on Myntra order', user:'Kavya Reddy', email:'kavya.r@gmail.com', category:'Coupon', priority:'Medium', status:'open', created:'Aug 9, 2026 · 07:30 AM', updated:'Aug 9, 2026 · 07:30 AM', assignedTo:'Unassigned', sla:'5h remaining', messages:[{from:'user',name:'Kavya Reddy',text:'The MYNTRA200 coupon did not apply any discount on my order.',time:'7:30 AM'}], closeReason:'' },
+  { id:'SC-1012', subject:'Two-factor authentication not sending OTP', user:'Kiran Bose', email:'kiran.b@gmail.com', category:'Technical', priority:'High', status:'open', created:'Aug 9, 2026 · 06:00 AM', updated:'Aug 9, 2026 · 06:00 AM', assignedTo:'Unassigned', sla:'3h remaining', messages:[{from:'user',name:'Kiran Bose',text:'2FA OTP is not being delivered to my registered number.',time:'6:00 AM'}], closeReason:'' },
+];
+
+let currentViewId = null;
+let activeFilters = { open:'', inprogress:'', resolved:'', closed:'' };
+let activePriorityFilter = { open:'', inprogress:'', resolved:'', closed:'' };
+let activeCategoryFilter = { open:'', inprogress:'', resolved:'', closed:'' };
+
+function priorityBadge(p) {
+  const map = { Critical:'badge-red', High:'badge-orange', Medium:'badge-blue', Low:'badge-gray' };
+  const dot = { Critical:'#ef9a9a', High:'#ffb74d', Medium:'#4fc3f7', Low:'#6b88aa' };
+  return `<span class="badge ${map[p]||'badge-gray'}"><span class="priority-dot" style="background:${dot[p]||'#6b88aa'}"></span>${p}</span>`;
+}
+
+function categoryBadge(c) {
+  const map = { Billing:'badge-purple', Technical:'badge-blue', Coupon:'badge-orange', Account:'badge-teal', Other:'badge-gray' };
+  const icon = { Billing:'💳', Technical:'🔧', Coupon:'🎟️', Account:'👤', Other:'📦' };
+  return `<span class="badge ${map[c]||'badge-gray'}">${icon[c]||''}${c}</span>`;
+}
+
+function slaSpan(sla) {
+  if (!sla) return '—';
+  const overdue = sla === 'OVERDUE';
+  return `<span style="font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;color:${overdue?'#ef9a9a':'#00e676'}">${sla}</span>`;
+}
+
+function avatarHtml(name) {
+  const initials = name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  return `<div class="u-avatar" title="${name}">${initials}</div>`;
+}
+
+function nowStr() {
+  const d = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const h = d.getHours(); const m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()} · ${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function timeOnly() {
+  const d = new Date();
+  const h = d.getHours(); const m = d.getMinutes();
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2,'0')} ${ampm}`;
+}
+
+function getFilteredCases(status) {
+  let filtered = cases.filter(c => c.status === status);
+  const search = activeFilters[status] || '';
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(c => c.id.toLowerCase().includes(q) || c.subject.toLowerCase().includes(q) || c.user.toLowerCase().includes(q) || c.email.toLowerCase().includes(q));
+  }
+  const pf = activePriorityFilter[status] || '';
+  if (pf) filtered = filtered.filter(c => c.priority === pf);
+  const cf = activeCategoryFilter[status] || '';
+  if (cf) filtered = filtered.filter(c => c.category === cf);
+  return filtered;
+}
+
+function renderTable(status) {
+  const filtered = getFilteredCases(status);
+  const tbody = document.getElementById(`tbody-${status}`);
+  const empty = document.getElementById(`empty-${status}`);
+  if (!tbody) return;
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    tbody.closest('.overflow-x').style.display = 'none';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  tbody.closest('.overflow-x').style.display = '';
+
+  tbody.innerHTML = filtered.map(c => {
+    if (status === 'open') {
+      return `<tr>
+        <td><strong style="font-family:'JetBrains Mono',monospace">${c.id}</strong></td>
+        <td style="max-width:200px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.subject}"><strong>${c.subject}</strong></td>
+        <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${c.user}</div></td>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${priorityBadge(c.priority)}</td>
+        <td style="font-size:.78rem;color:#6b88aa">${c.created}</td>
+        <td>${slaSpan(c.sla)}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewCase('${c.id}')">View</button>
+            <button class="btn btn-info btn-sm" onclick="quickStatus('${c.id}','inprogress')">Start</button>
+            <button class="btn btn-danger btn-sm" onclick="quickStatus('${c.id}','closed')">Close</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    if (status === 'inprogress') {
+      return `<tr>
+        <td><strong style="font-family:'JetBrains Mono',monospace">${c.id}</strong></td>
+        <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.subject}"><strong>${c.subject}</strong></td>
+        <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${c.user}</div></td>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${priorityBadge(c.priority)}</td>
+        <td><span style="font-size:.82rem;color:#e2ecff;font-weight:600">${c.assignedTo}</span></td>
+        <td style="font-size:.78rem;color:#6b88aa">${c.updated}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewCase('${c.id}')">View</button>
+            <button class="btn btn-success btn-sm" onclick="quickStatus('${c.id}','resolved')">Resolve</button>
+            <button class="btn btn-danger btn-sm" onclick="quickStatus('${c.id}','closed')">Close</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    if (status === 'resolved') {
+      return `<tr>
+        <td><strong style="font-family:'JetBrains Mono',monospace">${c.id}</strong></td>
+        <td style="max-width:180px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.subject}"><strong>${c.subject}</strong></td>
+        <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${c.user}</div></td>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${priorityBadge(c.priority)}</td>
+        <td><span style="font-size:.82rem;color:#00e676;font-weight:600">${c.resolvedBy||c.assignedTo}</span></td>
+        <td style="font-family:'JetBrains Mono',monospace;font-size:.8rem;color:#00e676">${c.resolutionTime||'—'}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewCase('${c.id}')">View</button>
+            <button class="btn btn-warning btn-sm" onclick="quickStatus('${c.id}','open')">Reopen</button>
+            <button class="btn btn-danger btn-sm" onclick="quickStatus('${c.id}','closed')">Close</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    if (status === 'closed') {
+      return `<tr>
+        <td><strong style="font-family:'JetBrains Mono',monospace">${c.id}</strong></td>
+        <td style="max-width:160px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${c.subject}"><strong>${c.subject}</strong></td>
+        <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${c.user}</div></td>
+        <td>${categoryBadge(c.category)}</td>
+        <td>${priorityBadge(c.priority)}</td>
+        <td><span style="font-size:.82rem;color:#ce93d8;font-weight:600">${c.closedBy||c.assignedTo}</span></td>
+        <td><span class="badge badge-gray">${c.closeReason||'—'}</span></td>
+        <td style="font-size:.78rem;color:#6b88aa">${c.closedOn||c.updated}</td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="viewCase('${c.id}')">View</button>
+            <button class="btn btn-warning btn-sm" onclick="quickStatus('${c.id}','open')">Reopen</button>
+          </div>
+        </td>
+      </tr>`;
+    }
+    return '';
+  }).join('');
+}
+
+function updateStats() {
+  const counts = { open:0, inprogress:0, resolved:0, closed:0 };
+  cases.forEach(c => counts[c.status]++);
+  const total = cases.length || 1;
+
+  document.getElementById('statOpen').textContent = counts.open;
+  document.getElementById('statProgress').textContent = counts.inprogress;
+  document.getElementById('statResolved').textContent = counts.resolved;
+  document.getElementById('statClosed').textContent = counts.closed;
+
+  document.getElementById('tabBadgeOpen').textContent = counts.open;
+  document.getElementById('tabBadgeProgress').textContent = counts.inprogress;
+  document.getElementById('tabBadgeResolved').textContent = counts.resolved;
+  document.getElementById('tabBadgeClosed').textContent = counts.closed;
+  const sidebarBadge = document.getElementById('sidebarOpenBadge');
+  if (sidebarBadge) sidebarBadge.textContent = counts.open;
+
+  document.getElementById('progOpen').style.width = ((counts.open/total)*100)+'%';
+  document.getElementById('progProgress').style.width = ((counts.inprogress/total)*100)+'%';
+  document.getElementById('progResolved').style.width = ((counts.resolved/total)*100)+'%';
+  document.getElementById('progClosed').style.width = ((counts.closed/total)*100)+'%';
+}
+
+function switchTab(status) {
+  const sec = document.getElementById('sec-support');
+  if (!sec) return;
+  sec.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`tab-${status}`).classList.add('active');
+  sec.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tcontent-${status}`).classList.add('active');
+}
+
+function filterTable(status, value) {
+  activeFilters[status] = value;
+  renderTable(status);
+}
+function filterByPriority(status, value) {
+  activePriorityFilter[status] = value;
+  renderTable(status);
+}
+function filterByCategory(status, value) {
+  activeCategoryFilter[status] = value;
+  renderTable(status);
+}
+function sortTable(status, by) {
+  // Toggle sort direction
+  cases.sort((a,b) => a.created < b.created ? 1 : -1);
+  renderTable(status);
+  showToast('Sorted by date (newest first)', 'success');
+}
+function globalSearchCases(val) {
+  ['open','inprogress','resolved','closed'].forEach(s => { activeFilters[s] = val; renderTable(s); });
+}
+
+function viewCase(id) {
+  const c = cases.find(x => x.id === id);
+  if (!c) return;
+  currentViewId = id;
+
+  document.getElementById('vcTitle').innerHTML = `${c.id} <span class="gtext">Detail</span>`;
+  document.getElementById('vcSubtitle').textContent = c.subject;
+
+  const statusBadge = { open:'badge-orange', inprogress:'badge-blue', resolved:'badge-green', closed:'badge-purple' };
+  const statusLabel = { open:'Open', inprogress:'In Progress', resolved:'Resolved', closed:'Closed' };
+
+  document.getElementById('vcMeta').innerHTML = `
+    <div class="detail-meta-item"><div class="detail-meta-label">Status</div><div class="detail-meta-value"><span class="badge ${statusBadge[c.status]}">${statusLabel[c.status]}</span></div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">Priority</div><div class="detail-meta-value">${priorityBadge(c.priority)}</div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">User</div><div class="detail-meta-value">${c.user} (${c.email})</div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">Category</div><div class="detail-meta-value">${categoryBadge(c.category)}</div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">Created</div><div class="detail-meta-value">${c.created}</div></div>
+    <div class="detail-meta-item"><div class="detail-meta-label">Assigned To</div><div class="detail-meta-value">${c.assignedTo||'Unassigned'}</div></div>
+  `;
+
+  document.getElementById('vcMessages').innerHTML = (c.messages || []).map(m => `
+    <div>
+      <div class="msg-meta">${m.name} · ${m.time}</div>
+      <div class="msg-bubble ${m.from==='user'?'msg-user':'msg-support'}">${m.text}</div>
+    </div>
+  `).join('');
+
+  openModal('viewCaseModal');
+  setTimeout(() => {
+    const msgBox = document.getElementById('vcMessages');
+    msgBox.scrollTop = msgBox.scrollHeight;
+  }, 100);
+}
+
+function sendReply() {
+  const text = document.getElementById('vcReplyText').value.trim();
+  if (!text || !currentViewId) return;
+
+  const c = cases.find(x => x.id === currentViewId);
+  if (!c) return;
+
+  c.messages.push({ from:'support', name:'Admin', text, time:timeOnly() });
+  c.updated = nowStr();
+  document.getElementById('vcReplyText').value = '';
+  viewCase(currentViewId);
+  showToast('Reply sent successfully!', 'success');
+}
+
+function changeStatus(newStatus) {
+  if (!currentViewId) return;
+  const c = cases.find(x => x.id === currentViewId);
+  if (!c) return;
+
+  c.status = newStatus;
+  c.updated = nowStr();
+  if (newStatus === 'resolved') { c.resolvedBy = 'Admin'; c.resolutionTime = 'Just now'; }
+  if (newStatus === 'closed') { c.closedBy = 'Admin'; c.closedOn = nowStr(); c.closeReason = c.closeReason || 'Resolved & Confirmed'; }
+
+  closeModal('viewCaseModal');
+  renderAll();
+  showToast(`Case ${c.id} moved to ${newStatus}`, 'success');
+}
+
+function quickStatus(id, newStatus) {
+  const c = cases.find(x => x.id === id);
+  if (!c) return;
+
+  c.status = newStatus;
+  c.updated = nowStr();
+  if (newStatus === 'inprogress' && c.assignedTo === 'Unassigned') c.assignedTo = 'Admin';
+  if (newStatus === 'resolved') { c.resolvedBy = 'Admin'; c.resolutionTime = 'Just now'; }
+  if (newStatus === 'closed') { c.closedBy = 'Admin'; c.closedOn = nowStr(); c.closeReason = c.closeReason || 'Resolved & Confirmed'; }
+
+  renderAll();
+  showToast(`Case ${c.id} → ${newStatus}`, 'success');
+}
+
+function createCase(e) {
+  e.preventDefault();
+  const nextId = 'SC-' + (1000 + cases.length + 1);
+
+  const newCase = {
+    id: nextId,
+    subject: document.getElementById('nc-subject').value.trim(),
+    user: document.getElementById('nc-user').value.trim(),
+    email: document.getElementById('nc-email').value.trim(),
+    category: document.getElementById('nc-category').value,
+    priority: document.getElementById('nc-priority').value,
+    status: 'open',
+    created: nowStr(),
+    updated: nowStr(),
+    assignedTo: document.getElementById('nc-assign').value,
+    sla: '6h remaining',
+    messages: [{ from:'user', name:document.getElementById('nc-user').value.trim(), text:document.getElementById('nc-desc').value.trim() || document.getElementById('nc-subject').value.trim(), time:timeOnly() }],
+    closeReason: '',
+  };
+
+  cases.unshift(newCase);
+  closeModal('newCaseModal');
+  document.getElementById('newCaseForm').reset();
+  switchTab('open');
+  renderAll();
+  showToast(`Case ${nextId} created successfully!`, 'success');
+}
+
+function exportCases(status) {
+  const data = status ? cases.filter(c => c.status === status) : cases;
+  const csv = ['ID,Subject,User,Email,Category,Priority,Status,Created,Assigned To'];
+  data.forEach(c => csv.push(`${c.id},"${c.subject}",${c.user},${c.email},${c.category},${c.priority},${c.status},"${c.created}",${c.assignedTo}`));
+  const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `support-cases-${status||'all'}-${Date.now()}.csv`; a.click();
+  URL.revokeObjectURL(url);
+  showToast(`Exported ${data.length} cases as CSV`, 'success');
+}
+
+function renderCategoryBreakdown() {
+  const cats = {};
+  cases.forEach(c => cats[c.category] = (cats[c.category] || 0) + 1);
+  const total = cases.length || 1;
+  const colors = { Billing:'#ce93d8', Technical:'#4fc3f7', Coupon:'#ffb74d', Account:'#80cbc4', Other:'#6b88aa' };
+
+  document.getElementById('categoryBreakdown').innerHTML = Object.entries(cats).map(([cat, count]) => `
+    <div class="info-row">
+      <span class="irl">${categoryBadge(cat)}</span>
+      <span class="irv">${count}</span>
+    </div>
+    <div class="prog-bar" style="margin-bottom:12px"><div class="prog-fill" style="width:${(count/total)*100}%;background:${colors[cat]||'#4fc3f7'}"></div></div>
+  `).join('');
+}
+
+function renderRecentActivity() {
+  const recent = [...cases].sort((a,b) => a.updated < b.updated ? 1 : -1).slice(0, 6);
+  const dotColors = { open:'#ffb74d', inprogress:'#4fc3f7', resolved:'#00e676', closed:'#ce93d8' };
+  const statusVerbs = { open:'opened', inprogress:'started working on', resolved:'resolved', closed:'closed' };
+
+  document.getElementById('recentActivity').innerHTML = recent.map(c => `
+    <div class="activity-item">
+      <div class="activity-dot" style="background:${dotColors[c.status]}"></div>
+      <div class="activity-text"><strong>${c.assignedTo||'System'}</strong> ${statusVerbs[c.status]||'updated'} <strong>${c.id}</strong> — ${c.subject}</div>
+      <div class="activity-time">${c.updated.split('·')[1]?.trim()||''}</div>
+    </div>
+  `).join('');
+}
+
+// Close support modals on overlay click
+['newCaseModal','viewCaseModal'].forEach(id => {
+  const ov = document.getElementById(id);
+  if (ov) ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); });
+});
+
+function renderAll() {
+  ['open','inprogress','resolved','closed'].forEach(renderTable);
+  updateStats();
+  renderCategoryBreakdown();
+  renderRecentActivity();
+}
+
+// Init support cases
+renderAll();
 </script>
 </body>
 </html>

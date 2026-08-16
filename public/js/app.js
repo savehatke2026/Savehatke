@@ -10,7 +10,7 @@ const API_BASE = '/api';
   try {
     const path = window.location.pathname.toLowerCase();
     const filename = path.split('/').pop() || 'index.html';
-    const adminPages = ['vault.html', 'vault', 'support-cases.html', 'support-cases'];
+    const adminPages = ['vault.html', 'vault'];
     if (adminPages.includes(filename)) return;
 
     const adminToken = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
