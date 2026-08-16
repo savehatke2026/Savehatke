@@ -13,6 +13,7 @@ function initAdminApp() {
   initAdminTabs();
   initAddCouponForm();
   initCreateAdminForm();
+  initUsersTableControls();
   loadSystemSettings();
 }
 
@@ -427,6 +428,141 @@ window.loadInventory = loadInventory;
 window.loadPending = loadPending;
 window.loadActiveCoupons = loadActiveCoupons;
 window.loadExpiredCoupons = loadExpiredCoupons;
+window.loadUsers = loadUsers;
+window.toggleUserStatus = toggleUserStatus;
+
+// ── User Management (live Google Sheets data) ────────────────────────────
+let usersCache = [];
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[ch]));
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  return isNaN(d) ? '—' : d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+function userInitials(name) {
+  return String(name || '?').split(/[\s._-]+/).filter(Boolean).map((p) => p[0]).join('').toUpperCase().slice(0, 2) || '?';
+}
+
+function userStatusBadge(status) {
+  const s = String(status || 'active').toLowerCase();
+  if (s === 'suspended' || s === 'banned') return '<span class="badge badge-red">Suspended</span>';
+  if (s === 'active') return '<span class="badge badge-green">Active</span>';
+  return `<span class="badge badge-orange">${escapeHtml(status)}</span>`;
+}
+
+async function loadUsers() {
+  const body = document.getElementById('usersTableBody');
+  try {
+    const data = await api('/admin/users', { useAdmin: true });
+    usersCache = (data.users || []).slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+
+    const c = data.counts || {};
+    const total = c.total ?? usersCache.length;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('usersTotalCount', total);
+    set('usersActiveCount', c.active ?? '—');
+    set('usersSuspendedCount', c.suspended ?? '—');
+    set('usersNavBadge', total);
+    const sub = document.getElementById('usersSubtitle');
+    if (sub) sub.textContent = `${total} total registered user${total === 1 ? '' : 's'} · live from Google Sheets`;
+
+    renderUsers();
+    renderLoginHistory();
+  } catch (err) {
+    if (body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+function renderUsers() {
+  const body = document.getElementById('usersTableBody');
+  if (!body) return;
+
+  const q = (document.getElementById('usersSearch')?.value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('usersStatusFilter')?.value || '';
+
+  const rows = usersCache.filter((u) => {
+    if (q && !`${u.name} ${u.username} ${u.email}`.toLowerCase().includes(q)) return false;
+    if (statusFilter === 'active' && u.status !== 'active') return false;
+    if (statusFilter === 'suspended' && u.status !== 'suspended' && u.status !== 'banned') return false;
+    return true;
+  });
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map((u) => {
+    const suspended = u.status === 'suspended' || u.status === 'banned';
+    const action = suspended
+      ? `<button class="btn btn-success btn-sm" onclick="toggleUserStatus('${escapeHtml(u.id)}','active')">Activate</button>`
+      : `<button class="btn btn-warning btn-sm" onclick="toggleUserStatus('${escapeHtml(u.id)}','suspended')">Suspend</button>`;
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">${escapeHtml(userInitials(u.name))}</div><strong>${escapeHtml(u.name)}</strong></div></td>
+      <td>${escapeHtml(u.email || '—')}</td>
+      <td>${fmtDate(u.createdAt)}</td>
+      <td>${fmtDateTime(u.lastLoginAt)}</td>
+      <td>${userStatusBadge(u.status)}</td>
+      <td><div style="display:flex;gap:6px">${action}</div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderLoginHistory() {
+  const body = document.getElementById('loginHistoryBody');
+  if (!body) return;
+
+  const rows = usersCache
+    .filter((u) => u.lastLoginAt)
+    .slice()
+    .sort((a, b) => String(b.lastLoginAt).localeCompare(String(a.lastLoginAt)))
+    .slice(0, 10);
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">No logins recorded yet.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map((u) => `<tr>
+    <td><strong>${escapeHtml(u.name)}</strong></td>
+    <td>${escapeHtml(u.email || '—')}</td>
+    <td>${fmtDateTime(u.lastLoginAt)}</td>
+    <td>${fmtDateTime(u.lastLogoutAt)}</td>
+    <td>${userStatusBadge(u.status)}</td>
+  </tr>`).join('');
+}
+
+async function toggleUserStatus(userId, nextStatus) {
+  if (!confirm(nextStatus === 'suspended' ? 'Suspend this user?' : 'Reactivate this user?')) return;
+  try {
+    await api('/admin/users/status', { method: 'PUT', useAdmin: true, body: { userId, status: nextStatus } });
+    showToast(`User is now ${nextStatus}.`, 'success');
+    loadUsers();
+  } catch (err) {
+    showToast(err.message || 'Failed to update user status.', 'error');
+  }
+}
+
+// Search / filter wiring for the users table
+function initUsersTableControls() {
+  const search = document.getElementById('usersSearch');
+  const filter = document.getElementById('usersStatusFilter');
+  if (search) search.addEventListener('input', () => renderUsers());
+  if (filter) filter.addEventListener('change', () => renderUsers());
+}
 
 // ── Actions ─────────────────────────────────────────────────────────────
 async function approveCoupon(id) {

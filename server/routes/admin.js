@@ -513,21 +513,51 @@ router.delete('/coupons/:id', authenticateToken, requireAdmin, async (req, res) 
   }
 });
 
-// GET /api/admin/users — List all users
+// GET /api/admin/users — List all users (live Google Sheets Users tab)
 router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const users = await db.getRows(db.SHEETS.USERS);
+    const list = users.map((u) => ({
+      id: u.user_id || u.id || '',
+      name: u.name || u.username || String(u.email || '').split('@')[0] || 'Unknown',
+      username: u.username || '',
+      email: u.email || '',
+      status: String(u.status || 'active').toLowerCase().trim(),
+      createdAt: u.created_at || u.createdAt || '',
+      lastLoginAt: u.last_login_at || '',
+      lastLogoutAt: u.last_logout_at || '',
+    }));
     res.json({
-      users: users.map((u) => ({
-        id: u.id,
-        email: u.email,
-        name: u.name,
-        createdAt: u.createdAt,
-      })),
-      total: users.length,
+      users: list,
+      counts: {
+        total: list.length,
+        active: list.filter((u) => u.status === 'active').length,
+        suspended: list.filter((u) => u.status === 'suspended' || u.status === 'banned').length,
+      },
     });
   } catch (err) {
     console.error('Admin list users error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// PUT /api/admin/users/status — Suspend or reactivate a user in the sheet
+router.put('/users/status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId, status } = req.body;
+    if (!userId || !['active', 'suspended'].includes(status)) {
+      return res.status(400).json({ error: 'userId and a status of active/suspended are required.' });
+    }
+
+    let existing = await db.findRow(db.SHEETS.USERS, 'user_id', userId);
+    if (!existing) existing = await db.findRow(db.SHEETS.USERS, 'id', userId);
+    if (!existing) return res.status(404).json({ error: 'User not found.' });
+
+    const now = new Date().toISOString();
+    await db.updateRow(db.SHEETS.USERS, 'user_id', userId, { status, updated_at: now });
+    res.json({ message: `User is now ${status}.`, status });
+  } catch (err) {
+    console.error('Admin user status error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });

@@ -394,7 +394,7 @@ body.sidebar-collapsed .main{margin-left:0}
   <nav class="sidebar-nav">
     <span class="nav-group-label">Main</span>
     <div class="nav-item active" onclick="showSection('dashboard',this)"><span class="ni">🏠</span> Dashboard</div>
-    <div class="nav-item" onclick="showSection('users',this)"><span class="ni">👥</span> Users <span class="nbadge green">1.2k</span></div>
+    <div class="nav-item" onclick="showSection('users',this)"><span class="ni">👥</span> Users <span class="nbadge green" id="usersNavBadge">—</span></div>
     <div class="nav-item" onclick="showSection('coupons',this)"><span class="ni">🎟️</span> Coupons <span class="nbadge">14</span></div>
     <div class="nav-item" onclick="showSection('payouts',this)"><span class="ni">💰</span> Payouts <span class="nbadge">7</span></div>
     <div class="nav-item" onclick="showSection('brands',this)"><span class="ni">🛍️</span> Brands</div>
@@ -542,43 +542,36 @@ body.sidebar-collapsed .main{margin-left:0}
     <!-- ════════════════ USERS ════════════════ -->
     <div class="section-view" id="sec-users">
       <div class="page-title-row">
-        <div><div class="page-title">User <span class="gtext">Management</span></div><div class="page-subtitle">12,840 total registered users</div></div>
-        <button class="btn btn-primary btn-lg" onclick="openModal('addUserModal')">+ Add User</button>
+        <div><div class="page-title">User <span class="gtext">Management</span></div><div class="page-subtitle" id="usersSubtitle">Loading users…</div></div>
+        <button class="btn btn-primary btn-lg" onclick="loadUsers()">↻ Refresh</button>
       </div>
       <div class="three-col" style="margin-bottom:22px">
-        <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">✅</div></div><div class="stat-val gtext">11,204</div><div class="stat-lbl">Verified Users</div></div>
-        <div class="stat-card sc-orange"><div class="stat-card-top"><div class="stat-icon si-orange">⏳</div></div><div class="stat-val" style="color:#ffb74d">1,502</div><div class="stat-lbl">Unverified</div></div>
-        <div class="stat-card sc-red"><div class="stat-card-top"><div class="stat-icon si-red">🚫</div></div><div class="stat-val" style="color:#ef9a9a">134</div><div class="stat-lbl">Suspended</div></div>
+        <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">👥</div></div><div class="stat-val gtext" id="usersTotalCount">—</div><div class="stat-lbl">Total Users</div></div>
+        <div class="stat-card sc-blue"><div class="stat-card-top"><div class="stat-icon si-blue">✅</div></div><div class="stat-val" style="color:#4fc3f7" id="usersActiveCount">—</div><div class="stat-lbl">Active</div></div>
+        <div class="stat-card sc-red"><div class="stat-card-top"><div class="stat-icon si-red">🚫</div></div><div class="stat-val" style="color:#ef9a9a" id="usersSuspendedCount">—</div><div class="stat-lbl">Suspended</div></div>
       </div>
       <div class="table-card">
         <div class="table-header">
-          <h3>All Users</h3>
+          <h3>All Users <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(live from Google Sheets)</span></h3>
           <div class="table-header-actions">
-            <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Search users...">
-            <select class="form-select btn-sm" style="width:130px"><option>All Status</option><option>Active</option><option>Suspended</option><option>Unverified</option></select>
-            <button class="btn btn-ghost btn-sm">Export</button>
+            <input class="form-input btn-sm" id="usersSearch" style="width:200px" placeholder="🔍 Search users...">
+            <select class="form-select btn-sm" id="usersStatusFilter" style="width:130px"><option value="">All Status</option><option value="active">Active</option><option value="suspended">Suspended</option></select>
           </div>
         </div>
         <div class="overflow-x"><table>
-          <thead><tr><th>User</th><th>Email</th><th>Joined</th><th>Transactions</th><th>Status</th><th>Verified</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">RK</div><strong>Rahul Kumar</strong></div></td><td>rahul@gmail.com</td><td>Jan 12, 2026</td><td><strong>28</strong></td><td><span class="badge badge-green">Active</span></td><td>✅</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-warning btn-sm">Suspend</button></div></td></tr>
-            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">PS</div><strong>Priya Sharma</strong></div></td><td>priya@gmail.com</td><td>Feb 3, 2026</td><td><strong>41</strong></td><td><span class="badge badge-green">Active</span></td><td>✅</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-warning btn-sm">Suspend</button></div></td></tr>
-            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">AM</div><strong>Aditya Mehta</strong></div></td><td>aditya@outlook.com</td><td>Mar 17, 2026</td><td><strong>15</strong></td><td><span class="badge badge-orange">Unverified</span></td><td>❌</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-success btn-sm">Verify</button></div></td></tr>
-            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">NP</div><strong>Neha Patel</strong></div></td><td>neha.p@gmail.com</td><td>Apr 1, 2026</td><td><strong>7</strong></td><td><span class="badge badge-red">Suspended</span></td><td>✅</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-success btn-sm">Unban</button></div></td></tr>
-            <tr><td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">VR</div><strong>Vikram Rao</strong></div></td><td>vikram.r@yahoo.com</td><td>May 22, 2026</td><td><strong>3</strong></td><td><span class="badge badge-green">Active</span></td><td>✅</td><td><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-sm">View</button><button class="btn btn-warning btn-sm">Suspend</button></div></td></tr>
+          <thead><tr><th>User</th><th>Email</th><th>Joined</th><th>Last Login</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="usersTableBody">
+            <tr><td colspan="6" style="text-align:center;color:#6b88aa;padding:24px;">Loading users from Google Sheets…</td></tr>
           </tbody>
         </table></div>
       </div>
 
       <div class="card">
-        <div class="card-title"><span class="ct-icon">🕐</span> Recent Login History</div>
+        <div class="card-title"><span class="ct-icon">🕐</span> Recent Login History <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(latest logins across all users)</span></div>
         <div class="overflow-x"><table>
-          <thead><tr><th>User</th><th>IP Address</th><th>Device</th><th>Date & Time</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td><strong>Rahul Kumar</strong></td><td><code style="color:#4fc3f7;font-family:'JetBrains Mono',monospace">103.42.18.220</code></td><td>Chrome / Android</td><td>Aug 8, 2026 · 10:24 AM</td><td><span class="badge badge-green">Success</span></td></tr>
-            <tr><td><strong>Priya Sharma</strong></td><td><code style="color:#4fc3f7;font-family:'JetBrains Mono',monospace">49.36.120.77</code></td><td>Safari / iPhone</td><td>Aug 8, 2026 · 09:11 AM</td><td><span class="badge badge-green">Success</span></td></tr>
-            <tr><td><strong>Unknown</strong></td><td><code style="color:#ef9a9a;font-family:'JetBrains Mono',monospace">185.220.101.4</code></td><td>Firefox / Windows</td><td>Aug 7, 2026 · 11:58 PM</td><td><span class="badge badge-red">Failed</span></td></tr>
+          <thead><tr><th>User</th><th>Email</th><th>Last Login</th><th>Last Logout</th><th>Status</th></tr></thead>
+          <tbody id="loginHistoryBody">
+            <tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">Loading…</td></tr>
           </tbody>
         </table></div>
       </div>
@@ -1135,21 +1128,6 @@ body.sidebar-collapsed .main{margin-left:0}
 </div> <!-- /main -->
 
 <!-- ── MODAL: Add User ── -->
-<div class="modal-overlay" id="addUserModal">
-  <div class="modal">
-    <div class="modal-hdr">
-      <div class="modal-title">Add New User</div>
-      <button class="modal-close" onclick="closeModal('addUserModal')">✕</button>
-    </div>
-    <form>
-      <div class="form-group mb-4"><label class="form-label">Full Name</label><input class="form-input" placeholder="e.g. Rahul Kumar"></div>
-      <div class="form-group mb-4"><label class="form-label">Email</label><input class="form-input" type="email" placeholder="e.g. rahul@example.com"></div>
-      <div class="form-group mb-4"><label class="form-label">Initial Password</label><input class="form-input" type="password" placeholder="••••••••"></div>
-      <button type="submit" class="btn btn-primary btn-lg" style="width:100%">Create User</button>
-    </form>
-  </div>
-</div>
-
 <!-- ── MODAL: NEW CASE ── -->
 <div class="modal-overlay" id="newCaseModal">
   <div class="modal" style="max-width:640px">
@@ -1310,6 +1288,9 @@ function showSection(name, el) {
   }
   if (name === 'coupons' && typeof loadInventory === 'function') {
     loadInventory();
+  }
+  if (name === 'users' && typeof loadUsers === 'function') {
+    loadUsers();
   }
   if (name === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
