@@ -74,7 +74,7 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
 .logout-btn:hover{background:rgba(255,80,80,.15)}
 
 /* ── MAIN ── */
-.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh}
+.main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .3s}
 
 /* ── TOPBAR ── */
 .topbar{
@@ -99,6 +99,7 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
 @media(max-width:900px){
   .sidebar{transform:translateX(-100%)}
   .sidebar.open{transform:translateX(0)}
+  body.sidebar-collapsed .sidebar.open{transform:translateX(0)}
   .main{margin-left:0}
   .mob-toggle{display:flex}
   .topbar-search{display:none}
@@ -307,6 +308,12 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .sidebar-overlay{display:none;position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.6)}
 .sidebar-overlay.show{display:block}
 
+/* ── SIDEBAR COLLAPSE (persisted) ── */
+body.sidebar-collapsed .sidebar{transform:translateX(-100%)}
+body.sidebar-collapsed .main{margin-left:0}
+.sidebar-collapse-btn{font-size:1.05rem;font-weight:800;color:#6b88aa;line-height:1}
+.sidebar-collapse-btn:hover{color:#00e676}
+
 /* ── TOAST NOTIFICATIONS ── */
 .toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
 .toast { display:flex; align-items:center; gap:12px; padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; color:#e2ecff; background:rgba(12,24,48,.95); backdrop-filter:blur(16px); border:1px solid rgba(79,195,247,.2); box-shadow:0 20px 50px rgba(0,0,0,.5); pointer-events:auto; animation:slideInRight .3s cubic-bezier(0.16,1,0.3,1) forwards; max-width:400px; }
@@ -420,6 +427,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 
   <!-- TOPBAR -->
   <div class="topbar">
+    <button class="icon-btn sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="Hide sidebar">«</button>
     <div class="mob-toggle" id="mobToggle" onclick="toggleSidebar()"><span></span><span></span><span></span></div>
     <div class="topbar-title" id="topbarTitle">Dashboard <span>/ Overview</span></div>
     <div class="topbar-search">
@@ -1343,6 +1351,30 @@ function closeSidebar() {
   if (sb) sb.classList.remove('open');
   if (overlay) overlay.classList.remove('show');
 }
+
+// ── Sidebar Collapse (persisted) ──
+function toggleSidebarCollapse() {
+  const collapsed = document.body.classList.toggle('sidebar-collapsed');
+  try { localStorage.setItem('sh_admin_sidebar_collapsed', collapsed ? '1' : '0'); } catch (e) {}
+  updateSidebarCollapseIcon();
+}
+
+function updateSidebarCollapseIcon() {
+  const btn = document.getElementById('sidebarCollapseBtn');
+  if (!btn) return;
+  const collapsed = document.body.classList.contains('sidebar-collapsed');
+  btn.textContent = collapsed ? '»' : '«';
+  btn.title = collapsed ? 'Show sidebar' : 'Hide sidebar';
+}
+
+(function initSidebarCollapse() {
+  try {
+    if (localStorage.getItem('sh_admin_sidebar_collapsed') === '1') {
+      document.body.classList.add('sidebar-collapsed');
+    }
+  } catch (e) {}
+  updateSidebarCollapseIcon();
+})();
 
 // ── Custom Brand Selector with SVG Logos ──
 const BRANDS_DATA = [

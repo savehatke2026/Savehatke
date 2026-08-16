@@ -5,12 +5,54 @@
 
 const API_BASE = '/api';
 
+// ── Page Loading Progress Bar ───────────────────────────────────────────
+// Thin animated bar at the very top of every page: fills quickly while
+// assets load and completes on window load.
+function initPageProgressBar() {
+  if (document.getElementById('shPageProgressBar')) return;
+
+  const style = document.createElement('style');
+  style.textContent = `
+    #shPageProgressBar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;
+      background:linear-gradient(90deg,#00e676,#4fc3f7);box-shadow:0 0 10px rgba(0,230,118,.6);
+      border-radius:0 3px 3px 0;transition:width .25s ease,opacity .4s ease;opacity:1;pointer-events:none}
+    #shPageProgressBar.done{opacity:0}
+  `;
+  document.head.appendChild(style);
+
+  const bar = document.createElement('div');
+  bar.id = 'shPageProgressBar';
+  document.body.appendChild(bar);
+
+  requestAnimationFrame(() => { bar.style.width = '35%'; });
+  setTimeout(() => { bar.style.width = '60%'; }, 140);
+  setTimeout(() => { bar.style.width = '80%'; }, 340);
+
+  let finished = false;
+  const finish = () => {
+    if (finished) return;
+    finished = true;
+    bar.style.width = '100%';
+    setTimeout(() => {
+      bar.classList.add('done');
+      setTimeout(() => bar.remove(), 450);
+    }, 200);
+  };
+
+  if (document.readyState === 'complete') finish();
+  else window.addEventListener('load', finish, { once: true });
+  // Safety net — never leave the bar stuck if a resource hangs
+  setTimeout(finish, 4000);
+}
+initPageProgressBar();
+
 // ── Immediate Admin Redirect for Public Pages ─────────────────────────────
 (function checkAdminRedirectImmediate() {
   try {
     const path = window.location.pathname.toLowerCase();
     const filename = path.split('/').pop() || 'index.html';
-    const adminPages = ['vault.html', 'vault'];
+    // Login pages handle their own logged-in redirect (to index) — never bounce admins to vault from there
+    const adminPages = ['vault.html', 'vault', 'login.html', 'login'];
     if (adminPages.includes(filename)) return;
 
     const adminToken = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
