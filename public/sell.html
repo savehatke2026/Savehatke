@@ -444,40 +444,13 @@
       <!-- ── Step 1: Category — REDESIGNED ── -->
       <div class="step-content active" id="step-1">
         <h2 class="step-title">Select Coupon Category</h2>
-        <div class="category-grid" id="categorySelect">
-          <button class="cat-btn" data-cat="Makeup" onclick="selectCategory(this)">
-            <div class="cat-icon-wrap"><span class="cat-icon">💄</span></div>
-            <div class="cat-text">
-              <div class="cat-name">Makeup &amp; Beauty</div>
-              <div class="cat-sub">Nykaa, Lakme, Mamaearth</div>
-            </div>
-            <span class="cat-arrow">›</span>
-          </button>
-          <button class="cat-btn" data-cat="Electronics" onclick="selectCategory(this)">
-            <div class="cat-icon-wrap"><span class="cat-icon">⚡</span></div>
-            <div class="cat-text">
-              <div class="cat-name">Electronics</div>
-              <div class="cat-sub">boAt, Croma, Samsung</div>
-            </div>
-            <span class="cat-arrow">›</span>
-          </button>
-          <button class="cat-btn" data-cat="Fashion" onclick="selectCategory(this)">
-            <div class="cat-icon-wrap"><span class="cat-icon">👟</span></div>
-            <div class="cat-text">
-              <div class="cat-name">Fashion &amp; Shoes</div>
-              <div class="cat-sub">Puma, Myntra, AJIO</div>
-            </div>
-            <span class="cat-arrow">›</span>
-          </button>
-          <button class="cat-btn" data-cat="Food" onclick="selectCategory(this)">
-            <div class="cat-icon-wrap"><span class="cat-icon">🍔</span></div>
-            <div class="cat-text">
-              <div class="cat-name">Food &amp; Delivery</div>
-              <div class="cat-sub">Swiggy, Zomato, Dominos</div>
-            </div>
-            <span class="cat-arrow">›</span>
-          </button>
-        </div>
+        <select class="cat-select" id="categorySelect" onchange="selectCategory(this)">
+          <option value="">— Choose a category —</option>
+          <option value="Makeup">💄 Makeup &amp; Beauty — Nykaa, Lakme, Mamaearth</option>
+          <option value="Electronics">⚡ Electronics — boAt, Croma, Samsung</option>
+          <option value="Fashion">👟 Fashion &amp; Shoes — Puma, Myntra, AJIO</option>
+          <option value="Food">🍔 Food &amp; Delivery — Swiggy, Zomato, Dominos</option>
+        </select>
       </div>
 
       <!-- ── Step 2: Multiple Coupon Details ── -->
