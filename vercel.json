@@ -17,6 +17,11 @@
       "dest": "/api/index.js"
     },
     {
+      "src": "/support-cases(\\.html)?",
+      "dest": "/vault",
+      "status": 301
+    },
+    {
       "handle": "filesystem"
     },
     {
