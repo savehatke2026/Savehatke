@@ -527,7 +527,7 @@ function sendAuthHandoff(res, innerScript) {
 <style>
   body{background:#060d1f;margin:0;min-height:100vh}
   #shPageProgressBar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;
-    background:linear-gradient(90deg,#00e676,#4fc3f7);box-shadow:0 0 10px rgba(0,230,118,.6);
+    background:linear-gradient(90deg,#00e676,#00c853);box-shadow:0 0 10px rgba(0,230,118,.7);
     border-radius:0 3px 3px 0;transition:width .25s ease,opacity .4s ease;opacity:1;pointer-events:none}
 </style>
 </head>

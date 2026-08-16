@@ -6,15 +6,15 @@
 const API_BASE = '/api';
 
 // ── Page Loading Progress Bar ───────────────────────────────────────────
-// Thin animated bar at the very top of every page: fills quickly while
-// assets load and completes on window load.
+// Website-green bar at the very top: creeps forward while the page loads
+// and completes the full width once everything has loaded.
 function initPageProgressBar() {
   if (document.getElementById('shPageProgressBar')) return;
 
   const style = document.createElement('style');
   style.textContent = `
     #shPageProgressBar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;
-      background:linear-gradient(90deg,#00e676,#4fc3f7);box-shadow:0 0 10px rgba(0,230,118,.6);
+      background:linear-gradient(90deg,#00e676,#00c853);box-shadow:0 0 10px rgba(0,230,118,.7);
       border-radius:0 3px 3px 0;transition:width .25s ease,opacity .4s ease;opacity:1;pointer-events:none}
     #shPageProgressBar.done{opacity:0}
   `;
@@ -24,19 +24,20 @@ function initPageProgressBar() {
   bar.id = 'shPageProgressBar';
   document.body.appendChild(bar);
 
-  requestAnimationFrame(() => { bar.style.width = '35%'; });
-  setTimeout(() => { bar.style.width = '60%'; }, 140);
-  setTimeout(() => { bar.style.width = '80%'; }, 340);
-
   let finished = false;
+
+  // Creep forward while assets load — never reach 100% before the page is done
+  [[0, '15%'], [120, '30%'], [300, '45%'], [550, '60%'], [850, '72%'], [1200, '82%'], [1700, '88%']]
+    .forEach(([t, w]) => setTimeout(() => { if (!finished) bar.style.width = w; }, t));
+
   const finish = () => {
     if (finished) return;
     finished = true;
-    bar.style.width = '100%';
+    bar.style.width = '100%'; // complete the page
     setTimeout(() => {
       bar.classList.add('done');
       setTimeout(() => bar.remove(), 450);
-    }, 200);
+    }, 300); // hold the full green bar briefly so the completion is visible
   };
 
   if (document.readyState === 'complete') finish();
@@ -632,42 +633,6 @@ function requireAuth() {
   return true;
 }
 
-// ── Top Green Progress Bar ──────────────────────────────────────────────
-function initProgressBar() {
-  let container = document.getElementById('topProgressBarContainer');
-  if (!container) {
-    container = document.createElement('div');
-    container.id = 'topProgressBarContainer';
-    container.innerHTML = '<div id="topProgressBar"></div>';
-    document.body.prepend(container);
-  }
-  const bar = document.getElementById('topProgressBar');
-  if (!bar) return;
-
-  // Initial load animation
-  bar.style.width = '35%';
-  setTimeout(() => { bar.style.width = '75%'; }, 150);
-  setTimeout(() => { 
-    bar.style.width = '100%'; 
-    setTimeout(() => { updateScrollProgress(); }, 200); 
-  }, 350);
-
-  window.addEventListener('scroll', updateScrollProgress);
-}
-
-function updateScrollProgress() {
-  const bar = document.getElementById('topProgressBar');
-  if (!bar) return;
-  const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
-  const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-  if (height <= 0) {
-    bar.style.width = '100%';
-  } else {
-    const scrolled = Math.min(100, Math.max(0, (winScroll / height) * 100));
-    bar.style.width = scrolled + '%';
-  }
-}
-
 // ── Floating Green Particles ────────────────────────────────────────────
 function initParticles() {
   let containers = document.querySelectorAll('.particles');
@@ -703,7 +668,6 @@ function initParticles() {
 
 // ── Initialize ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  initProgressBar();
   initParticles();
   initNavigation();
   initScrollReveal();
