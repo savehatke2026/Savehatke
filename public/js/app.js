@@ -137,21 +137,69 @@ const Auth = {
   },
 };
 
+// ── Token Refresh ───────────────────────────────────────────────────────
+// Exchanges an expired (or nearly expired) JWT for a fresh one via
+// /api/auth/refresh so users never have to log out and back in.
+let refreshPromise = null;
+
+function getTokenExpiry(token) {
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return null;
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return decoded.exp ? decoded.exp * 1000 : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function refreshAuthToken() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const adminToken = localStorage.getItem('sh_admin_token');
+      const token = adminToken || localStorage.getItem('sh_token');
+      if (!token) return false;
+      try {
+        const res = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (!res.ok) return false;
+        const data = await res.json();
+        if (!data.token) return false;
+        localStorage.setItem('sh_token', data.token);
+        if (adminToken) localStorage.setItem('sh_admin_token', data.token);
+        return true;
+      } catch (e) {
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+  return refreshPromise;
+}
+
 // ── API Client ──────────────────────────────────────────────────────────
 async function api(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
+  const getToken = () => (options.useAdmin ? Auth.getAdminToken() : Auth.getToken());
 
-  // Add auth token if available
-  const token = options.useAdmin ? Auth.getAdminToken() : Auth.getToken();
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
+  const doRequest = async () => {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
 
-  try {
+    // Add auth token if available
+    const token = getToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const res = await fetch(url, {
       ...options,
       headers,
@@ -164,17 +212,42 @@ async function api(endpoint, options = {}) {
       data = text ? JSON.parse(text) : {};
     } catch (e) {
       if (!res.ok) {
-        throw new Error(`Server returned HTTP ${res.status}: ${text.slice(0, 80) || 'Error'}`);
+        const err = new Error(`Server returned HTTP ${res.status}: ${text.slice(0, 80) || 'Error'}`);
+        err.status = res.status;
+        throw err;
       }
       data = {};
     }
 
     if (!res.ok) {
-      throw new Error(data.error || `HTTP ${res.status}`);
+      const err = new Error(data.error || `HTTP ${res.status}`);
+      err.status = res.status;
+      throw err;
     }
 
     return data;
+  };
+
+  try {
+    // Proactively refresh tokens expiring within the next 5 minutes
+    const token = getToken();
+    if (token) {
+      const expiry = getTokenExpiry(token);
+      if (expiry && expiry - Date.now() < 5 * 60 * 1000) {
+        await refreshAuthToken();
+      }
+    }
+
+    return await doRequest();
   } catch (err) {
+    // Token expired mid-session — refresh once and retry the request
+    if ((err.status === 401 || err.status === 403) && getToken()) {
+      const refreshed = await refreshAuthToken();
+      if (refreshed) {
+        return await doRequest();
+      }
+    }
+
     if (err.message.includes('Failed to fetch')) {
       throw new Error('Network error. Please check your connection.');
     }

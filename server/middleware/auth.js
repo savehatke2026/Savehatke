@@ -66,9 +66,42 @@ function generateToken(payload, expiresIn = '7d') {
   return jwt.sign(payload, getJwtSecret(), { expiresIn });
 }
 
+/**
+ * Decode a token without verifying expiry.
+ * Returns the decoded payload or null if the token is malformed.
+ */
+function decodeTokenIgnoreExpiry(token) {
+  try {
+    const decoded = jwt.verify(token, getJwtSecret(), { ignoreExpiration: true });
+    return decoded;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * Refresh an expired (or about-to-expire) token.
+ * Returns { token } with a new JWT, or null if the old token is invalid.
+ */
+function refreshToken(oldToken) {
+  const decoded = decodeTokenIgnoreExpiry(oldToken);
+  if (!decoded || !decoded.id || !decoded.email) return null;
+
+  const expiresIn = decoded.role === 'admin' ? '12h' : '7d';
+  const newToken = generateToken({
+    id: decoded.id,
+    email: decoded.email,
+    name: decoded.name,
+    role: decoded.role,
+  }, expiresIn);
+  return { token: newToken };
+}
+
 module.exports = {
   authenticateToken,
   requireAdmin,
   optionalAuth,
   generateToken,
+  refreshToken,
+  decodeTokenIgnoreExpiry,
 };

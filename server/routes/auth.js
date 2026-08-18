@@ -6,7 +6,7 @@ const UAParser = require('ua-parser-js');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const { authenticateToken, generateToken } = require('../middleware/auth');
+const { authenticateToken, generateToken, refreshToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const emailService = require('../services/emailService');
@@ -884,6 +884,28 @@ router.post('/logout', async (req, res) => {
   } catch (err) {
     console.warn('Logout notice:', err.message);
     res.json({ message: 'Logged out.' });
+  }
+});
+
+// POST /api/auth/refresh — Issue a new token from an expired one
+router.post('/refresh', (req, res) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided.' });
+    }
+
+    const result = refreshToken(token);
+    if (!result) {
+      return res.status(403).json({ error: 'Cannot refresh: invalid token.' });
+    }
+
+    res.json({ token: result.token, message: 'Token refreshed.' });
+  } catch (err) {
+    console.error('Token refresh error:', err);
+    res.status(500).json({ error: 'Token refresh failed.' });
   }
 });
 
