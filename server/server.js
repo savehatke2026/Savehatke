@@ -24,6 +24,8 @@ const couponRoutes = require('./routes/coupons');
 const trackerRoutes = require('./routes/priceTracker');
 const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
+const chatbotAdminRoutes = require('./routes/chatbot');
+const chatRoutes = require('./routes/chat');
 
 const app = express();
 
@@ -77,6 +79,8 @@ app.use('/api/coupons', apiLimiter, couponRoutes);
 app.use('/api/tracker', apiLimiter, trackerRoutes);
 app.use('/api/admin', apiLimiter, adminRoutes);
 app.use('/api/support', apiLimiter, supportRoutes);
+app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
+app.use('/api/chat', chatRoutes); // /api/chat applies its own service-level rate limits
 
 // Public settings route (for index.html hero stats & platform settings)
 app.get('/api/settings', async (req, res) => {

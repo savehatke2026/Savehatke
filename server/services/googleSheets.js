@@ -15,6 +15,12 @@ const SHEETS = {
   SUPPORT_TICKETS: 'SupportTickets',
   SETTINGS: 'Settings',
   OTP_REQUESTS: 'OTPRequests',
+  CHATBOT_SETTINGS: 'ChatbotSettings',
+  CHATBOT_KNOWLEDGE: 'ChatbotKnowledge',
+  CHATBOT_CONVERSATIONS: 'ChatbotConversations',
+  CHATBOT_MESSAGES: 'ChatbotMessages',
+  CHATBOT_LOGS: 'ChatbotLogs',
+  CHATBOT_AUDIT: 'ChatbotAudit',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -71,6 +77,26 @@ const HEADERS = {
     'requestedAt', 'expiresAt', 'verifiedAt',
     'status', 'requestNumber', 'dailyRequestCount',
     'hourlyRequestCount', 'verifyAttempts',
+  ],
+  [SHEETS.CHATBOT_SETTINGS]: ['key', 'value', 'updated_at'],
+  [SHEETS.CHATBOT_KNOWLEDGE]: [
+    'id', 'category', 'question', 'answer', 'keywords', 'enabled', 'created_at', 'updated_at',
+  ],
+  [SHEETS.CHATBOT_CONVERSATIONS]: [
+    'id', 'user_id', 'user_email', 'user_name', 'is_guest',
+    'message_count', 'status', 'flagged', 'started_at', 'last_active_at',
+  ],
+  [SHEETS.CHATBOT_MESSAGES]: [
+    'id', 'conversation_id', 'role', 'content',
+    'response_time_ms', 'model', 'status', 'created_at',
+  ],
+  [SHEETS.CHATBOT_LOGS]: [
+    'id', 'timestamp', 'request_id', 'user', 'conversation_id',
+    'model', 'response_time_ms', 'status', 'error_type',
+  ],
+  [SHEETS.CHATBOT_AUDIT]: [
+    'id', 'timestamp', 'admin_id', 'admin_email', 'action',
+    'setting', 'old_value', 'new_value',
   ],
 };
 
