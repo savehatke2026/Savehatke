@@ -68,6 +68,15 @@ function initSupportForm() {
         }
       }
 
+      // Validate Turnstile CAPTCHA
+      const turnstileToken = typeof turnstile !== 'undefined' ? turnstile.getResponse() : '';
+      if (!turnstileToken) {
+        showToast('Please complete the security check before submitting.', 'error');
+        btn.disabled = false;
+        btn.textContent = '📨 Submit Ticket';
+        return;
+      }
+
       btn.textContent = 'Submitting...';
       const data = await api('/support/ticket', {
         method: 'POST',
@@ -78,6 +87,7 @@ function initSupportForm() {
           message: document.getElementById('supportMessage').value.trim(),
           attachmentUrl: attachment ? attachment.url : '',
           attachmentName: attachment ? attachment.name : '',
+          cfTurnstileToken: turnstileToken,
         },
       });
 
@@ -90,8 +100,18 @@ function initSupportForm() {
         document.getElementById('supportName').value = user?.name || '';
         document.getElementById('supportEmail').value = user?.email || '';
       }
+      
+      // Reset Turnstile widget
+      if (typeof turnstile !== 'undefined') {
+        turnstile.reset();
+      }
     } catch (err) {
       showToast(err.message, 'error');
+      
+      // Reset Turnstile widget on error too
+      if (typeof turnstile !== 'undefined') {
+        turnstile.reset();
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = '📨 Submit Ticket';

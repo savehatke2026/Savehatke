@@ -13,6 +13,11 @@ const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB
 const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
 const ATTACHMENT_BUCKET = 'support-attachments';
 
+// GET /api/support/turnstile-config — Public: expose only the Turnstile site key (secret stays in .env)
+router.get('/turnstile-config', (req, res) => {
+  res.json({ siteKey: process.env.TURNSTILE_SITE_KEY || '' });
+});
+
 // POST /api/support/attachment — Upload a support ticket attachment to Supabase Storage
 router.post('/attachment', optionalAuth, async (req, res) => {
   try {
@@ -67,10 +72,33 @@ router.post('/attachment', optionalAuth, async (req, res) => {
 // POST /api/support/ticket — Submit a support ticket
 router.post('/ticket', optionalAuth, async (req, res) => {
   try {
-    const { name, email, subject, message, attachmentUrl, attachmentName } = req.body;
+    const { name, email, subject, message, attachmentUrl, attachmentName, cfTurnstileToken } = req.body;
 
     if (!name || !email || !subject || !message) {
       return res.status(400).json({ error: 'All fields are required: name, email, subject, message.' });
+    }
+
+    // Verify Cloudflare Turnstile token (skip gracefully if secret key not configured)
+    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
+    if (turnstileSecret) {
+      if (!cfTurnstileToken) {
+        return res.status(400).json({ error: 'Security check required. Please complete the CAPTCHA.' });
+      }
+
+      const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: turnstileSecret,
+          response: cfTurnstileToken,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+      if (!verifyData.success) {
+        console.warn('Turnstile verification failed:', verifyData['error-codes']);
+        return res.status(400).json({ error: 'Security check failed. Please try again.' });
+      }
     }
 
     // Only accept attachment URLs that point at our own storage
