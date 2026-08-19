@@ -14,9 +14,10 @@
   <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
   <link rel="dns-prefetch" href="https://accounts.google.com">
   <link rel="dns-prefetch" href="https://www.googleapis.com">
+  <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Cloudflare Turnstile CAPTCHA -->
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileApiLoad" async defer></script>
   <script>
     // Support page is for logged-in users only
     (function requireLoginForSupport() {
@@ -765,10 +766,8 @@
               <small style="display:block;margin-top:6px;color:#6b88aa;font-size:.74rem">Screenshot or document (PNG, JPG, WEBP, GIF, PDF, TXT) — max 3MB</small>
             </div>
             <!-- Cloudflare Turnstile CAPTCHA -->
-            <div class="fgroup">
-              <label class="flabel">Security Check</label>
+            <div class="fgroup" style="margin:-8px 0 10px;display:flex;justify-content:center">
               <div class="cf-turnstile" id="supportTurnstile" data-theme="dark"></div>
-              <small style="display:block;margin-top:6px;color:#6b88aa;font-size:.74rem">This helps us prevent automated spam submissions.</small>
             </div>
             <button type="submit" class="btn btn-primary btn-lg w-full fsubmit" id="supportSubmitBtn">
               📨 Submit Ticket
@@ -1033,21 +1032,26 @@
   ===================== */
   let supportTurnstileReady = false;
 
+  // Resolves as soon as the async Turnstile API script finishes loading (no polling)
+  const turnstileApiReady = new Promise((resolve) => {
+    if (typeof turnstile !== 'undefined' && turnstile.render) return resolve();
+    window.onTurnstileApiLoad = () => resolve();
+    setTimeout(resolve, 8000); // safety cap if the script stalls
+  });
+
   async function initSupportTurnstile() {
     const container = document.getElementById('supportTurnstile');
     if (!container) return;
     try {
-      const { siteKey } = await api('/support/turnstile-config');
+      // Public endpoint — plain fetch so we start before app.js/Auth load
+      const res = await fetch((window.API_BASE || '/api') + '/support/turnstile-config');
+      const { siteKey } = await res.json();
       if (!siteKey) {
         const group = container.closest('.fgroup');
         if (group) group.style.display = 'none';
         return;
       }
-      // Wait for the async Turnstile API script to finish loading
-      const waitStart = Date.now();
-      while ((typeof turnstile === 'undefined' || !turnstile.render) && Date.now() - waitStart < 8000) {
-        await new Promise(r => setTimeout(r, 100));
-      }
+      await turnstileApiReady;
       if (typeof turnstile !== 'undefined' && turnstile.render) {
         turnstile.render(container, {
           sitekey: siteKey,
@@ -1064,6 +1068,9 @@
       console.warn('Turnstile init failed:', e);
     }
   }
+
+  // Kick off immediately — no need to wait for window load
+  initSupportTurnstile();
 
   /* =====================
      SUPPORT FORM SUBMIT
@@ -1263,7 +1270,6 @@
   window.addEventListener('load', () => {
     initSupportFormIdentity();
     loadRecentCases();
-    initSupportTurnstile();
   });
 </script>
 
