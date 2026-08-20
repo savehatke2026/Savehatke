@@ -933,7 +933,7 @@ body.sidebar-collapsed .main{margin-left:0}
           <div class="stat-card sc-red"><div class="stat-card-top"><div class="stat-icon si-red">⚠️</div></div><div class="stat-val" style="color:#ef9a9a" id="cbStatFailed">—</div><div class="stat-lbl">Failed Requests</div></div>
           <div class="stat-card sc-orange"><div class="stat-card-top"><div class="stat-icon si-orange">🚦</div></div><div class="stat-val" style="color:#ffb74d" id="cbStatRateLimited">—</div><div class="stat-lbl">Rate-Limited Requests</div></div>
           <div class="stat-card sc-blue"><div class="stat-card-top"><div class="stat-icon si-blue">🔌</div></div><div class="stat-val" style="color:#4fc3f7" id="cbStatApiUsage">—</div><div class="stat-lbl">AI API Requests <span id="cbStatRangeLabel" style="color:#6b88aa;font-weight:400">(30 days)</span></div></div>
-          <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">🔑</div></div><div class="stat-val" id="cbStatApiKey" style="font-size:1.1rem">—</div><div class="stat-lbl">NVIDIA API Key</div></div>
+          <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">🔑</div></div><div class="stat-val" id="cbStatApiKey" style="font-size:1.1rem">—</div><div class="stat-lbl">Gemini API Key</div></div>
         </div>
 
         <div class="two-col">
@@ -988,9 +988,9 @@ body.sidebar-collapsed .main{margin-left:0}
         </div>
 
         <div class="card">
-          <div class="card-title"><span class="ct-icon">🧠</span> AI Model (NVIDIA)</div>
+          <div class="card-title"><span class="ct-icon">🧠</span> AI Model (Gemini)</div>
           <div class="form-grid form-grid-2">
-            <div class="form-group"><label class="form-label">NVIDIA model</label><input class="form-input" type="text" id="cbModel" placeholder="meta/llama-3.1-8b-instruct"></div>
+            <div class="form-group"><label class="form-label">Gemini model</label><input class="form-input" type="text" id="cbModel" placeholder="gemini-2.5-flash"></div>
             <div class="form-group"><label class="form-label">API Key</label><input class="form-input" type="text" value="Configured ✓" id="cbApiKeyDisplay" readonly style="color:#00e676"></div>
             <div class="form-group"><label class="form-label">Maximum output tokens</label><input class="form-input" type="number" id="cbMaxTokens" min="128" max="4096"></div>
             <div class="form-group"><label class="form-label">Temperature (0 = precise, 2 = creative)</label><input class="form-input" type="number" step="0.1" min="0" max="2" id="cbTemperature"></div>

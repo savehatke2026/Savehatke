@@ -7,7 +7,7 @@
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const chatbot = require('../services/chatbotService');
-const nvidia = require('../services/nvidiaService');
+const gemini = require('../services/geminiService');
 
 const router = express.Router();
 
@@ -15,9 +15,9 @@ const router = express.Router();
 // SECURITY: never returns the API key itself, only whether it is configured.
 router.get('/status', authenticateToken, requireAdmin, (req, res) => {
   res.json({
-    apiKeyConfigured: nvidia.isConfigured(),
-    defaultModel: nvidia.getDefaultModel(),
-    configuredBaseUrl: nvidia.isConfigured() ? 'secure server-side env' : 'not set',
+    apiKeyConfigured: gemini.isConfigured(),
+    defaultModel: gemini.getDefaultModel(),
+    configuredBaseUrl: gemini.isConfigured() ? 'secure server-side env' : 'not set',
   });
 });
 

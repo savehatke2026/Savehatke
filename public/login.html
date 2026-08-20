@@ -12,7 +12,10 @@
   <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
   <link rel="dns-prefetch" href="https://accounts.google.com">
   <link rel="dns-prefetch" href="https://www.googleapis.com">
+  <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <!-- Cloudflare Turnstile CAPTCHA -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onLoginTurnstileLoad" async defer></script>
   <script>
     // Logged-in users never see the login page — always send them to home
     (function redirectIfLoggedIn() {
@@ -317,6 +320,8 @@
           <label class="flabel" for="inputEmail">Email Address</label>
           <input type="email" class="finput" id="inputEmail" placeholder="you@example.com" required autocomplete="email">
         </div>
+        <!-- Cloudflare Turnstile CAPTCHA — revealed after email + Continue -->
+        <div class="fgroup" id="loginTurnstileGroup" style="display:none;justify-content:center;margin-bottom:14px"></div>
         <button type="submit" class="btn btn-primary" id="submitBtn">
           Continue &rarr;
         </button>
@@ -566,15 +571,83 @@
   }
 
   /* ══════════════════════════════════════════
+     CLOUDFLARE TURNSTILE — revealed after email + Continue
+  ══════════════════════════════════════════ */
+  let loginTurnstileShown = false;   // widget rendered below the email box
+  let loginTurnstileWidgetId = null; // 'error' when the widget failed to load
+
+  // Resolves as soon as the async Turnstile API script finishes loading (no polling)
+  const loginTurnstileApiReady = new Promise((resolve) => {
+    if (typeof turnstile !== 'undefined' && turnstile.render) return resolve();
+    window.onLoginTurnstileLoad = () => resolve();
+    setTimeout(resolve, 8000); // safety cap if the script stalls
+  });
+
+  async function showLoginTurnstile() {
+    if (loginTurnstileShown) return;
+    const group = document.getElementById('loginTurnstileGroup');
+    if (!group) { loginTurnstileShown = true; return; }
+    try {
+      // Public endpoint — plain fetch, no Auth dependency
+      const res = await fetch((window.API_BASE || '/api') + '/turnstile-config');
+      const { siteKey } = await res.json();
+      if (!siteKey) { loginTurnstileShown = true; return; } // CAPTCHA not configured
+      group.style.display = 'flex';
+      await loginTurnstileApiReady;
+      if (typeof turnstile !== 'undefined' && turnstile.render) {
+        loginTurnstileWidgetId = turnstile.render(group, {
+          sitekey: siteKey,
+          theme: 'dark',
+          'error-callback': () => {
+            // Domain not registered in the Turnstile widget settings (error 110200), etc.
+            group.innerHTML = '<small style="color:#ffb4a2">CAPTCHA could not load for this domain.</small>';
+            loginTurnstileWidgetId = 'error';
+          },
+        });
+      }
+      loginTurnstileShown = true;
+    } catch (e) {
+      console.warn('Turnstile init failed:', e);
+      loginTurnstileShown = true; // don't block login on CAPTCHA infra failure
+    }
+  }
+
+  function resetLoginTurnstile() {
+    if (typeof turnstile !== 'undefined' && turnstile.reset &&
+        loginTurnstileWidgetId != null && loginTurnstileWidgetId !== 'error') {
+      turnstile.reset(loginTurnstileWidgetId);
+    }
+  }
+
+  /* ══════════════════════════════════════════
      EMAIL OTP FLOW
   ══════════════════════════════════════════ */
   async function handleAuthSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Sending code...'; }
     const email = document.getElementById('inputEmail')?.value?.trim();
+
+    // First click: reveal the CAPTCHA below the email box, then wait for completion
+    if (!loginTurnstileShown) {
+      if (btn) { btn.disabled = true; btn.textContent = 'Loading security check…'; }
+      await showLoginTurnstile();
+      if (btn) { btn.disabled = false; btn.textContent = 'Continue \u2192'; }
+      if (loginTurnstileWidgetId !== 'error') {
+        showToast('Complete the security check, then press Continue.', 'warning');
+      }
+      return;
+    }
+
+    // Second click: require a completed CAPTCHA before sending the OTP
+    const turnstileToken = (typeof turnstile !== 'undefined' && turnstile.getResponse) ? turnstile.getResponse() : '';
+    if (loginTurnstileWidgetId !== 'error' && !turnstileToken) {
+      showToast('Please complete the security check before continuing.', 'error');
+      return;
+    }
+
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending code...'; }
     try {
-      await api('/auth/send-otp', { method: 'POST', body: { email } });
+      await api('/auth/send-otp', { method: 'POST', body: { email, cfTurnstileToken: turnstileToken } });
       sessionStorage.setItem('otp_email', email);
       document.getElementById('displayEmail').textContent = email;
       showVerifyState();
@@ -582,6 +655,7 @@
       showToast('Verification code sent to ' + email, 'success');
     } catch (err) {
       showToast(err.message || 'Failed to send verification code. Please try again.', 'error');
+      resetLoginTurnstile(); // tokens are single-use — refresh for the retry
       if (btn) { btn.disabled = false; btn.textContent = 'Continue \u2192'; }
     }
   }
@@ -727,6 +801,7 @@
     document.getElementById('loginState').style.display = 'block';
     const email = sessionStorage.getItem('otp_email') || '';
     if (email) document.getElementById('inputEmail').value = email;
+    resetLoginTurnstile(); // fresh CAPTCHA token needed for the next attempt
     document.getElementById('submitBtn').disabled = false;
     document.getElementById('submitBtn').textContent = 'Continue \u2192';
   }

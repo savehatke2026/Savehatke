@@ -62,7 +62,7 @@ async function loadChatbotSettings() {
     const apiKeyEl = document.getElementById('cbStatApiKey');
     if (apiKeyEl) apiKeyEl.textContent = cbSettings.apiKeyConfigured ? 'Configured ✓' : 'Not Set';
     const apiKeyDisplay = document.getElementById('cbApiKeyDisplay');
-    if (apiKeyDisplay) apiKeyDisplay.value = cbSettings.apiKeyConfigured ? 'Configured ✓' : 'Not configured (set NVIDIA_API_KEY)';
+    if (apiKeyDisplay) apiKeyDisplay.value = cbSettings.apiKeyConfigured ? 'Configured ✓' : 'Not configured (set GEMINI_API_KEY)';
   } catch (err) {
     showToast('Failed to load chatbot settings: ' + err.message, 'error');
   }

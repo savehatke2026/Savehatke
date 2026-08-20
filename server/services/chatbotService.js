@@ -5,7 +5,7 @@
 // limiting, prompt-injection detection, guarded tools, logging and audit.
 //
 // SECURITY MODEL:
-// - The NVIDIA API key, system prompt and tool internals never leave the
+// - The Gemini API key, system prompt and tool internals never leave the
 //   server. The public /api/chat endpoint only ever receives a message and
 //   returns sanitized AI text.
 // - Tools NEVER let the AI (or the user) query arbitrary data. User-scoped
@@ -14,7 +14,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 const db = require('./googleSheets');
-const nvidia = require('./nvidiaService');
+const gemini = require('./geminiService');
 
 // ── Knowledge categories (fixed per product spec) ─────────────────────────
 const KNOWLEDGE_CATEGORIES = [
@@ -53,7 +53,7 @@ const DEFAULT_SETTINGS = {
     '📞 Contact Support',
   ],
   maintenanceMessage: 'Our AI assistant is temporarily unavailable. Please check back soon or contact support.',
-  model: 'meta/llama-3.1-8b-instruct',
+  model: 'gemini-2.5-flash',
   maxOutputTokens: 1024,
   temperature: 0.4,
   timeoutSeconds: 30,
@@ -100,6 +100,11 @@ async function getSettings() {
       merged[k] = coerceSetting(k, stored[k]);
     }
   });
+  // Old NVIDIA-style model names (they contain '/') are invalid on Gemini —
+  // fall back to the default instead of sending a model the API rejects.
+  if (typeof merged.model === 'string' && merged.model.includes('/')) {
+    merged.model = DEFAULT_SETTINGS.model;
+  }
   return merged;
 }
 
@@ -149,7 +154,7 @@ async function saveSettings(updates, admin) {
 // Admin-facing settings include API key status, never the key itself
 async function getSettingsForAdmin() {
   const s = await getSettings();
-  return { ...s, apiKeyConfigured: nvidia.isConfigured(), defaultModel: nvidia.getDefaultModel() };
+  return { ...s, apiKeyConfigured: gemini.isConfigured(), defaultModel: gemini.getDefaultModel() };
 }
 
 // Public-facing config: only what the homepage widget needs — nothing sensitive
@@ -673,7 +678,7 @@ async function handleMessage({ message, conversationId, user, ip }) {
   const knowledgeMatches = scoreKnowledge(knowledgeEntries, text);
 
   // If AI not configured, fall back
-  if (!nvidia.isConfigured()) {
+  if (!gemini.isConfigured()) {
     if (settings.fallbackBehavior === 'knowledge_only' && knowledgeMatches.length > 0) {
       const reply = knowledgeMatches[0].answer;
       await addMessage(conv.id, 'assistant', reply, { model: 'knowledge-base', status: 'ok', responseTimeMs: Date.now() - started });
@@ -707,7 +712,7 @@ async function handleMessage({ message, conversationId, user, ip }) {
   };
 
   try {
-    let result = await nvidia.chatCompletion(aiMessages, callOpts);
+    let result = await gemini.chatCompletion(aiMessages, callOpts);
     let loop = 0;
 
     // 9. Permitted tool-call loop (max 2 rounds)
@@ -721,7 +726,7 @@ async function handleMessage({ message, conversationId, user, ip }) {
         const toolResult = await executeTool(fnName, fnArgs, settings, user);
         aiMessages.push({ role: 'tool', name: fnName, content: JSON.stringify(toolResult).slice(0, 4000), tool_call_id: tc.id || ('call_' + loop) });
       }
-      result = await nvidia.chatCompletion(aiMessages, callOpts);
+      result = await gemini.chatCompletion(aiMessages, callOpts);
     }
 
     if (!result.ok) {

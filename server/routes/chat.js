@@ -1,11 +1,11 @@
 // ============================================
 // SaveHatke — Public Chat Endpoints (/api/chat)
 // ============================================
-// The homepage chatbot widget talks ONLY to this backend. The NVIDIA API
+// The homepage chatbot widget talks ONLY to this backend. The Gemini API
 // key, system prompt and tools stay server-side. Pipeline per message:
 // auth (optional) → enabled check → guest policy → validation → rate
 // limiting → injection scan → conversation handling → knowledge retrieval
-// → permitted tool calls → NVIDIA API → output validation → response.
+// → permitted tool calls → Gemini API → output validation → response.
 
 const express = require('express');
 const { optionalAuth } = require('../middleware/auth');

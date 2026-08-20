@@ -13,11 +13,6 @@ const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB
 const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
 const ATTACHMENT_BUCKET = 'support-attachments';
 
-// GET /api/support/turnstile-config — Public: expose only the Turnstile site key (secret stays in .env)
-router.get('/turnstile-config', (req, res) => {
-  res.json({ siteKey: process.env.TURNSTILE_SITE_KEY || '' });
-});
-
 // POST /api/support/attachment — Upload a support ticket attachment to Supabase Storage
 router.post('/attachment', optionalAuth, async (req, res) => {
   try {

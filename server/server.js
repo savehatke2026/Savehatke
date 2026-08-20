@@ -82,6 +82,11 @@ app.use('/api/support', apiLimiter, supportRoutes);
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
 app.use('/api/chat', chatRoutes); // /api/chat applies its own service-level rate limits
 
+// Public Turnstile site key for CAPTCHA widgets (secret stays in .env)
+app.get('/api/turnstile-config', (req, res) => {
+  res.json({ siteKey: process.env.TURNSTILE_SITE_KEY || '' });
+});
+
 // Public settings route (for index.html hero stats & platform settings)
 app.get('/api/settings', async (req, res) => {
   try {
