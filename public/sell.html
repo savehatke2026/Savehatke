@@ -125,15 +125,15 @@
       transition:border-color .22s, transform .22s;
     }
     .how-mini-item:hover { border-color:rgba(0,230,118,.3); transform:translateY(-2px); }
+    .how-mini-head { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
     .how-mini-step-num {
       display:inline-flex; align-items:center; justify-content:center;
       width:26px; height:26px; border-radius:50%;
       background:linear-gradient(135deg,#00e676,#00c853);
       color:#060d1f; font-family:'JetBrains Mono',monospace;
       font-size:.72rem; font-weight:700;
-      margin-bottom:12px;
     }
-    .how-mini-icon { font-size:1.5rem; margin-bottom:8px; display:block; }
+    .how-mini-icon { font-size:1.35rem; display:inline-block; }
     .how-mini-title { font-weight:700; color:#e2ecff; font-size:.88rem; margin-bottom:4px; line-height:1.3; }
     .how-mini-sub { font-size:.72rem; color:#6b88aa; line-height:1.5; }
     .how-mini-connector {
@@ -382,20 +382,17 @@
       <span class="how-mini-label">How it works</span>
       <div class="how-mini-grid">
         <div class="how-mini-item">
-          <div class="how-mini-step-num">1</div>
-          <span class="how-mini-icon">📝</span>
+          <div class="how-mini-head"><div class="how-mini-step-num">1</div><span class="how-mini-icon">📝</span></div>
           <div class="how-mini-title">Submit Codes</div>
           <div class="how-mini-sub">Enter 1–5 coupons at once</div>
         </div>
         <div class="how-mini-item">
-          <div class="how-mini-step-num">2</div>
-          <span class="how-mini-icon">✅</span>
+          <div class="how-mini-head"><div class="how-mini-step-num">2</div><span class="how-mini-icon">✅</span></div>
           <div class="how-mini-title">We Verify</div>
           <div class="how-mini-sub">Quick validation check</div>
         </div>
         <div class="how-mini-item">
-          <div class="how-mini-step-num">3</div>
-          <span class="how-mini-icon">💸</span>
+          <div class="how-mini-head"><div class="how-mini-step-num">3</div><span class="how-mini-icon">💸</span></div>
           <div class="how-mini-title">Get Paid ₹10 Each</div>
           <div class="how-mini-sub">Instant to your UPI</div>
         </div>

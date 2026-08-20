@@ -547,7 +547,8 @@
     const btn = document.getElementById('googleSignInBtn');
     if (btn) {
       btn.disabled = true;
-      btn.innerHTML = '<span class="g-spinner"></span><span class="g-btn-text">Redirecting to Google&hellip;</span>';
+      // Plain text state — no spinner/loading bar while redirecting to Google
+      btn.innerHTML = '<span class="g-btn-text">Authenticating&hellip;</span>';
     }
 
     const clientId = loginPageActiveGoogleClientId;
