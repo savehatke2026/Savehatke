@@ -30,25 +30,27 @@ function isOAuthConfigured() {
   return !!(getGmailClientId() && getGmailClientSecret());
 }
 
-function getRedirectUri() {
+function getRedirectUri(requestBase) {
+  // Explicit env override first; otherwise derive from the request's own
+  // origin so the flow works on any deployed domain (localhost, Vercel, etc.)
   if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
-  const base = (process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+  const base = (requestBase || process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
   return `${base}/api/admin/gmail/callback`;
 }
 
-function getOAuth2Client() {
+function getOAuth2Client(requestBase) {
   return new google.auth.OAuth2(
     getGmailClientId(),
     getGmailClientSecret(),
-    getRedirectUri()
+    getRedirectUri(requestBase)
   );
 }
 
 /**
  * Build the Google consent URL the admin is redirected to.
  */
-function buildAuthUrl(state) {
-  const client = getOAuth2Client();
+function buildAuthUrl(state, requestBase) {
+  const client = getOAuth2Client(requestBase);
   return client.generateAuthUrl({
     access_type: 'offline',
     prompt: 'consent', // ensure a refresh token is always returned
@@ -61,8 +63,8 @@ function buildAuthUrl(state) {
 /**
  * Exchange an authorization code for tokens.
  */
-async function exchangeCode(code) {
-  const client = getOAuth2Client();
+async function exchangeCode(code, requestBase) {
+  const client = getOAuth2Client(requestBase);
   const { tokens } = await client.getToken(code);
   return tokens; // { refresh_token, access_token, expiry_date, scope }
 }

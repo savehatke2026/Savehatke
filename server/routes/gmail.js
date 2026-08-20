@@ -45,6 +45,15 @@ function clientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
 }
 
+// Derive the site base URL from the incoming request so the OAuth redirect
+// URI matches whichever domain serves the app (localhost, savehatke.vercel.app,
+// custom domain) without extra configuration.
+function requestBase(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
+  const host = req.get('host');
+  return host ? `${proto}://${host}` : APP_BASE_URL;
+}
+
 // Best-effort audit log — never blocks the main action
 async function audit(req, action, targetId = '', details = '') {
   try {
@@ -170,7 +179,7 @@ router.get('/auth', gmailAuthLimiter, async (req, res) => {
       getJwtSecret(),
       { expiresIn: '10m' }
     );
-    const url = gmailService.buildAuthUrl(state);
+    const url = gmailService.buildAuthUrl(state, requestBase(req));
     res.redirect(url);
   } catch (err) {
     console.error('Gmail auth redirect error:', err.message);
@@ -180,9 +189,10 @@ router.get('/auth', gmailAuthLimiter, async (req, res) => {
 
 // GET /api/admin/gmail/callback — Google redirects back here
 router.get('/callback', gmailAuthLimiter, async (req, res) => {
+  const reqBase = requestBase(req);
   const done = (ok, message = '') => {
     const qs = ok ? '?gmail=connected' : `?gmail=error&msg=${encodeURIComponent(message || 'Connection failed')}`;
-    res.redirect(`${APP_BASE_URL}/admin-gmail.html${qs}`);
+    res.redirect(`${reqBase}/admin-gmail.html${qs}`);
   };
 
   try {
@@ -199,14 +209,14 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
     }
     if (!decoded.adminId) return done(false, 'Invalid OAuth state.');
 
-    const tokens = await gmailService.exchangeCode(String(code));
+    const tokens = await gmailService.exchangeCode(String(code), reqBase);
     if (!tokens.refresh_token) {
       return done(false, 'Google did not return a refresh token. Disconnect SaveHatke from your Google account and reconnect.');
     }
 
     // Identify the connected Gmail address via Gmail profile
     const { google } = require('googleapis');
-    const oauth2 = gmailService.getOAuth2Client();
+    const oauth2 = gmailService.getOAuth2Client(reqBase);
     oauth2.setCredentials({ access_token: tokens.access_token, refresh_token: tokens.refresh_token });
     const gmail = google.gmail({ version: 'v1', auth: oauth2 });
     const profile = await gmail.users.getProfile({ userId: 'me' });
