@@ -1,0 +1,743 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="About SaveHatke — India's coupon marketplace. Buy coupons you want. Sell coupons you don't need. Save more.">
+  <meta property="og:title" content="About SaveHatke — Coupon Marketplace">
+  <meta property="og:description" content="SaveHatke is a coupon marketplace built to give unused coupon codes a second life.">
+  <meta property="og:type" content="website">
+  <link rel="canonical" href="https://savehatke.com/about.html">
+  <title>About — SaveHatke Coupon Marketplace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Outfit', sans-serif; background: #060d1f; color: #e2ecff; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #060d1f; }
+    ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+    a { text-decoration: none; color: inherit; }
+
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+    @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+    @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,0.45)} 50%{box-shadow:0 0 0 10px rgba(0,230,118,0)} }
+    @keyframes glow-pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+    @keyframes rotate-slow { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+    }
+
+    .fu { opacity: 0; transform: translateY(26px); transition: opacity 0.65s ease, transform 0.65s ease; }
+    .fu.in { opacity: 1; transform: translateY(0); }
+    .d1{transition-delay:.1s} .d2{transition-delay:.22s} .d3{transition-delay:.34s} .d4{transition-delay:.46s}
+
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+    .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .shimmer { background: linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 3.5s linear infinite; }
+    .slabel { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:12px; }
+    .stitle { font-family:'DM Serif Display',serif; font-size:clamp(1.9rem,4vw,2.8rem); line-height:1.15; margin-bottom:16px; }
+    .ssub { font-size:1rem; color:#a8c0dc; line-height:1.75; max-width:560px; margin:0 auto; }
+
+    /* Buttons */
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; }
+    .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
+    .btn-lg { height:54px; padding:0 36px; font-size:1rem; border-radius:12px; }
+    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+    .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); }
+    .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
+    .btn-success { background:linear-gradient(135deg,#00c853,#009624); color:#fff; }
+    .btn-success:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,200,83,.38); }
+    .btn-outline { background:transparent; color:#00e676; border:1.5px solid rgba(0,230,118,.35); }
+    .btn-outline:hover { background:rgba(0,230,118,.08); border-color:#00e676; }
+
+    /* NAVBAR */
+    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
+    .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
+    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .bhl { color:#00e676; }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
+    .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
+    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00e676; border-radius:1px; }
+    .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
+    .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
+    @media(max-width:768px){
+      .nav-links,.nav-actions{display:none}
+      .nav-toggle{display:flex}
+      .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
+      .nav-actions.open{display:flex;position:absolute;top:280px;right:24px;flex-direction:column;gap:10px;z-index:99}
+    }
+
+    /* HERO */
+    .hero { min-height:100vh; padding-top:68px; display:flex; align-items:center; position:relative; overflow:hidden; }
+    .hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 70% 55% at 15% 30%,rgba(0,230,118,.07) 0%,transparent 65%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.07) 0%,transparent 65%); pointer-events:none; }
+    .hero-gridbg { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.04) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
+    .hero-inner { position:relative; z-index:1; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; padding:80px 0 100px; }
+    .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; border-radius:9999px; font-size:.8rem; font-weight:600; padding:6px 16px; margin-bottom:28px; }
+    .hero-title { font-family:'DM Serif Display',serif; font-size:clamp(2.6rem,5.5vw,4.2rem); line-height:1.1; margin-bottom:22px; }
+    .hero-desc { font-size:1.05rem; color:#a8c0dc; line-height:1.75; margin-bottom:36px; max-width:480px; }
+    .hero-actions { display:flex; gap:14px; flex-wrap:wrap; }
+    .hero-visual { position:relative; display:flex; justify-content:center; }
+    .hero-glow { position:absolute; width:340px; height:340px; border-radius:50%; background:radial-gradient(circle,rgba(0,230,118,.14) 0%,transparent 70%); top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; animation:glow-pulse 3s ease-in-out infinite; }
+
+    /* Coupon display card */
+    .coupon-display { width:320px; padding:32px; border-radius:22px; background:rgba(15,30,58,.95); border:1px solid rgba(79,195,247,.2); box-shadow:0 32px 80px rgba(0,0,0,.55); animation:float 4.5s ease-in-out infinite; position:relative; z-index:1; }
+    .cd-brand { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+    .cd-logo { font-size:.8rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#6b88aa; }
+    .cd-verified { display:inline-flex; align-items:center; gap:4px; font-size:.7rem; font-weight:700; color:#00e676; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); border-radius:5px; padding:3px 8px; }
+    .cd-divider { height:1px; background:rgba(79,195,247,.1); margin:16px 0; }
+    .cd-amount { font-family:'DM Serif Display',serif; font-size:3.2rem; line-height:1; margin-bottom:6px; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .cd-off { font-size:.85rem; color:#a8c0dc; font-weight:500; margin-bottom:24px; }
+    .cd-price-row { display:flex; justify-content:space-between; align-items:center; background:rgba(0,230,118,.06); border:1px solid rgba(0,230,118,.15); border-radius:10px; padding:12px 16px; margin-bottom:16px; }
+    .cd-price-lbl { font-size:.78rem; color:#6b88aa; }
+    .cd-price-val { font-family:'JetBrains Mono',monospace; font-size:1.1rem; font-weight:700; color:#00e676; }
+    .cd-checks { display:flex; flex-direction:column; gap:8px; }
+    .cd-check { display:flex; align-items:center; gap:8px; font-size:.82rem; color:#a8c0dc; }
+    .cd-check-icon { width:18px; height:18px; border-radius:50%; background:rgba(0,230,118,.15); display:flex; align-items:center; justify-content:center; font-size:.65rem; color:#00e676; flex-shrink:0; }
+    .fbadge { position:absolute; background:#152545; border:1px solid rgba(79,195,247,.3); border-radius:12px; padding:10px 16px; font-size:.8rem; font-weight:600; display:flex; align-items:center; gap:8px; white-space:nowrap; box-shadow:0 12px 32px rgba(0,0,0,.6); z-index:10; }
+    .fb1 { top:-16px; right:-80px; animation:float 3.5s ease-in-out infinite; }
+    .fb2 { bottom:-16px; left:-80px; animation:float 4s ease-in-out infinite .7s; }
+    .bdot { width:8px; height:8px; border-radius:50%; background:#00e676; animation:pulse-ring 2s ease infinite; flex-shrink:0; }
+    @media(max-width:900px){
+      .hero-inner{grid-template-columns:1fr;gap:48px;padding:60px 0 80px;text-align:center}
+      .hero-desc{margin:0 auto 36px}
+      .hero-actions{justify-content:center}
+      .hero-visual{display:none}
+    }
+
+    /* SECTIONS */
+    .section { padding:96px 0; }
+    .section-alt { background:rgba(12,24,53,.55); }
+    .sec-hdr { text-align:center; margin-bottom:60px; }
+    .text-center { text-align:center; }
+    .mt-10 { margin-top:40px; }
+
+    /* THE IDEA */
+    .idea-wrap { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
+    .idea-content .stitle { text-align:left; }
+    .idea-content .ssub { text-align:left; margin:0 0 24px; max-width:100%; }
+    .idea-highlight { padding:24px 28px; border-radius:16px; background:linear-gradient(135deg,rgba(0,230,118,.08),rgba(79,195,247,.06)); border:1px solid rgba(0,230,118,.2); font-family:'DM Serif Display',serif; font-size:1.35rem; line-height:1.45; color:#e2ecff; position:relative; }
+    .idea-highlight::before { content:'"'; font-size:4rem; color:rgba(0,230,118,.15); position:absolute; top:-16px; left:16px; font-family:'DM Serif Display',serif; line-height:1; }
+    .idea-visual { position:relative; }
+    .idea-glass { border-radius:22px; padding:40px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); box-shadow:0 24px 60px rgba(0,0,0,.4); }
+    .ig-row { display:flex; align-items:center; gap:20px; margin-bottom:28px; }
+    .ig-row:last-child { margin-bottom:0; }
+    .ig-icon { width:52px; height:52px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:1.4rem; flex-shrink:0; }
+    .ig-icon.green { background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,200,83,.1)); }
+    .ig-icon.cyan { background:linear-gradient(135deg,rgba(79,195,247,.2),rgba(41,182,246,.1)); }
+    .ig-label { font-size:.75rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#6b88aa; margin-bottom:4px; }
+    .ig-text { font-size:.92rem; color:#a8c0dc; line-height:1.5; }
+    .ig-arrow { text-align:center; font-size:1.5rem; color:rgba(0,230,118,.3); margin:4px 0; padding-left:26px; }
+    @media(max-width:900px){
+      .idea-wrap{grid-template-columns:1fr;gap:40px}
+      .idea-content .stitle,.idea-content .ssub{text-align:center}
+    }
+
+    /* HOW IT WORKS */
+    .steps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
+    .step-card { padding:36px 32px; border-radius:18px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); position:relative; overflow:hidden; transition:all .3s; }
+    .step-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transition:transform .3s; transform-origin:left; }
+    .step-card:hover { border-color:rgba(0,230,118,.25); transform:translateY(-5px); }
+    .step-card:hover::before { transform:scaleX(1); }
+    .step-n { font-family:'JetBrains Mono',monospace; font-size:3rem; font-weight:600; line-height:1; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:20px; }
+    .step-card h3 { font-size:1.15rem; font-weight:700; margin-bottom:12px; }
+    .step-card p { font-size:.92rem; color:#a8c0dc; line-height:1.7; }
+    @media(max-width:768px){.steps-grid{grid-template-columns:1fr}}
+
+    /* BUYERS */
+    .cat-pills { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:40px; }
+    .cat-pill { padding:8px 20px; border-radius:9999px; font-size:.85rem; font-weight:600; border:1.5px solid rgba(79,195,247,.18); background:rgba(15,30,58,.6); color:#a8c0dc; }
+    .sample-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; margin-bottom:40px; }
+    .sample-card { padding:24px; border-radius:16px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); transition:all .3s; }
+    .sample-card:hover { border-color:rgba(0,230,118,.28); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.3); }
+    .sc-top { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
+    .sc-brand { font-weight:700; font-size:.98rem; }
+    .sc-off { font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:700; color:#00e676; }
+    .sc-desc { font-size:.82rem; color:#a8c0dc; margin-bottom:16px; line-height:1.5; }
+    .sc-bottom { display:flex; justify-content:space-between; align-items:center; }
+    .sc-price-lbl { font-size:.7rem; color:#6b88aa; display:block; }
+    .sc-price-val { font-family:'JetBrains Mono',monospace; font-size:1rem; font-weight:700; }
+    .sc-cat { font-size:.7rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; padding:4px 10px; border-radius:6px; background:rgba(79,195,247,.1); color:#4fc3f7; }
+    .sc-demo-note { text-align:center; font-size:.78rem; color:#6b88aa; font-style:italic; margin-bottom:32px; }
+    @media(max-width:900px){.sample-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:580px){.sample-grid{grid-template-columns:1fr}}
+
+    /* SELLERS */
+    .seller-wrap { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start; }
+    .seller-content .stitle { text-align:left; }
+    .seller-content .ssub { text-align:left; margin:0 0 32px; max-width:100%; }
+    .feature-list { display:flex; flex-direction:column; gap:14px; margin-bottom:36px; }
+    .feature-item { display:flex; align-items:flex-start; gap:14px; padding:16px 20px; border-radius:12px; background:rgba(15,30,58,.6); border:1px solid rgba(79,195,247,.08); transition:border-color .25s; }
+    .feature-item:hover { border-color:rgba(0,230,118,.2); }
+    .fi-icon { width:36px; height:36px; border-radius:10px; background:rgba(0,230,118,.1); display:flex; align-items:center; justify-content:center; color:#00e676; font-size:1rem; flex-shrink:0; }
+    .fi-text h4 { font-size:.92rem; font-weight:700; margin-bottom:3px; }
+    .fi-text p { font-size:.82rem; color:#a8c0dc; line-height:1.5; }
+    .seller-visual { border-radius:22px; padding:36px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); box-shadow:0 24px 60px rgba(0,0,0,.4); }
+    .sv-label { font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#6b88aa; margin-bottom:24px; }
+    .sv-step { display:flex; gap:16px; margin-bottom:20px; align-items:flex-start; }
+    .sv-step:last-child { margin-bottom:0; }
+    .sv-num { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(79,195,247,.15)); border:1px solid rgba(0,230,118,.25); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:600; color:#00e676; flex-shrink:0; }
+    .sv-step-text h5 { font-size:.9rem; font-weight:700; margin-bottom:3px; }
+    .sv-step-text p { font-size:.82rem; color:#a8c0dc; line-height:1.5; }
+    @media(max-width:900px){
+      .seller-wrap{grid-template-columns:1fr;gap:40px}
+      .seller-content .stitle,.seller-content .ssub{text-align:center}
+    }
+
+    /* TRUST */
+    .trust-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:22px; }
+    .trust-card { padding:28px 24px; border-radius:16px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); transition:all .3s; }
+    .trust-card:hover { border-color:rgba(79,195,247,.25); transform:translateY(-4px); }
+    .tc-icon { font-size:1.8rem; margin-bottom:16px; }
+    .tc-title { font-size:1rem; font-weight:700; margin-bottom:10px; }
+    .tc-text { font-size:.85rem; color:#a8c0dc; line-height:1.65; }
+    @media(max-width:900px){.trust-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:500px){.trust-grid{grid-template-columns:1fr}}
+
+    /* VISION */
+    .vision-wrap { text-align:center; position:relative; }
+    .vision-bg { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+    .vision-orb { position:absolute; border-radius:50%; filter:blur(60px); }
+    .vision-orb1 { width:300px; height:300px; background:rgba(0,230,118,.06); top:-50px; left:50%; transform:translateX(-50%); animation:glow-pulse 4s ease-in-out infinite; }
+    .vision-orb2 { width:200px; height:200px; background:rgba(79,195,247,.06); bottom:0; right:20%; animation:glow-pulse 3.5s ease-in-out infinite .7s; }
+    .vision-content { position:relative; z-index:1; }
+    .vision-quote { font-family:'DM Serif Display',serif; font-size:clamp(1.8rem,4vw,2.8rem); color:#e2ecff; line-height:1.3; margin-bottom:16px; max-width:700px; margin-left:auto; margin-right:auto; }
+    .vision-sub { font-size:1rem; color:#a8c0dc; line-height:1.75; max-width:520px; margin:0 auto 56px; }
+    .vision-triptych { display:flex; align-items:center; justify-content:center; gap:0; max-width:720px; margin:0 auto; }
+    .vt-panel { flex:1; padding:36px 28px; border-radius:20px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); text-align:center; position:relative; }
+    .vt-panel.center { background:linear-gradient(135deg,rgba(0,230,118,.1),rgba(79,195,247,.08)); border-color:rgba(0,230,118,.25); margin:0 -2px; z-index:1; }
+    .vt-num { font-family:'JetBrains Mono',monospace; font-size:2.5rem; font-weight:600; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; line-height:1; margin-bottom:12px; }
+    .vt-label { font-size:.88rem; font-weight:600; color:#a8c0dc; line-height:1.4; }
+    .vt-arrow { font-size:1.2rem; color:rgba(0,230,118,.3); padding:0 8px; flex-shrink:0; }
+    @media(max-width:640px){
+      .vision-triptych{flex-direction:column;gap:12px}
+      .vt-arrow{transform:rotate(90deg)}
+      .vt-panel.center{margin:0;z-index:auto}
+    }
+
+    /* BUILT FOR INDIA */
+    .india-card { border-radius:24px; padding:60px; text-align:center; background:linear-gradient(135deg,rgba(0,230,118,.06),rgba(79,195,247,.05)); border:1px solid rgba(0,230,118,.15); position:relative; overflow:hidden; max-width:760px; margin:0 auto; }
+    .india-card::before { content:''; position:absolute; width:350px; height:350px; border-radius:50%; background:radial-gradient(circle,rgba(0,230,118,.07) 0%,transparent 70%); top:-100px; right:-80px; pointer-events:none; }
+    .india-flag { font-size:2.8rem; margin-bottom:20px; display:block; }
+    .india-card h2 { font-family:'DM Serif Display',serif; font-size:clamp(1.6rem,3.5vw,2.4rem); line-height:1.2; margin-bottom:16px; }
+    .india-card p { font-size:.97rem; color:#a8c0dc; line-height:1.8; max-width:520px; margin:0 auto; position:relative; }
+    @media(max-width:600px){.india-card{padding:40px 28px}}
+
+    /* ROADMAP */
+    .roadmap { display:flex; flex-direction:column; gap:16px; max-width:640px; margin:0 auto; }
+    .rm-item { display:flex; align-items:center; gap:20px; padding:20px 24px; border-radius:14px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.1); transition:all .25s; }
+    .rm-item:hover { border-color:rgba(79,195,247,.2); }
+    .rm-item.active { border-color:rgba(0,230,118,.2); background:rgba(0,230,118,.05); }
+    .rm-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
+    .rm-dot.done { background:#00e676; box-shadow:0 0 8px rgba(0,230,118,.5); }
+    .rm-dot.soon { background:rgba(79,195,247,.3); border:2px solid rgba(79,195,247,.4); }
+    .rm-name { flex:1; font-size:.95rem; font-weight:600; }
+    .rm-badge { font-size:.7rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; padding:4px 10px; border-radius:6px; }
+    .rm-badge.current { background:rgba(0,230,118,.15); color:#00e676; border:1px solid rgba(0,230,118,.25); }
+    .rm-badge.coming { background:rgba(79,195,247,.08); color:#4fc3f7; border:1px solid rgba(79,195,247,.18); }
+
+    /* FINAL CTA */
+    .final-cta { padding:120px 0; background:radial-gradient(ellipse 80% 60% at 50% 50%,rgba(0,230,118,.07) 0%,transparent 70%); text-align:center; border-top:1px solid rgba(79,195,247,.1); }
+    .final-cta .stitle { font-size:clamp(2.2rem,5vw,3.4rem); }
+    .cta-actions { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-top:36px; }
+
+    /* FOOTER */
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; padding-bottom:52px; }
+    .fbrand p { font-size:.88rem; color:#6b88aa; line-height:1.7; margin-top:16px; max-width:280px; }
+    .fcol h4 { font-size:.8rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:20px; }
+    .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
+    .fcol a:hover { color:#00e676; }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
+    @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:32px}}
+    @media(max-width:600px){.footer-grid{grid-template-columns:1fr}.fbot{flex-direction:column;gap:8px;text-align:center}}
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar" id="nav" role="navigation" aria-label="Main navigation">
+  <div class="container">
+    <a href="index.html" class="nav-brand" aria-label="SaveHatke home">
+      <div class="brand-icon" aria-hidden="true">💰</div>
+      Save<span class="bhl">Hatke</span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="index.html">Home</a>
+      <a href="marketplace.html">Coupons</a>
+      <a href="sell.html">Sell Coupons</a>
+      <a href="dashboard.html">Dashboard</a>
+      <a href="about.html" class="active" aria-current="page">About</a>
+      <a href="support.html">Support</a>
+    </div>
+    <div class="nav-actions" id="navActions">
+      <a href="login.html" class="btn btn-primary btn-sm">Log In</a>
+    </div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero" aria-labelledby="hero-heading">
+  <div class="hero-mesh" aria-hidden="true"></div>
+  <div class="hero-gridbg" aria-hidden="true"></div>
+  <div class="container">
+    <div class="hero-inner">
+      <div class="fu in">
+        <div class="hero-badge" aria-label="Page label">About SaveHatke</div>
+        <h1 class="hero-title" id="hero-heading">
+          Turning Unused Coupons<br>
+          Into <span class="shimmer">Real Savings.</span>
+        </h1>
+        <p class="hero-desc">SaveHatke is a coupon marketplace built to give unused coupon codes a second life — helping people sell coupons they don't need and helping others discover discounts at a better price.</p>
+        <div class="hero-actions">
+          <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons →</a>
+          <a href="sell.html" class="btn btn-ghost btn-lg">Sell a Coupon →</a>
+        </div>
+      </div>
+      <div class="hero-visual fu in d2" aria-hidden="true">
+        <div class="hero-glow"></div>
+        <div class="coupon-display">
+          <div class="cd-brand">
+            <span class="cd-logo">SaveHatke Marketplace</span>
+            <span class="cd-verified">✓ Eligible</span>
+          </div>
+          <div class="cd-divider"></div>
+          <div class="cd-amount">₹500</div>
+          <div class="cd-off">Off on eligible purchase</div>
+          <div class="cd-price-row">
+            <span class="cd-price-lbl">Buy for</span>
+            <span class="cd-price-val">₹25</span>
+          </div>
+          <div class="cd-checks">
+            <div class="cd-check"><div class="cd-check-icon">✓</div>Eligibility checked</div>
+            <div class="cd-check"><div class="cd-check-icon">✓</div>Secure transaction</div>
+            <div class="cd-check"><div class="cd-check-icon">✓</div>Status tracked</div>
+          </div>
+        </div>
+        <div class="fbadge fb1"><div class="bdot"></div> New coupon listed</div>
+        <div class="fbadge fb2">Buyer found — value matched</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- THE IDEA -->
+<section class="section section-alt" id="idea" aria-labelledby="idea-heading">
+  <div class="container">
+    <div class="idea-wrap">
+      <div class="idea-content fu">
+        <span class="slabel">The Idea</span>
+        <h2 class="stitle" id="idea-heading">A coupon shouldn't go to waste.</h2>
+        <p class="ssub">Every day, people receive reward coupons, promotional codes and discount vouchers they may never use.</p>
+        <p class="ssub" style="margin-bottom:28px">At the same time, someone else may be looking for exactly that discount. SaveHatke connects these two sides through a marketplace designed around unused coupon value.</p>
+        <div class="idea-highlight">
+          Unused for you. Valuable for someone else.
+        </div>
+      </div>
+      <div class="idea-visual fu d2">
+        <div class="idea-glass">
+          <div class="ig-row">
+            <div class="ig-icon green">🎟️</div>
+            <div>
+              <div class="ig-label">Seller</div>
+              <div class="ig-text">Has a coupon they won't use — could be a reward from a food app, a shopping code, or a discount voucher.</div>
+            </div>
+          </div>
+          <div class="ig-arrow">↓</div>
+          <div class="ig-row">
+            <div class="ig-icon cyan">🏪</div>
+            <div>
+              <div class="ig-label">SaveHatke Marketplace</div>
+              <div class="ig-text">Connects sellers with buyers through a structured coupon listing and discovery platform.</div>
+            </div>
+          </div>
+          <div class="ig-arrow">↓</div>
+          <div class="ig-row">
+            <div class="ig-icon green">🛍️</div>
+            <div>
+              <div class="ig-label">Buyer</div>
+              <div class="ig-text">Finds and purchases the coupon at a price lower than its face value — a win for both sides.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how" aria-labelledby="how-heading">
+  <div class="container">
+    <div class="sec-hdr fu">
+      <span class="slabel">How It Works</span>
+      <h2 class="stitle" id="how-heading">Simple from <span class="gtext">both sides.</span></h2>
+      <p class="ssub">Whether you want to buy a discount or sell a coupon you won't use, SaveHatke makes it straightforward.</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card fu">
+        <div class="step-n">01</div>
+        <h3>List</h3>
+        <p>Have a coupon you don't need? Submit the coupon details through SaveHatke. The process is designed to be simple and guided.</p>
+      </div>
+      <div class="step-card fu d1">
+        <div class="step-n">02</div>
+        <h3>Verify</h3>
+        <p>The coupon can go through eligibility and verification checks before becoming available to buyers — helping keep the marketplace reliable.</p>
+      </div>
+      <div class="step-card fu d2">
+        <div class="step-n">03</div>
+        <h3>Buy or Sell</h3>
+        <p>Sellers can receive payment for eligible coupons, while buyers can discover available discounts at a better price than the face value.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FOR BUYERS -->
+<section class="section section-alt" id="buyers" aria-labelledby="buyers-heading">
+  <div class="container">
+    <div class="sec-hdr fu">
+      <span class="slabel">For Buyers</span>
+      <h2 class="stitle" id="buyers-heading">Find discounts without <span class="gtext">hunting everywhere.</span></h2>
+      <p class="ssub">Browse available coupons across categories. Buy the discount you want at a price that makes sense.</p>
+    </div>
+    <div class="cat-pills fu" role="list" aria-label="Coupon categories">
+      <span class="cat-pill" role="listitem">Fashion</span>
+      <span class="cat-pill" role="listitem">Food &amp; Delivery</span>
+      <span class="cat-pill" role="listitem">Electronics</span>
+      <span class="cat-pill" role="listitem">Beauty</span>
+      <span class="cat-pill" role="listitem">Travel</span>
+      <span class="cat-pill" role="listitem">Shopping</span>
+    </div>
+    <div class="sample-grid fu" aria-label="Example coupon listings (demonstration)">
+      <div class="sample-card">
+        <div class="sc-top"><div class="sc-brand">Fashion Brand</div><div class="sc-off">₹500 OFF</div></div>
+        <div class="sc-desc">On purchases above a minimum order value on fashion &amp; accessories.</div>
+        <div class="sc-bottom"><div><span class="sc-price-lbl">Buy for</span><span class="sc-price-val">₹20</span></div><span class="sc-cat">Fashion</span></div>
+      </div>
+      <div class="sample-card">
+        <div class="sc-top"><div class="sc-brand">Food App</div><div class="sc-off">40% OFF</div></div>
+        <div class="sc-desc">Discount on orders above a qualifying amount at participating restaurants.</div>
+        <div class="sc-bottom"><div><span class="sc-price-lbl">Buy for</span><span class="sc-price-val">₹10</span></div><span class="sc-cat">Food</span></div>
+      </div>
+      <div class="sample-card">
+        <div class="sc-top"><div class="sc-brand">Electronics Store</div><div class="sc-off">₹800 OFF</div></div>
+        <div class="sc-desc">On headphones &amp; audio products above a minimum cart value.</div>
+        <div class="sc-bottom"><div><span class="sc-price-lbl">Buy for</span><span class="sc-price-val">₹25</span></div><span class="sc-cat">Electronics</span></div>
+      </div>
+    </div>
+    <p class="sc-demo-note fu">Above listings are UI examples only. Browse actual available coupons on the marketplace.</p>
+    <div class="text-center fu">
+      <a href="marketplace.html" class="btn btn-outline btn-lg">Explore Marketplace →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOR SELLERS -->
+<section class="section" id="sellers" aria-labelledby="sellers-heading">
+  <div class="container">
+    <div class="seller-wrap">
+      <div class="seller-content fu">
+        <span class="slabel">For Sellers</span>
+        <h2 class="stitle" id="sellers-heading">Turn unused coupons <span class="gtext">into value.</span></h2>
+        <p class="ssub">Have a coupon you're probably never going to use? Submit eligible coupons to SaveHatke instead of letting them expire.</p>
+        <div class="feature-list" role="list">
+          <div class="feature-item" role="listitem">
+            <div class="fi-icon" aria-hidden="true">📝</div>
+            <div class="fi-text">
+              <h4>Simple submission</h4>
+              <p>Submit your coupon details through a guided process designed to be quick and clear.</p>
+            </div>
+          </div>
+          <div class="feature-item" role="listitem">
+            <div class="fi-icon" aria-hidden="true">✅</div>
+            <div class="fi-text">
+              <h4>Eligibility checks</h4>
+              <p>Coupons are reviewed for eligibility before being listed, helping ensure quality on both sides.</p>
+            </div>
+          </div>
+          <div class="feature-item" role="listitem">
+            <div class="fi-icon" aria-hidden="true">📊</div>
+            <div class="fi-text">
+              <h4>Transparent status</h4>
+              <p>Track the status of your submitted coupons through your account dashboard.</p>
+            </div>
+          </div>
+          <div class="feature-item" role="listitem">
+            <div class="fi-icon" aria-hidden="true">🔒</div>
+            <div class="fi-text">
+              <h4>Secure payout process</h4>
+              <p>Payments for eligible coupons are processed through a structured and secure payout flow.</p>
+            </div>
+          </div>
+        </div>
+        <a href="sell.html" class="btn btn-success btn-lg">Sell Your Coupon →</a>
+      </div>
+      <div class="seller-visual fu d2">
+        <div class="sv-label">How selling works</div>
+        <div class="sv-step">
+          <div class="sv-num">1</div>
+          <div class="sv-step-text">
+            <h5>Submit coupon details</h5>
+            <p>Provide the coupon code and relevant information through the seller form.</p>
+          </div>
+        </div>
+        <div class="sv-step">
+          <div class="sv-num">2</div>
+          <div class="sv-step-text">
+            <h5>Eligibility review</h5>
+            <p>SaveHatke reviews the coupon for validity and eligibility before listing it on the marketplace.</p>
+          </div>
+        </div>
+        <div class="sv-step">
+          <div class="sv-num">3</div>
+          <div class="sv-step-text">
+            <h5>Coupon goes live</h5>
+            <p>Once approved, your coupon becomes available for buyers to discover and purchase.</p>
+          </div>
+        </div>
+        <div class="sv-step">
+          <div class="sv-num">4</div>
+          <div class="sv-step-text">
+            <h5>Receive payment</h5>
+            <p>When your coupon sells, payment is processed through our secure payout system.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRUST & SAFETY -->
+<section class="section section-alt" id="trust" aria-labelledby="trust-heading">
+  <div class="container">
+    <div class="sec-hdr fu">
+      <span class="slabel">Trust &amp; Safety</span>
+      <h2 class="stitle" id="trust-heading">Built around <span class="gtext">safer coupon trading.</span></h2>
+      <p class="ssub">We approach coupon trading with care — using systems designed to keep the marketplace reliable for everyone.</p>
+    </div>
+    <div class="trust-grid">
+      <div class="trust-card fu">
+        <div class="tc-icon" aria-hidden="true">🔍</div>
+        <div class="tc-title">Verification</div>
+        <p class="tc-text">Eligible coupons can be checked before being listed, helping reduce the risk of invalid or expired codes reaching buyers.</p>
+      </div>
+      <div class="trust-card fu d1">
+        <div class="tc-icon" aria-hidden="true">🔐</div>
+        <div class="tc-title">Account Security</div>
+        <p class="tc-text">User accounts and personal information are protected using appropriate security controls and access management.</p>
+      </div>
+      <div class="trust-card fu d2">
+        <div class="tc-icon" aria-hidden="true">🚨</div>
+        <div class="tc-title">Abuse Protection</div>
+        <p class="tc-text">Systems are designed to detect suspicious activity and prevent misuse of the platform by bad actors.</p>
+      </div>
+      <div class="trust-card fu d3">
+        <div class="tc-icon" aria-hidden="true">📩</div>
+        <div class="tc-title">Support</div>
+        <p class="tc-text">Users can contact SaveHatke Support when they need assistance with a transaction, listing, or account issue.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OUR VISION -->
+<section class="section" id="vision" aria-labelledby="vision-heading">
+  <div class="container">
+    <div class="vision-wrap">
+      <div class="vision-bg" aria-hidden="true">
+        <div class="vision-orb vision-orb1"></div>
+        <div class="vision-orb vision-orb2"></div>
+      </div>
+      <div class="vision-content fu">
+        <span class="slabel">Our Vision</span>
+        <h2 class="stitle" id="vision-heading" style="text-align:center">Make every coupon count.</h2>
+        <p class="vision-quote">"We believe discounts shouldn't be wasted."</p>
+        <p class="vision-sub">SaveHatke aims to build a marketplace where unused promotional value can move from someone who doesn't need it to someone who does.</p>
+        <div class="vision-triptych" role="img" aria-label="One coupon. Two sides. More value.">
+          <div class="vt-panel">
+            <div class="vt-num">1</div>
+            <div class="vt-label">Coupon</div>
+          </div>
+          <div class="vt-arrow" aria-hidden="true">→</div>
+          <div class="vt-panel center">
+            <div class="vt-num">2</div>
+            <div class="vt-label">Sides</div>
+          </div>
+          <div class="vt-arrow" aria-hidden="true">→</div>
+          <div class="vt-panel">
+            <div class="vt-num">∞</div>
+            <div class="vt-label">More value</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- BUILT FOR INDIA -->
+<section class="section section-alt" id="india" aria-labelledby="india-heading">
+  <div class="container">
+    <div class="india-card fu">
+      <span class="india-flag" aria-hidden="true">🇮🇳</span>
+      <h2 id="india-heading">Built for India</h2>
+      <p>SaveHatke is being built with a simple goal — help people discover discounts, give unused coupons another chance to create value, and make coupon trading simpler for everyday shoppers across India.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ROADMAP -->
+<section class="section" id="roadmap" aria-labelledby="roadmap-heading">
+  <div class="container">
+    <div class="sec-hdr fu">
+      <span class="slabel">What's Next</span>
+      <h2 class="stitle" id="roadmap-heading">We're just <span class="gtext">getting started.</span></h2>
+      <p class="ssub">Here's where SaveHatke is today and where we're headed.</p>
+    </div>
+    <div class="roadmap fu" role="list" aria-label="Feature roadmap">
+      <div class="rm-item active" role="listitem">
+        <div class="rm-dot done" aria-label="Available now"></div>
+        <span class="rm-name">Coupon Marketplace</span>
+        <span class="rm-badge current">Current</span>
+      </div>
+      <div class="rm-item active" role="listitem">
+        <div class="rm-dot done" aria-label="Available now"></div>
+        <span class="rm-name">Sell Coupons</span>
+        <span class="rm-badge current">Current</span>
+      </div>
+      <div class="rm-item" role="listitem">
+        <div class="rm-dot soon" aria-label="Coming soon"></div>
+        <span class="rm-name">Price Tracking</span>
+        <span class="rm-badge coming">Coming Soon</span>
+      </div>
+      <div class="rm-item" role="listitem">
+        <div class="rm-dot soon" aria-label="Coming soon"></div>
+        <span class="rm-name">Price History</span>
+        <span class="rm-badge coming">Coming Soon</span>
+      </div>
+      <div class="rm-item" role="listitem">
+        <div class="rm-dot soon" aria-label="Coming soon"></div>
+        <span class="rm-name">Browser Extension</span>
+        <span class="rm-badge coming">Coming Soon</span>
+      </div>
+      <div class="rm-item" role="listitem">
+        <div class="rm-dot soon" aria-label="Coming soon"></div>
+        <span class="rm-name">Smart Deal Discovery</span>
+        <span class="rm-badge coming">Coming Soon</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final-cta" aria-labelledby="cta-heading">
+  <div class="container fu">
+    <span class="slabel">SaveHatke Marketplace</span>
+    <h2 class="stitle" id="cta-heading">Have a coupon you won't use?</h2>
+    <p class="ssub">Don't let it expire. Someone else might want it.</p>
+    <div class="cta-actions">
+      <a href="sell.html" class="btn btn-primary btn-lg">Sell Your Coupon →</a>
+      <a href="marketplace.html" class="btn btn-ghost btn-lg">Browse Marketplace →</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer" aria-label="Site footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="fbrand">
+        <a href="index.html" class="nav-brand" style="font-size:1.2rem" aria-label="SaveHatke home">
+          <div class="brand-icon" aria-hidden="true">💰</div>Save<span class="bhl">Hatke</span>
+        </a>
+        <p>India's coupon marketplace — buy coupons you want, sell coupons you don't need, and save more on every purchase.</p>
+      </div>
+      <div class="fcol">
+        <h4>Platform</h4>
+        <a href="marketplace.html">Coupon Marketplace</a>
+        <a href="sell.html">Sell Coupons</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="#roadmap">Price Tracking</a>
+        <a href="#roadmap">Browser Extension</a>
+      </div>
+      <div class="fcol">
+        <h4>Company</h4>
+        <a href="about.html" aria-current="page">About SaveHatke</a>
+        <a href="support.html">Support</a>
+        <a href="terms.html">Terms &amp; Conditions</a>
+        <a href="privacy.html">Privacy Policy</a>
+      </div>
+      <div class="fcol">
+        <h4>Categories</h4>
+        <a href="marketplace.html?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace.html?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace.html?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace.html?cat=Food">Food &amp; Delivery</a>
+      </div>
+    </div>
+    <div class="fbot">
+      <span>© 2026 SaveHatke. All rights reserved.</span>
+      <span>Made with ❤️ in India</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Scroll reveal
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.fu').forEach(el => obs.observe(el));
+
+  // Sticky nav background
+  window.addEventListener('scroll', () => {
+    const nav = document.getElementById('nav');
+    if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
+  });
+
+  // Mobile nav toggle
+  const navToggle = document.getElementById('navToggle');
+  if (navToggle) {
+    navToggle.addEventListener('click', () => {
+      const links = document.getElementById('navLinks');
+      const actions = document.getElementById('navActions');
+      const expanded = navToggle.getAttribute('aria-expanded') === 'true';
+      navToggle.setAttribute('aria-expanded', String(!expanded));
+      links?.classList.toggle('open');
+      actions?.classList.toggle('open');
+    });
+  }
+
+  // Close mobile nav on link click
+  document.querySelectorAll('.nav-links a').forEach(link => {
+    link.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.remove('open');
+      document.getElementById('navActions')?.classList.remove('open');
+      navToggle?.setAttribute('aria-expanded', 'false');
+    });
+  });
+
+  // Close mobile nav on Escape
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      document.getElementById('navLinks')?.classList.remove('open');
+      document.getElementById('navActions')?.classList.remove('open');
+      navToggle?.setAttribute('aria-expanded', 'false');
+    }
+  });
+</script>
+</body>
+</html>
