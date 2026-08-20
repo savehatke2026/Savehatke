@@ -16,8 +16,18 @@ const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/userinfo.email',
 ];
 
+// The support mailbox uses its own OAuth client (GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET).
+// Falls back to the shared GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET when not set.
+function getGmailClientId() {
+  return process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+}
+
+function getGmailClientSecret() {
+  return process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+}
+
 function isOAuthConfigured() {
-  return !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+  return !!(getGmailClientId() && getGmailClientSecret());
 }
 
 function getRedirectUri() {
@@ -28,8 +38,8 @@ function getRedirectUri() {
 
 function getOAuth2Client() {
   return new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET,
+    getGmailClientId(),
+    getGmailClientSecret(),
     getRedirectUri()
   );
 }

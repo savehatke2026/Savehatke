@@ -84,7 +84,7 @@ function handleGmailError(res, err, context = 'Gmail request failed') {
 /** Load an authorized Gmail client for the current admin, or 400/401 out. */
 async function requireGmail(req, res) {
   if (!gmailService.isOAuthConfigured()) {
-    res.status(503).json({ error: 'Gmail OAuth is not configured. Set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET on the server.' });
+    res.status(503).json({ error: 'Gmail OAuth is not configured. Set GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET on the server.' });
     return null;
   }
   const auth = await gmailService.getAuthorizedClient(req.user.id);
