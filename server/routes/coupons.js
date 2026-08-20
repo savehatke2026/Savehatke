@@ -7,8 +7,16 @@ const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const twilioWhatsApp = require('../services/twilioWhatsApp');
 
 const router = express.Router();
+
+// Proof screenshot upload constraints
+const PROOF_MAX_BYTES = 3 * 1024 * 1024; // 3MB
+const PROOF_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const PROOF_BUCKET = 'coupon-proofs';
+
+const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
 
 // GET /api/coupons — List available coupons (public, with optional auth)
 router.get('/', optionalAuth, async (req, res) => {
@@ -104,33 +112,120 @@ router.get('/categories', async (req, res) => {
   }
 });
 
+// POST /api/coupons/proof — Upload a coupon proof screenshot to Supabase Storage (authenticated)
+router.post('/proof', authenticateToken, async (req, res) => {
+  try {
+    const { filename, contentType, dataBase64 } = req.body;
+
+    if (!dataBase64 || !filename) {
+      return res.status(400).json({ error: 'filename and dataBase64 are required.' });
+    }
+    const type = String(contentType || '').toLowerCase().split(';')[0].trim();
+    if (!PROOF_ALLOWED_TYPES.includes(type)) {
+      return res.status(400).json({ error: 'Unsupported file type. Allowed: PNG, JPG, WEBP.' });
+    }
+
+    const buffer = Buffer.from(dataBase64, 'base64');
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ error: 'File could not be read.' });
+    }
+    if (buffer.length > PROOF_MAX_BYTES) {
+      return res.status(400).json({ error: 'File is too large. Maximum size is 3MB.' });
+    }
+
+    const supabaseClient = supabase.getClient();
+    if (!supabaseClient) {
+      return res.status(503).json({ error: 'Proof uploads are temporarily unavailable.' });
+    }
+
+    // Ensure the bucket exists (created once, then reused)
+    const buckets = await supabaseClient.storage.listBuckets();
+    const exists = (buckets.data || []).some((b) => b.name === PROOF_BUCKET);
+    if (!exists) {
+      const created = await supabaseClient.storage.createBucket(PROOF_BUCKET, { public: true });
+      if (created.error) throw new Error(created.error.message);
+    }
+
+    const ext = (String(filename).match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
+    const safeName = String(filename).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+    const path = `proofs/${uuidv4()}-${safeName || 'proof' + ext}`;
+
+    const upload = await supabaseClient.storage
+      .from(PROOF_BUCKET)
+      .upload(path, buffer, { contentType: type, upsert: false });
+    if (upload.error) throw new Error(upload.error.message);
+
+    const { data: urlData } = supabaseClient.storage.from(PROOF_BUCKET).getPublicUrl(path);
+    res.status(201).json({ url: urlData.publicUrl, path, name: filename });
+  } catch (err) {
+    console.error('Coupon proof upload error:', err);
+    res.status(500).json({ error: 'Failed to upload screenshot.' });
+  }
+});
+
 // POST /api/coupons/sell & /api/coupons/submit — Submit coupon(s) to sell
 // Accepts the multi-coupon format { category, coupons: [{code, brand, description, faceValue}] }
 // and the legacy single-coupon format { code, category, brand, ... }.
 const handleCouponSubmission = async (req, res) => {
   try {
-    const { code, category, brand, description, originalValue, faceValue, coupons } = req.body;
+    const {
+      code, category, brand, description, originalValue, faceValue, coupons,
+      type, sellingPrice, expiryDate, proofUrl,
+    } = req.body;
+
+    // Sanitized shared fields (length-capped, never trusted from the client)
+    const cleanStr = (v, max) => String(v == null ? '' : v).trim().slice(0, max);
+    const cleanCategory = cleanStr(category, 60);
+    const cleanType = cleanStr(type, 30) || 'Public';
+    const cleanExpiry = cleanStr(expiryDate, 30);
+    if (cleanExpiry && isNaN(Date.parse(cleanExpiry))) {
+      return res.status(400).json({ error: 'Expiry date is not a valid date.' });
+    }
+
+    // Selling price: seller-proposed, server-validated positive number, default ₹20
+    let cleanSellingPrice = '20';
+    if (sellingPrice !== undefined && sellingPrice !== null && sellingPrice !== '') {
+      const priceNum = Number(sellingPrice);
+      if (!Number.isFinite(priceNum) || priceNum <= 0 || priceNum > 100000) {
+        return res.status(400).json({ error: 'Selling price must be a number between 1 and 100000.' });
+      }
+      cleanSellingPrice = String(Math.round(priceNum));
+    }
+
+    // Only accept proof URLs that point at our own storage
+    let safeProofUrl = '';
+    if (proofUrl) {
+      const supabaseUrl = process.env.SUPABASE_URL || '';
+      if (supabaseUrl && String(proofUrl).startsWith(supabaseUrl + '/storage/')) {
+        safeProofUrl = String(proofUrl).slice(0, 500);
+      }
+    }
 
     // Normalize both formats into a list
     let list;
     if (Array.isArray(coupons) && coupons.length > 0) {
-      if (!category) {
+      if (!cleanCategory) {
         return res.status(400).json({ error: 'Category is required.' });
       }
       list = coupons.map((c) => ({
         code: c && c.code,
-        category,
+        category: cleanCategory,
         brand: c && c.brand,
         description: (c && c.description) || '',
         faceValue: (c && (c.faceValue || c.originalValue)) || faceValue || originalValue || '0',
+        type: (c && c.type) || type,
+        sellingPrice: (c && c.sellingPrice) !== undefined ? c.sellingPrice : sellingPrice,
+        expiryDate: (c && c.expiryDate) || expiryDate,
       }));
     } else {
-      list = [{ code, category, brand, description, faceValue: faceValue || originalValue }];
+      list = [{ code, category: cleanCategory, brand, description, faceValue: faceValue || originalValue, type, sellingPrice, expiryDate }];
     }
 
-    const sellerEmail = (req.user && req.user.email) ? req.user.email : 'user@savehatke.com';
+    const sellerEmail = req.user.email;
+    const sellerUserId = req.user.id || req.user.user_id || '';
     const submitted = [];
     const skipped = [];
+    let dbSaveFailed = false;
 
     for (let i = 0; i < list.length; i++) {
       const c = list[i];
@@ -139,7 +234,29 @@ const handleCouponSubmission = async (req, res) => {
         continue;
       }
 
-      const cleanCode = String(c.code).toUpperCase().trim();
+      const cleanCode = String(c.code).toUpperCase().trim().slice(0, 60);
+      const cleanBrand = cleanStr(c.brand, 80);
+      const cleanDescription = cleanStr(c.description, 500);
+      const cleanFaceValue = cleanStr(c.faceValue || '0', 20);
+
+      // Per-coupon overrides for type / selling price / expiry (fall back to shared values)
+      const itemType = cleanStr(c.type, 30) || cleanType;
+      let itemPrice = cleanSellingPrice;
+      if (c.sellingPrice !== undefined && c.sellingPrice !== null && c.sellingPrice !== '') {
+        const priceNum = Number(c.sellingPrice);
+        if (!Number.isFinite(priceNum) || priceNum <= 0 || priceNum > 100000) {
+          return res.status(400).json({ error: `Coupon ${i + 1}: selling price must be a number between 1 and 100000.` });
+        }
+        itemPrice = String(Math.round(priceNum));
+      }
+      let itemExpiry = cleanExpiry;
+      if (c.expiryDate !== undefined && c.expiryDate !== '') {
+        const rawExpiry = cleanStr(c.expiryDate, 30);
+        if (rawExpiry && isNaN(Date.parse(rawExpiry))) {
+          return res.status(400).json({ error: `Coupon ${i + 1}: expiry date is not a valid date.` });
+        }
+        itemExpiry = rawExpiry;
+      }
 
       // Check for duplicate codes in Supabase & Sheets
       let existing = null;
@@ -159,34 +276,80 @@ const handleCouponSubmission = async (req, res) => {
       const coupon = {
         id: uuidv4(),
         code: cleanCode,
-        category: String(c.category).trim(),
-        brand: String(c.brand).trim(),
-        description: c.description || '',
-        originalValue: String(c.faceValue || '0'),
-        sellingPrice: '20', // Our markup price
+        category: String(c.category).trim().slice(0, 60),
+        brand: cleanBrand,
+        title: cleanBrand,
+        description: cleanDescription,
+        type: itemType,
+        originalValue: cleanFaceValue,
+        sellingPrice: itemPrice,
+        expiryDate: itemExpiry,
+        proofUrl: safeProofUrl,
         sellerEmail: sellerEmail,
+        sellerUserId: sellerUserId,
         status: 'pending', // Needs admin approval
         source: 'user-submitted',
+        isVerified: false,
         addedAt: new Date().toISOString(),
         soldAt: '',
         buyerEmail: '',
+        adminNotes: '',
+        verifiedAt: '',
+        whatsappStatus: 'pending',
+        whatsappSid: '',
+        whatsappLastAttempt: '',
+        whatsappError: '',
       };
 
+      // Persist first — WhatsApp is only sent after a successful DB save
+      let saved = false;
       if (supabase.isConfigured()) {
         try {
           await supabase.createCoupon(coupon);
-        } catch (e) {}
+          saved = true;
+        } catch (e) {
+          console.warn('Supabase coupon save notice:', e.message);
+        }
       }
       try {
         await db.appendRow(db.SHEETS.COUPONS, coupon);
+        saved = true;
+      } catch (e) {
+        console.warn('Sheets coupon save notice:', e.message);
+      }
+
+      if (!saved) {
+        dbSaveFailed = true;
+        skipped.push(`Coupon ${i + 1} (${cleanCode}): could not be saved. Please try again.`);
+        continue; // No WhatsApp notification when the DB save failed
+      }
+
+      // Notify the admin via WhatsApp (failure never deletes/invalidates the coupon)
+      const reviewUrl = `${APP_BASE_URL}/admin/coupons/${coupon.id}`;
+      const notify = await twilioWhatsApp.sendCouponSubmissionAlert(coupon, reviewUrl);
+      const notifyUpdate = {
+        whatsappStatus: notify.success ? 'sent' : 'failed',
+        whatsappSid: notify.success ? (notify.sid || '') : '',
+        whatsappLastAttempt: new Date().toISOString(),
+        whatsappError: notify.success ? '' : (notify.error || 'Unknown error'),
+      };
+      Object.assign(coupon, notifyUpdate);
+
+      if (supabase.isConfigured()) {
+        try {
+          await supabase.updateCoupon(coupon.id, notifyUpdate);
+        } catch (e) {}
+      }
+      try {
+        await db.updateRow(db.SHEETS.COUPONS, 'id', coupon.id, notifyUpdate);
       } catch (e) {}
 
       submitted.push(coupon);
     }
 
     if (submitted.length === 0) {
-      return res.status(skipped.length ? 409 : 400).json({
-        error: skipped[0] || 'No coupons submitted.',
+      return res.status(skipped.length ? (dbSaveFailed ? 500 : 409) : 400).json({
+        error: dbSaveFailed ? 'Your coupon could not be saved. Please try again.' : (skipped[0] || 'No coupons submitted.'),
         skipped,
       });
     }
@@ -215,8 +378,8 @@ const handleCouponSubmission = async (req, res) => {
   }
 };
 
-router.post('/sell', optionalAuth, handleCouponSubmission);
-router.post('/submit', optionalAuth, handleCouponSubmission);
+router.post('/sell', authenticateToken, handleCouponSubmission);
+router.post('/submit', authenticateToken, handleCouponSubmission);
 
 // POST /api/coupons/buy/:id — Purchase a coupon (authenticated)
 router.post('/buy/:id', authenticateToken, async (req, res) => {

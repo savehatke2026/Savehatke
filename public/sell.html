@@ -414,6 +414,13 @@
         <!-- Dynamic coupon cards will be injected here -->
         <div class="coupon-cards-container" id="couponCardsContainer"></div>
 
+        <!-- Screenshot / proof upload (optional, validated client + server side) -->
+        <div class="fgroup" style="margin-top:18px">
+          <label class="flabel" for="proofFile">📸 Coupon Screenshot / Proof (optional)</label>
+          <input type="file" id="proofFile" class="finput" accept="image/png,image/jpeg,image/webp">
+          <span class="fhint">PNG, JPG or WEBP — max 3MB. A screenshot helps admins verify your coupon faster.</span>
+        </div>
+
         <div class="step-actions">
           <button type="button" class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
           <button type="button" class="btn btn-primary w-full" onclick="goToStep(3)">Review Submission →</button>
@@ -612,8 +619,42 @@ function renderCouponCard(id, index) {
   card.appendChild(createField('brand-' + id, 'Brand / Platform *', 'text', 'e.g. Nykaa, PhonePe, Paytm', true));
   card.appendChild(createField('desc-' + id, 'What does the coupon offer?', 'text', 'e.g. ₹200 off on orders above ₹999'));
   card.appendChild(createField('value-' + id, 'Coupon Face Value (₹)', 'number', 'e.g. 200'));
+  card.appendChild(createSelect('type-' + id, 'Coupon Type', ['Public', 'Exclusive', 'Cashback']));
+  card.appendChild(createField('price-' + id, 'Your Selling Price (₹)', 'number', 'e.g. 20 — leave blank for ₹20', false, '', 'The price buyers will pay. Defaults to ₹20 if left blank.'));
+  card.appendChild(createField('expiry-' + id, 'Expiry Date', 'date', ''));
 
   return card;
+}
+
+function createSelect(id, labelText, options, hint = '') {
+  const group = document.createElement('div');
+  group.className = 'fgroup';
+
+  const label = document.createElement('label');
+  label.className = 'flabel';
+  label.setAttribute('for', id);
+  label.textContent = labelText;
+  group.appendChild(label);
+
+  const select = document.createElement('select');
+  select.className = 'finput';
+  select.id = id;
+  options.forEach((opt) => {
+    const o = document.createElement('option');
+    o.value = opt;
+    o.textContent = opt;
+    select.appendChild(o);
+  });
+  group.appendChild(select);
+
+  if (hint) {
+    const hintEl = document.createElement('span');
+    hintEl.className = 'fhint';
+    hintEl.textContent = hint;
+    group.appendChild(hintEl);
+  }
+
+  return group;
 }
 
 function createField(id, labelText, type, placeholder, required = false, extraClass = '', hint = '') {
@@ -709,7 +750,10 @@ function collectCoupons() {
     code: (document.getElementById('code-' + id)?.value || '').trim().toUpperCase(),
     brand: (document.getElementById('brand-' + id)?.value || '').trim(),
     description: (document.getElementById('desc-' + id)?.value || '').trim(),
-    faceValue: (document.getElementById('value-' + id)?.value || '').trim()
+    faceValue: (document.getElementById('value-' + id)?.value || '').trim(),
+    type: (document.getElementById('type-' + id)?.value || 'Public'),
+    sellingPrice: (document.getElementById('price-' + id)?.value || '').trim(),
+    expiryDate: (document.getElementById('expiry-' + id)?.value || '').trim()
   }));
 }
 
@@ -756,7 +800,10 @@ function buildReviewSummary() {
       ['Brand / Platform', c.brand],
       ['Coupon Code', c.code],
       ['Description', c.description || '—'],
-      ['Face Value', c.faceValue ? '₹' + c.faceValue : '—']
+      ['Face Value', c.faceValue ? '₹' + c.faceValue : '—'],
+      ['Coupon Type', c.type || 'Public'],
+      ['Selling Price', c.sellingPrice ? '₹' + c.sellingPrice : '₹20 (default)'],
+      ['Expiry Date', c.expiryDate || '—']
     ];
 
     rows.forEach(([key, val]) => {
@@ -839,6 +886,16 @@ function updateStepper(active) {
   if (line23) line23.classList.toggle('done', active > 2);
 }
 
+/* ── Read a file as base64 (no data: URL prefix) ── */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
+    reader.onerror = () => reject(new Error('File could not be read.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 /* ── Submit all coupons ── */
 async function submitCoupons() {
   const btn = document.getElementById('submitSellBtn');
@@ -848,16 +905,60 @@ async function submitCoupons() {
   const coupons = collectCoupons();
   const count = coupons.length;
 
+  // Reset button helper (proof upload and submit can both fail)
+  const restoreBtn = () => {
+    btn.disabled = false;
+    btn.innerHTML = '✅ Submit &amp; Earn ₹' + (collectCoupons().length * 10);
+  };
+
+  // 1. Upload the proof screenshot first (optional, client-side pre-validation)
+  let proofUrl = '';
+  const proofInput = document.getElementById('proofFile');
+  const proofFile = proofInput && proofInput.files && proofInput.files[0];
+  if (proofFile) {
+    const allowedProofTypes = ['image/png', 'image/jpeg', 'image/webp'];
+    if (!allowedProofTypes.includes(proofFile.type)) {
+      showToast('Screenshot must be PNG, JPG or WEBP.', 'error');
+      restoreBtn();
+      return;
+    }
+    if (proofFile.size > 3 * 1024 * 1024) {
+      showToast('Screenshot is too large. Maximum size is 3MB.', 'error');
+      restoreBtn();
+      return;
+    }
+    try {
+      btn.textContent = '⏳ Uploading screenshot...';
+      const dataBase64 = await fileToBase64(proofFile);
+      const upload = await api('/coupons/proof', {
+        method: 'POST',
+        body: { filename: proofFile.name, contentType: proofFile.type, dataBase64 }
+      });
+      proofUrl = (upload && upload.url) || '';
+    } catch (err) {
+      showToast('Screenshot upload failed: ' + (err.message || 'Please try again.'), 'error');
+      restoreBtn();
+      return;
+    }
+  }
+
+  // 2. Submit the coupons with the proof URL (WhatsApp alert is sent server-side)
+  btn.textContent = '⏳ Submitting...';
+
   try {
     const data = await api('/coupons/submit', {
       method: 'POST',
       body: {
         category: selectedCategory,
+        proofUrl: proofUrl || undefined,
         coupons: coupons.map(c => ({
           code: c.code,
           brand: c.brand,
           description: c.description || undefined,
-          faceValue: c.faceValue ? Number(c.faceValue) : undefined
+          faceValue: c.faceValue ? Number(c.faceValue) : undefined,
+          type: c.type || undefined,
+          sellingPrice: c.sellingPrice ? Number(c.sellingPrice) : undefined,
+          expiryDate: c.expiryDate || undefined
         }))
       }
     });
@@ -884,9 +985,7 @@ async function submitCoupons() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
     showToast(err.message || 'Submission failed. Please try again.', 'error');
-    btn.disabled = false;
-    const count2 = collectCoupons().length;
-    btn.innerHTML = '✅ Submit &amp; Earn ₹' + (count2 * 10);
+    restoreBtn();
   }
 }
 
@@ -903,6 +1002,10 @@ function resetForm() {
   // Reset category
   const catSelect = document.getElementById('categorySelect');
   if (catSelect) catSelect.value = '';
+
+  // Reset proof screenshot input
+  const proofInput = document.getElementById('proofFile');
+  if (proofInput) proofInput.value = '';
 
   // Reset steps
   document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));

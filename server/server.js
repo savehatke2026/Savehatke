@@ -26,6 +26,7 @@ const adminRoutes = require('./routes/admin');
 const supportRoutes = require('./routes/support');
 const chatbotAdminRoutes = require('./routes/chatbot');
 const chatRoutes = require('./routes/chat');
+const gmailRoutes = require('./routes/gmail');
 
 const app = express();
 
@@ -57,6 +58,13 @@ const authLimiter = rateLimit({
   message: { error: 'Too many login attempts. Please try again later.' },
 });
 
+// Stricter limit for coupon submissions & proof uploads (anti-spam/abuse)
+const couponSubmissionLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 submissions/uploads per hour per IP
+  message: { error: 'Too many submissions. Please try again in an hour.' },
+});
+
 // Serverless async initializer middleware for Vercel
 app.use(async (req, res, next) => {
   try {
@@ -73,10 +81,19 @@ app.post(['/login', '/login.html'], (req, res) => {
   res.redirect(307, '/api/auth/google-redirect');
 });
 
+// Admin coupon review page — client-side admin gate, all data via authenticated API
+app.get('/admin/coupons/:couponId', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'admin-review.html'));
+});
+
 // ── API Routes ──────────────────────────────────────────────────────────────
 app.use('/api/auth', authLimiter, authRoutes);
+app.use('/api/coupons/sell', couponSubmissionLimiter);
+app.use('/api/coupons/submit', couponSubmissionLimiter);
+app.use('/api/coupons/proof', couponSubmissionLimiter);
 app.use('/api/coupons', apiLimiter, couponRoutes);
 app.use('/api/tracker', apiLimiter, trackerRoutes);
+app.use('/api/admin/gmail', gmailRoutes); // own rate limits; must precede /api/admin to avoid the generic limiter
 app.use('/api/admin', apiLimiter, adminRoutes);
 app.use('/api/support', apiLimiter, supportRoutes);
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);

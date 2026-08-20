@@ -348,24 +348,83 @@ async function loadPending() {
       return;
     }
 
-    container.innerHTML = data.coupons.map((c) => `
-      <div class="card mb-4" style="display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;">
-        <div style="flex: 1; min-width: 200px;">
-          <div style="font-weight: 700; color: var(--color-white); margin-bottom: 0.25rem;">${c.brand} — ${c.category}</div>
-          <code style="background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 4px; color: var(--color-teal-400); font-weight: 600;">${c.code}</code>
-          <div style="font-size: 0.75rem; color: var(--color-slate-500); margin-top: 0.5rem;">${c.description || 'No description'}</div>
-          <div style="font-size: 0.75rem; color: var(--color-slate-500);">Submitted by: ${c.sellerEmail || 'Admin'} · ${formatDate(c.addedAt)}</div>
+    container.innerHTML = data.coupons.map((c) => {
+      const waStatus = String(c.whatsappStatus || 'pending').toLowerCase();
+      const waBadge = waStatus === 'sent'
+        ? '<span class="badge badge-green">WhatsApp: Sent</span>'
+        : waStatus === 'failed'
+          ? '<span class="badge badge-red">WhatsApp: Failed</span>'
+          : '<span class="badge badge-amber">WhatsApp: Pending</span>';
+      const waMeta = c.whatsappLastAttempt
+        ? ` · Last attempt: ${formatDate ? formatDate(c.whatsappLastAttempt) : c.whatsappLastAttempt}`
+        : '';
+      return `
+      <div class="card mb-4" style="display: block;">
+        <div style="display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 220px;">
+            <div style="font-weight: 700; color: var(--color-white); margin-bottom: 0.25rem;">${escapeHtml(c.brand)} — ${escapeHtml(c.category)}</div>
+            <code style="background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 4px; color: var(--color-teal-400); font-weight: 600;">${escapeHtml(c.code)}</code>
+            <div style="font-size: 0.75rem; color: var(--color-slate-500); margin-top: 0.5rem;">${escapeHtml(c.description || 'No description')}</div>
+            <div style="font-size: 0.75rem; color: var(--color-slate-500);">Submitted by: ${escapeHtml(c.sellerEmail || 'Admin')} · ${formatDate(c.addedAt)}</div>
+            ${c.expiryDate ? `<div style="font-size: 0.75rem; color: var(--color-slate-500);">Expires: ${escapeHtml(c.expiryDate)} · Selling price: ₹${escapeHtml(c.sellingPrice || '20')}</div>` : ''}
+            <div style="font-size: 0.75rem; margin-top: 0.4rem; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+              ${waBadge}${waMeta ? `<span style="color: var(--color-slate-500);">${waMeta}</span>` : ''}
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
+            <a class="btn btn-secondary btn-sm" href="/admin/coupons/${encodeURIComponent(c.id)}" target="_blank" rel="noopener">🔍 Review</a>
+            <button class="btn btn-success btn-sm" onclick="pendingReviewAction('${escapeHtml(c.id)}','approve',this)">✅ Approve</button>
+            <button class="btn btn-danger btn-sm" onclick="pendingReviewAction('${escapeHtml(c.id)}','reject',this)">❌ Reject</button>
+            <button class="btn btn-secondary btn-sm" onclick="pendingReviewAction('${escapeHtml(c.id)}','request_proof',this)">📎 More Proof</button>
+            ${waStatus !== 'sent' ? `<button class="btn btn-secondary btn-sm" onclick="retryPendingNotify('${escapeHtml(c.id)}',this)">🔄 Retry WhatsApp</button>` : ''}
+          </div>
         </div>
-        <div style="display: flex; gap: 0.5rem;">
-          <button class="btn btn-success btn-sm" onclick="approveCoupon('${c.id}')">✅ Approve</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteCoupon('${c.id}')">🗑 Reject</button>
-        </div>
+        <textarea id="pendingNotes-${escapeHtml(c.id)}" placeholder="Admin notes (optional)…" style="width:100%;margin-top:12px;background:rgba(6,13,31,.6);border:1px solid rgba(79,195,247,.15);border-radius:8px;color:#e2ecff;padding:9px 12px;font-size:.8rem;min-height:44px;resize:vertical;"></textarea>
       </div>
-    `).join('');
+    `;
+    }).join('');
   } catch (err) {
     if (container) container.innerHTML = `<p class="text-danger">Failed to load: ${err.message}</p>`;
   }
 }
+
+// Approve / Reject / Request More Proof straight from the pending list
+async function pendingReviewAction(id, action, btn) {
+  const original = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+  try {
+    const notesEl = document.getElementById('pendingNotes-' + id);
+    const notes = notesEl ? notesEl.value.trim() : '';
+    const data = await api(`/admin/coupons/${id}/review-action`, {
+      method: 'POST',
+      useAdmin: true,
+      body: { action, notes },
+    });
+    showToast(data.message || 'Action completed.', 'success');
+    loadAdminStats();
+    loadPending();
+    loadInventory();
+  } catch (err) {
+    showToast(err.message || 'Action failed.', 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+
+// Re-send the WhatsApp submission alert from the pending list
+async function retryPendingNotify(id, btn) {
+  const original = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Sending…'; }
+  try {
+    const data = await api(`/admin/coupons/${id}/notify-retry`, { method: 'POST', useAdmin: true });
+    showToast(data.message || 'WhatsApp notification sent.', 'success');
+    loadPending();
+  } catch (err) {
+    showToast(err.message || 'Notification retry failed.', 'error');
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+window.pendingReviewAction = pendingReviewAction;
+window.retryPendingNotify = retryPendingNotify;
 
 // ── Active Coupons ──────────────────────────────────────────────────────
 async function loadActiveCoupons() {

@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Coupon Review — SaveHatke Admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Outfit',sans-serif;background:#060d1f;color:#e2ecff;-webkit-font-smoothing:antialiased;min-height:100vh}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#060d1f}
+::-webkit-scrollbar-thumb{background:#1a3055;border-radius:3px}
+a{text-decoration:none;color:inherit}
+input,select,textarea,button{font-family:'Outfit',sans-serif}
+
+.topbar{position:sticky;top:0;z-index:40;background:rgba(6,13,31,.95);border-bottom:1px solid rgba(79,195,247,.1);padding:14px 24px;display:flex;align-items:center;gap:12px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem}
+.brand-icon{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.9rem}
+.bhl{color:#00e676}
+.admin-badge{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,230,118,.15);color:#00e676;border:1px solid rgba(0,230,118,.25);border-radius:5px;padding:2px 7px}
+.topbar-link{margin-left:auto;font-size:.82rem;color:#6b88aa;padding:7px 14px;border:1px solid rgba(79,195,247,.15);border-radius:8px;transition:all .2s}
+.topbar-link:hover{color:#00e676;border-color:rgba(0,230,118,.35)}
+
+.wrap{max-width:960px;margin:0 auto;padding:28px 20px 60px}
+.page-title{font-size:1.5rem;font-weight:800;margin-bottom:4px}
+.page-sub{font-size:.82rem;color:#6b88aa;margin-bottom:22px;word-break:break-all}
+
+.card{background:rgba(15,30,58,.8);border:1px solid rgba(79,195,247,.12);border-radius:14px;padding:22px;margin-bottom:18px}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.kv{display:grid;grid-template-columns:180px 1fr;gap:8px 14px;font-size:.86rem}
+.kv .k{color:#6b88aa}
+.kv .v{color:#e2ecff;word-break:break-word}
+.kv .v code{font-family:'JetBrains Mono',monospace;background:rgba(37,99,235,.12);padding:2px 8px;border-radius:5px;color:#4fc3f7;font-weight:600;letter-spacing:.5px}
+
+.badge{display:inline-block;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;border-radius:6px;padding:3px 9px}
+.badge.pending{background:rgba(255,193,7,.14);color:#ffc107;border:1px solid rgba(255,193,7,.3)}
+.badge.available{background:rgba(0,230,118,.14);color:#00e676;border:1px solid rgba(0,230,118,.3)}
+.badge.rejected{background:rgba(255,82,82,.14);color:#ff5252;border:1px solid rgba(255,82,82,.3)}
+.badge.proof_requested{background:rgba(79,195,247,.14);color:#4fc3f7;border:1px solid rgba(79,195,247,.3)}
+.badge.sold{background:rgba(107,136,170,.16);color:#9db4cc;border:1px solid rgba(107,136,170,.3)}
+.badge.sent{background:rgba(0,230,118,.14);color:#00e676;border:1px solid rgba(0,230,118,.3)}
+.badge.failed{background:rgba(255,82,82,.14);color:#ff5252;border:1px solid rgba(255,82,82,.3)}
+
+.proof-img{max-width:100%;max-height:420px;border-radius:10px;border:1px solid rgba(79,195,247,.15);display:block}
+.proof-link{font-size:.8rem;color:#4fc3f7;display:inline-block;margin-top:8px;word-break:break-all}
+
+.notes-input{width:100%;background:#0a1630;border:1px solid rgba(79,195,247,.18);border-radius:10px;color:#e2ecff;padding:11px 14px;font-size:.86rem;resize:vertical;min-height:70px;outline:none}
+.notes-input:focus{border-color:rgba(0,230,118,.4)}
+
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.btn{border:none;border-radius:10px;padding:11px 20px;font-size:.86rem;font-weight:700;cursor:pointer;transition:all .2s;color:#06121f}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+.btn-approve{background:linear-gradient(135deg,#00e676,#00c853)}
+.btn-reject{background:linear-gradient(135deg,#ff5252,#d32f2f);color:#fff}
+.btn-proof{background:linear-gradient(135deg,#4fc3f7,#2196f3);color:#fff}
+.btn-retry{background:rgba(79,195,247,.15);color:#4fc3f7;border:1px solid rgba(79,195,247,.35)}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 8px 22px rgba(0,0,0,.35)}
+
+.state{text-align:center;padding:70px 20px;color:#6b88aa;font-size:.95rem}
+.state .big{font-size:2rem;margin-bottom:10px}
+.toast-container{position:fixed;bottom:20px;right:20px;z-index:100;display:flex;flex-direction:column;gap:8px}
+.toast{background:#0f1e3a;border:1px solid rgba(79,195,247,.25);border-radius:10px;padding:11px 16px;font-size:.84rem;display:flex;gap:8px;align-items:center;animation:fadeIn .25s ease}
+.toast.success{border-color:rgba(0,230,118,.4)}
+.toast.error{border-color:rgba(255,82,82,.4)}
+.toast.warning{border-color:rgba(255,193,7,.4)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:600px){.kv{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand"><span class="brand-icon">🎟️</span> Save<span class="bhl">Hatke</span> <span class="admin-badge">Admin</span></div>
+  <a class="topbar-link" href="/vault.html">← Back to Admin Panel</a>
+</header>
+
+<main class="wrap">
+  <div id="stateLoading" class="state"><div class="big">⏳</div>Loading coupon review…</div>
+  <div id="stateError" class="state" style="display:none"><div class="big">⚠️</div><span id="stateErrorMsg">Could not load this coupon.</span></div>
+
+  <div id="reviewContent" style="display:none">
+    <h1 class="page-title">Coupon Review</h1>
+    <div class="page-sub">Submission ID: <span id="rCouponId"></span></div>
+
+    <!-- Coupon details -->
+    <div class="card">
+      <h3>🎟️ Coupon Details <span id="rStatusBadge"></span></h3>
+      <div class="kv" id="couponDetails"></div>
+    </div>
+
+    <!-- Seller details -->
+    <div class="card">
+      <h3>👤 Seller Details</h3>
+      <div class="kv" id="sellerDetails"></div>
+    </div>
+
+    <!-- Proof -->
+    <div class="card">
+      <h3>📸 Screenshot / Proof</h3>
+      <div id="proofContainer"><span style="color:#6b88aa;font-size:.85rem">No proof screenshot was submitted.</span></div>
+    </div>
+
+    <!-- Duplicate check -->
+    <div class="card">
+      <h3>🔍 Duplicate Check</h3>
+      <div id="duplicateContainer" style="font-size:.86rem"></div>
+    </div>
+
+    <!-- WhatsApp notification -->
+    <div class="card">
+      <h3>💬 WhatsApp Notification</h3>
+      <div class="kv" id="notifyDetails"></div>
+      <div class="actions">
+        <button class="btn btn-retry" id="retryNotifyBtn" onclick="retryNotification()">🔄 Retry Notification</button>
+      </div>
+    </div>
+
+    <!-- Admin decision -->
+    <div class="card">
+      <h3>⚖️ Admin Decision</h3>
+      <textarea class="notes-input" id="adminNotes" placeholder="Admin notes (optional) — shown in the audit log and stored with the coupon…"></textarea>
+      <div class="actions">
+        <button class="btn btn-approve" id="approveBtn" onclick="performAction('approve')">✅ Approve</button>
+        <button class="btn btn-reject" id="rejectBtn" onclick="performAction('reject')">❌ Reject</button>
+        <button class="btn btn-proof" id="proofBtn" onclick="performAction('request_proof')">📎 Request More Proof</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="/js/app.js"></script>
+<script>
+/* ══════════════════════════════════════
+   ADMIN COUPON REVIEW PAGE
+   Client-side admin gate only — every data fetch and action is enforced
+   server-side with authenticateToken + requireAdmin.
+══════════════════════════════════════ */
+const couponId = (window.location.pathname.split('/').filter(Boolean).pop() || '').trim();
+let reviewData = null;
+
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const icons = { success: '✅', error: '❌', warning: '⚠️' };
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.innerHTML = '<span>' + (icons[type] || '📢') + '</span><span></span>';
+  toast.lastElementChild.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => toast.remove(), 4200);
+}
+
+function esc(v) {
+  const d = document.createElement('div');
+  d.textContent = v == null ? '' : String(v);
+  return d.innerHTML;
+}
+
+function fmtDate(v) {
+  if (!v) return '—';
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? String(v) : d.toLocaleString();
+}
+
+function statusBadge(status) {
+  const s = String(status || 'pending').toLowerCase();
+  return '<span class="badge ' + esc(s) + '">' + esc(s.replace('_', ' ')) + '</span>';
+}
+
+function kvRow(k, vHtml) {
+  return '<div class="k">' + esc(k) + '</div><div class="v">' + vHtml + '</div>';
+}
+
+async function loadReview() {
+  // Client-side gate — the API re-validates the admin token server-side
+  if (!Auth.isAdminLoggedIn()) {
+    window.location.replace('/vault.html');
+    return;
+  }
+
+  if (!couponId) {
+    showState('error', 'No coupon ID in the URL.');
+    return;
+  }
+
+  try {
+    reviewData = await api('/admin/coupons/' + encodeURIComponent(couponId) + '/review', { useAdmin: true });
+    render();
+  } catch (err) {
+    showState('error', err.message || 'Could not load this coupon.');
+  }
+}
+
+function showState(kind, msg) {
+  document.getElementById('stateLoading').style.display = 'none';
+  document.getElementById('reviewContent').style.display = 'none';
+  if (kind === 'error') {
+    document.getElementById('stateErrorMsg').textContent = msg;
+    document.getElementById('stateError').style.display = 'block';
+  }
+}
+
+function render() {
+  const c = reviewData.coupon || {};
+  document.getElementById('stateLoading').style.display = 'none';
+  document.getElementById('reviewContent').style.display = 'block';
+
+  document.getElementById('rCouponId').textContent = couponId;
+  document.getElementById('rStatusBadge').innerHTML = statusBadge(c.status);
+
+  // Coupon details
+  document.getElementById('couponDetails').innerHTML = [
+    kvRow('Brand / Store', esc(c.brand || '—')),
+    kvRow('Coupon Code', '<code>' + esc(c.code || '—') + '</code>'),
+    kvRow('Coupon Type', esc(c.type || '—')),
+    kvRow('Category', esc(c.category || '—')),
+    kvRow('Description', esc(c.description || '—')),
+    kvRow('Face Value', c.originalValue ? '₹' + esc(c.originalValue) : '—'),
+    kvRow('Selling Price', c.sellingPrice ? '₹' + esc(c.sellingPrice) : '—'),
+    kvRow('Expiry Date', esc(c.expiryDate ? fmtDate(c.expiryDate) : '—')),
+    kvRow('Submitted', esc(fmtDate(c.addedAt))),
+    kvRow('Verified At', esc(c.verifiedAt ? fmtDate(c.verifiedAt) : '—')),
+    kvRow('Admin Notes', esc(c.adminNotes || '—')),
+  ].join('');
+
+  // Seller details (admin-only — never exposed publicly)
+  document.getElementById('sellerDetails').innerHTML = [
+    kvRow('Seller Email', esc(c.sellerEmail || '—')),
+    kvRow('Seller User ID', esc(c.sellerUserId || '—')),
+    kvRow('Source', esc(c.source || '—')),
+  ].join('');
+
+  // Proof screenshot
+  const proofContainer = document.getElementById('proofContainer');
+  if (c.proofUrl) {
+    proofContainer.innerHTML =
+      '<img class="proof-img" src="' + esc(c.proofUrl) + '" alt="Coupon proof screenshot" loading="lazy">' +
+      '<a class="proof-link" href="' + esc(c.proofUrl) + '" target="_blank" rel="noopener">Open full size ↗</a>';
+  }
+
+  // Duplicate check result
+  const dup = reviewData.duplicateCheck || {};
+  document.getElementById('duplicateContainer').innerHTML = dup.isDuplicate
+    ? '<span class="badge rejected">Duplicate Found</span> &nbsp; Another coupon with the same code exists' +
+      (dup.duplicateStatus ? ' (status: ' + esc(dup.duplicateStatus) + ')' : '') +
+      (dup.duplicateAddedAt ? ', submitted ' + esc(fmtDate(dup.duplicateAddedAt)) : '') + '.'
+    : '<span class="badge available">No Duplicate</span> &nbsp; No other coupon with this code was found.';
+
+  // WhatsApp notification card
+  renderNotification();
+
+  // Pre-fill admin notes
+  if (c.adminNotes) document.getElementById('adminNotes').value = c.adminNotes;
+}
+
+function renderNotification() {
+  const n = reviewData.notification || {};
+  const status = String(n.status || 'pending').toLowerCase();
+  document.getElementById('notifyDetails').innerHTML = [
+    kvRow('Status', '<span class="badge ' + esc(status === 'sent' ? 'sent' : status === 'failed' ? 'failed' : 'pending') + '">' + esc(status || 'pending') + '</span>'),
+    kvRow('Last Attempt', esc(n.lastAttempt ? fmtDate(n.lastAttempt) : '—')),
+    kvRow('Message SID', esc(n.sid || '—')),
+    kvRow('Error', esc(n.error || '—')),
+  ].join('');
+}
+
+/* ── Approve / Reject / Request More Proof ── */
+async function performAction(action) {
+  const buttons = { approve: 'approveBtn', reject: 'rejectBtn', request_proof: 'proofBtn' };
+  const btn = document.getElementById(buttons[action]);
+  const original = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Working…';
+
+  try {
+    const notes = document.getElementById('adminNotes').value.trim();
+    const data = await api('/admin/coupons/' + encodeURIComponent(couponId) + '/review-action', {
+      method: 'POST',
+      useAdmin: true,
+      body: { action, notes },
+    });
+    showToast(data.message || 'Action completed.', 'success');
+    reviewData.coupon = data.coupon || reviewData.coupon;
+    render();
+  } catch (err) {
+    showToast(err.message || 'Action failed.', 'error');
+    btn.disabled = false;
+    btn.innerHTML = original;
+  }
+}
+
+/* ── Retry WhatsApp notification ── */
+async function retryNotification() {
+  const btn = document.getElementById('retryNotifyBtn');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ Sending…';
+  try {
+    const data = await api('/admin/coupons/' + encodeURIComponent(couponId) + '/notify-retry', {
+      method: 'POST',
+      useAdmin: true,
+    });
+    showToast(data.message || 'Notification sent.', 'success');
+    if (data.notification) reviewData.notification = data.notification;
+    renderNotification();
+  } catch (err) {
+    showToast(err.message || 'Notification retry failed.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔄 Retry Notification';
+  }
+}
+
+loadReview();
+</script>
+</body>
+</html>

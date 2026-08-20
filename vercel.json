@@ -22,6 +22,10 @@
       "status": 301
     },
     {
+      "src": "/admin/coupons/([^/]+)",
+      "dest": "/public/admin-review.html"
+    },
+    {
       "handle": "filesystem"
     },
     {

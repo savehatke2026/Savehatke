@@ -9,8 +9,27 @@ const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin, generateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const twilioWhatsApp = require('../services/twilioWhatsApp');
 
 const router = express.Router();
+
+const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
+
+// Write an audit row for every admin coupon action (best-effort, never blocks)
+async function logCouponAudit(couponId, adminEmail, action, notes) {
+  try {
+    await db.appendRow(db.SHEETS.COUPON_AUDIT, {
+      id: uuidv4(),
+      couponId: String(couponId || ''),
+      adminEmail: String(adminEmail || ''),
+      action: String(action || ''),
+      notes: String(notes || '').slice(0, 500),
+      at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.warn('Coupon audit log notice:', e.message);
+  }
+}
 
 const mongoose = require('mongoose');
 const Admin = require('../models/Admin');
@@ -509,6 +528,184 @@ router.delete('/coupons/:id', authenticateToken, requireAdmin, async (req, res) 
     res.json({ message: 'Coupon deleted successfully.' });
   } catch (err) {
     console.error('Admin delete coupon error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// GET /api/admin/coupons/:id/review — Full review record for the admin review page
+router.get('/coupons/:id/review', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let coupon = null;
+    if (supabase.isConfigured()) {
+      try {
+        coupon = await supabase.findCouponById(id);
+      } catch (e) {}
+    }
+    if (!coupon) {
+      coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
+    }
+    if (!coupon) {
+      return res.status(404).json({ error: 'Coupon not found.' });
+    }
+
+    // Duplicate-check result: any OTHER coupon sharing the same code
+    let duplicate = null;
+    if (coupon.code) {
+      const cleanCode = String(coupon.code).toUpperCase().trim();
+      if (supabase.isConfigured()) {
+        try {
+          const dup = await supabase.findCouponByCode(cleanCode);
+          if (dup && dup.id !== id) duplicate = dup;
+        } catch (e) {}
+      }
+      if (!duplicate) {
+        try {
+          const rows = await db.findRows(db.SHEETS.COUPONS, 'code', cleanCode);
+          duplicate = rows.find((r) => r.id !== id) || null;
+        } catch (e) {}
+      }
+    }
+
+    res.json({
+      coupon,
+      duplicateCheck: {
+        isDuplicate: !!duplicate,
+        duplicateId: duplicate ? duplicate.id : null,
+        duplicateStatus: duplicate ? duplicate.status : null,
+        duplicateAddedAt: duplicate ? duplicate.addedAt : null,
+      },
+      notification: {
+        status: coupon.whatsappStatus || 'pending',
+        sid: coupon.whatsappSid || '',
+        lastAttempt: coupon.whatsappLastAttempt || '',
+        error: coupon.whatsappError || '',
+      },
+      reviewUrl: `${APP_BASE_URL}/admin/coupons/${id}`,
+    });
+  } catch (err) {
+    console.error('Admin review fetch error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/admin/coupons/:id/review-action — Approve / Reject / Request More Proof
+// Status is decided server-side from a whitelisted action; never trusted from the client.
+router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { action, notes } = req.body || {};
+
+    const transitions = {
+      approve: { status: 'available' },
+      reject: { status: 'rejected' },
+      request_proof: { status: 'proof_requested' },
+    };
+    if (!transitions[action]) {
+      return res.status(400).json({ error: 'Invalid action. Allowed: approve, reject, request_proof.' });
+    }
+
+    let coupon = null;
+    if (supabase.isConfigured()) {
+      try {
+        coupon = await supabase.findCouponById(id);
+      } catch (e) {}
+    }
+    if (!coupon) {
+      coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
+    }
+    if (!coupon) {
+      return res.status(404).json({ error: 'Coupon not found.' });
+    }
+
+    const now = new Date().toISOString();
+    const updates = {
+      status: transitions[action].status,
+      adminNotes: String(notes || '').trim().slice(0, 500),
+    };
+    if (action === 'approve') {
+      updates.isVerified = true;
+      updates.verifiedAt = now;
+    }
+
+    let saved = false;
+    if (supabase.isConfigured()) {
+      try {
+        await supabase.updateCoupon(id, updates);
+        saved = true;
+      } catch (e) {}
+    }
+    try {
+      await db.updateRow(db.SHEETS.COUPONS, 'id', id, {
+        ...updates,
+        isVerified: updates.isVerified !== undefined ? String(updates.isVerified) : undefined,
+      });
+      saved = true;
+    } catch (e) {}
+
+    if (!saved) {
+      return res.status(500).json({ error: 'Could not update the coupon. Please try again.' });
+    }
+
+    await logCouponAudit(id, req.user.email, action, updates.adminNotes);
+
+    res.json({
+      message: action === 'approve'
+        ? 'Coupon approved and is now live in the marketplace.'
+        : action === 'reject' ? 'Coupon rejected.' : 'More proof requested from the seller.',
+      coupon: { ...coupon, ...updates },
+    });
+  } catch (err) {
+    console.error('Admin review action error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/admin/coupons/:id/notify-retry — Re-send the WhatsApp submission alert
+router.post('/coupons/:id/notify-retry', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let coupon = null;
+    if (supabase.isConfigured()) {
+      try {
+        coupon = await supabase.findCouponById(id);
+      } catch (e) {}
+    }
+    if (!coupon) {
+      coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
+    }
+    if (!coupon) {
+      return res.status(404).json({ error: 'Coupon not found.' });
+    }
+
+    const reviewUrl = `${APP_BASE_URL}/admin/coupons/${id}`;
+    const notify = await twilioWhatsApp.sendCouponSubmissionAlert(coupon, reviewUrl);
+    const updates = {
+      whatsappStatus: notify.success ? 'sent' : 'failed',
+      whatsappSid: notify.success ? (notify.sid || '') : '',
+      whatsappLastAttempt: new Date().toISOString(),
+      whatsappError: notify.success ? '' : (notify.error || 'Unknown error'),
+    };
+
+    if (supabase.isConfigured()) {
+      try {
+        await supabase.updateCoupon(id, updates);
+      } catch (e) {}
+    }
+    try {
+      await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
+    } catch (e) {}
+
+    await logCouponAudit(id, req.user.email, 'notify_retry', notify.success ? 'sent' : updates.whatsappError);
+
+    if (!notify.success) {
+      return res.status(502).json({ error: updates.whatsappError, notification: updates });
+    }
+    res.json({ message: 'WhatsApp notification sent.', notification: updates });
+  } catch (err) {
+    console.error('Admin notify retry error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });

@@ -191,6 +191,16 @@ function toSupabaseCoupon(c) {
     added_at: c.addedAt || new Date().toISOString(),
     sold_at: c.soldAt || null,
     buyer_email: c.buyerEmail || '',
+    // New review/notification fields — only included when provided so writes
+    // tolerate databases where the migration hasn't been applied yet
+    ...(c.proofUrl !== undefined ? { proof_url: c.proofUrl || '' } : {}),
+    ...(c.adminNotes !== undefined ? { admin_notes: c.adminNotes || '' } : {}),
+    ...(c.verifiedAt !== undefined ? { verified_at: c.verifiedAt || null } : {}),
+    ...(c.sellerUserId !== undefined ? { seller_user_id: c.sellerUserId || '' } : {}),
+    ...(c.whatsappStatus !== undefined ? { whatsapp_status: c.whatsappStatus || '' } : {}),
+    ...(c.whatsappSid !== undefined ? { whatsapp_sid: c.whatsappSid || '' } : {}),
+    ...(c.whatsappLastAttempt !== undefined ? { whatsapp_last_attempt: c.whatsappLastAttempt || null } : {}),
+    ...(c.whatsappError !== undefined ? { whatsapp_error: c.whatsappError || '' } : {}),
   };
 }
 
@@ -221,6 +231,14 @@ function fromSupabaseCoupon(r) {
     addedAt: r.added_at || new Date().toISOString(),
     soldAt: r.sold_at || '',
     buyerEmail: r.buyer_email || '',
+    proofUrl: r.proof_url || '',
+    adminNotes: r.admin_notes || '',
+    verifiedAt: r.verified_at || '',
+    sellerUserId: r.seller_user_id || '',
+    whatsappStatus: r.whatsapp_status || '',
+    whatsappSid: r.whatsapp_sid || '',
+    whatsappLastAttempt: r.whatsapp_last_attempt || '',
+    whatsappError: r.whatsapp_error || '',
   };
 }
 

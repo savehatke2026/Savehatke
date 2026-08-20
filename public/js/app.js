@@ -51,9 +51,11 @@ initPageProgressBar();
 (function checkAdminRedirectImmediate() {
   try {
     const path = window.location.pathname.toLowerCase();
+    // Admin review pages (/admin/coupons/:id) must stay reachable — never bounce away
+    if (path.startsWith('/admin/')) return;
     const filename = path.split('/').pop() || 'index.html';
     // Login pages handle their own logged-in redirect (to index) — never bounce admins to vault from there
-    const adminPages = ['vault.html', 'vault', 'login.html', 'login'];
+    const adminPages = ['vault.html', 'vault', 'login.html', 'login', 'admin-gmail.html', 'admin-gmail', 'admin-review.html', 'admin-review'];
     if (adminPages.includes(filename)) return;
 
     const adminToken = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');

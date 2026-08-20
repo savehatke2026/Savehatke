@@ -716,6 +716,33 @@
       </div>
     </div>
 
+    <!-- Admin-only entry point to the Gmail Mailbox admin panel.
+         Hidden by default; revealed only for authenticated admin sessions. -->
+    <div id="supportMailboxEntry" class="fu" style="display:none;margin:18px 0 6px">
+      <button onclick="window.location.href='admin-gmail.html'" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px;padding:14px 20px;border-radius:14px;border:1px solid rgba(0,230,118,.35);background:linear-gradient(135deg,rgba(0,230,118,.12),rgba(79,195,247,.12));color:#00e676;font-family:'Outfit',sans-serif;font-size:.95rem;font-weight:700;cursor:pointer;transition:.2s">
+        📮 Open Support Mailbox <span style="font-size:.72rem;font-weight:500;color:#6b88aa">(Admin Panel → Gmail)</span>
+      </button>
+    </div>
+    <script>
+      // Reveal the Support Mailbox entry ONLY for authenticated admin sessions.
+      // The mailbox page itself enforces a second gate (Auth.isAdminLoggedIn)
+      // plus server-side JWT admin checks on every API call.
+      (function revealSupportMailboxForAdmins() {
+        try {
+          const raw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
+          const token = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
+          if (!raw || !token) return;
+          const u = JSON.parse(raw);
+          const role = String((u && u.role) || '').toLowerCase();
+          const isAdminRole = ['admin', 'super admin', 'support'].indexOf(role) !== -1;
+          if (isAdminRole) {
+            const el = document.getElementById('supportMailboxEntry');
+            if (el) el.style.display = '';
+          }
+        } catch (e) {}
+      })();
+    </script>
+
     <!-- FAQ + Contact Form -->
     <div class="support-grid">
 

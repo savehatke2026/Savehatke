@@ -21,6 +21,7 @@ const SHEETS = {
   CHATBOT_MESSAGES: 'ChatbotMessages',
   CHATBOT_LOGS: 'ChatbotLogs',
   CHATBOT_AUDIT: 'ChatbotAudit',
+  COUPON_AUDIT: 'CouponAudit',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -60,6 +61,22 @@ const HEADERS = {
     'buyerEmail',
     'addedAt',
     'soldAt',
+    'proofUrl',
+    'adminNotes',
+    'verifiedAt',
+    'sellerUserId',
+    'whatsappStatus',
+    'whatsappSid',
+    'whatsappLastAttempt',
+    'whatsappError',
+  ],
+  [SHEETS.COUPON_AUDIT]: [
+    'id',
+    'couponId',
+    'adminEmail',
+    'action',
+    'notes',
+    'at',
   ],
   [SHEETS.PRICE_TRACKING]: [
     'id', 'userEmail', 'productUrl', 'platform', 'productName',
@@ -310,6 +327,7 @@ const memoryDB = {
   [SHEETS.SUPPORT_TICKETS]: [],
   [SHEETS.SETTINGS]: [],
   [SHEETS.OTP_REQUESTS]: [],
+  [SHEETS.COUPON_AUDIT]: [],
 };
 
 function seedDemoData() {
