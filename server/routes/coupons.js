@@ -171,6 +171,7 @@ const handleCouponSubmission = async (req, res) => {
     const {
       code, category, brand, description, originalValue, faceValue, coupons,
       type, sellingPrice, expiryDate, proofUrl,
+      title, discount, minOrderValue, validFrom, affiliateLink, terms,
     } = req.body;
 
     // Sanitized shared fields (length-capped, never trusted from the client)
@@ -216,9 +217,15 @@ const handleCouponSubmission = async (req, res) => {
         type: (c && c.type) || type,
         sellingPrice: (c && c.sellingPrice) !== undefined ? c.sellingPrice : sellingPrice,
         expiryDate: (c && c.expiryDate) || expiryDate,
+        title: (c && c.title) || title,
+        discount: (c && c.discount) || discount,
+        minOrderValue: (c && c.minOrderValue) || minOrderValue,
+        validFrom: (c && c.validFrom) || validFrom,
+        affiliateLink: (c && c.affiliateLink) || affiliateLink,
+        terms: (c && c.terms) || terms,
       }));
     } else {
-      list = [{ code, category: cleanCategory, brand, description, faceValue: faceValue || originalValue, type, sellingPrice, expiryDate }];
+      list = [{ code, category: cleanCategory, brand, description, faceValue: faceValue || originalValue, type, sellingPrice, expiryDate, title, discount, minOrderValue, validFrom, affiliateLink, terms }];
     }
 
     const sellerEmail = req.user.email;
@@ -236,8 +243,19 @@ const handleCouponSubmission = async (req, res) => {
 
       const cleanCode = String(c.code).toUpperCase().trim().slice(0, 60);
       const cleanBrand = cleanStr(c.brand, 80);
-      const cleanDescription = cleanStr(c.description, 500);
+      const cleanDescription = cleanStr(c.description, 500) || cleanStr(c.title, 500);
       const cleanFaceValue = cleanStr(c.faceValue || '0', 20);
+
+      // Extended listing fields submitted by the sell form (all optional, length-capped)
+      const itemTitle = cleanStr(c.title, 120) || cleanBrand;
+      const itemDiscount = cleanStr(c.discount, 60);
+      const itemMinOrder = cleanStr(c.minOrderValue, 20);
+      const itemAffiliate = cleanStr(c.affiliateLink, 500);
+      const itemTerms = cleanStr(c.terms, 1000);
+      const itemValidFrom = cleanStr(c.validFrom, 30);
+      if (itemValidFrom && isNaN(Date.parse(itemValidFrom))) {
+        return res.status(400).json({ error: `Coupon ${i + 1}: valid-from date is not a valid date.` });
+      }
 
       // Per-coupon overrides for type / selling price / expiry (fall back to shared values)
       const itemType = cleanStr(c.type, 30) || cleanType;
@@ -278,10 +296,15 @@ const handleCouponSubmission = async (req, res) => {
         code: cleanCode,
         category: String(c.category).trim().slice(0, 60),
         brand: cleanBrand,
-        title: cleanBrand,
+        title: itemTitle,
         description: cleanDescription,
         type: itemType,
+        discount: itemDiscount,
         originalValue: cleanFaceValue,
+        minOrderValue: itemMinOrder,
+        validFrom: itemValidFrom,
+        affiliateLink: itemAffiliate,
+        terms: itemTerms,
         sellingPrice: itemPrice,
         expiryDate: itemExpiry,
         proofUrl: safeProofUrl,

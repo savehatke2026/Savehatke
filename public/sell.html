@@ -187,7 +187,35 @@
     .finput:focus { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.03); }
     .finput::placeholder { color:#6b88aa; }
     .finput.code { text-transform:uppercase; letter-spacing:2px; font-family:'JetBrains Mono',monospace; font-weight:600; font-size:.9rem; }
+    textarea.finput { resize:vertical; min-height:84px; }
     .fhint { font-size:.75rem; color:#6b88aa; margin-top:6px; }
+    .frequired { color:#ff5252; font-weight:700; }
+
+    /* ── Custom Brand Select (matches admin panel) ── */
+    .custom-brand-select { position:relative; width:100%; }
+    .brand-select-btn {
+      width:100%; display:flex; align-items:center; justify-content:space-between;
+      background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15);
+      color:#e2ecff; border-radius:10px; padding:11px 16px; font-size:.92rem;
+      font-family:'Outfit',sans-serif; cursor:pointer; text-align:left; transition:all .2s;
+    }
+    .brand-select-btn:hover { border-color:rgba(0,230,118,.35); }
+    .brand-selected-val { display:flex; align-items:center; gap:10px; font-weight:600; flex:1; overflow:hidden; }
+    .brand-logo-img { width:22px; height:22px; object-fit:contain; flex-shrink:0; background:#fff; padding:2px; border-radius:4px; box-shadow:0 2px 6px rgba(0,0,0,.3); }
+    .brand-logo-fallback { width:22px; height:22px; border-radius:4px; background:linear-gradient(135deg,#00e676,#4fc3f7); color:#060d1f; display:inline-flex; align-items:center; justify-content:center; font-size:.75rem; flex-shrink:0; }
+    .brand-arrow { font-size:.75rem; color:#6b88aa; transition:transform .2s; }
+    .custom-brand-select.open .brand-arrow { transform:rotate(180deg); }
+    .brand-select-dropdown {
+      position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:100;
+      background:#0c1835; border:1.5px solid rgba(79,195,247,.2); border-radius:12px;
+      box-shadow:0 20px 60px rgba(0,0,0,.8); padding:8px; display:none; max-height:280px; overflow-y:auto;
+    }
+    .custom-brand-select.open .brand-select-dropdown { display:block; }
+    .brand-search-box { width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(79,195,247,.15); border-radius:8px; padding:8px 12px; color:#e2ecff; font-size:.83rem; margin-bottom:8px; outline:none; font-family:'Outfit',sans-serif; }
+    .brand-opt-group { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:#00e676; padding:8px 10px 4px; }
+    .brand-opt { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:.86rem; color:#a8c0dc; cursor:pointer; transition:all .15s; }
+    .brand-opt:hover { background:rgba(0,230,118,.1); color:#e2ecff; }
+    .brand-opt.selected { background:rgba(0,230,118,.18); color:#00e676; font-weight:700; }
     .step-actions { display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; }
 
     /* ── Multi Coupon Cards ── */
@@ -414,11 +442,11 @@
         <!-- Dynamic coupon cards will be injected here -->
         <div class="coupon-cards-container" id="couponCardsContainer"></div>
 
-        <!-- Screenshot / proof upload (optional, validated client + server side) -->
+        <!-- Screenshot / proof upload (mandatory, validated client + server side) -->
         <div class="fgroup" style="margin-top:18px">
-          <label class="flabel" for="proofFile">📸 Coupon Screenshot / Proof (optional)</label>
+          <label class="flabel" for="proofFile">📸 Coupon Screenshot / Proof <span class="frequired">*mandatory*</span></label>
           <input type="file" id="proofFile" class="finput" accept="image/png,image/jpeg,image/webp">
-          <span class="fhint">PNG, JPG or WEBP — max 3MB. A screenshot helps admins verify your coupon faster.</span>
+          <span class="fhint">Mandatory — PNG, JPG or WEBP, max 3MB. Admins use the screenshot to verify your coupon.</span>
         </div>
 
         <div class="step-actions">
@@ -615,15 +643,180 @@ function renderCouponCard(id, index) {
   card.appendChild(header);
 
   // Fields
-  card.appendChild(createField('code-' + id, 'Coupon Code *', 'text', 'e.g. NYKAA200OFF', true, 'code', 'Enter the exact code as shown on your reward/voucher'));
-  card.appendChild(createField('brand-' + id, 'Brand / Platform *', 'text', 'e.g. Nykaa, PhonePe, Paytm', true));
-  card.appendChild(createField('desc-' + id, 'What does the coupon offer?', 'text', 'e.g. ₹200 off on orders above ₹999'));
-  card.appendChild(createField('value-' + id, 'Coupon Face Value (₹)', 'number', 'e.g. 200'));
-  card.appendChild(createSelect('type-' + id, 'Coupon Type', ['Public', 'Exclusive', 'Cashback']));
-  card.appendChild(createField('price-' + id, 'Your Selling Price (₹)', 'number', 'e.g. 20 — leave blank for ₹20', false, '', 'The price buyers will pay. Defaults to ₹20 if left blank.'));
+  card.appendChild(createBrandSelect(id));
+  card.appendChild(createField('title-' + id, 'Coupon Title *', 'text', 'e.g. 30% Off on Skincare', true));
+  card.appendChild(createField('code-' + id, 'Coupon Code *', 'text', 'e.g. SAVE30', true, 'code', 'Enter the exact code as shown on your reward/voucher'));
+  card.appendChild(createField('discount-' + id, 'Discount Value *', 'text', 'e.g. 20% OFF or ₹500 OFF', true));
+  card.appendChild(createField('minorder-' + id, 'Minimum Order Value (₹)', 'number', 'e.g. 999'));
+  card.appendChild(createField('value-' + id, 'Original Value / Max Discount (₹)', 'number', 'e.g. 500'));
+  card.appendChild(createField('validfrom-' + id, 'Valid From', 'date', ''));
   card.appendChild(createField('expiry-' + id, 'Expiry Date', 'date', ''));
+  card.appendChild(createField('link-' + id, 'Affiliate Link (optional)', 'url', 'https://...'));
+  card.appendChild(createTextarea('terms-' + id, 'Terms & Conditions', 'Enter terms and conditions...'));
 
   return card;
+}
+
+/* ── Brand catalogue (same list as the admin panel) ── */
+const BRANDS_DATA = [
+  { name: 'Nykaa', category: '💄 Beauty & Personal Care', logo: 'https://upload.wikimedia.org/wikipedia/commons/0/00/Nykaa_New_Logo.svg' },
+  { name: 'Amazon', category: '🛒 Major E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' },
+  { name: 'Flipkart', category: '🛒 Major E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/7a/Flipkart_logo.svg' },
+  { name: 'Myntra', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Myntra_Logo.png' },
+  { name: 'Ajio', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/d/d3/Ajio_Logo.svg' },
+  { name: 'Swiggy', category: '🍔 Food & Dining', logo: 'https://upload.wikimedia.org/wikipedia/en/1/12/Swiggy_logo.svg' },
+  { name: 'Zomato', category: '🍔 Food & Dining', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Zomato_logo.png' },
+  { name: 'PhonePe', category: '💳 Wallets & Pay', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/71/PhonePe_Logo.svg' },
+  { name: 'Paytm', category: '💳 Wallets & Pay', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/24/Paytm_Logo.ext.svg' },
+  { name: 'boAt', category: '⚡ Electronics', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e0/BoAt_logo.svg' },
+  { name: 'Apple', category: '⚡ Electronics', logo: 'https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg' },
+  { name: 'Nike', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg' },
+  { name: 'Adidas', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
+  { name: 'Puma', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_complete_logo.svg' },
+  { name: 'Mamaearth', category: '💄 Beauty & Personal Care', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/87/Mamaearth_Logo.png' },
+  { name: 'Domino\'s', category: '🍔 Food & Dining', logo: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Domino%27s_pizza_logo.svg' },
+  { name: 'MakeMyTrip', category: '✈️ Travel', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/1f/MakeMyTrip_Logo.svg' },
+  { name: 'Blinkit', category: '🍔 Food & Dining', icon: '⚡' },
+  { name: 'Zepto', category: '🍔 Food & Dining', icon: '🚀' },
+  { name: 'BigBasket', category: '🍔 Food & Dining', icon: '🧺' },
+  { name: 'Meesho', category: '🛒 Major E-Commerce', icon: '📦' },
+  { name: 'Tata CLiQ', category: '🛒 Major E-Commerce', icon: '💎' },
+  { name: 'Croma', category: '⚡ Electronics', icon: '⚡' },
+  { name: 'Samsung', category: '⚡ Electronics', icon: '📱' },
+  { name: 'OnePlus', category: '⚡ Electronics', icon: '📱' },
+  { name: 'Xiaomi', category: '⚡ Electronics', icon: '📱' },
+  { name: 'Noise', category: '⚡ Electronics', icon: '🎧' },
+  { name: 'Google Pay', category: '💳 Wallets & Pay', icon: '💳' },
+  { name: 'Cred', category: '💳 Wallets & Pay', icon: '🪙' }
+];
+
+/* ── Store / Brand custom dropdown (per coupon card) ── */
+function createBrandSelect(id) {
+  const group = document.createElement('div');
+  group.className = 'fgroup';
+
+  const label = document.createElement('label');
+  label.className = 'flabel';
+  label.textContent = 'Store / Brand *';
+  group.appendChild(label);
+
+  const wrap = document.createElement('div');
+  wrap.className = 'custom-brand-select';
+
+  const hidden = document.createElement('input');
+  hidden.type = 'hidden';
+  hidden.id = 'brand-' + id;
+  hidden.required = true;
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'brand-select-btn';
+  btn.innerHTML = '<span class="brand-selected-val"><span class="brand-logo-fallback">🏬</span><span>— Select Brand —</span></span><span class="brand-arrow">▼</span>';
+
+  const drop = document.createElement('div');
+  drop.className = 'brand-select-dropdown';
+
+  const search = document.createElement('input');
+  search.type = 'text';
+  search.className = 'brand-search-box';
+  search.placeholder = '🔍 Search brand...';
+  search.addEventListener('click', (e) => e.stopPropagation());
+  search.addEventListener('input', () => renderBrandOptions(wrap, search.value));
+
+  const list = document.createElement('div');
+  drop.appendChild(search);
+  drop.appendChild(list);
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const wasOpen = wrap.classList.contains('open');
+    document.querySelectorAll('.custom-brand-select.open').forEach((w) => w.classList.remove('open'));
+    if (!wasOpen) {
+      wrap.classList.add('open');
+      renderBrandOptions(wrap);
+      search.focus();
+    }
+  });
+
+  wrap.appendChild(hidden);
+  wrap.appendChild(btn);
+  wrap.appendChild(drop);
+  group.appendChild(wrap);
+
+  renderBrandOptions(wrap);
+  return group;
+}
+
+function brandLogoHtml(b) {
+  return b.logo
+    ? '<img src="' + b.logo + '" class="brand-logo-img" alt="' + b.name + '" onerror="this.outerHTML=\'<span class=\\\'brand-logo-fallback\\\'>' + (b.icon || '🏬') + '</span>\'">'
+    : '<span class="brand-logo-fallback">' + (b.icon || '🏬') + '</span>';
+}
+
+function renderBrandOptions(wrap, filter = '') {
+  const hidden = wrap.querySelector('input[type="hidden"]');
+  const list = wrap.querySelector('.brand-select-dropdown > div:last-child');
+  const selectedVal = wrap.querySelector('.brand-selected-val');
+  if (!list || !hidden) return;
+
+  const q = String(filter || '').toLowerCase().trim();
+  const filtered = BRANDS_DATA.filter((b) => b.name.toLowerCase().includes(q) || b.category.toLowerCase().includes(q));
+
+  list.innerHTML = '';
+  if (!filtered.length) {
+    list.innerHTML = '<div style="padding:12px;text-align:center;color:#6b88aa;font-size:.82rem">No matching brand found</div>';
+    return;
+  }
+
+  let currentCategory = '';
+  filtered.forEach((b) => {
+    if (b.category !== currentCategory) {
+      currentCategory = b.category;
+      const groupLabel = document.createElement('div');
+      groupLabel.className = 'brand-opt-group';
+      groupLabel.textContent = currentCategory;
+      list.appendChild(groupLabel);
+    }
+    const opt = document.createElement('div');
+    opt.className = 'brand-opt' + (hidden.value === b.name ? ' selected' : '');
+    opt.innerHTML = brandLogoHtml(b) + '<span></span>';
+    opt.querySelector('span').textContent = b.name;
+    opt.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hidden.value = b.name;
+      selectedVal.innerHTML = brandLogoHtml(b) + '<span></span>';
+      selectedVal.querySelector('span').textContent = b.name;
+      wrap.classList.remove('open');
+    });
+    list.appendChild(opt);
+  });
+}
+
+// Close any open brand dropdown when clicking outside
+document.addEventListener('click', (e) => {
+  document.querySelectorAll('.custom-brand-select.open').forEach((w) => {
+    if (!w.contains(e.target)) w.classList.remove('open');
+  });
+});
+
+function createTextarea(id, labelText, placeholder) {
+  const group = document.createElement('div');
+  group.className = 'fgroup';
+
+  const label = document.createElement('label');
+  label.className = 'flabel';
+  label.setAttribute('for', id);
+  label.textContent = labelText;
+  group.appendChild(label);
+
+  const ta = document.createElement('textarea');
+  ta.className = 'finput';
+  ta.id = id;
+  ta.rows = 3;
+  ta.placeholder = placeholder;
+  group.appendChild(ta);
+
+  return group;
 }
 
 function createSelect(id, labelText, options, hint = '') {
@@ -747,13 +940,16 @@ function updateAddButton() {
 /* ── Collect all coupon data ── */
 function collectCoupons() {
   return couponIds.map(id => ({
-    code: (document.getElementById('code-' + id)?.value || '').trim().toUpperCase(),
     brand: (document.getElementById('brand-' + id)?.value || '').trim(),
-    description: (document.getElementById('desc-' + id)?.value || '').trim(),
+    title: (document.getElementById('title-' + id)?.value || '').trim(),
+    code: (document.getElementById('code-' + id)?.value || '').trim().toUpperCase(),
+    discount: (document.getElementById('discount-' + id)?.value || '').trim(),
+    minOrderValue: (document.getElementById('minorder-' + id)?.value || '').trim(),
     faceValue: (document.getElementById('value-' + id)?.value || '').trim(),
-    type: (document.getElementById('type-' + id)?.value || 'Public'),
-    sellingPrice: (document.getElementById('price-' + id)?.value || '').trim(),
-    expiryDate: (document.getElementById('expiry-' + id)?.value || '').trim()
+    validFrom: (document.getElementById('validfrom-' + id)?.value || '').trim(),
+    expiryDate: (document.getElementById('expiry-' + id)?.value || '').trim(),
+    affiliateLink: (document.getElementById('link-' + id)?.value || '').trim(),
+    terms: (document.getElementById('terms-' + id)?.value || '').trim()
   }));
 }
 
@@ -766,14 +962,23 @@ function validateCoupons() {
   }
   for (let i = 0; i < coupons.length; i++) {
     const c = coupons[i];
+    if (!c.brand) {
+      showToast('Coupon ' + (i + 1) + ': please select a Store / Brand.', 'warning');
+      return false;
+    }
+    if (!c.title) {
+      showToast('Coupon ' + (i + 1) + ': Coupon Title is required.', 'warning');
+      document.getElementById('title-' + couponIds[i])?.focus();
+      return false;
+    }
     if (!c.code) {
       showToast('Coupon ' + (i + 1) + ': Coupon Code is required.', 'warning');
       document.getElementById('code-' + couponIds[i])?.focus();
       return false;
     }
-    if (!c.brand) {
-      showToast('Coupon ' + (i + 1) + ': Brand / Platform is required.', 'warning');
-      document.getElementById('brand-' + couponIds[i])?.focus();
+    if (!c.discount) {
+      showToast('Coupon ' + (i + 1) + ': Discount Value is required.', 'warning');
+      document.getElementById('discount-' + couponIds[i])?.focus();
       return false;
     }
   }
@@ -797,13 +1002,16 @@ function buildReviewSummary() {
 
     const rows = [
       ['Category', selectedCategory],
-      ['Brand / Platform', c.brand],
+      ['Store / Brand', c.brand],
+      ['Coupon Title', c.title],
       ['Coupon Code', c.code],
-      ['Description', c.description || '—'],
-      ['Face Value', c.faceValue ? '₹' + c.faceValue : '—'],
-      ['Coupon Type', c.type || 'Public'],
-      ['Selling Price', c.sellingPrice ? '₹' + c.sellingPrice : '₹20 (default)'],
-      ['Expiry Date', c.expiryDate || '—']
+      ['Discount Value', c.discount],
+      ['Min Order Value', c.minOrderValue ? '₹' + c.minOrderValue : '—'],
+      ['Original Value / Max Discount', c.faceValue ? '₹' + c.faceValue : '—'],
+      ['Valid From', c.validFrom || '—'],
+      ['Expiry Date', c.expiryDate || '—'],
+      ['Affiliate Link', c.affiliateLink || '—'],
+      ['Terms & Conditions', c.terms || '—']
     ];
 
     rows.forEach(([key, val]) => {
@@ -911,35 +1119,38 @@ async function submitCoupons() {
     btn.innerHTML = '✅ Submit &amp; Earn ₹' + (collectCoupons().length * 10);
   };
 
-  // 1. Upload the proof screenshot first (optional, client-side pre-validation)
+  // 1. Upload the proof screenshot (mandatory, client-side pre-validation)
   let proofUrl = '';
   const proofInput = document.getElementById('proofFile');
   const proofFile = proofInput && proofInput.files && proofInput.files[0];
-  if (proofFile) {
-    const allowedProofTypes = ['image/png', 'image/jpeg', 'image/webp'];
-    if (!allowedProofTypes.includes(proofFile.type)) {
-      showToast('Screenshot must be PNG, JPG or WEBP.', 'error');
-      restoreBtn();
-      return;
-    }
-    if (proofFile.size > 3 * 1024 * 1024) {
-      showToast('Screenshot is too large. Maximum size is 3MB.', 'error');
-      restoreBtn();
-      return;
-    }
-    try {
-      btn.textContent = '⏳ Uploading screenshot...';
-      const dataBase64 = await fileToBase64(proofFile);
-      const upload = await api('/coupons/proof', {
-        method: 'POST',
-        body: { filename: proofFile.name, contentType: proofFile.type, dataBase64 }
-      });
-      proofUrl = (upload && upload.url) || '';
-    } catch (err) {
-      showToast('Screenshot upload failed: ' + (err.message || 'Please try again.'), 'error');
-      restoreBtn();
-      return;
-    }
+  if (!proofFile) {
+    showToast('Please upload a coupon screenshot — it is mandatory.', 'error');
+    restoreBtn();
+    return;
+  }
+  const allowedProofTypes = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!allowedProofTypes.includes(proofFile.type)) {
+    showToast('Screenshot must be PNG, JPG or WEBP.', 'error');
+    restoreBtn();
+    return;
+  }
+  if (proofFile.size > 3 * 1024 * 1024) {
+    showToast('Screenshot is too large. Maximum size is 3MB.', 'error');
+    restoreBtn();
+    return;
+  }
+  try {
+    btn.textContent = '⏳ Uploading screenshot...';
+    const dataBase64 = await fileToBase64(proofFile);
+    const upload = await api('/coupons/proof', {
+      method: 'POST',
+      body: { filename: proofFile.name, contentType: proofFile.type, dataBase64 }
+    });
+    proofUrl = (upload && upload.url) || '';
+  } catch (err) {
+    showToast('Screenshot upload failed: ' + (err.message || 'Please try again.'), 'error');
+    restoreBtn();
+    return;
   }
 
   // 2. Submit the coupons with the proof URL (WhatsApp alert is sent server-side)
@@ -954,11 +1165,15 @@ async function submitCoupons() {
         coupons: coupons.map(c => ({
           code: c.code,
           brand: c.brand,
-          description: c.description || undefined,
+          title: c.title || undefined,
+          description: c.title || undefined,
+          discount: c.discount || undefined,
+          minOrderValue: c.minOrderValue || undefined,
           faceValue: c.faceValue ? Number(c.faceValue) : undefined,
-          type: c.type || undefined,
-          sellingPrice: c.sellingPrice ? Number(c.sellingPrice) : undefined,
-          expiryDate: c.expiryDate || undefined
+          validFrom: c.validFrom || undefined,
+          expiryDate: c.expiryDate || undefined,
+          affiliateLink: c.affiliateLink || undefined,
+          terms: c.terms || undefined
         }))
       }
     });

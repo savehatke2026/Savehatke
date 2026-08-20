@@ -601,19 +601,7 @@ body.sidebar-collapsed .main{margin-left:0}
 
       <!-- ADD COUPON FORM -->
       <div class="tab-content" id="ctab-add">
-        <!-- Step 1: Category Picker -->
-        <div class="card" id="acCatStep">
-          <div class="card-title"><span class="ct-icon">🎟️</span> Select Coupon Category</div>
-          <select class="form-input admin-cat-select" id="acCatPicker" onchange="adminSelectCategory(this)">
-            <option value="">— Choose a category —</option>
-            <option value="Makeup">💄 Makeup &amp; Beauty — Nykaa, Lakme, Mamaearth</option>
-            <option value="Electronics">⚡ Electronics — boAt, Croma, Samsung</option>
-            <option value="Fashion">👟 Fashion &amp; Shoes — Puma, Myntra, AJIO</option>
-            <option value="Food">🍔 Food &amp; Delivery — Swiggy, Zomato, Dominos</option>
-          </select>
-        </div>
-        <!-- Step 2: Coupon Form (hidden until category chosen) -->
-        <form class="card" id="addCouponForm" style="display:none">
+        <form class="card" id="addCouponForm">
           <input type="hidden" id="acCategory">
           <div class="card-title"><span class="ct-icon">🎟️</span> Add New Coupon</div>
           <div class="form-grid form-grid-2">

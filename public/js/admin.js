@@ -202,24 +202,8 @@ function initAddCouponForm() {
   });
 }
 
-// Step 1 → Step 2 of the Add Coupon flow: reveal the form once a category is chosen
-function adminSelectCategory(sel) {
-  const form = document.getElementById('addCouponForm');
-  if (!sel.value || !form) return;
-
-  const hiddenCategory = document.getElementById('acCategory');
-  if (hiddenCategory) hiddenCategory.value = sel.value;
-
-  form.style.display = '';
-  form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
 function resetAddCouponForm(form) {
   form.reset();
-  form.style.display = 'none';
-
-  const catPicker = document.getElementById('acCatPicker');
-  if (catPicker) catPicker.value = '';
 
   const hiddenCategory = document.getElementById('acCategory');
   if (hiddenCategory) hiddenCategory.value = '';
