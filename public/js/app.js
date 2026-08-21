@@ -360,6 +360,9 @@ function ensureNavProfileStyles() {
     .npd-item:hover{background:rgba(0,230,118,.12);color:#00e676}
     .npd-item-logout{color:#ff6b6b}
     .npd-item-logout:hover{background:rgba(255,80,80,.12);color:#ff8585}
+    .npd-status{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:9999px;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle;background:rgba(0,230,118,.14);color:#00e676;border:1px solid rgba(0,230,118,.3)}
+    .npd-status.suspended{background:rgba(255,80,80,.12);color:#ff6b6b;border-color:rgba(255,80,80,.3)}
+    .npd-footer{margin-top:4px;padding-top:8px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#6b88aa;font-weight:700}
   `;
   document.head.appendChild(style);
 }
@@ -374,6 +377,13 @@ function updateNavAuth() {
     const name = user.name || 'User';
     const email = user.email || '';
     const initials = name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
+
+    // Account status tag — 'Active' by default, 'Suspended' when the account is suspended
+    const accountStatus = String(user.status || 'active').toLowerCase();
+    const isSuspended = accountStatus !== 'active';
+    const statusTagHtml = isSuspended
+      ? '<span class="npd-status suspended">Suspended</span>'
+      : '<span class="npd-status">Active</span>';
 
     const avatarHtmlBtn = user.picture 
       ? `<img src="${user.picture}" alt="${name}" />`
@@ -392,7 +402,7 @@ function updateNavAuth() {
           <div class="npd-header">
             <div class="npd-avatar">${avatarHtmlDropdown}</div>
             <div class="npd-info">
-              <div class="npd-name">${name}</div>
+              <div class="npd-name">${name}${statusTagHtml}</div>
               <div class="npd-email">${email}</div>
             </div>
           </div>
@@ -402,6 +412,7 @@ function updateNavAuth() {
           <button class="npd-item npd-item-logout" id="npdLogoutBtn">
             <span>🚪</span> Log Out
           </button>
+          <div class="npd-footer">🔒 Secured by SaveHatke</div>
         </div>
       </div>
     `;

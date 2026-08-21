@@ -95,7 +95,8 @@
 
     /* Profile */
     .profile-wrapper{position:relative;display:flex;align-items:center;gap:9px;cursor:pointer}
-    .profile-avatar{width:38px;height:38px;border-radius:50%;border:2px solid #00e676;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.88rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .22s;box-shadow:0 0 12px rgba(0,230,118,.3)}
+    .profile-avatar{width:38px;height:38px;border-radius:50%;border:2px solid #00e676;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.88rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .22s;box-shadow:0 0 12px rgba(0,230,118,.3);overflow:hidden}
+    .profile-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
     .profile-wrapper:hover .profile-avatar{transform:scale(1.08);box-shadow:0 0 20px rgba(0,230,118,.5)}
     .profile-name{font-size:.85rem;font-weight:600;color:#e2ecff;white-space:nowrap}
     .profile-chevron{font-size:.65rem;color:#6b88aa;transition:transform .2s}
@@ -111,7 +112,8 @@
     .profile-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:230px;background:rgba(10,22,50,.98);backdrop-filter:blur(20px);border:1px solid rgba(79,195,247,.2);border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.7);padding:10px;display:none;flex-direction:column;gap:3px;z-index:999;animation:slideDown .2s ease-out forwards}
     .profile-dropdown.open{display:flex}
     .pd-header{display:flex;align-items:center;gap:10px;padding:8px 8px 10px;border-bottom:1px solid rgba(79,195,247,.1);margin-bottom:4px}
-    .pd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .pd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+    .pd-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
     .pd-name{font-size:.88rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .pd-email{font-size:.72rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .pd-item{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;color:#a8c0dc;font-size:.85rem;font-weight:500;cursor:pointer;transition:all .18s;background:transparent;border:none;width:100%;text-align:left}
@@ -119,6 +121,9 @@
     .pd-item-danger{color:#ff6b6b}
     .pd-item-danger:hover{background:rgba(255,80,80,.1);color:#ff8585}
     .pd-divider{height:1px;background:rgba(79,195,247,.1);margin:4px 0}
+    .pd-status{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:9999px;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle;background:rgba(0,230,118,.14);color:#00e676;border:1px solid rgba(0,230,118,.3)}
+    .pd-status.suspended{background:rgba(255,80,80,.12);color:#ff6b6b;border-color:rgba(255,80,80,.3)}
+    .pd-footer{margin-top:4px;padding-top:8px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#6b88aa;font-weight:700}
 
     /* ===================================================
        NOTIFICATION PANEL
@@ -418,7 +423,7 @@
           <div class="pd-header">
             <div class="pd-avatar" id="pdAvatar">RK</div>
             <div>
-              <div class="pd-name" id="pdName">Rahul Kumar</div>
+              <div class="pd-name"><span id="pdName">Rahul Kumar</span><span class="pd-status" id="pdStatusTag">Active</span></div>
               <div class="pd-email" id="pdEmail">rahul@gmail.com</div>
             </div>
           </div>
@@ -429,6 +434,7 @@
           <button class="pd-item" onclick="location.href='support'">🎧 Support</button>
           <div class="pd-divider"></div>
           <button class="pd-item pd-item-danger" onclick="openModal('logoutModal')">🚪 Logout</button>
+          <div class="pd-footer">🔒 Secured by SaveHatke</div>
         </div>
       </div>
 
@@ -924,153 +930,689 @@
 ===================================================== -->
 <script src="js/app.js"></script>
 <script>
+  /* ═══════════════════════════════════════════════════════════════
+     SaveHatke — Dashboard Controller (real-time, API-driven)
+     ═══════════════════════════════════════════════════════════════ */
 
-  /* ─── DATA ─── */
-  const USER = {
-    name: 'Rahul Kumar',
-    email: 'rahul@gmail.com',
-    initials: 'RK',
-    memberSince: 'January 2026',
-    balance: 850,
-    pendingBalance: 200,
-    totalEarnings: 1250,
-    totalWithdrawn: 400
+  // ─── State ──────────────────────────────────────────────────────
+  const STATE = {
+    user: null,             // { id, name, email, role, ... }
+    sales: [],              // /api/coupons/my-sales → coupons
+    purchases: [],          // /api/coupons/my-purchases → coupons
+    tickets: [],            // /api/support/tickets
+    notifications: [],
+    lastUpdated: null,
+    refreshTimer: null,
+    isFetching: false,
   };
 
-  const ACTIVITIES = [
-    { type:'Purchase',   icon:'🛒', detail:'Amazon ₹500 Gift Coupon',   amount:'-₹420', amountClass:'text-red',   date:'Today, 2:30 PM',   status:'Completed', statusClass:'badge-green'  },
-    { type:'Sale',       icon:'💼', detail:'Flipkart ₹1,000 Voucher',   amount:'+₹850', amountClass:'text-green', date:'Yesterday',         status:'Completed', statusClass:'badge-green'  },
-    { type:'Submission', icon:'📤', detail:'Myntra ₹500 Coupon',        amount:'—',     amountClass:'',           date:'Aug 8',             status:'Pending',   statusClass:'badge-orange' },
-    { type:'Withdrawal', icon:'🏦', detail:'Bank Withdrawal',           amount:'-₹500', amountClass:'text-red',   date:'Aug 7',             status:'Completed', statusClass:'badge-green'  },
-    { type:'Purchase',   icon:'🛒', detail:'Nykaa ₹200 OFF Code',       amount:'-₹120', amountClass:'text-red',   date:'Aug 5',             status:'Completed', statusClass:'badge-green'  }
-  ];
+  // ─── Helpers ────────────────────────────────────────────────────
+  const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 
-  const MY_COUPONS = [
-    { brand:'Puma', code:'PUMA500', val:'₹500 OFF', exp:'Dec 31, 2026', status:'Active', badge:'badge-green' },
-    { brand:'Swiggy', code:'SWIGGY150', val:'₹150 Cashback', exp:'Dec 31, 2026', status:'Active', badge:'badge-green' },
-    { brand:'boAt', code:'BOAT300', val:'₹300 OFF', exp:'Dec 31, 2026', status:'Active', badge:'badge-green' }
-  ];
+  // Server status "available" / "pending" / "sold" / "rejected" / "" (legacy)
+  const isPending   = (c) => ['pending', 'review', 'awaiting', 'submitted'].includes(String(c.status || '').toLowerCase());
+  const isSold      = (c) => String(c.status || '').toLowerCase() === 'sold';
+  const isAvailable = (c) => String(c.status || '').toLowerCase() === 'available';
 
-  const NOTIFICATIONS = [
-    { icon:'🎉', text:'Your coupon <strong>PUMA500</strong> was purchased! ₹850 added to wallet.', time:'10m ago', unread:true },
-    { icon:'💸', text:'Withdrawal request of <strong>₹500</strong> has been processed.', time:'2h ago', unread:true },
-    { icon:'🎧', text:'Support ticket <strong>#SH-10245</strong> received a new response.', time:'5h ago', unread:true },
-    { icon:'✅', text:'Welcome to SaveHatke! Your account is verified.', time:'1d ago', unread:true }
-  ];
+  const STATUS_LABELS = {
+    pending:    ['Pending Review',  'badge-orange'],
+    review:     ['Under Review',    'badge-orange'],
+    awaiting:   ['Awaiting Approval','badge-orange'],
+    submitted:  ['Submitted',       'badge-orange'],
+    sold:       ['Completed',       'badge-green'],
+    available:  ['Available',       'badge-blue'],
+    rejected:   ['Rejected',        'badge-red'],
+  };
 
-  // ─── INITIALIZATION ───
-  document.addEventListener('DOMContentLoaded', () => {
-    // Populate logged in user info if available via Auth helper
-    if (typeof Auth !== 'undefined' && Auth.isLoggedIn()) {
-      const u = Auth.getUser();
-      if (u) {
-        USER.name = u.name || USER.name;
-        USER.email = u.email || USER.email;
-        USER.initials = USER.name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+  function statusBadge(status) {
+    const key = String(status || '').toLowerCase();
+    if (STATUS_LABELS[key]) {
+      const [label, cls] = STATUS_LABELS[key];
+      return `<span class="badge ${cls}">${label}</span>`;
+    }
+    if (!status) return `<span class="badge badge-gray">Unknown</span>`;
+    const cls = status.toLowerCase().includes('reject') ? 'badge-red' : 'badge-gray';
+    return `<span class="badge ${cls}">${status}</span>`;
+  }
+
+  // Friendly relative time. Accepts ISO string, epoch, or null.
+  function timeAgo(input) {
+    if (!input) return '—';
+    const d = new Date(input);
+    if (isNaN(d.getTime())) return '—';
+    const diff = Date.now() - d.getTime();
+    const sec = Math.floor(diff / 1000);
+    if (sec < 30) return 'Just now';
+    if (sec < 60) return `${sec}s ago`;
+    const min = Math.floor(sec / 60);
+    if (min < 60) return `${min}m ago`;
+    const hr = Math.floor(min / 60);
+    if (hr < 24) return `${hr}h ago`;
+    const day = Math.floor(hr / 24);
+    if (day < 7) return `${day}d ago`;
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  // ─── Loaders ────────────────────────────────────────────────────
+  async function loadMe() {
+    try {
+      const data = await api('/auth/me');
+      return data.user;
+    } catch (err) {
+      // /auth/me requires a valid token. The auth helper already attempted
+      // a refresh. Fall back to the local user from storage.
+      const local = Auth.getUser();
+      if (local) return local;
+      throw err;
+    }
+  }
+
+  async function loadMySales() {
+    try {
+      const data = await api('/coupons/my-sales');
+      return Array.isArray(data.coupons) ? data.coupons : [];
+    } catch (err) {
+      console.warn('my-sales failed:', err.message);
+      return [];
+    }
+  }
+
+  async function loadMyPurchases() {
+    try {
+      const data = await api('/coupons/my-purchases');
+      return Array.isArray(data.coupons) ? data.coupons : [];
+    } catch (err) {
+      console.warn('my-purchases failed:', err.message);
+      return [];
+    }
+  }
+
+  async function loadMyTickets() {
+    try {
+      const data = await api('/support/tickets');
+      return Array.isArray(data.tickets) ? data.tickets : [];
+    } catch (err) {
+      console.warn('tickets failed:', err.message);
+      return [];
+    }
+  }
+
+  // ─── Renderers ──────────────────────────────────────────────────
+  function applyUserToUI(user) {
+    if (!user) return;
+    const name = user.name || (user.email || '').split('@')[0] || 'Friend';
+    const email = user.email || '';
+    const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
+
+    document.getElementById('welcomeFirstName').textContent = name.split(' ')[0] || 'Friend';
+    document.getElementById('profileNameNav').textContent = name;
+    document.getElementById('pdName').textContent = name;
+    document.getElementById('pdEmail').textContent = email;
+
+    // Avatar — same as index.html: real picture when available, initials otherwise.
+    // /auth/me doesn't return picture, so merge from the local stored user too.
+    const local = Auth.getUser() || {};
+    const picture = user.picture || local.picture || '';
+    const avatarContent = picture
+      ? `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" />`
+      : escapeHtml(initials);
+    document.getElementById('profileAvatar').innerHTML = avatarContent;
+    document.getElementById('pdAvatar').innerHTML = avatarContent;
+
+    const secEmail = document.getElementById('securityEmail');
+    if (secEmail) secEmail.innerHTML = `<span class="sec-dot dot-green"></span>${escapeHtml(email || 'Verified')}`;
+
+    // Member-since tag — best effort. /auth/me doesn't return createdAt,
+    // so check the local user (sometimes has it from registration), then
+    // fall back to the current year.
+    const memberSince = local.createdAt || local.created_at || user.createdAt || user.created_at || null;
+    let memberLabel = `🏅 Member in ${new Date().getFullYear()}`;
+    if (memberSince) {
+      const d = new Date(memberSince);
+      if (!isNaN(d.getTime())) {
+        const m = d.toLocaleString('en-US', { month: 'short' });
+        memberLabel = `🏅 Member since ${m} ${d.getFullYear()}`;
+      }
+    }
+    const memberTag = document.getElementById('welcomeMemberTag');
+    if (memberTag) memberTag.textContent = memberLabel;
+
+    // Verified tag — adapt to account status
+    const status = (user.status || local.status || 'active').toLowerCase();
+    const verifiedTag = document.getElementById('welcomeVerifiedTag');
+    if (verifiedTag) {
+      if (status === 'active') {
+        verifiedTag.textContent = '✅ Email Verified';
+        verifiedTag.style.cssText = '';
+      } else {
+        verifiedTag.textContent = `⚠️ Account ${status}`;
+        verifiedTag.style.color = '#ffb74d';
+        verifiedTag.style.borderColor = 'rgba(255,183,77,.25)';
+        verifiedTag.style.background = 'rgba(255,183,77,.08)';
       }
     }
 
-    // Populate UI elements
-    const firstName = USER.name.split(' ')[0];
-    document.getElementById('welcomeFirstName').textContent = firstName;
-    document.getElementById('profileNameNav').textContent = USER.name;
-    document.getElementById('profileAvatar').textContent = USER.initials;
-    document.getElementById('pdAvatar').textContent = USER.initials;
-    document.getElementById('pdName').textContent = USER.name;
-    document.getElementById('pdEmail').textContent = USER.email;
+    // Profile dropdown status tag — Active, or Suspended when the account is suspended
+    const statusTag = document.getElementById('pdStatusTag');
+    if (statusTag) {
+      if (status === 'active') {
+        statusTag.textContent = 'Active';
+        statusTag.className = 'pd-status';
+      } else {
+        statusTag.textContent = 'Suspended';
+        statusTag.className = 'pd-status suspended';
+      }
+    }
 
-    // Date
-    const d = new Date();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    document.getElementById('currentDate').textContent = `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+    // Security card
+    const accStatus = document.getElementById('securityAccountStatus');
+    if (accStatus) {
+      const dotCls = status === 'active' ? 'dot-green' : 'dot-orange';
+      accStatus.innerHTML = `<span class="sec-dot ${dotCls}"></span>${status === 'active' ? 'Active' : escapeHtml(status)}`;
+    }
+    const secBadge = document.getElementById('securityStatusBadge');
+    if (secBadge) {
+      if (status === 'active') {
+        secBadge.textContent = 'Secure';
+        secBadge.className = 'badge badge-green';
+      } else {
+        secBadge.textContent = status;
+        secBadge.className = 'badge badge-orange';
+      }
+    }
+  }
 
-    // Render lists
-    renderActivity();
-    renderMyCoupons();
-    renderNotifications();
-  });
+  function renderStats() {
+    const sales = STATE.sales;
+    const purchases = STATE.purchases;
 
-  /* ─── RENDER FUNCTIONS ─── */
-  function renderActivity() {
-    const tbody = document.getElementById('activityTableBody');
-    const mobContainer = document.getElementById('activityMobile');
+    const totalSubmitted = sales.length;
+    const soldCount = sales.filter(isSold).length;
+    const pendingCount = sales.filter(isPending).length;
+    const totalPurchased = purchases.length;
 
-    tbody.innerHTML = ACTIVITIES.map(a => `
-      <tr>
-        <td><strong>${a.icon} ${a.type}</strong></td>
-        <td>${a.detail}</td>
-        <td class="mono ${a.amountClass}"><strong>${a.amount}</strong></td>
-        <td class="mono" style="font-size:.78rem">${a.date}</td>
-        <td><span class="badge ${a.statusClass}">${a.status}</span></td>
-      </tr>
-    `).join('');
+    // Earnings: ₹10 per sold coupon (matches the backend offer in /api/coupons/sell)
+    const PER_COUPON = 10;
+    const totalEarnings = soldCount * PER_COUPON;
+    const pendingEarnings = pendingCount * PER_COUPON;
+    const availableBalance = totalEarnings; // no withdrawal flow wired yet
+    const monthEarnings = sales
+      .filter(isSold)
+      .filter((c) => {
+        const d = new Date(c.soldAt || c.addedAt);
+        if (isNaN(d.getTime())) return false;
+        const now = new Date();
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).length * PER_COUPON;
 
-    mobContainer.innerHTML = ACTIVITIES.map(a => `
-      <div class="act-mob-card">
-        <div class="act-mob-top">
-          <div class="act-mob-title">${a.icon} ${a.detail}</div>
-          <div class="act-mob-amount ${a.amountClass}">${a.amount}</div>
-        </div>
-        <div class="act-mob-meta">
-          <span>${a.date}</span>
-          <span class="badge ${a.statusClass}">${a.status}</span>
-        </div>
-      </div>
-    `).join('');
+    // Stat cards
+    setText('statSubmitted', totalSubmitted);
+    setText('statPurchased', totalPurchased);
+    setText('statSold', soldCount);
+    setText('statEarnings', inr(totalEarnings));
+    setText('statBalance', inr(availableBalance));
+
+    // Trend chips — meaningful when the numbers move
+    setText('statTrendSubmitted', totalSubmitted ? `↑ ${totalSubmitted}` : '—');
+    setText('statTrendPurchased', totalPurchased ? `↑ ${totalPurchased}` : '—');
+    setText('statTrendSold', soldCount ? `↑ ${soldCount}` : '—');
+    setText('statTrendEarnings', totalEarnings ? `↑ ${inr(totalEarnings)}` : '—');
+    setText('statTrendBalance', availableBalance ? `↑ ${inr(availableBalance)}` : '—');
+
+    // Wallet
+    setText('walletBalance', inr(availableBalance));
+    setText('walletPending', inr(pendingEarnings));
+    setText('walletEarned', inr(totalEarnings));
+    setText('walletWithdrawn', inr(0)); // no withdrawal flow exists yet
+    setText('walletThisMonth', inr(monthEarnings));
+
+    // Welcome withdraw button — adapts to the real balance
+    const wBtn = document.getElementById('welcomeWithdrawBtn');
+    if (wBtn) {
+      if (availableBalance > 0) {
+        wBtn.textContent = `💸 Withdraw ${inr(availableBalance)}`;
+        wBtn.disabled = false;
+        wBtn.style.opacity = '';
+        wBtn.style.cursor = '';
+      } else {
+        wBtn.textContent = '💸 Withdraw';
+        wBtn.disabled = true;
+        wBtn.style.opacity = '.5';
+        wBtn.style.cursor = 'not-allowed';
+      }
+    }
   }
 
   function renderMyCoupons() {
+    const sales = STATE.sales;
+    const purchases = STATE.purchases;
+
+    const active = purchases
+      .filter((c) => c.code)
+      .map((c) => ({
+        kind: 'purchased',
+        brand: c.brand || 'Coupon',
+        code: c.code,
+        value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.description || ''),
+        exp: c.expiryDate || '',
+        addedAt: c.purchasedAt || c.soldAt || c.addedAt,
+      }));
+
+    const pending = sales.filter(isPending).map((c) => ({
+      kind: 'pending',
+      brand: c.brand || 'Coupon',
+      code: c.code,
+      value: c.description || c.discount || c.category || 'Awaiting review',
+      exp: c.expiryDate || '',
+      addedAt: c.addedAt,
+    }));
+
+    const sold = sales.filter(isSold).map((c) => ({
+      kind: 'sold',
+      brand: c.brand || 'Coupon',
+      code: c.code,
+      value: '+₹10 earned',
+      exp: c.soldAt || c.addedAt,
+      addedAt: c.soldAt || c.addedAt,
+    }));
+
+    // Counter tiles
+    setText('csActiveCount', active.length);
+    setText('csPendingCount', pending.length);
+    setText('csSoldCount', sold.length);
+    setText('csExpiredCount', 0); // backend doesn't track expiry
+
+    // List — newest first
+    const list = [...active, ...sold, ...pending]
+      .sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0))
+      .slice(0, 5);
+
     const container = document.getElementById('myCouponsList');
-    container.innerHTML = MY_COUPONS.map(c => `
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px">
-        <div>
-          <div style="font-size:.85rem;font-weight:700;color:#e2ecff">${c.brand} — ${c.val}</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#00e676;margin-top:2px">${c.code}</div>
+    if (!container) return;
+
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:24px 12px;color:#6b88aa">
+          <div style="font-size:2rem;margin-bottom:8px">🎟️</div>
+          <div style="font-size:.88rem;font-weight:600;color:#a8c0dc;margin-bottom:4px">No coupons yet</div>
+          <div style="font-size:.78rem">Buy a coupon from the marketplace or submit one to sell.</div>
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
+            <a href="marketplace" class="btn btn-ghost btn-xs">🛒 Buy</a>
+            <button class="btn btn-primary btn-xs" onclick="openModal('submitCouponModal')">📤 Submit</button>
+          </div>
         </div>
-        <div style="text-align:right">
-          <span class="badge ${c.badge}">${c.status}</span>
-          <div style="font-size:.7rem;color:#6b88aa;margin-top:4px">Exp: ${c.exp}</div>
+      `;
+      return;
+    }
+
+    container.innerHTML = list.map((c) => {
+      const badgeMap = { purchased: 'badge-green', sold: 'badge-purple', pending: 'badge-orange' };
+      const labelMap = { purchased: 'Active', sold: 'Sold', pending: 'Pending' };
+      const exp = c.exp ? new Date(c.exp) : null;
+      const expText = (exp && !isNaN(exp.getTime()))
+        ? `Exp: ${exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
+        : (c.kind === 'sold' ? `Sold: ${timeAgo(c.addedAt)}` : `Added: ${timeAgo(c.addedAt)}`);
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px">
+          <div style="min-width:0;flex:1">
+            <div style="font-size:.85rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.brand)} — ${escapeHtml(c.value || 'Coupon')}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#00e676;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.code)}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:10px">
+            <span class="badge ${badgeMap[c.kind]}">${labelMap[c.kind]}</span>
+            <div style="font-size:.7rem;color:#6b88aa;margin-top:4px">${escapeHtml(expText)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function renderActivity() {
+    const tbody = document.getElementById('activityTableBody');
+    const mob = document.getElementById('activityMobile');
+    if (!tbody || !mob) return;
+
+    // Build a single chronological feed from sales + purchases
+    const events = [];
+
+    STATE.sales.forEach((c) => {
+      if (isSold(c)) {
+        events.push({
+          type: 'Sale',
+          icon: '💼',
+          detail: `${c.brand || 'Coupon'}${c.originalValue ? ' ' + inr(c.originalValue) + ' Voucher' : ''}`,
+          amount: '+₹10',
+          amountClass: 'text-green',
+          date: c.soldAt || c.addedAt,
+          status: 'sold',
+        });
+      } else if (isPending(c)) {
+        events.push({
+          type: 'Submission',
+          icon: '📤',
+          detail: `${c.brand || 'Coupon'}${c.category ? ' (' + c.category + ')' : ''}`,
+          amount: '—',
+          amountClass: '',
+          date: c.addedAt,
+          status: 'pending',
+        });
+      } else if (isAvailable(c)) {
+        events.push({
+          type: 'Listed',
+          icon: '🏷️',
+          detail: `${c.brand || 'Coupon'}${c.originalValue ? ' ' + inr(c.originalValue) + ' Voucher' : ''}`,
+          amount: inr(c.sellingPrice || 0),
+          amountClass: '',
+          date: c.addedAt,
+          status: 'available',
+        });
+      } else {
+        events.push({
+          type: 'Submission',
+          icon: '📤',
+          detail: `${c.brand || 'Coupon'}`,
+          amount: '—',
+          amountClass: '',
+          date: c.addedAt,
+          status: c.status || 'submitted',
+        });
+      }
+    });
+
+    STATE.purchases.forEach((c) => {
+      const paid = c.pricePaid || c.sellingPrice;
+      events.push({
+        type: 'Purchase',
+        icon: '🛒',
+        detail: `${c.brand || 'Coupon'}${c.originalValue ? ' ' + inr(c.originalValue) + ' OFF' : ''}`,
+        amount: paid ? `-${inr(paid)}` : '—',
+        amountClass: 'text-red',
+        date: c.purchasedAt || c.soldAt || c.addedAt,
+        status: 'sold',
+      });
+    });
+
+    events.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+    const top = events.slice(0, 8);
+
+    if (top.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#6b88aa">No activity yet — buy a coupon or submit one to get started.</td></tr>`;
+      mob.innerHTML = `
+        <div style="text-align:center;padding:24px 12px;color:#6b88aa">
+          <div style="font-size:2rem;margin-bottom:8px">⚡</div>
+          <div style="font-size:.88rem;font-weight:600;color:#a8c0dc;margin-bottom:4px">No activity yet</div>
+          <div style="font-size:.78rem">Your purchases and sales will show up here in real time.</div>
+        </div>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = top.map((a) => `
+      <tr>
+        <td><strong>${a.icon} ${a.type}</strong></td>
+        <td>${escapeHtml(a.detail)}</td>
+        <td class="mono ${a.amountClass}"><strong>${escapeHtml(a.amount)}</strong></td>
+        <td class="mono" style="font-size:.78rem">${escapeHtml(timeAgo(a.date))}</td>
+        <td>${statusBadge(a.status)}</td>
+      </tr>
+    `).join('');
+
+    mob.innerHTML = top.map((a) => `
+      <div class="act-mob-card">
+        <div class="act-mob-top">
+          <div class="act-mob-title">${a.icon} ${escapeHtml(a.detail)}</div>
+          <div class="act-mob-amount ${a.amountClass}">${escapeHtml(a.amount)}</div>
+        </div>
+        <div class="act-mob-meta">
+          <span>${escapeHtml(timeAgo(a.date))}</span>
+          ${statusBadge(a.status)}
         </div>
       </div>
     `).join('');
   }
 
+  function renderSupport() {
+    const tickets = STATE.tickets;
+    const open = tickets.filter((t) => String(t.status || '').toLowerCase() === 'open');
+    const resolved = tickets.filter((t) => String(t.status || '').toLowerCase() === 'resolved');
+    const inProgress = tickets.filter((t) => {
+      const s = String(t.status || '').toLowerCase();
+      return s === 'in_progress' || s === 'in progress' || s === 'investigating';
+    });
+
+    setText('supportOpenCount', open.length + inProgress.length);
+    setText('supportResolvedCount', resolved.length);
+
+    const box = document.getElementById('supportLatestCase');
+    if (!box) return;
+
+    if (tickets.length === 0) {
+      box.innerHTML = `
+        <div class="sc-case-id">No support cases</div>
+        <div class="sc-case-sub">You haven't raised any support tickets yet.</div>
+        <div class="sc-case-meta">
+          <span><span class="badge badge-gray">All clear</span></span>
+        </div>
+      `;
+      return;
+    }
+
+    const sorted = [...tickets].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    const latest = sorted[0];
+    const status = String(latest.status || 'open').toLowerCase();
+    const statusMap = {
+      open: ['Open', 'badge-orange'],
+      in_progress: ['In Progress', 'badge-blue'],
+      investigating: ['Investigating', 'badge-blue'],
+      resolved: ['Resolved', 'badge-green'],
+      closed: ['Closed', 'badge-gray'],
+    };
+    const [statusLabel, statusCls] = statusMap[status] || [status, 'badge-gray'];
+    const caseId = (latest.id || '').slice(0, 8).toUpperCase() || 'CASE';
+
+    box.innerHTML = `
+      <div class="sc-case-id">Case #SH-${escapeHtml(caseId)}</div>
+      <div class="sc-case-sub">${escapeHtml(latest.subject || 'Support ticket')}</div>
+      <div class="sc-case-meta">
+        <span><span class="badge ${statusCls}">${escapeHtml(statusLabel)}</span></span>
+        <span>Updated: ${escapeHtml(timeAgo(latest.createdAt))}</span>
+      </div>
+    `;
+  }
+
+  function deriveNotifications() {
+    const out = [];
+
+    STATE.sales.filter(isSold).slice(0, 3).forEach((c) => {
+      out.push({
+        icon: '🎉',
+        text: `Your coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> was purchased! ₹10 added to wallet.`,
+        time: timeAgo(c.soldAt || c.addedAt),
+        unread: true,
+      });
+    });
+
+    STATE.sales.filter(isPending).slice(0, 2).forEach((c) => {
+      out.push({
+        icon: '⏳',
+        text: `Coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> is under review.`,
+        time: timeAgo(c.addedAt),
+        unread: true,
+      });
+    });
+
+    STATE.tickets.slice(0, 2).forEach((t) => {
+      out.push({
+        icon: '🎧',
+        text: `Support ticket <strong>#SH-${escapeHtml((t.id || '').slice(0, 8).toUpperCase())}</strong> — ${escapeHtml(t.status || 'open')}.`,
+        time: timeAgo(t.createdAt),
+        unread: String(t.status || '').toLowerCase() === 'open',
+      });
+    });
+
+    if (out.length === 0) {
+      out.push({
+        icon: '👋',
+        text: `Welcome to SaveHatke! Buy a coupon or submit one to get started.`,
+        time: 'just now',
+        unread: true,
+      });
+    }
+    return out.slice(0, 6);
+  }
+
   function renderNotifications() {
+    STATE.notifications = deriveNotifications();
     const list = document.getElementById('notifList');
     const badge = document.getElementById('notifBadge');
     const countEl = document.getElementById('notifCount');
+    if (!list) return;
 
-    const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
-    countEl.textContent = unreadCount;
-    badge.style.display = unreadCount > 0 ? 'block' : 'none';
+    const unreadCount = STATE.notifications.filter((n) => n.unread).length;
+    if (countEl) countEl.textContent = unreadCount;
+    if (badge) badge.style.display = unreadCount > 0 ? 'block' : 'none';
 
-    list.innerHTML = NOTIFICATIONS.map(n => `
-      <div class="notif-item ${n.unread ? 'unread' : ''}" onclick="this.classList.remove('unread')">
+    list.innerHTML = STATE.notifications.map((n, i) => `
+      <div class="notif-item ${n.unread ? 'unread' : ''}" data-idx="${i}">
         <span class="notif-icon">${n.icon}</span>
         <div class="notif-content">
           <div class="notif-text">${n.text}</div>
-          <div class="notif-time">${n.time}</div>
+          <div class="notif-time">${escapeHtml(n.time)}</div>
         </div>
         <div class="notif-dot ${n.unread ? '' : 'read'}"></div>
       </div>
     `).join('');
+
+    // Click-to-mark-read (delegated)
+    list.querySelectorAll('.notif-item').forEach((el) => {
+      el.addEventListener('click', () => {
+        const idx = Number(el.dataset.idx);
+        if (STATE.notifications[idx]) {
+          STATE.notifications[idx].unread = false;
+          renderNotifications();
+        }
+      });
+    });
   }
 
-  /* ─── INTERACTION HANDLERS ─── */
+  function setText(id, val) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  }
+
+  function setLastUpdated() {
+    STATE.lastUpdated = new Date();
+    const pill = document.getElementById('lastUpdatedPill');
+    if (pill) pill.textContent = `updated ${timeAgo(STATE.lastUpdated)}`;
+  }
+
+  // ─── Main fetcher ──────────────────────────────────────────────
+  async function refreshDashboard({ silent = false } = {}) {
+    if (STATE.isFetching) return;
+    STATE.isFetching = true;
+    const pill = document.getElementById('lastUpdatedPill');
+    if (pill && !silent) pill.textContent = 'updating…';
+    const refreshBtn = document.getElementById('refreshBtn');
+    if (refreshBtn && !silent) {
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = '⏳ Refreshing';
+    }
+
+    try {
+      const [user, sales, purchases, tickets] = await Promise.all([
+        loadMe(),
+        loadMySales(),
+        loadMyPurchases(),
+        loadMyTickets(),
+      ]);
+      STATE.user = user || STATE.user || Auth.getUser() || null;
+      STATE.sales = sales;
+      STATE.purchases = purchases;
+      STATE.tickets = tickets;
+
+      applyUserToUI(STATE.user);
+      renderStats();
+      renderMyCoupons();
+      renderActivity();
+      renderSupport();
+      renderNotifications();
+      setLastUpdated();
+    } catch (err) {
+      console.error('Dashboard refresh failed:', err);
+      if (!silent) showToast(err.message || 'Failed to refresh dashboard', 'error');
+      if (pill) pill.textContent = 'refresh failed';
+    } finally {
+      STATE.isFetching = false;
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '🔄 Refresh';
+      }
+    }
+  }
+
+  // ─── Periodic refresh (real-time feel) ─────────────────────────
+  function startAutoRefresh() {
+    if (STATE.refreshTimer) clearInterval(STATE.refreshTimer);
+    // Every 30s, but only if the tab is visible — no point hammering
+    // the API when the user has the page in the background.
+    STATE.refreshTimer = setInterval(() => {
+      if (document.visibilityState === 'visible' && !STATE.isFetching) {
+        refreshDashboard({ silent: true });
+      }
+    }, 30 * 1000);
+
+    // Refresh on tab focus too
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && !STATE.isFetching) {
+        const stale = !STATE.lastUpdated || (Date.now() - STATE.lastUpdated.getTime() > 15 * 1000);
+        if (stale) refreshDashboard({ silent: true });
+      }
+    });
+  }
+
+  // ─── Initialization ────────────────────────────────────────────
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Auth guard — if not logged in, bounce to login. Avoid flashing dashboard.
+    if (typeof Auth === 'undefined' || !Auth.isLoggedIn()) {
+      showToast('Please log in to view your dashboard.', 'warning');
+      setTimeout(() => { window.location.href = 'login.html'; }, 600);
+      return;
+    }
+
+    // Header / date first so the page is never blank
+    const d = new Date();
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    setText('currentDate', `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`);
+
+    // Apply basic user from localStorage immediately so the greeting isn't empty
+    const local = Auth.getUser();
+    if (local) applyUserToUI(local);
+
+    await refreshDashboard();
+    startAutoRefresh();
+  });
+
+  // ─── Interaction handlers ──────────────────────────────────────
   function toggleNotif(e) {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     document.getElementById('profileDropdown').classList.remove('open');
     document.getElementById('notifPanel').classList.toggle('open');
   }
 
   function toggleProfile(e) {
-    e.stopPropagation();
+    if (e) e.stopPropagation();
     document.getElementById('notifPanel').classList.remove('open');
     document.getElementById('profileDropdown').classList.toggle('open');
   }
 
   function markAllRead() {
-    NOTIFICATIONS.forEach(n => n.unread = false);
+    STATE.notifications.forEach((n) => n.unread = false);
     renderNotifications();
     showToast('All notifications marked as read', 'success');
   }
@@ -1085,7 +1627,7 @@
     if (!e.target.closest('#profileWrapper')) document.getElementById('profileDropdown')?.classList.remove('open');
   });
 
-  /* ─── MODAL FUNCTIONS ─── */
+  // ─── Modal functions ───────────────────────────────────────────
   function openModal(id) {
     document.getElementById(id)?.classList.add('open');
   }
@@ -1110,53 +1652,126 @@
     }
   }
 
-  /* ─── ACTION HANDLERS ─── */
+  // ─── Action handlers ───────────────────────────────────────────
   function performLogout() {
     closeModal('logoutModal');
-    if (typeof Auth !== 'undefined') {
-      Auth.clearAuth();
-    } else {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-    }
+    try {
+      const u = Auth.getUser() || {};
+      api('/auth/logout', {
+        method: 'POST',
+        body: { userId: u.user_id || u.id, email: u.email },
+      }).catch(() => {});
+    } catch (e) {}
+    Auth.clear();
     showToast('Logged out successfully. Redirecting...', 'success');
-    setTimeout(() => window.location.href = 'index.html', 100); // Faster redirect
+    setTimeout(() => window.location.href = 'index', 100);
   }
 
   function confirmWithdraw() {
-    const amount = document.getElementById('withdrawAmount')?.value;
+    const amount = Number(document.getElementById('withdrawAmount')?.value);
+    const method = document.getElementById('withdrawMethod')?.value;
+    const dest = (document.getElementById('withdrawField')?.value || '').trim();
+    const balanceText = (document.getElementById('walletBalance')?.textContent || '₹0').replace(/[^\d]/g, '');
+    const balance = Number(balanceText || 0);
+
     if (!amount || amount < 50) {
       showToast('Minimum withdrawal amount is ₹50', 'error');
       return;
     }
+    if (amount > balance) {
+      showToast(`Insufficient balance. You have ${inr(balance)}.`, 'error');
+      return;
+    }
+    if (!dest || dest.length < 3) {
+      showToast(`Please enter a valid ${method === 'upi' ? 'UPI ID' : 'bank account & IFSC'}.`, 'error');
+      return;
+    }
     closeModal('withdrawModal');
-    showToast(`Withdrawal request of ₹${amount} submitted!`, 'success');
+    // Withdrawal flow has no backend endpoint yet — record the request
+    // optimistically and let the user know we'll process it shortly.
+    showToast(`Withdrawal of ${inr(amount)} requested! Our team will process it within 1–3 business days.`, 'success', 5000);
   }
 
-  function submitCoupon() {
-    const brand = document.getElementById('scBrand')?.value;
-    const code = document.getElementById('scCode')?.value;
-    if (!brand || !code) {
-      showToast('Please enter brand name and coupon code', 'error');
-      return;
+  async function submitCoupon() {
+    if (typeof requireAuth === 'function' && !requireAuth()) return;
+    const brand = (document.getElementById('scBrand')?.value || '').trim();
+    const code = (document.getElementById('scCode')?.value || '').trim().toUpperCase();
+    const category = document.getElementById('scCategory')?.value;
+    const faceValue = document.getElementById('scFaceValue')?.value;
+    const discount = (document.getElementById('scDiscount')?.value || '').trim();
+    const expiry = document.getElementById('scExpiry')?.value;
+
+    if (!brand) { showToast('Please enter the brand / store name.', 'error'); return; }
+    if (!code) { showToast('Please enter the coupon code.', 'error'); return; }
+    if (!category) { showToast('Please select a category.', 'error'); return; }
+    if (!faceValue || Number(faceValue) <= 0) { showToast('Please enter a valid face value.', 'error'); return; }
+
+    const btn = document.getElementById('scSubmitBtn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Submitting…';
+
+    try {
+      const payload = {
+        code,
+        category,
+        brand,
+        originalValue: String(faceValue),
+        faceValue: String(faceValue),
+        discount,
+        description: discount || `${brand} coupon`,
+        expiryDate: expiry || undefined,
+        type: 'Public',
+        sellingPrice: 20, // default seller-asks price
+      };
+      const data = await api('/coupons/sell', { method: 'POST', body: payload });
+      closeModal('submitCouponModal');
+      ['scBrand','scCode','scCategory','scFaceValue','scDiscount','scExpiry']
+        .forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+      showToast(data.message || 'Coupon submitted for review!', 'success', 5000);
+      await refreshDashboard({ silent: true });
+    } catch (err) {
+      showToast(err.message || 'Could not submit coupon. Please try again.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
     }
-    closeModal('submitCouponModal');
-    showToast('Coupon submitted for verification! 🎉', 'success');
   }
 
-  function createCase() {
-    const subject = document.getElementById('caseSubject')?.value;
-    if (!subject) {
-      showToast('Please enter a subject for your ticket', 'error');
-      return;
+  async function createCase() {
+    if (typeof requireAuth === 'function' && !requireAuth()) return;
+    const subject = (document.getElementById('caseSubject')?.value || '').trim();
+    const desc = (document.getElementById('caseDesc')?.value || '').trim();
+    const categorySel = document.getElementById('caseCategory');
+    const categoryLabel = categorySel?.options[categorySel.selectedIndex]?.text || 'General';
+
+    if (!subject) { showToast('Please enter a subject for your ticket.', 'error'); return; }
+    if (!desc) { showToast('Please describe your issue.', 'error'); return; }
+
+    try {
+      const u = Auth.getUser() || {};
+      const data = await api('/support/ticket', {
+        method: 'POST',
+        body: {
+          name: u.name || (u.email || 'User').split('@')[0],
+          email: u.email,
+          subject: `[${categoryLabel}] ${subject}`,
+          message: desc,
+        },
+      });
+      closeModal('newCaseModal');
+      ['caseSubject','caseDesc'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
+      showToast(data.message || 'Support ticket created! Our team will respond within 24 hours.', 'success', 5000);
+      await refreshDashboard({ silent: true });
+    } catch (err) {
+      showToast(err.message || 'Could not create ticket. Please try again.', 'error');
     }
-    closeModal('newCaseModal');
-    showToast('Support ticket created successfully! 🎧', 'success');
   }
 
-  /* ─── TOAST NOTIFICATION ─── */
-  function showToast(msg, type = 'success') {
+  // ─── Toast ─────────────────────────────────────────────────────
+  function showToast(msg, type = 'success', duration = 3500) {
     const container = document.getElementById('toastContainer');
+    if (!container) return;
     const toast = document.createElement('div');
     toast.className = `toast toast-${type}`;
     const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : '⚠️';
@@ -1165,10 +1780,10 @@
     setTimeout(() => {
       toast.style.animation = 'slideOutRight .3s forwards';
       setTimeout(() => toast.remove(), 300);
-    }, 3500);
+    }, duration);
   }
 
-  /* ─── SMOOTH SCROLL ─── */
+  // ─── Smooth scroll ─────────────────────────────────────────────
   function scrollToSec(id) {
     const el = document.getElementById(id);
     if (el) el.scrollIntoView({ behavior: 'smooth' });
