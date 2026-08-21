@@ -8,6 +8,7 @@ const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
+const mongoose = require('mongoose');
 
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const GmailConnection = require('../models/GmailConnection');
@@ -109,20 +110,39 @@ async function requireGmail(req, res) {
 router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
   try {
     if (!gmailService.isOAuthConfigured()) {
-      return res.json({ configured: false, connected: false });
+      return res.json({
+        configured: false,
+        connected: false,
+        reason: 'oauth-not-configured',
+        message: 'Gmail OAuth is not configured on the server. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET and GMAIL_TOKEN_ENCRYPTION_KEY in the server environment.',
+      });
     }
+
+    // The GmailConnection model lives in MongoDB Atlas — surface a clear
+    // "database not connected" reason instead of a generic 500 when the DB
+    // is down, so the admin UI can show the right setup checklist.
+    if (mongoose.connection.readyState !== 1) {
+      return res.json({
+        configured: true,
+        connected: false,
+        reason: 'database-not-connected',
+        message: 'MongoDB is not connected. The Gmail connection store cannot be read until MONGODB_URI is reachable.',
+      });
+    }
+
     const conn = await GmailConnection.findOne({ admin_user_id: String(req.user.id) });
-    if (!conn) return res.json({ configured: true, connected: false });
+    if (!conn) return res.json({ configured: true, connected: false, reason: 'not-connected' });
 
     let unreadCounts = null;
     try {
       const auth = await gmailService.getAuthorizedClient(req.user.id);
       if (auth) unreadCounts = await gmailService.getUnreadCounts(auth.gmail);
-    } catch (e) { /* non-fatal */ }
+    } catch (e) { /* non-fatal — Gmail may be unreachable; connection still valid */ }
 
     res.json({
       configured: true,
       connected: true,
+      reason: 'connected',
       gmailEmail: conn.gmail_email,
       unreadCounts,
       watchExpiration: conn.watch_expiration,
@@ -130,7 +150,7 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error('Gmail status error:', err.message);
-    res.status(500).json({ error: 'Failed to load Gmail status.' });
+    res.status(500).json({ error: 'Failed to load Gmail status.', detail: err.message });
   }
 });
 

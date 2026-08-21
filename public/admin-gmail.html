@@ -118,11 +118,18 @@ input,textarea,select{font-family:inherit}
 /* ── Connect screen ── */
 .gm-connect{display:none;min-height:100vh;align-items:center;justify-content:center;padding:20px}
 .gm-connect.on{display:flex}
-.gm-connect-card{max-width:460px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:44px 36px;text-align:center}
+.gm-connect-card{max-width:560px;width:100%;background:var(--panel);border:1px solid var(--border);border-radius:20px;padding:44px 36px;text-align:center}
 .gm-connect-card .ci{font-size:3rem;margin-bottom:14px}
 .gm-connect-card h1{font-size:1.35rem;margin-bottom:10px}
 .gm-connect-card p{font-size:.85rem;color:var(--muted);line-height:1.6;margin-bottom:24px}
 .gm-note{font-size:.72rem;color:var(--muted);margin-top:18px;line-height:1.5}
+.gm-setup{text-align:left;background:rgba(255,183,77,.06);border:1px solid rgba(255,183,77,.25);border-radius:12px;padding:16px 20px;margin:18px 0 0;font-size:.78rem;color:#e2ecff;line-height:1.6}
+.gm-setup h3{font-size:.92rem;margin-bottom:10px;color:var(--orange)}
+.gm-setup p{margin:8px 0;text-align:left}
+.gm-setup ul{margin:6px 0 10px 20px;text-align:left}
+.gm-setup li{margin:4px 0}
+.gm-setup code,.gm-setup pre{background:rgba(6,13,31,.6);border:1px solid rgba(79,195,247,.15);border-radius:6px;padding:2px 6px;font-size:.74rem;color:#4fc3f7;font-family:'JetBrains Mono',monospace;word-break:break-all}
+.gm-setup pre{padding:8px 12px;white-space:pre-wrap;display:block;margin:8px 0}
 
 /* Confirm dialog */
 .gm-confirm{position:fixed;inset:0;background:rgba(4,8,18,.75);display:none;align-items:center;justify-content:center;z-index:90;padding:16px}
@@ -152,6 +159,8 @@ input,textarea,select{font-family:inherit}
     <h1>Connect your <span style="color:var(--green)">Gmail</span> mailbox</h1>
     <p>Manage your support mailbox directly from the SaveHatke Admin Panel — read, reply, forward, compose and organize emails without leaving this page.</p>
     <button class="btn btn-primary" id="gmConnectBtn" onclick="GmailApp.connect()">🔗 Connect Gmail</button>
+    <!-- Setup checklist rendered here when the server reports the mailbox is unavailable -->
+    <div id="gmSetupHelp"></div>
     <div class="gm-note">
       Uses official Google OAuth 2.0. We only request the <strong>gmail.modify</strong> scope (mailbox management) — your Gmail password is never asked for or stored.
       <br><br><a href="vault.html" style="color:var(--blue);text-decoration:none">← Back to Admin Panel</a>

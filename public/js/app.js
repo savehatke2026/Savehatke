@@ -420,7 +420,7 @@ function updateNavAuth() {
           <button class="npd-item npd-item-logout" id="npdLogoutBtn">
             <span>🚪</span> Log Out
           </button>
-          <div class="npd-footer">🔒 Secured by SaveHatke</div>
+          <div class="npd-footer">Secured by Savehatke</div>
         </div>
       </div>
     `;

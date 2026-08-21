@@ -63,13 +63,20 @@ const GmailApp = (() => {
   async function loadStatus() {
     try {
       const data = await api('/status');
-      if (!data.configured) {
-        showConnectScreen();
+      // The server returns a `reason` field that explains *why* the mailbox
+      // isn't ready, so the connect screen can show the right setup steps.
+      if (!data.configured || data.reason === 'oauth-not-configured') {
+        showConnectScreen('oauth-not-configured', data.message);
         toast('Gmail OAuth is not configured on the server yet.', 'warning');
         return;
       }
+      if (data.reason === 'database-not-connected') {
+        showConnectScreen('database-not-connected', data.message);
+        toast('Gmail storage is unavailable: MongoDB is not connected.', 'error');
+        return;
+      }
       if (!data.connected) {
-        showConnectScreen();
+        showConnectScreen('not-connected');
         return;
       }
       showApp(data.gmailEmail);
@@ -77,14 +84,53 @@ const GmailApp = (() => {
       await Promise.all([loadLabels(), loadMessages()]);
       startChangePolling();
     } catch (err) {
-      toast('Failed to load Gmail status: ' + err.message, 'error');
-      showConnectScreen();
+      toast('Failed to load Gmail status: ' + (err.detail || err.message), 'error');
+      showConnectScreen('server-error', err.message);
     }
   }
 
-  function showConnectScreen() {
+  // Build the per-reason "what to do" checklist shown on the connect screen.
+  function buildSetupHelp(reason, serverMessage) {
+    if (reason === 'oauth-not-configured') {
+      return `
+        <div class="gm-setup">
+          <h3>🔧 Gmail OAuth is not configured on the server</h3>
+          <p>Set these environment variables on the server (Vercel → Project → Settings → Environment Variables):</p>
+          <ul>
+            <li><code>GMAIL_CLIENT_ID</code> — from Google Cloud Console → APIs & Services → Credentials</li>
+            <li><code>GMAIL_CLIENT_SECRET</code> — the matching client secret</li>
+            <li><code>GMAIL_TOKEN_ENCRYPTION_KEY</code> — a base64-encoded 32-byte key used to encrypt refresh tokens at rest</li>
+          </ul>
+          <p>Then in Google Cloud Console, add this exact redirect URI under the OAuth client:</p>
+          <pre>${esc(window.location.origin + '/api/admin/gmail/callback')}</pre>
+          <p style="opacity:.7">Server detail: <em>${esc(serverMessage || '')}</em></p>
+        </div>`;
+    }
+    if (reason === 'database-not-connected') {
+      return `
+        <div class="gm-setup">
+          <h3>⚠️ MongoDB is not connected</h3>
+          <p>The Gmail connection records are stored in MongoDB Atlas. Set <code>MONGODB_URI</code> on the server to the same Atlas connection string used elsewhere in this app.</p>
+          <p style="opacity:.7">Server detail: <em>${esc(serverMessage || '')}</em></p>
+        </div>`;
+    }
+    if (reason === 'server-error') {
+      return `
+        <div class="gm-setup">
+          <h3>⚠️ Gmail status check failed</h3>
+          <p>${esc(serverMessage || 'Unknown error.')}</p>
+        </div>`;
+    }
+    return '';
+  }
+
+  function showConnectScreen(reason, serverMessage) {
     $('gmConnect').classList.add('on');
     $('gmApp').classList.remove('on');
+    const helpEl = $('gmSetupHelp');
+    if (helpEl) {
+      helpEl.innerHTML = buildSetupHelp(reason, serverMessage);
+    }
   }
 
   function showApp(email) {
@@ -224,7 +270,7 @@ const GmailApp = (() => {
       renderPager();
     } catch (err) {
       if (err.status === 400 && err.message.includes('not connected')) {
-        showConnectScreen();
+        showConnectScreen('not-connected');
         return;
       }
       if (err.expired) {
