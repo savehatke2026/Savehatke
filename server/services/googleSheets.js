@@ -22,6 +22,7 @@ const SHEETS = {
   CHATBOT_LOGS: 'ChatbotLogs',
   CHATBOT_AUDIT: 'ChatbotAudit',
   COUPON_AUDIT: 'CouponAudit',
+  PAYOUTS: 'Payouts',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -77,6 +78,27 @@ const HEADERS = {
     'action',
     'notes',
     'at',
+  ],
+  [SHEETS.PAYOUTS]: [
+    'id',
+    'sellerEmail',
+    'sellerUserId',
+    'amount',
+    'currency',
+    'method',
+    'upiId',
+    'bankAccount',
+    'bankIfsc',
+    'beneficiaryName',
+    'status',
+    'sourceType',
+    'sourceCouponId',
+    'requestedAt',
+    'processedAt',
+    'processedBy',
+    'paymentReference',
+    'rejectionReason',
+    'notes',
   ],
   [SHEETS.PRICE_TRACKING]: [
     'id', 'userEmail', 'productUrl', 'platform', 'productName',
@@ -328,6 +350,7 @@ const memoryDB = {
   [SHEETS.SETTINGS]: [],
   [SHEETS.OTP_REQUESTS]: [],
   [SHEETS.COUPON_AUDIT]: [],
+  [SHEETS.PAYOUTS]: [],
 };
 
 function seedDemoData() {

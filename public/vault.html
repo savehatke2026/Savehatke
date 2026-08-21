@@ -721,23 +721,61 @@ body.sidebar-collapsed .main{margin-left:0}
     <!-- ════════════════ PAYOUTS ════════════════ -->
     <div class="section-view" id="sec-payouts">
       <div class="page-title-row">
-        <div><div class="page-title">Payments &amp; <span class="gtext">Payouts</span></div><div class="page-subtitle">Manage seller payouts and refund requests</div></div>
-        <button class="btn btn-primary btn-lg">💰 Process Batch Payouts</button>
+        <div><div class="page-title">Payments &amp; <span class="gtext">Payouts</span></div><div class="page-subtitle">Pay sellers for their sold coupons. Auto-payouts of ₹10 are created the moment a coupon is bought.</div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" id="payoutsRefreshBtn" onclick="loadPayouts()" title="Refresh">↻ Refresh</button>
+          <button class="btn btn-primary btn-lg" id="payoutsBatchBtn" onclick="processBatchPayouts()">💰 Process Selected (<span id="payoutsSelectedCount">0</span>)</button>
+        </div>
       </div>
 
       <div class="three-col mb-6">
-        <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">💸</div></div><div class="stat-val gtext">₹48,290</div><div class="stat-lbl">Paid out this month</div></div>
-        <div class="stat-card sc-orange"><div class="stat-card-top"><div class="stat-icon si-orange">⏳</div></div><div class="stat-val" style="color:#ffb74d">₹4,120</div><div class="stat-lbl">Pending Payouts (7)</div></div>
-        <div class="stat-card sc-blue"><div class="stat-card-top"><div class="stat-icon si-blue">🏦</div></div><div class="stat-val" style="color:#4fc3f7">UPI / Bank</div><div class="stat-lbl">Primary Gateway</div></div>
+        <div class="stat-card sc-green">
+          <div class="stat-card-top"><div class="stat-icon si-green">💸</div></div>
+          <div class="stat-val gtext" id="payoutStatPaidMonth">₹0</div>
+          <div class="stat-lbl">Paid out this month</div>
+        </div>
+        <div class="stat-card sc-orange">
+          <div class="stat-card-top"><div class="stat-icon si-orange">⏳</div></div>
+          <div class="stat-val" style="color:#ffb74d" id="payoutStatPending">₹0</div>
+          <div class="stat-lbl">Pending (<span id="payoutStatPendingCount">0</span>)</div>
+        </div>
+        <div class="stat-card sc-blue">
+          <div class="stat-card-top"><div class="stat-icon si-blue">🏦</div></div>
+          <div class="stat-val" style="color:#4fc3f7" id="payoutStatTotal">₹0</div>
+          <div class="stat-lbl">Total paid (all time)</div>
+        </div>
+      </div>
+
+      <!-- Filter / search row -->
+      <div class="table-card" style="padding:14px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="btn btn-xs btn-ghost payout-filter active" data-filter="pending" onclick="setPayoutFilter('pending',this)">⏳ Pending</button>
+          <button class="btn btn-xs btn-ghost payout-filter" data-filter="paid" onclick="setPayoutFilter('paid',this)">✅ Paid</button>
+          <button class="btn btn-xs btn-ghost payout-filter" data-filter="rejected" onclick="setPayoutFilter('rejected',this)">❌ Rejected</button>
+          <button class="btn btn-xs btn-ghost payout-filter" data-filter="all" onclick="setPayoutFilter('all',this)">📋 All</button>
+        </div>
+        <input type="text" class="form-inp" id="payoutSearch" placeholder="Search by email, UPI, beneficiary, or ID…" style="flex:1;min-width:220px;height:36px" oninput="renderPayoutsTable()">
+        <span id="payoutsLastUpdated" style="font-size:.72rem;color:#6b88aa;font-family:'JetBrains Mono',monospace"></span>
       </div>
 
       <div class="table-card">
-        <div class="table-header"><h3>Pending Payout Requests</h3></div>
+        <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
+          <h3 id="payoutsTableTitle">Pending Payout Requests</h3>
+          <span style="font-size:.78rem;color:#6b88aa"><span id="payoutsVisibleCount">0</span> shown</span>
+        </div>
         <div class="overflow-x"><table>
-          <thead><tr><th>Payout ID</th><th>Seller Email</th><th>Amount</th><th>Method</th><th>Requested</th><th>Status</th><th>Actions</th></tr></thead>
-          <tbody>
-            <tr><td><strong>#PO-1092</strong></td><td>rupayandas2024@gmail.com</td><td><strong>₹640</strong></td><td>UPI: rupayan@okicici</td><td>Today 09:30 AM</td><td><span class="badge badge-orange">Pending</span></td><td><div style="display:flex;gap:4px"><button class="btn btn-success btn-sm">Approve</button><button class="btn btn-danger btn-sm">Reject</button></div></td></tr>
-            <tr><td><strong>#PO-1091</strong></td><td>jaggik8888@gmail.com</td><td><strong>₹1,200</strong></td><td>UPI: jaggik@ybl</td><td>Yesterday</td><td><span class="badge badge-green">Completed</span></td><td><span class="badge badge-gray">Done</span></td></tr>
+          <thead><tr>
+            <th style="width:36px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="payoutSelectAll" onchange="toggleSelectAllPayouts(this.checked)"> All</label></th>
+            <th>Payout ID</th>
+            <th>Seller</th>
+            <th>Amount</th>
+            <th>Method / Destination</th>
+            <th>Requested</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr></thead>
+          <tbody id="payoutsTableBody">
+            <tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">Loading payouts…</td></tr>
           </tbody>
         </table></div>
       </div>
@@ -1458,6 +1496,50 @@ body.sidebar-collapsed .main{margin-left:0}
   </div>
 </div>
 
+<!-- ── MODAL: MARK PAYOUT AS PAID ── -->
+<div class="modal-overlay" id="markPaidModal">
+  <div class="modal" style="max-width:480px">
+    <button class="modal-close" onclick="closeModal('markPaidModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Mark payout as <span class="gtext">paid</span></div>
+      <div class="modal-sub">Record the UPI/bank reference for your records.</div>
+    </div>
+    <div id="markPaidSummary" style="background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.2);border-radius:10px;padding:14px;margin-bottom:16px"></div>
+    <div class="form-grp">
+      <label class="form-lbl">Payment reference (UPI txn ID, bank ref, etc.)</label>
+      <input type="text" class="form-inp" id="markPaidRef" placeholder="e.g. 412345678910">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Internal note (optional)</label>
+      <textarea class="form-inp" id="markPaidNote" rows="2" placeholder="Anything to remember about this payout…"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('markPaidModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="markPaidConfirmBtn" onclick="confirmMarkPaid()">✅ Confirm Paid</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: REJECT PAYOUT ── -->
+<div class="modal-overlay" id="rejectPayoutModal">
+  <div class="modal" style="max-width:460px">
+    <button class="modal-close" onclick="closeModal('rejectPayoutModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Reject <span class="gtext">payout</span></div>
+      <div class="modal-sub">The seller will see this reason on their dashboard.</div>
+    </div>
+    <div id="rejectPayoutSummary" style="background:rgba(255,80,80,.06);border:1px solid rgba(255,80,80,.18);border-radius:10px;padding:14px;margin-bottom:16px"></div>
+    <div class="form-grp">
+      <label class="form-lbl">Reason for rejection *</label>
+      <textarea class="form-inp" id="rejectPayoutReason" rows="3" placeholder="e.g. UPI ID is invalid, please update and resubmit."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('rejectPayoutModal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" id="rejectPayoutConfirmBtn" onclick="confirmRejectPayout()">🚫 Reject Payout</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/app.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/chatbotAdmin.js"></script>
@@ -2064,6 +2146,414 @@ function renderAll() {
 
 // Init support cases (data loads when the section is opened)
 if (!supportCasesLoaded) renderAll();
+
+/* ═══════════════════════════════════════════════════════════════
+   PAYOUTS — admin section controller
+   ═══════════════════════════════════════════════════════════════ */
+const PAYOUT_STATE = {
+  all: [],
+  filter: 'pending',
+  selected: new Set(),
+  loading: false,
+  currentAction: null, // payout id being approved/rejected
+  refreshTimer: null,
+};
+
+const PAYOUT_FILTER_LABELS = {
+  pending: 'Pending Payout Requests',
+  paid: 'Paid Payouts',
+  rejected: 'Rejected Payouts',
+  all: 'All Payouts',
+};
+
+function setPayoutFilter(filter, btn) {
+  PAYOUT_STATE.filter = filter;
+  document.querySelectorAll('.payout-filter').forEach((b) => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  PAYOUT_STATE.selected.clear();
+  const selAll = document.getElementById('payoutSelectAll');
+  if (selAll) selAll.checked = false;
+  updateSelectedCount();
+  renderPayoutsTable();
+  document.getElementById('payoutsTableTitle').textContent = PAYOUT_FILTER_LABELS[filter] || 'Payouts';
+}
+
+function inr(n) {
+  return '₹' + Number(n || 0).toLocaleString('en-IN');
+}
+
+function timeAgo(input) {
+  if (!input) return '—';
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return '—';
+  const diff = Date.now() - d.getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 30) return 'Just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.floor(hr / 24);
+  if (day < 7) return `${day}d ago`;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function fullDateTime(input) {
+  if (!input) return '—';
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function payoutMethodLine(p) {
+  // Best-effort destination rendering — auto-payouts don't have a UPI yet
+  if (p.method === 'UPI' && p.upiId) return `<strong>UPI</strong> · <span class="mono">${escapeHtml(p.upiId)}</span>`;
+  if (p.method === 'Bank' && p.bankAccount) {
+    const last4 = String(p.bankAccount).slice(-4);
+    return `<strong>Bank</strong> · <span class="mono">•••• ${escapeHtml(last4)}</span>${p.bankIfsc ? ' · ' + escapeHtml(p.bankIfsc) : ''}`;
+  }
+  if (p.sourceType === 'auto') return `<span class="text-muted" style="color:#6b88aa">Auto · not yet set</span>`;
+  return `<span class="text-muted" style="color:#6b88aa">—</span>`;
+}
+
+function payoutStatusBadge(status) {
+  const s = String(status || 'pending').toLowerCase();
+  if (s === 'paid') return '<span class="badge badge-green">✅ Paid</span>';
+  if (s === 'rejected') return '<span class="badge badge-red">❌ Rejected</span>';
+  if (s === 'processing') return '<span class="badge badge-blue">⏳ Processing</span>';
+  return '<span class="badge badge-orange">⏳ Pending</span>';
+}
+
+function payoutRow(p) {
+  const id = escapeHtml(p.id);
+  const shortId = String(p.id || '').slice(0, 8).toUpperCase();
+  const isPending = String(p.status).toLowerCase() === 'pending';
+  const checked = PAYOUT_STATE.selected.has(p.id) ? 'checked' : '';
+  return `
+    <tr>
+      <td>${isPending ? `<input type="checkbox" data-payout-id="${id}" ${checked} onchange="togglePayoutSelected('${id}', this.checked)">` : ''}</td>
+      <td>
+        <strong>#PO-${escapeHtml(shortId)}</strong>
+        <div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${p.sourceType === 'auto' ? '🤖 auto' : '✋ manual'}</div>
+      </td>
+      <td>${escapeHtml(p.sellerEmail || '—')}</td>
+      <td><strong class="mono">${inr(p.amount)}</strong></td>
+      <td style="font-size:.82rem">${payoutMethodLine(p)}${p.beneficiaryName ? `<div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(p.beneficiaryName)}</div>` : ''}</td>
+      <td class="mono" style="font-size:.78rem">${escapeHtml(timeAgo(p.requestedAt))}<div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(fullDateTime(p.requestedAt))}</div></td>
+      <td>${payoutStatusBadge(p.status)}${p.paymentReference ? `<div style="font-size:.7rem;color:#6b88aa;margin-top:4px" class="mono">ref: ${escapeHtml(p.paymentReference)}</div>` : ''}${p.rejectionReason ? `<div style="font-size:.7rem;color:#ff8585;margin-top:4px" title="${escapeHtml(p.rejectionReason)}">🚫 ${escapeHtml(p.rejectionReason.slice(0, 40))}${p.rejectionReason.length > 40 ? '…' : ''}</div>` : ''}</td>
+      <td>
+        ${isPending
+          ? `<div style="display:flex;gap:4px;flex-wrap:wrap">
+              <button class="btn btn-success btn-xs" onclick="openMarkPaidModal('${id}')">✅ Mark Paid</button>
+              <button class="btn btn-danger btn-xs" onclick="openRejectPayoutModal('${id}')">🚫 Reject</button>
+            </div>`
+          : `<span style="font-size:.72rem;color:#6b88aa">${p.processedAt ? `by ${escapeHtml(p.processedBy || 'admin')}<br>${escapeHtml(timeAgo(p.processedAt))}` : '—'}</span>`
+        }
+      </td>
+    </tr>
+  `;
+}
+
+function togglePayoutSelected(id, checked) {
+  if (checked) PAYOUT_STATE.selected.add(id);
+  else PAYOUT_STATE.selected.delete(id);
+  updateSelectedCount();
+  // Keep the "select all" checkbox in sync
+  const selAll = document.getElementById('payoutSelectAll');
+  if (selAll) {
+    const visiblePending = getVisiblePayouts().filter((p) => String(p.status).toLowerCase() === 'pending');
+    selAll.checked = visiblePending.length > 0 && visiblePending.every((p) => PAYOUT_STATE.selected.has(p.id));
+  }
+}
+
+function toggleSelectAllPayouts(checked) {
+  const visiblePending = getVisiblePayouts().filter((p) => String(p.status).toLowerCase() === 'pending');
+  visiblePending.forEach((p) => {
+    if (checked) PAYOUT_STATE.selected.add(p.id);
+    else PAYOUT_STATE.selected.delete(p.id);
+  });
+  renderPayoutsTable();
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const el = document.getElementById('payoutsSelectedCount');
+  if (el) el.textContent = String(PAYOUT_STATE.selected.size);
+  const btn = document.getElementById('payoutsBatchBtn');
+  if (btn) btn.disabled = PAYOUT_STATE.selected.size === 0;
+}
+
+function getVisiblePayouts() {
+  const q = String(document.getElementById('payoutSearch')?.value || '').toLowerCase().trim();
+  let rows = PAYOUT_STATE.all;
+  if (PAYOUT_STATE.filter !== 'all') {
+    rows = rows.filter((p) => String(p.status || 'pending').toLowerCase() === PAYOUT_STATE.filter);
+  }
+  if (q) {
+    rows = rows.filter((p) =>
+      String(p.sellerEmail || '').toLowerCase().includes(q) ||
+      String(p.id || '').toLowerCase().includes(q) ||
+      String(p.upiId || '').toLowerCase().includes(q) ||
+      String(p.beneficiaryName || '').toLowerCase().includes(q) ||
+      String(p.paymentReference || '').toLowerCase().includes(q)
+    );
+  }
+  return rows;
+}
+
+function renderPayoutsTable() {
+  const tbody = document.getElementById('payoutsTableBody');
+  if (!tbody) return;
+  const rows = getVisiblePayouts();
+  const visibleEl = document.getElementById('payoutsVisibleCount');
+  if (visibleEl) visibleEl.textContent = rows.length;
+  updateSelectedCount();
+
+  if (rows.length === 0) {
+    const empty = PAYOUT_STATE.filter === 'pending'
+      ? '🎉 No pending payouts — everything has been paid out.'
+      : (PAYOUT_STATE.filter === 'paid' ? 'No paid payouts yet.' : (PAYOUT_STATE.filter === 'rejected' ? 'No rejected payouts.' : 'No payouts found.'));
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px 16px;color:#6b88aa">${empty}</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = rows.map(payoutRow).join('');
+}
+
+function renderPayoutStats() {
+  const all = PAYOUT_STATE.all;
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const paid = all.filter((p) => String(p.status).toLowerCase() === 'paid');
+  const pending = all.filter((p) => String(p.status || 'pending').toLowerCase() === 'pending');
+
+  const paidThisMonth = paid
+    .filter((p) => new Date(p.processedAt || p.requestedAt || 0) >= monthStart)
+    .reduce((s, p) => s + Number(p.amount || 0), 0);
+  const totalPaid = paid.reduce((s, p) => s + Number(p.amount || 0), 0);
+  const pendingAmount = pending.reduce((s, p) => s + Number(p.amount || 0), 0);
+
+  setText('payoutStatPaidMonth', inr(paidThisMonth));
+  setText('payoutStatPending', inr(pendingAmount));
+  setText('payoutStatPendingCount', String(pending.length));
+  setText('payoutStatTotal', inr(totalPaid));
+}
+
+function setText(id, val) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+async function loadPayouts({ silent = false } = {}) {
+  if (PAYOUT_STATE.loading) return;
+  PAYOUT_STATE.loading = true;
+  const refreshBtn = document.getElementById('payoutsRefreshBtn');
+  if (refreshBtn && !silent) {
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = '⏳ Refreshing';
+  }
+  try {
+    const [listRes, statsRes] = await Promise.all([
+      api('/admin/payouts', { useAdmin: true }),
+      api('/admin/payouts/stats', { useAdmin: true }).catch(() => null),
+    ]);
+    PAYOUT_STATE.all = Array.isArray(listRes.payouts) ? listRes.payouts : [];
+
+    // Reconcile selection — drop ids that no longer exist or aren't pending
+    const stillPending = new Set(PAYOUT_STATE.all.filter((p) => String(p.status).toLowerCase() === 'pending').map((p) => p.id));
+    PAYOUT_STATE.selected = new Set([...PAYOUT_STATE.selected].filter((id) => stillPending.has(id)));
+
+    renderPayoutStats();
+    renderPayoutsTable();
+
+    // Update the nav badge with the live pending count
+    const navBadge = document.querySelector('.nav-item .nbadge');
+    if (navBadge && stillPending.size >= 0) {
+      navBadge.textContent = String(stillPending.size);
+      navBadge.style.display = stillPending.size === 0 ? 'none' : '';
+    }
+
+    if (statsRes) {
+      const pill = document.getElementById('payoutsLastUpdated');
+      if (pill) pill.textContent = `updated ${timeAgo(new Date())}`;
+    }
+  } catch (err) {
+    console.error('Load payouts failed:', err);
+    const tbody = document.getElementById('payoutsTableBody');
+    if (tbody && !silent) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${escapeHtml(err.message || 'Failed to load payouts')}</td></tr>`;
+    }
+  } finally {
+    PAYOUT_STATE.loading = false;
+    if (refreshBtn) {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '↻ Refresh';
+    }
+  }
+}
+
+// ─── Approve flow ─────────────────────────────────────────────
+function openMarkPaidModal(payoutId) {
+  const payout = PAYOUT_STATE.all.find((p) => p.id === payoutId);
+  if (!payout) return;
+  PAYOUT_STATE.currentAction = payoutId;
+  const summary = document.getElementById('markPaidSummary');
+  if (summary) {
+    summary.innerHTML = `
+      <div style="font-size:.78rem;color:#6b88aa;margin-bottom:4px">Payout</div>
+      <div style="font-size:.9rem;font-weight:700;color:#e2ecff">#PO-${escapeHtml(String(payout.id).slice(0, 8).toUpperCase())} · ${escapeHtml(payout.sellerEmail)}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600;color:#00e676;margin-top:6px">${inr(payout.amount)}</div>
+      <div style="font-size:.76rem;color:#a8c0dc;margin-top:6px">${payoutMethodLine(payout)}</div>
+    `;
+  }
+  document.getElementById('markPaidRef').value = '';
+  document.getElementById('markPaidNote').value = '';
+  openModal('markPaidModal');
+  setTimeout(() => document.getElementById('markPaidRef')?.focus(), 200);
+}
+
+async function confirmMarkPaid() {
+  const id = PAYOUT_STATE.currentAction;
+  if (!id) return;
+  const ref = String(document.getElementById('markPaidRef')?.value || '').trim();
+  const note = String(document.getElementById('markPaidNote')?.value || '').trim();
+  const btn = document.getElementById('markPaidConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Saving…';
+  try {
+    await api(`/admin/payouts/${id}/approve`, {
+      method: 'POST',
+      useAdmin: true,
+      body: { paymentReference: ref, notes: note },
+    });
+    closeModal('markPaidModal');
+    PAYOUT_STATE.selected.delete(id);
+    await loadPayouts({ silent: true });
+    showToast('Payout marked as paid ✅', 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to mark payout as paid', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✅ Confirm Paid';
+    PAYOUT_STATE.currentAction = null;
+  }
+}
+
+// ─── Reject flow ──────────────────────────────────────────────
+function openRejectPayoutModal(payoutId) {
+  const payout = PAYOUT_STATE.all.find((p) => p.id === payoutId);
+  if (!payout) return;
+  PAYOUT_STATE.currentAction = payoutId;
+  const summary = document.getElementById('rejectPayoutSummary');
+  if (summary) {
+    summary.innerHTML = `
+      <div style="font-size:.78rem;color:#6b88aa;margin-bottom:4px">Payout</div>
+      <div style="font-size:.9rem;font-weight:700;color:#e2ecff">#PO-${escapeHtml(String(payout.id).slice(0, 8).toUpperCase())} · ${escapeHtml(payout.sellerEmail)}</div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600;color:#ff8585;margin-top:6px">${inr(payout.amount)}</div>
+    `;
+  }
+  document.getElementById('rejectPayoutReason').value = '';
+  openModal('rejectPayoutModal');
+  setTimeout(() => document.getElementById('rejectPayoutReason')?.focus(), 200);
+}
+
+async function confirmRejectPayout() {
+  const id = PAYOUT_STATE.currentAction;
+  if (!id) return;
+  const reason = String(document.getElementById('rejectPayoutReason')?.value || '').trim();
+  if (!reason) { showToast('Please enter a reason for rejection.', 'error'); return; }
+  const btn = document.getElementById('rejectPayoutConfirmBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Rejecting…';
+  try {
+    await api(`/admin/payouts/${id}/reject`, {
+      method: 'POST',
+      useAdmin: true,
+      body: { reason },
+    });
+    closeModal('rejectPayoutModal');
+    PAYOUT_STATE.selected.delete(id);
+    await loadPayouts({ silent: true });
+    showToast('Payout rejected', 'success');
+  } catch (err) {
+    showToast(err.message || 'Failed to reject payout', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🚫 Reject Payout';
+    PAYOUT_STATE.currentAction = null;
+  }
+}
+
+// ─── Batch flow ───────────────────────────────────────────────
+async function processBatchPayouts() {
+  const ids = [...PAYOUT_STATE.selected];
+  if (ids.length === 0) { showToast('Select at least one pending payout first.', 'warn'); return; }
+  const total = ids.reduce((s, id) => {
+    const p = PAYOUT_STATE.all.find((x) => x.id === id);
+    return s + (p ? Number(p.amount || 0) : 0);
+  }, 0);
+  if (!confirm(`Process ${ids.length} payout${ids.length === 1 ? '' : 's'} totaling ${inr(total)}? This will mark them as paid.`)) return;
+
+  const ref = `batch-${Date.now()}`;
+  const btn = document.getElementById('payoutsBatchBtn');
+  btn.disabled = true;
+  const orig = btn.innerHTML;
+  btn.innerHTML = '⏳ Processing…';
+  try {
+    const res = await api('/admin/payouts/batch-process', {
+      method: 'POST',
+      useAdmin: true,
+      body: { ids, paymentReference: ref },
+    });
+    PAYOUT_STATE.selected.clear();
+    await loadPayouts({ silent: true });
+    let msg = `Processed ${res.processed} payout${res.processed === 1 ? '' : 's'}.`;
+    if (res.skipped && res.skipped.length) msg += ` (${res.skipped.length} skipped)`;
+    showToast(msg, res.processed > 0 ? 'success' : 'warn', 4500);
+  } catch (err) {
+    showToast(err.message || 'Batch processing failed', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = orig;
+  }
+}
+
+// ─── Lifecycle ────────────────────────────────────────────────
+// Auto-load when the admin opens the payouts section, plus a 30s refresh
+// while the tab is visible — same real-time feel as the dashboard.
+let payoutsAutoLoaded = false;
+function maybeLoadPayouts() {
+  if (document.getElementById('sec-payouts') &&
+      document.getElementById('sec-payouts').style.display !== 'none') {
+    if (!payoutsAutoLoaded || PAYOUT_STATE.all.length === 0) {
+      payoutsAutoLoaded = true;
+      loadPayouts();
+    }
+  }
+}
+
+// Hook into the existing section switcher if it exists, otherwise poll on click
+(function setupPayoutsLifecycle() {
+  // The vault section switcher is defined elsewhere; we poll visibility once a tick
+  setInterval(maybeLoadPayouts, 1000);
+
+  // 30s auto-refresh while visible
+  if (PAYOUT_STATE.refreshTimer) clearInterval(PAYOUT_STATE.refreshTimer);
+  PAYOUT_STATE.refreshTimer = setInterval(() => {
+    const sec = document.getElementById('sec-payouts');
+    if (sec && sec.style.display !== 'none' && document.visibilityState === 'visible' && !PAYOUT_STATE.loading) {
+      loadPayouts({ silent: true });
+    }
+  }, 30 * 1000);
+})();
+
 </script>
 </body>
 </html>

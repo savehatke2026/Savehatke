@@ -27,6 +27,7 @@ const supportRoutes = require('./routes/support');
 const chatbotAdminRoutes = require('./routes/chatbot');
 const chatRoutes = require('./routes/chat');
 const gmailRoutes = require('./routes/gmail');
+const payoutRoutes = require('./routes/payouts');
 
 const app = express();
 
@@ -101,6 +102,7 @@ app.use('/api/admin', apiLimiter, adminRoutes);
 app.use('/api/support', apiLimiter, supportRoutes);
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
 app.use('/api/chat', chatRoutes); // /api/chat applies its own service-level rate limits
+app.use('/api', apiLimiter, payoutRoutes); // /api/payouts/* (seller) + /api/admin/payouts/* (admin)
 
 // Public Turnstile site key for CAPTCHA widgets (secret stays in .env)
 app.get('/api/turnstile-config', (req, res) => {

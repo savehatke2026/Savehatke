@@ -444,6 +444,20 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
       await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
     } catch (e) {}
 
+    // Auto-create a payout entry for the seller so the admin can pay them
+    // for this sale. Failure here never breaks the buy flow — payouts are
+    // best-effort and can be retried from the admin panel.
+    try {
+      const { createAutoPayout } = require('./payouts');
+      await createAutoPayout({
+        coupon: { id: coupon.id, code: coupon.code, brand: coupon.brand },
+        sellerEmail: coupon.sellerEmail,
+        sellerUserId: coupon.sellerUserId,
+      });
+    } catch (e) {
+      console.warn('Auto-payout on buy notice:', e.message);
+    }
+
     res.json({
       message: 'Coupon purchased successfully!',
       coupon: {

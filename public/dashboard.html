@@ -123,7 +123,7 @@
     .pd-divider{height:1px;background:rgba(79,195,247,.1);margin:4px 0}
     .pd-status{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:9999px;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;vertical-align:middle;background:rgba(0,230,118,.14);color:#00e676;border:1px solid rgba(0,230,118,.3)}
     .pd-status.suspended{background:rgba(255,80,80,.12);color:#ff6b6b;border-color:rgba(255,80,80,.3)}
-    .pd-footer{margin-top:4px;padding-top:8px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;color:#6b88aa;font-weight:700}
+    .pd-footer{margin-top:4px;padding-top:8px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.72rem;letter-spacing:.04em;color:#6b88aa;font-weight:600}
 
     /* ===================================================
        NOTIFICATION PANEL
@@ -154,6 +154,14 @@
     .db-wrap{padding-top:68px;min-height:100vh}
     .db-bg{position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 10% 10%,rgba(0,230,118,.05) 0%,transparent 60%),radial-gradient(ellipse 60% 70% at 90% 90%,rgba(79,195,247,.04) 0%,transparent 60%),linear-gradient(180deg,#060d1f 0%,#070f24 100%);pointer-events:none;z-index:0}
     .db-content{position:relative;z-index:1;padding:32px 0 72px;animation:fadeIn .45s ease}
+
+    /* ─── SUSPENSION VIEW ─── */
+    .suspension-card{max-width:560px;margin:60px auto;padding:48px 36px;background:rgba(15,30,58,.78);border:1px solid rgba(255,80,80,.28);border-radius:20px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.45);animation:fadeIn .5s ease}
+    .suspension-icon{font-size:3.4rem;margin-bottom:14px;line-height:1}
+    .suspension-title{font-family:'DM Serif Display',serif;font-size:clamp(1.4rem,2.6vw,1.85rem);color:#ff8585;margin-bottom:12px;line-height:1.2}
+    .suspension-sub{font-size:.95rem;color:#a8c0dc;margin-bottom:24px;line-height:1.55}
+    .suspension-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:24px}
+    .suspension-foot{font-size:.72rem;color:#6b88aa;border-top:1px solid rgba(79,195,247,.08);padding-top:14px}
 
     /* Section heading style */
     .sec-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
@@ -434,7 +442,7 @@
           <button class="pd-item" onclick="location.href='support'">🎧 Support</button>
           <div class="pd-divider"></div>
           <button class="pd-item pd-item-danger" onclick="openModal('logoutModal')">🚪 Logout</button>
-          <div class="pd-footer">🔒 Secured by SaveHatke</div>
+          <div class="pd-footer">Secured by Savehatke</div>
         </div>
       </div>
 
@@ -457,7 +465,24 @@
 ===================================================== -->
 <div class="db-wrap">
 <div class="db-content">
-<div class="container">
+
+  <!-- ─── SUSPENSION VIEW (shown when account is not active) ─── -->
+  <div class="container" id="suspensionView" style="display:none">
+    <div class="suspension-card">
+      <div class="suspension-icon">🚫</div>
+      <h1 class="suspension-title">Your account has been suspended</h1>
+      <p class="suspension-sub">Please contact support to resolve this issue and restore access to your account.</p>
+      <div class="suspension-actions">
+        <a href="support" class="btn btn-primary">📧 Contact Support</a>
+        <button type="button" class="btn btn-ghost" onclick="openModal('logoutModal')">🚪 Logout</button>
+      </div>
+      <div class="suspension-foot">Secured by Savehatke</div>
+    </div>
+  </div>
+
+  <!-- ─── NORMAL DASHBOARD CONTENT (hidden when suspended) ─── -->
+  <div id="dashboardContent">
+  <div class="container">
 
   <!-- ─── WELCOME SECTION ─── -->
   <section class="welcome-section">
@@ -735,7 +760,41 @@
 
   </div>
 
+  <!-- ─── PAYOUTS ─── -->
+  <div class="card" id="payouts" style="margin-top:20px">
+    <div class="card-hdr">
+      <div class="card-title"><span class="ico">💸</span> Payouts</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="loadMyPayouts()" title="Refresh">↻ Refresh</button>
+        <button class="btn btn-primary btn-sm" onclick="openRequestPayoutModal()">💰 Request Payout</button>
+      </div>
+    </div>
+
+    <div class="cs-grid" style="margin-bottom:16px">
+      <div class="cs-item">
+        <div class="cs-num gtext" id="payoutsTotalPaid">₹0</div>
+        <div class="cs-lbl">Total Paid</div>
+      </div>
+      <div class="cs-item">
+        <div class="cs-num" style="color:#ffb74d" id="payoutsPending">₹0</div>
+        <div class="cs-lbl">Awaiting Payout</div>
+      </div>
+      <div class="cs-item">
+        <div class="cs-num" style="color:#ce93d8" id="payoutsCount">0</div>
+        <div class="cs-lbl">Total Payouts</div>
+      </div>
+      <div class="cs-item">
+        <div class="cs-num" style="color:#6b88aa" id="payoutsRejected">0</div>
+        <div class="cs-lbl">Rejected</div>
+      </div>
+    </div>
+
+    <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Recent Payouts</div>
+    <div id="myPayoutsList"></div>
+  </div>
+
 </div><!-- /container -->
+</div><!-- /dashboardContent -->
 </div><!-- /db-content -->
 </div><!-- /db-wrap -->
 
@@ -922,6 +981,55 @@
   </div>
 </div>
 
+<!-- REQUEST PAYOUT MODAL -->
+<div class="modal-overlay" id="requestPayoutModal" onclick="handleOverlayClick(event,'requestPayoutModal')">
+  <div class="modal modal-lg">
+    <button class="modal-close-btn" onclick="closeModal('requestPayoutModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Request <span class="gtext">Payout</span></div>
+      <div class="modal-sub">Withdraw your earnings to your bank or UPI. Minimum ₹50.</div>
+    </div>
+    <div class="wallet-modal-bal">
+      <p>Available to withdraw</p>
+      <strong id="requestPayoutAvailable">₹0</strong>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Amount (₹) *</label>
+      <input type="number" class="form-inp" id="rpAmount" placeholder="e.g. 500" min="50" step="10">
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Payment Method *</label>
+      <select class="form-inp" id="rpMethod" onchange="toggleRpFields(this.value)">
+        <option value="upi">UPI</option>
+        <option value="bank">Bank Transfer</option>
+      </select>
+    </div>
+    <div id="rpUpiGroup" class="form-grp">
+      <label class="form-lbl">UPI ID *</label>
+      <input type="text" class="form-inp" id="rpUpiId" placeholder="yourname@upi">
+    </div>
+    <div id="rpBankGroup" style="display:none">
+      <div class="form-grp">
+        <label class="form-lbl">Account Number *</label>
+        <input type="text" class="form-inp" id="rpBankAccount" placeholder="e.g. 1234567890">
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">IFSC Code *</label>
+        <input type="text" class="form-inp" id="rpBankIfsc" placeholder="e.g. SBIN0001234">
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Beneficiary Name</label>
+        <input type="text" class="form-inp" id="rpBeneficiaryName" placeholder="As on your bank account">
+      </div>
+    </div>
+    <div style="font-size:.76rem;color:#6b88aa;margin-bottom:4px">⏱️ Payouts are processed by the admin team within 1–3 business days.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('requestPayoutModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="rpSubmitBtn" onclick="submitPayoutRequest()">💸 Submit Request</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST CONTAINER -->
 <div class="toast-container" id="toastContainer"></div>
 
@@ -940,6 +1048,8 @@
     sales: [],              // /api/coupons/my-sales → coupons
     purchases: [],          // /api/coupons/my-purchases → coupons
     tickets: [],            // /api/support/tickets
+    payouts: [],            // /api/payouts/my → seller's payouts
+    payoutsSummary: { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 },
     notifications: [],
     lastUpdated: null,
     refreshTimer: null,
@@ -1043,6 +1153,19 @@
     }
   }
 
+  async function loadMyPayouts() {
+    try {
+      const data = await api('/payouts/my');
+      return {
+        payouts: Array.isArray(data.payouts) ? data.payouts : [],
+        summary: data.summary || { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 },
+      };
+    } catch (err) {
+      console.warn('my-payouts failed:', err.message);
+      return { payouts: [], summary: { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 } };
+    }
+  }
+
   // ─── Renderers ──────────────────────────────────────────────────
   function applyUserToUI(user) {
     if (!user) return;
@@ -1126,6 +1249,23 @@
         secBadge.className = 'badge badge-orange';
       }
     }
+
+    // Toggle the dashboard vs suspension view based on account status
+    applySuspensionState(status);
+  }
+
+  // ─── Suspension state ──────────────────────────────────────────
+  // When the account is not 'active' (suspended, banned, deactivated, etc.),
+  // hide the normal dashboard and show a clear suspension message.
+  // We allow the navbar to remain so the user can still log out or reach support.
+  function applySuspensionState(status) {
+    const suspensionView = document.getElementById('suspensionView');
+    const dashboardContent = document.getElementById('dashboardContent');
+    if (!suspensionView || !dashboardContent) return;
+
+    const isSuspended = status && String(status).toLowerCase() !== 'active';
+    suspensionView.style.display = isSuspended ? 'block' : 'none';
+    dashboardContent.style.display = isSuspended ? 'none' : 'block';
   }
 
   function renderStats() {
@@ -1426,6 +1566,69 @@
     `;
   }
 
+  // ─── Render payouts (seller-facing) ───────────────────────────
+  function renderPayouts() {
+    const summary = STATE.payoutsSummary || { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 };
+    const payouts = STATE.payouts || [];
+
+    setText('payoutsTotalPaid', inr(summary.totalPaid));
+    setText('payoutsPending', inr(summary.pending));
+    setText('payoutsCount', String(summary.totalCount));
+    setText('payoutsRejected', String(summary.rejected));
+
+    const container = document.getElementById('myPayoutsList');
+    if (!container) return;
+
+    if (payouts.length === 0) {
+      container.innerHTML = `
+        <div style="text-align:center;padding:24px 12px;color:#6b88aa">
+          <div style="font-size:2rem;margin-bottom:8px">💸</div>
+          <div style="font-size:.88rem;font-weight:600;color:#a8c0dc;margin-bottom:4px">No payouts yet</div>
+          <div style="font-size:.78rem">You'll see payouts here when your coupons are sold. Auto-payouts of ₹10 are created the moment a coupon is bought.</div>
+        </div>
+      `;
+      return;
+    }
+
+    const top = payouts.slice(0, 5);
+    container.innerHTML = top.map((p) => {
+      const s = String(p.status || 'pending').toLowerCase();
+      const statusMap = {
+        paid: ['Paid', 'badge-green'],
+        pending: ['Pending', 'badge-orange'],
+        rejected: ['Rejected', 'badge-red'],
+        processing: ['Processing', 'badge-blue'],
+      };
+      const [statusLabel, statusCls] = statusMap[s] || [p.status || 'Pending', 'badge-gray'];
+      const methodLine = (p.method === 'UPI' && p.upiId)
+        ? `UPI · ${escapeHtml(p.upiId)}`
+        : (p.method === 'Bank' && p.bankAccount)
+          ? `Bank · •••• ${escapeHtml(String(p.bankAccount).slice(-4))}`
+          : (p.sourceType === 'auto' ? '🤖 Auto-payout (destination not yet set)' : '—');
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px;gap:10px">
+          <div style="min-width:0;flex:1">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <strong class="mono" style="font-size:.9rem;color:#e2ecff">#PO-${escapeHtml(String(p.id).slice(0, 8).toUpperCase())}</strong>
+              <span class="badge ${statusCls}">${escapeHtml(statusLabel)}</span>
+            </div>
+            <div style="font-size:.74rem;color:#6b88aa;margin-top:4px">${methodLine}</div>
+            <div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(timeAgo(p.requestedAt))} · ${p.sourceType === 'auto' ? 'auto' : 'manual'}${p.processedAt ? ` · processed ${escapeHtml(timeAgo(p.processedAt))}` : ''}</div>
+            ${p.paymentReference ? `<div style="font-size:.7rem;color:#00e676;margin-top:2px" class="mono">ref: ${escapeHtml(p.paymentReference)}</div>` : ''}
+            ${p.rejectionReason ? `<div style="font-size:.72rem;color:#ff8585;margin-top:4px">🚫 ${escapeHtml(p.rejectionReason)}</div>` : ''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div class="mono" style="font-size:1rem;font-weight:700;color:${s === 'paid' ? '#00e676' : (s === 'rejected' ? '#ff8585' : '#ffb74d')}">${inr(p.amount)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (payouts.length > top.length) {
+      container.innerHTML += `<div style="text-align:center;padding:8px;font-size:.78rem;color:#6b88aa">+ ${payouts.length - top.length} more — full history coming soon</div>`;
+    }
+  }
+
   function deriveNotifications() {
     const out = [];
 
@@ -1525,22 +1728,26 @@
     }
 
     try {
-      const [user, sales, purchases, tickets] = await Promise.all([
+      const [user, sales, purchases, tickets, payoutsData] = await Promise.all([
         loadMe(),
         loadMySales(),
         loadMyPurchases(),
         loadMyTickets(),
+        loadMyPayouts(),
       ]);
       STATE.user = user || STATE.user || Auth.getUser() || null;
       STATE.sales = sales;
       STATE.purchases = purchases;
       STATE.tickets = tickets;
+      STATE.payouts = payoutsData.payouts;
+      STATE.payoutsSummary = payoutsData.summary;
 
       applyUserToUI(STATE.user);
       renderStats();
       renderMyCoupons();
       renderActivity();
       renderSupport();
+      renderPayouts();
       renderNotifications();
       setLastUpdated();
     } catch (err) {
@@ -1766,6 +1973,80 @@
     } catch (err) {
       showToast(err.message || 'Could not create ticket. Please try again.', 'error');
     }
+  }
+
+  // ─── Payout request (seller) ──────────────────────────────────
+  function openRequestPayoutModal() {
+    if (typeof requireAuth === 'function' && !requireAuth()) return;
+    const summary = STATE.payoutsSummary || { pending: 0 };
+    document.getElementById('requestPayoutAvailable').textContent = inr(summary.pending);
+    document.getElementById('rpAmount').value = summary.pending > 0 ? String(summary.pending) : '';
+    document.getElementById('rpMethod').value = 'upi';
+    document.getElementById('rpUpiId').value = '';
+    document.getElementById('rpBankAccount').value = '';
+    document.getElementById('rpBankIfsc').value = '';
+    document.getElementById('rpBeneficiaryName').value = '';
+    toggleRpFields('upi');
+    openModal('requestPayoutModal');
+    setTimeout(() => document.getElementById('rpAmount')?.focus(), 200);
+  }
+
+  function toggleRpFields(val) {
+    const upi = document.getElementById('rpUpiGroup');
+    const bank = document.getElementById('rpBankGroup');
+    if (val === 'upi') {
+      upi.style.display = '';
+      bank.style.display = 'none';
+    } else {
+      upi.style.display = 'none';
+      bank.style.display = '';
+    }
+  }
+
+  async function submitPayoutRequest() {
+    if (typeof requireAuth === 'function' && !requireAuth()) return;
+    const amount = Number(document.getElementById('rpAmount')?.value);
+    const method = document.getElementById('rpMethod')?.value;
+    const upiId = (document.getElementById('rpUpiId')?.value || '').trim();
+    const bankAccount = (document.getElementById('rpBankAccount')?.value || '').trim();
+    const bankIfsc = (document.getElementById('rpBankIfsc')?.value || '').trim();
+    const beneficiaryName = (document.getElementById('rpBeneficiaryName')?.value || '').trim();
+
+    if (!Number.isFinite(amount) || amount < 50) {
+      showToast('Minimum payout request is ₹50.', 'error');
+      return;
+    }
+    const available = (STATE.payoutsSummary && Number(STATE.payoutsSummary.pending)) || 0;
+    if (amount > available) {
+      showToast(`You can only request up to ${inr(available)} right now.`, 'error');
+      return;
+    }
+    if (method === 'upi' && !upiId) { showToast('Please enter your UPI ID.', 'error'); return; }
+    if (method === 'bank' && (!bankAccount || !bankIfsc)) { showToast('Please enter your bank account and IFSC.', 'error'); return; }
+
+    const btn = document.getElementById('rpSubmitBtn');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '⏳ Submitting…';
+    try {
+      const data = await api('/payouts/request', {
+        method: 'POST',
+        body: { amount, method, upiId, bankAccount, bankIfsc, beneficiaryName },
+      });
+      closeModal('requestPayoutModal');
+      showToast(data.message || 'Payout request submitted!', 'success', 5000);
+      await refreshDashboard({ silent: true });
+    } catch (err) {
+      showToast(err.message || 'Could not submit payout request.', 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = orig;
+    }
+  }
+
+  // Manual refresh hook for the Payouts section's "↻ Refresh" button
+  async function loadMyPayouts() {
+    return await refreshDashboard({ silent: true });
   }
 
   // ─── Toast ─────────────────────────────────────────────────────
