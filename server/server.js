@@ -30,6 +30,9 @@ const gmailRoutes = require('./routes/gmail');
 
 const app = express();
 
+// Behind Vercel's edge proxy — makes req.ip resolve the real client IP
+app.set('trust proxy', true);
+
 // ── Security & Middleware ───────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy: false, // Allow inline styles/scripts for our frontend

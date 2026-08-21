@@ -20,6 +20,7 @@ const router = express.Router();
  * Runs non-blocking (fire-and-forget) so it never delays login response.
  * The user_id is resolved against the Users Google Sheet first (by email),
  * so Supabase always stores the real user id that exists in the sheet.
+ * Only regular user logins are tracked — admin logins never call this.
  */
 async function createLoginSession(req, userId, loginMethod, email) {
   try {
@@ -386,9 +387,6 @@ router.post('/login', async (req, res) => {
               role: 'admin',
             }, '12h');
 
-            // Fire-and-forget session tracking
-            createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Email', dbAdmin.email).catch(() => {});
-
             return res.json({
               message: 'Admin login successful.',
               token,
@@ -421,8 +419,6 @@ router.post('/login', async (req, res) => {
       }, '12h');
 
       const hardcodedId = uuidv4();
-      // Fire-and-forget session tracking
-      createLoginSession(req, hardcodedId, 'Email', hardcoded.email).catch(() => {});
 
       return res.json({
         message: 'Admin login successful.',
@@ -676,9 +672,7 @@ router.post('/google-redirect', async (req, res) => {
         role: 'admin',
       }, '12h');
 
-      createLoginSession(req, adminId, 'Google', userEmail).catch(() => {});
-
-      const adminUser = {
+            const adminUser = {
         id: adminId,
         email: userEmail,
         name: adminName,
@@ -809,9 +803,6 @@ router.post('/google', async (req, res) => {
         name: adminName,
         role: 'admin',
       }, '12h');
-
-      // Fire-and-forget session tracking
-      createLoginSession(req, adminId, 'Google', userEmail).catch(() => {});
 
       return res.json({
         message: 'Admin Google login successful.',
