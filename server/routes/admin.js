@@ -787,6 +787,81 @@ router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/sessions/backfill-userids
+// One-shot migration: for every Supabase session whose user_id is empty or
+// looks wrong (fallback "user_<timestamp>" prefix, or empty), look the email
+// up in the Google Sheets USERS tab and write the canonical user_id back to
+// the session row. Safe to re-run.
+router.post('/sessions/backfill-userids', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (!supabase.isConfigured()) {
+      return res.status(503).json({ error: 'Supabase is not configured on the server.' });
+    }
+    const supabaseClient = supabase.getClient();
+    if (!supabaseClient) return res.status(503).json({ error: 'Supabase client unavailable.' });
+
+    // Load all sessions + all users in parallel
+    const [sessions, sheetUsers] = await Promise.all([
+      supabase.getAllSessions(),
+      db.getRows(db.SHEETS.USERS).catch(() => []),
+    ]);
+
+    // Build email → user_id lookup (case-insensitive)
+    const emailToId = new Map();
+    for (const u of sheetUsers) {
+      const email = String(u.email || '').toLowerCase().trim();
+      if (!email) continue;
+      // Resolve the canonical user_id (any of user_id / userId / id / uuid…)
+      let id = '';
+      for (const k of ['user_id', 'userId', 'userid', 'id', 'uuid']) {
+        if (u[k]) { id = String(u[k]); break; }
+      }
+      if (!id) {
+        for (const [k, v] of Object.entries(u)) {
+          if (!v) continue;
+          const nk = String(k).trim().toLowerCase().replace(/[\s_-]+/g, '');
+          if (nk === 'userid' || nk === 'uuid') { id = String(v); break; }
+        }
+      }
+      if (id && !emailToId.has(email)) emailToId.set(email, id);
+    }
+
+    // Decide which sessions need fixing: empty user_id OR a fallback timestamp
+    // OR no matching email in the sheet (left untouched).
+    const isBad = (uid) => !uid || /^user_\d+$/.test(String(uid)) || /^\d{10,}$/.test(String(uid));
+
+    let updated = 0;
+    let skipped = 0;
+    const sample = [];
+    for (const s of sessions) {
+      const email = String(s.email || '').toLowerCase().trim();
+      const correctId = emailToId.get(email);
+      if (!correctId) { skipped++; continue; }
+      if (!isBad(s.user_id) && s.user_id === correctId) { skipped++; continue; }
+
+      try {
+        const { error } = await supabaseClient
+          .from('sessions')
+          .update({ user_id: correctId })
+          .eq('session_id', s.session_id);
+        if (error) {
+          console.warn('[backfill] update error for', s.session_id, error.message);
+          continue;
+        }
+        updated++;
+        if (sample.length < 5) sample.push({ session_id: s.session_id, email, from: s.user_id, to: correctId });
+      } catch (e) {
+        console.warn('[backfill] exception for', s.session_id, e.message);
+      }
+    }
+
+    res.json({ ok: true, updated, skipped, totalSessions: sessions.length, sample });
+  } catch (err) {
+    console.error('Backfill user_ids error:', err);
+    res.status(500).json({ error: 'Backfill failed.', detail: err.message });
+  }
+});
+
 // PUT /api/admin/sessions/:sessionId/terminate — Force-end an active session
 router.put('/sessions/:sessionId/terminate', authenticateToken, requireAdmin, async (req, res) => {
   try {

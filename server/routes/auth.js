@@ -60,10 +60,33 @@ async function createLoginSession(req, userId, loginMethod, email) {
         const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
         sheetUser = allRows.find((r) => String(r.email || '').toLowerCase().trim() === cleanEmail) || null;
       }
-      const fromSheet = extractUserIdFromSheetUser(sheetUser);
+
+      let fromSheet = extractUserIdFromSheetUser(sheetUser);
+
+      // ── Backfill: sheet has the user row but the user_id cell is empty.
+      //    This is the most common cause of "wrong user_id in Supabase" —
+      //    the row was created before the user_id column was populated, or
+      //    the column was added later by ensureSheets(). Generate a UUID,
+      //    write it back to the sheet, and use it for the session.
+      if (sheetUser && !fromSheet) {
+        const newId = uuidv4();
+        try {
+          await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
+            user_id: newId,
+            id: newId,
+            updated_at: new Date().toISOString(),
+          });
+          fromSheet = newId;
+          userIdSource = 'sheet-row-backfilled';
+          console.log(`[session] Backfilled empty user_id for ${cleanEmail} → ${newId}`);
+        } catch (e) {
+          console.warn(`[session] Failed to backfill user_id for ${cleanEmail}:`, e.message);
+        }
+      }
+
       if (fromSheet) {
         realUserId = fromSheet;
-        userIdSource = 'google-sheet';
+        if (userIdSource === 'passed-in') userIdSource = 'google-sheet';
       } else if (sheetUser) {
         userIdSource = 'sheet-row-missing-id';
       } else {
