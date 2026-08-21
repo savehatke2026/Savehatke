@@ -47,7 +47,7 @@ function getClientIP(req) {
   const candidates = [];
 
   // CDN / trusted-proxy headers that carry the true client IP
-  for (const h of ['cf-connecting-ip', 'true-client-ip', 'x-real-ip']) {
+  for (const h of ['cf-connecting-ip', 'true-client-ip', 'x-vercel-forwarded-for', 'x-real-ip']) {
     const v = String(headers[h] || '').split(',')[0].trim();
     if (v) candidates.push(v);
   }

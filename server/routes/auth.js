@@ -22,12 +22,37 @@ const router = express.Router();
  * so Supabase always stores the real user id that exists in the sheet.
  * Only regular user logins are tracked — admin logins never call this.
  */
+
+/**
+ * Pull the canonical user_id out of a sheet row, no matter how the column
+ * is named in the spreadsheet. The configured header is `user_id`, but live
+ * sheets sometimes use `userId`, `userid`, `UserID`, `User Id`, or even just
+ * `id` / `uuid`. Without this, the session table ends up with the wrong id
+ * (or a freshly generated one) and the admin Sessions page can't join the
+ * row back to the user.
+ */
+function extractUserIdFromSheetUser(sheetUser) {
+  if (!sheetUser || typeof sheetUser !== 'object') return '';
+  // Direct field names first — covers the common header variants
+  for (const key of ['user_id', 'userId', 'userid', 'id', 'uuid']) {
+    if (sheetUser[key]) return String(sheetUser[key]);
+  }
+  // Fallback: any field whose normalized name collapses to "userid" or "uuid"
+  for (const [key, value] of Object.entries(sheetUser)) {
+    if (!value) continue;
+    const nk = String(key).trim().toLowerCase().replace(/[\s_-]+/g, '');
+    if (nk === 'userid' || nk === 'uuid') return String(value);
+  }
+  return '';
+}
+
 async function createLoginSession(req, userId, loginMethod, email) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
 
     // Prefer the real user_id stored in the Users Google Sheet (lookup by email)
     let realUserId = String(userId || '');
+    let userIdSource = 'passed-in';
     if (cleanEmail) {
       let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
       if (!sheetUser) {
@@ -35,11 +60,20 @@ async function createLoginSession(req, userId, loginMethod, email) {
         const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
         sheetUser = allRows.find((r) => String(r.email || '').toLowerCase().trim() === cleanEmail) || null;
       }
-      if (sheetUser && (sheetUser.user_id || sheetUser.id)) {
-        realUserId = String(sheetUser.user_id || sheetUser.id);
+      const fromSheet = extractUserIdFromSheetUser(sheetUser);
+      if (fromSheet) {
+        realUserId = fromSheet;
+        userIdSource = 'google-sheet';
+      } else if (sheetUser) {
+        userIdSource = 'sheet-row-missing-id';
+      } else {
+        userIdSource = 'sheet-row-not-found';
       }
     }
-    if (!realUserId) realUserId = 'user_' + Date.now();
+    if (!realUserId) {
+      realUserId = 'user_' + Date.now();
+      userIdSource = 'fallback-generated';
+    }
 
     const ua = new UAParser(req.headers['user-agent'] || '');
     const device = ua.getDevice();
@@ -62,34 +96,48 @@ async function createLoginSession(req, userId, loginMethod, email) {
     // Real client IP only — never a sample/hardcoded address
     const ip = getClientIP(req);
 
-    // Geo-IP lookup — ip-api.com for IPv4, ipwho.is for IPv6 (ip-api free
-    // tier cannot resolve IPv6). Stays 'Unknown' when the lookup fails.
+    // Geo-IP lookup — try multiple services for reliability. ip-api.com's
+    // free tier is HTTP-only and frequently blocks / times out from Vercel,
+    // so we lead with HTTPS endpoints (ipapi.co, ipwho.is) and fall back to
+    // ip-api.com as a last resort. Stays 'Unknown' when every service fails.
     let country = 'Unknown', state = 'Unknown', city = 'Unknown';
     const isIPv6 = ip.includes(':');
     const lookupable = ip && ip !== 'unknown' && ip !== '127.0.0.1'
       && !/^(10\.|192\.168\.|169\.254\.)/.test(ip) && !/^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+    let geoService = 'none';
     if (lookupable) {
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 2500);
-        const geoUrl = isIPv6
-          ? `https://ipwho.is/${ip}`
-          : `http://ip-api.com/json/${ip}?fields=status,country,regionName,city`;
-        const geoRes = await fetch(geoUrl, { signal: controller.signal });
-        clearTimeout(timer);
-        if (geoRes.ok) {
-          const geo = await geoRes.json();
-          const ok = isIPv6 ? geo.success === true : geo.status === 'success';
-          if (ok) {
-            const gCountry = geo.country;
-            const gState = isIPv6 ? geo.region : geo.regionName;
-            if (gCountry) country = gCountry === 'India' ? 'India 🇮🇳' : gCountry;
-            if (gState) state = gState;
-            if (geo.city) city = geo.city;
+      // Order matters: try HTTPS services first (Vercel allows them), then HTTP
+      const services = isIPv6
+        ? [
+            { name: 'ipwho.is', url: `https://ipwho.is/${ip}`, parse: (j) => ({ ok: j.success === true, country: j.country, state: j.region, city: j.city }) },
+            { name: 'ipapi.co', url: `https://ipapi.co/${ip}/json/`, parse: (j) => ({ ok: !j.error, country: j.country_name, state: j.region, city: j.city }) },
+          ]
+        : [
+            { name: 'ipapi.co', url: `https://ipapi.co/${ip}/json/`, parse: (j) => ({ ok: !j.error, country: j.country_name, state: j.region, city: j.city }) },
+            { name: 'ipwho.is', url: `https://ipwho.is/${ip}`, parse: (j) => ({ ok: j.success === true, country: j.country, state: j.region, city: j.city }) },
+            { name: 'ip-api.com', url: `http://ip-api.com/json/${ip}?fields=status,country,regionName,city`, parse: (j) => ({ ok: j.status === 'success', country: j.country, state: j.regionName, city: j.city }) },
+          ];
+
+      for (const svc of services) {
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 4000);
+          const geoRes = await fetch(svc.url, { signal: controller.signal });
+          clearTimeout(timer);
+          if (geoRes.ok) {
+            const geo = await geoRes.json();
+            const result = svc.parse(geo);
+            if (result.ok) {
+              if (result.country) country = result.country === 'India' ? 'India 🇮🇳' : result.country;
+              if (result.state) state = result.state;
+              if (result.city) city = result.city;
+              geoService = svc.name;
+              break;
+            }
           }
+        } catch (e) {
+          // Try next service
         }
-      } catch (e) {
-        // Geo lookup timed out or failed — keep 'Unknown' (accurate, not guessed)
       }
     }
 
@@ -107,7 +155,7 @@ async function createLoginSession(req, userId, loginMethod, email) {
     });
 
     if (sessionResult) {
-      console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for user ${realUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''}`);
+      console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for user ${realUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} (${isIPv6 ? 'IPv6' : 'IPv4'}) | geo: ${country}/${state}/${city} via ${geoService}`);
     } else {
       console.warn('⚠️ Supabase createSession returned null');
     }

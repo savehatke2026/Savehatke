@@ -401,8 +401,22 @@ async function getRows(sheetName) {
           if (obj[nk] === undefined) obj[nk] = v;
         });
         if (sheetName === SHEETS.USERS) {
-          obj.id = obj.user_id || obj.id || '';
-          obj.user_id = obj.user_id || obj.id || '';
+          // Resolve the canonical user_id even if the sheet's header uses a
+          // different naming convention (userId, userid, UserID, id, uuid…).
+          // The sheet's `user_id` column is the source of truth for sessions
+          // and admin lookups, so we sync every common variant to it.
+          let resolvedUserId = '';
+          for (const [key, value] of Object.entries(obj)) {
+            if (value === '' || value == null) continue;
+            const nk = normKey(key).replace(/[\s_-]+/g, '');
+            if (nk === 'userid' || nk === 'uuid') {
+              resolvedUserId = String(value);
+              break;
+            }
+          }
+          if (!resolvedUserId) resolvedUserId = obj.user_id || obj.userId || obj.userid || obj.id || obj.uuid || '';
+          obj.id = resolvedUserId;
+          obj.user_id = resolvedUserId;
           obj.createdAt = obj.created_at || obj.createdAt || '';
           obj.created_at = obj.created_at || obj.createdAt || '';
         }
