@@ -434,6 +434,7 @@ async function createSession(sessionData) {
 
   const row = {
     user_id: sessionData.user_id || '',
+    email: sessionData.email || '',
     device: sessionData.device || '',
     os: sessionData.os || '',
     browser: sessionData.browser || '',
@@ -456,6 +457,20 @@ async function createSession(sessionData) {
       .single();
 
     if (error) {
+      // Table created before the email column existed — retry without it
+      if (/email/i.test(error.message)) {
+        const { email: _skip, ...rowWithoutEmail } = row;
+        const retry = await client
+          .from('sessions')
+          .insert(rowWithoutEmail)
+          .select()
+          .single();
+        if (retry.error) {
+          console.warn('Create session warning:', retry.error.message);
+          return null;
+        }
+        return retry.data;
+      }
       console.warn('Create session warning:', error.message);
       return null;
     }

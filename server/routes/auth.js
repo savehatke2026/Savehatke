@@ -18,9 +18,23 @@ const router = express.Router();
 /**
  * Extract device info from User-Agent and create a session in Supabase.
  * Runs non-blocking (fire-and-forget) so it never delays login response.
+ * The user_id is resolved against the Users Google Sheet first (by email),
+ * so Supabase always stores the real user id that exists in the sheet.
  */
-async function createLoginSession(req, userId, loginMethod) {
+async function createLoginSession(req, userId, loginMethod, email) {
   try {
+    const cleanEmail = String(email || '').toLowerCase().trim();
+
+    // Prefer the real user_id stored in the Users Google Sheet (lookup by email)
+    let realUserId = String(userId || '');
+    if (cleanEmail) {
+      const sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
+      if (sheetUser && (sheetUser.user_id || sheetUser.id)) {
+        realUserId = String(sheetUser.user_id || sheetUser.id);
+      }
+    }
+    if (!realUserId) realUserId = 'user_' + Date.now();
+
     const ua = new UAParser(req.headers['user-agent'] || '');
     const device = ua.getDevice();
     const os = ua.getOS();
@@ -36,19 +50,15 @@ async function createLoginSession(req, userId, loginMethod) {
       deviceStr = device.type ? device.type.charAt(0).toUpperCase() + device.type.slice(1) : 'Desktop';
     }
 
-    const osStr = os.name ? `${os.name}${os.version ? ' ' + os.version : ''}` : 'Windows 11';
-    const browserStr = browser.name ? `${browser.name}${browser.version ? ' ' + browser.version.split('.')[0] : ''}` : 'Chrome';
+    const osStr = os.name ? `${os.name}${os.version ? ' ' + os.version : ''}` : 'Unknown';
+    const browserStr = browser.name ? `${browser.name}${browser.version ? ' ' + browser.version.split('.')[0] : ''}` : 'Unknown';
 
-    // IP address
-    let ip = getClientIP(req);
+    // Real client IP only — never a sample/hardcoded address
+    const ip = getClientIP(req);
 
-    if (ip === '127.0.0.1' || ip === 'localhost') {
-      ip = '103.15.24.1'; // Use sample Indian IP for local testing so Geo-IP succeeds
-    }
-
-    // Geo-IP lookup with fast 800ms timeout
-    let country = 'India 🇮🇳', state = 'West Bengal', city = 'Kolkata';
-    if (ip && !ip.startsWith('192.168')) {
+    // Geo-IP lookup with fast 800ms timeout; stays 'Unknown' when it fails
+    let country = 'Unknown', state = 'Unknown', city = 'Unknown';
+    if (ip && !ip.startsWith('192.168') && ip !== '127.0.0.1' && ip !== 'localhost') {
       try {
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 800);
@@ -61,14 +71,13 @@ async function createLoginSession(req, userId, loginMethod) {
           if (geo.city) city = geo.city;
         }
       } catch (e) {
-        // Geo lookup timed out or failed, continue with default
+        // Geo lookup timed out or failed — keep 'Unknown' (accurate, not guessed)
       }
     }
 
-    const cleanUserId = String(userId || ('user_' + Date.now()));
-
     const sessionResult = await supabase.createSession({
-      user_id: cleanUserId,
+      user_id: realUserId,
+      email: cleanEmail,
       device: deviceStr,
       os: osStr,
       browser: browserStr,
@@ -80,7 +89,7 @@ async function createLoginSession(req, userId, loginMethod) {
     });
 
     if (sessionResult) {
-      console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for user ${cleanUserId}`);
+      console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for user ${realUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''}`);
     } else {
       console.warn('⚠️ Supabase createSession returned null');
     }
@@ -228,7 +237,7 @@ router.post('/verify-otp', async (req, res) => {
     });
 
     // Fire-and-forget session tracking
-    createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP').catch(() => {});
+    createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail).catch(() => {});
 
     res.json({
       message: 'Email verified successfully!',
@@ -319,7 +328,7 @@ router.post('/register', async (req, res) => {
     });
 
     // Fire-and-forget session tracking
-    createLoginSession(req, userId, 'Email').catch(() => {});
+    createLoginSession(req, userId, 'Email', cleanEmail).catch(() => {});
 
     res.status(201).json({
       message: 'Account created successfully in Google Sheets! 📊',
@@ -378,7 +387,7 @@ router.post('/login', async (req, res) => {
             }, '12h');
 
             // Fire-and-forget session tracking
-            createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Email').catch(() => {});
+            createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Email', dbAdmin.email).catch(() => {});
 
             return res.json({
               message: 'Admin login successful.',
@@ -413,7 +422,7 @@ router.post('/login', async (req, res) => {
 
       const hardcodedId = uuidv4();
       // Fire-and-forget session tracking
-      createLoginSession(req, hardcodedId, 'Email').catch(() => {});
+      createLoginSession(req, hardcodedId, 'Email', hardcoded.email).catch(() => {});
 
       return res.json({
         message: 'Admin login successful.',
@@ -457,7 +466,7 @@ router.post('/login', async (req, res) => {
       });
 
       // Fire-and-forget session tracking
-      createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email').catch(() => {});
+      createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail).catch(() => {});
 
       return res.json({
         message: 'Login successful.',
@@ -502,7 +511,7 @@ router.post('/login', async (req, res) => {
     });
 
     // Fire-and-forget session tracking
-    createLoginSession(req, newUserId, 'Email').catch(() => {});
+    createLoginSession(req, newUserId, 'Email', loginEmail).catch(() => {});
 
     res.json({
       message: 'Login successful.',
@@ -667,7 +676,7 @@ router.post('/google-redirect', async (req, res) => {
         role: 'admin',
       }, '12h');
 
-      createLoginSession(req, adminId, 'Google').catch(() => {});
+      createLoginSession(req, adminId, 'Google', userEmail).catch(() => {});
 
       const adminUser = {
         id: adminId,
@@ -721,7 +730,7 @@ router.post('/google-redirect', async (req, res) => {
       role: 'user',
     });
 
-    createLoginSession(req, userId, 'Google').catch(() => {});
+    createLoginSession(req, userId, 'Google', userEmail).catch(() => {});
 
     const regularUser = {
       id: userId,
@@ -802,7 +811,7 @@ router.post('/google', async (req, res) => {
       }, '12h');
 
       // Fire-and-forget session tracking
-      createLoginSession(req, adminId, 'Google').catch(() => {});
+      createLoginSession(req, adminId, 'Google', userEmail).catch(() => {});
 
       return res.json({
         message: 'Admin Google login successful.',
@@ -850,7 +859,7 @@ router.post('/google', async (req, res) => {
     });
 
     // Fire-and-forget session tracking
-    createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google').catch(() => {});
+    createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail).catch(() => {});
 
     res.json({
       message: 'Google login successful.',
