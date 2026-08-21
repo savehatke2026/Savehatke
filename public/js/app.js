@@ -222,6 +222,14 @@ async function api(endpoint, options = {}) {
     }
 
     if (!res.ok) {
+      // Rate-limited: surface a friendlier message that tells the admin this is
+      // temporary, since it can otherwise look like a real failure.
+      if (res.status === 429) {
+        const err = new Error(data.error || 'Too many requests. Please wait a few seconds and try again.');
+        err.status = 429;
+        err.isRateLimited = true;
+        throw err;
+      }
       const err = new Error(data.error || `HTTP ${res.status}`);
       err.status = res.status;
       throw err;

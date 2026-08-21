@@ -2525,13 +2525,23 @@ async function processBatchPayouts() {
   }
 }
 
+// Helper: section visibility is controlled by the `.active` class on
+// `.section-view`, not by inline style.display. The previous version used
+// `sec.style.display !== 'none'` which is always true (style is empty string),
+// causing the 1s interval to fire `loadPayouts` once per second regardless of
+// the active tab.
+function isPayoutsSectionVisible() {
+  const sec = document.getElementById('sec-payouts');
+  return Boolean(sec && sec.classList.contains('active'));
+}
+
 // ─── Lifecycle ────────────────────────────────────────────────
-// Auto-load when the admin opens the payouts section, plus a 30s refresh
-// while the tab is visible — same real-time feel as the dashboard.
+// Auto-load when the admin opens the payouts section, plus a 60s refresh
+// while the tab is visible — same real-time feel as the dashboard without
+// hammering the rate limiter.
 let payoutsAutoLoaded = false;
 function maybeLoadPayouts() {
-  if (document.getElementById('sec-payouts') &&
-      document.getElementById('sec-payouts').style.display !== 'none') {
+  if (isPayoutsSectionVisible()) {
     if (!payoutsAutoLoaded || PAYOUT_STATE.all.length === 0) {
       payoutsAutoLoaded = true;
       loadPayouts();
@@ -2541,17 +2551,49 @@ function maybeLoadPayouts() {
 
 // Hook into the existing section switcher if it exists, otherwise poll on click
 (function setupPayoutsLifecycle() {
-  // The vault section switcher is defined elsewhere; we poll visibility once a tick
-  setInterval(maybeLoadPayouts, 1000);
-
-  // 30s auto-refresh while visible
+  // One-time setup — the previous version ran a setInterval(maybeLoadPayouts, 1000)
+  // forever, which kept an extra wakeup every second even when the admin was
+  // on a different tab. The page-visibility API plus the section-change handler
+  // below is enough.
   if (PAYOUT_STATE.refreshTimer) clearInterval(PAYOUT_STATE.refreshTimer);
   PAYOUT_STATE.refreshTimer = setInterval(() => {
-    const sec = document.getElementById('sec-payouts');
-    if (sec && sec.style.display !== 'none' && document.visibilityState === 'visible' && !PAYOUT_STATE.loading) {
+    if (isPayoutsSectionVisible() && document.visibilityState === 'visible' && !PAYOUT_STATE.loading) {
       loadPayouts({ silent: true });
     }
-  }, 30 * 1000);
+  }, 60 * 1000);
+
+  // Reload the data whenever the admin comes back to the tab (e.g. switches
+  // browser tabs and returns) so the table isn't stale on first view.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (isPayoutsSectionVisible() && !PAYOUT_STATE.loading) {
+      loadPayouts({ silent: true });
+    }
+  });
+
+  // Reset the "already loaded once" flag whenever the user navigates away from
+  // the payouts section, so the next time they enter the tab it refreshes
+  // immediately instead of waiting for the 60s timer.
+  const origShowSection = window.showSection;
+  if (typeof origShowSection === 'function' && !window.__payoutsSectionPatched) {
+    window.showSection = function patchedShowSection(name, el) {
+      const wasPayoutsVisible = isPayoutsSectionVisible();
+      const result = origShowSection.apply(this, arguments);
+      const isPayoutsVisible = isPayoutsSectionVisible();
+      if (!isPayoutsVisible && wasPayoutsVisible) {
+        // Leaving payouts — clear the once-only flag so the next visit reloads.
+        payoutsAutoLoaded = false;
+      }
+      // Entering payouts for the first time (or returning after leaving) —
+      // load the data immediately instead of waiting for the 60s interval.
+      if (name === 'payouts' && isPayoutsVisible && (!payoutsAutoLoaded || PAYOUT_STATE.all.length === 0)) {
+        payoutsAutoLoaded = true;
+        loadPayouts();
+      }
+      return result;
+    };
+    window.__payoutsSectionPatched = true;
+  }
 })();
 
 </script>

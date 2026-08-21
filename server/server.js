@@ -56,6 +56,20 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests. Please try again later.' },
 });
 
+// Admin panel makes many legitimate calls per page load
+// (users + sessions + coupons + stats + settings + payouts list + payouts stats),
+// and the payouts page auto-refreshes every 30s. A 100/15min cap is far too
+// tight for an authenticated admin and was causing "Too many requests" errors
+// on the user / session / coupon / payout pages. Bump it to a generous limit
+// scoped just to admin traffic — the public apiLimiter above is unchanged.
+const adminApiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 2000, // 2000 admin requests per 15 min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many admin requests. Please try again later.' },
+});
+
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20, // Stricter for auth endpoints
@@ -98,11 +112,32 @@ app.use('/api/coupons/proof', couponSubmissionLimiter);
 app.use('/api/coupons', apiLimiter, couponRoutes);
 app.use('/api/tracker', apiLimiter, trackerRoutes);
 app.use('/api/admin/gmail', gmailRoutes); // own rate limits; must precede /api/admin to avoid the generic limiter
-app.use('/api/admin', apiLimiter, adminRoutes);
+
+// Admin API — use a much more generous limiter than the public one. The admin
+// panel makes 5+ requests per page-load (users + sessions + coupons + stats
+// + settings + payouts) and the payouts page auto-refreshes every 30s, so a
+// 100/15min cap was causing "Too many requests" errors on the user / session
+// / coupon / payout pages.
+app.use('/api/admin', adminApiLimiter, adminRoutes);
+
+// Admin payout routes live in routes/payouts.js (defined with paths like
+// /admin/payouts). Mount that router under /api/admin with a tiny path
+// rewrite so they share the adminApiLimiter above exactly once, instead of
+// falling through to the public apiLimiter at /api.
+app.use('/api/admin', (req, res, next) => {
+  // req.url is the path relative to this mount point, so for a request to
+  // /api/admin/payouts/stats it will be '/payouts/stats'.
+  if (req.url === '/payouts' || req.url.startsWith('/payouts/')) {
+    req.url = '/admin' + req.url; // re-target so the internal /admin/payouts/* route matches
+    return payoutRoutes(req, res, next);
+  }
+  return next();
+});
+
 app.use('/api/support', apiLimiter, supportRoutes);
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
 app.use('/api/chat', chatRoutes); // /api/chat applies its own service-level rate limits
-app.use('/api', apiLimiter, payoutRoutes); // /api/payouts/* (seller) + /api/admin/payouts/* (admin)
+app.use('/api', apiLimiter, payoutRoutes); // /api/payouts/* (seller)
 
 // Public Turnstile site key for CAPTCHA widgets (secret stays in .env)
 app.get('/api/turnstile-config', (req, res) => {

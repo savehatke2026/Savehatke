@@ -15,6 +15,7 @@ function initAdminApp() {
   initCreateAdminForm();
   initUsersTableControls();
   initSessionsTableControls();
+  initInventoryTableControls();
   loadSystemSettings();
 }
 
@@ -222,13 +223,24 @@ function resetAddCouponForm(form) {
 }
 
 // ── Inventory ───────────────────────────────────────────────────────────
+let inventoryLoading = false;
+let inventoryRequestSeq = 0;
+
 async function loadInventory() {
   const container = document.getElementById('inventoryTable');
   if (!container) return;
 
+  // Single-flight: if a previous call is still in flight, don't fire another
+  // (tab clicks, search keystrokes, and 30s auto-refresh can all overlap).
+  if (inventoryLoading) return;
+  inventoryLoading = true;
+
+  const seq = ++inventoryRequestSeq;
   try {
     const status = document.getElementById('invStatusFilter')?.value || '';
     const data = await api(`/admin/coupons${status ? `?status=${status}` : ''}`, { useAdmin: true });
+    // If a newer request started while we were awaiting, drop this response
+    if (seq !== inventoryRequestSeq) return;
 
     if (data.coupons.length === 0) {
       container.innerHTML = `
@@ -294,12 +306,22 @@ async function loadInventory() {
       </div>
     `;
   } catch (err) {
-    container.innerHTML = `<p class="text-danger">Failed to load inventory: ${err.message}</p>`;
+    if (seq === inventoryRequestSeq) {
+      container.innerHTML = `<p class="text-danger">Failed to load inventory: ${err.message}</p>`;
+    }
+  } finally {
+    inventoryLoading = false;
   }
+}
 
-  // Attach filter listeners
-  document.getElementById('invSearch')?.addEventListener('input', debounce(loadInventory, 300));
-  document.getElementById('invStatusFilter')?.addEventListener('change', loadInventory);
+// One-time init for the inventory filter controls. The previous version bound
+// these listeners inside loadInventory itself, so every call added another
+// listener (memory leak + duplicate fires + extra rate-limit hits).
+function initInventoryTableControls() {
+  const search = document.getElementById('invSearch');
+  const filter = document.getElementById('invStatusFilter');
+  if (search) search.addEventListener('input', debounce(loadInventory, 300));
+  if (filter) filter.addEventListener('change', loadInventory);
 }
 
 // ── Pending Submissions ─────────────────────────────────────────────────
@@ -499,6 +521,7 @@ window.terminateSession = terminateSession;
 
 // ── User Management (live Google Sheets data) ────────────────────────────
 let usersCache = [];
+let usersLoading = false;
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (ch) => ({
@@ -530,6 +553,9 @@ function userStatusBadge(status) {
 }
 
 async function loadUsers() {
+  // Single-flight: ignore re-entries while a previous call is still in flight.
+  if (usersLoading) return;
+  usersLoading = true;
   const body = document.getElementById('usersTableBody');
   try {
     const data = await api('/admin/users', { useAdmin: true });
@@ -549,6 +575,8 @@ async function loadUsers() {
     renderLoginHistory();
   } catch (err) {
     if (body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+  } finally {
+    usersLoading = false;
   }
 }
 
@@ -632,6 +660,7 @@ function initUsersTableControls() {
 
 // ── User Sessions (live Supabase data) ──────────────────────────────────
 let sessionsCache = [];
+let sessionsLoading = false;
 
 function sessionStatusBadge(status) {
   const s = String(status || '').toLowerCase();
@@ -650,6 +679,9 @@ function sessionLocation(session) {
 }
 
 async function loadSessions() {
+  // Single-flight: ignore re-entries while a previous call is still in flight.
+  if (sessionsLoading) return;
+  sessionsLoading = true;
   const body = document.getElementById('sessionsTableBody');
   try {
     const data = await api('/admin/sessions', { useAdmin: true });
@@ -671,6 +703,8 @@ async function loadSessions() {
     renderSessions();
   } catch (err) {
     if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load sessions: ${escapeHtml(err.message)}</td></tr>`;
+  } finally {
+    sessionsLoading = false;
   }
 }
 
