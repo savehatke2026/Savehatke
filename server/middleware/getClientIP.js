@@ -10,6 +10,8 @@ const IPV6_RE = /^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$/;
 
 function isValidIP(ip) {
   if (!ip) return false;
+  // IPv4-mapped IPv6 (::ffff:1.2.3.4) — validate the embedded IPv4
+  if (ip.startsWith('::ffff:')) return isValidIP(ip.slice(7));
   if (IPV4_RE.test(ip)) return ip.split('.').every((p) => Number(p) <= 255);
   return IPV6_RE.test(ip);
 }
@@ -25,7 +27,10 @@ function isPrivateOrLoopback(ip) {
 }
 
 function normalize(ip) {
-  return (ip === '::1' || ip === '::ffff:127.0.0.1') ? '127.0.0.1' : ip;
+  if (!ip) return ip;
+  // IPv4-mapped IPv6 (::ffff:1.2.3.4) → plain IPv4 so Geo-IP lookups work
+  if (ip.startsWith('::ffff:')) return normalize(ip.slice(7));
+  return (ip === '::1' || ip === '127.0.0.1') ? '127.0.0.1' : ip;
 }
 
 /**
@@ -58,7 +63,7 @@ function getClientIP(req) {
 
   // 1st pass — first valid PUBLIC IP (the real visitor)
   for (const c of candidates) {
-    if (isValidIP(c) && !isPrivateOrLoopback(c)) return c;
+    if (isValidIP(c) && !isPrivateOrLoopback(c)) return normalize(c);
   }
 
   // 2nd pass — first valid IP (local dev / internal traffic)

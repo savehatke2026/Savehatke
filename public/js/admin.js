@@ -14,6 +14,7 @@ function initAdminApp() {
   initAddCouponForm();
   initCreateAdminForm();
   initUsersTableControls();
+  initSessionsTableControls();
   loadSystemSettings();
 }
 
@@ -492,6 +493,9 @@ window.loadActiveCoupons = loadActiveCoupons;
 window.loadExpiredCoupons = loadExpiredCoupons;
 window.loadUsers = loadUsers;
 window.toggleUserStatus = toggleUserStatus;
+window.loadSessions = loadSessions;
+window.renderSessions = renderSessions;
+window.terminateSession = terminateSession;
 
 // ── User Management (live Google Sheets data) ────────────────────────────
 let usersCache = [];
@@ -624,6 +628,112 @@ function initUsersTableControls() {
   const filter = document.getElementById('usersStatusFilter');
   if (search) search.addEventListener('input', () => renderUsers());
   if (filter) filter.addEventListener('change', () => renderUsers());
+}
+
+// ── User Sessions (live Supabase data) ──────────────────────────────────
+let sessionsCache = [];
+
+function sessionStatusBadge(status) {
+  const s = String(status || '').toLowerCase();
+  if (s === 'active') return '<span class="badge badge-green">Active</span>';
+  if (s === 'logged out') return '<span class="badge badge-gray">Logged out</span>';
+  if (s === 'expired') return '<span class="badge badge-orange">Expired</span>';
+  return `<span class="badge badge-blue">${escapeHtml(status || '—')}</span>`;
+}
+
+function sessionListLabel(session, fields) {
+  return fields.map((f) => session[f]).filter((v) => v && String(v).trim()).join(' · ') || '—';
+}
+
+function sessionLocation(session) {
+  return [session.city, session.state, session.country].filter((v) => v && String(v).trim()).join(', ') || '—';
+}
+
+async function loadSessions() {
+  const body = document.getElementById('sessionsTableBody');
+  try {
+    const data = await api('/admin/sessions', { useAdmin: true });
+    sessionsCache = data.sessions || [];
+
+    const c = data.counts || {};
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('sessionsActiveCount', c.active ?? '—');
+    set('sessionsUniqueUsers', c.uniqueUsers ?? '—');
+    set('sessionsTodayCount', c.loginsToday ?? '—');
+    set('sessionsEndedCount', (c.loggedOut ?? 0) + (c.expired ?? 0));
+    set('sessionsNavBadge', c.active ?? '—');
+    const sub = document.getElementById('sessionsSubtitle');
+    if (sub) {
+      const total = c.total ?? sessionsCache.length;
+      sub.textContent = `${total} total session${total === 1 ? '' : 's'} · live from Supabase sessions table`;
+    }
+
+    renderSessions();
+  } catch (err) {
+    if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load sessions: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+function renderSessions() {
+  const body = document.getElementById('sessionsTableBody');
+  if (!body) return;
+
+  const q = (document.getElementById('sessionsSearch')?.value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('sessionsStatusFilter')?.value || '';
+
+  const rows = sessionsCache.filter((s) => {
+    if (statusFilter && String(s.status || '') !== statusFilter) return false;
+    if (q) {
+      const haystack = `${s.email || ''} ${s.user_id || ''} ${s.ip_address || ''} ${s.city || ''} ${s.state || ''} ${s.country || ''} ${s.browser || ''} ${s.os || ''} ${s.device || ''}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+    return true;
+  });
+
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6b88aa;padding:24px;">No sessions match your filters.</td></tr>';
+    return;
+  }
+
+  body.innerHTML = rows.map((s) => {
+    const email = s.email || s.user_id || 'Unknown user';
+    const initials = String(email).split(/[\s@._-]+/).filter(Boolean)[0]?.slice(0, 2).toUpperCase() || '?';
+    const isActive = String(s.status || '').toLowerCase() === 'active';
+    const idAttr = escapeHtml(s.session_id || '');
+    return `<tr>
+      <td title="user_id: ${escapeHtml(s.user_id || '—')}"><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">${escapeHtml(initials)}</div><strong>${escapeHtml(email)}</strong></div></td>
+      <td>${escapeHtml(sessionListLabel(s, ['device', 'os', 'browser']))}</td>
+      <td>${escapeHtml(sessionLocation(s))}</td>
+      <td style="font-family:'JetBrains Mono',monospace;font-size:.78rem">${escapeHtml(s.ip_address || '—')}</td>
+      <td><span class="badge badge-blue">${escapeHtml(s.login_method || 'Email')}</span></td>
+      <td style="font-size:.78rem;color:#6b88aa">${fmtDateTime(s.login_time)}</td>
+      <td style="font-size:.78rem;color:#6b88aa">${fmtDateTime(s.last_active)}</td>
+      <td>${sessionStatusBadge(s.status)}</td>
+      <td>${isActive ? `<button class="btn btn-danger btn-sm" onclick="terminateSession('${idAttr}')">Terminate</button>` : '<span class="badge badge-gray">Ended</span>'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function terminateSession(sessionId) {
+  if (!sessionId || !confirm('Terminate this session? The user will be logged out on that device.')) return;
+  try {
+    const data = await api(`/admin/sessions/${encodeURIComponent(sessionId)}/terminate`, {
+      method: 'PUT',
+      useAdmin: true,
+    });
+    showToast(data.message || 'Session terminated.', 'success');
+    loadSessions();
+  } catch (err) {
+    showToast(err.message || 'Failed to terminate session.', 'error');
+  }
+}
+
+// Search / filter wiring for the sessions table
+function initSessionsTableControls() {
+  const search = document.getElementById('sessionsSearch');
+  const filter = document.getElementById('sessionsStatusFilter');
+  if (search) search.addEventListener('input', () => renderSessions());
+  if (filter) filter.addEventListener('change', () => renderSessions());
 }
 
 // ── Actions ─────────────────────────────────────────────────────────────

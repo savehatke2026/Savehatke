@@ -29,7 +29,12 @@ async function createLoginSession(req, userId, loginMethod, email) {
     // Prefer the real user_id stored in the Users Google Sheet (lookup by email)
     let realUserId = String(userId || '');
     if (cleanEmail) {
-      const sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
+      let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
+      if (!sheetUser) {
+        // Retry case/whitespace-insensitive — sheet rows may hold mixed-case emails
+        const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
+        sheetUser = allRows.find((r) => String(r.email || '').toLowerCase().trim() === cleanEmail) || null;
+      }
       if (sheetUser && (sheetUser.user_id || sheetUser.id)) {
         realUserId = String(sheetUser.user_id || sheetUser.id);
       }
@@ -57,19 +62,31 @@ async function createLoginSession(req, userId, loginMethod, email) {
     // Real client IP only — never a sample/hardcoded address
     const ip = getClientIP(req);
 
-    // Geo-IP lookup with fast 800ms timeout; stays 'Unknown' when it fails
+    // Geo-IP lookup — ip-api.com for IPv4, ipwho.is for IPv6 (ip-api free
+    // tier cannot resolve IPv6). Stays 'Unknown' when the lookup fails.
     let country = 'Unknown', state = 'Unknown', city = 'Unknown';
-    if (ip && !ip.startsWith('192.168') && ip !== '127.0.0.1' && ip !== 'localhost') {
+    const isIPv6 = ip.includes(':');
+    const lookupable = ip && ip !== 'unknown' && ip !== '127.0.0.1'
+      && !/^(10\.|192\.168\.|169\.254\.)/.test(ip) && !/^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+    if (lookupable) {
       try {
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 800);
-        const geoRes = await fetch(`http://ip-api.com/json/${ip}?fields=country,regionName,city`, { signal: controller.signal });
+        const timer = setTimeout(() => controller.abort(), 2500);
+        const geoUrl = isIPv6
+          ? `https://ipwho.is/${ip}`
+          : `http://ip-api.com/json/${ip}?fields=status,country,regionName,city`;
+        const geoRes = await fetch(geoUrl, { signal: controller.signal });
         clearTimeout(timer);
         if (geoRes.ok) {
           const geo = await geoRes.json();
-          if (geo.country) country = geo.country === 'India' ? 'India 🇮🇳' : geo.country;
-          if (geo.regionName) state = geo.regionName;
-          if (geo.city) city = geo.city;
+          const ok = isIPv6 ? geo.success === true : geo.status === 'success';
+          if (ok) {
+            const gCountry = geo.country;
+            const gState = isIPv6 ? geo.region : geo.regionName;
+            if (gCountry) country = gCountry === 'India' ? 'India 🇮🇳' : gCountry;
+            if (gState) state = gState;
+            if (geo.city) city = geo.city;
+          }
         }
       } catch (e) {
         // Geo lookup timed out or failed — keep 'Unknown' (accurate, not guessed)

@@ -395,6 +395,7 @@ body.sidebar-collapsed .main{margin-left:0}
     <span class="nav-group-label">Main</span>
     <div class="nav-item active" onclick="showSection('dashboard',this)"><span class="ni">🏠</span> Dashboard</div>
     <div class="nav-item" onclick="showSection('users',this)"><span class="ni">👥</span> Users <span class="nbadge green" id="usersNavBadge">—</span></div>
+    <div class="nav-item" onclick="showSection('sessions',this)"><span class="ni">🔋</span> User Sessions <span class="nbadge green" id="sessionsNavBadge">—</span></div>
     <div class="nav-item" onclick="showSection('coupons',this)"><span class="ni">🎟️</span> Coupons <span class="nbadge">14</span></div>
     <div class="nav-item" onclick="showSection('payouts',this)"><span class="ni">💰</span> Payouts <span class="nbadge">7</span></div>
     <div class="nav-item" onclick="showSection('brands',this)"><span class="ni">🛍️</span> Brands</div>
@@ -574,6 +575,42 @@ body.sidebar-collapsed .main{margin-left:0}
           <thead><tr><th>User</th><th>Email</th><th>Last Login</th><th>Last Logout</th><th>Status</th></tr></thead>
           <tbody id="loginHistoryBody">
             <tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">Loading…</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
+    <!-- ════════════════ USER SESSIONS (live Supabase) ════════════════ -->
+    <div class="section-view" id="sec-sessions">
+      <div class="page-title-row">
+        <div><div class="page-title">User <span class="gtext">Sessions</span></div><div class="page-subtitle" id="sessionsSubtitle">Live login sessions from Supabase — device, location and status for every user.</div></div>
+        <button class="btn btn-primary btn-lg" onclick="loadSessions()">↻ Refresh</button>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom:22px">
+        <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">🟢</div></div><div class="stat-val gtext" id="sessionsActiveCount">—</div><div class="stat-lbl">Active Sessions</div></div>
+        <div class="stat-card sc-blue"><div class="stat-card-top"><div class="stat-icon si-blue">👤</div></div><div class="stat-val" style="color:#4fc3f7" id="sessionsUniqueUsers">—</div><div class="stat-lbl">Unique Users</div></div>
+        <div class="stat-card sc-purple"><div class="stat-card-top"><div class="stat-icon si-purple">📅</div></div><div class="stat-val" style="color:#ce93d8" id="sessionsTodayCount">—</div><div class="stat-lbl">Logins Today</div></div>
+        <div class="stat-card sc-orange"><div class="stat-card-top"><div class="stat-icon si-orange">🚪</div></div><div class="stat-val" style="color:#ffb74d" id="sessionsEndedCount">—</div><div class="stat-lbl">Logged Out / Expired</div></div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <h3>All Sessions <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(live from Supabase)</span></h3>
+          <div class="table-header-actions">
+            <input class="form-input btn-sm" id="sessionsSearch" style="width:220px" placeholder="🔍 Search email, IP, location...">
+            <select class="form-select btn-sm" id="sessionsStatusFilter" style="width:140px" onchange="renderSessions()">
+              <option value="">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Logged out">Logged out</option>
+              <option value="Expired">Expired</option>
+            </select>
+          </div>
+        </div>
+        <div class="overflow-x"><table>
+          <thead><tr><th>User</th><th>Device</th><th>Location</th><th>IP Address</th><th>Method</th><th>Login Time</th><th>Last Active</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="sessionsTableBody">
+            <tr><td colspan="9" style="text-align:center;color:#6b88aa;padding:24px;">Loading sessions from Supabase…</td></tr>
           </tbody>
         </table></div>
       </div>
@@ -1471,7 +1508,7 @@ function showSection(name, el) {
 
   const titleEl = document.getElementById('topbarTitle');
   if (titleEl) {
-    const specialTitles = { support: 'Support Cases <span>/ Management</span>' };
+    const specialTitles = { support: 'Support Cases <span>/ Management</span>', sessions: 'User Sessions <span>/ Supabase Live</span>' };
     titleEl.innerHTML = specialTitles[name] || `${name.charAt(0).toUpperCase() + name.slice(1)} <span>/ View</span>`;
   }
 
@@ -1484,6 +1521,9 @@ function showSection(name, el) {
   }
   if (name === 'users' && typeof loadUsers === 'function') {
     loadUsers();
+  }
+  if (name === 'sessions' && typeof loadSessions === 'function') {
+    loadSessions();
   }
   if (name === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
@@ -1556,37 +1596,37 @@ function updateSidebarCollapseIcon() {
 const BRANDS_DATA = [
   // 🛒 E-Commerce
   { name: 'Amazon', category: '🛒 E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' },
-  { name: 'Flipkart', category: '🛒 E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/7a/Flipkart_logo.svg' },
+  { name: 'Flipkart', category: '🛒 E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Flipkart_logo_%282026%29.svg' },
   { name: 'Meesho', category: '🛒 E-Commerce', icon: '📦' },
   { name: 'Tata CLiQ', category: '🛒 E-Commerce', icon: '💎' },
   { name: 'Croma', category: '🛒 E-Commerce', icon: '⚡' },
   // 👗 Fashion
   { name: 'Myntra', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Myntra_Logo.png' },
-  { name: 'AJIO', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/d/d3/Ajio_Logo.svg' },
+  { name: 'AJIO', category: '👗 Fashion', icon: '👟' },
   { name: 'H&M', category: '👗 Fashion', icon: '🧥' },
   { name: 'Nykaa Fashion', category: '👗 Fashion', icon: '👗' },
-  { name: 'Puma', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_complete_logo.svg' },
+  { name: 'Puma', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/ae/Puma-logo-%28text%29.svg' },
   { name: 'Adidas', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
   // 💄 Beauty & Personal Care
   { name: 'Nykaa', category: '💄 Beauty & Personal Care', logo: 'https://upload.wikimedia.org/wikipedia/commons/0/00/Nykaa_New_Logo.svg' },
   { name: 'Purplle', category: '💄 Beauty & Personal Care', icon: '💜' },
-  { name: 'Mamaearth', category: '💄 Beauty & Personal Care', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/87/Mamaearth_Logo.png' },
+  { name: 'Mamaearth', category: '💄 Beauty & Personal Care', icon: '🌿' },
   { name: 'Minimalist', category: '💄 Beauty & Personal Care', icon: '🧴' },
   { name: 'Lakmé', category: '💄 Beauty & Personal Care', icon: '💄' },
   // 🍔 Food & Delivery
-  { name: 'Swiggy', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/en/1/12/Swiggy_logo.svg' },
+  { name: 'Swiggy', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/13/Swiggy_logo.png' },
   { name: 'Zomato', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Zomato_logo.png' },
   { name: 'Domino\'s', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Domino%27s_pizza_logo.svg' },
   { name: 'Pizza Hut', category: '🍔 Food & Delivery', icon: '🍕' },
   { name: 'EatSure', category: '🍔 Food & Delivery', icon: '🍱' },
   // 🚕 Travel & Transport
-  { name: 'MakeMyTrip', category: '🚕 Travel & Transport', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/1f/MakeMyTrip_Logo.svg' },
+  { name: 'MakeMyTrip', category: '🚕 Travel & Transport', logo: 'https://upload.wikimedia.org/wikipedia/commons/6/61/Makemytrip_logo.svg' },
   { name: 'Cleartrip', category: '🚕 Travel & Transport', icon: '✈️' },
   { name: 'EaseMyTrip', category: '🚕 Travel & Transport', icon: '🧳' },
   { name: 'Uber', category: '🚕 Travel & Transport', icon: '🚗' },
   { name: 'Rapido', category: '🚕 Travel & Transport', icon: '🛵' },
   // 🏨 Hotels & Stays
-  { name: 'MakeMyTrip', category: '🏨 Hotels & Stays', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/1f/MakeMyTrip_Logo.svg' },
+  { name: 'MakeMyTrip', category: '🏨 Hotels & Stays', logo: 'https://upload.wikimedia.org/wikipedia/commons/6/61/Makemytrip_logo.svg' },
   { name: 'Booking.com', category: '🏨 Hotels & Stays', icon: '🏨' },
   { name: 'Agoda', category: '🏨 Hotels & Stays', icon: '🌏' },
   { name: 'Goibibo', category: '🏨 Hotels & Stays', icon: '🛏️' },
@@ -1613,7 +1653,7 @@ const BRANDS_DATA = [
   { name: 'Cult.fit', category: '🏋️ Fitness & Sports', icon: '🏋️' },
   { name: 'Decathlon', category: '🏋️ Fitness & Sports', icon: '🏃' },
   { name: 'Adidas', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
-  { name: 'Puma', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/8/88/Puma_complete_logo.svg' },
+  { name: 'Puma', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/ae/Puma-logo-%28text%29.svg' },
   { name: 'Nike', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg' },
   // 🏠 Home & Lifestyle
   { name: 'IKEA', category: '🏠 Home & Lifestyle', icon: '🛋️' },

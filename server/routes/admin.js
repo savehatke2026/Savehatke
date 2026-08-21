@@ -759,6 +759,50 @@ router.put('/users/status', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
+// GET /api/admin/sessions — User sessions (live Supabase data)
+router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (!supabase.isConfigured()) {
+      return res.status(503).json({ error: 'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.' });
+    }
+
+    const sessions = await supabase.getAllSessions();
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const counts = {
+      total: sessions.length,
+      active: sessions.filter((s) => s.status === 'Active').length,
+      loggedOut: sessions.filter((s) => s.status === 'Logged out').length,
+      expired: sessions.filter((s) => s.status === 'Expired').length,
+      uniqueUsers: new Set(sessions.map((s) => s.user_id).filter(Boolean)).size,
+      loginsToday: sessions.filter((s) => s.login_time && new Date(s.login_time) >= startOfDay).length,
+    };
+
+    res.json({ sessions, counts });
+  } catch (err) {
+    console.error('Admin list sessions error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// PUT /api/admin/sessions/:sessionId/terminate — Force-end an active session
+router.put('/sessions/:sessionId/terminate', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    if (!sessionId) {
+      return res.status(400).json({ error: 'sessionId is required.' });
+    }
+
+    await supabase.endSession(sessionId, 'Logged out');
+    res.json({ message: 'Session terminated. The user will be logged out on that device.' });
+  } catch (err) {
+    console.error('Admin terminate session error:', err);
+    res.status(500).json({ error: 'Failed to terminate session.' });
+  }
+});
+
 // GET /api/admin/support-cases — List support tickets (live Google Sheets data)
 router.get('/support-cases', authenticateToken, requireAdmin, async (req, res) => {
   try {
