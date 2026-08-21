@@ -458,18 +458,22 @@
     <div class="welcome-inner">
       <div>
         <p class="slabel">Dashboard</p>
-        <h1 class="welcome-greeting">Welcome back, <span class="gtext" id="welcomeFirstName">Rahul</span> 👋</h1>
+        <h1 class="welcome-greeting">Welcome back, <span class="gtext" id="welcomeFirstName">Friend</span> 👋</h1>
         <p class="welcome-sub">Here's what's happening with your SaveHatke account.</p>
         <div class="welcome-tags">
-          <span class="wtag wtag-verified">✅ Email Verified</span>
-          <span class="wtag wtag-member">🏅 Member since Jan 2026</span>
+          <span class="wtag wtag-verified" id="welcomeVerifiedTag">✅ Email Verified</span>
+          <span class="wtag wtag-member" id="welcomeMemberTag">🏅 Member</span>
         </div>
       </div>
       <div class="welcome-date">
         <div style="font-size:.78rem;color:#6b88aa">Today</div>
         <span id="currentDate"></span>
+        <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-xs" id="refreshBtn" onclick="refreshDashboard()" title="Refresh data">🔄 Refresh</button>
+          <span id="lastUpdatedPill" style="font-size:.7rem;color:#6b88aa;font-family:'JetBrains Mono',monospace">updating…</span>
+        </div>
         <div style="margin-top:8px">
-          <button class="btn btn-primary btn-sm" onclick="openModal('withdrawModal')">💸 Withdraw ₹850</button>
+          <button class="btn btn-primary btn-sm" id="welcomeWithdrawBtn" onclick="openModal('withdrawModal')">💸 Withdraw</button>
         </div>
       </div>
     </div>
@@ -481,45 +485,45 @@
     <div class="stat-card sc-blue">
       <div class="stat-card-top">
         <div class="stat-icon si-blue">📤</div>
-        <span class="stat-trend trend-up">↑ 4</span>
+        <span class="stat-trend trend-up" id="statTrendSubmitted">↑ 0</span>
       </div>
-      <div class="stat-val" style="color:#4fc3f7">12</div>
+      <div class="stat-val" style="color:#4fc3f7" id="statSubmitted">0</div>
       <div class="stat-lbl">Coupons Submitted</div>
     </div>
 
     <div class="stat-card sc-purple">
       <div class="stat-card-top">
         <div class="stat-icon si-purple">🛒</div>
-        <span class="stat-trend trend-up">↑ 2</span>
+        <span class="stat-trend trend-up" id="statTrendPurchased">↑ 0</span>
       </div>
-      <div class="stat-val" style="color:#ce93d8">8</div>
+      <div class="stat-val" style="color:#ce93d8" id="statPurchased">0</div>
       <div class="stat-lbl">Coupons Purchased</div>
     </div>
 
     <div class="stat-card sc-orange">
       <div class="stat-card-top">
         <div class="stat-icon si-orange">💼</div>
-        <span class="stat-trend trend-up">↑ 1</span>
+        <span class="stat-trend trend-up" id="statTrendSold">↑ 0</span>
       </div>
-      <div class="stat-val" style="color:#ffb74d">5</div>
+      <div class="stat-val" style="color:#ffb74d" id="statSold">0</div>
       <div class="stat-lbl">Coupons Sold</div>
     </div>
 
     <div class="stat-card sc-green">
       <div class="stat-card-top">
         <div class="stat-icon si-green">📈</div>
-        <span class="stat-trend trend-up">↑ 18%</span>
+        <span class="stat-trend trend-up" id="statTrendEarnings">↑ ₹0</span>
       </div>
-      <div class="stat-val gtext">₹1,250</div>
+      <div class="stat-val gtext" id="statEarnings">₹0</div>
       <div class="stat-lbl">Total Earnings</div>
     </div>
 
     <div class="stat-card sc-teal">
       <div class="stat-card-top">
         <div class="stat-icon si-teal">💰</div>
-        <span class="stat-trend trend-up">↑ ₹200</span>
+        <span class="stat-trend trend-up" id="statTrendBalance">↑ ₹0</span>
       </div>
-      <div class="stat-val" style="color:#80cbc4">₹850</div>
+      <div class="stat-val" style="color:#80cbc4" id="statBalance">₹0</div>
       <div class="stat-lbl">Available Balance</div>
     </div>
 
@@ -564,7 +568,7 @@
     <div class="card" id="activity">
       <div class="card-hdr">
         <div class="card-title"><span class="ico">⚡</span> Recent Activity</div>
-        <button class="btn btn-ghost btn-sm" onclick="showToast('Showing all activity...','warn')">View All</button>
+        <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()" title="Refresh activity">↻ Refresh</button>
       </div>
 
       <!-- Desktop table -->
@@ -596,20 +600,20 @@
       </div>
 
       <div class="cs-grid">
-        <div class="cs-item" onclick="showToast('5 active coupons','warn')">
-          <div class="cs-num" style="color:#00e676">5</div>
+        <div class="cs-item">
+          <div class="cs-num" style="color:#00e676" id="csActiveCount">0</div>
           <div class="cs-lbl">Active</div>
         </div>
-        <div class="cs-item" onclick="showToast('2 pending review','warn')">
-          <div class="cs-num" style="color:#ffb74d">2</div>
+        <div class="cs-item">
+          <div class="cs-num" style="color:#ffb74d" id="csPendingCount">0</div>
           <div class="cs-lbl">Pending</div>
         </div>
-        <div class="cs-item" onclick="showToast('5 coupons sold','warn')">
-          <div class="cs-num" style="color:#ce93d8">5</div>
+        <div class="cs-item">
+          <div class="cs-num" style="color:#ce93d8" id="csSoldCount">0</div>
           <div class="cs-lbl">Sold</div>
         </div>
-        <div class="cs-item" onclick="showToast('1 expired coupon','warn')">
-          <div class="cs-num" style="color:#6b88aa">1</div>
+        <div class="cs-item">
+          <div class="cs-num" style="color:#6b88aa" id="csExpiredCount">0</div>
           <div class="cs-lbl">Expired</div>
         </div>
       </div>
@@ -633,28 +637,28 @@
         <div class="card-title"><span class="ico">💰</span> Wallet</div>
         <span class="badge badge-green">Active</span>
       </div>
-      <div class="wallet-bal">₹850</div>
+      <div class="wallet-bal" id="walletBalance">₹0</div>
       <div class="wallet-sub">Available balance</div>
       <div class="wallet-stats">
         <div class="ws-row">
           <div class="ws-lbl">Pending</div>
-          <div class="ws-val" style="color:#ffb74d">₹200</div>
+          <div class="ws-val" style="color:#ffb74d" id="walletPending">₹0</div>
         </div>
         <div class="ws-row">
           <div class="ws-lbl">Total Earned</div>
-          <div class="ws-val" style="color:#00e676">₹1,250</div>
+          <div class="ws-val" style="color:#00e676" id="walletEarned">₹0</div>
         </div>
         <div class="ws-row">
           <div class="ws-lbl">Withdrawn</div>
-          <div class="ws-val">₹400</div>
+          <div class="ws-val" id="walletWithdrawn">₹0</div>
         </div>
         <div class="ws-row">
           <div class="ws-lbl">This Month</div>
-          <div class="ws-val" style="color:#80cbc4">₹320</div>
+          <div class="ws-val" style="color:#80cbc4" id="walletThisMonth">₹0</div>
         </div>
       </div>
       <div class="wallet-btns">
-        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('Transactions coming soon!','warn')">Transactions</button>
+        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('Transaction history coming soon!','warn')">Transactions</button>
         <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('withdrawModal')">💸 Withdraw</button>
       </div>
     </div>
@@ -666,12 +670,11 @@
         <a href="support" class="btn btn-ghost btn-sm">Contact Support</a>
       </div>
 
-      <div class="support-case-box">
-        <div class="sc-case-id">Case #SH-10245</div>
-        <div class="sc-case-sub">Payment issue with withdrawal</div>
+      <div class="support-case-box" id="supportLatestCase">
+        <div class="sc-case-id">No open cases</div>
+        <div class="sc-case-sub">You haven't raised any support tickets yet.</div>
         <div class="sc-case-meta">
-          <span><span class="badge badge-orange">Open</span></span>
-          <span>Updated: Today, 11:42 AM</span>
+          <span><span class="badge badge-gray">None</span></span>
         </div>
       </div>
 
@@ -679,11 +682,11 @@
         <div style="font-size:.72rem;color:#6b88aa;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Summary</div>
         <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0;border-bottom:1px solid rgba(79,195,247,.06)">
           <span style="color:#6b88aa">Open cases</span>
-          <span style="color:#ffb74d;font-weight:700">1</span>
+          <span style="color:#ffb74d;font-weight:700" id="supportOpenCount">0</span>
         </div>
         <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0">
           <span style="color:#6b88aa">Total resolved</span>
-          <span style="color:#00e676;font-weight:700">4</span>
+          <span style="color:#00e676;font-weight:700" id="supportResolvedCount">0</span>
         </div>
       </div>
 
@@ -697,20 +700,20 @@
     <div class="card" id="security">
       <div class="card-hdr">
         <div class="card-title"><span class="ico">🔒</span> Security</div>
-        <span class="badge badge-green">Secure</span>
+        <span class="badge badge-green" id="securityStatusBadge">Secure</span>
       </div>
 
       <div class="sec-row-item">
         <span class="sec-lbl">Email</span>
-        <span class="sec-val"><span class="sec-dot dot-green"></span>Verified</span>
+        <span class="sec-val" id="securityEmail"><span class="sec-dot dot-green"></span>Verified</span>
       </div>
       <div class="sec-row-item">
         <span class="sec-lbl">Account Status</span>
-        <span class="sec-val"><span class="sec-dot dot-green"></span>Secure</span>
+        <span class="sec-val" id="securityAccountStatus"><span class="sec-dot dot-green"></span>Active</span>
       </div>
       <div class="sec-row-item">
         <span class="sec-lbl">Active Sessions</span>
-        <span class="sec-val"><span class="sec-dot dot-blue"></span>2 devices</span>
+        <span class="sec-val"><span class="sec-dot dot-blue"></span>This device</span>
       </div>
       <div class="sec-row-item">
         <span class="sec-lbl">2FA</span>
@@ -718,7 +721,7 @@
       </div>
       <div class="sec-row-item">
         <span class="sec-lbl">Last Login</span>
-        <span class="sec-val" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">Today, 4:32 PM</span>
+        <span class="sec-val" id="securityLastLogin" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">Just now</span>
       </div>
 
       <button class="btn btn-ghost btn-sm btn-full" style="margin-top:16px" onclick="showToast('Security settings coming soon!','warn')">🛡️ Security Settings</button>
@@ -834,29 +837,48 @@
     <button class="modal-close-btn" onclick="closeModal('submitCouponModal')">✕</button>
     <div class="modal-hdr">
       <div class="modal-title">Submit <span class="gtext">Coupon</span></div>
-      <div class="modal-sub">Submit a new coupon code for review and earn money when it's approved.</div>
+      <div class="modal-sub">Submit a new coupon code for review and earn ₹10 once it's sold.</div>
     </div>
-    <div class="form-grp">
-      <label class="form-lbl">Brand / Store Name *</label>
-      <input type="text" class="form-inp" id="scBrand" placeholder="e.g. Nykaa, Amazon, Myntra">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-grp">
+        <label class="form-lbl">Brand / Store Name *</label>
+        <input type="text" class="form-inp" id="scBrand" placeholder="e.g. Nykaa, Amazon, Myntra">
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Category *</label>
+        <select class="form-inp" id="scCategory">
+          <option value="">Select category…</option>
+          <option value="Makeup">Makeup</option>
+          <option value="Electronics">Electronics</option>
+          <option value="Fashion">Fashion</option>
+          <option value="Food">Food &amp; Delivery</option>
+          <option value="Travel">Travel</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
     </div>
     <div class="form-grp">
       <label class="form-lbl">Coupon Code *</label>
       <input type="text" class="form-inp" id="scCode" placeholder="e.g. SAVE30" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase">
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
       <div class="form-grp">
-        <label class="form-lbl">Discount Value *</label>
-        <input type="text" class="form-inp" id="scDiscount" placeholder="e.g. 30% OFF or ₹500 OFF">
+        <label class="form-lbl">Face Value (₹) *</label>
+        <input type="number" class="form-inp" id="scFaceValue" placeholder="e.g. 500" min="1">
       </div>
       <div class="form-grp">
-        <label class="form-lbl">Expiry Date *</label>
+        <label class="form-lbl">Discount Label</label>
+        <input type="text" class="form-inp" id="scDiscount" placeholder="e.g. 30% OFF">
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">Expiry Date</label>
         <input type="date" class="form-inp" id="scExpiry">
       </div>
     </div>
+    <div style="font-size:.76rem;color:#6b88aa;margin-bottom:4px">📝 Your coupon will be reviewed by our team. Once approved and sold, ₹10 will be added to your wallet.</div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('submitCouponModal')">Cancel</button>
-      <button class="btn btn-primary" style="flex:1" onclick="submitCoupon()">📤 Submit for Review</button>
+      <button class="btn btn-primary" style="flex:1" id="scSubmitBtn" onclick="submitCoupon()">📤 Submit for Review</button>
     </div>
   </div>
 </div>
