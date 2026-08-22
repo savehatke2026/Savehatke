@@ -358,19 +358,19 @@
 
           <div class="fgroup">
             <label class="flabel">Full Name <span class="req">*</span></label>
-            <input type="text" class="finput prefilled" id="buyerName" value="" placeholder="Your full name">
+            <input type="text" class="finput" id="buyerName" value="" placeholder="Your full name">
           </div>
 
           <div class="finput-group">
             <div class="fgroup">
               <label class="flabel">Email Address <span class="req">*</span></label>
-              <input type="email" class="finput prefilled" id="buyerEmail" value="" placeholder="you@example.com">
+              <input type="email" class="finput" id="buyerEmail" value="" placeholder="you@example.com">
             </div>
             <div class="fgroup">
               <label class="flabel">Mobile Number <span class="req">*</span></label>
               <div class="finput-prefix">
                 <span class="prefix">+91</span>
-                <input type="tel" class="finput prefilled" id="buyerPhone" value="" placeholder="10-digit number" maxlength="10">
+                <input type="tel" class="finput" id="buyerPhone" value="" placeholder="10-digit number" maxlength="10">
               </div>
             </div>
           </div>
@@ -648,6 +648,32 @@
     if (document.getElementById('succAmount')) document.getElementById('succAmount').textContent = '₹' + totalPrice;
     if (document.getElementById('succExpiry')) document.getElementById('succExpiry').textContent = currentCoupon.expiry;
 
+    // ── Auto-fill buyer details from the logged-in user ────────────────
+    // Try several common field names so this works for Google login,
+    // email signup, and admin sessions alike. The .prefilled class is
+    // added only when we actually have a value, so empty fields look
+    // normal instead of misleadingly "pre-filled blue".
+    const user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
+    if (user) {
+      const nameValue = user.name || user.fullName || user.displayName || user.username || '';
+      const emailValue = user.email || '';
+      const phoneValue = user.phone || user.mobile || user.phoneNumber || '';
+
+      const setIfEmpty = (id, value) => {
+        const el = document.getElementById(id);
+        if (!el || !value) return;
+        // Only auto-fill if the field is still empty (don't clobber user edits
+        // that happened during the loadRazorpayConfig await)
+        if (el.value && el.value.trim()) return;
+        el.value = value;
+        el.classList.add('prefilled');
+      };
+
+      setIfEmpty('buyerName', nameValue);
+      setIfEmpty('buyerEmail', emailValue);
+      setIfEmpty('buyerPhone', phoneValue);
+    }
+
     // Check auth requirement for buying
     if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
       showToastLocal('Please log in to purchase coupons.', 'warning');
@@ -659,13 +685,6 @@
         }
       }, 100); // Faster redirect - reduced from 600ms to 100ms
       return;
-    }
-
-    // Auto-fill buyer details if logged in
-    const user = Auth.getUser();
-    if (user) {
-      if (user.name && document.getElementById('buyerName')) document.getElementById('buyerName').value = user.name;
-      if (user.email && document.getElementById('buyerEmail')) document.getElementById('buyerEmail').value = user.email;
     }
   });
 
