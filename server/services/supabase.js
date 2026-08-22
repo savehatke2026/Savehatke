@@ -401,6 +401,20 @@ async function countCoupons(filters = {}) {
 }
 
 // ── Session Tracking Operations ─────────────────────────────────────────
+// Sessions are the server-side source of truth for authentication.
+// Every login creates a row with a 48-hour expires_at; the raw session
+// token lives only in the JWT `sid` claim + HttpOnly cookie — the database
+// stores a SHA-256 hash so a database leak cannot forge valid sessions.
+
+// 48 hours, in milliseconds — the maximum lifetime of any login session.
+const SESSION_TTL_MS = 48 * 60 * 60 * 1000;
+
+// Matches PostgREST errors raised when the sessions table hasn't been
+// upgraded yet (missing session_token / revoked_at / user_agent columns).
+function isMissingColumnError(err) {
+  const msg = String((err && err.message) || err || '');
+  return /session_token|revoked_at|user_agent|42703|could not find the column/i.test(msg);
+}
 
 /**
  * Ensure the sessions table exists in Supabase.
@@ -411,8 +425,9 @@ async function ensureSessionsTable() {
   if (!client) return;
 
   try {
-    // Try a lightweight probe — if it succeeds, the table exists
-    await client.from('sessions').select('session_id').limit(1);
+    // Try a lightweight probe — if it succeeds, the table (and the
+    // session_token column added by the 48h-session upgrade) exists.
+    await client.from('sessions').select('session_id, session_token').limit(1);
   } catch (err) {
     // Table likely doesn't exist — try to create it via rpc or just log
     console.warn('Sessions table probe failed (may need manual creation):', err.message);
@@ -422,7 +437,9 @@ async function ensureSessionsTable() {
 
 /**
  * Create a new session record when a user logs in.
- * @param {object} sessionData
+ * The session expires exactly 48 hours from the server-side creation time;
+ * nothing the client sends can extend that window.
+ * @param {object} sessionData - includes session_token (SHA-256 hash) and user_agent
  * @returns {object|null} The created session row
  */
 async function createSession(sessionData) {
@@ -430,7 +447,7 @@ async function createSession(sessionData) {
   if (!client) return null;
 
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours from now
+  const expiresAt = new Date(now.getTime() + SESSION_TTL_MS); // exactly 48 hours from login
 
   const row = {
     user_id: sessionData.user_id || '',
@@ -443,41 +460,137 @@ async function createSession(sessionData) {
     city: sessionData.city || '',
     ip_address: sessionData.ip_address || '',
     login_method: sessionData.login_method || 'Email',
+    user_agent: sessionData.user_agent || '',
+    session_token: sessionData.session_token || '',
     login_time: now.toISOString(),
     last_active: now.toISOString(),
     expires_at: expiresAt.toISOString(),
     status: 'Active',
   };
 
-  try {
+  async function insert(payload) {
     const { data, error } = await client
       .from('sessions')
-      .insert(row)
+      .insert(payload)
       .select()
       .single();
+    if (error) return { error };
+    return { data };
+  }
 
-    if (error) {
-      // Table created before the email column existed — retry without it
-      if (/email/i.test(error.message)) {
-        const { email: _skip, ...rowWithoutEmail } = row;
-        const retry = await client
-          .from('sessions')
-          .insert(rowWithoutEmail)
-          .select()
-          .single();
-        if (retry.error) {
-          console.warn('Create session warning:', retry.error.message);
-          return null;
-        }
-        return retry.data;
+  try {
+    let result = await insert(row);
+
+    if (result.error) {
+      // Table created before a column existed — retry without the missing ones
+      // so logins still work before/without the migration. A session row
+      // without session_token cannot be validated server-side; the caller
+      // detects this and falls back to a legacy (non-session) JWT.
+      let retryRow = null;
+      if (isMissingColumnError(result.error)) {
+        const { session_token: _t, user_agent: _u, revoked_at: _r, ...rest } = row;
+        retryRow = rest;
+      } else if (/email/i.test(result.error.message)) {
+        const { email: _skip, ...rest } = row;
+        retryRow = rest;
       }
-      console.warn('Create session warning:', error.message);
+      if (retryRow) {
+        result = await insert(retryRow);
+      }
+    }
+
+    if (result.error) {
+      console.warn('Create session warning:', result.error.message);
       return null;
     }
-    return data;
+    return result.data;
   } catch (err) {
     console.warn('Create session exception:', err.message);
     return null;
+  }
+}
+
+/**
+ * Look up a session by the SHA-256 hash of its raw session token.
+ * Used by the auth middleware on every authenticated request.
+ * @returns {Promise<object|null|{unavailable:true}>}
+ *   - row object when found
+ *   - null when no session matches
+ *   - { unavailable: true } when the session_token column is missing
+ *     (pre-migration database) so callers can fail open instead of
+ *     locking every user out.
+ */
+async function findSessionByToken(tokenHash) {
+  const client = getClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client
+      .from('sessions')
+      .select('session_id, user_id, email, status, expires_at, login_time, last_active')
+      .eq('session_token', tokenHash)
+      .limit(1);
+
+    if (error) {
+      if (isMissingColumnError(error)) return { unavailable: true };
+      console.warn('Find session by token warning:', error.message);
+      return null;
+    }
+    return (data && data.length) ? data[0] : null;
+  } catch (err) {
+    console.warn('Find session by token exception:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Find a session row by session_id (ownership checks on the revoke endpoint).
+ */
+async function findSessionById(sessionId) {
+  const client = getClient();
+  if (!client) return null;
+
+  try {
+    const { data, error } = await client
+      .from('sessions')
+      .select('session_id, user_id, status')
+      .eq('session_id', sessionId)
+      .limit(1);
+    if (error) return null;
+    return (data && data.length) ? data[0] : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * End the session matching a raw session token (logout of the current device).
+ * Only flips rows that are still Active — idempotent.
+ */
+async function endSessionByToken(tokenHash, reason = 'Logged out') {
+  const client = getClient();
+  if (!client) return;
+
+  const now = new Date().toISOString();
+  const base = { status: reason, last_active: now };
+  const updates = reason === 'Logged out' ? { ...base, logged_out_at: now } : base;
+
+  try {
+    let { error } = await client
+      .from('sessions')
+      .update({ ...updates, revoked_at: now })
+      .eq('session_token', tokenHash)
+      .eq('status', 'Active');
+    if (error && isMissingColumnError(error)) {
+      ({ error } = await client
+        .from('sessions')
+        .update(updates)
+        .eq('session_token', tokenHash)
+        .eq('status', 'Active'));
+    }
+    if (error) console.warn('End session by token warning:', error.message);
+  } catch (err) {
+    console.warn('End session by token exception:', err.message);
   }
 }
 
@@ -499,7 +612,7 @@ async function updateSessionActivity(sessionId) {
 }
 
 /**
- * End a session (logout or expiry).
+ * End a session (logout or expiry) by session_id.
  * @param {string} sessionId
  * @param {string} reason - 'Logged out' or 'Expired'
  */
@@ -517,40 +630,99 @@ async function endSession(sessionId, reason = 'Logged out') {
   }
 
   try {
-    await client
+    let { error } = await client
       .from('sessions')
-      .update(updates)
+      .update({ ...updates, revoked_at: now })
       .eq('session_id', sessionId);
+    if (error && isMissingColumnError(error)) {
+      ({ error } = await client
+        .from('sessions')
+        .update(updates)
+        .eq('session_id', sessionId));
+    }
+    if (error) console.warn('End session warning:', error.message);
   } catch (err) {
-    console.warn('End session warning:', err.message);
+    console.warn('End session exception:', err.message);
   }
 }
 
 /**
- * End all active sessions for a user (used during logout when session_id is unknown).
+ * End all active sessions for a user ("log out all devices").
  */
 async function endAllUserSessions(userId) {
   const client = getClient();
   if (!client) return;
 
   const now = new Date().toISOString();
+  const updates = {
+    status: 'Logged out',
+    logged_out_at: now,
+    last_active: now,
+  };
+
   try {
-    await client
+    let { error } = await client
       .from('sessions')
-      .update({
-        status: 'Logged out',
-        logged_out_at: now,
-        last_active: now,
-      })
+      .update({ ...updates, revoked_at: now })
       .eq('user_id', userId)
       .eq('status', 'Active');
+    if (error && isMissingColumnError(error)) {
+      ({ error } = await client
+        .from('sessions')
+        .update(updates)
+        .eq('user_id', userId)
+        .eq('status', 'Active'));
+    }
+    if (error) console.warn('End all user sessions warning:', error.message);
   } catch (err) {
-    console.warn('End all user sessions warning:', err.message);
+    console.warn('End all user sessions exception:', err.message);
+  }
+}
+
+/**
+ * 48-hour expiry sweep — flips every session whose expires_at has passed
+ * but is still marked Active: status → 'Expired', revoked_at → now.
+ * Runs from the 10-minute scheduled job (local server), the lazy sweep
+ * (serverless), and the /api/auth/session-cleanup cron endpoint.
+ * @returns {Promise<{count:number}>}
+ */
+async function expireOutdatedSessions() {
+  const client = getClient();
+  if (!client) return { count: 0 };
+
+  const now = new Date().toISOString();
+  const updates = { status: 'Expired', last_active: now };
+
+  try {
+    let req = client
+      .from('sessions')
+      .update({ ...updates, revoked_at: now })
+      .eq('status', 'Active')
+      .lte('expires_at', now)
+      .select('session_id');
+    let { data, error } = await req;
+    if (error && isMissingColumnError(error)) {
+      ({ data, error } = await client
+        .from('sessions')
+        .update(updates)
+        .eq('status', 'Active')
+        .lte('expires_at', now)
+        .select('session_id'));
+    }
+    if (error) {
+      console.warn('Expire outdated sessions warning:', error.message);
+      return { count: 0 };
+    }
+    return { count: (data || []).length };
+  } catch (err) {
+    console.warn('Expire outdated sessions exception:', err.message);
+    return { count: 0 };
   }
 }
 
 /**
  * Get all sessions (for admin panel).
+ * The session_token hash is never exposed — not even to admins.
  */
 async function getAllSessions() {
   const client = getClient();
@@ -564,14 +736,19 @@ async function getAllSessions() {
       .limit(200);
 
     if (error) return [];
-    return data || [];
+    return (data || []).map((row) => {
+      delete row.session_token;
+      return row;
+    });
   } catch (err) {
     return [];
   }
 }
 
 /**
- * Get sessions for a specific user.
+ * Get sessions for a specific user (device/session page).
+ * The session_token hash is stripped — only a boolean is_current marker
+ * is added by the caller comparing hashes server-side.
  */
 async function getUserSessions(userId) {
   const client = getClient();
@@ -586,7 +763,10 @@ async function getUserSessions(userId) {
       .limit(50);
 
     if (error) return [];
-    return data || [];
+    return (data || []).map((row) => {
+      delete row.session_token;
+      return row;
+    });
   } catch (err) {
     return [];
   }
@@ -634,11 +814,16 @@ module.exports = {
   // Session methods
   ensureSessionsTable,
   createSession,
+  findSessionByToken,
+  findSessionById,
+  endSessionByToken,
   updateSessionActivity,
   endSession,
   endAllUserSessions,
+  expireOutdatedSessions,
   getAllSessions,
   getUserSessions,
   countActiveSessions,
+  SESSION_TTL_MS,
 };
 

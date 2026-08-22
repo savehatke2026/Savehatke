@@ -6,21 +6,41 @@ const UAParser = require('ua-parser-js');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const { authenticateToken, generateToken, refreshToken } = require('../middleware/auth');
+const {
+  authenticateToken,
+  generateToken,
+  refreshToken,
+  decodeTokenIgnoreExpiry,
+  generateSessionToken,
+  hashSessionToken,
+  setSessionCookie,
+  clearSessionCookie,
+  SESSION_TTL_MS,
+} = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const emailService = require('../services/emailService');
 const otpService = require('../services/otpService');
 const getClientIP = require('../middleware/getClientIP');
+const sessionCleanup = require('../services/sessionCleanup');
 
 const router = express.Router();
 
 /**
- * Extract device info from User-Agent and create a session in Supabase.
- * Runs non-blocking (fire-and-forget) so it never delays login response.
+ * Extract device info from User-Agent and create a server-side 48-hour
+ * session in Supabase. Called on EVERY successful login (users and admins).
+ *
+ * The returned object carries the raw session token (which the caller embeds
+ * in the JWT `sid` claim and the HttpOnly cookie) plus the session id and
+ * expiry. The database stores only a SHA-256 hash of the token.
+ *
  * The user_id is resolved against the Users Google Sheet first (by email),
  * so Supabase always stores the real user id that exists in the sheet.
- * Only regular user logins are tracked — admin logins never call this.
+ * Geo-IP enrichment runs in the background — it never delays the login.
+ *
+ * @returns {Promise<{token:string, sessionId:string, expiresAt:string}|null>}
+ *   null when Supabase is unreachable (login still succeeds; the JWT is
+ *   issued without a sid and still hard-expires 48h after login).
  */
 
 /**
@@ -46,145 +66,191 @@ function extractUserIdFromSheetUser(sheetUser) {
   return '';
 }
 
+async function resolveSessionUserId(userId, cleanEmail) {
+  let realUserId = String(userId || '');
+  let userIdSource = 'passed-in';
+  if (!cleanEmail) return { realUserId, userIdSource };
+
+  let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
+  if (!sheetUser) {
+    // Retry case/whitespace-insensitive — sheet rows may hold mixed-case emails
+    const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
+    sheetUser = allRows.find((r) => String(r.email || '').toLowerCase().trim() === cleanEmail) || null;
+  }
+
+  let fromSheet = extractUserIdFromSheetUser(sheetUser);
+
+  // ── Backfill: sheet has the user row but the user_id cell is empty.
+  //    This is the most common cause of "wrong user_id in Supabase" —
+  //    the row was created before the user_id column was populated, or the
+  //    column was added later by ensureSheets(). Generate a UUID,
+  //    write it back to the sheet, and use it for the session.
+  if (sheetUser && !fromSheet) {
+    const newId = uuidv4();
+    try {
+      await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
+        user_id: newId,
+        id: newId,
+        updated_at: new Date().toISOString(),
+      });
+      fromSheet = newId;
+      userIdSource = 'sheet-row-backfilled';
+      console.log(`[session] Backfilled empty user_id for ${cleanEmail} → ${newId}`);
+    } catch (e) {
+      console.warn(`[session] Failed to backfill user_id for ${cleanEmail}:`, e.message);
+    }
+  }
+
+  if (fromSheet) {
+    realUserId = fromSheet;
+    if (userIdSource === 'passed-in') userIdSource = 'google-sheet';
+  } else if (sheetUser) {
+    userIdSource = 'sheet-row-missing-id';
+  } else {
+    userIdSource = 'sheet-row-not-found';
+  }
+  return { realUserId, userIdSource };
+}
+
+function parseUserAgent(req) {
+  const ua = new UAParser(req.headers['user-agent'] || '');
+  const device = ua.getDevice();
+  const os = ua.getOS();
+  const browser = ua.getBrowser();
+
+  let deviceStr = '';
+  if (device.vendor && device.model) {
+    deviceStr = `${device.vendor} ${device.model}`;
+  } else if (device.vendor) {
+    deviceStr = device.vendor;
+  } else {
+    deviceStr = device.type ? device.type.charAt(0).toUpperCase() + device.type.slice(1) : 'Desktop';
+  }
+
+  const osStr = os.name ? `${os.name}${os.version ? ' ' + os.version : ''}` : 'Unknown';
+  const browserStr = browser.name ? `${browser.name}${browser.version ? ' ' + browser.version.split('.')[0] : ''}` : 'Unknown';
+  return { deviceStr, osStr, browserStr, raw: String(req.headers['user-agent'] || '').slice(0, 300) };
+}
+
+/**
+ * Background geo enrichment — looks up country/state/city for the login IP
+ * and updates the session row. Fire-and-forget; failures are harmless.
+ */
+async function enrichSessionGeo(sessionId, ip) {
+  let country = 'Unknown', state = 'Unknown', city = 'Unknown';
+  const isIPv6 = ip.includes(':');
+  const lookupable = ip && ip !== 'unknown' && ip !== '127.0.0.1'
+    && !/^(10\.|192\.168\.|169\.254\.)/.test(ip) && !/^172\.(1[6-9]|2\d|3[01])\./.test(ip);
+
+  if (lookupable) {
+    // Order matters: try HTTPS services first (Vercel allows them), then HTTP
+    const services = isIPv6
+      ? [
+        { name: 'ipwho.is', url: `https://ipwho.is/${ip}`, parse: (j) => ({ ok: j.success === true, country: j.country, state: j.region, city: j.city }) },
+        { name: 'ipapi.co', url: `https://ipapi.co/${ip}/json/`, parse: (j) => ({ ok: !j.error, country: j.country_name, state: j.region, city: j.city }) },
+      ]
+      : [
+        { name: 'ipapi.co', url: `https://ipapi.co/${ip}/json/`, parse: (j) => ({ ok: !j.error, country: j.country_name, state: j.region, city: j.city }) },
+        { name: 'ipwho.is', url: `https://ipwho.is/${ip}`, parse: (j) => ({ ok: j.success === true, country: j.country, state: j.region, city: j.city }) },
+        { name: 'ip-api.com', url: `http://ip-api.com/json/${ip}?fields=status,country,regionName,city`, parse: (j) => ({ ok: j.status === 'success', country: j.country, state: j.regionName, city: j.city }) },
+      ];
+
+    for (const svc of services) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 4000);
+        const geoRes = await fetch(svc.url, { signal: controller.signal });
+        clearTimeout(timer);
+        if (geoRes.ok) {
+          const geo = await geoRes.json();
+          const result = svc.parse(geo);
+          if (result.ok) {
+            if (result.country) country = result.country === 'India' ? 'India 🇮🇳' : result.country;
+            if (result.state) state = result.state;
+            if (result.city) city = result.city;
+            break;
+          }
+        }
+      } catch (e) {
+        // Try next service
+      }
+    }
+  }
+
+  try {
+    const client = supabase.getClient();
+    if (client) {
+      await client.from('sessions').update({ country, state, city }).eq('session_id', sessionId);
+    }
+  } catch (e) { /* enrichment is best-effort */ }
+}
+
 async function createLoginSession(req, userId, loginMethod, email) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
 
-    // Prefer the real user_id stored in the Users Google Sheet (lookup by email)
-    let realUserId = String(userId || '');
-    let userIdSource = 'passed-in';
-    if (cleanEmail) {
-      let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
-      if (!sheetUser) {
-        // Retry case/whitespace-insensitive — sheet rows may hold mixed-case emails
-        const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
-        sheetUser = allRows.find((r) => String(r.email || '').toLowerCase().trim() === cleanEmail) || null;
-      }
+    const { realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail);
+    const finalUserId = realUserId || ('user_' + Date.now());
 
-      let fromSheet = extractUserIdFromSheetUser(sheetUser);
+    const { deviceStr, osStr, browserStr, raw: userAgentRaw } = parseUserAgent(req);
+    const ip = getClientIP(req); // Real client IP only — never a sample/hardcoded address
 
-      // ── Backfill: sheet has the user row but the user_id cell is empty.
-      //    This is the most common cause of "wrong user_id in Supabase" —
-      //    the row was created before the user_id column was populated, or
-      //    the column was added later by ensureSheets(). Generate a UUID,
-      //    write it back to the sheet, and use it for the session.
-      if (sheetUser && !fromSheet) {
-        const newId = uuidv4();
-        try {
-          await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
-            user_id: newId,
-            id: newId,
-            updated_at: new Date().toISOString(),
-          });
-          fromSheet = newId;
-          userIdSource = 'sheet-row-backfilled';
-          console.log(`[session] Backfilled empty user_id for ${cleanEmail} → ${newId}`);
-        } catch (e) {
-          console.warn(`[session] Failed to backfill user_id for ${cleanEmail}:`, e.message);
-        }
-      }
-
-      if (fromSheet) {
-        realUserId = fromSheet;
-        if (userIdSource === 'passed-in') userIdSource = 'google-sheet';
-      } else if (sheetUser) {
-        userIdSource = 'sheet-row-missing-id';
-      } else {
-        userIdSource = 'sheet-row-not-found';
-      }
-    }
-    if (!realUserId) {
-      realUserId = 'user_' + Date.now();
-      userIdSource = 'fallback-generated';
-    }
-
-    const ua = new UAParser(req.headers['user-agent'] || '');
-    const device = ua.getDevice();
-    const os = ua.getOS();
-    const browser = ua.getBrowser();
-
-    // Build friendly device string
-    let deviceStr = '';
-    if (device.vendor && device.model) {
-      deviceStr = `${device.vendor} ${device.model}`;
-    } else if (device.vendor) {
-      deviceStr = device.vendor;
-    } else {
-      deviceStr = device.type ? device.type.charAt(0).toUpperCase() + device.type.slice(1) : 'Desktop';
-    }
-
-    const osStr = os.name ? `${os.name}${os.version ? ' ' + os.version : ''}` : 'Unknown';
-    const browserStr = browser.name ? `${browser.name}${browser.version ? ' ' + browser.version.split('.')[0] : ''}` : 'Unknown';
-
-    // Real client IP only — never a sample/hardcoded address
-    const ip = getClientIP(req);
-
-    // Geo-IP lookup — try multiple services for reliability. ip-api.com's
-    // free tier is HTTP-only and frequently blocks / times out from Vercel,
-    // so we lead with HTTPS endpoints (ipapi.co, ipwho.is) and fall back to
-    // ip-api.com as a last resort. Stays 'Unknown' when every service fails.
-    let country = 'Unknown', state = 'Unknown', city = 'Unknown';
-    const isIPv6 = ip.includes(':');
-    const lookupable = ip && ip !== 'unknown' && ip !== '127.0.0.1'
-      && !/^(10\.|192\.168\.|169\.254\.)/.test(ip) && !/^172\.(1[6-9]|2\d|3[01])\./.test(ip);
-    let geoService = 'none';
-    if (lookupable) {
-      // Order matters: try HTTPS services first (Vercel allows them), then HTTP
-      const services = isIPv6
-        ? [
-            { name: 'ipwho.is', url: `https://ipwho.is/${ip}`, parse: (j) => ({ ok: j.success === true, country: j.country, state: j.region, city: j.city }) },
-            { name: 'ipapi.co', url: `https://ipapi.co/${ip}/json/`, parse: (j) => ({ ok: !j.error, country: j.country_name, state: j.region, city: j.city }) },
-          ]
-        : [
-            { name: 'ipapi.co', url: `https://ipapi.co/${ip}/json/`, parse: (j) => ({ ok: !j.error, country: j.country_name, state: j.region, city: j.city }) },
-            { name: 'ipwho.is', url: `https://ipwho.is/${ip}`, parse: (j) => ({ ok: j.success === true, country: j.country, state: j.region, city: j.city }) },
-            { name: 'ip-api.com', url: `http://ip-api.com/json/${ip}?fields=status,country,regionName,city`, parse: (j) => ({ ok: j.status === 'success', country: j.country, state: j.regionName, city: j.city }) },
-          ];
-
-      for (const svc of services) {
-        try {
-          const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 4000);
-          const geoRes = await fetch(svc.url, { signal: controller.signal });
-          clearTimeout(timer);
-          if (geoRes.ok) {
-            const geo = await geoRes.json();
-            const result = svc.parse(geo);
-            if (result.ok) {
-              if (result.country) country = result.country === 'India' ? 'India 🇮🇳' : result.country;
-              if (result.state) state = result.state;
-              if (result.city) city = result.city;
-              geoService = svc.name;
-              break;
-            }
-          }
-        } catch (e) {
-          // Try next service
-        }
-      }
-    }
+    // Cryptographically random session identifier. The raw value goes into
+    // the JWT and cookie; only its SHA-256 hash is stored in the database.
+    const rawToken = generateSessionToken();
 
     const sessionResult = await supabase.createSession({
-      user_id: realUserId,
+      user_id: finalUserId,
       email: cleanEmail,
       device: deviceStr,
       os: osStr,
       browser: browserStr,
-      country,
-      state,
-      city,
       ip_address: ip,
       login_method: loginMethod || 'Email',
+      user_agent: userAgentRaw,
+      session_token: hashSessionToken(rawToken),
     });
 
-    if (sessionResult) {
-      console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for user ${realUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} (${isIPv6 ? 'IPv6' : 'IPv4'}) | geo: ${country}/${state}/${city} via ${geoService}`);
-    } else {
-      console.warn('⚠️ Supabase createSession returned null');
+    if (!sessionResult || !sessionResult.session_token) {
+      // Row created without the session_token column (pre-migration DB) or
+      // insert failed entirely — no enforceable session for this login.
+      console.warn('⚠️ Login session not enforceable (Supabase session_token unavailable) — issuing 48h-limited JWT only.');
+      return null;
     }
+
+    console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for user ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at}`);
+
+    // Geo-IP enrichment in the background — never blocks the login response
+    enrichSessionGeo(sessionResult.session_id, ip).catch(() => {});
+
+    return {
+      token: rawToken,
+      sessionId: sessionResult.session_id,
+      expiresAt: sessionResult.expires_at,
+    };
   } catch (err) {
     console.warn('Session creation notice:', err.message);
+    return null;
   }
+}
+
+/**
+ * Mint the login JWT. Every token records its login time (`lgn`) so refresh
+ * can never extend past login + 48h, and carries the session token (`sid`)
+ * for server-side validation. User tokens live 48h; admin tokens live 12h
+ * and refresh within the same 48h session window.
+ */
+function issueLoginToken(user, session) {
+  const payload = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role || 'user',
+    lgn: Math.floor(Date.now() / 1000),
+  };
+  if (session && session.token) payload.sid = session.token;
+  const expiresIn = user.role === 'admin' ? '12h' : '48h';
+  return generateToken(payload, expiresIn);
 }
 
 // ── POST /api/auth/send-otp ────────────────────────────────────────────────
@@ -317,20 +383,24 @@ router.post('/verify-otp', async (req, res) => {
       }).catch((e) => console.warn('GSheet update notice:', e.message));
     }
 
-    // Generate JWT token
-    const token = generateToken({
+    // Create the server-side 48h session (must be awaited — the JWT and
+    // cookie carry this session's token)
+    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail).catch(() => null);
+
+    // Generate JWT token (48h hard limit, sid-bound to the session)
+    const token = issueLoginToken({
       id: sheetUser.user_id || sheetUser.id,
       email: cleanEmail,
       name: sheetUser.name || cleanEmail.split('@')[0],
       role: 'user',
-    });
-
-    // Fire-and-forget session tracking
-    createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail).catch(() => {});
+    }, session);
+    if (session) setSessionCookie(res, session.token);
 
     res.json({
       message: 'Email verified successfully!',
       token,
+      session_id: session ? session.sessionId : undefined,
+      session_expires_at: session ? session.expiresAt : undefined,
       user: {
         id: sheetUser.user_id || sheetUser.id,
         user_id: sheetUser.user_id || sheetUser.id,
@@ -408,20 +478,18 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    // Generate token
-    const token = generateToken({
-      id: userId,
-      email: cleanEmail,
-      name: cleanName,
-      role: 'user',
-    });
+    // Create the server-side 48h session
+    const session = await createLoginSession(req, userId, 'Email', cleanEmail).catch(() => null);
 
-    // Fire-and-forget session tracking
-    createLoginSession(req, userId, 'Email', cleanEmail).catch(() => {});
+    // Generate token (48h hard limit, sid-bound to the session)
+    const token = issueLoginToken({ id: userId, email: cleanEmail, name: cleanName, role: 'user' }, session);
+    if (session) setSessionCookie(res, session.token);
 
     res.status(201).json({
       message: 'Account created successfully in Google Sheets! 📊',
       token,
+      session_id: session ? session.sessionId : undefined,
+      session_expires_at: session ? session.expiresAt : undefined,
       user: {
         id: userId,
         user_id: userId,

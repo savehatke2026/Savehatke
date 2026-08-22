@@ -405,11 +405,6 @@
               <span class="sum-row-label">Coupon Price</span>
               <span class="sum-row-val" id="sumPrice">₹15</span>
             </div>
-            <!-- Platform fee (server adds ₹4 on top of the coupon price) -->
-            <div class="sum-row">
-              <span class="sum-row-label">Platform Fee</span>
-              <span class="sum-row-val" id="sumFee">₹4</span>
-            </div>
           </div>
 
           <div class="sum-divider"></div>
@@ -528,7 +523,6 @@
   // Dynamic Razorpay Configuration (filled in by /api/payments/config)
   window.RAZORPAY_KEY_ID = '';
   window.RAZORPAY_CONFIGURED = false;
-  window.RAZORPAY_PLATFORM_FEE = 4;
 
   // Fetch the public Razorpay config from the server. The secret key is
   // never exposed to the browser; the server creates orders and verifies
@@ -540,7 +534,6 @@
       const data = await res.json();
       window.RAZORPAY_KEY_ID = data.keyId || '';
       window.RAZORPAY_CONFIGURED = !!data.configured;
-      window.RAZORPAY_PLATFORM_FEE = data.platformFee || 4;
     } catch (e) {
       console.warn('Could not load Razorpay config:', e);
     }
@@ -560,18 +553,82 @@
     minOrder: urlParams.get('minOrder') || '999',
   };
 
-  const platformFee = 4;
-  const totalPrice = currentCoupon.price + platformFee;
+  // Total is the coupon's price as listed (no platform fee).
+  const totalPrice = currentCoupon.price;
   const amountInPaise = Math.round(totalPrice * 100);
+
+  // ── Brand logos ────────────────────────────────────────────────────────
+  // Map brand name -> website domain, used to fetch a real favicon via
+  // Google's favicon service (works for almost every brand, no API key).
+  // For unknown brands we fall back to a colored first-letter avatar.
+  const BRAND_DOMAINS = {
+    'amazon': 'amazon.in',
+    'flipkart': 'flipkart.com',
+    'meesho': 'meesho.com',
+    'tata cliq': 'tatacliq.com',
+    'croma': 'croma.com',
+    'myntra': 'myntra.com',
+    'ajio': 'ajio.com',
+    'h&m': 'hm.com',
+    'nykaa fashion': 'nykaafashion.com',
+    'puma': 'puma.com',
+    'adidas': 'adidas.co.in',
+    'nykaa': 'nykaa.com',
+    'purplle': 'purplle.com',
+    'mamaearth': 'mamaearth.in',
+    'minimalist': 'beminimalist.co',
+    'lakm\u00e9': 'lakmeindia.com',
+    'lakme': 'lakmeindia.com',
+    'swiggy': 'swiggy.com',
+    'zomato': 'zomato.com',
+    "domino's": 'dominos.co.in',
+    'pizza hut': 'pizzahut.co.in',
+    'eatsure': 'eatsure.com',
+    'makemytrip': 'makemytrip.com',
+    'cleartrip': 'cleartrip.com',
+    'easemytrip': 'easemytrip.com',
+    'uber': 'uber.com',
+    'rapido': 'rapido.bike',
+    'booking.com': 'booking.com',
+    'agoda': 'agoda.com',
+    'goibibo': 'goibibo.com',
+    'cult.fit': 'cult.fit',
+    'decathlon': 'decathlon.in',
+    'nike': 'nike.com',
+    'ikea': 'ikea.in',
+    'pepperfry': 'pepperfry.com',
+  };
+
+  function getBrandLogoUrl(brandName) {
+    const key = String(brandName || '').toLowerCase().trim();
+    const domain = BRAND_DOMAINS[key];
+    if (domain) return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=128';
+    return null;
+  }
+
+  function renderBrandIcon(el, brandName) {
+    if (!el) return;
+    const safeName = String(brandName || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+    const letter = safeName.charAt(0).toUpperCase() || '?';
+    const logoUrl = getBrandLogoUrl(brandName);
+    if (logoUrl) {
+      // Image first, graceful fallback to the letter if the favicon 404s
+      el.innerHTML =
+        '<img src="' + logoUrl + '" alt="' + safeName + '" ' +
+        'style="width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block" ' +
+        'onerror="this.replaceWith(document.createTextNode(this.alt.charAt(0).toUpperCase()))">';
+    } else {
+      el.textContent = letter;
+    }
+  }
 
   document.addEventListener('DOMContentLoaded', async () => {
     // Pull the public Razorpay key + config flag from the server before doing
     // anything else that depends on it.
     await loadRazorpayConfig();
     // Fill Coupon Details in UI
-    const brandLetter = currentCoupon.brand.charAt(0).toUpperCase();
-    if (document.getElementById('csBrandIco')) document.getElementById('csBrandIco').textContent = brandLetter;
-    if (document.getElementById('sumBrandIco')) document.getElementById('sumBrandIco').textContent = brandLetter;
+    renderBrandIcon(document.getElementById('csBrandIco'), currentCoupon.brand);
+    renderBrandIcon(document.getElementById('sumBrandIco'), currentCoupon.brand);
     if (document.getElementById('csBrandName')) document.getElementById('csBrandName').textContent = currentCoupon.brand;
     if (document.getElementById('sumBrandName')) document.getElementById('sumBrandName').textContent = currentCoupon.brand + ' Coupon';
     if (document.getElementById('csBrandCat')) document.getElementById('csBrandCat').textContent = currentCoupon.category;
@@ -582,7 +639,6 @@
 
     if (document.getElementById('sumValue')) document.getElementById('sumValue').textContent = '₹' + currentCoupon.value;
     if (document.getElementById('sumPrice')) document.getElementById('sumPrice').textContent = '₹' + currentCoupon.price;
-    if (document.getElementById('sumFee')) document.getElementById('sumFee').textContent = '₹' + platformFee;
     if (document.getElementById('sumTotal')) document.getElementById('sumTotal').textContent = '₹' + totalPrice;
     if (document.getElementById('payBtnText')) document.getElementById('payBtnText').textContent = '🔒 Pay ₹' + totalPrice + ' Securely';
 

@@ -53,8 +53,9 @@ function getRazorpay() {
   return _razorpay;
 }
 
-// Coupon pricing — keep in sync with public/checkout.html
-const PLATFORM_FEE = 4;
+// Coupon pricing — total is the coupon's selling price as listed, no
+// platform fee added on top. Keep in sync with public/checkout.html.
+const PLATFORM_FEE = 0;
 
 function buildAmount(couponPrice) {
   const price = Number(couponPrice);
