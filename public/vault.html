@@ -196,20 +196,13 @@ body.sidebar-collapsed .main{margin-left:0!important}
   background:rgba(12,24,52,.8);border:1px solid rgba(79,195,247,.1);
   border-radius:16px;padding:18px 20px;transition:all .3s;cursor:pointer;position:relative;overflow:hidden;
 }
-.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .3s}
+.stat-card::before{content:none}
 .stat-card::after{content:'';position:absolute;inset:0;border-radius:16px;opacity:0;transition:opacity .4s;pointer-events:none}
 .stat-card:hover{border-color:rgba(0,230,118,.22);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
-.stat-card:hover::before{opacity:1}
-.sc-green::before{background:linear-gradient(90deg,#00e676,#00c853)}
 .sc-green:hover::after{background:radial-gradient(ellipse at top left,rgba(0,230,118,.05),transparent 60%)}
-.sc-blue::before{background:linear-gradient(90deg,#4fc3f7,#0288d1)}
 .sc-blue:hover::after{background:radial-gradient(ellipse at top left,rgba(79,195,247,.05),transparent 60%)}
-.sc-purple::before{background:linear-gradient(90deg,#ce93d8,#9c27b0)}
 .sc-purple:hover::after{background:radial-gradient(ellipse at top left,rgba(206,147,216,.05),transparent 60%)}
-.sc-orange::before{background:linear-gradient(90deg,#ffb74d,#f57c00)}
 .sc-orange:hover::after{background:radial-gradient(ellipse at top left,rgba(255,183,77,.05),transparent 60%)}
-.sc-teal::before{background:linear-gradient(90deg,#80cbc4,#009688)}
-.sc-red::before{background:linear-gradient(90deg,#ef9a9a,#e53935)}
 .stat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
 .stat-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem}
 .si-green{background:rgba(0,230,118,.12)}
@@ -554,6 +547,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="nav-sub" id="users-sub">
       <div class="nav-sub-item" onclick="showSection('users',null)">Users</div>
       <div class="nav-sub-item" onclick="showSection('sessions',null)">User Sessions <span class="nbadge green" id="sessionsNavBadge">—</span></div>
+      <div class="nav-sub-item" onclick="showSection('admin-sessions',null)">Admin Sessions <span class="nbadge blue" id="adminSessionsNavBadge">2h</span></div>
     </div>
 
     <div class="nav-item" onclick="showSection('coupons',this)">
@@ -1077,6 +1071,42 @@ tbody td strong{color:#e2ecff;font-weight:600}
       </div>
     </div>
 
+    <!-- ════════════════ ADMIN SESSIONS (2-hour auto-logout) ════════════════ -->
+    <div class="section-view" id="sec-admin-sessions">
+      <div class="page-title-row">
+        <div><div class="page-title">Admin <span class="gtext">Sessions</span></div><div class="page-subtitle" id="adminSessionsSubtitle">Admin logins from Supabase — every admin session auto-expires 2 hours after login.</div></div>
+        <button class="btn btn-primary btn-lg" onclick="loadAdminSessions()">↻ Refresh</button>
+      </div>
+
+      <div class="stats-grid" style="margin-bottom:22px">
+        <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">🟢</div></div><div class="stat-val gtext" id="adminSessionsActive">—</div><div class="stat-lbl">Active Admin Sessions</div></div>
+        <div class="stat-card sc-blue"><div class="stat-card-top"><div class="stat-icon si-blue">👤</div></div><div class="stat-val" style="color:#4fc3f7" id="adminSessionsUnique">—</div><div class="stat-lbl">Unique Admins</div></div>
+        <div class="stat-card sc-purple"><div class="stat-card-top"><div class="stat-icon si-purple">📅</div></div><div class="stat-val" style="color:#ce93d8" id="adminSessionsToday">—</div><div class="stat-lbl">Logins Today</div></div>
+        <div class="stat-card sc-orange"><div class="stat-card-top"><div class="stat-icon si-orange">⏱️</div></div><div class="stat-val" style="color:#ffb74d" id="adminSessions24h">—</div><div class="stat-lbl">Logins (24h)</div></div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Admin Logins <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(live from Supabase · 2h auto-logout)</span></h3>
+          <div class="table-header-actions">
+            <input class="form-input btn-sm" id="adminSessionsSearch" style="width:220px" placeholder="🔍 Search email, IP, device..." oninput="renderAdminSessions()">
+            <select class="form-select btn-sm" id="adminSessionsFilter" style="width:140px" onchange="renderAdminSessions()">
+              <option value="">All Status</option>
+              <option value="Active">Active</option>
+              <option value="Logged out">Logged out</option>
+              <option value="Expired">Expired</option>
+            </select>
+          </div>
+        </div>
+        <div class="overflow-x"><table>
+          <thead><tr><th>Admin</th><th>Device / Browser</th><th>IP Address</th><th>Method</th><th>Login Time</th><th>Expires In</th><th>Last Active</th><th>Status</th></tr></thead>
+          <tbody id="adminSessionsTableBody">
+            <tr><td colspan="8" style="text-align:center;color:#6b88aa;padding:24px;">Loading admin sessions from Supabase…</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </div>
+
     <!-- ════════════════ COUPONS ════════════════ -->
     <div class="section-view" id="sec-coupons">
       <div class="page-title-row">
@@ -1258,12 +1288,132 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="empty-state"><div class="es-icon">💳</div><div class="es-title">Transaction History</div><div class="es-sub">Full transaction table loads from database.</div></div>
     </div>
 
-    <!-- ════════════════ ADMIN PAYOUTS ════════════════ -->
+    <!-- ════════════════ ADMIN PAYOUTS — Revenue & Payouts (frontend demo) ════════════════ -->
     <div class="section-view" id="sec-admin-payouts">
       <div class="page-title-row">
-        <div><div class="page-title">Admin <span class="gtext">Payouts</span></div><div class="page-subtitle">Admin revenue distribution</div></div>
+        <div>
+          <div class="page-title">Revenue &amp; <span class="gtext">Payouts</span></div>
+          <div class="page-subtitle">Fixed revenue distribution — <strong style="color:#00e676">Rupayan 40%</strong> · <strong style="color:#4fc3f7">Jaggik 40%</strong> · <strong style="color:#ce93d8">SaveHatke Website 20%</strong></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="refreshAdminPayouts()">↻ Refresh</button>
+          <button class="btn btn-primary btn-lg" onclick="showToast('Payout run scheduled (demo).','info')">💸 Run Payout</button>
+        </div>
       </div>
-      <div class="empty-state"><div class="es-icon">🏦</div><div class="es-title">Admin Payouts</div><div class="es-sub">Admin payout management will appear here.</div></div>
+
+      <!-- Top summary cards -->
+      <div class="stats-grid">
+        <div class="stat-card sc-green">
+          <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend trend-up">↑ 12%</span></div>
+          <div class="stat-val gtext">₹10,000</div>
+          <div class="stat-lbl">Total Revenue</div>
+          <div class="stat-sub">August 2026 · distributable</div>
+        </div>
+        <div class="stat-card sc-green">
+          <div class="stat-card-top"><div class="stat-icon si-green">👤</div><span class="stat-trend" style="background:rgba(0,230,118,.12);color:#00e676">Share</span></div>
+          <div class="stat-val" style="color:#00e676">40%</div>
+          <div class="stat-lbl">Rupayan</div>
+          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace">₹4,000</div>
+        </div>
+        <div class="stat-card sc-blue">
+          <div class="stat-card-top"><div class="stat-icon si-blue">👤</div><span class="stat-trend" style="background:rgba(79,195,247,.12);color:#4fc3f7">Share</span></div>
+          <div class="stat-val" style="color:#4fc3f7">40%</div>
+          <div class="stat-lbl">Jaggik</div>
+          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace">₹4,000</div>
+        </div>
+        <div class="stat-card sc-purple">
+          <div class="stat-card-top"><div class="stat-icon si-purple">🏦</div><span class="stat-trend" style="background:rgba(206,147,216,.12);color:#ce93d8">Share</span></div>
+          <div class="stat-val" style="color:#ce93d8">20%</div>
+          <div class="stat-lbl">SaveHatke Website</div>
+          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace">₹2,000</div>
+        </div>
+      </div>
+
+      <!-- Revenue Distribution: table + visual breakdown -->
+      <div class="two-col" style="margin-bottom:22px">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="ct-icon">📊</span> Revenue Distribution</div>
+          <div class="overflow-x">
+            <table>
+              <thead><tr><th>Recipient</th><th>Share</th><th>Amount</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:#00e676"></div><strong>Rupayan</strong></div></td>
+                  <td><strong style="color:#00e676">40%</strong></td>
+                  <td><strong class="mono">₹4,000</strong></td>
+                  <td><span class="badge badge-orange">Pending</span></td>
+                </tr>
+                <tr>
+                  <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:#4fc3f7"></div><strong>Jaggik</strong></div></td>
+                  <td><strong style="color:#4fc3f7">40%</strong></td>
+                  <td><strong class="mono">₹4,000</strong></td>
+                  <td><span class="badge badge-orange">Pending</span></td>
+                </tr>
+                <tr>
+                  <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:#ce93d8"></div><strong>SaveHatke Website</strong></div></td>
+                  <td><strong style="color:#ce93d8">20%</strong></td>
+                  <td><strong class="mono">₹2,000</strong></td>
+                  <td><span class="badge badge-teal">Retained</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="ct-icon">🧮</span> Revenue Breakdown <span style="margin-left:auto;font-size:.75rem;color:#6b88aa;font-weight:400;font-family:'JetBrains Mono',monospace">40 · 40 · 20</span></div>
+          <div class="dist-bar" style="height:14px;margin:16px 0 10px">
+            <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#00e676,#00c853)"></div>
+            <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#4fc3f7,#0288d1)"></div>
+            <div class="dist-seg" style="width:20%;background:linear-gradient(90deg,#ce93d8,#9c27b0)"></div>
+          </div>
+          <div class="dist-labels" style="margin-bottom:14px">
+            <span style="color:#00e676">Rupayan</span>
+            <span style="color:#4fc3f7">Jaggik</span>
+            <span style="color:#ce93d8">Website</span>
+          </div>
+          <div class="dist-item"><div class="dist-dot" style="background:#00e676"></div><span class="dist-name">Rupayan</span><span class="dist-pct"><strong>40%</strong></span><span class="dist-amount" style="color:#00e676">₹4,000</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#4fc3f7"></div><span class="dist-name">Jaggik</span><span class="dist-pct"><strong>40%</strong></span><span class="dist-amount" style="color:#4fc3f7">₹4,000</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#ce93d8"></div><span class="dist-name">SaveHatke Website</span><span class="dist-pct"><strong>20%</strong></span><span class="dist-amount" style="color:#ce93d8">₹2,000</span></div>
+        </div>
+      </div>
+
+      <!-- Payout History -->
+      <div class="table-card">
+        <div class="table-header">
+          <h3>💸 Payout History</h3>
+          <span style="font-size:.78rem;color:#6b88aa"><span id="apPayoutsVisible">0</span> shown</span>
+        </div>
+
+        <!-- Filters -->
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid rgba(79,195,247,.08)">
+          <select class="form-select btn-sm" id="apFilterRecipient" style="width:150px" onchange="renderAdminPayoutsTable()">
+            <option value="">All Recipients</option>
+            <option value="Rupayan">Rupayan</option>
+            <option value="Jaggik">Jaggik</option>
+            <option value="SaveHatke Website">Website</option>
+          </select>
+          <select class="form-select btn-sm" id="apFilterStatus" style="width:130px" onchange="renderAdminPayoutsTable()">
+            <option value="">All Status</option>
+            <option value="Pending">Pending</option>
+            <option value="Paid">Paid</option>
+            <option value="Failed">Failed</option>
+          </select>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="date" class="form-input btn-sm" id="apFilterFrom" style="width:140px" onchange="renderAdminPayoutsTable()" title="From date">
+            <span style="color:#6b88aa;font-size:.78rem">→</span>
+            <input type="date" class="form-input btn-sm" id="apFilterTo" style="width:140px" onchange="renderAdminPayoutsTable()" title="To date">
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="resetAdminPayoutFilters()" style="margin-left:auto">↺ Reset</button>
+        </div>
+
+        <div class="overflow-x">
+          <table>
+            <thead><tr><th>Payout ID</th><th>Recipient</th><th>Share</th><th>Amount</th><th>Date</th><th>Payment Method</th><th>Transaction ID</th><th>Status</th><th>Action</th></tr></thead>
+            <tbody id="apPayoutsBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <!-- ════════════════ MONTHLY SETTLEMENTS ════════════════ -->
@@ -2098,11 +2248,12 @@ const sectionTitles = {
   dashboard:     ['Dashboard', '/ Overview'],
   users:         ['User Management', '/ All Users'],
   sessions:      ['User Sessions', '/ Live Sessions'],
+  'admin-sessions': ['Admin Sessions', '/ 2-Hour Auto-Logout'],
   coupons:       ['Coupons', '/ Management'],
   revenue:       ['Revenue Overview', '/ Financial'],
   transactions:  ['Payment Transactions', '/ History'],
   payouts:       ['Seller Payouts', '/ Pending'],
-  'admin-payouts':['Admin Payouts', '/ Revenue'],
+  'admin-payouts':['Revenue & Payouts', '/ 40 · 40 · 20 Split'],
   settlements:   ['Monthly Settlements', '/ August 2026'],
   refunds:       ['Refund Requests', '/ Review'],
   brands:        ['Brands', '/ Directory'],
@@ -2158,6 +2309,9 @@ function showSection(id, navEl) {
   }
   if (id === 'sessions' && typeof loadSessions === 'function') {
     loadSessions();
+  }
+  if (id === 'admin-sessions' && typeof loadAdminSessions === 'function') {
+    loadAdminSessions();
   }
   if (id === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
@@ -2540,6 +2694,197 @@ if (document.readyState === 'loading') {
 
 function openSupportCases() {
   showSection('support');
+}
+
+/* ══════════════════════════════════════════
+   ADMIN PAYOUTS — Revenue & Payouts page
+   FRONTEND DEMO ONLY: values below are
+   placeholders; no backend data is touched.
+   Fixed split: Rupayan 40% · Jaggik 40% ·
+   SaveHatke Website 20%.
+══════════════════════════════════════════ */
+const AP_PAYOUTS = [
+  { id: 'PO-2026-0852', recipient: 'Rupayan',          share: '40%', amount: 4000, date: '2026-08-21', method: 'Bank Transfer', methodDetail: '•••• 4417 · HDFC', txn: 'UTR884529011',   status: 'Pending' },
+  { id: 'PO-2026-0853', recipient: 'Jaggik',           share: '40%', amount: 4000, date: '2026-08-21', method: 'UPI',          methodDetail: 'jaggik@okaxis',   txn: 'UPI-412398820114', status: 'Pending' },
+  { id: 'PO-2026-0854', recipient: 'SaveHatke Website', share: '20%', amount: 2000, date: '2026-08-21', method: 'Internal',      methodDetail: 'Business account', txn: 'INT-2026-0854',  status: 'Retained' },
+  { id: 'PO-2026-0847', recipient: 'Rupayan',          share: '40%', amount: 4000, date: '2026-08-14', method: 'UPI',          methodDetail: 'rupayan@okhdfc',  txn: 'UPI-412390876521', status: 'Paid' },
+  { id: 'PO-2026-0848', recipient: 'Jaggik',           share: '40%', amount: 4000, date: '2026-08-14', method: 'UPI',          methodDetail: 'jaggik@okaxis',   txn: 'UPI-412390876522', status: 'Paid' },
+  { id: 'PO-2026-0849', recipient: 'SaveHatke Website', share: '20%', amount: 2000, date: '2026-08-14', method: 'Internal',      methodDetail: 'Business account', txn: 'INT-2026-0849',  status: 'Paid' },
+  { id: 'PO-2026-0841', recipient: 'Rupayan',          share: '40%', amount: 4000, date: '2026-08-07', method: 'UPI',          methodDetail: 'rupayan@okhdfc',  txn: 'UPI-412388110239', status: 'Paid' },
+  { id: 'PO-2026-0842', recipient: 'Jaggik',           share: '40%', amount: 4000, date: '2026-08-07', method: 'Bank Transfer', methodDetail: '•••• 9032 · ICICI', txn: 'UTR884521437', status: 'Failed' },
+  { id: 'PO-2026-0843', recipient: 'SaveHatke Website', share: '20%', amount: 2000, date: '2026-08-07', method: 'Internal',      methodDetail: 'Business account', txn: 'INT-2026-0843',  status: 'Retained' },
+];
+
+function apFmtDate(iso) {
+  const d = new Date(iso + 'T00:00:00');
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function apStatusBadge(status) {
+  if (status === 'Paid') return '<span class="badge badge-green">✅ Paid</span>';
+  if (status === 'Failed') return '<span class="badge badge-red">❌ Failed</span>';
+  if (status === 'Retained') return '<span class="badge badge-teal">🏦 Retained</span>';
+  return '<span class="badge badge-orange">⏳ Pending</span>';
+}
+
+function apRecipientDot(recipient) {
+  const color = recipient === 'Rupayan' ? '#00e676' : recipient === 'Jaggik' ? '#4fc3f7' : '#ce93d8';
+  return `<div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:${color}"></div><strong>${esc(recipient)}</strong></div>`;
+}
+
+function renderAdminPayoutsTable() {
+  const tbody = document.getElementById('apPayoutsBody');
+  if (!tbody) return;
+
+  const recipient = document.getElementById('apFilterRecipient')?.value || '';
+  const status = document.getElementById('apFilterStatus')?.value || '';
+  const from = document.getElementById('apFilterFrom')?.value || '';
+  const to = document.getElementById('apFilterTo')?.value || '';
+
+  const rows = AP_PAYOUTS.filter((p) => {
+    if (recipient && !(recipient === 'SaveHatke Website' ? p.recipient === 'SaveHatke Website' : p.recipient === recipient)) return false;
+    if (status && p.status.toLowerCase() !== status.toLowerCase()) return false;
+    if (from && p.date < from) return false;
+    if (to && p.date > to) return false;
+    return true;
+  });
+
+  const visibleEl = document.getElementById('apPayoutsVisible');
+  if (visibleEl) visibleEl.textContent = rows.length;
+
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:#6b88aa">No payouts match the selected filters.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((p) => `
+    <tr>
+      <td><strong class="mono">#${esc(p.id)}</strong></td>
+      <td>${apRecipientDot(p.recipient)}</td>
+      <td><strong style="color:${p.recipient === 'Rupayan' ? '#00e676' : p.recipient === 'Jaggik' ? '#4fc3f7' : '#ce93d8'}">${esc(p.share)}</strong></td>
+      <td><strong class="mono" style="color:#00e676">₹${p.amount.toLocaleString('en-IN')}</strong></td>
+      <td style="font-size:.8rem;color:#a8c0dc">${apFmtDate(p.date)}</td>
+      <td>${esc(p.method)}<div style="font-size:.7rem;color:#6b88aa;margin-top:2px" class="mono">${esc(p.methodDetail)}</div></td>
+      <td class="mono" style="font-size:.76rem">${esc(p.txn)}</td>
+      <td>${apStatusBadge(p.status)}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="adminPayoutAction('${esc(p.id)}', '${esc(p.status)}')">View</button></td>
+    </tr>
+  `).join('');
+}
+
+function resetAdminPayoutFilters() {
+  ['apFilterRecipient', 'apFilterStatus', 'apFilterFrom', 'apFilterTo'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  renderAdminPayoutsTable();
+  showToast('Filters cleared.', 'info');
+}
+
+function adminPayoutAction(payoutId, status) {
+  showToast(`Payout #${payoutId} — ${status} (demo view)`, 'info');
+}
+
+function refreshAdminPayouts() {
+  renderAdminPayoutsTable();
+  showToast('Revenue & payouts refreshed (demo data).', 'success');
+}
+
+// Initial render (section is hidden until opened; rendering is cheap and safe)
+renderAdminPayoutsTable();
+
+/* ══════════════════════════════════════════
+   ADMIN SESSIONS — live Supabase data
+   Admin logins auto-expire 2 hours after login.
+══════════════════════════════════════════ */
+let ADMIN_SESSIONS_STATE = { all: [], loaded: false };
+
+function fmtCountdown(expiresAt) {
+  if (!expiresAt) return '—';
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (isNaN(ms)) return '—';
+  if (ms <= 0) return 'Expired';
+  const mins = Math.floor(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+async function loadAdminSessions() {
+  const tbody = document.getElementById('adminSessionsTableBody');
+  try {
+    const data = await api('/admin/admin-sessions', { useAdmin: true });
+    ADMIN_SESSIONS_STATE.all = data.sessions || [];
+    ADMIN_SESSIONS_STATE.loaded = true;
+
+    const c = data.counts || {};
+    setText('adminSessionsActive', String(c.active ?? '—'));
+    setText('adminSessionsUnique', String(c.uniqueAdmins ?? '—'));
+    setText('adminSessionsToday', String(c.loginsToday ?? '—'));
+    setText('adminSessions24h', String(c.last24h ?? '—'));
+    document.getElementById('adminSessionsSubtitle').textContent =
+      `Admin logins from Supabase — every admin session auto-expires 2 hours after login. ${c.active ?? 0} active now.`;
+
+    // Nav badge shows live active admin sessions (or the 2h hint when none)
+    const badge = document.getElementById('adminSessionsNavBadge');
+    if (badge) {
+      badge.textContent = (c.active ?? 0) > 0 ? String(c.active) : '2h';
+      badge.className = 'nbadge' + ((c.active ?? 0) > 0 ? ' green' : ' blue');
+    }
+
+    renderAdminSessions();
+  } catch (err) {
+    if (tbody && !ADMIN_SESSIONS_STATE.loaded) {
+      tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${esc(err.message || 'Failed to load admin sessions')}</td></tr>`;
+    }
+  }
+}
+
+function renderAdminSessions() {
+  const tbody = document.getElementById('adminSessionsTableBody');
+  if (!tbody) return;
+
+  const q = String(document.getElementById('adminSessionsSearch')?.value || '').toLowerCase().trim();
+  const status = String(document.getElementById('adminSessionsFilter')?.value || '');
+
+  let rows = ADMIN_SESSIONS_STATE.all;
+  if (status) rows = rows.filter((s) => String(s.status) === status);
+  if (q) {
+    rows = rows.filter((s) =>
+      String(s.email || '').toLowerCase().includes(q) ||
+      String(s.ip_address || '').toLowerCase().includes(q) ||
+      String(s.device || '').toLowerCase().includes(q) ||
+      String(s.browser || '').toLowerCase().includes(q));
+  }
+
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">${ADMIN_SESSIONS_STATE.loaded ? 'No admin sessions found.' : 'Loading admin sessions from Supabase…'}</td></tr>`;
+    return;
+  }
+
+  const statusBadge = {
+    'Active': '<span class="badge badge-green">ACTIVE</span>',
+    'Logged out': '<span class="badge badge-gray">LOGGED OUT</span>',
+    'Expired': '<span class="badge badge-orange">EXPIRED (2H)</span>',
+  };
+
+  tbody.innerHTML = rows.map((s) => {
+    const active = String(s.status) === 'Active';
+    return `<tr>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">${esc(String(s.email || '?').split('@')[0].slice(0, 2).toUpperCase())}</div><strong>${esc(s.email || 'Unknown admin')}</strong></div></td>
+      <td>${esc(s.device || '—')}<div style="font-size:.72rem;color:#6b88aa;margin-top:2px">${esc(s.browser || '')}${s.os ? ' · ' + esc(s.os) : ''}</div></td>
+      <td class="mono" style="font-size:.78rem">${esc(s.ip_address || '—')}</td>
+      <td><span class="badge ${/google/i.test(String(s.login_method)) ? 'badge-blue' : 'badge-purple'}">${esc(s.login_method || 'Admin')}</span></td>
+      <td style="font-size:.78rem">${esc(fmtDT(s.login_time))}</td>
+      <td>${active
+        ? `<strong class="mono" style="color:${/expired/i.test(fmtCountdown(s.expires_at)) ? '#ffb74d' : '#00e676'};font-size:.8rem">⏳ ${esc(fmtCountdown(s.expires_at))}</strong>`
+        : '<span style="color:#6b88aa;font-size:.78rem">—</span>'}</td>
+      <td style="font-size:.78rem;color:#6b88aa">${esc(timeAgo(s.last_active))}</td>
+      <td>${statusBadge[s.status] || esc(s.status)}</td>
+    </tr>`;
+  }).join('');
 }
 
 // ── Modal Handlers ──

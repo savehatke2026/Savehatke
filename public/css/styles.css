@@ -890,22 +890,13 @@ button, input, select, textarea { font-family: inherit; }
   overflow: hidden;
 }
 .coupon-card::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--green), var(--blue));
-  opacity: 0;
-  transition: var(--transition);
+  content: none;
 }
 .coupon-card:hover {
   border-color: rgba(16,185,129,0.25);
   transform: translateY(-4px);
   box-shadow: 0 16px 48px rgba(0,0,0,0.3);
 }
-.coupon-card:hover::before { opacity: 1; }
 .coupon-card-top {
   display: flex;
   align-items: center;

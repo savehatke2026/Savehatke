@@ -127,9 +127,8 @@
     /* STEPS */
     .steps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
     .step-card { padding:36px 32px; border-radius:18px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); position:relative; overflow:hidden; transition:all .3s; }
-    .step-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transition:transform .3s; transform-origin:left; }
+    .step-card::before { content:none; }
     .step-card:hover { border-color:rgba(0,230,118,.25); transform:translateY(-5px); }
-    .step-card:hover::before { transform:scaleX(1); }
     .step-n { font-family:'JetBrains Mono',monospace; font-size:3rem; font-weight:600; line-height:1; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:20px; }
     .step-card h3 { font-size:1.15rem; font-weight:700; margin-bottom:12px; }
     .step-card p { font-size:.92rem; color:#a8c0dc; line-height:1.7; }
