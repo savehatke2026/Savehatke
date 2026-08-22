@@ -310,7 +310,9 @@ async function refreshToken(oldToken) {
     }
   }
 
-  const windowMs = decoded.role === 'admin' ? 12 * 60 * 60 * 1000 : SESSION_TTL_MS;
+  // Refresh windows: admins 2 hours, users 48 hours — and always clamped
+  // to the session's hard limit anyway.
+  const windowMs = decoded.role === 'admin' ? ADMIN_SESSION_TTL_MS : SESSION_TTL_MS;
   let expiresMs = Date.now() + windowMs;
   if (hardLimitMs) expiresMs = Math.min(expiresMs, hardLimitMs);
 
@@ -341,5 +343,6 @@ module.exports = {
   setSessionCookie,
   clearSessionCookie,
   SESSION_TTL_MS,
+  ADMIN_SESSION_TTL_MS,
   SESSION_COOKIE_NAME,
 };
