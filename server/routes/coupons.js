@@ -8,6 +8,7 @@ const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
+const googleDrive = require('../services/googleDrive');
 
 const router = express.Router();
 
@@ -133,9 +134,38 @@ router.post('/proof', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'File is too large. Maximum size is 3MB.' });
     }
 
+    // 1) Try Google Drive first (preferred — keeps proof screenshots off
+    //    public storage and owned by our service account). The proxy endpoint
+    //    streams the file back to authorized viewers only.
+    if (googleDrive.isConfigured()) {
+      try {
+        const result = await googleDrive.uploadProofScreenshot({
+          buffer,
+          filename,
+          mimeType: type,
+          sellerEmail: req.user?.email,
+        });
+        return res.status(201).json({
+          url: result.url,           // 'drive:<fileId>'
+          fileId: result.fileId,
+          storage: 'google-drive',
+          name: result.name,
+          webViewLink: result.webViewLink,
+        });
+      } catch (driveErr) {
+        console.warn('[coupons/proof] Drive upload failed, falling back:', driveErr.message);
+        // Fall through to Supabase below.
+      }
+    }
+
+    // 2) Fallback: Supabase Storage (public bucket). Used when Drive is not
+    //    configured OR when the Drive upload just failed.
     const supabaseClient = supabase.getClient();
     if (!supabaseClient) {
-      return res.status(503).json({ error: 'Proof uploads are temporarily unavailable.' });
+      return res.status(503).json({
+        error:
+          'Proof uploads are temporarily unavailable. Set GOOGLE_DRIVE_FOLDER_ID or configure Supabase storage.',
+      });
     }
 
     // Ensure the bucket exists (created once, then reused)
@@ -156,7 +186,7 @@ router.post('/proof', authenticateToken, async (req, res) => {
     if (upload.error) throw new Error(upload.error.message);
 
     const { data: urlData } = supabaseClient.storage.from(PROOF_BUCKET).getPublicUrl(path);
-    res.status(201).json({ url: urlData.publicUrl, path, name: filename });
+    res.status(201).json({ url: urlData.publicUrl, path, name: filename, storage: 'supabase' });
   } catch (err) {
     console.error('Coupon proof upload error:', err);
     res.status(500).json({ error: 'Failed to upload screenshot.' });
@@ -194,11 +224,20 @@ const handleCouponSubmission = async (req, res) => {
     }
 
     // Only accept proof URLs that point at our own storage
+    //   - Drive:   drive:<fileId>  (served via /api/proxy/drive/<fileId>)
+    //   - Supabase: <SUPABASE_URL>/storage/...
     let safeProofUrl = '';
     if (proofUrl) {
-      const supabaseUrl = process.env.SUPABASE_URL || '';
-      if (supabaseUrl && String(proofUrl).startsWith(supabaseUrl + '/storage/')) {
-        safeProofUrl = String(proofUrl).slice(0, 500);
+      const raw = String(proofUrl).trim();
+      if (/^drive:[a-zA-Z0-9_-]{10,80}$/.test(raw)) {
+        // Drive-backed proof — the file id was minted by our own upload
+        // endpoint, so it's safe to persist as-is.
+        safeProofUrl = raw.slice(0, 80);
+      } else {
+        const supabaseUrl = process.env.SUPABASE_URL || '';
+        if (supabaseUrl && raw.startsWith(supabaseUrl + '/storage/')) {
+          safeProofUrl = raw.slice(0, 500);
+        }
       }
     }
 

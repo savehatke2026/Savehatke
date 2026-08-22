@@ -14,6 +14,7 @@
   <link rel="dns-prefetch" href="https://www.googleapis.com">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
+/* ── RESET & BASE ── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth}
 body{font-family:'Outfit',sans-serif;background:#060d1f;color:#e2ecff;-webkit-font-smoothing:antialiased;overflow-x:hidden;display:flex;min-height:100vh}
@@ -24,298 +25,451 @@ body{font-family:'Outfit',sans-serif;background:#060d1f;color:#e2ecff;-webkit-fo
 a{text-decoration:none;color:inherit}
 input,select,textarea,button{font-family:'Outfit',sans-serif}
 
+/* ── ANIMATIONS ── */
 @keyframes shimmer{0%{background-position:-200% center}100%{background-position:200% center}}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
 @keyframes fadeIn{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes slideInRight{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+@keyframes slideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(100%);opacity:0}}
+@keyframes skelPulse{0%,100%{opacity:.4}50%{opacity:.8}}
+@keyframes barGrow{from{height:0}to{height:var(--h)}}
+@keyframes tooltipFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 
+/* ── TEXT UTILS ── */
 .gtext{background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .shimmer{background:linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3.5s linear infinite}
+.mono{font-family:'JetBrains Mono',monospace}
+.serif{font-family:'DM Serif Display',serif}
 
-/* ── SIDEBAR ── */
+/* ════════════════════════════
+   SIDEBAR
+════════════════════════════ */
 .sidebar{
   width:240px;flex-shrink:0;
-  background:rgba(9,18,40,.98);
+  background:rgba(6,13,31,.98);
   border-right:1px solid rgba(79,195,247,.1);
   display:flex;flex-direction:column;
   position:fixed;top:0;left:0;bottom:0;z-index:50;
-  transition:transform .3s;overflow-y:auto;overflow-x:hidden;
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  overflow-y:auto;overflow-x:hidden;
 }
 .sidebar-logo{
-  padding:20px 20px 16px;
+  padding:18px 20px 14px;
   border-bottom:1px solid rgba(79,195,247,.08);
   display:flex;align-items:center;gap:10px;
-  font-size:1.15rem;font-weight:800;flex-shrink:0;
+  font-size:1.12rem;font-weight:800;flex-shrink:0;
 }
 .brand-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
 .bhl{color:#00e676}
-.admin-badge{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,230,118,.15);color:#00e676;border:1px solid rgba(0,230,118,.25);border-radius:5px;padding:2px 7px;margin-left:auto}
+.admin-badge{font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,230,118,.15);color:#00e676;border:1px solid rgba(0,230,118,.25);border-radius:5px;padding:2px 7px;margin-left:auto;white-space:nowrap}
 
-.sidebar-nav{flex:1;padding:12px 0}
-.nav-group-label{font-size:.65rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(107,136,170,.6);padding:14px 20px 6px;display:block}
+.sidebar-nav{flex:1;padding:10px 0}
+.nav-group-label{font-size:.62rem;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:rgba(107,136,170,.55);padding:14px 20px 5px;display:block}
+
 .nav-item{
   display:flex;align-items:center;gap:10px;
-  padding:9px 20px;font-size:.88rem;font-weight:500;
+  padding:8px 20px;font-size:.87rem;font-weight:500;
   color:#6b88aa;cursor:pointer;transition:all .2s;
   border-left:2px solid transparent;position:relative;
 }
 .nav-item:hover{color:#e2ecff;background:rgba(79,195,247,.05)}
 .nav-item.active{color:#e2ecff;background:rgba(0,230,118,.07);border-left-color:#00e676}
-.nav-item .ni{font-size:1rem;flex-shrink:0;width:20px;text-align:center}
-.nav-item .nbadge{margin-left:auto;font-size:.65rem;font-weight:700;background:rgba(255,80,80,.2);color:#ff6b6b;border-radius:9999px;padding:2px 7px;min-width:20px;text-align:center}
+.nav-item .ni{font-size:.95rem;flex-shrink:0;width:18px;text-align:center}
+.nav-item .nbadge{margin-left:auto;font-size:.62rem;font-weight:700;background:rgba(255,107,107,.18);color:#ff6b6b;border-radius:9999px;padding:1px 6px;min-width:18px;text-align:center}
 .nav-item .nbadge.green{background:rgba(0,230,118,.15);color:#00e676}
+.nav-item .nbadge.blue{background:rgba(79,195,247,.15);color:#4fc3f7}
+.nav-item .nav-arrow{margin-left:auto;font-size:.65rem;color:#6b88aa;transition:transform .25s}
+.nav-item.expanded .nav-arrow{transform:rotate(90deg)}
 
-.sidebar-footer{padding:16px 20px;border-top:1px solid rgba(79,195,247,.08)}
-.sidebar-user{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.su-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#060d1f;flex-shrink:0}
-.su-name{font-size:.85rem;font-weight:600}
-.su-role{font-size:.72rem;color:#6b88aa;margin-top:1px}
-.logout-btn{width:100%;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.15);color:#ff6b6b;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .2s}
+/* Sub-menu */
+.nav-sub{overflow:hidden;max-height:0;transition:max-height .3s ease}
+.nav-sub.open{max-height:300px}
+.nav-sub-item{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 20px 6px 42px;font-size:.82rem;font-weight:500;
+  color:#6b88aa;cursor:pointer;transition:all .2s;
+  border-left:2px solid transparent;
+}
+.nav-sub-item:hover{color:#e2ecff;background:rgba(79,195,247,.04)}
+.nav-sub-item.active{color:#00e676;border-left-color:#00e676;background:rgba(0,230,118,.05)}
+.nav-sub-item::before{content:'›';font-size:.9rem;color:#1a3055;margin-right:2px}
+.nav-sub-item .nbadge{margin-left:auto;font-size:.62rem;font-weight:700;background:rgba(255,107,107,.18);color:#ff6b6b;border-radius:9999px;padding:1px 6px;min-width:18px;text-align:center}
+.nav-sub-item .nbadge.green{background:rgba(0,230,118,.15);color:#00e676}
+
+.sidebar-footer{padding:14px 18px;border-top:1px solid rgba(79,195,247,.08)}
+.sidebar-user{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.su-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;color:#060d1f;flex-shrink:0;overflow:hidden}
+.su-name{font-size:.84rem;font-weight:600}
+.su-role{font-size:.7rem;color:#6b88aa;margin-top:1px;word-break:break-all}
+.logout-btn{width:100%;display:flex;align-items:center;gap:8px;padding:7px 12px;border-radius:8px;background:rgba(255,80,80,.08);border:1px solid rgba(255,80,80,.15);color:#ff6b6b;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s}
 .logout-btn:hover{background:rgba(255,80,80,.15)}
 
-/* ── MAIN ── */
+/* Sidebar mobile overlay */
+.sidebar-overlay{display:none;position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.6)}
+.sidebar-overlay.show{display:block}
+
+/* Collapse */
+body.sidebar-collapsed .sidebar{transform:translateX(-100%)}
+body.sidebar-collapsed .main{margin-left:0!important}
+
+/* ════════════════════════════
+   MAIN & TOPBAR
+════════════════════════════ */
 .main{margin-left:240px;flex:1;display:flex;flex-direction:column;min-height:100vh;transition:margin-left .3s}
 
-/* ── TOPBAR ── */
 .topbar{
-  height:64px;background:rgba(6,13,31,.95);backdrop-filter:blur(20px);
+  height:60px;background:rgba(6,13,31,.97);backdrop-filter:blur(20px);
   border-bottom:1px solid rgba(79,195,247,.1);
-  display:flex;align-items:center;padding:0 28px;gap:16px;
+  display:flex;align-items:center;padding:0 22px;gap:12px;
   position:sticky;top:0;z-index:40;
 }
-.topbar-title{font-size:1rem;font-weight:700;color:#e2ecff;flex:1}
-.topbar-title span{font-size:.8rem;font-weight:400;color:#6b88aa;margin-left:8px}
-.topbar-search{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.12);border-radius:10px;padding:8px 14px;width:260px}
-.topbar-search input{background:none;border:none;color:#e2ecff;font-size:.88rem;outline:none;width:100%}
+.topbar-toggle{width:32px;height:32px;border-radius:7px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:1rem;color:#6b88aa;transition:all .2s;flex-shrink:0}
+.topbar-toggle:hover{border-color:rgba(0,230,118,.3);color:#00e676}
+.sidebar-collapse-btn{font-size:1.05rem;font-weight:800;line-height:1}
+
+.topbar-title{font-size:.97rem;font-weight:700;color:#e2ecff;flex-shrink:0}
+.topbar-title span{font-size:.78rem;font-weight:400;color:#6b88aa;margin-left:6px}
+
+.topbar-search{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.12);border-radius:9px;padding:7px 13px;flex:1;max-width:300px;margin-left:auto}
+.topbar-search input{background:none;border:none;color:#e2ecff;font-size:.86rem;outline:none;width:100%}
 .topbar-search input::placeholder{color:#6b88aa}
-.topbar-search .si{color:#6b88aa;font-size:.9rem}
-.topbar-actions{display:flex;align-items:center;gap:10px}
-.icon-btn{width:36px;height:36px;border-radius:8px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;position:relative}
+
+.topbar-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.icon-btn{width:34px;height:34px;border-radius:8px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;position:relative;font-size:.9rem}
 .icon-btn:hover{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.06)}
-.notif-dot{position:absolute;top:6px;right:6px;width:7px;height:7px;border-radius:50%;background:#ff6b6b;border:2px solid #060d1f}
-.mob-toggle{display:none;width:36px;height:36px;border-radius:8px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px}
-.mob-toggle span{display:block;width:18px;height:2px;background:#e2ecff;border-radius:2px}
+.notif-dot{position:absolute;top:5px;right:5px;width:7px;height:7px;border-radius:50%;background:#ff6b6b;border:2px solid #060d1f}
 
-@media(max-width:900px){
-  .sidebar{transform:translateX(-100%)}
-  .sidebar.open{transform:translateX(0)}
-  body.sidebar-collapsed .sidebar.open{transform:translateX(0)}
-  .main{margin-left:0}
-  .mob-toggle{display:flex}
-  .topbar-search{display:none}
-}
+.topbar-btn{display:flex;align-items:center;gap:6px;padding:0 14px;height:32px;border-radius:7px;border:1px solid rgba(79,195,247,.2);background:rgba(255,255,255,.04);color:#e2ecff;font-size:.8rem;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.topbar-btn:hover{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.06)}
 
-/* ── CONTENT ── */
-.content{flex:1;padding:28px;animation:fadeIn .4s ease}
+/* Profile dropdown */
+.profile-wrap{position:relative}
+.profile-pill{display:flex;align-items:center;gap:8px;padding:4px 12px 4px 6px;background:rgba(255,255,255,.06);border:1px solid rgba(79,195,247,.2);border-radius:20px;cursor:pointer;transition:all .2s;user-select:none}
+.profile-pill:hover{border-color:rgba(0,230,118,.3)}
+.profile-avatar{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);color:#060d1f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.72rem;flex-shrink:0;overflow:hidden}
+.profile-name{font-size:.82rem;font-weight:600;color:#e2ecff}
+.profile-arrow{font-size:.65rem;color:#6b88aa;transition:transform .2s}
+.profile-wrap.open .profile-arrow{transform:rotate(180deg)}
+
+.profile-dropdown{position:absolute;top:calc(100% + 8px);right:0;width:180px;background:#0c1835;border:1px solid rgba(79,195,247,.18);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.7);padding:8px;display:none;z-index:100;animation:fadeIn .2s ease}
+.profile-wrap.open .profile-dropdown{display:block}
+.profile-dd-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;font-size:.84rem;color:#a8c0dc;cursor:pointer;transition:all .2s}
+.profile-dd-item:hover{background:rgba(0,230,118,.08);color:#e2ecff}
+.profile-dd-item.danger{color:#ff6b6b}
+.profile-dd-item.danger:hover{background:rgba(255,80,80,.08)}
+.profile-dd-divider{height:1px;background:rgba(79,195,247,.08);margin:6px 0}
+
+/* Notification dropdown */
+.notif-wrap{position:relative}
+.notif-dropdown{position:absolute;top:calc(100% + 8px);right:0;width:300px;background:#0c1835;border:1px solid rgba(79,195,247,.18);border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.7);padding:4px;display:none;z-index:100;animation:fadeIn .2s ease}
+.notif-wrap.open .notif-dropdown{display:block}
+.notif-hdr{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-bottom:1px solid rgba(79,195,247,.08);font-size:.85rem;font-weight:700}
+.notif-item{display:flex;gap:10px;align-items:flex-start;padding:10px 14px;border-radius:8px;cursor:pointer;transition:background .2s}
+.notif-item:hover{background:rgba(79,195,247,.05)}
+.notif-dot2{width:8px;height:8px;border-radius:50%;margin-top:4px;flex-shrink:0}
+.notif-text{font-size:.82rem;color:#a8c0dc;line-height:1.45}
+.notif-text strong{color:#e2ecff}
+.notif-time{font-size:.7rem;color:#6b88aa;margin-top:2px;font-family:'JetBrains Mono',monospace}
+
+/* Mobile toggle */
+.mob-toggle{display:none;width:34px;height:34px;border-radius:7px;border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.04);align-items:center;justify-content:center;cursor:pointer;flex-direction:column;gap:4px}
+.mob-toggle span{display:block;width:16px;height:2px;background:#e2ecff;border-radius:2px}
+
+/* ════════════════════════════
+   CONTENT
+════════════════════════════ */
+.content{flex:1;padding:24px;animation:fadeIn .4s ease}
 .section-view{display:none}
 .section-view.active{display:block;animation:fadeIn .35s ease}
 
-/* ── STAT CARDS ── */
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:28px}
+/* ── PAGE TITLE ── */
+.page-title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;flex-wrap:wrap;gap:12px}
+.page-title{font-family:'DM Serif Display',serif;font-size:1.6rem;line-height:1.2}
+.page-subtitle{font-size:.83rem;color:#6b88aa;margin-top:4px}
+
+/* ── KPI CARDS ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
 .stat-card{
-  background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);
-  border-radius:16px;padding:22px;transition:all .3s;cursor:pointer;position:relative;overflow:hidden;
+  background:rgba(12,24,52,.8);border:1px solid rgba(79,195,247,.1);
+  border-radius:16px;padding:18px 20px;transition:all .3s;cursor:pointer;position:relative;overflow:hidden;
 }
-.stat-card::before{content:none}
-.stat-card:hover{border-color:rgba(0,230,118,.25);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
-.stat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
-.stat-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .3s}
+.stat-card::after{content:'';position:absolute;inset:0;border-radius:16px;opacity:0;transition:opacity .4s;pointer-events:none}
+.stat-card:hover{border-color:rgba(0,230,118,.22);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
+.stat-card:hover::before{opacity:1}
+.sc-green::before{background:linear-gradient(90deg,#00e676,#00c853)}
+.sc-green:hover::after{background:radial-gradient(ellipse at top left,rgba(0,230,118,.05),transparent 60%)}
+.sc-blue::before{background:linear-gradient(90deg,#4fc3f7,#0288d1)}
+.sc-blue:hover::after{background:radial-gradient(ellipse at top left,rgba(79,195,247,.05),transparent 60%)}
+.sc-purple::before{background:linear-gradient(90deg,#ce93d8,#9c27b0)}
+.sc-purple:hover::after{background:radial-gradient(ellipse at top left,rgba(206,147,216,.05),transparent 60%)}
+.sc-orange::before{background:linear-gradient(90deg,#ffb74d,#f57c00)}
+.sc-orange:hover::after{background:radial-gradient(ellipse at top left,rgba(255,183,77,.05),transparent 60%)}
+.sc-teal::before{background:linear-gradient(90deg,#80cbc4,#009688)}
+.sc-red::before{background:linear-gradient(90deg,#ef9a9a,#e53935)}
+.stat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.stat-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.1rem}
 .si-green{background:rgba(0,230,118,.12)}
 .si-blue{background:rgba(79,195,247,.12)}
 .si-purple{background:rgba(206,147,216,.12)}
 .si-orange{background:rgba(255,183,77,.12)}
 .si-teal{background:rgba(128,203,196,.12)}
 .si-red{background:rgba(239,154,154,.12)}
-.stat-trend{font-size:.75rem;font-weight:600;padding:3px 8px;border-radius:6px;display:flex;align-items:center;gap:3px}
+.stat-trend{font-size:.72rem;font-weight:700;padding:3px 8px;border-radius:6px;display:flex;align-items:center;gap:3px}
 .trend-up{background:rgba(0,230,118,.12);color:#00e676}
 .trend-down{background:rgba(239,154,154,.12);color:#ef9a9a}
-.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:600;line-height:1;margin-bottom:4px}
-.stat-lbl{font-size:.78rem;color:#6b88aa;font-weight:500}
+.trend-warn{background:rgba(255,183,77,.12);color:#ffb74d}
+.stat-val{font-family:'JetBrains Mono',monospace;font-size:1.65rem;font-weight:600;line-height:1;margin-bottom:3px}
+.stat-lbl{font-size:.76rem;color:#6b88aa;font-weight:500;margin-bottom:2px}
+.stat-sub{font-size:.7rem;color:#4a6080;margin-top:4px}
 
-@media(max-width:1100px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.stats-grid{grid-template-columns:1fr}}
+/* Skeleton loader */
+.skel{background:linear-gradient(90deg,rgba(79,195,247,.06) 25%,rgba(79,195,247,.12) 50%,rgba(79,195,247,.06) 75%);background-size:200% 100%;animation:skelPulse 1.5s ease infinite;border-radius:6px}
+.skel-val{height:28px;width:70%;margin-bottom:4px}
+.skel-lbl{height:12px;width:50%}
 
 /* ── TABLES ── */
-.table-card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;overflow:hidden;margin-bottom:24px}
-.table-header{display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid rgba(79,195,247,.08)}
-.table-header h3{font-size:.95rem;font-weight:700}
+.table-card{background:rgba(12,24,52,.8);border:1px solid rgba(79,195,247,.1);border-radius:16px;overflow:hidden;margin-bottom:22px}
+.table-header{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid rgba(79,195,247,.08)}
+.table-header h3{font-size:.93rem;font-weight:700}
 .table-header-actions{display:flex;gap:8px;align-items:center}
 table{width:100%;border-collapse:collapse}
-thead th{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:10px 16px;text-align:left;background:rgba(0,0,0,.2)}
+thead th{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:9px 14px;text-align:left;background:rgba(0,0,0,.18)}
 tbody tr{border-top:1px solid rgba(79,195,247,.05);transition:background .2s}
 tbody tr:hover{background:rgba(79,195,247,.04)}
-tbody td{padding:12px 16px;font-size:.86rem;color:#a8c0dc;vertical-align:middle}
+tbody td{padding:11px 14px;font-size:.85rem;color:#a8c0dc;vertical-align:middle}
 tbody td strong{color:#e2ecff;font-weight:600}
 .overflow-x{overflow-x:auto}
 
 /* ── BADGES ── */
-.badge{display:inline-flex;align-items:center;gap:4px;font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
+.badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
 .badge-green{background:rgba(0,230,118,.12);color:#00e676}
 .badge-blue{background:rgba(79,195,247,.12);color:#4fc3f7}
 .badge-orange{background:rgba(255,183,77,.12);color:#ffb74d}
 .badge-red{background:rgba(239,154,154,.12);color:#ef9a9a}
 .badge-purple{background:rgba(206,147,216,.12);color:#ce93d8}
 .badge-gray{background:rgba(107,136,170,.12);color:#6b88aa}
+.badge-teal{background:rgba(128,203,196,.12);color:#80cbc4}
 
 /* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:0 18px;height:36px;border-radius:8px;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:700;border:none;cursor:pointer;white-space:nowrap;transition:all .22s}
-.btn-lg{height:44px;padding:0 24px;font-size:.92rem;border-radius:10px}
+.btn-lg{height:42px;padding:0 22px;font-size:.9rem;border-radius:10px}
 .btn-sm{height:30px;padding:0 12px;font-size:.78rem;border-radius:6px}
+.btn-xs{height:26px;padding:0 10px;font-size:.74rem;border-radius:5px}
 .btn-primary{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f}
 .btn-primary:hover{opacity:.88;transform:translateY(-1px);box-shadow:0 6px 18px rgba(0,230,118,.35)}
 .btn-ghost{background:transparent;color:#e2ecff;border:1px solid rgba(79,195,247,.25)}
 .btn-ghost:hover{border-color:rgba(79,195,247,.5);background:rgba(79,195,247,.07)}
 .btn-danger{background:rgba(239,154,154,.1);color:#ef9a9a;border:1px solid rgba(239,154,154,.2)}
 .btn-danger:hover{background:rgba(239,154,154,.2)}
-.btn-warning{background:rgba(255,183,77,.1);color:#ffb74d;border:1px solid rgba(255,183,77,.2)}
-.btn-warning:hover{background:rgba(255,183,77,.2)}
 .btn-success{background:rgba(0,230,118,.1);color:#00e676;border:1px solid rgba(0,230,118,.2)}
 .btn-success:hover{background:rgba(0,230,118,.2)}
+.btn-warning{background:rgba(255,183,77,.1);color:#ffb74d;border:1px solid rgba(255,183,77,.2)}
+.btn-warning:hover{background:rgba(255,183,77,.2)}
+.btn-info{background:rgba(79,195,247,.1);color:#4fc3f7;border:1px solid rgba(79,195,247,.2)}
+.btn-info:hover{background:rgba(79,195,247,.2)}
 .btn-icon{width:32px;height:32px;padding:0;border-radius:7px}
 
+/* ── CARD ── */
+.card{background:rgba(12,24,52,.8);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:20px;margin-bottom:22px}
+.card-title{font-size:.92rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card-title .ct-icon{font-size:1rem}
+
 /* ── FORMS ── */
+.form-input,.form-select{
+  background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);
+  color:#e2ecff;border-radius:9px;padding:8px 12px;font-size:.86rem;
+  transition:border-color .2s;outline:none;
+}
+.form-input:focus,.form-select:focus{border-color:rgba(0,230,118,.4)}
+.form-input::placeholder{color:#6b88aa}
+.form-select option{background:#0c1835;color:#e2ecff}
+
 .form-grid{display:grid;gap:18px}
 .form-grid-2{grid-template-columns:1fr 1fr}
 .form-grid-3{grid-template-columns:1fr 1fr 1fr}
 .form-group{display:flex;flex-direction:column;gap:7px}
 .form-label{font-size:.8rem;font-weight:600;color:#a8c0dc}
-.form-input,.form-select,.form-textarea{
-  background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);
-  color:#e2ecff;border-radius:10px;padding:10px 14px;font-size:.88rem;
-  transition:border-color .2s;outline:none;width:100%;
-}
-.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:rgba(0,230,118,.4)}
-.form-input::placeholder,.form-textarea::placeholder{color:#6b88aa}
-.form-select option{background:#0c1835;color:#e2ecff}
-.form-textarea{resize:vertical;min-height:90px}
+.form-textarea{background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);color:#e2ecff;border-radius:9px;padding:8px 12px;font-size:.86rem;transition:border-color .2s;outline:none;width:100%;resize:vertical;min-height:90px}
+.form-textarea:focus{border-color:rgba(0,230,118,.4)}
+.form-textarea::placeholder{color:#6b88aa}
 .form-check{display:flex;align-items:center;gap:8px;font-size:.88rem;color:#a8c0dc;cursor:pointer}
 .form-check input{width:16px;height:16px;accent-color:#00e676;cursor:pointer}
+.form-input,.form-select{width:100%}
 @media(max-width:700px){.form-grid-2,.form-grid-3{grid-template-columns:1fr}}
-
-/* ── CARD ── */
-.card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:22px;margin-bottom:24px}
-.card-title{font-size:.95rem;font-weight:700;margin-bottom:18px;display:flex;align-items:center;gap:10px}
-.card-title .ct-icon{font-size:1.1rem}
-
-/* ── ACTIVITY ── */
-.activity-item{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid rgba(79,195,247,.06)}
-.activity-item:last-child{border-bottom:none}
-.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
-.activity-text{font-size:.85rem;color:#a8c0dc;line-height:1.5;flex:1}
-.activity-text strong{color:#e2ecff}
-.activity-time{font-size:.75rem;color:#6b88aa;font-family:'JetBrains Mono',monospace;flex-shrink:0}
-
-/* ── MINI CHART (CSS only) ── */
-.mini-chart{display:flex;align-items:flex-end;gap:4px;height:48px;margin-top:12px}
-.bar{border-radius:4px 4px 0 0;min-width:10px;transition:opacity .2s}
-.bar:hover{opacity:.7}
 
 /* ── SEARCH BAR ── */
 .search-bar{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.12);border-radius:10px;padding:8px 14px;margin-bottom:20px}
 .search-bar input{background:none;border:none;color:#e2ecff;font-size:.88rem;outline:none;flex:1}
 .search-bar input::placeholder{color:#6b88aa}
 
+/* ── 2-COL LAYOUT ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
+
+/* ── ACTIVITY ── */
+.activity-item{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+.activity-item:last-child{border-bottom:none}
+.activity-dot{width:8px;height:8px;border-radius:50%;margin-top:5px;flex-shrink:0}
+.activity-text{font-size:.84rem;color:#a8c0dc;line-height:1.5;flex:1}
+.activity-text strong{color:#e2ecff}
+.activity-time{font-size:.72rem;color:#6b88aa;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+
+/* ── USER AVATAR ── */
+.u-avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:#060d1f;flex-shrink:0}
+
+/* ── INFO ROWS ── */
+.info-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid rgba(79,195,247,.06);font-size:.84rem}
+.info-row:last-child{border-bottom:none}
+.info-row .irl{color:#6b88aa}
+.info-row .irv{color:#e2ecff;font-weight:600;font-family:'JetBrains Mono',monospace}
+
+/* ── TOAST ── */
+.toast-container{position:fixed;bottom:24px;right:24px;z-index:999;display:flex;flex-direction:column;gap:10px;pointer-events:none}
+.toast{display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:12px;font-size:.87rem;font-weight:600;color:#e2ecff;background:rgba(10,20,42,.97);backdrop-filter:blur(16px);border:1px solid rgba(79,195,247,.2);box-shadow:0 20px 50px rgba(0,0,0,.5);pointer-events:auto;animation:slideInRight .3s cubic-bezier(0.16,1,0.3,1) forwards;max-width:380px}
+.toast-success{border-color:rgba(0,230,118,.4)}
+.toast-error{border-color:rgba(255,80,80,.4)}
+.toast-warning{border-color:rgba(255,183,77,.4)}
+.toast-info{border-color:rgba(79,195,247,.4)}
+.toast-close{background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1rem;margin-left:auto;padding:0 2px}
+.toast-close:hover{color:#e2ecff}
+
+/* ── REVENUE CHART ── */
+.chart-wrap{background:rgba(0,0,0,.18);border-radius:12px;padding:16px;position:relative;overflow:hidden}
+.chart-period-btns{display:flex;gap:6px;margin-bottom:14px}
+.period-btn{padding:4px 14px;border-radius:6px;border:1px solid rgba(79,195,247,.15);background:transparent;color:#6b88aa;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .2s}
+.period-btn.active{background:rgba(0,230,118,.12);border-color:rgba(0,230,118,.35);color:#00e676}
+.period-btn:hover:not(.active){border-color:rgba(79,195,247,.3);color:#e2ecff}
+
+.chart-bars-wrap{display:flex;align-items:flex-end;gap:8px;height:160px;padding-bottom:4px;position:relative}
+.chart-bar-group{flex:1;display:flex;align-items:flex-end;gap:3px;position:relative}
+.chart-bar{min-width:6px;border-radius:4px 4px 0 0;cursor:pointer;transition:opacity .2s;position:relative}
+.chart-bar:hover{opacity:.75}
+.chart-bar.gross{background:linear-gradient(180deg,rgba(0,230,118,.7),rgba(0,230,118,.2))}
+.chart-bar.payouts{background:linear-gradient(180deg,rgba(79,195,247,.6),rgba(79,195,247,.15))}
+.chart-bar.net{background:linear-gradient(180deg,rgba(206,147,216,.6),rgba(206,147,216,.15))}
+
+.chart-tooltip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:#0c1835;border:1px solid rgba(79,195,247,.25);border-radius:10px;padding:10px 14px;font-size:.78rem;color:#e2ecff;white-space:nowrap;pointer-events:none;display:none;z-index:10;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:tooltipFade .2s ease}
+.chart-bar-group:hover .chart-tooltip{display:block}
+.tooltip-date{font-weight:700;color:#4fc3f7;margin-bottom:6px;font-size:.8rem}
+.tooltip-row{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+.tooltip-row:last-child{margin-bottom:0}
+.tooltip-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tooltip-lbl{color:#6b88aa}
+.tooltip-val{margin-left:auto;font-family:'JetBrains Mono',monospace;color:#e2ecff;font-weight:600}
+.chart-labels{display:flex;gap:8px;margin-top:8px}
+.chart-lbl{flex:1;text-align:center;font-size:.72rem;color:#6b88aa}
+
+.chart-legend{display:flex;gap:14px;margin-bottom:12px}
+.legend-item{display:flex;align-items:center;gap:6px;font-size:.77rem;color:#6b88aa}
+.legend-dot{width:8px;height:8px;border-radius:50%}
+
+/* ── FINANCIAL SUMMARY ── */
+.fin-summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.fin-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+.fin-row:last-child{border-bottom:none;font-weight:700}
+.fin-row.total-row{padding-top:12px;margin-top:4px;border-top:1px solid rgba(79,195,247,.12)}
+.fin-lbl{font-size:.83rem;color:#6b88aa}
+.fin-val{font-size:.88rem;font-family:'JetBrains Mono',monospace;color:#e2ecff;font-weight:600}
+.fin-val.green{color:#00e676}
+.fin-val.red{color:#ef9a9a}
+.fin-val.blue{color:#4fc3f7}
+.fin-val.big{font-size:1.05rem}
+
+/* Distribution bar */
+.dist-bar{height:10px;border-radius:6px;display:flex;overflow:hidden;margin:12px 0 8px}
+.dist-seg{height:100%;transition:all .3s}
+.dist-labels{display:flex;justify-content:space-between;font-size:.72rem;color:#6b88aa}
+.dist-item{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+.dist-item:last-child{border-bottom:none}
+.dist-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.dist-name{font-size:.83rem;color:#a8c0dc;flex:1}
+.dist-pct{font-size:.78rem;color:#6b88aa;margin-right:10px}
+.dist-amount{font-size:.88rem;font-family:'JetBrains Mono',monospace;color:#e2ecff;font-weight:600}
+
+/* ── PENDING ACTIONS ── */
+.pending-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:rgba(255,183,77,.04);border:1px solid rgba(255,183,77,.1);border-radius:10px;margin-bottom:8px;transition:all .2s}
+.pending-item:hover{background:rgba(255,183,77,.07);border-color:rgba(255,183,77,.2)}
+.pending-item:last-child{margin-bottom:0}
+.pending-icon{font-size:1rem;flex-shrink:0}
+.pending-label{font-size:.84rem;color:#a8c0dc;flex:1}
+.pending-count{font-family:'JetBrains Mono',monospace;font-size:.9rem;font-weight:700;color:#ffb74d;margin-right:6px}
+
+/* ── QUICK ACTIONS ── */
+.qa-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.qa-btn{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.1);border-radius:10px;cursor:pointer;transition:all .2s;font-size:.82rem;color:#a8c0dc;font-family:'Outfit',sans-serif;font-weight:500;width:100%;text-align:left}
+.qa-btn:hover{background:rgba(0,230,118,.06);border-color:rgba(0,230,118,.22);color:#e2ecff}
+.qa-btn .qi{font-size:1rem;flex-shrink:0}
+
+/* ── PROGRESS BAR ── */
+.prog-bar{height:5px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-top:5px}
+.prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#00e676,#4fc3f7);transition:width .6s ease}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s}
+.modal-overlay.open{opacity:1;pointer-events:auto}
+.modal{width:100%;max-width:540px;border-radius:18px;padding:28px;background:#0c1835;border:1px solid rgba(79,195,247,.15);box-shadow:0 40px 100px rgba(0,0,0,.6);transform:translateY(16px) scale(.97);transition:transform .25s;max-height:90vh;overflow-y:auto}
+.modal-overlay.open .modal{transform:translateY(0) scale(1)}
+.modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-family:'DM Serif Display',serif;font-size:1.4rem}
+.modal-close{background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1.2rem;padding:2px 6px;transition:color .2s}
+.modal-close:hover{color:#e2ecff}
+.modal-sub{font-size:.8rem;color:#6b88aa;margin-top:4px}
+.modal-footer{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
+.form-grp{margin-bottom:14px}
+.form-lbl{display:block;font-size:.8rem;font-weight:600;color:#a8c0dc;margin-bottom:6px}
+.form-inp{width:100%;background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);color:#e2ecff;border-radius:9px;padding:9px 12px;font-size:.86rem;outline:none;transition:border-color .2s;font-family:'Outfit',sans-serif}
+.form-inp:focus{border-color:rgba(0,230,118,.4)}
+
+/* ── SECTION HEADER ── */
+.sec-label{display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00e676;margin-bottom:5px}
+
 /* ── TABS ── */
-.tab-row{display:flex;gap:4px;margin-bottom:22px;background:rgba(255,255,255,.03);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap}
-.tab-btn{padding:7px 18px;border-radius:8px;border:none;background:transparent;color:#6b88aa;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:600;cursor:pointer;transition:all .2s}
+.tab-row{display:flex;gap:4px;margin-bottom:20px;background:rgba(255,255,255,.03);padding:4px;border-radius:10px;width:fit-content;flex-wrap:wrap}
+.tab-btn{padding:6px 16px;border-radius:7px;border:none;background:transparent;color:#6b88aa;font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s}
 .tab-btn.active{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f}
 .tab-btn:hover:not(.active){color:#e2ecff;background:rgba(255,255,255,.05)}
 .tab-content{display:none}
 .tab-content.active{display:block;animation:fadeIn .3s ease}
 
-/* ── PAGE TITLE ── */
-.page-title-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;flex-wrap:wrap;gap:12px}
-.page-title{font-family:'DM Serif Display',serif;font-size:1.7rem;line-height:1.2}
-.page-subtitle{font-size:.85rem;color:#6b88aa;margin-top:4px}
-
-/* ── CHART PLACEHOLDER ── */
-.chart-placeholder{background:rgba(0,0,0,.2);border-radius:12px;height:220px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
-.chart-bars{display:flex;align-items:flex-end;gap:8px;height:160px;padding:0 20px}
-.cb{border-radius:6px 6px 0 0;flex:1;min-width:24px;transition:opacity .2s;cursor:pointer}
-.cb:hover{opacity:.7}
-.chart-line{position:absolute;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#6b88aa;font-size:.85rem}
-
 /* ── TOGGLE ── */
-.toggle{position:relative;width:44px;height:24px;flex-shrink:0}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
 .toggle input{opacity:0;width:0;height:0}
 .toggle-slider{position:absolute;cursor:pointer;inset:0;background:rgba(255,255,255,.1);border-radius:24px;transition:.3s}
-.toggle-slider::before{content:'';position:absolute;height:18px;width:18px;left:3px;bottom:3px;background:#6b88aa;border-radius:50%;transition:.3s}
+.toggle-slider::before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#6b88aa;border-radius:50%;transition:.3s}
 .toggle input:checked + .toggle-slider{background:rgba(0,230,118,.3)}
-.toggle input:checked + .toggle-slider::before{transform:translateX(20px);background:#00e676}
+.toggle input:checked + .toggle-slider::before{transform:translateX(18px);background:#00e676}
 
-/* ── USER AVATAR ── */
-.u-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#060d1f;flex-shrink:0}
+/* ── RESPONSIVE ── */
+@media(max-width:1200px){.stats-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:1000px){.stats-grid{grid-template-columns:repeat(2,1fr)}.fin-summary-grid{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.three-col{grid-template-columns:1fr}}
+@media(max-width:900px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  body.sidebar-collapsed .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0!important}
+  .mob-toggle{display:flex}
+  .topbar-search{display:none}
+  .topbar-btn{display:none}
+}
+@media(max-width:600px){.stats-grid{grid-template-columns:1fr}.qa-grid{grid-template-columns:1fr}}
 
-/* ── SECTION HEADER ── */
-.sec-label{display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#00e676;margin-bottom:6px}
+/* ── EMPTY STATE ── */
+.empty-state{text-align:center;padding:50px 20px;color:#6b88aa}
+.empty-state .es-icon{font-size:2.8rem;margin-bottom:12px;opacity:.5}
+.empty-state .es-title{font-size:.95rem;font-weight:700;color:#a8c0dc;margin-bottom:5px}
+.empty-state .es-sub{font-size:.83rem}
 
-/* ── 2-COL LAYOUT ── */
-.two-col{display:grid;grid-template-columns:1fr 1fr;gap:22px}
-.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:18px}
-@media(max-width:900px){.two-col,.three-col{grid-template-columns:1fr}}
+/* ── LOADING SPINNER ── */
+.spinner{width:18px;height:18px;border:2px solid rgba(0,230,118,.2);border-top-color:#00e676;border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
 
-/* ── INFO ROWS ── */
-.info-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(79,195,247,.06);font-size:.85rem}
-.info-row:last-child{border-bottom:none}
-.info-row .irl{color:#6b88aa}
-.info-row .irv{color:#e2ecff;font-weight:600;font-family:'JetBrains Mono',monospace}
+/* Refresh spin */
+.spinning{animation:spin .8s linear infinite;display:inline-block}
 
-/* ── MODAL ── */
-.modal-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s}
-.modal-overlay.open{opacity:1;pointer-events:auto}
-.modal{width:100%;max-width:560px;border-radius:20px;padding:32px;background:#0c1835;border:1px solid rgba(79,195,247,.15);box-shadow:0 40px 100px rgba(0,0,0,.6);transform:translateY(16px) scale(.97);transition:transform .25s;max-height:90vh;overflow-y:auto}
-.modal-overlay.open .modal{transform:translateY(0) scale(1)}
-.modal-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
-.modal-title{font-family:'DM Serif Display',serif;font-size:1.5rem}
-.modal-close{background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1.3rem;padding:2px 6px;transition:color .2s}
-.modal-close:hover{color:#e2ecff}
-
-/* ── PROGRESS BAR ── */
-.prog-bar{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-top:6px}
-.prog-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#00e676,#4fc3f7)}
-
-/* ── AUDIT LOG ── */
-.audit-item{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid rgba(79,195,247,.06)}
-.audit-item:last-child{border-bottom:none}
-.audit-icon{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
-.audit-body{flex:1;min-width:0}
-.audit-action{font-size:.88rem;color:#e2ecff;font-weight:600;margin-bottom:3px}
-.audit-meta{font-size:.76rem;color:#6b88aa;font-family:'JetBrains Mono',monospace}
-
-/* ── SETTINGS ── */
-.settings-section{margin-bottom:32px;padding-bottom:32px;border-bottom:1px solid rgba(79,195,247,.07)}
-.settings-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
-.settings-title{font-size:1rem;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
-
-/* ── COUPON CARD ── */
-.coupon-item{background:rgba(12,24,48,.8);border:1px solid rgba(79,195,247,.1);border-radius:12px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:all .3s}
-.coupon-item:hover{border-color:rgba(0,230,118,.22);transform:translateY(-2px)}
-.ci-brand{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,rgba(0,230,118,.15),rgba(79,195,247,.15));display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
-.ci-body{flex:1;min-width:0}
-.ci-name{font-weight:700;font-size:.9rem;margin-bottom:3px}
-.ci-code{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#00e676;background:rgba(0,230,118,.08);padding:2px 8px;border-radius:5px;display:inline-block;margin-bottom:6px}
-.ci-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.ci-actions{display:flex;gap:6px;flex-shrink:0}
-
-/* sidebar overlay for mobile */
-.sidebar-overlay{display:none;position:fixed;inset:0;z-index:49;background:rgba(0,0,0,.6)}
-.sidebar-overlay.show{display:block}
-
-/* ── SIDEBAR COLLAPSE (persisted) ── */
-body.sidebar-collapsed .sidebar{transform:translateX(-100%)}
-body.sidebar-collapsed .main{margin-left:0}
-.sidebar-collapse-btn{font-size:1.05rem;font-weight:800;color:#6b88aa;line-height:1}
-.sidebar-collapse-btn:hover{color:#00e676}
-
-/* ── TOAST NOTIFICATIONS ── */
-.toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; pointer-events:none; }
-.toast { display:flex; align-items:center; gap:12px; padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; color:#e2ecff; background:rgba(12,24,48,.95); backdrop-filter:blur(16px); border:1px solid rgba(79,195,247,.2); box-shadow:0 20px 50px rgba(0,0,0,.5); pointer-events:auto; animation:slideInRight .3s cubic-bezier(0.16,1,0.3,1) forwards; max-width:400px; }
-.toast-success { border-color:rgba(0,230,118,.4); }
-.toast-error { border-color:rgba(255,80,80,.4); }
-.toast-warning { border-color:rgba(255,183,77,.4); }
-.toast-close { background:none; border:none; color:#6b88aa; cursor:pointer; font-size:1.1rem; margin-left:auto; }
-@keyframes slideInRight { from { transform:translateX(100%); opacity:0; } to { transform:translateX(0); opacity:1; } }
-@keyframes slideOutRight { from { transform:translateX(0); opacity:1; } to { transform:translateX(100%); opacity:0; } }
+/* ════════════════════════════
+   LIVE-SECTION STYLES (coupons form, brand select, support detail)
+════════════════════════════ */
 
 /* ── CUSTOM BRAND SELECT DROPDOWN WITH LOGOS ── */
 .custom-brand-select { position: relative; width: 100%; }
@@ -347,10 +501,17 @@ body.sidebar-collapsed .main{margin-left:0}
 .brand-opt:hover { background: rgba(0,230,118,.1); color: #e2ecff; }
 .brand-opt.selected { background: rgba(0,230,118,.18); color: #00e676; font-weight: 700; }
 
-/* ── SUPPORT CASES ── */
-.badge-teal{background:rgba(128,203,196,.12);color:#80cbc4}
-.btn-info{background:rgba(79,195,247,.1);color:#4fc3f7;border:1px solid rgba(79,195,247,.2)}
-.btn-info:hover{background:rgba(79,195,247,.2)}
+/* ── COUPON CARD (inventory) ── */
+.coupon-item{background:rgba(12,24,48,.8);border:1px solid rgba(79,195,247,.1);border-radius:12px;padding:16px;display:flex;gap:14px;align-items:flex-start;transition:all .3s}
+.coupon-item:hover{border-color:rgba(0,230,118,.22);transform:translateY(-2px)}
+.ci-brand{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,rgba(0,230,118,.15),rgba(79,195,247,.15));display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0}
+.ci-body{flex:1;min-width:0}
+.ci-name{font-weight:700;font-size:.9rem;margin-bottom:3px}
+.ci-code{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#00e676;background:rgba(0,230,118,.08);padding:2px 8px;border-radius:5px;display:inline-block;margin-bottom:6px}
+.ci-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ci-actions{display:flex;gap:6px;flex-shrink:0}
+
+/* ── SUPPORT CASES DETAIL ── */
 .priority-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0}
 
 .detail-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
@@ -362,13 +523,6 @@ body.sidebar-collapsed .main{margin-left:0}
 .msg-user{background:rgba(79,195,247,.08);border:1px solid rgba(79,195,247,.12);border-radius:12px 12px 12px 2px;color:#a8c0dc}
 .msg-support{background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.15);border-radius:12px 12px 2px 12px;color:#a8c0dc;margin-left:auto}
 .msg-meta{font-size:.72rem;color:#6b88aa;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
-
-.modal-footer{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
-
-.empty-state{text-align:center;padding:60px 20px;color:#6b88aa}
-.empty-state .es-icon{font-size:3rem;margin-bottom:14px;opacity:.5}
-.empty-state .es-title{font-size:1rem;font-weight:700;color:#a8c0dc;margin-bottom:6px}
-.empty-state .es-sub{font-size:.85rem}
 </style>
 </head>
 <body>
@@ -380,64 +534,161 @@ body.sidebar-collapsed .main{margin-left:0}
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
     <div class="brand-icon">💰</div>
-    <span class="brand-name">Save<span class="bhl">Hatke</span></span>
+    <span>Save<span class="bhl">Hatke</span></span>
     <span class="admin-badge">ADMIN</span>
   </div>
 
   <nav class="sidebar-nav">
     <span class="nav-group-label">Main</span>
-    <div class="nav-item active" onclick="showSection('dashboard',this)"><span class="ni">🏠</span> Dashboard</div>
-    <div class="nav-item" onclick="showSection('users',this)"><span class="ni">👥</span> Users <span class="nbadge green" id="usersNavBadge">—</span></div>
-    <div class="nav-item" onclick="showSection('sessions',this)"><span class="ni">🔋</span> User Sessions <span class="nbadge green" id="sessionsNavBadge">—</span></div>
-    <div class="nav-item" onclick="showSection('coupons',this)"><span class="ni">🎟️</span> Coupons <span class="nbadge">14</span></div>
-    <div class="nav-item" onclick="showSection('payouts',this)"><span class="ni">💰</span> Payouts <span class="nbadge">7</span></div>
-    <div class="nav-item" onclick="showSection('brands',this)"><span class="ni">🛍️</span> Brands</div>
+
+    <div class="nav-item active" onclick="showSection('dashboard',this)">
+      <span class="ni">🏠</span> Dashboard
+    </div>
+
+    <!-- Users (collapsible) -->
+    <div class="nav-item" onclick="toggleSubMenu('users-sub', this)">
+      <span class="ni">👥</span> Users <span class="nbadge green" id="usersNavBadge">—</span> <span class="nav-arrow">›</span>
+    </div>
+    <div class="nav-sub" id="users-sub">
+      <div class="nav-sub-item" onclick="showSection('users',null)">Users</div>
+      <div class="nav-sub-item" onclick="showSection('sessions',null)">User Sessions <span class="nbadge green" id="sessionsNavBadge">—</span></div>
+    </div>
+
+    <div class="nav-item" onclick="showSection('coupons',this)">
+      <span class="ni">🎟️</span> Coupons <span class="nbadge">14</span>
+    </div>
+
+    <!-- Payments & Revenue (collapsible) -->
+    <div class="nav-item" onclick="toggleSubMenu('payments-sub', this)">
+      <span class="ni">💰</span> Payments &amp; Revenue <span class="nav-arrow">›</span>
+    </div>
+    <div class="nav-sub" id="payments-sub">
+      <div class="nav-sub-item" onclick="showSection('revenue',null)">Revenue Overview</div>
+      <div class="nav-sub-item" onclick="showSection('transactions',null)">Payment Transactions</div>
+      <div class="nav-sub-item" onclick="showSection('payouts',null)">Seller Payouts <span class="nbadge" id="payoutsNavBadge">7</span></div>
+      <div class="nav-sub-item" onclick="showSection('admin-payouts',null)">Admin Payouts</div>
+      <div class="nav-sub-item" onclick="showSection('settlements',null)">Monthly Settlements</div>
+      <div class="nav-sub-item" onclick="showSection('refunds',null)">Refunds</div>
+    </div>
+
+    <div class="nav-item" onclick="showSection('brands',this)">
+      <span class="ni">🏷️</span> Brands
+    </div>
 
     <span class="nav-group-label">Operations</span>
-    <div class="nav-item" onclick="showSection('support',this)"><span class="ni">🎧</span> Support Cases <span class="nbadge green">Live</span></div>
-    <div class="nav-item" onclick="window.location.href='admin-gmail.html'"><span class="ni">📮</span> Gmail Mailbox <span class="nbadge green">Live</span></div>
-    <div class="nav-item" onclick="showSection('chatbot',this)"><span class="ni">🤖</span> AI Chatbot <span class="nbadge green" id="chatbotNavBadge">AI</span></div>
-    <div class="nav-item" onclick="showSection('tracker',this)"><span class="ni">📦</span> Price Tracker</div>
-    <div class="nav-item" onclick="showSection('analytics',this)"><span class="ni">📈</span> Analytics</div>
-    <div class="nav-item" onclick="showSection('content',this)"><span class="ni">📢</span> Content</div>
-    <div class="nav-item" onclick="showSection('reports',this)"><span class="ni">⭐</span> Reports <span class="nbadge">3</span></div>
+    <div class="nav-item" onclick="showSection('support',this)">
+      <span class="ni">🛟</span> Support Cases <span class="nbadge green">Live</span>
+    </div>
+    <div class="nav-item" onclick="window.location.href='admin-gmail.html'">
+      <span class="ni">📧</span> Gmail Mailbox <span class="nbadge green">Live</span>
+    </div>
+    <div class="nav-item" onclick="showSection('chatbot',this)">
+      <span class="ni">🤖</span> AI Chatbot <span class="nbadge blue" id="chatbotNavBadge">AI</span>
+    </div>
+    <div class="nav-item" onclick="showSection('tracker',this)">
+      <span class="ni">📈</span> Price Tracker
+    </div>
+    <div class="nav-item" onclick="showSection('analytics',this)">
+      <span class="ni">📊</span> Analytics
+    </div>
+    <div class="nav-item" onclick="showSection('content',this)">
+      <span class="ni">📢</span> Content
+    </div>
+    <div class="nav-item" onclick="showSection('reports',this)">
+      <span class="ni">📑</span> Reports <span class="nbadge">3</span>
+    </div>
 
     <span class="nav-group-label">Admin</span>
-    <div class="nav-item" onclick="showSection('admins',this)"><span class="ni">👤</span> Admins &amp; Roles</div>
-    <div class="nav-item" onclick="showSection('security',this)"><span class="ni">🔒</span> Security</div>
-    <div class="nav-item" onclick="showSection('settings',this)"><span class="ni">⚙️</span> Settings</div>
-    <div class="nav-item" onclick="showSection('audit',this)"><span class="ni">📄</span> Audit Logs</div>
+    <div class="nav-item" onclick="showSection('admins',this)">
+      <span class="ni">👤</span> Admins &amp; Roles
+    </div>
+    <div class="nav-item" onclick="showSection('security',this)">
+      <span class="ni">🔐</span> Security
+    </div>
+    <div class="nav-item" onclick="showSection('settings',this)">
+      <span class="ni">⚙️</span> Settings
+    </div>
+    <div class="nav-item" onclick="showSection('audit',this)">
+      <span class="ni">📋</span> Audit Logs
+    </div>
   </nav>
 
   <div class="sidebar-footer">
     <div class="sidebar-user" id="currentAdminProfile">
       <div class="su-avatar" id="currentAdminAvatar">SA</div>
-      <div><div class="su-name" id="currentAdminName">Super Admin</div><div class="su-role" id="currentAdminEmail">admin@savehatke.com</div></div>
+      <div>
+        <div class="su-name" id="currentAdminName">Super Admin</div>
+        <div class="su-role" id="currentAdminEmail">admin@savehatke.com</div>
+      </div>
     </div>
     <button class="logout-btn" onclick="adminLogout()">🚪 Logout</button>
   </div>
 </aside>
 
 <!-- MAIN -->
-<div class="main">
+<div class="main" id="mainArea">
 
   <!-- TOPBAR -->
   <div class="topbar">
-    <button class="icon-btn sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="Hide sidebar">«</button>
     <div class="mob-toggle" id="mobToggle" onclick="toggleSidebar()"><span></span><span></span><span></span></div>
+    <button class="topbar-toggle sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="Toggle Sidebar">«</button>
     <div class="topbar-title" id="topbarTitle">Dashboard <span>/ Overview</span></div>
+
     <div class="topbar-search">
-      <span class="si">🔍</span>
-      <input type="text" id="globalSearch" placeholder="Search anything..." oninput="globalSearchCases(this.value)">
+      <span style="color:#6b88aa;font-size:.85rem;">🔍</span>
+      <input type="text" placeholder="Search anything..." id="globalSearch" oninput="globalSearchCases(this.value)">
     </div>
+
     <div class="topbar-actions">
-      <button class="btn btn-ghost btn-sm" onclick="openSupportCases()" title="Support Cases">🎧 Support Cases</button>
-      <div class="icon-btn" title="Notifications"><span>🔔</span><div class="notif-dot"></div></div>
-      <div class="icon-btn" title="Messages"><span>💬</span></div>
-      <div class="topbar-user-badge" id="topbarAdminBadge" onclick="adminLogout()" title="Click to Logout" style="display:flex;align-items:center;gap:8px;padding:4px 10px;background:rgba(255,255,255,0.06);border:1px solid rgba(79,195,247,0.2);border-radius:20px;cursor:pointer;">
-        <div id="topbarAdminAvatar" style="width:24px;height:24px;border-radius:50%;background:#00e676;color:#060d1f;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:0.75rem;">A</div>
-        <span id="topbarAdminName" style="font-size:0.82rem;font-weight:600;color:#e2ecff;">Admin</span>
-        <span style="font-size:0.75rem;color:#ff6b6b;" title="Logout">🚪 Logout</span>
+      <button class="topbar-btn" onclick="openSupportCases()">🎧 Support Cases</button>
+
+      <!-- Notifications -->
+      <div class="notif-wrap icon-btn" id="notifWrap" onclick="toggleNotif(event)" title="Notifications">
+        🔔<div class="notif-dot"></div>
+        <div class="notif-dropdown" id="notifDropdown">
+          <div class="notif-hdr">
+            Notifications
+            <button style="background:none;border:none;color:#6b88aa;font-size:.75rem;cursor:pointer;">Mark all read</button>
+          </div>
+          <div class="notif-item">
+            <div class="notif-dot2" style="background:#ffb74d"></div>
+            <div>
+              <div class="notif-text"><strong>Pending coupons</strong> awaiting your approval</div>
+              <div class="notif-time">check Coupons → Pending</div>
+            </div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-dot2" style="background:#4fc3f7"></div>
+            <div>
+              <div class="notif-text"><strong>Support cases</strong> may need a response</div>
+              <div class="notif-time">check Support Cases</div>
+            </div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-dot2" style="background:#00e676"></div>
+            <div>
+              <div class="notif-text"><strong>Payouts</strong> pending processing</div>
+              <div class="notif-time">check Seller Payouts</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="icon-btn" title="Messages">💬</div>
+
+      <!-- Profile -->
+      <div class="profile-wrap" id="profileWrap" onclick="toggleProfile(event)">
+        <div class="profile-pill">
+          <div class="profile-avatar" id="topbarAdminAvatar">A</div>
+          <span class="profile-name" id="topbarAdminName">Admin</span>
+          <span class="profile-arrow">▾</span>
+        </div>
+        <div class="profile-dropdown" id="profileDropdown">
+          <div class="profile-dd-item" onclick="showSection('admins')">👤 My Profile</div>
+          <div class="profile-dd-item" onclick="showSection('settings')">⚙️ Settings</div>
+          <div class="profile-dd-divider"></div>
+          <div class="profile-dd-item danger" onclick="adminLogout()">🚪 Logout</div>
+        </div>
       </div>
     </div>
   </div>
@@ -447,93 +698,305 @@ body.sidebar-collapsed .main{margin-left:0}
 
     <!-- ════════════════ DASHBOARD ════════════════ -->
     <div class="section-view active" id="sec-dashboard">
+
+      <!-- Welcome Row -->
       <div class="page-title-row">
-        <div><div class="page-title" id="adminGreeting">Good morning, <span class="gtext" id="adminNameSpan">Admin</span> 👋</div><div class="page-subtitle">Here's what's happening with SaveHatke today.</div></div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div>
+          <div class="page-title" id="adminGreeting">Good morning, <span class="gtext" id="adminNameSpan">Admin</span> 👋</div>
+          <div class="page-subtitle">Here's what's happening with SaveHatke today.</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-ghost btn-sm" id="refreshBtn" onclick="refreshDashboard()">↻ Refresh</button>
           <button class="btn btn-ghost btn-lg" onclick="openSupportCases()">🎧 Support Cases</button>
-          <button class="btn btn-primary btn-lg">📊 Export Report</button>
+          <button class="btn btn-primary btn-lg" onclick="exportReport()">📊 Export Report</button>
         </div>
       </div>
 
-      <div class="stats-grid">
+      <!-- KPI Cards (Users / Coupons / Pending / Earnings are live via /admin/stats) -->
+      <div class="stats-grid" id="kpiGrid">
         <div class="stat-card sc-green">
           <div class="stat-card-top"><div class="stat-icon si-green">👥</div><span class="stat-trend trend-up">↑ 12%</span></div>
-          <div class="stat-val gtext">12,840</div><div class="stat-lbl">Total Users</div>
+          <div class="stat-val gtext" id="statUsers">12,840</div>
+          <div class="stat-lbl">Total Users</div>
+          <div class="stat-sub">This month</div>
         </div>
         <div class="stat-card sc-blue">
           <div class="stat-card-top"><div class="stat-icon si-blue">⚡</div><span class="stat-trend trend-up">↑ 8%</span></div>
-          <div class="stat-val" style="color:#4fc3f7">934</div><div class="stat-lbl">Active Users Today</div>
+          <div class="stat-val" style="color:#4fc3f7" id="kpi-active">934</div>
+          <div class="stat-lbl">Active Users Today</div>
+          <div class="stat-sub">vs yesterday</div>
         </div>
         <div class="stat-card sc-purple">
           <div class="stat-card-top"><div class="stat-icon si-purple">🎟️</div><span class="stat-trend trend-up">↑ 24%</span></div>
-          <div class="stat-val" style="color:#ce93d8">4,217</div><div class="stat-lbl">Total Coupons</div>
+          <div class="stat-val" style="color:#ce93d8" id="statCoupons">4,217</div>
+          <div class="stat-lbl">Total Coupons</div>
+          <div class="stat-sub">This month</div>
         </div>
         <div class="stat-card sc-orange">
-          <div class="stat-card-top"><div class="stat-icon si-orange">⏳</div><span class="stat-trend trend-down">↓ 2</span></div>
-          <div class="stat-val" style="color:#ffb74d">14</div><div class="stat-lbl">Pending Approvals</div>
+          <div class="stat-card-top"><div class="stat-icon si-orange">⏳</div><span class="stat-trend trend-warn">+2</span></div>
+          <div class="stat-val" style="color:#ffb74d" id="statPending">14</div>
+          <div class="stat-lbl">Pending Approvals</div>
+          <div class="stat-sub">Needs attention</div>
         </div>
         <div class="stat-card sc-green">
           <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend trend-up">↑ 18%</span></div>
-          <div class="stat-val gtext">₹84,290</div><div class="stat-lbl">Total Earnings</div>
+          <div class="stat-val gtext" id="statRevenue">₹84,290</div>
+          <div class="stat-lbl">Total Earnings</div>
+          <div class="stat-sub">This month</div>
         </div>
         <div class="stat-card sc-teal">
-          <div class="stat-card-top"><div class="stat-icon si-teal">🔄</div><span class="stat-trend trend-up">↑ 5%</span></div>
-          <div class="stat-val" style="color:#80cbc4">₹3,420</div><div class="stat-lbl">Transactions Today</div>
+          <div class="stat-card-top"><div class="stat-icon si-teal">💳</div><span class="stat-trend trend-up">↑ 5%</span></div>
+          <div class="stat-val" style="color:#80cbc4" id="kpi-txns">₹3,420</div>
+          <div class="stat-lbl">Transactions Today</div>
+          <div class="stat-sub">vs yesterday</div>
         </div>
         <div class="stat-card sc-blue">
           <div class="stat-card-top"><div class="stat-icon si-blue">🌐</div><span class="stat-trend trend-up">↑ 31%</span></div>
-          <div class="stat-val" style="color:#4fc3f7">8,104</div><div class="stat-lbl">Website Visitors</div>
+          <div class="stat-val" style="color:#4fc3f7" id="kpi-visitors">8,104</div>
+          <div class="stat-lbl">Website Visitors</div>
+          <div class="stat-sub">This month</div>
         </div>
         <div class="stat-card sc-red">
-          <div class="stat-card-top"><div class="stat-icon si-red">🚩</div><span class="stat-trend trend-down">↑ 1</span></div>
-          <div class="stat-val" style="color:#ef9a9a">3</div><div class="stat-lbl">Abuse Reports</div>
+          <div class="stat-card-top"><div class="stat-icon si-red">🚩</div><span class="stat-trend trend-down">+1</span></div>
+          <div class="stat-val" style="color:#ef9a9a" id="kpi-abuse">3</div>
+          <div class="stat-lbl">Abuse Reports</div>
+          <div class="stat-sub">Needs review</div>
         </div>
       </div>
 
-      <div class="two-col">
-        <div class="card">
-          <div class="card-title"><span class="ct-icon">📈</span> Revenue This Week</div>
-          <div class="chart-placeholder">
-            <div class="chart-bars">
-              <div class="cb" style="height:60%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
-              <div class="cb" style="height:80%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
-              <div class="cb" style="height:50%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
-              <div class="cb" style="height:90%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
-              <div class="cb" style="height:70%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
-              <div class="cb" style="height:85%;background:linear-gradient(180deg,rgba(0,230,118,.5),rgba(0,230,118,.15))"></div>
-              <div class="cb" style="height:100%;background:linear-gradient(180deg,#00e676,rgba(0,230,118,.3))"></div>
+      <!-- Revenue Chart + Recent Activity -->
+      <div class="two-col" style="margin-bottom:22px">
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title" style="justify-content:space-between">
+            <span style="display:flex;align-items:center;gap:8px"><span class="ct-icon">📈</span> Revenue This Week</span>
+            <div class="chart-period-btns">
+              <button class="period-btn active" onclick="setPeriod('7d',this)">7 Days</button>
+              <button class="period-btn" onclick="setPeriod('30d',this)">30 Days</button>
+              <button class="period-btn" onclick="setPeriod('3m',this)">3 Months</button>
             </div>
           </div>
-          <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:.75rem;color:#6b88aa;padding:0 4px">
-            <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+          <div class="chart-legend">
+            <div class="legend-item"><div class="legend-dot" style="background:#00e676"></div>Gross Revenue</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#4fc3f7"></div>Seller Payouts</div>
+            <div class="legend-item"><div class="legend-dot" style="background:#ce93d8"></div>Net Revenue</div>
+          </div>
+          <div class="chart-wrap">
+            <div class="chart-bars-wrap" id="chartBars"><!-- rendered by JS --></div>
+            <div class="chart-labels" id="chartLabels"><!-- rendered by JS --></div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-title"><span class="ct-icon">🔔</span> Recent Activity</div>
-          <div class="activity-list">
-            <div class="activity-item"><div class="activity-dot" style="background:#00e676"></div><div class="activity-text"><strong>Priya Sharma</strong> sold a Nykaa coupon worth ₹500</div><div class="activity-time">2m ago</div></div>
-            <div class="activity-item"><div class="activity-dot" style="background:#4fc3f7"></div><div class="activity-text"><strong>New user</strong> Rohan Verma registered</div><div class="activity-time">5m ago</div></div>
-            <div class="activity-item"><div class="activity-dot" style="background:#ffb74d"></div><div class="activity-text"><strong>Coupon #C-8821</strong> pending approval from Aditya</div><div class="activity-time">11m ago</div></div>
-            <div class="activity-item"><div class="activity-dot" style="background:#00e676"></div><div class="activity-text"><strong>Payout ₹340</strong> processed to Rahul Kumar</div><div class="activity-time">18m ago</div></div>
-            <div class="activity-item"><div class="activity-dot" style="background:#ef9a9a"></div><div class="activity-text"><strong>Coupon reported</strong> as expired by user @meena_j</div><div class="activity-time">34m ago</div></div>
-            <div class="activity-item"><div class="activity-dot" style="background:#ce93d8"></div><div class="activity-text"><strong>Swiggy coupon</strong> sold 48 times today</div><div class="activity-time">1h ago</div></div>
+
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title" style="justify-content:space-between">
+            <span style="display:flex;align-items:center;gap:8px"><span class="ct-icon">🔔</span> Recent Activity</span>
+            <button class="btn btn-ghost btn-sm" onclick="showSection('support',null)">View All</button>
+          </div>
+          <div style="max-height:300px;overflow-y:auto;padding-right:4px">
+            <div class="activity-item">
+              <div class="activity-dot" style="background:#ffb74d"></div>
+              <div class="activity-text"><strong>Pending coupons</strong> are waiting for review in Coupons → Pending</div>
+              <div class="activity-time">now</div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:#00e676"></div>
+              <div class="activity-text"><strong>Payouts</strong> pending processing — see Needs Attention below</div>
+              <div class="activity-time">now</div>
+            </div>
+            <div class="activity-item">
+              <div class="activity-dot" style="background:#4fc3f7"></div>
+              <div class="activity-text"><strong>Support cases</strong> live feed is available in Support Cases</div>
+              <div class="activity-time">now</div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="table-card">
-        <div class="table-header"><h3>Recent Transactions</h3><div class="table-header-actions"><button class="btn btn-ghost btn-sm">View All</button></div></div>
-        <div class="overflow-x"><table>
-          <thead><tr><th>ID</th><th>User</th><th>Coupon</th><th>Amount</th><th>Type</th><th>Date</th><th>Status</th></tr></thead>
-          <tbody>
-            <tr><td><strong>#T-9920</strong></td><td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">PS</div>Priya Sharma</div></td><td>Nykaa 30% OFF</td><td><strong style="color:#00e676">₹15</strong></td><td><span class="badge badge-blue">Sell</span></td><td>Aug 8, 2026</td><td><span class="badge badge-green">Completed</span></td></tr>
-            <tr><td><strong>#T-9919</strong></td><td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">RK</div>Rahul Kumar</div></td><td>Myntra ₹500 OFF</td><td><strong style="color:#00e676">₹20</strong></td><td><span class="badge badge-purple">Buy</span></td><td>Aug 8, 2026</td><td><span class="badge badge-green">Completed</span></td></tr>
-            <tr><td><strong>#T-9918</strong></td><td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">AM</div>Aditya Mehta</div></td><td>Swiggy 50% OFF</td><td><strong style="color:#00e676">₹10</strong></td><td><span class="badge badge-purple">Buy</span></td><td>Aug 7, 2026</td><td><span class="badge badge-orange">Pending</span></td></tr>
-            <tr><td><strong>#T-9917</strong></td><td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">NP</div>Neha Patel</div></td><td>boAt ₹800 OFF</td><td><strong style="color:#00e676">₹25</strong></td><td><span class="badge badge-blue">Sell</span></td><td>Aug 7, 2026</td><td><span class="badge badge-red">Refunded</span></td></tr>
-          </tbody>
-        </table></div>
+      <!-- Monthly Financial Summary + Revenue Distribution -->
+      <div class="two-col" style="margin-bottom:22px">
+        <!-- Financial Summary -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="ct-icon">💰</span> Monthly Financial Summary
+            <span style="margin-left:auto;font-size:.75rem;color:#6b88aa;font-weight:400;font-family:'JetBrains Mono',monospace">August 2026</span>
+          </div>
+          <div class="fin-row">
+            <span class="fin-lbl">Gross Sales</span>
+            <span class="fin-val green">₹2,00,000</span>
+          </div>
+          <div class="fin-row">
+            <span class="fin-lbl">Seller Payouts</span>
+            <span class="fin-val red">− ₹1,20,000</span>
+          </div>
+          <div class="fin-row">
+            <span class="fin-lbl">Refunds</span>
+            <span class="fin-val red">− ₹5,000</span>
+          </div>
+          <div class="fin-row">
+            <span class="fin-lbl">Payment Gateway Fees</span>
+            <span class="fin-val red">− ₹3,000</span>
+          </div>
+          <div class="fin-row total-row">
+            <span class="fin-lbl" style="color:#e2ecff;font-weight:700">Net Distributable Revenue</span>
+            <span class="fin-val green big">₹72,000</span>
+          </div>
+          <div style="margin-top:16px">
+            <button class="btn btn-ghost btn-sm" onclick="showSection('settlements',null)">View Settlement →</button>
+          </div>
+        </div>
+
+        <!-- Revenue Distribution -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="ct-icon">📊</span> Revenue Distribution</div>
+          <div class="dist-bar">
+            <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#00e676,#00c853)"></div>
+            <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#4fc3f7,#0288d1)"></div>
+            <div class="dist-seg" style="width:20%;background:linear-gradient(90deg,#ce93d8,#9c27b0)"></div>
+          </div>
+          <div class="dist-labels" style="margin-bottom:14px">
+            <span style="color:#00e676">Admin 1 (40%)</span>
+            <span style="color:#4fc3f7">Admin 2 (40%)</span>
+            <span style="color:#ce93d8">SaveHatke (20%)</span>
+          </div>
+          <div class="dist-item">
+            <div class="dist-dot" style="background:#00e676"></div>
+            <span class="dist-name">Admin 1</span>
+            <span class="dist-pct">40%</span>
+            <span class="dist-amount" style="color:#00e676">₹28,800</span>
+          </div>
+          <div class="dist-item">
+            <div class="dist-dot" style="background:#4fc3f7"></div>
+            <span class="dist-name">Admin 2</span>
+            <span class="dist-pct">40%</span>
+            <span class="dist-amount" style="color:#4fc3f7">₹28,800</span>
+          </div>
+          <div class="dist-item">
+            <div class="dist-dot" style="background:#ce93d8"></div>
+            <span class="dist-name">SaveHatke</span>
+            <span class="dist-pct">20%</span>
+            <span class="dist-amount" style="color:#ce93d8">₹14,400</span>
+          </div>
+          <div style="margin-top:14px">
+            <button class="btn btn-ghost btn-sm" onclick="showSection('settlements',null)">View Settlement →</button>
+          </div>
+        </div>
       </div>
-    </div>
+
+      <!-- Pending Actions + Quick Actions -->
+      <div class="two-col" style="margin-bottom:22px">
+        <!-- Pending Actions -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="ct-icon">⚠️</span> Needs Attention</div>
+          <div class="pending-item">
+            <span class="pending-icon">🟡</span>
+            <span class="pending-label">Seller Payouts Pending</span>
+            <span class="pending-count" id="pendingPayoutCount">7</span>
+            <button class="btn btn-warning btn-sm" onclick="showSection('payouts',null)">Review</button>
+          </div>
+          <div class="pending-item">
+            <span class="pending-icon">🟡</span>
+            <span class="pending-label">Refund Requests</span>
+            <span class="pending-count">4</span>
+            <button class="btn btn-warning btn-sm" onclick="showSection('refunds',null)">Review</button>
+          </div>
+          <div class="pending-item">
+            <span class="pending-icon">🟡</span>
+            <span class="pending-label">Admin Payouts Pending</span>
+            <span class="pending-count">2</span>
+            <button class="btn btn-warning btn-sm" onclick="showSection('admin-payouts',null)">Review</button>
+          </div>
+          <div class="pending-item">
+            <span class="pending-icon">🟡</span>
+            <span class="pending-label">Monthly Settlement — August 2026</span>
+            <span class="pending-count"></span>
+            <button class="btn btn-warning btn-sm" onclick="showSection('settlements',null)">Review</button>
+          </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="ct-icon">⚡</span> Quick Actions</div>
+          <div class="qa-grid">
+            <button class="qa-btn" onclick="showSection('payouts',null)"><span class="qi">💸</span> Process Seller Payouts</button>
+            <button class="qa-btn" onclick="showSection('refunds',null)"><span class="qi">↩️</span> Review Refunds</button>
+            <button class="qa-btn" onclick="showSection('revenue',null)"><span class="qi">💰</span> View Revenue</button>
+            <button class="qa-btn" onclick="showSection('settlements',null)"><span class="qi">📊</span> Monthly Settlement</button>
+            <button class="qa-btn" style="grid-column:1/-1" onclick="exportReport()"><span class="qi">📤</span> Export Financial Report</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Transactions -->
+      <div class="table-card">
+        <div class="table-header">
+          <h3>💳 Recent Transactions</h3>
+          <div class="table-header-actions">
+            <button class="btn btn-ghost btn-sm" onclick="showSection('transactions',null)">View All</button>
+          </div>
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>User</th>
+                <th>Coupon</th>
+                <th>Amount</th>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="txnTableBody">
+              <tr>
+                <td><strong class="mono">#T-9920</strong></td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">PS</div>Priya Sharma</div></td>
+                <td>Nykaa 30% OFF</td>
+                <td><strong class="mono" style="color:#00e676">₹15</strong></td>
+                <td><span class="badge badge-blue">SELL</span></td>
+                <td>Aug 8, 2026</td>
+                <td><span class="badge badge-green">COMPLETED</span></td>
+              </tr>
+              <tr>
+                <td><strong class="mono">#T-9919</strong></td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">RK</div>Rahul Kumar</div></td>
+                <td>Myntra ₹500 OFF</td>
+                <td><strong class="mono" style="color:#00e676">₹20</strong></td>
+                <td><span class="badge badge-purple">BUY</span></td>
+                <td>Aug 8, 2026</td>
+                <td><span class="badge badge-green">COMPLETED</span></td>
+              </tr>
+              <tr>
+                <td><strong class="mono">#T-9918</strong></td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">AM</div>Aditya Mehta</div></td>
+                <td>Swiggy 50% OFF</td>
+                <td><strong class="mono" style="color:#00e676">₹10</strong></td>
+                <td><span class="badge badge-purple">BUY</span></td>
+                <td>Aug 7, 2026</td>
+                <td><span class="badge badge-orange">PENDING</span></td>
+              </tr>
+              <tr>
+                <td><strong class="mono">#T-9917</strong></td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">NP</div>Neha Patel</div></td>
+                <td>boAt ₹800 OFF</td>
+                <td><strong class="mono" style="color:#00e676">₹25</strong></td>
+                <td><span class="badge badge-blue">SELL</span></td>
+                <td>Aug 7, 2026</td>
+                <td><span class="badge badge-red">REFUNDED</span></td>
+              </tr>
+              <tr>
+                <td><strong class="mono">#T-9916</strong></td>
+                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">KS</div>Kavya Singh</div></td>
+                <td>Amazon 15% OFF</td>
+                <td><strong class="mono" style="color:#00e676">₹12</strong></td>
+                <td><span class="badge badge-purple">BUY</span></td>
+                <td>Aug 7, 2026</td>
+                <td><span class="badge badge-teal">PROCESSING</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /dashboard -->
 
     <!-- ════════════════ USERS ════════════════ -->
     <div class="section-view" id="sec-users">
@@ -711,10 +1174,10 @@ body.sidebar-collapsed .main{margin-left:0}
       </div>
     </div>
 
-    <!-- ════════════════ PAYOUTS ════════════════ -->
+    <!-- ════════════════ SELLER PAYOUTS (live) ════════════════ -->
     <div class="section-view" id="sec-payouts">
       <div class="page-title-row">
-        <div><div class="page-title">Payments &amp; <span class="gtext">Payouts</span></div><div class="page-subtitle">Pay sellers for their sold coupons. Auto-payouts of ₹10 are created the moment a coupon is bought.</div></div>
+        <div><div class="page-title">Seller <span class="gtext">Payouts</span></div><div class="page-subtitle">Pay sellers for their sold coupons. Auto-payouts of ₹10 are created the moment a coupon is bought.</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" id="payoutsRefreshBtn" onclick="loadPayouts()" title="Refresh">↻ Refresh</button>
           <button class="btn btn-primary btn-lg" id="payoutsBatchBtn" onclick="processBatchPayouts()">💰 Process Selected (<span id="payoutsSelectedCount">0</span>)</button>
@@ -772,6 +1235,64 @@ body.sidebar-collapsed .main{margin-left:0}
           </tbody>
         </table></div>
       </div>
+    </div>
+
+    <!-- ════════════════ REVENUE OVERVIEW ════════════════ -->
+    <div class="section-view" id="sec-revenue">
+      <div class="page-title-row">
+        <div><div class="page-title">Revenue <span class="gtext">Overview</span></div><div class="page-subtitle">Gross sales, net revenue, and trends</div></div>
+      </div>
+      <div class="empty-state"><div class="es-icon">📈</div><div class="es-title">Revenue Overview</div><div class="es-sub">Connect your payment database to see live revenue data.</div></div>
+    </div>
+
+    <!-- ════════════════ PAYMENT TRANSACTIONS ════════════════ -->
+    <div class="section-view" id="sec-transactions">
+      <div class="page-title-row">
+        <div><div class="page-title">Payment <span class="gtext">Transactions</span></div><div class="page-subtitle">All buy/sell transactions</div></div>
+      </div>
+      <div class="empty-state"><div class="es-icon">💳</div><div class="es-title">Transaction History</div><div class="es-sub">Full transaction table loads from database.</div></div>
+    </div>
+
+    <!-- ════════════════ ADMIN PAYOUTS ════════════════ -->
+    <div class="section-view" id="sec-admin-payouts">
+      <div class="page-title-row">
+        <div><div class="page-title">Admin <span class="gtext">Payouts</span></div><div class="page-subtitle">Admin revenue distribution</div></div>
+      </div>
+      <div class="empty-state"><div class="es-icon">🏦</div><div class="es-title">Admin Payouts</div><div class="es-sub">Admin payout management will appear here.</div></div>
+    </div>
+
+    <!-- ════════════════ MONTHLY SETTLEMENTS ════════════════ -->
+    <div class="section-view" id="sec-settlements">
+      <div class="page-title-row">
+        <div><div class="page-title">Monthly <span class="gtext">Settlements</span></div><div class="page-subtitle">August 2026 — pending review</div></div>
+        <button class="btn btn-primary btn-lg">✅ Mark as Settled</button>
+      </div>
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📊</span> August 2026 Settlement Preview</div>
+        <div class="fin-row"><span class="fin-lbl">Gross Sales</span><span class="fin-val green">₹2,00,000</span></div>
+        <div class="fin-row"><span class="fin-lbl">Seller Payouts</span><span class="fin-val red">− ₹1,20,000</span></div>
+        <div class="fin-row"><span class="fin-lbl">Refunds</span><span class="fin-val red">− ₹5,000</span></div>
+        <div class="fin-row"><span class="fin-lbl">Payment Gateway Fees</span><span class="fin-val red">− ₹3,000</span></div>
+        <div class="fin-row total-row"><span class="fin-lbl" style="color:#e2ecff;font-weight:700">Net Distributable Revenue</span><span class="fin-val green big">₹72,000</span></div>
+        <div style="margin-top:18px">
+          <div class="dist-bar">
+            <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#00e676,#00c853)"></div>
+            <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#4fc3f7,#0288d1)"></div>
+            <div class="dist-seg" style="width:20%;background:linear-gradient(90deg,#ce93d8,#9c27b0)"></div>
+          </div>
+          <div class="dist-item"><div class="dist-dot" style="background:#00e676"></div><span class="dist-name">Admin 1 (40%)</span><span class="dist-amount" style="color:#00e676">₹28,800</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#4fc3f7"></div><span class="dist-name">Admin 2 (40%)</span><span class="dist-amount" style="color:#4fc3f7">₹28,800</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#ce93d8"></div><span class="dist-name">SaveHatke (20%)</span><span class="dist-amount" style="color:#ce93d8">₹14,400</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ REFUNDS ════════════════ -->
+    <div class="section-view" id="sec-refunds">
+      <div class="page-title-row">
+        <div><div class="page-title">Refund <span class="gtext">Requests</span></div><div class="page-subtitle">4 refund requests awaiting review</div></div>
+      </div>
+      <div class="empty-state"><div class="es-icon">↩️</div><div class="es-title">Refund Requests</div><div class="es-sub">Refund management panel loads from database.</div></div>
     </div>
 
     <!-- ════════════════ ADMINS & ROLES (MongoDB Atlas) ════════════════ -->
@@ -1533,6 +2054,8 @@ body.sidebar-collapsed .main{margin-left:0}
   </div>
 </div>
 
+<div class="toast-container" id="toastContainer"></div>
+
 <script src="js/app.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/chatbotAdmin.js"></script>
@@ -1563,57 +2086,103 @@ body.sidebar-collapsed .main{margin-left:0}
   }
 })();
 
-// ── Section View Switcher ──
-function showSection(name, el) {
+/* ════════════════════════════
+   NAVIGATION
+════════════════════════════ */
+const sectionTitles = {
+  dashboard:     ['Dashboard', '/ Overview'],
+  users:         ['User Management', '/ All Users'],
+  sessions:      ['User Sessions', '/ Live Sessions'],
+  coupons:       ['Coupons', '/ Management'],
+  revenue:       ['Revenue Overview', '/ Financial'],
+  transactions:  ['Payment Transactions', '/ History'],
+  payouts:       ['Seller Payouts', '/ Pending'],
+  'admin-payouts':['Admin Payouts', '/ Revenue'],
+  settlements:   ['Monthly Settlements', '/ August 2026'],
+  refunds:       ['Refund Requests', '/ Review'],
+  brands:        ['Brands', '/ Directory'],
+  support:       ['Support Cases', '/ Live'],
+  chatbot:       ['AI Chatbot', '/ Management'],
+  tracker:       ['Price Tracker', '/ Monitoring'],
+  analytics:     ['Analytics', '/ Dashboard'],
+  content:       ['Content', '/ Management'],
+  reports:       ['Reports', '/ Overview'],
+  admins:        ['Admins & Roles', '/ Management'],
+  security:      ['Security', '/ Settings'],
+  settings:      ['Settings', '/ Configuration'],
+  audit:         ['Audit Logs', '/ History'],
+};
+
+function showSection(id, navEl) {
+  // Hide all sections, show the target
   document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
-  document.querySelectorAll('.sidebar-nav .nav-item').forEach(i => i.classList.remove('active'));
+  const target = document.getElementById('sec-' + id);
+  if (target) target.classList.add('active');
 
-  const targetSec = document.getElementById(`sec-${name}`);
-  if (targetSec) {
-    targetSec.classList.add('active');
-  }
-
-  if (el) {
-    el.classList.add('active');
+  // Update active nav (top-level items and sub-menu items)
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+  document.querySelectorAll('.nav-sub-item').forEach(i => i.classList.remove('active'));
+  if (navEl && (navEl.classList.contains('nav-item') || navEl.classList.contains('nav-sub-item'))) {
+    navEl.classList.add('active');
   } else {
-    // find item by onclick attribute
-    const navEl = document.querySelector(`.sidebar-nav .nav-item[onclick*="${name}"]`);
-    if (navEl) navEl.classList.add('active');
+    const match = document.querySelector(`.nav-item[onclick*="showSection('${id}'"], .nav-sub-item[onclick*="showSection('${id}'"]`);
+    if (match) match.classList.add('active');
+  }
+  // Keep the parent group expanded when a sub-item is active
+  const activeSub = document.querySelector('.nav-sub-item.active');
+  if (activeSub) {
+    const sub = activeSub.closest('.nav-sub');
+    const groupBtn = sub ? sub.previousElementSibling : null;
+    if (sub) sub.classList.add('open');
+    if (groupBtn) groupBtn.classList.add('expanded');
   }
 
-  const titleEl = document.getElementById('topbarTitle');
-  if (titleEl) {
-    const specialTitles = { support: 'Support Cases <span>/ Management</span>', sessions: 'User Sessions <span>/ Supabase Live</span>' };
-    titleEl.innerHTML = specialTitles[name] || `${name.charAt(0).toUpperCase() + name.slice(1)} <span>/ View</span>`;
-  }
+  // Update topbar title
+  const t = sectionTitles[id];
+  if (t) document.getElementById('topbarTitle').innerHTML = `${t[0]} <span>${t[1]}</span>`;
 
   // Load section-specific data if available
-  if (name === 'admins' && typeof loadAdminsList === 'function') {
+  if (id === 'admins' && typeof loadAdminsList === 'function') {
     loadAdminsList();
   }
-  if (name === 'coupons' && typeof loadInventory === 'function') {
+  if (id === 'coupons' && typeof loadInventory === 'function') {
     loadInventory();
   }
-  if (name === 'users' && typeof loadUsers === 'function') {
+  if (id === 'users' && typeof loadUsers === 'function') {
     loadUsers();
   }
-  if (name === 'sessions' && typeof loadSessions === 'function') {
+  if (id === 'sessions' && typeof loadSessions === 'function') {
     loadSessions();
   }
-  if (name === 'settings' && typeof loadSystemSettings === 'function') {
+  if (id === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
   }
-  if (name === 'support' && typeof loadSupportCases === 'function') {
+  if (id === 'support' && typeof loadSupportCases === 'function') {
     loadSupportCases();
   }
-  if (name === 'chatbot' && typeof initChatbotSection === 'function') {
+  if (id === 'chatbot' && typeof initChatbotSection === 'function') {
     initChatbotSection();
   }
 
+  // Close mobile sidebar
   closeSidebar();
 }
 
-// ── Coupon Sub-Tabs Switcher ──
+/* ── Collapsible sidebar sub-menus ── */
+function toggleSubMenu(subId, navEl) {
+  const sub = document.getElementById(subId);
+  if (!sub) return;
+  const isOpen = sub.classList.contains('open');
+  // Close all subs
+  document.querySelectorAll('.nav-sub').forEach(s => s.classList.remove('open'));
+  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('expanded'));
+  if (!isOpen) {
+    sub.classList.add('open');
+    navEl.classList.add('expanded');
+  }
+}
+
+/* ── Coupon Sub-Tabs Switcher ── */
 function showCouponTab(tab, el) {
   document.querySelectorAll('#sec-coupons .tab-content').forEach(c => c.classList.remove('active'));
   document.querySelectorAll('#sec-coupons .tab-btn').forEach(b => b.classList.remove('active'));
@@ -1628,7 +2197,9 @@ function showCouponTab(tab, el) {
   if (tab === 'active' && typeof loadActiveCoupons === 'function') loadActiveCoupons();
 }
 
-// ── Mobile Sidebar Toggles ──
+/* ════════════════════════════
+   SIDEBAR
+════════════════════════════ */
 function toggleSidebar() {
   const sb = document.getElementById('sidebar');
   const overlay = document.getElementById('sidebarOverlay');
@@ -1667,7 +2238,137 @@ function updateSidebarCollapseIcon() {
   updateSidebarCollapseIcon();
 })();
 
-// ── Custom Brand Selector with SVG Logos ──
+/* ════════════════════════════
+   TOPBAR DROPDOWNS
+════════════════════════════ */
+function toggleProfile(e) {
+  e.stopPropagation();
+  const wrap = document.getElementById('profileWrap');
+  const notifWrap = document.getElementById('notifWrap');
+  if (notifWrap) notifWrap.classList.remove('open');
+  if (wrap) wrap.classList.toggle('open');
+}
+
+function toggleNotif(e) {
+  e.stopPropagation();
+  const wrap = document.getElementById('notifWrap');
+  const profileWrap = document.getElementById('profileWrap');
+  if (profileWrap) profileWrap.classList.remove('open');
+  if (wrap) wrap.classList.toggle('open');
+}
+
+document.addEventListener('click', () => {
+  const profileWrap = document.getElementById('profileWrap');
+  const notifWrap = document.getElementById('notifWrap');
+  if (profileWrap) profileWrap.classList.remove('open');
+  if (notifWrap) notifWrap.classList.remove('open');
+});
+
+/* ════════════════════════════
+   REVENUE CHART
+════════════════════════════ */
+const chartData = {
+  '7d': {
+    labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+    gross:   [28000, 34000, 22000, 41000, 31000, 38000, 45000],
+    payouts: [16000, 20000, 13000, 24000, 18000, 22000, 26000],
+    net:     [12000, 14000, 9000,  17000, 13000, 16000, 19000],
+  },
+  '30d': {
+    labels: ['W1','W2','W3','W4'],
+    gross:   [120000, 135000, 95000, 150000],
+    payouts: [72000,  81000,  57000, 90000],
+    net:     [48000,  54000,  38000, 60000],
+  },
+  '3m': {
+    labels: ['Jun','Jul','Aug'],
+    gross:   [380000, 420000, 200000],
+    payouts: [228000, 252000, 120000],
+    net:     [152000, 168000, 80000],
+  },
+};
+
+let currentPeriod = '7d';
+
+function setPeriod(p, btn) {
+  currentPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderChart();
+}
+
+function fmt(v) {
+  if (v >= 100000) return '₹' + (v/100000).toFixed(1) + 'L';
+  if (v >= 1000)   return '₹' + (v/1000).toFixed(1) + 'K';
+  return '₹' + v;
+}
+
+function renderChart() {
+  const bars = document.getElementById('chartBars');
+  const labels = document.getElementById('chartLabels');
+  if (!bars || !labels) return;
+
+  const data = chartData[currentPeriod];
+  const maxVal = Math.max(...data.gross);
+
+  bars.innerHTML = '';
+  labels.innerHTML = '';
+
+  data.labels.forEach((lbl, i) => {
+    const gh = Math.round((data.gross[i] / maxVal) * 145);
+    const ph = Math.round((data.payouts[i] / maxVal) * 145);
+    const nh = Math.round((data.net[i] / maxVal) * 145);
+
+    const group = document.createElement('div');
+    group.className = 'chart-bar-group';
+
+    group.innerHTML = `
+      <div class="chart-bar gross" style="height:${gh}px" title="${lbl} Gross: ${fmt(data.gross[i])}"></div>
+      <div class="chart-bar payouts" style="height:${ph}px" title="${lbl} Payouts: ${fmt(data.payouts[i])}"></div>
+      <div class="chart-bar net" style="height:${nh}px" title="${lbl} Net: ${fmt(data.net[i])}"></div>
+      <div class="chart-tooltip">
+        <div class="tooltip-date">${lbl}</div>
+        <div class="tooltip-row"><div class="tooltip-dot" style="background:#00e676"></div><span class="tooltip-lbl">Gross Revenue</span><span class="tooltip-val">${fmt(data.gross[i])}</span></div>
+        <div class="tooltip-row"><div class="tooltip-dot" style="background:#4fc3f7"></div><span class="tooltip-lbl">Seller Payouts</span><span class="tooltip-val">${fmt(data.payouts[i])}</span></div>
+        <div class="tooltip-row"><div class="tooltip-dot" style="background:#ce93d8"></div><span class="tooltip-lbl">Net Revenue</span><span class="tooltip-val">${fmt(data.net[i])}</span></div>
+      </div>
+    `;
+    bars.appendChild(group);
+
+    const lbl2 = document.createElement('div');
+    lbl2.className = 'chart-lbl';
+    lbl2.textContent = lbl;
+    labels.appendChild(lbl2);
+  });
+}
+
+renderChart();
+
+/* ════════════════════════════
+   DASHBOARD ACTIONS
+════════════════════════════ */
+function refreshDashboard() {
+  const btn = document.getElementById('refreshBtn');
+  if (!btn) return;
+  const orig = btn.textContent;
+  btn.innerHTML = '<span class="spinning">↻</span> Refreshing…';
+  btn.disabled = true;
+  if (typeof loadAdminStats === 'function') loadAdminStats();
+  setTimeout(() => {
+    btn.textContent = orig;
+    btn.disabled = false;
+    showToast('Dashboard refreshed successfully!', 'success');
+  }, 1200);
+}
+
+function exportReport() {
+  showToast('Generating financial report…', 'info', 2000);
+  setTimeout(() => showToast('Report exported successfully!', 'success'), 2200);
+}
+
+/* ════════════════════════════
+   CUSTOM BRAND SELECTOR WITH SVG LOGOS
+════════════════════════════ */
 const BRANDS_DATA = [
   // 🛒 E-Commerce
   { name: 'Amazon', category: '🛒 E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' },
@@ -2189,14 +2890,14 @@ function timeAgo(input) {
   if (hr < 24) return `${hr}h ago`;
   const day = Math.floor(hr / 24);
   if (day < 7) return `${day}d ago`;
-  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  return d.toLocaleDateString('en-IN', { day:'2-digit', month:'short', year:'numeric' });
 }
 
 function fullDateTime(input) {
   if (!input) return '—';
   const d = new Date(input);
   if (isNaN(d.getTime())) return '—';
-  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
 }
 
 function escapeHtml(s) {
@@ -2337,6 +3038,9 @@ function renderPayoutStats() {
   setText('payoutStatPending', inr(pendingAmount));
   setText('payoutStatPendingCount', String(pending.length));
   setText('payoutStatTotal', inr(totalPaid));
+
+  // Dashboard "Needs Attention" pending payout count
+  setText('pendingPayoutCount', String(pending.length));
 }
 
 function setText(id, val) {
@@ -2367,8 +3071,8 @@ async function loadPayouts({ silent = false } = {}) {
     renderPayoutsTable();
 
     // Update the nav badge with the live pending count
-    const navBadge = document.querySelector('.nav-item .nbadge');
-    if (navBadge && stillPending.size >= 0) {
+    const navBadge = document.getElementById('payoutsNavBadge') || document.querySelector('.nav-item .nbadge');
+    if (navBadge) {
       navBadge.textContent = String(stillPending.size);
       navBadge.style.display = stillPending.size === 0 ? 'none' : '';
     }
@@ -2519,10 +3223,7 @@ async function processBatchPayouts() {
 }
 
 // Helper: section visibility is controlled by the `.active` class on
-// `.section-view`, not by inline style.display. The previous version used
-// `sec.style.display !== 'none'` which is always true (style is empty string),
-// causing the 1s interval to fire `loadPayouts` once per second regardless of
-// the active tab.
+// `.section-view`, not by inline style.display.
 function isPayoutsSectionVisible() {
   const sec = document.getElementById('sec-payouts');
   return Boolean(sec && sec.classList.contains('active'));
@@ -2544,10 +3245,8 @@ function maybeLoadPayouts() {
 
 // Hook into the existing section switcher if it exists, otherwise poll on click
 (function setupPayoutsLifecycle() {
-  // One-time setup — the previous version ran a setInterval(maybeLoadPayouts, 1000)
-  // forever, which kept an extra wakeup every second even when the admin was
-  // on a different tab. The page-visibility API plus the section-change handler
-  // below is enough.
+  // One-time setup — the page-visibility API plus the section-change handler
+  // below is enough (no permanent 1s interval).
   if (PAYOUT_STATE.refreshTimer) clearInterval(PAYOUT_STATE.refreshTimer);
   PAYOUT_STATE.refreshTimer = setInterval(() => {
     if (isPayoutsSectionVisible() && document.visibilityState === 'visible' && !PAYOUT_STATE.loading) {

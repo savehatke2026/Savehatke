@@ -236,12 +236,22 @@ function render() {
     kvRow('Source', esc(c.source || '—')),
   ].join('');
 
-  // Proof screenshot
+  // Proof screenshot — handle two storage backends:
+  //   - "drive:<fileId>" → stream through our auth-protected proxy
+  //   - anything else   → assume a direct (Supabase) public URL
   const proofContainer = document.getElementById('proofContainer');
   if (c.proofUrl) {
+    const rawUrl = String(c.proofUrl);
+    let imgSrc = rawUrl;
+    let linkHref = rawUrl;
+    if (rawUrl.startsWith('drive:')) {
+      const fileId = rawUrl.slice('drive:'.length);
+      imgSrc = '/api/proxy/drive/' + encodeURIComponent(fileId);
+      linkHref = imgSrc; // Open the proxy link in a new tab (still auth-gated)
+    }
     proofContainer.innerHTML =
-      '<img class="proof-img" src="' + esc(c.proofUrl) + '" alt="Coupon proof screenshot" loading="lazy">' +
-      '<a class="proof-link" href="' + esc(c.proofUrl) + '" target="_blank" rel="noopener">Open full size ↗</a>';
+      '<img class="proof-img" src="' + esc(imgSrc) + '" alt="Coupon proof screenshot" loading="lazy">' +
+      '<a class="proof-link" href="' + esc(linkHref) + '" target="_blank" rel="noopener">Open full size ↗</a>';
   }
 
   // Duplicate check result
