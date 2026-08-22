@@ -302,6 +302,11 @@
 
   <div class="auth-card">
 
+    <!-- 48-hour session expired notice (shown via /login.html?expired=1) -->
+    <div id="sessionExpiredBanner" style="display:none;background:rgba(255,183,77,.08);border:1px solid rgba(255,183,77,.3);border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:.86rem;color:#ffb74d;line-height:1.5">
+      ⏱️ Your 2-day login session has expired. Please log in again.
+    </div>
+
     <!-- Login Form State -->
     <div id="loginState">
       <div class="auth-hdr">
@@ -455,6 +460,22 @@
 
 <script src="js/app.js"></script>
 <script>
+  /* ── 48h session-expired notice (?expired=1 redirect from app.js) ── */
+  (function showSessionExpiredNotice() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('expired') === '1') {
+        const banner = document.getElementById('sessionExpiredBanner');
+        if (banner) banner.style.display = 'block';
+        if (typeof showToast === 'function') {
+          showToast('Your 2-day login session has expired. Please log in again.', 'warning', 6000);
+        }
+        // Clean the query param so a page refresh doesn't re-show the notice
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    } catch (e) {}
+  })();
+
   /* ── Scroll nav ── */
   window.addEventListener('scroll', () => {
     const nav = document.getElementById('nav');

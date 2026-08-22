@@ -4,6 +4,7 @@
 // Handles user CRUD operations via Supabase (PostgreSQL)
 
 const { createClient } = require('@supabase/supabase-js');
+const sessionCache = require('./sessionCache');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY || '';
@@ -527,7 +528,7 @@ async function findSessionByToken(tokenHash) {
   try {
     const { data, error } = await client
       .from('sessions')
-      .select('session_id, user_id, email, status, expires_at, login_time, last_active')
+      .select('session_id, user_id, email, status, expires_at, login_time, last_active, login_method')
       .eq('session_token', tokenHash)
       .limit(1);
 
@@ -588,6 +589,9 @@ async function endSessionByToken(tokenHash, reason = 'Logged out') {
         .eq('session_token', tokenHash)
         .eq('status', 'Active'));
     }
+    // Honor the revocation immediately on this instance (other instances
+    // pick it up within the validation-cache TTL).
+    sessionCache.remove(tokenHash);
     if (error) console.warn('End session by token warning:', error.message);
   } catch (err) {
     console.warn('End session by token exception:', err.message);
@@ -640,6 +644,7 @@ async function endSession(sessionId, reason = 'Logged out') {
         .update(updates)
         .eq('session_id', sessionId));
     }
+    sessionCache.invalidateBySessionId(sessionId);
     if (error) console.warn('End session warning:', error.message);
   } catch (err) {
     console.warn('End session exception:', err.message);
@@ -673,6 +678,7 @@ async function endAllUserSessions(userId) {
         .eq('user_id', userId)
         .eq('status', 'Active'));
     }
+    sessionCache.invalidateByUserId(userId);
     if (error) console.warn('End all user sessions warning:', error.message);
   } catch (err) {
     console.warn('End all user sessions exception:', err.message);
@@ -713,6 +719,7 @@ async function expireOutdatedSessions() {
       console.warn('Expire outdated sessions warning:', error.message);
       return { count: 0 };
     }
+    sessionCache.clear(); // swept rows may be cached as Active
     return { count: (data || []).length };
   } catch (err) {
     console.warn('Expire outdated sessions exception:', err.message);

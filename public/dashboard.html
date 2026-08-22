@@ -736,9 +736,12 @@
         <span class="sec-lbl">Account Status</span>
         <span class="sec-val" id="securityAccountStatus"><span class="sec-dot dot-green"></span>Active</span>
       </div>
-      <div class="sec-row-item">
-        <span class="sec-lbl">Active Sessions</span>
-        <span class="sec-val"><span class="sec-dot dot-blue"></span>This device</span>
+      <div class="sec-row-item" style="display:block">
+        <span class="sec-lbl">Active Sessions <span style="color:#6b88aa;font-weight:400;text-transform:none;letter-spacing:0">(expire 48h after login)</span></span>
+        <div id="mySessionsList" style="margin-top:8px;font-size:.8rem">
+          <div style="color:#6b88aa">Loading sessions…</div>
+        </div>
+        <button class="btn btn-danger btn-sm btn-full" style="margin-top:12px" onclick="revokeAllMySessions()">🚪 Log Out All Devices</button>
       </div>
       <div class="sec-row-item">
         <span class="sec-lbl">2FA</span>
@@ -1797,7 +1800,79 @@
 
     await refreshDashboard();
     startAutoRefresh();
+
+    // Device sessions (48-hour server-side sessions)
+    loadMySessions();
   });
+
+  // ─── Device sessions (48-hour server-side sessions) ────────────
+  function fmtSessionDT(v) {
+    if (!v) return '—';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  async function loadMySessions() {
+    const list = document.getElementById('mySessionsList');
+    if (!list) return;
+    try {
+      const data = await api('/auth/sessions');
+      const sessions = (data.sessions || []).slice(0, 8);
+      if (!sessions.length) {
+        list.innerHTML = '<div style="font-size:.78rem;color:#6b88aa">No sessions found.</div>';
+        return;
+      }
+      list.innerHTML = sessions.map((s) => {
+        const active = String(s.status) === 'Active';
+        const dot = active ? (s.is_current ? 'dot-green' : 'dot-blue') : 'dot-red';
+        const statusTxt = active ? (s.is_current ? 'This device' : 'Active') : String(s.status);
+        return `
+          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(79,195,247,.07);font-size:.8rem">
+            <span class="sec-dot ${dot}"></span>
+            <div style="flex:1;min-width:0">
+              <div style="color:#e2ecff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.browser || 'Browser'} · ${s.os || s.device || 'Device'}</div>
+              <div style="color:#6b88aa;font-size:.7rem;margin-top:2px">
+                ${s.login_method ? s.login_method + ' · ' : ''}Login ${fmtSessionDT(s.login_time)} · Expires ${fmtSessionDT(s.expires_at)}
+              </div>
+            </div>
+            <span style="font-size:.68rem;color:${active ? '#00e676' : '#6b88aa'};white-space:nowrap">${statusTxt}</span>
+            ${active ? `<button class="btn btn-ghost btn-sm" style="height:26px;padding:0 10px;font-size:.7rem" onclick="revokeMySession('${s.session_id}', ${s.is_current ? 'true' : 'false'})">Log out</button>` : ''}
+          </div>`;
+      }).join('');
+    } catch (err) {
+      list.innerHTML = '<div style="font-size:.78rem;color:#6b88aa">Session info unavailable.</div>';
+    }
+  }
+
+  async function revokeMySession(sessionId, isCurrent) {
+    if (!confirm('Log out this device?')) return;
+    try {
+      await api('/auth/sessions/revoke', { method: 'POST', body: { session_id: sessionId } });
+      if (isCurrent) {
+        showToast('This device has been logged out.', 'success');
+        Auth.clear();
+        setTimeout(() => { window.location.href = 'index'; }, 800);
+        return;
+      }
+      showToast('Device logged out.', 'success');
+      loadMySessions();
+    } catch (err) {
+      showToast(err.message || 'Could not log out this device.', 'error');
+    }
+  }
+
+  async function revokeAllMySessions() {
+    if (!confirm('Log out ALL devices? You will need to log in again everywhere.')) return;
+    try {
+      await api('/auth/sessions/revoke-all', { method: 'POST' });
+      showToast('All devices have been logged out.', 'success');
+      Auth.clear();
+      setTimeout(() => { window.location.href = 'index'; }, 800);
+    } catch (err) {
+      showToast(err.message || 'Could not log out all devices.', 'error');
+    }
+  }
 
   // ─── Interaction handlers ──────────────────────────────────────
   function toggleNotif(e) {

@@ -536,16 +536,21 @@ router.post('/login', async (req, res) => {
             dbAdmin.last_login = new Date();
             await dbAdmin.save();
 
-            const token = generateToken({
+            // Server-side 48h session for the admin login
+            const session = await createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Admin', dbAdmin.email).catch(() => null);
+            const token = issueLoginToken({
               id: dbAdmin.id || dbAdmin._id.toString(),
               email: dbAdmin.email,
               name: dbAdmin.name || dbAdmin.full_name,
               role: 'admin',
-            }, '12h');
+            }, session);
+            if (session) setSessionCookie(res, session.token);
 
             return res.json({
               message: 'Admin login successful.',
               token,
+              session_id: session ? session.sessionId : undefined,
+              session_expires_at: session ? session.expiresAt : undefined,
               user: {
                 id: dbAdmin.id || dbAdmin._id.toString(),
                 email: dbAdmin.email,
@@ -567,18 +572,23 @@ router.post('/login', async (req, res) => {
 
     const hardcoded = hardcodedAdmins.find(a => a.email === loginEmail && a.password === password);
     if (hardcoded) {
-      const token = generateToken({
-        id: uuidv4(),
+      const hardcodedId = uuidv4();
+
+      // Server-side 48h session for the admin login
+      const session = await createLoginSession(req, hardcodedId, 'Admin', hardcoded.email).catch(() => null);
+      const token = issueLoginToken({
+        id: hardcodedId,
         email: hardcoded.email,
         name: hardcoded.name,
         role: 'admin',
-      }, '12h');
-
-      const hardcodedId = uuidv4();
+      }, session);
+      if (session) setSessionCookie(res, session.token);
 
       return res.json({
         message: 'Admin login successful.',
         token,
+        session_id: session ? session.sessionId : undefined,
+        session_expires_at: session ? session.expiresAt : undefined,
         user: {
           id: hardcodedId,
           email: hardcoded.email,
@@ -610,19 +620,21 @@ router.post('/login', async (req, res) => {
         updated_at: now,
       }).catch((e) => console.warn('Background timestamp update notice:', e.message));
 
-      const token = generateToken({
+      // Server-side 48h session
+      const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail).catch(() => null);
+      const token = issueLoginToken({
         id: sheetUser.user_id || sheetUser.id,
         email: sheetUser.email,
         name: sheetUser.name,
         role: 'user',
-      });
-
-      // Fire-and-forget session tracking
-      createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail).catch(() => {});
+      }, session);
+      if (session) setSessionCookie(res, session.token);
 
       return res.json({
         message: 'Login successful.',
         token,
+        session_id: session ? session.sessionId : undefined,
+        session_expires_at: session ? session.expiresAt : undefined,
         user: {
           id: sheetUser.user_id || sheetUser.id,
           user_id: sheetUser.user_id || sheetUser.id,
@@ -655,19 +667,16 @@ router.post('/login', async (req, res) => {
     };
     await db.appendRow(db.SHEETS.USERS, sheetUser);
 
-    const token = generateToken({
-      id: newUserId,
-      email: loginEmail,
-      name: displayName,
-      role: 'user',
-    });
-
-    // Fire-and-forget session tracking
-    createLoginSession(req, newUserId, 'Email', loginEmail).catch(() => {});
+    // Server-side 48h session
+    const session = await createLoginSession(req, newUserId, 'Email', loginEmail).catch(() => null);
+    const token = issueLoginToken({ id: newUserId, email: loginEmail, name: displayName, role: 'user' }, session);
+    if (session) setSessionCookie(res, session.token);
 
     res.json({
       message: 'Login successful.',
       token,
+      session_id: session ? session.sessionId : undefined,
+      session_expires_at: session ? session.expiresAt : undefined,
       user: {
         id: newUserId,
         user_id: newUserId,
@@ -821,14 +830,12 @@ router.post('/google-redirect', async (req, res) => {
       const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
 
-      const token = generateToken({
-        id: adminId,
-        email: userEmail,
-        name: adminName,
-        role: 'admin',
-      }, '12h');
+      // Server-side 48h session for the admin login
+      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail).catch(() => null);
+      const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
+      if (session) setSessionCookie(res, session.token);
 
-            const adminUser = {
+      const adminUser = {
         id: adminId,
         email: userEmail,
         name: adminName,
@@ -873,14 +880,16 @@ router.post('/google-redirect', async (req, res) => {
     }
 
     const userId = sheetUser.user_id || sheetUser.id;
-    const token = generateToken({
+
+    // Server-side 48h session
+    const session = await createLoginSession(req, userId, 'Google', userEmail).catch(() => null);
+    const token = issueLoginToken({
       id: userId,
       email: userEmail,
       name: sheetUser.name || userName,
       role: 'user',
-    });
-
-    createLoginSession(req, userId, 'Google', userEmail).catch(() => {});
+    }, session);
+    if (session) setSessionCookie(res, session.token);
 
     const regularUser = {
       id: userId,
@@ -953,16 +962,16 @@ router.post('/google', async (req, res) => {
       const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
 
-      const token = generateToken({
-        id: adminId,
-        email: userEmail,
-        name: adminName,
-        role: 'admin',
-      }, '12h');
+      // Server-side 48h session for the admin login
+      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail).catch(() => null);
+      const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
+      if (session) setSessionCookie(res, session.token);
 
       return res.json({
         message: 'Admin Google login successful.',
         token,
+        session_id: session ? session.sessionId : undefined,
+        session_expires_at: session ? session.expiresAt : undefined,
         user: {
           id: adminId,
           email: userEmail,
@@ -998,19 +1007,21 @@ router.post('/google', async (req, res) => {
       }).catch((e) => console.warn('GSheet update notice:', e.message));
     }
 
-    const token = generateToken({
+    // Server-side 48h session
+    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail).catch(() => null);
+    const token = issueLoginToken({
       id: sheetUser.user_id || sheetUser.id,
       email: userEmail,
       name: sheetUser.name || userName,
       role: 'user',
-    });
-
-    // Fire-and-forget session tracking
-    createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail).catch(() => {});
+    }, session);
+    if (session) setSessionCookie(res, session.token);
 
     res.json({
       message: 'Google login successful.',
       token,
+      session_id: session ? session.sessionId : undefined,
+      session_expires_at: session ? session.expiresAt : undefined,
       user: {
         id: sheetUser.user_id || sheetUser.id,
         user_id: sheetUser.user_id || sheetUser.id,
@@ -1028,11 +1039,45 @@ router.post('/google', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout — Record last_logout_at in G Sheet + end Supabase session
+// POST /api/auth/logout — Revoke the current session, record last_logout_at
+// in the G Sheet, and clear the session cookie.
+// Priority: the Bearer token's session (logs out only THIS device), then an
+// explicit body.session_id, then the legacy email/user_id fallback (ends all
+// of the user's sessions).
 router.post('/logout', async (req, res) => {
   try {
+    clearSessionCookie(res);
     const { email, user_id, session_id } = req.body;
     const now = new Date().toISOString();
+
+    // 1) Best: revoke the session bound to the presented token (this device)
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    let revokedByToken = false;
+    if (token) {
+      const decoded = decodeTokenIgnoreExpiry(token);
+      if (decoded && decoded.sid) {
+        await supabase.endSessionByToken(hashSessionToken(decoded.sid), 'Logged out').catch(() => {});
+        revokedByToken = true;
+      }
+    }
+
+    // 2) Explicit session_id (e.g. "Log out this device" on the sessions page)
+    if (!revokedByToken && session_id) {
+      supabase.endSession(session_id).catch(() => {});
+    }
+
+    // 3) Legacy fallback — no session info available: end ALL sessions
+    if (!revokedByToken && !session_id) {
+      if (user_id) {
+        supabase.endAllUserSessions(user_id).catch(() => {});
+      } else if (email) {
+        const sheetUser = await db.findRow(db.SHEETS.USERS, 'email', email.toLowerCase().trim()).catch(() => null);
+        if (sheetUser && (sheetUser.user_id || sheetUser.id)) {
+          supabase.endAllUserSessions(sheetUser.user_id || sheetUser.id).catch(() => {});
+        }
+      }
+    }
 
     // Update G Sheet user record
     if (email) {
@@ -1042,19 +1087,6 @@ router.post('/logout', async (req, res) => {
       }).catch((e) => console.warn('Logout G Sheet notice:', e.message));
     }
 
-    // End session(s) in Supabase
-    if (session_id) {
-      supabase.endSession(session_id).catch(() => {});
-    } else if (user_id) {
-      supabase.endAllUserSessions(user_id).catch(() => {});
-    } else if (email) {
-      // Find user_id from G Sheet then end sessions
-      const sheetUser = await db.findRow(db.SHEETS.USERS, 'email', email.toLowerCase().trim());
-      if (sheetUser && (sheetUser.user_id || sheetUser.id)) {
-        supabase.endAllUserSessions(sheetUser.user_id || sheetUser.id).catch(() => {});
-      }
-    }
-
     res.json({ message: 'Logged out successfully.' });
   } catch (err) {
     console.warn('Logout notice:', err.message);
@@ -1062,8 +1094,11 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-// POST /api/auth/refresh — Issue a new token from an expired one
-router.post('/refresh', (req, res) => {
+// POST /api/auth/refresh — Issue a new token from an expired one.
+// The new token can NEVER outlive the 48-hour session window that started
+// at login; if the session was revoked or has expired, refresh is refused
+// with SESSION_EXPIRED and the user must log in again.
+router.post('/refresh', async (req, res) => {
   try {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
@@ -1072,9 +1107,12 @@ router.post('/refresh', (req, res) => {
       return res.status(401).json({ error: 'No token provided.' });
     }
 
-    const result = refreshToken(token);
+    const result = await refreshToken(token);
     if (!result) {
-      return res.status(403).json({ error: 'Cannot refresh: invalid token.' });
+      return res.status(401).json({
+        error: 'Your 2-day login session has expired. Please log in again.',
+        code: 'SESSION_EXPIRED',
+      });
     }
 
     res.json({ token: result.token, message: 'Token refreshed.' });
@@ -1082,6 +1120,108 @@ router.post('/refresh', (req, res) => {
     console.error('Token refresh error:', err);
     res.status(500).json({ error: 'Token refresh failed.' });
   }
+});
+
+// ── Device / session management (user-facing) ──────────────────────────────
+
+// GET /api/auth/sessions — List the current user's sessions (device page).
+// Never exposes raw session tokens — only metadata plus an is_current flag.
+router.get('/sessions', authenticateToken, async (req, res) => {
+  try {
+    const rows = await supabase.getUserSessions(req.user.id);
+
+    // req.sessionId was set by the middleware from the validated session —
+    // use it to flag which row is the device making this request.
+    const sessions = rows.map((r) => ({
+      session_id: r.session_id,
+      device: r.device || 'Unknown device',
+      os: r.os || '',
+      browser: r.browser || '',
+      ip_address: r.ip_address || '',
+      login_method: r.login_method || '',
+      login_time: r.login_time,
+      last_active: r.last_active,
+      expires_at: r.expires_at,
+      status: r.status,
+      is_current: Boolean(req.sessionId) && r.session_id === req.sessionId,
+    }));
+
+    res.json({ sessions, current_session_id: req.sessionId || null });
+  } catch (err) {
+    console.error('List sessions error:', err);
+    res.status(500).json({ error: 'Could not load sessions.' });
+  }
+});
+
+// POST /api/auth/sessions/revoke — "Log out this device".
+// The session id must belong to the authenticated user — one user can never
+// revoke another user's session.
+router.post('/sessions/revoke', authenticateToken, async (req, res) => {
+  try {
+    const { session_id } = req.body;
+    if (!session_id) {
+      return res.status(400).json({ error: 'session_id is required.' });
+    }
+
+    const row = await supabase.findSessionById(session_id);
+    if (!row) {
+      return res.status(404).json({ error: 'Session not found.' });
+    }
+    if (String(row.user_id) !== String(req.user.id)) {
+      return res.status(403).json({ error: 'You can only manage your own sessions.' });
+    }
+
+    await supabase.endSession(session_id, 'Logged out');
+
+    // Revoking the session this request came from? Clear the cookie too.
+    if (req.sessionId === session_id) clearSessionCookie(res);
+
+    res.json({ message: 'Device logged out.' });
+  } catch (err) {
+    console.error('Revoke session error:', err);
+    res.status(500).json({ error: 'Could not log out this device.' });
+  }
+});
+
+// POST /api/auth/sessions/revoke-all — "Log out all devices".
+// Revokes every Active session for the authenticated user (including the
+// current one). The account/profile is untouched.
+router.post('/sessions/revoke-all', authenticateToken, async (req, res) => {
+  try {
+    await supabase.endAllUserSessions(req.user.id);
+    clearSessionCookie(res);
+    res.json({ message: 'All devices have been logged out.' });
+  } catch (err) {
+    console.error('Revoke all sessions error:', err);
+    res.status(500).json({ error: 'Could not log out all devices.' });
+  }
+});
+
+// GET|POST /api/auth/session-cleanup — 10-minute expiry sweep endpoint for
+// external/Vercel cron. Guarded by SESSION_CLEANUP_SECRET (query param
+// `secret` or `x-cleanup-secret` header) when configured; otherwise only
+// an authenticated admin may trigger it.
+router.all('/session-cleanup', async (req, res) => {
+  const secret = process.env.SESSION_CLEANUP_SECRET;
+  if (secret) {
+    const provided = req.query.secret || req.headers['x-cleanup-secret'];
+    if (provided !== secret) {
+      return res.status(401).json({ error: 'Unauthorized.' });
+    }
+  } else {
+    // No secret configured — require an admin bearer token
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Unauthorized.' });
+    const decoded = decodeTokenIgnoreExpiry(token);
+    const role = decoded && decoded.role ? String(decoded.role).toLowerCase() : '';
+    if (!decoded || !(role === 'admin' || role === 'super admin' || role === 'support')) {
+      return res.status(403).json({ error: 'Admin access required.' });
+    }
+  }
+
+  const result = await sessionCleanup.runSessionCleanup();
+  res.json({ message: 'Session cleanup complete.', expired: result.count, ranAt: new Date().toISOString() });
 });
 
 // GET /api/auth/me

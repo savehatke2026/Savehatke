@@ -139,9 +139,27 @@ const Auth = {
   },
 };
 
+// ── Session Expiration (48-hour server-side sessions) ────────────────────
+// When the server rejects a request with SESSION_EXPIRED, the login session
+// is over: clear all local auth state and send the user to the login page.
+let sessionExpiredHandled = false;
+
+function handleSessionExpired() {
+  if (sessionExpiredHandled) return;
+  sessionExpiredHandled = true;
+  try { Auth.clear(); } catch (e) {}
+  try { Auth.clearAdmin(); } catch (e) {}
+  const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
+  if (page !== 'login' && page !== 'login.html') {
+    window.location.href = '/login.html?expired=1';
+  }
+}
+
 // ── Token Refresh ───────────────────────────────────────────────────────
 // Exchanges an expired (or nearly expired) JWT for a fresh one via
-// /api/auth/refresh so users never have to log out and back in.
+// /api/auth/refresh. A refresh can never extend the session past 48 hours
+// from the original login — when the session is over, the server refuses
+// with SESSION_EXPIRED and the user is redirected to log in again.
 let refreshPromise = null;
 
 function getTokenExpiry(token) {
@@ -169,8 +187,12 @@ async function refreshAuthToken() {
             'Authorization': `Bearer ${token}`,
           },
         });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.code === 'SESSION_EXPIRED') {
+          handleSessionExpired();
+          return false;
+        }
         if (!res.ok) return false;
-        const data = await res.json();
         if (!data.token) return false;
         localStorage.setItem('sh_token', data.token);
         if (adminToken) localStorage.setItem('sh_admin_token', data.token);
@@ -222,6 +244,15 @@ async function api(endpoint, options = {}) {
     }
 
     if (!res.ok) {
+      // 48-hour session is over (revoked or expired) — clear local auth
+      // state and redirect to the login page with an explanatory message.
+      if (data && data.code === 'SESSION_EXPIRED') {
+        const err = new Error(data.error || 'Your 2-day login session has expired. Please log in again.');
+        err.status = res.status;
+        err.sessionExpired = true;
+        handleSessionExpired();
+        throw err;
+      }
       // Rate-limited: surface a friendlier message that tells the admin this is
       // temporary, since it can otherwise look like a real failure.
       if (res.status === 429) {
@@ -250,8 +281,9 @@ async function api(endpoint, options = {}) {
 
     return await doRequest();
   } catch (err) {
-    // Token expired mid-session — refresh once and retry the request
-    if ((err.status === 401 || err.status === 403) && getToken()) {
+    // Token expired mid-session — refresh once and retry the request.
+    // (A SESSION_EXPIRED error is never retried: the session is gone.)
+    if ((err.status === 401 || err.status === 403) && !err.sessionExpired && getToken()) {
       const refreshed = await refreshAuthToken();
       if (refreshed) {
         return await doRequest();

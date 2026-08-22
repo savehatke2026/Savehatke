@@ -12,6 +12,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const supabaseService = require('../services/supabase');
+const sessionCache = require('../services/sessionCache');
 const { maybeRunSessionCleanup } = require('../services/sessionCleanup');
 
 // 48 hours — maximum session lifetime, starts at successful login.
@@ -34,41 +35,27 @@ function hashSessionToken(token) {
   return crypto.createHash('sha256').update(String(token || '')).digest('hex');
 }
 
-// ── Session validation cache ───────────────────────────────────────────────
-// A 60-second in-memory cache (per server instance) so the per-request DB
-// check doesn't add a Supabase round-trip to every API call. Expiry itself
-// is still enforced exactly: the JWT `exp` equals the session expiry and is
-// verified against the server clock on every request. The cache only
-// shortens (by ≤60s) how quickly a *revocation* (logout-all-devices) is
-// noticed by a server instance that already cached the row.
-
-const SESSION_CACHE_TTL_MS = 60 * 1000;
+// The validation cache lives in services/sessionCache.js (shared with the
+// Supabase session writers) so a revocation on this instance is honored
+// immediately — endSessionByToken/endSession/endAllUserSessions invalidate
+// the affected entries as they write. Other server instances notice within
+// the 60-second TTL at most; JWT expiry itself is exact on every request.
 const SESSION_TOUCH_INTERVAL_MS = 2 * 60 * 1000;
-const sessionCache = new Map(); // tokenHash → { row, cachedAt, lastTouchAt }
-
-function pruneSessionCache() {
-  if (sessionCache.size < 5000) return;
-  const cutoff = Date.now() - SESSION_CACHE_TTL_MS;
-  for (const key of sessionCache.keys()) {
-    const entry = sessionCache.get(key);
-    if (!entry || entry.cachedAt < cutoff) sessionCache.delete(key);
-  }
-}
 
 /**
  * Validate a raw session token against the database.
- * @returns {Promise<{ok:boolean, sessionId?:string, expiresAt?:string, degraded?:boolean}>}
+ * @returns {Promise<{ok:boolean, user?:{id,email,role}, sessionId?:string, expiresAt?:string, degraded?:boolean}>}
  */
 async function validateSessionToken(rawToken) {
   const tokenHash = hashSessionToken(rawToken);
   const now = Date.now();
 
   const cached = sessionCache.get(tokenHash);
-  if (cached && now - cached.cachedAt < SESSION_CACHE_TTL_MS) {
+  if (cached) {
     const row = cached.row;
     const expiresMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
     if (row.status === 'Active' && expiresMs > now) {
-      return { ok: true, sessionId: row.session_id, expiresAt: row.expires_at };
+      return { ok: true, user: rowUser(row), sessionId: row.session_id, expiresAt: row.expires_at };
     }
     return { ok: false };
   }
@@ -89,13 +76,23 @@ async function validateSessionToken(rawToken) {
     if (row.status === 'Active') {
       supabaseService.endSessionByToken(tokenHash, 'Expired').catch(() => {});
     }
-    sessionCache.delete(tokenHash);
+    sessionCache.remove(tokenHash);
     return { ok: false };
   }
 
-  sessionCache.set(tokenHash, { row, cachedAt: now, lastTouchAt: 0 });
-  pruneSessionCache();
-  return { ok: true, sessionId: row.session_id, expiresAt: row.expires_at };
+  sessionCache.set(tokenHash, row);
+  return { ok: true, user: rowUser(row), sessionId: row.session_id, expiresAt: row.expires_at };
+}
+
+/**
+ * Rebuild a minimal request identity from a session row. Used when the
+ * request authenticates via the HttpOnly cookie (e.g. <img> loads, which
+ * cannot send Authorization headers) — there is no JWT to decode there.
+ */
+function rowUser(row) {
+  const method = String(row.login_method || '');
+  const role = /admin/i.test(method) ? 'admin' : 'user';
+  return { id: row.user_id, email: row.email, role };
 }
 
 /**
@@ -145,25 +142,46 @@ function clearSessionCookie(res) {
 // ── Middleware ─────────────────────────────────────────────────────────────
 
 /**
- * Middleware: Verify JWT token from Authorization header (or the HttpOnly
- * session cookie) and validate the server-side session when the token
+ * Middleware: Verify JWT token from Authorization header, or the HttpOnly
+ * session cookie (raw session identifier — validated directly against the
+ * session table; this is what makes cookie-only loads like <img> proof
+ * streams work). Validates the server-side session when the credential
  * carries one. Attaches decoded user to req.user and the session id to
  * req.sessionId.
  */
 async function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
-  let token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+  const bearerToken = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-  // Fallback: HttpOnly session cookie (browser navigation without JS headers)
-  if (!token) token = parseSessionCookie(req);
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access denied. No token provided.' });
+  // ── HttpOnly cookie path: raw session token, no JWT involved ──
+  if (!bearerToken) {
+    const cookieToken = parseSessionCookie(req);
+    if (!cookieToken) {
+      return res.status(401).json({ error: 'Access denied. No token provided.' });
+    }
+    try {
+      const validation = await validateSessionToken(cookieToken);
+      if (!validation.ok) {
+        return res.status(401).json({
+          error: 'Your 2-day login session has expired. Please log in again.',
+          code: 'SESSION_EXPIRED',
+        });
+      }
+      if (validation.user) req.user = validation.user;
+      req.sessionId = validation.sessionId || null;
+      touchSessionThrottled(cookieToken, req.sessionId);
+      maybeRunSessionCleanup();
+    } catch (err) {
+      console.warn('Session validation skipped (database unreachable):', err.message);
+      return res.status(401).json({ error: 'Access denied.' });
+    }
+    return next();
   }
 
+  // ── Bearer JWT path ──
   let decoded;
   try {
-    decoded = jwt.verify(token, getJwtSecret());
+    decoded = jwt.verify(bearerToken, getJwtSecret());
   } catch (err) {
     if (err && err.name === 'TokenExpiredError') {
       // The 48-hour JWT lifetime equals the session lifetime — an expired

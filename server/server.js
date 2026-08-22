@@ -265,6 +265,12 @@ async function initServices() {
   if (supabase.isConfigured()) {
     await supabase.ensureSessionsTable();
   }
+
+  // 48-hour session expiry sweep — a real interval on a long-running server;
+  // skipped on Vercel (serverless), where the lazy per-request sweep and the
+  // /api/auth/session-cleanup cron endpoint cover it instead.
+  const { startSessionCleanupInterval } = require('./services/sessionCleanup');
+  startSessionCleanupInterval();
 }
 
 // Run initialization immediately
