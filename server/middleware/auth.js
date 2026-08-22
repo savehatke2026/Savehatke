@@ -17,10 +17,20 @@ const { maybeRunSessionCleanup } = require('../services/sessionCleanup');
 
 // 48 hours — maximum session lifetime, starts at successful login.
 const SESSION_TTL_MS = supabaseService.SESSION_TTL_MS;
+// Admins are logged out automatically 2 hours after login (hard limit).
+const ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = 'sh_session';
 
 function getJwtSecret() {
   return process.env.JWT_SECRET || 'savehatke_dev_secret_key';
+}
+
+// Role-appropriate expiry message: users get 2 days, admins 2 hours.
+function sessionExpiredMessage(role) {
+  if (String(role || '').toLowerCase() === 'admin') {
+    return 'Your 2-hour admin session has expired. Please log in again.';
+  }
+  return 'Your 2-day login session has expired. Please log in again.';
 }
 
 // ── Session token helpers ──────────────────────────────────────────────────
@@ -57,7 +67,7 @@ async function validateSessionToken(rawToken) {
     if (row.status === 'Active' && expiresMs > now) {
       return { ok: true, user: rowUser(row), sessionId: row.session_id, expiresAt: row.expires_at };
     }
-    return { ok: false };
+    return { ok: false, user: rowUser(row) };
   }
 
   const row = await supabaseService.findSessionByToken(tokenHash);
@@ -77,7 +87,7 @@ async function validateSessionToken(rawToken) {
       supabaseService.endSessionByToken(tokenHash, 'Expired').catch(() => {});
     }
     sessionCache.remove(tokenHash);
-    return { ok: false };
+    return { ok: false, user: rowUser(row) };
   }
 
   sessionCache.set(tokenHash, row);
@@ -127,11 +137,12 @@ function parseSessionCookie(req) {
  * Secure flag is enabled outside development; SameSite=Lax mitigates CSRF
  * while keeping normal top-level navigation working.
  */
-function setSessionCookie(res, rawToken) {
+function setSessionCookie(res, rawToken, ttlMs) {
   if (!rawToken) return;
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  const maxAge = Math.floor((ttlMs || SESSION_TTL_MS) / 1000);
   res.setHeader('Set-Cookie',
-    `${SESSION_COOKIE_NAME}=${encodeURIComponent(rawToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${Math.floor(SESSION_TTL_MS / 1000)}${secure}`);
+    `${SESSION_COOKIE_NAME}=${encodeURIComponent(rawToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`);
 }
 
 function clearSessionCookie(res) {
@@ -163,7 +174,7 @@ async function authenticateToken(req, res, next) {
       const validation = await validateSessionToken(cookieToken);
       if (!validation.ok) {
         return res.status(401).json({
-          error: 'Your 2-day login session has expired. Please log in again.',
+          error: sessionExpiredMessage(validation.user && validation.user.role),
           code: 'SESSION_EXPIRED',
         });
       }
@@ -184,10 +195,11 @@ async function authenticateToken(req, res, next) {
     decoded = jwt.verify(bearerToken, getJwtSecret());
   } catch (err) {
     if (err && err.name === 'TokenExpiredError') {
-      // The 48-hour JWT lifetime equals the session lifetime — an expired
-      // token means the session is over.
+      // The JWT lifetime equals the session lifetime (48h users, 2h admins)
+      // — an expired token means the session is over.
+      const stale = decodeTokenIgnoreExpiry(bearerToken);
       return res.status(401).json({
-        error: 'Your 2-day login session has expired. Please log in again.',
+        error: sessionExpiredMessage(stale && stale.role),
         code: 'SESSION_EXPIRED',
       });
     }
@@ -203,7 +215,7 @@ async function authenticateToken(req, res, next) {
       const validation = await validateSessionToken(decoded.sid);
       if (!validation.ok) {
         return res.status(401).json({
-          error: 'Your 2-day login session has expired. Please log in again.',
+          error: sessionExpiredMessage((validation.user && validation.user.role) || decoded.role),
           code: 'SESSION_EXPIRED',
         });
       }
