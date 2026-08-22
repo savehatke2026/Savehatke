@@ -602,8 +602,26 @@
 <script src="js/app.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
-  // Dynamic Razorpay Configuration
-  window.RAZORPAY_KEY_ID = window.RAZORPAY_KEY_ID || localStorage.getItem('RAZORPAY_KEY_ID') || 'rzp_test_YOUR_KEY_HERE';
+  // Dynamic Razorpay Configuration (filled in by /api/payments/config)
+  window.RAZORPAY_KEY_ID = '';
+  window.RAZORPAY_CONFIGURED = false;
+  window.RAZORPAY_PLATFORM_FEE = 4;
+
+  // Fetch the public Razorpay config from the server. The secret key is
+  // never exposed to the browser; the server creates orders and verifies
+  // signatures. If the server isn't configured yet, we fall back to a demo
+  // flow so the UI is still usable while you set up Razorpay.
+  async function loadRazorpayConfig() {
+    try {
+      const res = await fetch('/api/payments/config', { credentials: 'include' });
+      const data = await res.json();
+      window.RAZORPAY_KEY_ID = data.keyId || '';
+      window.RAZORPAY_CONFIGURED = !!data.configured;
+      window.RAZORPAY_PLATFORM_FEE = data.platformFee || 4;
+    } catch (e) {
+      console.warn('Could not load Razorpay config:', e);
+    }
+  }
 
   // Read URL parameters
   const urlParams = new URLSearchParams(window.location.search);
@@ -623,7 +641,10 @@
   const totalPrice = currentCoupon.price + platformFee;
   const amountInPaise = Math.round(totalPrice * 100);
 
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
+    // Pull the public Razorpay key + config flag from the server before doing
+    // anything else that depends on it.
+    await loadRazorpayConfig();
     // Fill Coupon Details in UI
     const brandLetter = currentCoupon.brand.charAt(0).toUpperCase();
     if (document.getElementById('csBrandIco')) document.getElementById('csBrandIco').textContent = brandLetter;
@@ -691,7 +712,7 @@
   document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 
   // --- RAZORPAY PAYMENT ---
-  function initiatePayment() {
+  async function initiatePayment() {
     if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
       showToastLocal('Please log in to complete your purchase.', 'warning');
       setTimeout(() => {
@@ -700,7 +721,7 @@
         } else {
           window.location.replace('login.html');
         }
-      }, 100); // Faster redirect - reduced from 500ms to 100ms
+      }, 100);
       return;
     }
 
@@ -729,18 +750,65 @@
 
     const payBtn = document.getElementById('payBtn');
     const payBtnText = document.getElementById('payBtnText');
+    const resetBtn = () => {
+      payBtn.disabled = false;
+      payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
+    };
+
+    // Make sure the config is loaded (in case the user clicks before the
+    // /api/payments/config call resolved)
+    if (!window.RAZORPAY_KEY_ID) await loadRazorpayConfig();
+
     payBtn.disabled = true;
+    payBtnText.innerHTML = '<div class="spinner"></div> Creating secure order…';
+
+    // 1) Ask the server to create a Razorpay order. The amount is computed
+    //    server-side from the coupon's sellingPrice, so the client can't
+    //    tamper with the price.
+    let orderInfo;
+    try {
+      const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : '';
+      const res = await fetch('/api/payments/create-order', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        },
+        body: JSON.stringify({ couponId: currentCoupon.id }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        resetBtn();
+        showToastLocal(data.error || 'Could not start payment. Please try again.', 'error');
+        return;
+      }
+      orderInfo = data;
+    } catch (e) {
+      resetBtn();
+      showToastLocal('Network error. Please try again.', 'error');
+      return;
+    }
+
+    // If the server hasn't been configured with Razorpay keys yet, fall back
+    // to a local demo flow so the page is still testable.
+    if (!window.RAZORPAY_CONFIGURED || !orderInfo.orderId) {
+      payBtnText.innerHTML = '<div class="spinner"></div> Opening Demo Checkout…';
+      simulateDemoPayment(email);
+      return;
+    }
+
     payBtnText.innerHTML = '<div class="spinner"></div> Opening Secure Razorpay Checkout…';
 
-    const razorpayKey = window.RAZORPAY_KEY_ID || localStorage.getItem('RAZORPAY_KEY_ID') || '';
-
+    // 2) Open Razorpay's hosted checkout with the order_id from the server.
     const options = {
-      key: razorpayKey,
-      amount: amountInPaise,
-      currency: 'INR',
+      key: window.RAZORPAY_KEY_ID,
+      amount: orderInfo.amount,
+      currency: orderInfo.currency || 'INR',
       name: 'SaveHatke',
       description: `${currentCoupon.brand} ${currentCoupon.title} Coupon`,
       image: 'https://savehatke.vercel.app/images/logo.png',
+      order_id: orderInfo.orderId,
       prefill: {
         name: name,
         email: email,
@@ -758,33 +826,89 @@
       },
       modal: {
         ondismiss: function () {
-          payBtn.disabled = false;
-          payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
+          resetBtn();
           showToastLocal('Payment window closed. You can try again anytime.', 'info');
         },
       },
       handler: function (response) {
-        document.getElementById('confirmEmail').textContent = email;
-        showSuccessScreen();
+        // 3) The user paid. Verify the signature on the server before
+        //    revealing the coupon code.
+        verifyPaymentAndFulfill(response, email, payBtnText, payBtn, totalPrice);
       },
     };
 
-    if (typeof Razorpay !== 'undefined' && razorpayKey && !razorpayKey.includes('YOUR_KEY_HERE')) {
-      try {
-        const rzp = new Razorpay(options);
-        rzp.on('payment.failed', function (response) {
-          payBtn.disabled = false;
-          payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
-          showToastLocal('Payment failed: ' + (response.error.description || 'Please try again.'), 'error');
-        });
-        rzp.open();
-      } catch (e) {
-        payBtn.disabled = false;
-        payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
-        simulateDemoPayment(email);
+    if (typeof Razorpay === 'undefined') {
+      resetBtn();
+      showToastLocal('Razorpay SDK failed to load. Please refresh and try again.', 'error');
+      return;
+    }
+
+    try {
+      const rzp = new Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        resetBtn();
+        showToastLocal('Payment failed: ' + (response?.error?.description || 'Please try again.'), 'error');
+      });
+      rzp.open();
+    } catch (e) {
+      console.error('Razorpay open error:', e);
+      resetBtn();
+      showToastLocal('Could not open payment window. Please try again.', 'error');
+    }
+  }
+
+  async function verifyPaymentAndFulfill(razorpayResponse, email, payBtnText, payBtn, totalPrice) {
+    const resetBtn = () => {
+      payBtn.disabled = false;
+      payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
+    };
+    payBtnText.innerHTML = '<div class="spinner"></div> Verifying payment…';
+
+    try {
+      const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : '';
+      const res = await fetch('/api/payments/verify', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: 'Bearer ' + token } : {}),
+        },
+        body: JSON.stringify({
+          razorpay_order_id: razorpayResponse.razorpay_order_id,
+          razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+          razorpay_signature: razorpayResponse.razorpay_signature,
+          couponId: currentCoupon.id,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.success) {
+        resetBtn();
+        showToastLocal(
+          (data && data.error) ||
+            'Payment verification failed. If money was deducted, please contact support.',
+          'error'
+        );
+        return;
       }
-    } else {
-      simulateDemoPayment(email);
+
+      // Server confirmed the payment. Reveal the unlocked code (if the
+      // server returned it) and the success screen.
+      if (data.coupon && data.coupon.code) {
+        currentCoupon.code = data.coupon.code;
+        const codeEl = document.getElementById('revealedCode');
+        if (codeEl) codeEl.textContent = data.coupon.code;
+      }
+      if (data.coupon && data.coupon.brand) {
+        const brandEl = document.getElementById('succBrand');
+        if (brandEl) brandEl.textContent = data.coupon.brand;
+      }
+      document.getElementById('confirmEmail').textContent = email;
+      showSuccessScreen();
+    } catch (e) {
+      console.error('Verify error:', e);
+      resetBtn();
+      showToastLocal('Could not verify payment. Please contact support if money was deducted.', 'error');
     }
   }
 

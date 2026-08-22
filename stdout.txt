@@ -1,0 +1,3 @@
+b293077 Dashboard real-time + admin payouts + seller payout requests
+c441a6e Profile box: Secured by SaveHatke footer, Active/Suspended tag, real avatar on dashboard
+073acf4 Dashboard: replace hardcoded demo stats with live data wiring

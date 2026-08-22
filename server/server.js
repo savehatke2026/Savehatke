@@ -28,6 +28,7 @@ const chatbotAdminRoutes = require('./routes/chatbot');
 const chatRoutes = require('./routes/chat');
 const gmailRoutes = require('./routes/gmail');
 const payoutRoutes = require('./routes/payouts');
+const paymentRoutes = require('./routes/payments');
 
 const app = express();
 
@@ -137,6 +138,7 @@ app.use('/api/admin', (req, res, next) => {
 app.use('/api/support', apiLimiter, supportRoutes);
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
 app.use('/api/chat', chatRoutes); // /api/chat applies its own service-level rate limits
+app.use('/api/payments', apiLimiter, paymentRoutes); // Razorpay: /api/payments/{config,create-order,verify}
 app.use('/api', apiLimiter, payoutRoutes); // /api/payouts/* (seller)
 
 // Public Turnstile site key for CAPTCHA widgets (secret stays in .env)
