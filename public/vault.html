@@ -116,15 +116,8 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
   background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);
   border-radius:16px;padding:22px;transition:all .3s;cursor:pointer;position:relative;overflow:hidden;
 }
-.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;opacity:0;transition:opacity .3s}
+.stat-card::before{content:none}
 .stat-card:hover{border-color:rgba(0,230,118,.25);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
-.stat-card:hover::before{opacity:1}
-.sc-green::before{background:linear-gradient(90deg,#00e676,#00c853)}
-.sc-blue::before{background:linear-gradient(90deg,#4fc3f7,#0288d1)}
-.sc-purple::before{background:linear-gradient(90deg,#ce93d8,#9c27b0)}
-.sc-orange::before{background:linear-gradient(90deg,#ffb74d,#f57c00)}
-.sc-teal::before{background:linear-gradient(90deg,#80cbc4,#009688)}
-.sc-red::before{background:linear-gradient(90deg,#ef9a9a,#e53935)}
 .stat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
 .stat-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
 .si-green{background:rgba(0,230,118,.12)}
