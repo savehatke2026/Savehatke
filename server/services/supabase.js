@@ -407,8 +407,15 @@ async function countCoupons(filters = {}) {
 // token lives only in the JWT `sid` claim + HttpOnly cookie — the database
 // stores a SHA-256 hash so a database leak cannot forge valid sessions.
 
-// 48 hours, in milliseconds — the maximum lifetime of any login session.
+// 48 hours, in milliseconds — the maximum lifetime of any USER login session.
+// Admin sessions are shorter: 2 hours (automatic admin logout).
 const SESSION_TTL_MS = 48 * 60 * 60 * 1000;
+const ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
+
+// Admin logins record login_method 'Admin' or 'Google Admin'.
+function isAdminLoginMethod(method) {
+  return /^(google\s+)?admin$/i.test(String(method || '').trim());
+}
 
 // Matches PostgREST errors raised when the sessions table hasn't been
 // upgraded yet (missing session_token / revoked_at / user_agent columns).
@@ -437,18 +444,20 @@ async function ensureSessionsTable() {
 }
 
 /**
- * Create a new session record when a user logs in.
- * The session expires exactly 48 hours from the server-side creation time;
- * nothing the client sends can extend that window.
+ * Create a new session record when a user or admin logs in.
+ * User sessions expire exactly 48 hours from login; admin sessions 2 hours
+ * (automatic admin logout). Nothing the client sends can extend that window.
  * @param {object} sessionData - includes session_token (SHA-256 hash) and user_agent
+ * @param {number} [ttlMs] - session lifetime override (admins pass 2 hours)
  * @returns {object|null} The created session row
  */
-async function createSession(sessionData) {
+async function createSession(sessionData, ttlMs) {
   const client = getClient();
   if (!client) return null;
 
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + SESSION_TTL_MS); // exactly 48 hours from login
+  const lifetimeMs = ttlMs || (isAdminLoginMethod(sessionData.login_method) ? ADMIN_SESSION_TTL_MS : SESSION_TTL_MS);
+  const expiresAt = new Date(now.getTime() + lifetimeMs);
 
   const row = {
     user_id: sessionData.user_id || '',
@@ -728,8 +737,9 @@ async function expireOutdatedSessions() {
 }
 
 /**
- * Get all sessions (for admin panel).
- * The session_token hash is never exposed — not even to admins.
+ * Get all USER sessions (for the admin panel's "User Sessions" page).
+ * Admin logins have their own page. The session_token hash is never
+ * exposed — not even to admins.
  */
 async function getAllSessions() {
   const client = getClient();
@@ -743,10 +753,40 @@ async function getAllSessions() {
       .limit(200);
 
     if (error) return [];
-    return (data || []).map((row) => {
-      delete row.session_token;
-      return row;
-    });
+    return (data || [])
+      .filter((row) => !isAdminLoginMethod(row.login_method))
+      .map((row) => {
+        delete row.session_token;
+        return row;
+      });
+  } catch (err) {
+    return [];
+  }
+}
+
+/**
+ * Get ADMIN login sessions (for the admin panel's "Admin Sessions" page —
+ * admins are auto-logged-out 2 hours after login, so this doubles as a
+ * "who's in the panel right now" view).
+ */
+async function getAdminSessions() {
+  const client = getClient();
+  if (!client) return [];
+
+  try {
+    const { data, error } = await client
+      .from('sessions')
+      .select('*')
+      .order('login_time', { ascending: false })
+      .limit(200);
+
+    if (error) return [];
+    return (data || [])
+      .filter((row) => isAdminLoginMethod(row.login_method))
+      .map((row) => {
+        delete row.session_token;
+        return row;
+      });
   } catch (err) {
     return [];
   }
@@ -829,8 +869,10 @@ module.exports = {
   endAllUserSessions,
   expireOutdatedSessions,
   getAllSessions,
+  getAdminSessions,
   getUserSessions,
   countActiveSessions,
   SESSION_TTL_MS,
+  ADMIN_SESSION_TTL_MS,
 };
 
