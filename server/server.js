@@ -94,7 +94,19 @@ app.use(async (req, res, next) => {
 });
 
 // ── Static Files ────────────────────────────────────────────────────────────
-app.use(express.static(path.join(__dirname, '..', 'public'), { extensions: ['html'] }));
+// Send "no-cache" for .html so users always see the latest markup after a
+// deploy (browsers still get 304s via ETag when the file hasn't changed).
+// JS / CSS / images get a short max-age so they stay snappy on repeat loads.
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  extensions: ['html'],
+  setHeaders: (res, filePath) => {
+    if (/\.html?$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  },
+}));
 
 // Handle Google OAuth redirect POSTs to static login page
 app.post(['/login', '/login.html'], (req, res) => {
