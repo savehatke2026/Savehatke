@@ -1,4 +1,4 @@
-// ============================================
+﻿// ============================================
 // SaveHatke — Admin Panel Logic
 // ============================================
 
@@ -57,7 +57,19 @@ function renderCurrentAdminProfile() {
   if (nameEl) nameEl.textContent = name;
 
   const roleEl = document.getElementById('currentAdminEmail');
-  if (roleEl) roleEl.textContent = `${role} · ${email}`;
+  if (roleEl) {
+    // The element contains a Gmail icon <img> + a text <span>. Only update
+    // the span so the icon (rendered by the markup) is preserved. Fall
+    // back to textContent only if the span structure isn't present yet.
+    const emailSpan = roleEl.querySelector('.su-email-text') || roleEl.querySelector('span');
+    const text = `${role} · ${email}`;
+    if (emailSpan) {
+      emailSpan.textContent = text;
+    } else {
+      roleEl.textContent = text;
+    }
+    if (email) roleEl.setAttribute('title', text);
+  }
 
   // Topbar elements
   const topbarName = document.getElementById('topbarAdminName');
@@ -74,6 +86,10 @@ function renderCurrentAdminProfile() {
 }
 
 function adminLogout() {
+  // Revoke the server-side 48h session (fire-and-forget; navigation follows)
+  try {
+    api('/auth/logout', { method: 'POST', useAdmin: true }).catch(() => {});
+  } catch (e) {}
   Auth.clearAdmin();
   Auth.clear();
   window.location.href = 'login.html';
