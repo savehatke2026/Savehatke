@@ -16,6 +16,7 @@ const {
   setSessionCookie,
   clearSessionCookie,
   SESSION_TTL_MS,
+  ADMIN_SESSION_TTL_MS,
 } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
@@ -188,6 +189,7 @@ async function enrichSessionGeo(sessionId, ip) {
 async function createLoginSession(req, userId, loginMethod, email) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
+    const isAdminLogin = /admin/i.test(String(loginMethod || ''));
 
     const { realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail);
     const finalUserId = realUserId || ('user_' + Date.now());
@@ -199,6 +201,10 @@ async function createLoginSession(req, userId, loginMethod, email) {
     // the JWT and cookie; only its SHA-256 hash is stored in the database.
     const rawToken = generateSessionToken();
 
+    // Admin sessions are short-lived: automatic logout 2 hours after login.
+    // User sessions last 48 hours.
+    const ttlMs = isAdminLogin ? ADMIN_SESSION_TTL_MS : SESSION_TTL_MS;
+
     const sessionResult = await supabase.createSession({
       user_id: finalUserId,
       email: cleanEmail,
@@ -209,16 +215,16 @@ async function createLoginSession(req, userId, loginMethod, email) {
       login_method: loginMethod || 'Email',
       user_agent: userAgentRaw,
       session_token: hashSessionToken(rawToken),
-    });
+    }, ttlMs);
 
     if (!sessionResult || !sessionResult.session_token) {
       // Row created without the session_token column (pre-migration DB) or
       // insert failed entirely — no enforceable session for this login.
-      console.warn('⚠️ Login session not enforceable (Supabase session_token unavailable) — issuing 48h-limited JWT only.');
+      console.warn('⚠️ Login session not enforceable (Supabase session_token unavailable) — issuing time-limited JWT only.');
       return null;
     }
 
-    console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for user ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at}`);
+    console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
 
     // Geo-IP enrichment in the background — never blocks the login response
     enrichSessionGeo(sessionResult.session_id, ip).catch(() => {});
@@ -227,6 +233,7 @@ async function createLoginSession(req, userId, loginMethod, email) {
       token: rawToken,
       sessionId: sessionResult.session_id,
       expiresAt: sessionResult.expires_at,
+      ttlMs,
     };
   } catch (err) {
     console.warn('Session creation notice:', err.message);
@@ -236,9 +243,10 @@ async function createLoginSession(req, userId, loginMethod, email) {
 
 /**
  * Mint the login JWT. Every token records its login time (`lgn`) so refresh
- * can never extend past login + 48h, and carries the session token (`sid`)
- * for server-side validation. User tokens live 48h; admin tokens live 12h
- * and refresh within the same 48h session window.
+ * can never extend past the session's hard limit, and carries the session
+ * token (`sid`) for server-side validation. User tokens live 48h; admin
+ * tokens live 2h (automatic admin logout) and refresh within the same
+ * 2-hour session window.
  */
 function issueLoginToken(user, session) {
   const payload = {
@@ -249,7 +257,7 @@ function issueLoginToken(user, session) {
     lgn: Math.floor(Date.now() / 1000),
   };
   if (session && session.token) payload.sid = session.token;
-  const expiresIn = user.role === 'admin' ? '12h' : '48h';
+  const expiresIn = user.role === 'admin' ? '2h' : '48h';
   return generateToken(payload, expiresIn);
 }
 
@@ -394,7 +402,7 @@ router.post('/verify-otp', async (req, res) => {
       name: sheetUser.name || cleanEmail.split('@')[0],
       role: 'user',
     }, session);
-    if (session) setSessionCookie(res, session.token);
+    if (session) setSessionCookie(res, session.token, session.ttlMs);
 
     res.json({
       message: 'Email verified successfully!',
@@ -483,7 +491,7 @@ router.post('/register', async (req, res) => {
 
     // Generate token (48h hard limit, sid-bound to the session)
     const token = issueLoginToken({ id: userId, email: cleanEmail, name: cleanName, role: 'user' }, session);
-    if (session) setSessionCookie(res, session.token);
+    if (session) setSessionCookie(res, session.token, session.ttlMs);
 
     res.status(201).json({
       message: 'Account created successfully in Google Sheets! 📊',
@@ -544,7 +552,7 @@ router.post('/login', async (req, res) => {
               name: dbAdmin.name || dbAdmin.full_name,
               role: 'admin',
             }, session);
-            if (session) setSessionCookie(res, session.token);
+            if (session) setSessionCookie(res, session.token, session.ttlMs);
 
             return res.json({
               message: 'Admin login successful.',
@@ -582,7 +590,7 @@ router.post('/login', async (req, res) => {
         name: hardcoded.name,
         role: 'admin',
       }, session);
-      if (session) setSessionCookie(res, session.token);
+      if (session) setSessionCookie(res, session.token, session.ttlMs);
 
       return res.json({
         message: 'Admin login successful.',
@@ -628,7 +636,7 @@ router.post('/login', async (req, res) => {
         name: sheetUser.name,
         role: 'user',
       }, session);
-      if (session) setSessionCookie(res, session.token);
+      if (session) setSessionCookie(res, session.token, session.ttlMs);
 
       return res.json({
         message: 'Login successful.',
@@ -670,7 +678,7 @@ router.post('/login', async (req, res) => {
     // Server-side 48h session
     const session = await createLoginSession(req, newUserId, 'Email', loginEmail).catch(() => null);
     const token = issueLoginToken({ id: newUserId, email: loginEmail, name: displayName, role: 'user' }, session);
-    if (session) setSessionCookie(res, session.token);
+    if (session) setSessionCookie(res, session.token, session.ttlMs);
 
     res.json({
       message: 'Login successful.',
@@ -833,7 +841,7 @@ router.post('/google-redirect', async (req, res) => {
       // Server-side 48h session for the admin login
       const session = await createLoginSession(req, adminId, 'Google Admin', userEmail).catch(() => null);
       const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
-      if (session) setSessionCookie(res, session.token);
+      if (session) setSessionCookie(res, session.token, session.ttlMs);
 
       const adminUser = {
         id: adminId,
@@ -889,7 +897,7 @@ router.post('/google-redirect', async (req, res) => {
       name: sheetUser.name || userName,
       role: 'user',
     }, session);
-    if (session) setSessionCookie(res, session.token);
+    if (session) setSessionCookie(res, session.token, session.ttlMs);
 
     const regularUser = {
       id: userId,
@@ -965,7 +973,7 @@ router.post('/google', async (req, res) => {
       // Server-side 48h session for the admin login
       const session = await createLoginSession(req, adminId, 'Google Admin', userEmail).catch(() => null);
       const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
-      if (session) setSessionCookie(res, session.token);
+      if (session) setSessionCookie(res, session.token, session.ttlMs);
 
       return res.json({
         message: 'Admin Google login successful.',
@@ -1015,7 +1023,7 @@ router.post('/google', async (req, res) => {
       name: sheetUser.name || userName,
       role: 'user',
     }, session);
-    if (session) setSessionCookie(res, session.token);
+    if (session) setSessionCookie(res, session.token, session.ttlMs);
 
     res.json({
       message: 'Google login successful.',
@@ -1109,8 +1117,12 @@ router.post('/refresh', async (req, res) => {
 
     const result = await refreshToken(token);
     if (!result) {
+      const stale = decodeTokenIgnoreExpiry(token);
+      const msg = (stale && String(stale.role).toLowerCase() === 'admin')
+        ? 'Your 2-hour admin session has expired. Please log in again.'
+        : 'Your 2-day login session has expired. Please log in again.';
       return res.status(401).json({
-        error: 'Your 2-day login session has expired. Please log in again.',
+        error: msg,
         code: 'SESSION_EXPIRED',
       });
     }

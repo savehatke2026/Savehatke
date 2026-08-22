@@ -787,6 +787,38 @@ router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/admin-sessions — ADMIN login sessions (live Supabase data).
+// Admin sessions auto-expire 2 hours after login; this view shows who is /
+// was in the panel, from which device, and when their session ends.
+router.get('/admin-sessions', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (!supabase.isConfigured()) {
+      return res.status(503).json({ error: 'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.' });
+    }
+
+    const sessions = await supabase.getAdminSessions();
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+
+    const counts = {
+      total: sessions.length,
+      active: sessions.filter((s) => s.status === 'Active').length,
+      loggedOut: sessions.filter((s) => s.status === 'Logged out').length,
+      expired: sessions.filter((s) => s.status === 'Expired').length,
+      uniqueAdmins: new Set(sessions.map((s) => s.email || s.user_id).filter(Boolean)).size,
+      loginsToday: sessions.filter((s) => s.login_time && new Date(s.login_time) >= startOfDay).length,
+      last24h: sessions.filter((s) => s.login_time && new Date(s.login_time).getTime() >= dayAgo).length,
+    };
+
+    res.json({ sessions, counts });
+  } catch (err) {
+    console.error('Admin list admin-sessions error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // POST /api/admin/sessions/backfill-userids
 // One-shot migration: for every Supabase session whose user_id is empty or
 // looks wrong (fallback "user_<timestamp>" prefix, or empty), look the email

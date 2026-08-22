@@ -296,10 +296,11 @@ async function refreshToken(oldToken) {
   const decoded = decodeTokenIgnoreExpiry(oldToken);
   if (!decoded || !decoded.id || !decoded.email) return null;
 
-  // Hard 48h window measured from the ORIGINAL login, not from "now" —
-  // refreshing can never reset the timer.
+  // Hard limit measured from the ORIGINAL login, not from "now" — refreshing
+  // can never reset the timer. Users: 48 hours; admins: 2 hours.
   const loginMs = decoded.lgn ? decoded.lgn * 1000 : (decoded.iat ? decoded.iat * 1000 : 0);
-  let hardLimitMs = loginMs ? loginMs + SESSION_TTL_MS : null;
+  const roleLimitMs = decoded.role === 'admin' ? ADMIN_SESSION_TTL_MS : SESSION_TTL_MS;
+  let hardLimitMs = loginMs ? loginMs + roleLimitMs : null;
 
   if (decoded.sid) {
     const validation = await validateSessionToken(decoded.sid);

@@ -16,17 +16,20 @@ const stubCalls = { endSessionByToken: [], updateSessionActivity: [] };
 
 const stubSupabase = {
   SESSION_TTL_MS: 48 * 60 * 60 * 1000,
+  ADMIN_SESSION_TTL_MS: 2 * 60 * 60 * 1000,
   getClient: () => null,
   isConfigured: () => true,
   findSessionByToken: async (hash) => {
     if (hash !== activeTokenHashHolder.hash) return null;
     if (activeTokenHashHolder.behavior === 'unavailable') return { unavailable: true };
     if (activeTokenHashHolder.behavior === 'revoked') {
-      return { session_id: 'sess-1', user_id: 'u1', status: 'Logged out', expires_at: new Date(Date.now() + 3600e3).toISOString() };
+      return { session_id: 'sess-1', user_id: 'u1', email: 'a@b.c', login_method: activeTokenHashHolder.method || 'Email', status: 'Logged out', expires_at: new Date(Date.now() + 3600e3).toISOString() };
     }
     return {
       session_id: 'sess-1',
       user_id: 'u1',
+      email: 'a@b.c',
+      login_method: activeTokenHashHolder.method || 'Email',
       status: 'Active',
       expires_at: activeTokenHashHolder.expiresAt || new Date(Date.now() + 24 * 3600e3).toISOString(),
     };
@@ -161,12 +164,13 @@ function makeRes() {
   const t49 = mk({ id: 'u1', email: 'a@b.c', role: 'user', lgn: Math.floor((Date.now() - 49 * H) / 1000) }, '1h');
   check('49h-old login → refresh refused', (await auth.refreshToken(t49)) === null);
 
-  // c) session row expires before login+48h → clamped to session expiry
-  activeTokenHashHolder.expiresAt = new Date(Date.now() + 2 * H).toISOString();
-  const tSess = mk({ id: 'u1', email: 'a@b.c', role: 'admin', sid: activeSid, lgn: Math.floor((Date.now() - 30 * H) / 1000) }, '1h');
+  // c) session row expires before login+role-limit → clamped to session expiry
+  //    (admin 30 minutes into a 2-hour session, row expires in 1 hour)
+  activeTokenHashHolder.expiresAt = new Date(Date.now() + 1 * H).toISOString();
+  const tSess = mk({ id: 'u1', email: 'a@b.c', role: 'admin', sid: activeSid, lgn: Math.floor((Date.now() - 30 * 60 * 1000) / 1000) }, '30m');
   const outSess = await auth.refreshToken(tSess);
-  check('admin refresh clamped to session expires_at (2h)', outSess &&
-    Math.abs(jwt.decode(outSess.token).exp * 1000 - (Date.now() + 2 * H)) < 5 * 60 * 1000);
+  check('admin refresh clamped to session expires_at (1h left)', outSess &&
+    Math.abs(jwt.decode(outSess.token).exp * 1000 - (Date.now() + 1 * H)) < 5 * 60 * 1000);
   check('refreshed token keeps sid + lgn', outSess && jwt.decode(outSess.token).sid === activeSid &&
     typeof jwt.decode(outSess.token).lgn === 'number');
 
@@ -182,6 +186,46 @@ function makeRes() {
   //    verified against signing time; login-time clamp is server-recorded lgn.
   const tClock = mk({ id: 'u1', email: 'a@b.c', role: 'user', lgn: Math.floor((Date.now() - 48.5 * H) / 1000) }, '1h');
   check('login+48h30m → refresh refused (clock-irrelevant, lgn-based)', (await auth.refreshToken(tClock)) === null);
+
+  console.log('\n── admin 2-hour auto-logout ──');
+  // a) admin login 1h ago, session row expires in 1h → refresh clamped to 1h
+  activeTokenHashHolder.expiresAt = new Date(Date.now() + 1 * H).toISOString();
+  activeTokenHashHolder.method = 'Admin';
+  sessionCache.clear();
+  const tAdmin1h = mk({ id: 'adm1', email: 'admin@x.c', role: 'admin', sid: activeSid, lgn: Math.floor((Date.now() - 1 * H) / 1000) }, '30m');
+  const outAdmin1h = await auth.refreshToken(tAdmin1h);
+  check('admin 1h into session → refresh clamped to remaining 1h', outAdmin1h &&
+    Math.abs(jwt.decode(outAdmin1h.token).exp * 1000 - (Date.now() + 1 * H)) < 5 * 60 * 1000);
+
+  // b) admin login 2h15m ago (past the 2h wall) → refused
+  const tAdminLate = mk({ id: 'adm1', email: 'admin@x.c', role: 'admin', sid: activeSid, lgn: Math.floor((Date.now() - 2.25 * H) / 1000) }, '30m');
+  check('admin past 2h wall → refresh refused', (await auth.refreshToken(tAdminLate)) === null);
+
+  // c) expired admin JWT → role-aware message
+  const tAdminExpired = mk({ id: 'adm1', email: 'admin@x.c', role: 'admin', sid: activeSid }, -1800);
+  r = makeRes(); nexted = false;
+  await auth.authenticateToken({ headers: { authorization: 'Bearer ' + tAdminExpired } }, r, () => { nexted = true; });
+  check('expired admin JWT → 401 + 2-hour message', r.statusCode === 401 &&
+    r.body.code === 'SESSION_EXPIRED' && /2-hour/.test(r.body.error), r.body);
+
+  // d) cookie path with an ADMIN session row → identity rebuilt with admin role
+  sessionCache.clear();
+  const cookieReq2 = { headers: { cookie: 'sh_session=' + encodeURIComponent(activeSid) } };
+  r = makeRes(); nexted = false;
+  await auth.authenticateToken(cookieReq2, r, () => { nexted = true; });
+  check('admin session via cookie → role admin', nexted && cookieReq2.user && cookieReq2.user.role === 'admin');
+
+  // e) admin session revoked mid-window → immediate 401 with 2-hour message
+  activeTokenHashHolder.behavior = 'revoked';
+  await stubSupabase.endSessionByToken(auth.hashSessionToken(activeSid), 'Logged out');
+  const tAdminLive = mk({ id: 'adm1', email: 'admin@x.c', role: 'admin', sid: activeSid, lgn: Math.floor(Date.now() / 1000) }, '30m');
+  r = makeRes(); nexted = false;
+  await auth.authenticateToken({ headers: { authorization: 'Bearer ' + tAdminLive } }, r, () => { nexted = true; });
+  check('revoked admin session → 401 + 2-hour message', r.statusCode === 401 &&
+    r.body.code === 'SESSION_EXPIRED' && /2-hour/.test(r.body.error));
+  activeTokenHashHolder.behavior = 'active';
+  activeTokenHashHolder.method = 'Email';
+  sessionCache.clear();
 
   console.log(`\n═══ ${passed} passed, ${failed} failed ═══`);
   process.exit(failed ? 1 : 0);

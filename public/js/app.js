@@ -394,7 +394,7 @@ function ensureNavProfileStyles() {
     .npd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
     .npd-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
     .npd-info{display:flex;flex-direction:column;overflow:hidden}
-    .npd-name{font-size:.88rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .npd-name{font-size:.88rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:3px}
     .npd-email{font-size:.74rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .npd-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:#e2ecff;font-size:.86rem;font-weight:600;text-decoration:none;cursor:pointer;transition:all .18s;background:transparent;border:none;width:100%;text-align:left;font-family:'Outfit',sans-serif}
     .npd-item:hover{background:rgba(0,230,118,.12);color:#00e676}
@@ -402,7 +402,7 @@ function ensureNavProfileStyles() {
     .npd-item-logout:hover{background:rgba(255,80,80,.12);color:#ff8585}
     .npd-status{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:9999px;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;position:relative;top:-2px;background:rgba(0,230,118,.14);color:#00e676;border:1px solid rgba(0,230,118,.3)}
     .npd-status.suspended{background:rgba(255,80,80,.12);color:#ff6b6b;border-color:rgba(255,80,80,.3)}
-    .npd-footer{margin-top:6px;padding-top:10px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:#80cbc4;font-weight:800}
+    .npd-footer{margin-top:6px;padding-top:10px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.72rem;letter-spacing:.04em;color:#80cbc4;font-weight:800}
   `;
   document.head.appendChild(style);
 }
