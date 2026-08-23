@@ -367,6 +367,64 @@
       .welcome-date{display:none}
     }
 
+    /* ===================================================
+       SIDEBAR
+    =================================================== */
+    #sidebar{position:fixed;top:68px;left:0;width:244px;height:calc(100vh - 68px);background:rgba(8,16,42,.98);border-right:1px solid rgba(79,195,247,.1);z-index:150;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.4,0,.2,1)}
+    .sb-inner{display:flex;flex-direction:column;min-height:100%;padding:16px 0 20px}
+    .sb-user{display:flex;align-items:center;gap:10px;padding:0 14px 14px;border-bottom:1px solid rgba(79,195,247,.08);margin-bottom:6px}
+    .sb-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:2px solid rgba(0,230,118,.35)}
+    .sb-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
+    .sb-user-info{min-width:0}
+    .sb-user-name{font-size:.86rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .sb-user-email{font-size:.68rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+    .sb-nav{flex:1;padding:6px 10px}
+    .sb-footer-nav{padding:0 10px 6px}
+    .sb-section-label{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(107,136,170,.5);padding:12px 10px 5px}
+    .sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:8px;font-size:.84rem;font-weight:600;color:#6b88aa;background:none;border:none;cursor:pointer;text-align:left;font-family:'Outfit',sans-serif;transition:all .17s;text-decoration:none;margin-bottom:2px;white-space:nowrap}
+    .sb-item:hover{background:rgba(79,195,247,.07);color:#a8c0dc}
+    .sb-item.active{background:rgba(0,230,118,.1);color:#00e676;border-left:3px solid #00e676;padding-left:7px}
+    .sb-item-ico{width:18px;text-align:center;flex-shrink:0;font-size:.95rem}
+    .sb-sep{height:1px;background:rgba(79,195,247,.08);margin:8px 10px}
+    .sb-item-logout{color:#ef9a9a}
+    .sb-item-logout:hover{background:rgba(239,154,154,.08);color:#ff8585}
+
+    /* OVERLAY */
+    #sidebarOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:145;backdrop-filter:blur(2px)}
+    #sidebarOverlay.open{display:block}
+
+    /* PAGE WRAPPER */
+    #pageWrapper{margin-left:244px}
+
+    /* MOBILE BAR */
+    .mobile-sb-bar{display:none;align-items:center;gap:12px;padding:12px 24px 16px;border-bottom:1px solid rgba(79,195,247,.07)}
+    .mobile-sb-btn{background:rgba(255,255,255,.04);border:1px solid rgba(79,195,247,.14);border-radius:8px;color:#a8c0dc;font-size:.82rem;font-weight:600;padding:6px 12px;cursor:pointer;font-family:'Outfit',sans-serif;transition:all .2s;display:flex;align-items:center;gap:6px}
+    .mobile-sb-btn:hover{background:rgba(0,230,118,.07);color:#00e676;border-color:rgba(0,230,118,.25)}
+    .mobile-view-title{font-size:.9rem;font-weight:700;color:#e2ecff}
+
+    /* VIEWS */
+    .db-view{display:none}
+    .db-view.active{display:block}
+
+    /* VIEW HEADERS */
+    .view-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid rgba(79,195,247,.07);flex-wrap:wrap;gap:14px}
+    .view-title{font-family:'DM Serif Display',serif;font-size:clamp(1.35rem,2.5vw,1.85rem);line-height:1.2}
+    .view-subtitle{font-size:.83rem;color:#6b88aa;margin-top:4px}
+
+    /* OVERVIEW SUMMARY */
+    .ov-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(79,195,247,.05);font-size:.84rem}
+    .ov-row:last-child{border-bottom:none}
+    .ov-lbl{color:#6b88aa}
+    .ov-val{font-family:'JetBrains Mono',monospace;font-weight:700}
+
+    /* RESPONSIVE SIDEBAR */
+    @media(max-width:960px){
+      #sidebar{transform:translateX(-110%)}
+      #sidebar.open{transform:translateX(0)}
+      #pageWrapper{margin-left:0}
+      .mobile-sb-bar{display:flex}
+    }
+
   </style>
 </head>
 <body>
@@ -450,13 +508,49 @@
 </nav>
 
 <!-- =====================================================
+     SIDEBAR
+===================================================== -->
+<aside id="sidebar">
+  <div class="sb-inner">
+    <div class="sb-user">
+      <div class="sb-avatar" id="sbAvatar">U</div>
+      <div class="sb-user-info">
+        <div class="sb-user-name" id="sbName">User</div>
+        <div class="sb-user-email" id="sbEmail">user@email.com</div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-section-label">DASHBOARD</div>
+      <button class="sb-item active" data-view="dashboard" onclick="showView('dashboard')"><span class="sb-item-ico">🏠</span> Dashboard</button>
+      <a href="marketplace" class="sb-item"><span class="sb-item-ico">🛍️</span> Buy Coupons</a>
+      <a href="sell" class="sb-item"><span class="sb-item-ico">💰</span> Sell Coupons</a>
+      <button class="sb-item" data-view="my-coupons" onclick="showView('my-coupons')"><span class="sb-item-ico">🎟️</span> My Coupons</button>
+      <div class="sb-section-label">MONEY</div>
+      <button class="sb-item" data-view="wallet" onclick="showView('wallet')"><span class="sb-item-ico">💼</span> Wallet</button>
+      <button class="sb-item" data-view="payouts" onclick="showView('payouts')"><span class="sb-item-ico">💸</span> Payouts</button>
+      <div class="sb-section-label">ACCOUNT</div>
+      <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🛡️</span> Security</button>
+      <button class="sb-item" data-view="support" onclick="showView('support')"><span class="sb-item-ico">🎧</span> Support</button>
+    </nav>
+    <div class="sb-sep"></div>
+    <div class="sb-footer-nav">
+      <button class="sb-item" onclick="showToast('Settings coming soon!','warn')"><span class="sb-item-ico">⚙️</span> Settings</button>
+      <button class="sb-item sb-item-logout" onclick="openModal('logoutModal')"><span class="sb-item-ico">🚪</span> Log Out</button>
+    </div>
+  </div>
+</aside>
+<div id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- =====================================================
      BACKGROUND
 ===================================================== -->
 <div class="db-bg"></div>
 
 <!-- =====================================================
-     MAIN DASHBOARD
+     PAGE WRAPPER
 ===================================================== -->
+<div id="pageWrapper">
+
 <div class="db-wrap">
 <div class="db-content">
 
@@ -476,322 +570,463 @@
 
   <!-- ─── NORMAL DASHBOARD CONTENT (hidden when suspended) ─── -->
   <div id="dashboardContent">
-  <div class="container">
 
-  <!-- ─── WELCOME SECTION ─── -->
-  <section class="welcome-section">
-    <div class="welcome-inner">
-      <div>
-        <p class="slabel">Dashboard</p>
-        <h1 class="welcome-greeting">Welcome back, <span class="gtext" id="welcomeFirstName">Friend</span> 👋</h1>
-        <p class="welcome-sub">Here's what's happening with your SaveHatke account.</p>
-        <div class="welcome-tags">
-          <span class="wtag wtag-verified" id="welcomeVerifiedTag">✅ Email Verified</span>
-          <span class="wtag wtag-member" id="welcomeMemberTag">🏅 Member</span>
-        </div>
-      </div>
-      <div class="welcome-date">
-        <div style="font-size:.78rem;color:#6b88aa">Today</div>
-        <span id="currentDate"></span>
-        <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-xs" id="refreshBtn" onclick="refreshDashboard()" title="Refresh data">🔄 Refresh</button>
-          <span id="lastUpdatedPill" style="font-size:.7rem;color:#6b88aa;font-family:'JetBrains Mono',monospace">updating…</span>
-        </div>
-        <div style="margin-top:8px">
-          <button class="btn btn-primary btn-sm" id="welcomeWithdrawBtn" onclick="openModal('withdrawModal')">💸 Withdraw</button>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ─── STATS CARDS ─── -->
-  <div class="stats-grid" style="margin-top:8px">
-
-    <div class="stat-card sc-blue">
-      <div class="stat-card-top">
-        <div class="stat-icon si-blue">📤</div>
-        <span class="stat-trend trend-up" id="statTrendSubmitted">↑ 0</span>
-      </div>
-      <div class="stat-val" style="color:#4fc3f7" id="statSubmitted">0</div>
-      <div class="stat-lbl">Coupons Submitted</div>
+    <!-- ─── MOBILE SIDEBAR BAR ─── -->
+    <div class="mobile-sb-bar">
+      <button class="mobile-sb-btn" onclick="toggleSidebar()">☰ Menu</button>
+      <span class="mobile-view-title" id="mobileViewTitle">Dashboard</span>
     </div>
 
-    <div class="stat-card sc-purple">
-      <div class="stat-card-top">
-        <div class="stat-icon si-purple">🛒</div>
-        <span class="stat-trend trend-up" id="statTrendPurchased">↑ 0</span>
-      </div>
-      <div class="stat-val" style="color:#ce93d8" id="statPurchased">0</div>
-      <div class="stat-lbl">Coupons Purchased</div>
-    </div>
+    <!-- ═══════════════════════════════════════════════
+         VIEW: DASHBOARD (default active view)
+    ═══════════════════════════════════════════════ -->
+    <div id="view-dashboard" class="db-view active">
+    <div class="container">
 
-    <div class="stat-card sc-orange">
-      <div class="stat-card-top">
-        <div class="stat-icon si-orange">💼</div>
-        <span class="stat-trend trend-up" id="statTrendSold">↑ 0</span>
-      </div>
-      <div class="stat-val" style="color:#ffb74d" id="statSold">0</div>
-      <div class="stat-lbl">Coupons Sold</div>
-    </div>
-
-    <div class="stat-card sc-green">
-      <div class="stat-card-top">
-        <div class="stat-icon si-green">📈</div>
-        <span class="stat-trend trend-up" id="statTrendEarnings">↑ ₹0</span>
-      </div>
-      <div class="stat-val gtext" id="statEarnings">₹0</div>
-      <div class="stat-lbl">Total Earnings</div>
-    </div>
-
-    <div class="stat-card sc-teal">
-      <div class="stat-card-top">
-        <div class="stat-icon si-teal">💰</div>
-        <span class="stat-trend trend-up" id="statTrendBalance">↑ ₹0</span>
-      </div>
-      <div class="stat-val" style="color:#80cbc4" id="statBalance">₹0</div>
-      <div class="stat-lbl">Available Balance</div>
-    </div>
-
-  </div>
-
-  <!-- ─── QUICK ACTIONS ─── -->
-  <div class="sec-row" style="margin-bottom:16px">
-    <p class="slabel" style="margin-bottom:0">Quick Actions</p>
-  </div>
-  <div class="qa-grid">
-
-    <a href="marketplace" class="qa-card">
-      <div class="qa-ico qa-ico-blue">🏷️</div>
-      <div class="qa-title">Buy Coupons</div>
-      <div class="qa-desc">Browse verified coupons at unreal prices</div>
-    </a>
-
-    <a href="sell" class="qa-card">
-      <div class="qa-ico qa-ico-green">💰</div>
-      <div class="qa-title">Sell Coupons</div>
-      <div class="qa-desc">Sell unused coupons and earn instant cash</div>
-    </a>
-
-    <div class="qa-card" onclick="openModal('submitCouponModal')">
-      <div class="qa-ico qa-ico-purple">📤</div>
-      <div class="qa-title">Submit Coupon</div>
-      <div class="qa-desc">Submit a new coupon code for review</div>
-    </div>
-
-    <div class="qa-card" onclick="openModal('withdrawModal')">
-      <div class="qa-ico qa-ico-orange">🏦</div>
-      <div class="qa-title">Withdraw Money</div>
-      <div class="qa-desc">Withdraw balance to your bank or UPI</div>
-    </div>
-
-  </div>
-
-  <!-- ─── ACTIVITY + MY COUPONS ─── -->
-  <div class="two-col">
-
-    <!-- Recent Activity -->
-    <div class="card" id="activity">
-      <div class="card-hdr">
-        <div class="card-title"><span class="ico">⚡</span> Recent Activity</div>
-        <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()" title="Refresh activity">↻ Refresh</button>
-      </div>
-
-      <!-- Desktop table -->
-      <div class="overflow-x activity-desktop">
-        <table>
-          <thead>
-            <tr>
-              <th>Type</th>
-              <th>Details</th>
-              <th>Amount</th>
-              <th>Date</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody id="activityTableBody"></tbody>
-        </table>
-      </div>
-
-      <!-- Mobile cards -->
-      <div class="activity-mobile" id="activityMobile"></div>
-
-    </div>
-
-    <!-- My Coupons -->
-    <div class="card" id="my-coupons">
-      <div class="card-hdr">
-        <div class="card-title"><span class="ico">🎟️</span> My Coupons</div>
-        <a href="marketplace" class="btn btn-ghost btn-sm">View All</a>
-      </div>
-
-      <div class="cs-grid">
-        <div class="cs-item">
-          <div class="cs-num" style="color:#00e676" id="csActiveCount">0</div>
-          <div class="cs-lbl">Active</div>
+      <!-- ─── WELCOME SECTION ─── -->
+      <section class="welcome-section">
+        <div class="welcome-inner">
+          <div>
+            <p class="slabel">Dashboard</p>
+            <h1 class="welcome-greeting">Welcome back, <span class="gtext" id="welcomeFirstName">Friend</span> 👋</h1>
+            <p class="welcome-sub">Here's what's happening with your SaveHatke account.</p>
+            <div class="welcome-tags">
+              <span class="wtag wtag-verified" id="welcomeVerifiedTag">✅ Email Verified</span>
+              <span class="wtag wtag-member" id="welcomeMemberTag">🏅 Member</span>
+            </div>
+          </div>
+          <div class="welcome-date">
+            <div style="font-size:.78rem;color:#6b88aa">Today</div>
+            <span id="currentDate"></span>
+            <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-ghost btn-xs" id="refreshBtn" onclick="refreshDashboard()" title="Refresh data">🔄 Refresh</button>
+              <span id="lastUpdatedPill" style="font-size:.7rem;color:#6b88aa;font-family:'JetBrains Mono',monospace">updating…</span>
+            </div>
+            <div style="margin-top:8px">
+              <button class="btn btn-primary btn-sm" id="welcomeWithdrawBtn" onclick="openModal('withdrawModal')">💸 Withdraw</button>
+            </div>
+          </div>
         </div>
-        <div class="cs-item">
-          <div class="cs-num" style="color:#ffb74d" id="csPendingCount">0</div>
-          <div class="cs-lbl">Pending</div>
+      </section>
+
+      <!-- ─── STATS CARDS ─── -->
+      <div class="stats-grid" style="margin-top:8px">
+
+        <div class="stat-card sc-blue">
+          <div class="stat-card-top">
+            <div class="stat-icon si-blue">📤</div>
+            <span class="stat-trend trend-up" id="statTrendSubmitted">↑ 0</span>
+          </div>
+          <div class="stat-val" style="color:#4fc3f7" id="statSubmitted">0</div>
+          <div class="stat-lbl">Coupons Submitted</div>
         </div>
-        <div class="cs-item">
-          <div class="cs-num" style="color:#ce93d8" id="csSoldCount">0</div>
-          <div class="cs-lbl">Sold</div>
+
+        <div class="stat-card sc-purple">
+          <div class="stat-card-top">
+            <div class="stat-icon si-purple">🛒</div>
+            <span class="stat-trend trend-up" id="statTrendPurchased">↑ 0</span>
+          </div>
+          <div class="stat-val" style="color:#ce93d8" id="statPurchased">0</div>
+          <div class="stat-lbl">Coupons Purchased</div>
         </div>
-        <div class="cs-item">
-          <div class="cs-num" style="color:#6b88aa" id="csExpiredCount">0</div>
-          <div class="cs-lbl">Expired</div>
+
+        <div class="stat-card sc-orange">
+          <div class="stat-card-top">
+            <div class="stat-icon si-orange">💼</div>
+            <span class="stat-trend trend-up" id="statTrendSold">↑ 0</span>
+          </div>
+          <div class="stat-val" style="color:#ffb74d" id="statSold">0</div>
+          <div class="stat-lbl">Coupons Sold</div>
         </div>
+
+        <div class="stat-card sc-green">
+          <div class="stat-card-top">
+            <div class="stat-icon si-green">📈</div>
+            <span class="stat-trend trend-up" id="statTrendEarnings">↑ ₹0</span>
+          </div>
+          <div class="stat-val gtext" id="statEarnings">₹0</div>
+          <div class="stat-lbl">Total Earnings</div>
+        </div>
+
+        <div class="stat-card sc-teal">
+          <div class="stat-card-top">
+            <div class="stat-icon si-teal">💰</div>
+            <span class="stat-trend trend-up" id="statTrendBalance">↑ ₹0</span>
+          </div>
+          <div class="stat-val" style="color:#80cbc4" id="statBalance">₹0</div>
+          <div class="stat-lbl">Available Balance</div>
+        </div>
+
       </div>
 
-      <!-- Active coupons list -->
-      <div style="margin-top:4px">
-        <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Active Coupons</div>
-        <div id="myCouponsList"></div>
+      <!-- ─── QUICK ACTIONS ─── -->
+      <div class="sec-row" style="margin-bottom:16px">
+        <p class="slabel" style="margin-bottom:0">Quick Actions</p>
       </div>
+      <div class="qa-grid">
 
-    </div>
+        <a href="marketplace" class="qa-card">
+          <div class="qa-ico qa-ico-blue">🏷️</div>
+          <div class="qa-title">Buy Coupons</div>
+          <div class="qa-desc">Browse verified coupons at unreal prices</div>
+        </a>
 
-  </div>
+        <a href="sell" class="qa-card">
+          <div class="qa-ico qa-ico-green">💰</div>
+          <div class="qa-title">Sell Coupons</div>
+          <div class="qa-desc">Sell unused coupons and earn instant cash</div>
+        </a>
 
-  <!-- ─── WALLET + SUPPORT + SECURITY ─── -->
-  <div class="three-col">
-
-    <!-- Wallet -->
-    <div class="card" id="wallet">
-      <div class="card-hdr">
-        <div class="card-title"><span class="ico">💰</span> Wallet</div>
-        <span class="badge badge-green">Active</span>
-      </div>
-      <div class="wallet-bal" id="walletBalance">₹0</div>
-      <div class="wallet-sub">Available balance</div>
-      <div class="wallet-stats">
-        <div class="ws-row">
-          <div class="ws-lbl">Pending</div>
-          <div class="ws-val" style="color:#ffb74d" id="walletPending">₹0</div>
+        <div class="qa-card" onclick="openModal('submitCouponModal')">
+          <div class="qa-ico qa-ico-purple">📤</div>
+          <div class="qa-title">Submit Coupon</div>
+          <div class="qa-desc">Submit a new coupon code for review</div>
         </div>
-        <div class="ws-row">
-          <div class="ws-lbl">Total Earned</div>
-          <div class="ws-val" style="color:#00e676" id="walletEarned">₹0</div>
-        </div>
-        <div class="ws-row">
-          <div class="ws-lbl">Withdrawn</div>
-          <div class="ws-val" id="walletWithdrawn">₹0</div>
-        </div>
-        <div class="ws-row">
-          <div class="ws-lbl">This Month</div>
-          <div class="ws-val" style="color:#80cbc4" id="walletThisMonth">₹0</div>
-        </div>
-      </div>
-      <div class="wallet-btns">
-        <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('Transaction history coming soon!','warn')">Transactions</button>
-        <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('withdrawModal')">💸 Withdraw</button>
-      </div>
-    </div>
 
-    <!-- Support -->
-    <div class="card">
-      <div class="card-hdr">
-        <div class="card-title"><span class="ico">🎧</span> Support</div>
-        <a href="support" class="btn btn-ghost btn-sm">Contact Support</a>
+        <div class="qa-card" onclick="openModal('withdrawModal')">
+          <div class="qa-ico qa-ico-orange">🏦</div>
+          <div class="qa-title">Withdraw Money</div>
+          <div class="qa-desc">Withdraw balance to your bank or UPI</div>
+        </div>
+
       </div>
 
-      <div class="support-case-box" id="supportLatestCase">
-        <div class="sc-case-id">No open cases</div>
-        <div class="sc-case-sub">You haven't raised any support tickets yet.</div>
-        <div class="sc-case-meta">
-          <span><span class="badge badge-gray">None</span></span>
+      <!-- ─── ACTIVITY + ACCOUNT SUMMARY ─── -->
+      <div class="two-col">
+
+        <!-- Recent Activity -->
+        <div class="card" id="activity">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">⚡</span> Recent Activity</div>
+            <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()" title="Refresh activity">↻ Refresh</button>
+          </div>
+
+          <!-- Desktop table -->
+          <div class="overflow-x activity-desktop">
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Details</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="activityTableBody"></tbody>
+            </table>
+          </div>
+
+          <!-- Mobile cards -->
+          <div class="activity-mobile" id="activityMobile"></div>
+
+        </div>
+
+        <!-- Account Summary -->
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">📊</span> Account Summary</div>
+            <button class="btn btn-ghost btn-sm" onclick="showView('my-coupons')">View All →</button>
+          </div>
+          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Coupons</div>
+          <div class="ov-row"><span class="ov-lbl">Active</span><span class="ov-val" style="color:#00e676" id="ovActiveCount">0</span></div>
+          <div class="ov-row"><span class="ov-lbl">Pending</span><span class="ov-val" style="color:#ffb74d" id="ovPendingCount">0</span></div>
+          <div class="ov-row"><span class="ov-lbl">Sold</span><span class="ov-val" style="color:#ce93d8" id="ovSoldCount">0</span></div>
+          <div class="ov-row"><span class="ov-lbl">Expired</span><span class="ov-val" style="color:#6b88aa" id="ovExpiredCount">0</span></div>
+          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin:16px 0 10px">Wallet</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600;color:#00e676;line-height:1;margin-bottom:4px" id="ovBalance">₹0</div>
+          <div style="font-size:.74rem;color:#6b88aa;margin-bottom:16px">Available balance</div>
+          <button class="btn btn-primary btn-sm btn-full" onclick="openModal('withdrawModal')">💸 Withdraw</button>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
+            <button class="btn btn-ghost btn-sm btn-full" onclick="showView('wallet')">💼 Wallet Details</button>
+            <button class="btn btn-ghost btn-sm btn-full" onclick="showView('payouts')">💸 Payouts</button>
+          </div>
+        </div>
+
+      </div>
+
+    </div><!-- /container -->
+    </div><!-- /view-dashboard -->
+
+    <!-- ═══════════════════════════════════════════════
+         VIEW: MY COUPONS
+    ═══════════════════════════════════════════════ -->
+    <div id="view-my-coupons" class="db-view">
+    <div class="container">
+
+      <div class="view-hdr">
+        <div>
+          <div class="view-title">My <span class="gtext">Coupons</span></div>
+          <div class="view-subtitle">All your purchased and submitted coupons</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
+          <button class="btn btn-primary btn-sm" onclick="openModal('submitCouponModal')">📤 Submit Coupon</button>
         </div>
       </div>
 
-      <div style="margin-bottom:16px">
-        <div style="font-size:.72rem;color:#6b88aa;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Summary</div>
-        <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0;border-bottom:1px solid rgba(79,195,247,.06)">
-          <span style="color:#6b88aa">Open cases</span>
-          <span style="color:#ffb74d;font-weight:700" id="supportOpenCount">0</span>
+      <div class="card" id="my-coupons">
+        <div class="card-hdr">
+          <div class="card-title"><span class="ico">🎟️</span> My Coupons</div>
+          <a href="marketplace" class="btn btn-ghost btn-sm">Buy More</a>
         </div>
-        <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0">
-          <span style="color:#6b88aa">Total resolved</span>
-          <span style="color:#00e676;font-weight:700" id="supportResolvedCount">0</span>
+
+        <div class="cs-grid">
+          <div class="cs-item">
+            <div class="cs-num" style="color:#00e676" id="csActiveCount">0</div>
+            <div class="cs-lbl">Active</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#ffb74d" id="csPendingCount">0</div>
+            <div class="cs-lbl">Pending</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#ce93d8" id="csSoldCount">0</div>
+            <div class="cs-lbl">Sold</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#6b88aa" id="csExpiredCount">0</div>
+            <div class="cs-lbl">Expired</div>
+          </div>
+        </div>
+
+        <div style="margin-top:4px">
+          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Active Coupons</div>
+          <div id="myCouponsList"></div>
         </div>
       </div>
 
-      <div class="support-btns">
-        <a href="support" class="btn btn-ghost btn-sm" style="flex:1">Contact Support</a>
-        <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('newCaseModal')">+ New Case</button>
-      </div>
-    </div>
+    </div><!-- /container -->
+    </div><!-- /view-my-coupons -->
 
-    <!-- Security -->
-    <div class="card" id="security">
-      <div class="card-hdr">
-        <div class="card-title"><span class="ico">🔒</span> Security</div>
-        <span class="badge badge-green" id="securityStatusBadge">Secure</span>
-      </div>
+    <!-- ═══════════════════════════════════════════════
+         VIEW: WALLET
+    ═══════════════════════════════════════════════ -->
+    <div id="view-wallet" class="db-view">
+    <div class="container">
 
-      <div class="sec-row-item">
-        <span class="sec-lbl">Email</span>
-        <span class="sec-val" id="securityEmail"><span class="sec-dot dot-green"></span>Verified</span>
-      </div>
-      <div class="sec-row-item">
-        <span class="sec-lbl">Account Status</span>
-        <span class="sec-val" id="securityAccountStatus"><span class="sec-dot dot-green"></span>Active</span>
-      </div>
-      <div class="sec-row-item" style="display:block">
-        <span class="sec-lbl">Active Sessions <span style="color:#6b88aa;font-weight:400;text-transform:none;letter-spacing:0">(expire 48h after login)</span></span>
-        <div id="mySessionsList" style="margin-top:8px;font-size:.8rem">
-          <div style="color:#6b88aa">Loading sessions…</div>
+      <div class="view-hdr">
+        <div>
+          <div class="view-title">My <span class="gtext">Wallet</span></div>
+          <div class="view-subtitle">Your earnings, balance, and withdrawal history</div>
         </div>
-        <button class="btn btn-danger btn-sm btn-full" style="margin-top:12px" onclick="revokeAllMySessions()">🚪 Log Out All Devices</button>
-      </div>
-      <div class="sec-row-item">
-        <span class="sec-lbl">2FA</span>
-        <span class="sec-val"><span class="sec-dot dot-orange"></span>Not enabled</span>
-      </div>
-      <div class="sec-row-item">
-        <span class="sec-lbl">Last Login</span>
-        <span class="sec-val" id="securityLastLogin" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">Just now</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
+          <button class="btn btn-primary btn-sm" onclick="openModal('withdrawModal')">💸 Withdraw</button>
+        </div>
       </div>
 
-      <button class="btn btn-ghost btn-sm btn-full" style="margin-top:16px" onclick="showToast('Security settings coming soon!','warn')">🛡️ Security Settings</button>
-    </div>
+      <div class="two-col">
 
-  </div>
+        <!-- Left: Balance + Actions -->
+        <div class="card" id="wallet">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">💰</span> Wallet</div>
+            <span class="badge badge-green">Active</span>
+          </div>
+          <div class="wallet-bal" id="walletBalance">₹0</div>
+          <div class="wallet-sub">Available balance</div>
+          <div style="margin-bottom:20px">
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Quick Actions</div>
+            <div class="wallet-btns">
+              <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('Transaction history coming soon!','warn')">Transactions</button>
+              <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('withdrawModal')">💸 Withdraw</button>
+            </div>
+          </div>
+          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Payout History</div>
+          <button class="btn btn-ghost btn-sm btn-full" onclick="showView('payouts')">💸 View All Payouts →</button>
+        </div>
 
-  <!-- ─── PAYOUTS ─── -->
-  <div class="card" id="payouts" style="margin-top:20px">
-    <div class="card-hdr">
-      <div class="card-title"><span class="ico">💸</span> Payouts</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost btn-sm" onclick="loadMyPayouts()" title="Refresh">↻ Refresh</button>
-        <button class="btn btn-primary btn-sm" onclick="openRequestPayoutModal()">💰 Request Payout</button>
-      </div>
-    </div>
+        <!-- Right: Wallet Stats -->
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">📊</span> Wallet Stats</div>
+          </div>
+          <div class="wallet-stats">
+            <div class="ws-row">
+              <div class="ws-lbl">Pending</div>
+              <div class="ws-val" style="color:#ffb74d" id="walletPending">₹0</div>
+            </div>
+            <div class="ws-row">
+              <div class="ws-lbl">Total Earned</div>
+              <div class="ws-val" style="color:#00e676" id="walletEarned">₹0</div>
+            </div>
+            <div class="ws-row">
+              <div class="ws-lbl">Withdrawn</div>
+              <div class="ws-val" id="walletWithdrawn">₹0</div>
+            </div>
+            <div class="ws-row">
+              <div class="ws-lbl">This Month</div>
+              <div class="ws-val" style="color:#80cbc4" id="walletThisMonth">₹0</div>
+            </div>
+          </div>
+          <div style="margin-top:8px;padding:14px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.12);border-radius:10px">
+            <div style="font-size:.74rem;color:#6b88aa;margin-bottom:6px">How earnings work</div>
+            <div style="font-size:.82rem;color:#a8c0dc;line-height:1.6">You earn <strong style="color:#00e676">₹10</strong> for every coupon you submit that gets sold on the marketplace. Payouts are processed within 1–3 business days.</div>
+          </div>
+        </div>
 
-    <div class="cs-grid" style="margin-bottom:16px">
-      <div class="cs-item">
-        <div class="cs-num gtext" id="payoutsTotalPaid">₹0</div>
-        <div class="cs-lbl">Total Paid</div>
       </div>
-      <div class="cs-item">
-        <div class="cs-num" style="color:#ffb74d" id="payoutsPending">₹0</div>
-        <div class="cs-lbl">Awaiting Payout</div>
-      </div>
-      <div class="cs-item">
-        <div class="cs-num" style="color:#ce93d8" id="payoutsCount">0</div>
-        <div class="cs-lbl">Total Payouts</div>
-      </div>
-      <div class="cs-item">
-        <div class="cs-num" style="color:#6b88aa" id="payoutsRejected">0</div>
-        <div class="cs-lbl">Rejected</div>
-      </div>
-    </div>
 
-    <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Recent Payouts</div>
-    <div id="myPayoutsList"></div>
-  </div>
+    </div><!-- /container -->
+    </div><!-- /view-wallet -->
 
-</div><!-- /container -->
-</div><!-- /dashboardContent -->
+    <!-- ═══════════════════════════════════════════════
+         VIEW: PAYOUTS
+    ═══════════════════════════════════════════════ -->
+    <div id="view-payouts" class="db-view">
+    <div class="container">
+
+      <div class="view-hdr">
+        <div>
+          <div class="view-title">My <span class="gtext">Payouts</span></div>
+          <div class="view-subtitle">Track and request your earnings withdrawals</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
+          <button class="btn btn-ghost btn-sm" onclick="refreshDashboard({silent:true})" title="Refresh">↻ Refresh</button>
+          <button class="btn btn-primary btn-sm" onclick="openRequestPayoutModal()">💰 Request Payout</button>
+        </div>
+      </div>
+
+      <div class="card" id="payouts">
+        <div class="card-hdr">
+          <div class="card-title"><span class="ico">💸</span> Payouts</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="loadMyPayouts()" title="Refresh">↻ Refresh</button>
+            <button class="btn btn-primary btn-sm" onclick="openRequestPayoutModal()">💰 Request Payout</button>
+          </div>
+        </div>
+
+        <div class="cs-grid" style="margin-bottom:16px">
+          <div class="cs-item">
+            <div class="cs-num gtext" id="payoutsTotalPaid">₹0</div>
+            <div class="cs-lbl">Total Paid</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#ffb74d" id="payoutsPending">₹0</div>
+            <div class="cs-lbl">Awaiting Payout</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#ce93d8" id="payoutsCount">0</div>
+            <div class="cs-lbl">Total Payouts</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#6b88aa" id="payoutsRejected">0</div>
+            <div class="cs-lbl">Rejected</div>
+          </div>
+        </div>
+
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Recent Payouts</div>
+        <div id="myPayoutsList"></div>
+      </div>
+
+    </div><!-- /container -->
+    </div><!-- /view-payouts -->
+
+    <!-- ═══════════════════════════════════════════════
+         VIEW: SECURITY
+    ═══════════════════════════════════════════════ -->
+    <div id="view-security" class="db-view">
+    <div class="container">
+
+      <div class="view-hdr">
+        <div>
+          <div class="view-title">Account <span class="gtext">Security</span></div>
+          <div class="view-subtitle">Manage your account security and active sessions</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
+      </div>
+
+      <div class="card" id="security">
+        <div class="card-hdr">
+          <div class="card-title"><span class="ico">🔒</span> Security</div>
+          <span class="badge badge-green" id="securityStatusBadge">Secure</span>
+        </div>
+
+        <div class="sec-row-item">
+          <span class="sec-lbl">Email</span>
+          <span class="sec-val" id="securityEmail"><span class="sec-dot dot-green"></span>Verified</span>
+        </div>
+        <div class="sec-row-item">
+          <span class="sec-lbl">Account Status</span>
+          <span class="sec-val" id="securityAccountStatus"><span class="sec-dot dot-green"></span>Active</span>
+        </div>
+        <div class="sec-row-item" style="display:block">
+          <span class="sec-lbl">Active Sessions <span style="color:#6b88aa;font-weight:400;text-transform:none;letter-spacing:0">(expire 48h after login)</span></span>
+          <div id="mySessionsList" style="margin-top:8px;font-size:.8rem">
+            <div style="color:#6b88aa">Loading sessions…</div>
+          </div>
+          <button class="btn btn-danger btn-sm btn-full" style="margin-top:12px" onclick="revokeAllMySessions()">🚪 Log Out All Devices</button>
+        </div>
+        <div class="sec-row-item">
+          <span class="sec-lbl">2FA</span>
+          <span class="sec-val"><span class="sec-dot dot-orange"></span>Not enabled</span>
+        </div>
+        <div class="sec-row-item">
+          <span class="sec-lbl">Last Login</span>
+          <span class="sec-val" id="securityLastLogin" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">Just now</span>
+        </div>
+
+        <button class="btn btn-ghost btn-sm btn-full" style="margin-top:16px" onclick="showToast('Security settings coming soon!','warn')">🛡️ Security Settings</button>
+      </div>
+
+    </div><!-- /container -->
+    </div><!-- /view-security -->
+
+    <!-- ═══════════════════════════════════════════════
+         VIEW: SUPPORT
+    ═══════════════════════════════════════════════ -->
+    <div id="view-support" class="db-view">
+    <div class="container">
+
+      <div class="view-hdr">
+        <div>
+          <div class="view-title">Help &amp; <span class="gtext">Support</span></div>
+          <div class="view-subtitle">Raise tickets and track your support cases</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
+          <button class="btn btn-primary btn-sm" onclick="openModal('newCaseModal')">+ New Case</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title"><span class="ico">🎧</span> Support</div>
+          <a href="support" class="btn btn-ghost btn-sm">Contact Support</a>
+        </div>
+
+        <div class="support-case-box" id="supportLatestCase">
+          <div class="sc-case-id">No open cases</div>
+          <div class="sc-case-sub">You haven't raised any support tickets yet.</div>
+          <div class="sc-case-meta">
+            <span><span class="badge badge-gray">None</span></span>
+          </div>
+        </div>
+
+        <div style="margin-bottom:16px">
+          <div style="font-size:.72rem;color:#6b88aa;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Summary</div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0;border-bottom:1px solid rgba(79,195,247,.06)">
+            <span style="color:#6b88aa">Open cases</span>
+            <span style="color:#ffb74d;font-weight:700" id="supportOpenCount">0</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0">
+            <span style="color:#6b88aa">Total resolved</span>
+            <span style="color:#00e676;font-weight:700" id="supportResolvedCount">0</span>
+          </div>
+        </div>
+
+        <div class="support-btns">
+          <a href="support" class="btn btn-ghost btn-sm" style="flex:1">Contact Support</a>
+          <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('newCaseModal')">+ New Case</button>
+        </div>
+      </div>
+
+    </div><!-- /container -->
+    </div><!-- /view-support -->
+
+  </div><!-- /dashboardContent -->
 </div><!-- /db-content -->
 </div><!-- /db-wrap -->
 
@@ -835,6 +1070,8 @@
     </div>
   </div>
 </footer>
+
+</div><!-- /pageWrapper -->
 
 <!-- =====================================================
      MODALS
@@ -1185,6 +1422,12 @@
     document.getElementById('profileAvatar').innerHTML = avatarContent;
     document.getElementById('pdAvatar').innerHTML = avatarContent;
 
+    // Sidebar avatar, name, email
+    const sbAv = document.getElementById('sbAvatar');
+    if (sbAv) sbAv.innerHTML = avatarContent;
+    if (document.getElementById('sbName')) document.getElementById('sbName').textContent = name.split(' ')[0] || name;
+    if (document.getElementById('sbEmail')) document.getElementById('sbEmail').textContent = email;
+
     const secEmail = document.getElementById('securityEmail');
     if (secEmail) secEmail.innerHTML = `<span class="sec-dot dot-green"></span>${escapeHtml(email || 'Verified')}`;
 
@@ -1309,6 +1552,9 @@
     setText('walletWithdrawn', inr(0)); // no withdrawal flow exists yet
     setText('walletThisMonth', inr(monthEarnings));
 
+    // Overview balance in account summary
+    setText('ovBalance', inr(availableBalance));
+
     // Welcome withdraw button — adapts to the real balance
     const wBtn = document.getElementById('welcomeWithdrawBtn');
     if (wBtn) {
@@ -1364,6 +1610,12 @@
     setText('csPendingCount', pending.length);
     setText('csSoldCount', sold.length);
     setText('csExpiredCount', 0); // backend doesn't track expiry
+
+    // Update overview summary counters in account summary card
+    setText('ovActiveCount', active.length);
+    setText('ovPendingCount', pending.length);
+    setText('ovSoldCount', sold.length);
+    setText('ovExpiredCount', 0);
 
     // List — newest first
     const list = [...active, ...sold, ...pending]
@@ -1803,6 +2055,15 @@
 
     // Device sessions (48-hour server-side sessions)
     loadMySessions();
+
+    // Intercept navbar hash links to use view system
+    document.getElementById('navMyCoupons')?.addEventListener('click', e => { e.preventDefault(); showView('my-coupons'); });
+    document.getElementById('navWallet')?.addEventListener('click', e => { e.preventDefault(); showView('wallet'); });
+
+    // Handle URL hash on load
+    const hash = window.location.hash.replace('#', '');
+    const validViews = ['my-coupons', 'wallet', 'payouts', 'security', 'support'];
+    if (validViews.includes(hash)) showView(hash);
   });
 
   // ─── Device sessions (48-hour server-side sessions) ────────────
@@ -2133,11 +2394,43 @@
     }, duration);
   }
 
-  // ─── Smooth scroll ─────────────────────────────────────────────
+  // ─── Smooth scroll / View navigation ───────────────────────────
   function scrollToSec(id) {
-    const el = document.getElementById(id);
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    const viewMap = { security: 'security', 'my-coupons': 'my-coupons', wallet: 'wallet', payouts: 'payouts' };
+    if (viewMap[id]) { showView(viewMap[id]); }
+    else { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: 'smooth' }); }
     document.getElementById('profileDropdown')?.classList.remove('open');
+  }
+
+  // ─── View switching ────────────────────────────────────────────
+  function showView(name) {
+    document.querySelectorAll('.db-view').forEach(v => v.classList.remove('active'));
+    const view = document.getElementById('view-' + name);
+    if (view) view.classList.add('active');
+    document.querySelectorAll('.sb-item[data-view]').forEach(item => {
+      item.classList.toggle('active', item.dataset.view === name);
+    });
+    const titles = { dashboard: 'Dashboard', 'my-coupons': 'My Coupons', wallet: 'Wallet', payouts: 'Payouts', security: 'Security', support: 'Support' };
+    const titleEl = document.getElementById('mobileViewTitle');
+    if (titleEl) titleEl.textContent = titles[name] || name;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (window.innerWidth <= 960) closeSidebar();
+  }
+
+  function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebarOverlay').classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarOverlay').classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.contains('open') ? closeSidebar() : openSidebar();
   }
 
 </script>
