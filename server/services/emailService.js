@@ -479,163 +479,531 @@ SaveHatke Support Team
   <!DOCTYPE html>
   <html lang="en">
   <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark">
-    <title>SaveHatke Support — Your support request has been received</title>
+    <title>Support Request Received — SaveHatke</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: 'Outfit', sans-serif;
+        background: #060d1f;
+        color: #e2ecff;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 48px 16px 64px;
+      }
+
+      /* Background mesh */
+      .bg-mesh {
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(ellipse 70% 55% at 15% 20%, rgba(0,230,118,.06) 0%, transparent 65%),
+          radial-gradient(ellipse 60% 70% at 85% 80%, rgba(79,195,247,.05) 0%, transparent 65%);
+        pointer-events: none;
+        z-index: 0;
+      }
+      .bg-grid {
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(79,195,247,.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(79,195,247,.03) 1px, transparent 1px);
+        background-size: 52px 52px;
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      /* Wrapper */
+      .email-wrapper {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-width: 620px;
+      }
+
+      /* Top brand bar */
+      .email-header {
+        text-align: center;
+        margin-bottom: 32px;
+      }
+      .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: #e2ecff;
+        font-size: 1.3rem;
+        font-weight: 800;
+      }
+      .brand-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #00e676, #4fc3f7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        flex-shrink: 0;
+      }
+      .bhl { color: #00e676; }
+
+      /* Main email card */
+      .email-card {
+        background: rgba(15, 30, 58, 0.92);
+        border: 1px solid rgba(79, 195, 247, 0.15);
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+      }
+
+      /* Email card top banner */
+      .email-banner {
+        background: linear-gradient(135deg, rgba(0,230,118,.12) 0%, rgba(79,195,247,.08) 100%);
+        border-bottom: 1px solid rgba(0, 230, 118, 0.18);
+        padding: 36px 40px 32px;
+        text-align: center;
+      }
+      .banner-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #00e676, #00c853);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.9rem;
+        margin: 0 auto 20px;
+        box-shadow: 0 12px 32px rgba(0, 230, 118, 0.3);
+      }
+      .banner-title {
+        font-family: 'DM Serif Display', serif;
+        font-size: clamp(1.55rem, 3vw, 2rem);
+        line-height: 1.2;
+        margin-bottom: 8px;
+        color: #e2ecff;
+      }
+      .banner-sub {
+        font-size: 0.92rem;
+        color: #a8c0dc;
+        line-height: 1.6;
+      }
+      .gtext {
+        background: linear-gradient(135deg, #00e676, #4fc3f7);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+      }
+
+      /* Email body */
+      .email-body {
+        padding: 36px 40px;
+      }
+
+      /* Greeting */
+      .greeting {
+        font-size: 1rem;
+        color: #a8c0dc;
+        line-height: 1.7;
+        margin-bottom: 28px;
+      }
+      .greeting strong {
+        color: #e2ecff;
+        font-weight: 700;
+      }
+
+      /* Case details card */
+      .case-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(79, 195, 247, 0.12);
+        border-radius: 14px;
+        overflow: hidden;
+        margin-bottom: 28px;
+      }
+      .case-card-hdr {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 14px 20px;
+        background: rgba(0, 230, 118, 0.06);
+        border-bottom: 1px solid rgba(0, 230, 118, 0.12);
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #00e676;
+      }
+      .case-fields {
+        padding: 6px 0;
+      }
+      .case-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 13px 20px;
+        border-bottom: 1px solid rgba(79, 195, 247, 0.06);
+        gap: 16px;
+      }
+      .case-row:last-child {
+        border-bottom: none;
+      }
+      .case-label {
+        font-size: 0.8rem;
+        color: #6b88aa;
+        font-weight: 600;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+      .case-value {
+        font-size: 0.88rem;
+        color: #e2ecff;
+        font-weight: 600;
+        text-align: right;
+      }
+      .case-value.mono {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+      }
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(0, 230, 118, 0.1);
+        border: 1px solid rgba(0, 230, 118, 0.28);
+        color: #00e676;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding: 4px 12px;
+        border-radius: 9999px;
+      }
+      .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: #00e676;
+        animation: pulse 2s ease infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.4; }
+      }
+
+      /* Message block */
+      .msg-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #6b88aa;
+        margin-bottom: 12px;
+      }
+      .msg-box {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(79, 195, 247, 0.1);
+        border-left: 3px solid rgba(0, 230, 118, 0.5);
+        border-radius: 0 12px 12px 0;
+        padding: 18px 20px;
+        font-size: 0.9rem;
+        color: #a8c0dc;
+        line-height: 1.75;
+        margin-bottom: 28px;
+        word-break: break-word;
+        white-space: pre-wrap;
+      }
+
+      /* Info notice */
+      .info-notice {
+        background: rgba(79, 195, 247, 0.05);
+        border: 1px solid rgba(79, 195, 247, 0.15);
+        border-radius: 12px;
+        padding: 18px 20px;
+        font-size: 0.88rem;
+        color: #a8c0dc;
+        line-height: 1.7;
+        margin-bottom: 28px;
+      }
+      .info-notice strong {
+        color: #4fc3f7;
+      }
+
+      /* Case ID highlight */
+      .case-id-callout {
+        background: rgba(0, 230, 118, 0.06);
+        border: 1px solid rgba(0, 230, 118, 0.2);
+        border-radius: 12px;
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 28px;
+        flex-wrap: wrap;
+      }
+      .case-id-text {
+        font-size: 0.83rem;
+        color: #a8c0dc;
+      }
+      .case-id-text strong {
+        color: #e2ecff;
+      }
+      .case-id-badge {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #00e676;
+        background: rgba(0, 230, 118, 0.1);
+        border: 1px solid rgba(0, 230, 118, 0.25);
+        padding: 6px 14px;
+        border-radius: 8px;
+        white-space: nowrap;
+      }
+
+      /* CTA Button */
+      .cta-wrap {
+        text-align: center;
+        margin-bottom: 28px;
+      }
+      .cta-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0 36px;
+        height: 50px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #00e676, #00c853);
+        color: #060d1f;
+        font-family: 'Outfit', sans-serif;
+        font-size: 0.95rem;
+        font-weight: 700;
+        text-decoration: none;
+        border: none;
+        cursor: pointer;
+        transition: all 0.22s;
+        box-shadow: 0 8px 24px rgba(0, 230, 118, 0.3);
+      }
+      .cta-btn:hover {
+        opacity: 0.88;
+        transform: translateY(-2px);
+        box-shadow: 0 12px 32px rgba(0, 230, 118, 0.45);
+      }
+
+      /* Divider */
+      .divider {
+        height: 1px;
+        background: rgba(79, 195, 247, 0.08);
+        margin: 0 0 28px;
+      }
+
+      /* Warning notice */
+      .warn-notice {
+        background: rgba(255, 183, 77, 0.05);
+        border: 1px solid rgba(255, 183, 77, 0.15);
+        border-radius: 10px;
+        padding: 14px 18px;
+        font-size: 0.82rem;
+        color: #a8c0dc;
+        line-height: 1.65;
+        margin-bottom: 28px;
+      }
+      .warn-notice strong {
+        color: #ffb74d;
+      }
+
+      /* Sign-off */
+      .signoff {
+        font-size: 0.9rem;
+        color: #a8c0dc;
+        line-height: 1.75;
+      }
+      .signoff strong {
+        color: #e2ecff;
+        font-weight: 700;
+      }
+
+      /* Email footer */
+      .email-footer {
+        background: rgba(9, 16, 34, 0.8);
+        border-top: 1px solid rgba(79, 195, 247, 0.08);
+        padding: 24px 40px;
+        text-align: center;
+      }
+      .footer-links {
+        display: flex;
+        justify-content: center;
+        gap: 24px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+      .footer-links a {
+        font-size: 0.78rem;
+        color: #6b88aa;
+        text-decoration: none;
+        transition: color 0.2s;
+      }
+      .footer-links a:hover {
+        color: #00e676;
+      }
+      .footer-copy {
+        font-size: 0.76rem;
+        color: rgba(107, 136, 170, 0.7);
+      }
+
+      /* Bottom brand note */
+      .bottom-note {
+        text-align: center;
+        margin-top: 24px;
+        font-size: 0.75rem;
+        color: rgba(107, 136, 170, 0.6);
+      }
+
+      @media (max-width: 600px) {
+        body { padding: 28px 12px 48px; }
+        .email-banner { padding: 28px 24px 24px; }
+        .email-body { padding: 28px 24px; }
+        .email-footer { padding: 20px 24px; }
+        .case-row { flex-direction: column; align-items: flex-start; gap: 4px; }
+        .case-value { text-align: left; }
+        .case-id-callout { flex-direction: column; align-items: flex-start; }
+      }
+    </style>
   </head>
-  <body style="margin:0;padding:0;background-color:#060d1f;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e2ecff;-webkit-font-smoothing:antialiased;">
-    <!-- Preheader (inbox preview line — hidden in the email body) -->
-    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your support request has been received — Case #${safeCaseId} is now open.</div>
+  <body>
 
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#060d1f;padding:40px 15px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" style="max-width:560px;background:#0c1835;border:1px solid rgba(79,195,247,0.2);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);" cellspacing="0" cellpadding="0" border="0">
+  <!-- Preheader (hidden inbox preview line) -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your support request has been received — Case #${safeCaseId} is now open.</div>
 
-            <!-- Top gradient accent strip (site signature green→blue) -->
-            <tr>
-              <td style="height:5px;background:linear-gradient(90deg,#00e676,#4fc3f7);font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
+  <div class="bg-mesh"></div>
+  <div class="bg-grid"></div>
 
-            <!-- Header / Hero -->
-            <tr>
-              <td style="padding:34px 36px 22px;text-align:center;background:radial-gradient(ellipse at top, rgba(0,230,118,0.10) 0%, transparent 70%);">
-                <div style="display:inline-block;padding:8px 16px;background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);border-radius:10px;margin-bottom:14px;">
-                  <span style="font-size:1.1rem;font-weight:900;color:#00e676;letter-spacing:0.5px;">💰 SaveHatke</span>
-                </div>
-                <div style="font-size:2rem;line-height:1;margin-bottom:8px;">🛟</div>
-                <h1 style="margin:0;font-size:1.45rem;font-weight:800;color:#ffffff;line-height:1.3;">SaveHatke Support</h1>
-                <p style="margin:8px 0 0;font-size:0.92rem;color:#a8c0dc;">Your support request has been received</p>
-              </td>
-            </tr>
+  <div class="email-wrapper">
 
-            <!-- Greeting -->
-            <tr>
-              <td style="padding:20px 36px 0;">
-                <p style="margin:0 0 14px;font-size:1rem;color:#e2ecff;line-height:1.6;">Hello <strong style="color:#00e676;">${safeName}</strong>,</p>
-                <p style="margin:0 0 20px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">We've received your support request and created a case for it.</p>
-              </td>
-            </tr>
+    <!-- Brand Header -->
+    <div class="email-header">
+      <a href="${siteUrl}/index.html" class="brand-link">
+        <div class="brand-icon">💰</div>
+        <span>Save<span class="bhl">Hatke</span></span>
+      </a>
+    </div>
 
-            <!-- Case details card -->
-            <tr>
-              <td style="padding:0 36px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(79,195,247,0.05);border:1px solid rgba(79,195,247,0.15);border-radius:14px;">
-                  <tr>
-                    <td style="padding:18px 20px 6px;">
-                      <p style="margin:0 0 14px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">🎫 &nbsp;<strong style="color:#8ba2c4;">Case ID</strong></p>
-                    </td>
-                    <td style="padding:18px 20px 6px;" align="right">
-                      <p style="margin:0 0 14px;font-family:'Courier New',Courier,monospace;font-size:0.88rem;font-weight:700;color:#4fc3f7;line-height:1.6;">#${safeCaseId}</p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:0 20px;border-top:1px solid rgba(79,195,247,0.08);">
-                      <p style="margin:12px 0;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">📝 &nbsp;<strong style="color:#8ba2c4;">Subject</strong></p>
-                    </td>
-                    <td style="padding:0 20px;border-top:1px solid rgba(79,195,247,0.08);" align="right">
-                      <p style="margin:12px 0;font-size:0.88rem;color:#e2ecff;font-weight:600;line-height:1.6;">${safeSubject}</p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:0 20px;border-top:1px solid rgba(79,195,247,0.08);">
-                      <p style="margin:12px 0;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">🕐 &nbsp;<strong style="color:#8ba2c4;">Created</strong></p>
-                    </td>
-                    <td style="padding:0 20px;border-top:1px solid rgba(79,195,247,0.08);" align="right">
-                      <p style="margin:12px 0;font-size:0.88rem;color:#e2ecff;line-height:1.6;">${escapeHtml(createdDate)} IST</p>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding:0 20px 16px;border-top:1px solid rgba(79,195,247,0.08);">
-                      <p style="margin:12px 0;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">⚡ &nbsp;<strong style="color:#8ba2c4;">Status</strong></p>
-                    </td>
-                    <td style="padding:0 20px 16px;border-top:1px solid rgba(79,195,247,0.08);" align="right">
-                      <span style="display:inline-block;padding:3px 12px;border-radius:999px;background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);color:#00e676;font-weight:700;font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;">● Open</span>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
+    <!-- Email Card -->
+    <div class="email-card">
 
-            <!-- Your Message -->
-            <tr>
-              <td style="padding:24px 36px 0;">
-                <p style="margin:0 0 10px;font-size:0.75rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#4fc3f7;">Your Message</p>
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(79,195,247,0.1);border-left:3px solid #00e676;border-radius:12px;padding:16px 18px;">
-                  <p style="margin:0;font-size:0.9rem;color:#e2ecff;line-height:1.7;white-space:pre-wrap;">${safeMessage}</p>
-                </div>
-              </td>
-            </tr>
+      <!-- Banner -->
+      <div class="email-banner">
+        <div class="banner-icon">🎧</div>
+        <h1 class="banner-title">Support Request <span class="gtext">Received</span></h1>
+        <p class="banner-sub">We've got your message and are on it.</p>
+      </div>
 
-            <!-- Body copy -->
-            <tr>
-              <td style="padding:20px 36px 0;">
-                <p style="margin:0 0 12px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Our support team will review your request and get back to you as soon as possible.</p>
-              </td>
-            </tr>
+      <!-- Body -->
+      <div class="email-body">
 
-            <!-- Case ID reference note -->
-            <tr>
-              <td style="padding:0 36px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(0,230,118,0.05);border:1px solid rgba(0,230,118,0.15);border-radius:12px;">
-                  <tr>
-                    <td style="padding:14px 18px;">
-                      <p style="margin:0;font-size:0.88rem;color:#a8c0dc;line-height:1.7;">Please keep your <strong style="color:#4fc3f7;">Case ID <span style="font-family:'Courier New',Courier,monospace;">#${safeCaseId}</span></strong> for future reference when contacting SaveHatke Support about this request.</p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
+        <!-- Greeting -->
+        <p class="greeting">
+          Hello <strong>${safeName}</strong>,<br><br>
+          We've received your support request and a case has been created for it. Our support team will review your request and get back to you as soon as possible.
+        </p>
 
-            <!-- CTA -->
-            <tr>
-              <td style="padding:26px 36px 6px;" align="center">
-                <a href="${viewUrl}" style="display:inline-block;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f !important;text-decoration:none;font-weight:800;font-size:0.95rem;padding:14px 30px;border-radius:12px;box-shadow:0 8px 24px rgba(0,230,118,0.25);">View Support Request →</a>
-                <p style="margin:14px 0 0;font-size:0.74rem;color:#5a789a;line-height:1.5;">If the button doesn't work, copy this link into your browser:<br><a href="${viewUrl}" style="color:#4fc3f7;text-decoration:none;word-break:break-all;">${viewUrl}</a></p>
-              </td>
-            </tr>
+        <!-- Case Details -->
+        <div class="case-card">
+          <div class="case-card-hdr">
+            📋 &nbsp;Case Details
+          </div>
+          <div class="case-fields">
+            <div class="case-row">
+              <span class="case-label">Case ID</span>
+              <span class="case-value mono">#${safeCaseId}</span>
+            </div>
+            <div class="case-row">
+              <span class="case-label">Subject</span>
+              <span class="case-value">${safeSubject}</span>
+            </div>
+            <div class="case-row">
+              <span class="case-label">Created</span>
+              <span class="case-value mono">${escapeHtml(createdDate)} IST</span>
+            </div>
+            <div class="case-row">
+              <span class="case-label">Status</span>
+              <span class="case-value">
+                <span class="status-pill">
+                  <span class="status-dot"></span>
+                  Open
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
 
-            <!-- Security note -->
-            <tr>
-              <td style="padding:18px 36px 0;">
-                <div style="background:rgba(255,183,77,0.05);border:1px solid rgba(255,183,77,0.2);border-radius:12px;padding:12px 16px;">
-                  <p style="margin:0;font-size:0.8rem;color:#ffb74d;line-height:1.5;">⚠️ If you did not submit this request, please contact us immediately.</p>
-                </div>
-              </td>
-            </tr>
+        <!-- User Message -->
+        <div class="msg-label">Your Message</div>
+        <div class="msg-box">${safeMessage}</div>
 
-            <!-- Sign-off -->
-            <tr>
-              <td style="padding:24px 36px 6px;">
-                <p style="margin:0;font-size:0.88rem;color:#8ba2c4;line-height:1.5;">Regards,<br><strong style="color:#e2ecff;">SaveHatke Support Team</strong></p>
-              </td>
-            </tr>
+        <!-- Info -->
+        <div class="info-notice">
+          Our support team will review your request and get back to you as soon as possible. Response times are typically <strong>within 2–4 hours</strong> on business days.
+        </div>
 
-            <!-- Footer -->
-            <tr>
-              <td style="padding:26px 36px 20px;background:rgba(6,13,31,0.6);border-top:1px solid rgba(79,195,247,0.1);">
-                <p style="margin:0 0 12px;text-align:center;font-size:0.82rem;color:#6b88aa;">
-                  <a href="${siteUrl}/index.html" style="color:#6b88aa;text-decoration:none;">Home</a> &nbsp;·&nbsp;
-                  <a href="${siteUrl}/marketplace.html" style="color:#6b88aa;text-decoration:none;">Coupons</a> &nbsp;·&nbsp;
-                  <a href="${siteUrl}/sell.html" style="color:#6b88aa;text-decoration:none;">Sell</a> &nbsp;·&nbsp;
-                  <a href="${siteUrl}/support.html" style="color:#6b88aa;text-decoration:none;">Support</a> &nbsp;·&nbsp;
-                  <a href="${siteUrl}/terms.html" style="color:#6b88aa;text-decoration:none;">Terms</a> &nbsp;·&nbsp;
-                  <a href="${siteUrl}/privacy.html" style="color:#6b88aa;text-decoration:none;">Privacy</a>
-                </p>
-                <p style="margin:0 0 4px;text-align:center;font-size:0.78rem;color:#5a789a;">© ${year} SaveHatke. All rights reserved.</p>
-                <p style="margin:0;text-align:center;font-size:0.72rem;color:#4a6890;">You're receiving this because you submitted a support request on SaveHatke.</p>
-              </td>
-            </tr>
+        <!-- Case ID Callout -->
+        <div class="case-id-callout">
+          <div class="case-id-text">
+            Keep your <strong>Case ID</strong> handy for future reference when contacting SaveHatke Support about this request.
+          </div>
+          <div class="case-id-badge">#${safeCaseId}</div>
+        </div>
 
-            <!-- Bottom gradient accent strip -->
-            <tr>
-              <td style="height:4px;background:linear-gradient(90deg,#4fc3f7,#00e676);font-size:0;line-height:0;">&nbsp;</td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
+        <!-- CTA -->
+        <div class="cta-wrap">
+          <a href="${viewUrl}" class="cta-btn">
+            🔍 View Support Request
+          </a>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Warning -->
+        <div class="warn-notice">
+          ⚠️ <strong>Didn't submit this request?</strong> If you did not submit this support request, please contact us immediately at <strong><a href="mailto:support@savehatke.com" style="color:#ffb74d;text-decoration:none;">support@savehatke.com</a></strong> so we can secure your account.
+        </div>
+
+        <!-- Sign-off -->
+        <div class="signoff">
+          Regards,<br>
+          <strong>SaveHatke Support Team</strong>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="email-footer">
+        <div class="footer-links">
+          <a href="${siteUrl}/support.html">Help Center</a>
+          <a href="${siteUrl}/privacy.html">Privacy Policy</a>
+          <a href="${siteUrl}/terms.html">Terms &amp; Conditions</a>
+          <a href="${siteUrl}/marketplace.html">Marketplace</a>
+        </div>
+        <div class="footer-copy">© ${year} SaveHatke. All rights reserved. &nbsp;·&nbsp; Made with ❤️ in India</div>
+      </div>
+
+    </div>
+
+    <div class="bottom-note">
+      This is an automated email from SaveHatke Support. Please do not reply directly to this email.
+    </div>
+
+  </div>
+
   </body>
   </html>
   `;
