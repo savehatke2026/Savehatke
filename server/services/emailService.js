@@ -477,26 +477,36 @@ SaveHatke Support Team
 
   const htmlContent = `
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark">
     <title>SaveHatke Support — Your support request has been received</title>
   </head>
-  <body style="margin:0;padding:0;background-color:#060d1f;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e2ecff;">
+  <body style="margin:0;padding:0;background-color:#060d1f;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e2ecff;-webkit-font-smoothing:antialiased;">
+    <!-- Preheader (inbox preview line — hidden in the email body) -->
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your support request has been received — Case #${safeCaseId} is now open.</div>
+
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#060d1f;padding:40px 15px;">
       <tr>
         <td align="center">
           <table role="presentation" width="100%" style="max-width:560px;background:#0c1835;border:1px solid rgba(79,195,247,0.2);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);" cellspacing="0" cellpadding="0" border="0">
-            <!-- Header -->
+
+            <!-- Top gradient accent strip (site signature green→blue) -->
             <tr>
-              <td style="padding:32px 36px 20px;text-align:center;background:radial-gradient(ellipse at top, rgba(0,230,118,0.10) 0%, transparent 70%);">
+              <td style="height:5px;background:linear-gradient(90deg,#00e676,#4fc3f7);font-size:0;line-height:0;">&nbsp;</td>
+            </tr>
+
+            <!-- Header / Hero -->
+            <tr>
+              <td style="padding:34px 36px 22px;text-align:center;background:radial-gradient(ellipse at top, rgba(0,230,118,0.10) 0%, transparent 70%);">
                 <div style="display:inline-block;padding:8px 16px;background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);border-radius:10px;margin-bottom:14px;">
                   <span style="font-size:1.1rem;font-weight:900;color:#00e676;letter-spacing:0.5px;">💰 SaveHatke</span>
                 </div>
                 <div style="font-size:2rem;line-height:1;margin-bottom:8px;">🛟</div>
-                <h1 style="margin:0;font-size:1.5rem;font-weight:800;color:#ffffff;line-height:1.3;">SaveHatke Support</h1>
-                <p style="margin:8px 0 0;font-size:0.95rem;color:#a8c0dc;">Your support request has been received</p>
+                <h1 style="margin:0;font-size:1.45rem;font-weight:800;color:#ffffff;line-height:1.3;">SaveHatke Support</h1>
+                <p style="margin:8px 0 0;font-size:0.92rem;color:#a8c0dc;">Your support request has been received</p>
               </td>
             </tr>
 
@@ -504,20 +514,44 @@ SaveHatke Support Team
             <tr>
               <td style="padding:20px 36px 0;">
                 <p style="margin:0 0 14px;font-size:1rem;color:#e2ecff;line-height:1.6;">Hello <strong style="color:#00e676;">${safeName}</strong>,</p>
-                <p style="margin:0 0 18px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">We've received your support request and created a case for it.</p>
+                <p style="margin:0 0 20px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">We've received your support request and created a case for it.</p>
               </td>
             </tr>
 
-            <!-- Case details -->
+            <!-- Case details card -->
             <tr>
               <td style="padding:0 36px;">
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(79,195,247,0.04);border:1px solid rgba(79,195,247,0.12);border-radius:12px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(79,195,247,0.05);border:1px solid rgba(79,195,247,0.15);border-radius:14px;">
                   <tr>
-                    <td style="padding:16px 20px;">
-                      <p style="margin:0 0 10px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;"><strong style="color:#8ba2c4;">Case ID:</strong> &nbsp;<span style="font-family:'Courier New',Courier,monospace;color:#4fc3f7;font-weight:700;">#${safeCaseId}</span></p>
-                      <p style="margin:0 0 10px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;"><strong style="color:#8ba2c4;">Subject:</strong> &nbsp;${safeSubject}</p>
-                      <p style="margin:0 0 10px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;"><strong style="color:#8ba2c4;">Created:</strong> &nbsp;${escapeHtml(createdDate)}</p>
-                      <p style="margin:0;font-size:0.88rem;color:#a8c0dc;line-height:1.6;"><strong style="color:#8ba2c4;">Status:</strong> &nbsp;<span style="display:inline-block;padding:2px 10px;border-radius:6px;background:rgba(0,230,118,0.12);color:#00e676;font-weight:700;font-size:0.76rem;letter-spacing:0.05em;text-transform:uppercase;">Open</span></p>
+                    <td style="padding:18px 20px 6px;">
+                      <p style="margin:0 0 14px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">🎫 &nbsp;<strong style="color:#8ba2c4;">Case ID</strong></p>
+                    </td>
+                    <td style="padding:18px 20px 6px;" align="right">
+                      <p style="margin:0 0 14px;font-family:'Courier New',Courier,monospace;font-size:0.88rem;font-weight:700;color:#4fc3f7;line-height:1.6;">#${safeCaseId}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 20px;border-top:1px solid rgba(79,195,247,0.08);">
+                      <p style="margin:12px 0;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">📝 &nbsp;<strong style="color:#8ba2c4;">Subject</strong></p>
+                    </td>
+                    <td style="padding:0 20px;border-top:1px solid rgba(79,195,247,0.08);" align="right">
+                      <p style="margin:12px 0;font-size:0.88rem;color:#e2ecff;font-weight:600;line-height:1.6;">${safeSubject}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 20px;border-top:1px solid rgba(79,195,247,0.08);">
+                      <p style="margin:12px 0;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">🕐 &nbsp;<strong style="color:#8ba2c4;">Created</strong></p>
+                    </td>
+                    <td style="padding:0 20px;border-top:1px solid rgba(79,195,247,0.08);" align="right">
+                      <p style="margin:12px 0;font-size:0.88rem;color:#e2ecff;line-height:1.6;">${escapeHtml(createdDate)} IST</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:0 20px 16px;border-top:1px solid rgba(79,195,247,0.08);">
+                      <p style="margin:12px 0;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">⚡ &nbsp;<strong style="color:#8ba2c4;">Status</strong></p>
+                    </td>
+                    <td style="padding:0 20px 16px;border-top:1px solid rgba(79,195,247,0.08);" align="right">
+                      <span style="display:inline-block;padding:3px 12px;border-radius:999px;background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);color:#00e676;font-weight:700;font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;">● Open</span>
                     </td>
                   </tr>
                 </table>
@@ -526,9 +560,9 @@ SaveHatke Support Team
 
             <!-- Your Message -->
             <tr>
-              <td style="padding:22px 36px 0;">
-                <p style="margin:0 0 10px;font-size:0.78rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4fc3f7;">Your Message</p>
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(79,195,247,0.1);border-radius:12px;padding:16px 18px;">
+              <td style="padding:24px 36px 0;">
+                <p style="margin:0 0 10px;font-size:0.75rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#4fc3f7;">Your Message</p>
+                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(79,195,247,0.1);border-left:3px solid #00e676;border-radius:12px;padding:16px 18px;">
                   <p style="margin:0;font-size:0.9rem;color:#e2ecff;line-height:1.7;white-space:pre-wrap;">${safeMessage}</p>
                 </div>
               </td>
@@ -538,21 +572,34 @@ SaveHatke Support Team
             <tr>
               <td style="padding:20px 36px 0;">
                 <p style="margin:0 0 12px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Our support team will review your request and get back to you as soon as possible.</p>
-                <p style="margin:0 0 20px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Please keep your <strong style="color:#4fc3f7;">Case ID <span style="font-family:'Courier New',Courier,monospace;">#${safeCaseId}</span></strong> for future reference when contacting SaveHatke Support about this request.</p>
+              </td>
+            </tr>
+
+            <!-- Case ID reference note -->
+            <tr>
+              <td style="padding:0 36px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(0,230,118,0.05);border:1px solid rgba(0,230,118,0.15);border-radius:12px;">
+                  <tr>
+                    <td style="padding:14px 18px;">
+                      <p style="margin:0;font-size:0.88rem;color:#a8c0dc;line-height:1.7;">Please keep your <strong style="color:#4fc3f7;">Case ID <span style="font-family:'Courier New',Courier,monospace;">#${safeCaseId}</span></strong> for future reference when contacting SaveHatke Support about this request.</p>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
 
             <!-- CTA -->
             <tr>
-              <td style="padding:0 36px 8px;" align="center">
-                <a href="${viewUrl}" style="display:inline-block;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f !important;text-decoration:none;font-weight:700;font-size:0.92rem;padding:12px 26px;border-radius:10px;">View Support Request →</a>
+              <td style="padding:26px 36px 6px;" align="center">
+                <a href="${viewUrl}" style="display:inline-block;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f !important;text-decoration:none;font-weight:800;font-size:0.95rem;padding:14px 30px;border-radius:12px;box-shadow:0 8px 24px rgba(0,230,118,0.25);">View Support Request →</a>
+                <p style="margin:14px 0 0;font-size:0.74rem;color:#5a789a;line-height:1.5;">If the button doesn't work, copy this link into your browser:<br><a href="${viewUrl}" style="color:#4fc3f7;text-decoration:none;word-break:break-all;">${viewUrl}</a></p>
               </td>
             </tr>
 
             <!-- Security note -->
             <tr>
-              <td style="padding:14px 36px 0;">
-                <div style="background:rgba(255,183,77,0.05);border:1px solid rgba(255,183,77,0.2);border-radius:10px;padding:12px 16px;">
+              <td style="padding:18px 36px 0;">
+                <div style="background:rgba(255,183,77,0.05);border:1px solid rgba(255,183,77,0.2);border-radius:12px;padding:12px 16px;">
                   <p style="margin:0;font-size:0.8rem;color:#ffb74d;line-height:1.5;">⚠️ If you did not submit this request, please contact us immediately.</p>
                 </div>
               </td>
@@ -560,17 +607,30 @@ SaveHatke Support Team
 
             <!-- Sign-off -->
             <tr>
-              <td style="padding:22px 36px 0;">
+              <td style="padding:24px 36px 6px;">
                 <p style="margin:0;font-size:0.88rem;color:#8ba2c4;line-height:1.5;">Regards,<br><strong style="color:#e2ecff;">SaveHatke Support Team</strong></p>
               </td>
             </tr>
 
             <!-- Footer -->
             <tr>
-              <td style="padding:26px 36px 22px;background:rgba(6,13,31,0.6);border-top:1px solid rgba(79,195,247,0.1);text-align:center;">
-                <p style="margin:0 0 4px;font-size:0.78rem;color:#5a789a;">© ${year} SaveHatke. All rights reserved.</p>
-                <p style="margin:0;font-size:0.72rem;color:#4a6890;">You're receiving this because you submitted a support request on SaveHatke.</p>
+              <td style="padding:26px 36px 20px;background:rgba(6,13,31,0.6);border-top:1px solid rgba(79,195,247,0.1);">
+                <p style="margin:0 0 12px;text-align:center;font-size:0.82rem;color:#6b88aa;">
+                  <a href="${siteUrl}/index.html" style="color:#6b88aa;text-decoration:none;">Home</a> &nbsp;·&nbsp;
+                  <a href="${siteUrl}/marketplace.html" style="color:#6b88aa;text-decoration:none;">Coupons</a> &nbsp;·&nbsp;
+                  <a href="${siteUrl}/sell.html" style="color:#6b88aa;text-decoration:none;">Sell</a> &nbsp;·&nbsp;
+                  <a href="${siteUrl}/support.html" style="color:#6b88aa;text-decoration:none;">Support</a> &nbsp;·&nbsp;
+                  <a href="${siteUrl}/terms.html" style="color:#6b88aa;text-decoration:none;">Terms</a> &nbsp;·&nbsp;
+                  <a href="${siteUrl}/privacy.html" style="color:#6b88aa;text-decoration:none;">Privacy</a>
+                </p>
+                <p style="margin:0 0 4px;text-align:center;font-size:0.78rem;color:#5a789a;">© ${year} SaveHatke. All rights reserved.</p>
+                <p style="margin:0;text-align:center;font-size:0.72rem;color:#4a6890;">You're receiving this because you submitted a support request on SaveHatke.</p>
               </td>
+            </tr>
+
+            <!-- Bottom gradient accent strip -->
+            <tr>
+              <td style="height:4px;background:linear-gradient(90deg,#4fc3f7,#00e676);font-size:0;line-height:0;">&nbsp;</td>
             </tr>
           </table>
         </td>
@@ -590,6 +650,9 @@ SaveHatke Support Team
       html: htmlContent,
       headers: {
         'X-Entity-Ref-ID': `support-ack-${safeCaseId}`,
+        // RFC 3834 — tells spam filters this is an automated transactional
+        // notification (not marketing/bulk), which helps inbox placement.
+        'Auto-Submitted': 'auto-generated',
       },
     });
 
