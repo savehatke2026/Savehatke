@@ -94,8 +94,7 @@
 
     /* ── LEGAL BODY ── */
     .legal-wrap { padding:56px 0 96px; }
-    .legal-layout { display:grid; grid-template-columns:1fr 260px; gap:56px; align-items:start; }
-    @media(max-width:900px){ .legal-layout { grid-template-columns:1fr; } .legal-sidebar { position:static !important; margin-top:40px; } }
+    .legal-layout { display:grid; grid-template-columns:1fr; gap:0; max-width:880px; margin:0 auto; align-items:start; }
 
     .legal-block { margin-bottom:52px; }
     .legal-block .intro-text { font-size:.93rem; color:#a8c0dc; line-height:1.8; margin-bottom:14px; }
@@ -109,26 +108,22 @@
     .legal-block a { color:#00e676; text-decoration:underline; text-underline-offset:3px; transition:opacity .2s; }
     .legal-block a:hover { opacity:.75; }
 
-    .legal-block ol { list-style:none; padding:0; counter-reset:ol-counter; }
-    .legal-block ol li { counter-increment:ol-counter; display:flex; gap:14px; padding:11px 14px; border-radius:10px; margin-bottom:7px; font-size:.88rem; color:#a8c0dc; line-height:1.75; background:rgba(255,255,255,.025); border:1px solid rgba(79,195,247,.06); transition:border-color .2s; }
-    .legal-block ol li:hover { border-color:rgba(79,195,247,.15); }
-    .legal-block ol li::before { content:counter(ol-counter) "."; font-family:'JetBrains Mono',monospace; font-size:.76rem; font-weight:600; color:#4fc3f7; min-width:20px; flex-shrink:0; padding-top:2px; }
-
     .legal-block ul { list-style:none; padding:0; }
-    .legal-block ul li { display:flex; gap:12px; padding:11px 14px; border-radius:10px; margin-bottom:7px; font-size:.88rem; color:#a8c0dc; line-height:1.75; background:rgba(255,255,255,.025); border:1px solid rgba(79,195,247,.06); transition:border-color .2s; }
-    .legal-block ul li:hover { border-color:rgba(0,230,118,.15); }
-    .legal-block ul li::before { content:'—'; color:#00e676; font-weight:700; flex-shrink:0; }
+    .legal-block > ul > li { display:flex; gap:12px; padding:11px 14px; border-radius:10px; margin-bottom:7px; font-size:.88rem; color:#a8c0dc; line-height:1.75; background:rgba(255,255,255,.025); border:1px solid rgba(79,195,247,.06); transition:border-color .2s; flex-direction:column; }
+    .legal-block > ul > li:hover { border-color:rgba(0,230,118,.15); }
+    .legal-block > ul > li::before { content:'—'; color:#00e676; font-weight:700; flex-shrink:0; margin-right:6px; }
+    .legal-block > ul > li { display:list-item; }
+    .legal-block > ul { list-style:none; }
+    .legal-block > ul > li { padding-left:32px; position:relative; }
+    .legal-block > ul > li::before { position:absolute; left:14px; top:11px; }
+    .legal-block ul li .li-content { display:block; }
 
-    /* ── SIDEBAR ── */
-    .legal-sidebar { position:sticky; top:88px; }
-    .sidebar-card { background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); border-radius:16px; padding:24px; margin-bottom:16px; }
-    .sidebar-card-title { font-size:.7rem; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:#6b88aa; margin-bottom:16px; }
-    .sidebar-stat { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid rgba(79,195,247,.07); font-size:.84rem; }
-    .sidebar-stat:last-child { border-bottom:none; }
-    .sidebar-stat-lbl { color:#6b88aa; }
-    .sidebar-stat-val { font-family:'JetBrains Mono',monospace; font-size:.8rem; color:#4fc3f7; font-weight:600; }
-    .sidebar-link { display:flex; align-items:center; gap:10px; padding:10px 14px; border-radius:10px; font-size:.85rem; color:#a8c0dc; background:rgba(255,255,255,.025); margin-bottom:8px; border:1px solid rgba(79,195,247,.06); transition:all .2s; text-decoration:none; }
-    .sidebar-link:hover { color:#00e676; border-color:rgba(0,230,118,.2); background:rgba(0,230,118,.04); }
+    /* nested bullet lists inside a top-level item */
+    .legal-block ul ul { margin-top:8px; padding-left:8px; }
+    .legal-block ul ul li { display:flex; gap:10px; padding:8px 12px; border-radius:8px; margin-bottom:6px; font-size:.85rem; color:#a8c0dc; line-height:1.7; background:rgba(255,255,255,.02); border:1px solid rgba(79,195,247,.05); }
+    .legal-block ul ul li::before { content:'·'; color:#4fc3f7; font-weight:700; flex-shrink:0; }
+
+    .legal-block strong { color:#e2ecff; font-weight:700; }
 
     /* ── FOOTER ── */
     .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; }
@@ -203,13 +198,12 @@
         <a href="#s8" class="toc-link"><span class="toc-num">08</span>Seller Payouts</a>
         <a href="#s20" class="toc-link"><span class="toc-num">20</span>Governing Law &amp; Dispute Resolution</a>
         <a href="#s9" class="toc-link"><span class="toc-num">09</span>Payments</a>
-        <a href="#s21" class="toc-link"><span class="toc-num">21</span>Grievance Redressal</a>
+        <a href="#s21" class="toc-link"><span class="toc-num">21</span>Contact Us</a>
         <a href="#s10" class="toc-link"><span class="toc-num">10</span>Refunds &amp; Coupon Disputes</a>
-        <a href="#s22" class="toc-link"><span class="toc-num">22</span>Contact Us</a>
+        <a href="#s22" class="toc-link"><span class="toc-num">22</span>Severability</a>
         <a href="#s11" class="toc-link"><span class="toc-num">11</span>Prohibited Activities</a>
-        <a href="#s23" class="toc-link"><span class="toc-num">23</span>Severability</a>
+        <a href="#s23" class="toc-link"><span class="toc-num">23</span>Entire Agreement</a>
         <a href="#s12" class="toc-link"><span class="toc-num">12</span>Suspension &amp; Termination</a>
-        <a href="#s24" class="toc-link"><span class="toc-num">24</span>Entire Agreement</a>
       </div>
     </div>
   </div>
@@ -224,13 +218,16 @@
       <div>
 
         <div class="legal-block fu">
-          <p class="intro-text">Welcome to SaveHatke ("SaveHatke", "we", "us", "our" or the "Platform"). These Terms &amp; Conditions ("Terms") govern your access to and use of the SaveHatke website, applications, price-tracking services, coupon marketplace, account features and related services (collectively, the "Services").</p>
-          <p class="intro-text">By creating an account, accessing the Platform, purchasing a coupon, listing a coupon for sale, or otherwise using our Services, you agree to these Terms. If you do not agree with these Terms, please do not use SaveHatke.</p>
+          <h2><span class="sec-num">·</span>Welcome to SaveHatke</h2>
+          <ul>
+            <li>Welcome to SaveHatke ("SaveHatke", "we", "us", "our" or the "Platform"). These Terms &amp; Conditions ("Terms") govern your access to and use of the SaveHatke website, applications, price-tracking services, coupon marketplace, account features and related services (collectively, the "Services").</li>
+            <li>By creating an account, accessing the Platform, purchasing a coupon, listing a coupon for sale, or otherwise using our Services, you agree to these Terms. If you do not agree with these Terms, please do not use SaveHatke.</li>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s1">
           <h2><span class="sec-num">01</span>Eligibility and Accounts</h2>
-          <ol>
+          <ul>
             <li>You must be at least 18 years old to create an account and use the buying and selling features of SaveHatke.</li>
             <li>You must provide accurate, complete and current information when creating and maintaining your account.</li>
             <li>You are responsible for maintaining the security of your login credentials and for activities carried out through your account.</li>
@@ -238,44 +235,47 @@
             <li>Each person should maintain only one account unless SaveHatke expressly permits otherwise.</li>
             <li>We may restrict, suspend or terminate accounts that are involved in fraud, abuse, manipulation, unauthorized activity or violations of these Terms.</li>
             <li>We may request additional information or verification where reasonably necessary to protect users, prevent fraud, process payouts or comply with applicable law.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s2">
           <h2><span class="sec-num">02</span>SaveHatke Services</h2>
-          <p>SaveHatke provides a digital platform that may allow users to:</p>
           <ul>
-            <li>discover and compare prices;</li>
-            <li>track product prices;</li>
-            <li>receive price-related alerts;</li>
-            <li>browse available coupons;</li>
-            <li>purchase eligible coupons listed on the marketplace;</li>
-            <li>submit eligible coupons for sale;</li>
-            <li>receive seller payouts for eligible and successfully verified coupons; and</li>
-            <li>use other features introduced by SaveHatke from time to time.</li>
+            <li>SaveHatke provides a digital platform that may allow users to:
+              <ul>
+                <li>discover and compare prices;</li>
+                <li>track product prices;</li>
+                <li>receive price-related alerts;</li>
+                <li>browse available coupons;</li>
+                <li>purchase eligible coupons listed on the marketplace;</li>
+                <li>submit eligible coupons for sale;</li>
+                <li>receive seller payouts for eligible and successfully verified coupons; and</li>
+                <li>use other features introduced by SaveHatke from time to time.</li>
+              </ul>
+            </li>
+            <li>SaveHatke may add, remove, modify or discontinue features of the Services where reasonably necessary.</li>
           </ul>
-          <p>SaveHatke may add, remove, modify or discontinue features of the Services where reasonably necessary.</p>
         </div>
 
         <div class="legal-block fu" id="s3">
           <h2><span class="sec-num">03</span>Price Tracking and Third-Party Stores</h2>
-          <ol>
+          <ul>
             <li>SaveHatke may display product prices, discounts, availability and other information obtained from or relating to third-party e-commerce websites.</li>
             <li>Price and availability information may change at any time. Information displayed by SaveHatke may not always be real-time or completely accurate.</li>
             <li>The final price, availability, shipping charges, taxes, discounts and other purchase conditions are determined by the relevant third-party merchant at the time of purchase.</li>
             <li>SaveHatke does not sell or supply products listed on third-party e-commerce websites unless expressly stated otherwise.</li>
             <li>SaveHatke is not responsible for changes made by third-party merchants to product prices, availability, product listings, shipping, returns, refunds or other merchant policies.</li>
             <li>Price alerts are provided on a best-effort basis and may be affected by technical problems, data delays, third-party changes or communication failures.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s4">
           <h2><span class="sec-num">04</span>Coupon Marketplace</h2>
-          <ol>
+          <ul>
             <li>SaveHatke operates a marketplace that may allow eligible users to list and purchase eligible coupons.</li>
             <li>A coupon listed by a user is generally supplied by that user and is not issued by SaveHatke unless the listing expressly states otherwise.</li>
             <li>SaveHatke may review or verify coupons before or after listing. Verification does not constitute a guarantee that a third-party brand will continue to accept the coupon.</li>
-            <li><div>Coupon listings may contain information such as:
+            <li>Coupon listings may contain information such as:
               <ul>
                 <li>brand;</li>
                 <li>coupon value or discount;</li>
@@ -286,19 +286,19 @@
                 <li>category or product restrictions; and</li>
                 <li>other relevant restrictions.</li>
               </ul>
-            </div></li>
+            </li>
             <li>Buyers are responsible for reviewing the available coupon information and applicable conditions before purchasing.</li>
             <li>SaveHatke may remove, reject, restrict or disable any coupon listing that appears fraudulent, invalid, misleading, prohibited, expired or otherwise unsuitable for the marketplace.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s5">
           <h2><span class="sec-num">05</span>Buying Coupons</h2>
-          <ol>
+          <ul>
             <li>When you purchase a coupon, you agree to pay the displayed purchase price and any applicable charges shown before payment.</li>
             <li>The coupon or coupon code may be revealed or delivered after successful payment according to the applicable SaveHatke purchase process.</li>
             <li>A purchased coupon must only be used in accordance with the issuing brand's terms and conditions.</li>
-            <li><div>SaveHatke does not guarantee that a coupon will work in circumstances where:
+            <li>SaveHatke does not guarantee that a coupon will work in circumstances where:
               <ul>
                 <li>the buyer does not satisfy the issuing brand's eligibility requirements;</li>
                 <li>a minimum order requirement has not been met;</li>
@@ -308,16 +308,16 @@
                 <li>the buyer attempts to use the coupon contrary to the issuer's terms; or</li>
                 <li>the failure is caused by the issuing merchant or another third party after the coupon was correctly supplied.</li>
               </ul>
-            </div></li>
+            </li>
             <li>Buyers must not publicly publish, redistribute, resell or commercially distribute purchased coupon codes unless expressly permitted by SaveHatke.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s6">
           <h2><span class="sec-num">06</span>Selling Coupons</h2>
-          <ol>
+          <ul>
             <li>Eligible users may submit coupons for sale through the SaveHatke marketplace.</li>
-            <li><div>By submitting a coupon, you confirm that:
+            <li>By submitting a coupon, you confirm that:
               <ul>
                 <li>you obtained the coupon lawfully;</li>
                 <li>you have the right to transfer or sell the coupon;</li>
@@ -327,62 +327,62 @@
                 <li>the coupon is not counterfeit or unlawfully obtained; and</li>
                 <li>the coupon does not violate the issuing brand's applicable restrictions.</li>
               </ul>
-            </div></li>
+            </li>
             <li>You must provide accurate information regarding the coupon, including expiry dates, restrictions and other material conditions known to you.</li>
             <li>SaveHatke may review submitted coupons before approving them for sale.</li>
             <li>SaveHatke may reject or remove a coupon if it cannot be reasonably verified or if it violates these Terms or marketplace policies.</li>
             <li>You must not submit the same coupon to multiple buyers or platforms after it has been sold through SaveHatke.</li>
             <li>If a seller knowingly submits fraudulent, stolen, counterfeit, already-used or misleading coupons, SaveHatke may suspend or terminate the account and take other action permitted by law.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s7">
           <h2><span class="sec-num">07</span>Coupon Verification</h2>
-          <ol>
+          <ul>
             <li>SaveHatke may use automated and/or manual methods to review submitted coupons.</li>
             <li>Verification may include checking the coupon format, available information, expiry date, applicable conditions or other available indicators.</li>
             <li>Verification does not mean that SaveHatke guarantees acceptance of the coupon by the issuing brand in every circumstance.</li>
             <li>If a coupon cannot be reasonably verified, SaveHatke may reject it or request additional information from the seller.</li>
             <li>SaveHatke may conduct additional checks after a coupon has been sold if a dispute, fraud report or other issue arises.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s8">
           <h2><span class="sec-num">08</span>Seller Payouts</h2>
-          <ol>
+          <ul>
             <li>Where a submitted coupon is approved and qualifies for a seller payout, the applicable payout amount will be displayed or communicated to the seller through the relevant SaveHatke interface or payout terms.</li>
             <li>SaveHatke may change future payout rates or payout conditions. Any applicable rate will be determined according to the terms displayed at the time of the relevant submission.</li>
             <li>Payouts may be subject to successful verification, fraud checks, account status and any applicable minimum payout requirements.</li>
             <li>SaveHatke may delay or place a temporary hold on a payout where reasonably necessary to investigate suspected fraud, duplicate submissions, disputes, chargebacks or other irregular activity.</li>
             <li>Sellers are responsible for providing accurate payment information. SaveHatke is not responsible for delays caused by incorrect or incomplete payout details supplied by the seller.</li>
             <li>If a seller receives a payout for a coupon that is subsequently determined to have been fraudulent, invalid due to seller misconduct, already used, duplicated or otherwise improperly submitted, SaveHatke may seek recovery or adjust eligible future amounts, subject to applicable law.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s9">
           <h2><span class="sec-num">09</span>Payments</h2>
-          <ol>
+          <ul>
             <li>Payments for purchases must be made through the payment methods made available by SaveHatke or its payment partners.</li>
             <li>A transaction is considered successful only after payment confirmation is received by SaveHatke or the applicable payment provider.</li>
             <li>SaveHatke does not store complete payment-card information where payment processing is handled by a third-party payment provider.</li>
             <li>Payment processing may be subject to the terms, conditions and privacy practices of the applicable payment provider.</li>
             <li>SaveHatke may refuse, cancel or investigate a transaction where there is a reasonable indication of fraud, unauthorized activity, payment failure or violation of these Terms.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s10">
           <h2><span class="sec-num">10</span>Refunds, Replacements and Coupon Disputes</h2>
-          <ol>
+          <ul>
             <li>If a purchased coupon does not work as represented at the time of purchase, the buyer may contact SaveHatke support within 48 hours of purchase.</li>
-            <li><div>A refund or replacement request should include:
+            <li>A refund or replacement request should include:
               <ul>
                 <li>order or transaction details;</li>
                 <li>the relevant coupon;</li>
                 <li>a description of the problem; and</li>
                 <li>reasonable evidence of the failure, where available.</li>
               </ul>
-            </div></li>
-            <li><div>A refund or replacement may be considered where the coupon:
+            </li>
+            <li>A refund or replacement may be considered where the coupon:
               <ul>
                 <li>was already redeemed;</li>
                 <li>was invalid at the time of purchase;</li>
@@ -390,19 +390,18 @@
                 <li>was represented as valid but had already expired; or</li>
                 <li>otherwise failed to meet the material description provided at purchase.</li>
               </ul>
-            </div></li>
+            </li>
             <li>A refund may not be available where the coupon was valid but could not be used because the buyer failed to meet the issuing merchant's requirements, including minimum purchase requirements, product restrictions, user restrictions or payment-method restrictions.</li>
             <li>A refund may also be unavailable where the buyer entered or used the coupon incorrectly or where the issuing merchant subsequently changed its offer after the purchase.</li>
             <li>Where appropriate, SaveHatke may provide a replacement coupon or account credit instead of a monetary refund, subject to applicable law and the circumstances of the case.</li>
             <li>Free or promotional coupons that were provided without charge may not be eligible for monetary refunds.</li>
             <li>SaveHatke may investigate disputed transactions before approving a refund or replacement.</li>
             <li>Nothing in these Terms limits any rights or remedies that cannot legally be excluded under applicable law.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s11">
           <h2><span class="sec-num">11</span>Prohibited Activities</h2>
-          <p>You must not:</p>
           <ul>
             <li>submit fraudulent, counterfeit, stolen, expired or already-redeemed coupons;</li>
             <li>sell coupons that you do not have the right to transfer;</li>
@@ -425,8 +424,8 @@
 
         <div class="legal-block fu" id="s12">
           <h2><span class="sec-num">12</span>Account Suspension and Termination</h2>
-          <ol>
-            <li><div>SaveHatke may suspend, restrict or terminate an account where we reasonably believe that the account has:
+          <ul>
+            <li>SaveHatke may suspend, restrict or terminate an account where we reasonably believe that the account has:
               <ul>
                 <li>violated these Terms;</li>
                 <li>engaged in fraud or abuse;</li>
@@ -435,168 +434,126 @@
                 <li>compromised platform security; or</li>
                 <li>engaged in unlawful activity.</li>
               </ul>
-            </div></li>
+            </li>
             <li>Where appropriate, SaveHatke may provide notice or an opportunity to resolve the issue before taking action.</li>
             <li>SaveHatke may immediately restrict an account where immediate action is reasonably necessary to protect users, the Platform or payment systems.</li>
             <li>Termination of an account does not automatically cancel obligations or liabilities that arose before termination.</li>
             <li>Any legitimate refund or payout entitlement will be handled according to applicable policies and law, subject to investigation of fraud, disputes or other unresolved issues.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s13">
           <h2><span class="sec-num">13</span>Intellectual Property</h2>
-          <ol>
+          <ul>
             <li>SaveHatke-owned branding, logos, website design, original content, software and other materials are protected by applicable intellectual-property laws.</li>
             <li>You may use the Services for their intended purpose but may not reproduce, distribute, modify, commercially exploit or create derivative works from SaveHatke-owned materials without appropriate authorization.</li>
             <li>Third-party names, logos, trademarks and brand materials displayed on SaveHatke belong to their respective owners.</li>
             <li>The appearance of a third-party brand on SaveHatke does not by itself mean that the brand endorses, sponsors or is affiliated with SaveHatke.</li>
             <li>Third-party software, libraries and other materials may be subject to their own licences and terms.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s14">
           <h2><span class="sec-num">14</span>Third-Party Services and Links</h2>
-          <ol>
+          <ul>
             <li>SaveHatke may link to or integrate with third-party websites, merchants, payment providers, communication providers and other services.</li>
             <li>Third-party services operate independently and may have their own terms, privacy policies and conditions.</li>
             <li>SaveHatke is not responsible for the availability, content, policies or independent actions of third-party services.</li>
             <li>Purchases made directly from third-party merchants are subject to the relevant merchant's terms, return policies, refund policies and other conditions.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s15">
           <h2><span class="sec-num">15</span>Privacy and Personal Data</h2>
-          <ol>
+          <ul>
             <li>SaveHatke collects and processes personal information as described in its <a href="privacy">Privacy Policy</a>.</li>
             <li>We may collect information necessary to create and maintain accounts, provide Services, process transactions, prevent fraud, provide customer support, process payouts and comply with applicable law.</li>
             <li>We implement reasonable security measures designed to protect personal information. However, no electronic transmission or storage system can be guaranteed to be completely secure.</li>
             <li>You should review our <a href="privacy">Privacy Policy</a> to understand how your personal information is collected, used, stored and shared.</li>
             <li>SaveHatke may use service providers to support hosting, payments, communications, analytics, security and other operational functions, subject to applicable requirements.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s16">
           <h2><span class="sec-num">16</span>Service Availability</h2>
-          <ol>
+          <ul>
             <li>SaveHatke aims to provide reliable Services but does not guarantee that the Platform will always be available, uninterrupted or error-free.</li>
             <li>Services may occasionally be unavailable due to maintenance, upgrades, technical failures, security incidents, internet connectivity problems or circumstances beyond our reasonable control.</li>
             <li>We may temporarily restrict access to certain features where necessary for maintenance, security or fraud prevention.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s17">
           <h2><span class="sec-num">17</span>Limitation of Liability</h2>
-          <ol>
+          <ul>
             <li>SaveHatke provides its Services on an "as available" basis, subject to applicable law.</li>
             <li>SaveHatke is not responsible for matters outside its reasonable control, including failures or changes caused by third-party merchants, coupon issuers, payment providers, internet service providers or other third parties.</li>
             <li>SaveHatke does not guarantee that third-party products, merchants or coupon issuers will remain available or continue to honour particular offers.</li>
             <li>To the extent permitted by applicable law, SaveHatke will not be responsible for losses resulting solely from a user's misuse of the Services, failure to follow applicable coupon conditions, unauthorized access caused by the user's own failure to protect account credentials, or actions of independent third parties.</li>
             <li>Nothing in these Terms excludes or limits liability or consumer rights that cannot legally be excluded or limited under applicable law.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s18">
           <h2><span class="sec-num">18</span>Indemnification</h2>
-          <p>To the extent permitted by applicable law, you agree to be responsible for losses, claims, liabilities or reasonable costs arising from your:</p>
           <ul>
-            <li>violation of these Terms;</li>
-            <li>fraudulent or unlawful activities;</li>
-            <li>misuse of the Services;</li>
-            <li>submission or sale of coupons that you do not have the right to sell; or</li>
-            <li>infringement of another person's rights.</li>
+            <li>To the extent permitted by applicable law, you agree to be responsible for losses, claims, liabilities or reasonable costs arising from your:
+              <ul>
+                <li>violation of these Terms;</li>
+                <li>fraudulent or unlawful activities;</li>
+                <li>misuse of the Services;</li>
+                <li>submission or sale of coupons that you do not have the right to sell; or</li>
+                <li>infringement of another person's rights.</li>
+              </ul>
+            </li>
+            <li>This section does not apply to the extent that the relevant loss was caused by SaveHatke's own unlawful conduct or liability that cannot legally be excluded.</li>
           </ul>
-          <p>This section does not apply to the extent that the relevant loss was caused by SaveHatke's own unlawful conduct or liability that cannot legally be excluded.</p>
         </div>
 
         <div class="legal-block fu" id="s19">
           <h2><span class="sec-num">19</span>Changes to These Terms</h2>
-          <ol>
+          <ul>
             <li>SaveHatke may update these Terms from time to time to reflect changes to the Services, applicable law, business practices or security requirements.</li>
             <li>The updated version will be published on this page with a revised "Last Updated" date.</li>
             <li>Where a change is material, SaveHatke may provide additional notice through email, an in-app notification or another reasonable method.</li>
             <li>Your continued use of the Services after the effective date of updated Terms may constitute acceptance of the updated Terms to the extent permitted by applicable law.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s20">
           <h2><span class="sec-num">20</span>Governing Law and Dispute Resolution</h2>
-          <ol>
+          <ul>
             <li>These Terms are governed by the laws of India.</li>
-            <li>If you have a dispute or complaint, you should first contact SaveHatke through our customer support or grievance-redressal mechanism so that we can attempt to resolve the matter.</li>
+            <li>If you have a dispute or complaint, you should first contact SaveHatke through our customer support so that we can attempt to resolve the matter.</li>
             <li>Nothing in these Terms prevents a consumer from exercising any statutory right or remedy available under applicable Indian law.</li>
             <li>Subject to applicable law, disputes may be dealt with by the courts, consumer commissions or other competent authorities having jurisdiction over the matter.</li>
-          </ol>
+          </ul>
         </div>
 
         <div class="legal-block fu" id="s21">
-          <h2><span class="sec-num">21</span>Grievance Redressal</h2>
-          <p>SaveHatke maintains a grievance-redressal mechanism for user and consumer complaints.</p>
+          <h2><span class="sec-num">21</span>Contact Us</h2>
           <ul>
-            <li><strong>Grievance Officer:</strong> [Insert actual name/designation]</li>
-            <li><strong>Email:</strong> [Insert actual grievance email]</li>
-            <li><strong>Contact:</strong> [Insert actual contact number]</li>
-            <li><strong>Address:</strong> [Insert actual registered/principal business address]</li>
+            <li><strong>For general support:</strong> <a href="mailto:support.savehatke@gmail.com">support.savehatke@gmail.com</a></li>
+            <li><strong>Help Center:</strong> <a href="support">Help Center</a></li>
           </ul>
-          <p>Complaints should include sufficient information to allow us to identify the account, transaction or issue involved. We will acknowledge and process grievances in accordance with applicable law.</p>
         </div>
 
         <div class="legal-block fu" id="s22">
-          <h2><span class="sec-num">22</span>Contact Us</h2>
+          <h2><span class="sec-num">22</span>Severability</h2>
           <ul>
-            <li><strong>For general support:</strong> [Insert actual support email]</li>
-            <li><strong>Legal:</strong> [Insert actual legal email]</li>
-            <li><strong>Help Center:</strong> <a href="support">Help Center</a></li>
-            <li><strong>Privacy-related matters:</strong> [Insert actual privacy email]</li>
-            <li><strong>Grievances:</strong> [Insert actual details]</li>
+            <li>If any provision of these Terms is found to be invalid or unenforceable, that provision will be interpreted or modified to the extent necessary to make it enforceable, and the remaining provisions will continue to apply to the extent permitted by law.</li>
           </ul>
         </div>
 
         <div class="legal-block fu" id="s23">
-          <h2><span class="sec-num">23</span>Severability</h2>
-          <p>If any provision of these Terms is found to be invalid or unenforceable, that provision will be interpreted or modified to the extent necessary to make it enforceable, and the remaining provisions will continue to apply to the extent permitted by law.</p>
-        </div>
-
-        <div class="legal-block fu" id="s24">
-          <h2><span class="sec-num">24</span>Entire Agreement</h2>
-          <p>These Terms, together with the <a href="privacy">Privacy Policy</a> and any other policies or rules expressly incorporated into the Services, constitute the terms governing your use of SaveHatke.</p>
-          <p>Where a specific marketplace policy, purchase condition or seller policy applies to a particular transaction, that policy will also apply to that transaction.</p>
-        </div>
-
-        <div class="legal-block fu">
-          <p class="intro-text"><strong>SaveHatke</strong> — India's smarter price tracker and coupon marketplace. Track prices. Discover deals. Buy coupons. Sell eligible coupons.</p>
-          <p class="intro-text" style="font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#6b88aa;">Last Updated: August 22, 2026 &nbsp;·&nbsp; Version: 3.0 &nbsp;·&nbsp; Country: India</p>
+          <h2><span class="sec-num">23</span>Entire Agreement</h2>
+          <ul>
+            <li>These Terms, together with the <a href="privacy">Privacy Policy</a> and any other policies or rules expressly incorporated into the Services, constitute the terms governing your use of SaveHatke.</li>
+            <li>Where a specific marketplace policy, purchase condition or seller policy applies to a particular transaction, that policy will also apply to that transaction.</li>
+          </ul>
         </div>
 
       </div>
-
-      <!-- SIDEBAR -->
-      <aside class="legal-sidebar fu d1">
-        <div class="sidebar-card">
-          <div class="sidebar-card-title">Document Info</div>
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-lbl">Version</span>
-            <span class="sidebar-stat-val">v3.0</span>
-          </div>
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-lbl">Last Updated</span>
-            <span class="sidebar-stat-val">Aug 22, 2026</span>
-          </div>
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-lbl">Jurisdiction</span>
-            <span class="sidebar-stat-val">India</span>
-          </div>
-          <div class="sidebar-stat">
-            <span class="sidebar-stat-lbl">Sections</span>
-            <span class="sidebar-stat-val">24</span>
-          </div>
-        </div>
-        <div class="sidebar-card">
-          <div class="sidebar-card-title">Quick Links</div>
-          <a href="support" class="sidebar-link">🛟 Help Center</a>
-          <a href="mailto:legal@savehatke.com" class="sidebar-link">✉️ Legal Team</a>
-          <a href="privacy" class="sidebar-link">🔒 Privacy Policy</a>
-        </div>
-      </aside>
 
     </div>
   </div>

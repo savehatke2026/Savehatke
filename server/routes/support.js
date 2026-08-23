@@ -139,10 +139,17 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       message: ticket.message,
     })
       .then((r) => {
-        if (r.success) console.log(`📧 Support ack email sent for case #${ticket.id}`);
-        else if (!r.isSimulated) console.warn(`📧 Support ack email failed for case #${ticket.id}: ${r.error}`);
+        if (r && r.success) {
+          console.log(`📧 [Support] Ack email sent to ${ticket.userEmail} for case #${ticket.id} (messageId=${r.messageId})`);
+        } else if (r && r.isSimulated) {
+          console.warn(`📧 [Support] Ack email NOT sent for case #${ticket.id} → ${ticket.userEmail}`);
+          console.warn(`   Reason: ${r.error || 'SMTP not configured'}`);
+          console.warn(`   Fix: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in your .env (or SUPPORT_EMAIL + SUPPORT_EMAIL_PASSWORD for a dedicated support mailbox).`);
+        } else {
+          console.warn(`📧 [Support] Ack email FAILED for case #${ticket.id} → ${ticket.userEmail}: ${(r && r.error) || 'unknown error'}`);
+        }
       })
-      .catch((e) => console.warn('Support ack email notice:', e.message));
+      .catch((e) => console.warn('📧 [Support] Ack email unexpected error:', e && e.message ? e.message : e));
 
     res.status(201).json({
       message: 'Support ticket submitted successfully. We will get back to you within 24 hours.',

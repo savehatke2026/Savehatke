@@ -417,9 +417,15 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
     : '—';
 
   const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
-  const fromEmail = supportFrom
-    || process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER
-    || 'noreply@savehatke.com';
+  const supportPass = (process.env.SUPPORT_EMAIL_PASSWORD || '').trim();
+  const hasDedicatedSupport = Boolean(supportFrom && supportPass);
+  // CRITICAL: when we fall back to the main SMTP account, the from address MUST
+  // match the authenticated user. Otherwise Gmail / strict SMTP servers reject
+  // the send as a forgery attempt. Only use SUPPORT_EMAIL as the from when we
+  // also have a password for it (i.e. we're authenticated as that user).
+  const fromEmail = hasDedicatedSupport
+    ? supportFrom
+    : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
   const fromName = (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim();
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
   const viewUrl = `${siteUrl}/support.html`;
