@@ -367,6 +367,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Find or create user in Google Sheets
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
+    let isNewSignup = false;
     if (!sheetUser) {
       // New user - create account
       const userId = uuidv4();
@@ -383,6 +384,7 @@ router.post('/verify-otp', async (req, res) => {
         last_logout_at: '',
       };
       await db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
+      isNewSignup = true;
     } else {
       // Existing user - update last login
       await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
@@ -403,6 +405,17 @@ router.post('/verify-otp', async (req, res) => {
       role: 'user',
     }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
+
+    // Send welcome email on first-time signup (fire-and-forget — never blocks the response)
+    if (isNewSignup) {
+      const welcomeName = sheetUser.name || cleanEmail.split('@')[0];
+      emailService.sendWelcomeEmail(cleanEmail, welcomeName)
+        .then((r) => {
+          if (r.success) console.log(`📧 Welcome email queued for new user: ${cleanEmail}`);
+          else if (!r.isSimulated) console.warn(`📧 Welcome email failed for ${cleanEmail}: ${r.error}`);
+        })
+        .catch((e) => console.warn('Welcome email notice:', e.message));
+    }
 
     res.json({
       message: 'Email verified successfully!',
@@ -492,6 +505,14 @@ router.post('/register', async (req, res) => {
     // Generate token (48h hard limit, sid-bound to the session)
     const token = issueLoginToken({ id: userId, email: cleanEmail, name: cleanName, role: 'user' }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
+
+    // Send welcome email to the newly registered user (fire-and-forget — never blocks the response)
+    emailService.sendWelcomeEmail(cleanEmail, cleanName)
+      .then((r) => {
+        if (r.success) console.log(`📧 Welcome email queued for new user: ${cleanEmail}`);
+        else if (!r.isSimulated) console.warn(`📧 Welcome email failed for ${cleanEmail}: ${r.error}`);
+      })
+      .catch((e) => console.warn('Welcome email notice:', e.message));
 
     res.status(201).json({
       message: 'Account created successfully in Google Sheets! 📊',
@@ -679,6 +700,14 @@ router.post('/login', async (req, res) => {
     const session = await createLoginSession(req, newUserId, 'Email', loginEmail).catch(() => null);
     const token = issueLoginToken({ id: newUserId, email: loginEmail, name: displayName, role: 'user' }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
+
+    // Send welcome email to the auto-registered user (fire-and-forget)
+    emailService.sendWelcomeEmail(loginEmail, displayName)
+      .then((r) => {
+        if (r.success) console.log(`📧 Welcome email queued for new user: ${loginEmail}`);
+        else if (!r.isSimulated) console.warn(`📧 Welcome email failed for ${loginEmail}: ${r.error}`);
+      })
+      .catch((e) => console.warn('Welcome email notice:', e.message));
 
     res.json({
       message: 'Login successful.',
