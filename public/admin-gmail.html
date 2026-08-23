@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Gmail Mailbox — SaveHatke Admin</title>
+<title>Support Mailbox — SaveHatke Admin</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
@@ -156,7 +156,7 @@ input,textarea,select{font-family:inherit}
 <div class="gm-connect" id="gmConnect">
   <div class="gm-connect-card">
     <div class="ci">📮</div>
-    <h1>Connect your <span style="color:var(--green)">Gmail</span> mailbox</h1>
+    <h1>Connect your <span style="color:var(--green)">Support</span> mailbox</h1>
     <p>Manage your support mailbox directly from the SaveHatke Admin Panel — read, reply, forward, compose and organize emails without leaving this page.</p>
     <button class="btn btn-primary" id="gmConnectBtn" onclick="GmailApp.connect()">🔗 Connect Gmail</button>
     <!-- Setup checklist rendered here when the server reports the mailbox is unavailable -->
@@ -172,7 +172,7 @@ input,textarea,select{font-family:inherit}
 <div class="gm-app" id="gmApp">
   <div class="gm-topbar">
     <button class="icon-btn gm-side-toggle" onclick="GmailApp.toggleSide()" title="Menu">☰</button>
-    <div class="gm-logo">📮 Gmail <span class="gtext">Mailbox</span></div>
+    <div class="gm-logo">📮 Support <span class="gtext">Mailbox</span></div>
     <div class="gm-acct" id="gmAccountBadge">—</div>
     <div class="gm-spacer"></div>
     <button class="btn btn-ghost btn-sm" onclick="window.location.href='vault.html'">← Admin Panel</button>

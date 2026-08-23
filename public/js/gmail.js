@@ -1,6 +1,6 @@
 // ============================================
-// SaveHatke — Admin Gmail Mailbox
-// Frontend for /api/admin/gmail endpoints.
+// SaveHatke — Admin Support Mailbox
+// Frontend for /api/admin/gmail endpoints (backed by Gmail OAuth).
 // Requires admin JWT (Auth.getAdminToken()).
 // ============================================
 

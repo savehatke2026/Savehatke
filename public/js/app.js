@@ -402,7 +402,7 @@ function ensureNavProfileStyles() {
     .npd-item-logout:hover{background:rgba(255,80,80,.12);color:#ff8585}
     .npd-status{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:9999px;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;position:relative;top:-2px;background:rgba(0,230,118,.14);color:#00e676;border:1px solid rgba(0,230,118,.3)}
     .npd-status.suspended{background:rgba(255,80,80,.12);color:#ff6b6b;border-color:rgba(255,80,80,.3)}
-    .npd-footer{margin-top:6px;padding-top:10px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.72rem;letter-spacing:.04em;color:#80cbc4;font-weight:800}
+    .npd-footer{margin-top:6px;padding-top:10px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.72rem;letter-spacing:.04em;color:inherit;font-weight:400}
   `;
   document.head.appendChild(style);
 }
