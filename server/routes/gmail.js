@@ -8,11 +8,9 @@ const express = require('express');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
-const mongoose = require('mongoose');
 
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
-const GmailConnection = require('../models/GmailConnection');
-const GmailAuditLog = require('../models/GmailAuditLog');
+const gmailStore = require('../services/gmailStore');
 const { encryptSecret } = require('../services/gmailCrypto');
 const { buildRawMessage, parseAddressList, htmlToText } = require('../services/gmailMime');
 const gmailService = require('../services/gmailService');
@@ -118,19 +116,16 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
       });
     }
 
-    // The GmailConnection model lives in MongoDB Atlas — surface a clear
-    // "database not connected" reason instead of a generic 500 when the DB
-    // is down, so the admin UI can show the right setup checklist.
-    if (mongoose.connection.readyState !== 1) {
+    if (!gmailStore.isReady()) {
       return res.json({
         configured: true,
         connected: false,
-        reason: 'database-not-connected',
-        message: 'MongoDB is not connected. The Gmail connection store cannot be read until MONGODB_URI is reachable.',
+        reason: 'database-not-configured',
+        message: 'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in your .env to enable the Support Mailbox.',
       });
     }
 
-    const conn = await GmailConnection.findOne({ admin_user_id: String(req.user.id) });
+    const conn = await gmailStore.getConnection(req.user.id);
     if (!conn) return res.json({ configured: true, connected: false, reason: 'not-connected' });
 
     let unreadCounts = null;
@@ -245,20 +240,15 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
 
     const encrypted = encryptSecret(tokens.refresh_token);
 
-    await GmailConnection.findOneAndUpdate(
-      { admin_user_id: String(decoded.adminId) },
-      {
-        $set: {
-          admin_email: String(decoded.email || ''),
-          gmail_email: gmailEmail,
-          encrypted_refresh_token: encrypted,
-          granted_scopes: String(tokens.scope || ''),
-          access_token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date) : null,
-          history_id: String(profile.data.historyId || ''),
-        },
-      },
-      { upsert: true, setDefaultsOnInsert: true }
-    );
+    await gmailStore.upsertConnection({
+      admin_user_id: String(decoded.adminId),
+      admin_email: String(decoded.email || ''),
+      gmail_email: gmailEmail,
+      encrypted_refresh_token: encrypted,
+      granted_scopes: String(tokens.scope || ''),
+      access_token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
+      history_id: String(profile.data.historyId || ''),
+    });
 
     req.user = { id: decoded.adminId, email: decoded.email };
     await audit(req, 'gmail.connect', gmailEmail);
@@ -272,8 +262,9 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
 // POST /api/admin/gmail/disconnect
 router.post('/disconnect', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const conn = await GmailConnection.findOne({ admin_user_id: String(req.user.id) });
+    const conn = await gmailStore.getConnection(req.user.id);
     await gmailService.disconnect(req.user.id);
+    await gmailStore.deleteConnection(req.user.id);
     await audit(req, 'gmail.disconnect', conn?.gmail_email || '');
     res.json({ ok: true });
   } catch (err) {
