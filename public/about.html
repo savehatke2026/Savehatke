@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="About SaveHatke — India's coupon marketplace. Buy coupons you want. Sell coupons you don't need. Save more.">
   <meta property="og:title" content="About SaveHatke — Coupon Marketplace">
-  <meta property="og:description" content="SaveHatke is a coupon marketplace built to give unused coupon codes a second life.">
+  <meta property="og:description" content="SaveHatke is a coupon marketplace built around a simple idea: if you won't use a coupon, someone else might.">
   <meta property="og:type" content="website">
   <link rel="canonical" href="https://savehatke.com/about.html">
   <title>About — SaveHatke Coupon Marketplace</title>
@@ -144,7 +144,7 @@
     }
 
     /* HOW IT WORKS */
-    .steps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
+    .steps-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:28px; }
     .step-card { padding:36px 32px; border-radius:18px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); position:relative; overflow:hidden; transition:all .3s; }
     .step-card::before { content:none; }
     .step-card:hover { border-color:rgba(0,230,118,.25); transform:translateY(-5px); }
@@ -297,10 +297,10 @@
       <div class="fu in">
         <div class="hero-badge" aria-label="Page label">About SaveHatke</div>
         <h1 class="hero-title" id="hero-heading">
-          Turning Unused Coupons<br>
-          Into <span class="shimmer">Real Savings.</span>
+          Unused Coupons<br>
+          Deserve <span class="shimmer">Another Chance.</span>
         </h1>
-        <p class="hero-desc">SaveHatke is a coupon marketplace built to give unused coupon codes a second life — helping people sell coupons they don't need and helping others discover discounts at a better price.</p>
+        <p class="hero-desc">SaveHatke is a coupon marketplace built around a simple idea: if you won't use a coupon, someone else might. We make it easier for people to discover, buy, and sell eligible unused coupons — giving discounts a second chance while helping shoppers save more.</p>
         <div class="hero-actions">
           <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons →</a>
           <a href="sell.html" class="btn btn-ghost btn-lg">Sell a Coupon →</a>
@@ -315,15 +315,15 @@
           </div>
           <div class="cd-divider"></div>
           <div class="cd-amount">₹500</div>
-          <div class="cd-off">Off on eligible purchase</div>
+          <div class="cd-off">Eligible purchase</div>
           <div class="cd-price-row">
             <span class="cd-price-lbl">Buy for</span>
             <span class="cd-price-val">₹25</span>
           </div>
           <div class="cd-checks">
-            <div class="cd-check"><div class="cd-check-icon">✓</div>Eligibility checked</div>
-            <div class="cd-check"><div class="cd-check-icon">✓</div>Secure transaction</div>
-            <div class="cd-check"><div class="cd-check-icon">✓</div>Status tracked</div>
+            <div class="cd-check"><div class="cd-check-icon">✓</div>Discount details shown</div>
+            <div class="cd-check"><div class="cd-check-icon">✓</div>Eligibility information</div>
+            <div class="cd-check"><div class="cd-check-icon">✓</div>Purchase status tracking</div>
           </div>
         </div>
         <div class="fbadge fb1"><div class="bdot"></div> New coupon listed</div>
@@ -339,11 +339,11 @@
     <div class="idea-wrap">
       <div class="idea-content fu">
         <span class="slabel">The Idea</span>
-        <h2 class="stitle" id="idea-heading">A coupon shouldn't go to waste.</h2>
-        <p class="ssub">Every day, people receive reward coupons, promotional codes and discount vouchers they may never use.</p>
-        <p class="ssub" style="margin-bottom:28px">At the same time, someone else may be looking for exactly that discount. SaveHatke connects these two sides through a marketplace designed around unused coupon value.</p>
+        <h2 class="stitle" id="idea-heading">A coupon sitting unused has no value.</h2>
+        <p class="ssub">Every day, people receive promotional codes, reward coupons, vouchers, and limited-time discounts. Some get used. Many don't.</p>
+        <p class="ssub" style="margin-bottom:28px">A coupon sitting unused has no value to its owner once it expires. But that same coupon could be useful to someone looking for a discount. SaveHatke connects those two sides.</p>
         <div class="idea-highlight">
-          Unused for you. Valuable for someone else.
+          Unused for you. Useful for someone else.
         </div>
       </div>
       <div class="idea-visual fu d2">
@@ -352,15 +352,15 @@
             <div class="ig-icon green">🎟️</div>
             <div>
               <div class="ig-label">Seller</div>
-              <div class="ig-text">Has a coupon they won't use — could be a reward from a food app, a shopping code, or a discount voucher.</div>
+              <div class="ig-text">Have a coupon you don't need? List an eligible coupon on SaveHatke and give someone else the opportunity to use it.</div>
             </div>
           </div>
           <div class="ig-arrow">↓</div>
           <div class="ig-row">
-            <div class="ig-icon cyan">🏪</div>
+            <div class="ig-icon cyan">💰</div>
             <div>
-              <div class="ig-label">SaveHatke Marketplace</div>
-              <div class="ig-text">Connects sellers with buyers through a structured coupon listing and discovery platform.</div>
+              <div class="ig-label">SaveHatke</div>
+              <div class="ig-text">Our marketplace brings eligible coupon listings together in one place, making it easier for buyers to discover available discounts.</div>
             </div>
           </div>
           <div class="ig-arrow">↓</div>
@@ -368,7 +368,7 @@
             <div class="ig-icon green">🛍️</div>
             <div>
               <div class="ig-label">Buyer</div>
-              <div class="ig-text">Finds and purchases the coupon at a price lower than its face value — a win for both sides.</div>
+              <div class="ig-text">Find a coupon you can actually use and purchase it at a price that makes sense.</div>
             </div>
           </div>
         </div>
@@ -382,24 +382,34 @@
   <div class="container">
     <div class="sec-hdr fu">
       <span class="slabel">How It Works</span>
-      <h2 class="stitle" id="how-heading">Simple from <span class="gtext">both sides.</span></h2>
+      <h2 class="stitle" id="how-heading">Simple for <span class="gtext">both sides.</span></h2>
       <p class="ssub">Whether you want to buy a discount or sell a coupon you won't use, SaveHatke makes it straightforward.</p>
     </div>
     <div class="steps-grid">
       <div class="step-card fu">
         <div class="step-n">01</div>
         <h3>List</h3>
-        <p>Have a coupon you don't need? Submit the coupon details through SaveHatke. The process is designed to be simple and guided.</p>
+        <p>Have a coupon you're unlikely to use? Provide the required coupon details through the seller flow.</p>
       </div>
       <div class="step-card fu d1">
         <div class="step-n">02</div>
-        <h3>Verify</h3>
-        <p>The coupon can go through eligibility and verification checks before becoming available to buyers — helping keep the marketplace reliable.</p>
+        <h3>Review</h3>
+        <p>Submitted coupons can be reviewed against SaveHatke's eligibility requirements before being listed.</p>
       </div>
       <div class="step-card fu d2">
         <div class="step-n">03</div>
-        <h3>Buy or Sell</h3>
-        <p>Sellers can receive payment for eligible coupons, while buyers can discover available discounts at a better price than the face value.</p>
+        <h3>Discover</h3>
+        <p>Buyers browse available coupons by category, discount, brand, and other relevant details.</p>
+      </div>
+      <div class="step-card fu d3">
+        <div class="step-n">04</div>
+        <h3>Purchase</h3>
+        <p>When a buyer chooses a coupon, the transaction is processed through the SaveHatke marketplace.</p>
+      </div>
+      <div class="step-card fu d4">
+        <div class="step-n">05</div>
+        <h3>Complete</h3>
+        <p>After the transaction meets the applicable conditions, the seller becomes eligible for the corresponding payout.</p>
       </div>
     </div>
   </div>
@@ -410,8 +420,8 @@
   <div class="container">
     <div class="sec-hdr fu">
       <span class="slabel">For Buyers</span>
-      <h2 class="stitle" id="buyers-heading">Find discounts without <span class="gtext">hunting everywhere.</span></h2>
-      <p class="ssub">Browse available coupons across categories. Buy the discount you want at a price that makes sense.</p>
+      <h2 class="stitle" id="buyers-heading">Stop searching everywhere <span class="gtext">for discounts.</span></h2>
+      <p class="ssub">SaveHatke brings available coupon deals into one marketplace so you can discover discounts without spending hours looking for codes.</p>
     </div>
     <div class="cat-pills fu" role="list" aria-label="Coupon categories">
       <span class="cat-pill" role="listitem">Fashion</span>
@@ -438,7 +448,7 @@
         <div class="sc-bottom"><div><span class="sc-price-lbl">Buy for</span><span class="sc-price-val">₹25</span></div><span class="sc-cat">Electronics</span></div>
       </div>
     </div>
-    <p class="sc-demo-note fu">Above listings are UI examples only. Browse actual available coupons on the marketplace.</p>
+    <p class="sc-demo-note fu">Examples shown for demonstration purposes only. Actual coupon availability and terms may vary.</p>
     <div class="text-center fu">
       <a href="marketplace.html" class="btn btn-outline btn-lg">Explore Marketplace →</a>
     </div>
@@ -451,39 +461,39 @@
     <div class="seller-wrap">
       <div class="seller-content fu">
         <span class="slabel">For Sellers</span>
-        <h2 class="stitle" id="sellers-heading">Turn unused coupons <span class="gtext">into value.</span></h2>
-        <p class="ssub">Have a coupon you're probably never going to use? Submit eligible coupons to SaveHatke instead of letting them expire.</p>
+        <h2 class="stitle" id="sellers-heading">Turn unused coupons <span class="gtext">into an opportunity.</span></h2>
+        <p class="ssub">Got a coupon you're probably never going to use? Instead of letting it sit unused until it expires, you can submit it to SaveHatke if it meets our marketplace requirements.</p>
         <div class="feature-list" role="list">
           <div class="feature-item" role="listitem">
             <div class="fi-icon" aria-hidden="true">📝</div>
             <div class="fi-text">
-              <h4>Simple submission</h4>
-              <p>Submit your coupon details through a guided process designed to be quick and clear.</p>
+              <h4>Easy Listing</h4>
+              <p>Submit the required coupon information through a guided seller flow.</p>
             </div>
           </div>
           <div class="feature-item" role="listitem">
-            <div class="fi-icon" aria-hidden="true">✅</div>
+            <div class="fi-icon" aria-hidden="true">🔎</div>
             <div class="fi-text">
-              <h4>Eligibility checks</h4>
-              <p>Coupons are reviewed for eligibility before being listed, helping ensure quality on both sides.</p>
+              <h4>Eligibility Review</h4>
+              <p>Coupons may be reviewed according to SaveHatke's listing requirements.</p>
             </div>
           </div>
           <div class="feature-item" role="listitem">
             <div class="fi-icon" aria-hidden="true">📊</div>
             <div class="fi-text">
-              <h4>Transparent status</h4>
-              <p>Track the status of your submitted coupons through your account dashboard.</p>
+              <h4>Track Your Listing</h4>
+              <p>See the current status of your submitted coupons from your account dashboard.</p>
             </div>
           </div>
           <div class="feature-item" role="listitem">
-            <div class="fi-icon" aria-hidden="true">🔒</div>
+            <div class="fi-icon" aria-hidden="true">💸</div>
             <div class="fi-text">
-              <h4>Secure payout process</h4>
-              <p>Payments for eligible coupons are processed through a structured and secure payout flow.</p>
+              <h4>Seller Payouts</h4>
+              <p>Eligible sellers can receive their applicable payout after the conditions of the transaction are completed.</p>
             </div>
           </div>
         </div>
-        <a href="sell.html" class="btn btn-success btn-lg">Sell Your Coupon →</a>
+        <a href="sell.html" class="btn btn-success btn-lg">Sell a Coupon →</a>
       </div>
       <div class="seller-visual fu d2">
         <div class="sv-label">How selling works</div>
@@ -491,7 +501,7 @@
           <div class="sv-num">1</div>
           <div class="sv-step-text">
             <h5>Submit coupon details</h5>
-            <p>Provide the coupon code and relevant information through the seller form.</p>
+            <p>Provide the coupon code and required information through the seller form.</p>
           </div>
         </div>
         <div class="sv-step">
@@ -511,8 +521,8 @@
         <div class="sv-step">
           <div class="sv-num">4</div>
           <div class="sv-step-text">
-            <h5>Receive payment</h5>
-            <p>When your coupon sells, payment is processed through our secure payout system.</p>
+            <h5>Receive payout</h5>
+            <p>When your coupon sells and conditions are met, your payout is processed through our secure system.</p>
           </div>
         </div>
       </div>
@@ -520,41 +530,74 @@
   </div>
 </section>
 
-<!-- TRUST & SAFETY -->
-<section class="section section-alt" id="trust" aria-labelledby="trust-heading">
+<!-- WHAT MAKES SAVEHATKE DIFFERENT -->
+<section class="section section-alt" id="different" aria-labelledby="different-heading">
   <div class="container">
     <div class="sec-hdr fu">
-      <span class="slabel">Trust &amp; Safety</span>
-      <h2 class="stitle" id="trust-heading">Built around <span class="gtext">safer coupon trading.</span></h2>
-      <p class="ssub">We approach coupon trading with care — using systems designed to keep the marketplace reliable for everyone.</p>
+      <span class="slabel">What Makes SaveHatke Different</span>
+      <h2 class="stitle" id="different-heading">One marketplace. <span class="gtext">Two ways to save.</span></h2>
+      <p class="ssub">Most coupon platforms focus only on helping people find discounts. SaveHatke goes one step further by creating a marketplace where unused coupon value can potentially move from one person to another.</p>
     </div>
     <div class="trust-grid">
       <div class="trust-card fu">
-        <div class="tc-icon" aria-hidden="true">🔍</div>
-        <div class="tc-title">Verification</div>
-        <p class="tc-text">Eligible coupons can be checked before being listed, helping reduce the risk of invalid or expired codes reaching buyers.</p>
+        <div class="tc-icon" aria-hidden="true">♻️</div>
+        <div class="tc-title">Give unused coupons another chance</div>
+        <p class="tc-text">A coupon doesn't have to become useless simply because the original recipient doesn't need it.</p>
       </div>
       <div class="trust-card fu d1">
-        <div class="tc-icon" aria-hidden="true">🔐</div>
-        <div class="tc-title">Account Security</div>
-        <p class="tc-text">User accounts and personal information are protected using appropriate security controls and access management.</p>
+        <div class="tc-icon" aria-hidden="true">💰</div>
+        <div class="tc-title">Make discounts accessible</div>
+        <p class="tc-text">Buyers can discover coupons at prices that may be lower than their face value, subject to the coupon's terms.</p>
       </div>
       <div class="trust-card fu d2">
-        <div class="tc-icon" aria-hidden="true">🚨</div>
-        <div class="tc-title">Abuse Protection</div>
-        <p class="tc-text">Systems are designed to detect suspicious activity and prevent misuse of the platform by bad actors.</p>
+        <div class="tc-icon" aria-hidden="true">🔍</div>
+        <div class="tc-title">Make information clear</div>
+        <p class="tc-text">We aim to show important information such as discount value, applicable conditions, expiry information where available, and listing status.</p>
       </div>
       <div class="trust-card fu d3">
-        <div class="tc-icon" aria-hidden="true">📩</div>
-        <div class="tc-title">Support</div>
-        <p class="tc-text">Users can contact SaveHatke Support when they need assistance with a transaction, listing, or account issue.</p>
+        <div class="tc-icon" aria-hidden="true">🇮🇳</div>
+        <div class="tc-title">Built with India in mind</div>
+        <p class="tc-text">SaveHatke is being developed for everyday shoppers across India who want a simpler way to discover and use discounts.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- OUR VISION -->
-<section class="section" id="vision" aria-labelledby="vision-heading">
+<!-- TRUST & SAFETY -->
+<section class="section" id="trust" aria-labelledby="trust-heading">
+  <div class="container">
+    <div class="sec-hdr fu">
+      <span class="slabel">Trust &amp; Safety</span>
+      <h2 class="stitle" id="trust-heading">A marketplace should be <span class="gtext">built on clarity.</span></h2>
+      <p class="ssub">Coupon marketplaces need more than attractive deals. They need sensible rules, transparent information, and systems designed to reduce misuse. SaveHatke is designed with these principles in mind.</p>
+    </div>
+    <div class="trust-grid">
+      <div class="trust-card fu">
+        <div class="tc-icon" aria-hidden="true">🔎</div>
+        <div class="tc-title">Coupon Review</div>
+        <p class="tc-text">Eligible listings may go through checks based on SaveHatke's marketplace requirements.</p>
+      </div>
+      <div class="trust-card fu d1">
+        <div class="tc-icon" aria-hidden="true">🔐</div>
+        <div class="tc-title">Account Protection</div>
+        <p class="tc-text">We use appropriate technical and operational measures to protect accounts and information.</p>
+      </div>
+      <div class="trust-card fu d2">
+        <div class="tc-icon" aria-hidden="true">🚨</div>
+        <div class="tc-title">Abuse Prevention</div>
+        <p class="tc-text">We work to identify suspicious activity, fraudulent listings, and attempts to misuse the marketplace.</p>
+      </div>
+      <div class="trust-card fu d3">
+        <div class="tc-icon" aria-hidden="true">📩</div>
+        <div class="tc-title">Customer Support</div>
+        <p class="tc-text">If something goes wrong with a listing, purchase, account, or transaction, users can contact SaveHatke Support for assistance.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- OUR PHILOSOPHY -->
+<section class="section section-alt" id="vision" aria-labelledby="vision-heading">
   <div class="container">
     <div class="vision-wrap">
       <div class="vision-bg" aria-hidden="true">
@@ -562,10 +605,10 @@
         <div class="vision-orb vision-orb2"></div>
       </div>
       <div class="vision-content fu">
-        <span class="slabel">Our Vision</span>
+        <span class="slabel">Our Philosophy</span>
         <h2 class="stitle" id="vision-heading" style="text-align:center">Make every coupon count.</h2>
-        <p class="vision-quote">"We believe discounts shouldn't be wasted."</p>
-        <p class="vision-sub">SaveHatke aims to build a marketplace where unused promotional value can move from someone who doesn't need it to someone who does.</p>
+        <p class="vision-quote">"Unused for you. Valuable to someone else."</p>
+        <p class="vision-sub">We're not trying to make coupon hunting complicated. We're building a marketplace where finding a deal and putting an unused coupon to better use can happen in one place.</p>
         <div class="vision-triptych" role="img" aria-label="One coupon. Two sides. More value.">
           <div class="vt-panel">
             <div class="vt-num">1</div>
@@ -587,55 +630,80 @@
   </div>
 </section>
 
-<!-- BUILT FOR INDIA -->
-<section class="section section-alt" id="india" aria-labelledby="india-heading">
+<!-- BUILT FOR EVERYDAY SAVINGS -->
+<section class="section" id="india" aria-labelledby="india-heading">
   <div class="container">
     <div class="india-card fu">
       <span class="india-flag" aria-hidden="true">🇮🇳</span>
-      <h2 id="india-heading">Built for India</h2>
-      <p>SaveHatke is being built with a simple goal — help people discover discounts, give unused coupons another chance to create value, and make coupon trading simpler for everyday shoppers across India.</p>
+      <h2 id="india-heading">Built for Everyday Savings</h2>
+      <p>SaveHatke is more than a coupon website. It's a marketplace designed around the idea that unused discounts can still be useful. Whether you're looking for a specific deal or have a coupon sitting unused in your account, SaveHatke gives both sides a place to connect.</p>
     </div>
   </div>
 </section>
 
 <!-- ROADMAP -->
-<section class="section" id="roadmap" aria-labelledby="roadmap-heading">
+<section class="section section-alt" id="roadmap" aria-labelledby="roadmap-heading">
   <div class="container">
     <div class="sec-hdr fu">
-      <span class="slabel">What's Next</span>
-      <h2 class="stitle" id="roadmap-heading">We're just <span class="gtext">getting started.</span></h2>
-      <p class="ssub">Here's where SaveHatke is today and where we're headed.</p>
+      <span class="slabel">Where SaveHatke Is Going</span>
+      <h2 class="stitle" id="roadmap-heading">Starting with the <span class="gtext">fundamentals.</span></h2>
+      <p class="ssub">SaveHatke is starting with the fundamentals and expanding carefully. Here's what's available now and what's coming next.</p>
     </div>
     <div class="roadmap fu" role="list" aria-label="Feature roadmap">
       <div class="rm-item active" role="listitem">
         <div class="rm-dot done" aria-label="Available now"></div>
         <span class="rm-name">Coupon Marketplace</span>
-        <span class="rm-badge current">Current</span>
+        <span class="rm-badge current">Available</span>
+      </div>
+      <div class="rm-item active" role="listitem">
+        <div class="rm-dot done" aria-label="Available now"></div>
+        <span class="rm-name">Buy Coupons</span>
+        <span class="rm-badge current">Available</span>
       </div>
       <div class="rm-item active" role="listitem">
         <div class="rm-dot done" aria-label="Available now"></div>
         <span class="rm-name">Sell Coupons</span>
-        <span class="rm-badge current">Current</span>
+        <span class="rm-badge current">Available</span>
+      </div>
+      <div class="rm-item active" role="listitem">
+        <div class="rm-dot done" aria-label="Available now"></div>
+        <span class="rm-name">Account Dashboard</span>
+        <span class="rm-badge current">Available</span>
+      </div>
+      <div class="rm-item active" role="listitem">
+        <div class="rm-dot done" aria-label="Available now"></div>
+        <span class="rm-name">Listing Status Tracking</span>
+        <span class="rm-badge current">Available</span>
       </div>
       <div class="rm-item" role="listitem">
         <div class="rm-dot soon" aria-label="Coming soon"></div>
         <span class="rm-name">Price Tracking</span>
-        <span class="rm-badge coming">Coming Soon</span>
+        <span class="rm-badge coming">Coming Next</span>
       </div>
       <div class="rm-item" role="listitem">
         <div class="rm-dot soon" aria-label="Coming soon"></div>
         <span class="rm-name">Price History</span>
-        <span class="rm-badge coming">Coming Soon</span>
+        <span class="rm-badge coming">Coming Next</span>
       </div>
       <div class="rm-item" role="listitem">
         <div class="rm-dot soon" aria-label="Coming soon"></div>
         <span class="rm-name">Browser Extension</span>
-        <span class="rm-badge coming">Coming Soon</span>
+        <span class="rm-badge coming">Coming Next</span>
       </div>
       <div class="rm-item" role="listitem">
         <div class="rm-dot soon" aria-label="Coming soon"></div>
         <span class="rm-name">Smart Deal Discovery</span>
-        <span class="rm-badge coming">Coming Soon</span>
+        <span class="rm-badge coming">Coming Next</span>
+      </div>
+      <div class="rm-item" role="listitem">
+        <div class="rm-dot soon" aria-label="Coming soon"></div>
+        <span class="rm-name">Personalized Deals</span>
+        <span class="rm-badge coming">Coming Next</span>
+      </div>
+      <div class="rm-item" role="listitem">
+        <div class="rm-dot soon" aria-label="Coming soon"></div>
+        <span class="rm-name">More Coupon Categories</span>
+        <span class="rm-badge coming">Coming Next</span>
       </div>
     </div>
   </div>
@@ -645,11 +713,11 @@
 <section class="final-cta" aria-labelledby="cta-heading">
   <div class="container fu">
     <span class="slabel">SaveHatke Marketplace</span>
-    <h2 class="stitle" id="cta-heading">Have a coupon you won't use?</h2>
-    <p class="ssub">Don't let it expire. Someone else might want it.</p>
+    <h2 class="stitle" id="cta-heading">Find a deal. Give a coupon<br>another chance.</h2>
+    <p class="ssub">Whether you're looking for a specific discount or have a coupon sitting unused, SaveHatke gives both sides a place to connect. Save Hatke.</p>
     <div class="cta-actions">
-      <a href="sell.html" class="btn btn-primary btn-lg">Sell Your Coupon →</a>
-      <a href="marketplace.html" class="btn btn-ghost btn-lg">Browse Marketplace →</a>
+      <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons →</a>
+      <a href="sell.html" class="btn btn-ghost btn-lg">Sell a Coupon →</a>
     </div>
   </div>
 </section>
@@ -662,11 +730,12 @@
         <a href="index.html" class="nav-brand" style="font-size:1.2rem" aria-label="SaveHatke home">
           <div class="brand-icon" aria-hidden="true">💰</div>Save<span class="bhl">Hatke</span>
         </a>
-        <p>India's coupon marketplace — buy coupons you want, sell coupons you don't need, and save more on every purchase.</p>
+        <p>India's coupon marketplace for buying and selling eligible unused coupons.</p>
       </div>
       <div class="fcol">
         <h4>Platform</h4>
         <a href="marketplace.html">Coupon Marketplace</a>
+        <a href="marketplace.html">Buy Coupons</a>
         <a href="sell.html">Sell Coupons</a>
         <a href="dashboard.html">Dashboard</a>
         <a href="#roadmap">Price Tracking</a>
@@ -681,10 +750,12 @@
       </div>
       <div class="fcol">
         <h4>Categories</h4>
-        <a href="marketplace.html?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace.html?cat=Fashion">Fashion Coupons</a>
         <a href="marketplace.html?cat=Electronics">Electronics Deals</a>
-        <a href="marketplace.html?cat=Fashion">Fashion Codes</a>
         <a href="marketplace.html?cat=Food">Food &amp; Delivery</a>
+        <a href="marketplace.html?cat=Beauty">Beauty Coupons</a>
+        <a href="marketplace.html?cat=Travel">Travel Deals</a>
+        <a href="marketplace.html?cat=Shopping">Shopping Coupons</a>
       </div>
     </div>
     <div class="fbot">
