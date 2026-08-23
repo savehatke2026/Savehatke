@@ -9,7 +9,11 @@
 // embedded in frontend code.
 
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+// gemini-2.5-flash was retired for new API keys (404 "no longer available
+// to new users") — 3.6-flash is the current recommended Flash model.
+// NOTE: 3.x Flash models REJECT generationConfig.thinkingConfig (400), so
+// the thinking-budget workaround below stays scoped to 2.5 models only.
+const DEFAULT_MODEL = 'gemini-3.6-flash';
 
 function isConfigured() {
   return !!process.env.GEMINI_API_KEY;
@@ -47,7 +51,12 @@ function toGeminiPayload(messages) {
         if (!tc || !tc.function || !tc.function.name) continue;
         let args = {};
         try { args = JSON.parse(tc.function.arguments || '{}'); } catch (e) {}
-        parts.push({ functionCall: { name: tc.function.name, args } });
+        // Gemini 3.x requires the thoughtSignature from the original tool
+        // call to be echoed back on the functionCall part — omitting it
+        // makes the follow-up request fail with a 400.
+        const fnPart = { functionCall: { name: tc.function.name, args } };
+        if (tc.thoughtSignature) fnPart.thoughtSignature = tc.thoughtSignature;
+        parts.push(fnPart);
       }
       if (parts.length > 0) contents.push({ role: 'model', parts });
       continue;
@@ -97,6 +106,25 @@ function toGeminiTools(tools) {
  * @returns {Promise<{ok:boolean, content:string, toolCalls:Array, model:string, finishReason:string, error?:string}>}
  */
 async function chatCompletion(messages, opts = {}) {
+  const result = await chatCompletionOnce(messages, opts);
+
+  // A stored/requested model may have been retired by Google (404 "no
+  // longer available"). Retry once with the current default model instead
+  // of failing the whole chat request.
+  if (
+    !result.ok &&
+    result.error === 'api_error' &&
+    result.status === 404 &&
+    /no longer available/i.test(String(result.detail || '')) &&
+    result.model !== getDefaultModel()
+  ) {
+    console.warn(`[Gemini] Model ${result.model} is no longer available — retrying with ${getDefaultModel()}. Update GEMINI_MODEL/chatbot settings to remove this warning.`);
+    return chatCompletionOnce(messages, { ...opts, model: getDefaultModel() });
+  }
+  return result;
+}
+
+async function chatCompletionOnce(messages, opts = {}) {
   if (!isConfigured()) {
     return { ok: false, error: 'not_configured', model: opts.model || getDefaultModel() };
   }
@@ -150,19 +178,22 @@ async function chatCompletion(messages, opts = {}) {
       return { ok: false, error: 'content_blocked', model, detail: String(blockReason).slice(0, 200) };
     }
 
-    // Flatten parts: text parts → content, functionCall parts → OpenAI-style toolCalls
+    // Flatten parts: text parts → content, functionCall parts → OpenAI-style
+    // toolCalls. The thoughtSignature is preserved so it can be echoed back
+    // on the next round-trip (required by Gemini 3.x for tool calling).
     let content = '';
     const toolCalls = [];
     for (const part of candidate.content.parts || []) {
       if (typeof part.text === 'string') content += part.text;
       if (part.functionCall && part.functionCall.name) {
         toolCalls.push({
-          id: 'call_' + (toolCalls.length + 1) + '_' + Date.now().toString(36),
+          id: part.functionCall.id || 'call_' + (toolCalls.length + 1) + '_' + Date.now().toString(36),
           type: 'function',
           function: {
             name: part.functionCall.name,
             arguments: JSON.stringify(part.functionCall.args || {}),
           },
+          ...(part.thoughtSignature ? { thoughtSignature: part.thoughtSignature } : {}),
         });
       }
     }

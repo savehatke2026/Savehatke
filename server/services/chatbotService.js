@@ -53,7 +53,7 @@ const DEFAULT_SETTINGS = {
     '📞 Contact Support',
   ],
   maintenanceMessage: 'Our AI assistant is temporarily unavailable. Please check back soon or contact support.',
-  model: 'gemini-2.5-flash',
+  model: 'gemini-3.6-flash',
   maxOutputTokens: 1024,
   temperature: 0.4,
   timeoutSeconds: 30,
@@ -100,10 +100,13 @@ async function getSettings() {
       merged[k] = coerceSetting(k, stored[k]);
     }
   });
-  // Old NVIDIA-style model names (they contain '/') are invalid on Gemini —
-  // fall back to the default instead of sending a model the API rejects.
-  if (typeof merged.model === 'string' && merged.model.includes('/')) {
-    merged.model = DEFAULT_SETTINGS.model;
+  // Invalid model sanitization:
+  // - Old NVIDIA-style names (contain '/') are not valid Gemini models.
+  // - gemini-2.5-flash was retired by Google (404 for new API keys) — if a
+  //   saved settings row still holds it, fall back to the env/default model
+  //   instead of sending a model the API rejects.
+  if (typeof merged.model === 'string' && (merged.model.includes('/') || merged.model === 'gemini-2.5-flash')) {
+    merged.model = gemini.getDefaultModel();
   }
   return merged;
 }
@@ -727,6 +730,13 @@ async function handleMessage({ message, conversationId, user, ip }) {
         aiMessages.push({ role: 'tool', name: fnName, content: JSON.stringify(toolResult).slice(0, 4000), tool_call_id: tc.id || ('call_' + loop) });
       }
       result = await gemini.chatCompletion(aiMessages, callOpts);
+    }
+
+    // 9b. Tool rounds exhausted but the model still wants to call tools (or
+    // produced no text) — ask once more WITHOUT tools so it must give the
+    // user a real answer instead of an empty reply.
+    if (result.ok && !result.content && (!result.toolCalls || result.toolCalls.length === 0 || loop >= 2)) {
+      result = await gemini.chatCompletion(aiMessages, { ...callOpts, tools: undefined });
     }
 
     if (!result.ok) {
