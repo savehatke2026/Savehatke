@@ -6,6 +6,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -126,6 +127,22 @@ router.post('/ticket', optionalAuth, async (req, res) => {
     };
 
     await db.appendRow(db.SHEETS.SUPPORT_TICKETS, ticket);
+
+    // Send the "request received" acknowledgment email (fire-and-forget —
+    // never blocks or fails the submission response)
+    emailService.sendSupportAckEmail({
+      to: ticket.userEmail,
+      userName: ticket.name,
+      caseId: ticket.id,
+      subject: ticket.subject,
+      createdAt: ticket.createdAt,
+      message: ticket.message,
+    })
+      .then((r) => {
+        if (r.success) console.log(`📧 Support ack email sent for case #${ticket.id}`);
+        else if (!r.isSimulated) console.warn(`📧 Support ack email failed for case #${ticket.id}: ${r.error}`);
+      })
+      .catch((e) => console.warn('Support ack email notice:', e.message));
 
     res.status(201).json({
       message: 'Support ticket submitted successfully. We will get back to you within 24 hours.',

@@ -351,8 +351,254 @@ async function sendOTPEmail(to, otp) {
   }
 }
 
+/**
+ * Support-email transporter — a dedicated mailbox for support conversations
+ * (SUPPORT_EMAIL + SUPPORT_EMAIL_PASSWORD in .env). Falls back to the main
+ * SMTP transporter when the dedicated support credentials are not set, so
+ * acknowledgment emails still go out.
+ */
+function getSupportTransporter() {
+  const user = (process.env.SUPPORT_EMAIL || '').trim();
+  const rawPass = (process.env.SUPPORT_EMAIL_PASSWORD || '').trim();
+  if (!user || !rawPass) {
+    return getTransporter(); // fallback: main SMTP account
+  }
+
+  // Strip spaces commonly copied from Google App Password UI
+  const pass = rawPass.replace(/\s+/g, '');
+  const host = (process.env.SUPPORT_SMTP_HOST || 'smtp.gmail.com').trim();
+  const port = parseInt(process.env.SUPPORT_SMTP_PORT, 10) || 465;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: process.env.SUPPORT_SMTP_SECURE === 'true' || port === 465,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false },
+  });
+}
+
+/**
+ * Check whether any transporter can send support emails — the dedicated
+ * support mailbox or the main SMTP account.
+ */
+function isSupportEmailConfigured() {
+  const supportConfigured = Boolean(
+    (process.env.SUPPORT_EMAIL || '').trim() && (process.env.SUPPORT_EMAIL_PASSWORD || '').trim()
+  );
+  return supportConfigured || isEmailConfigured();
+}
+
+/**
+ * Send the "Your support request has been received" acknowledgment email
+ * when a user submits the support form.
+ *
+ * @param {object} params
+ * @param {string} params.to - User's email address
+ * @param {string} params.userName - User's display name
+ * @param {string} params.caseId - Support case / ticket ID
+ * @param {string} params.subject - Ticket subject
+ * @param {string} params.createdAt - ISO creation timestamp
+ * @param {string} params.message - The user's submitted message
+ * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
+ */
+async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, message }) {
+  const cleanEmail = String(to || '').toLowerCase().trim();
+  const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
+  const safeCaseId = escapeHtml(caseId);
+  const safeSubject = escapeHtml(subject);
+  const safeMessage = escapeHtml(message);
+
+  const createdDate = createdAt
+    ? new Date(createdAt).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+      })
+    : '—';
+
+  const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
+  const fromEmail = supportFrom
+    || process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER
+    || 'noreply@savehatke.com';
+  const fromName = (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim();
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const viewUrl = `${siteUrl}/support.html`;
+  const year = new Date().getFullYear();
+
+  const t = getSupportTransporter();
+  if (!t || !isSupportEmailConfigured()) {
+    console.warn(`⚠️ [EmailService] Support email not configured. Acknowledgment for case ${safeCaseId} was NOT sent.`);
+    console.warn(`ℹ️ Add SUPPORT_EMAIL + SUPPORT_EMAIL_PASSWORD (or SMTP_USER/SMTP_PASS) to your .env file.`);
+    return {
+      success: false,
+      isSimulated: true,
+      error: 'Support email credentials not configured on server. Please add support email details to .env.',
+    };
+  }
+
+  const subject_ = `SaveHatke Support — Request received (Case #${safeCaseId})`;
+
+  const textBody =
+`SaveHatke Support
+
+Your support request has been received
+
+Hello ${userName ? String(userName).trim() : 'there'},
+
+We've received your support request and created a case for it.
+
+Case ID: #${caseId}
+Subject: ${subject}
+Created: ${createdDate}
+Status: Open
+
+Your Message:
+
+${message}
+
+Our support team will review your request and get back to you as soon as possible.
+
+Please keep your Case ID #${caseId} for future reference when contacting SaveHatke Support about this request.
+
+View Support Request: ${viewUrl}
+
+If you did not submit this request, please contact us immediately.
+
+Regards,
+SaveHatke Support Team
+
+© ${year} SaveHatke. All rights reserved.`;
+
+  const htmlContent = `
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SaveHatke Support — Your support request has been received</title>
+  </head>
+  <body style="margin:0;padding:0;background-color:#060d1f;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e2ecff;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#060d1f;padding:40px 15px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" style="max-width:560px;background:#0c1835;border:1px solid rgba(79,195,247,0.2);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);" cellspacing="0" cellpadding="0" border="0">
+            <!-- Header -->
+            <tr>
+              <td style="padding:32px 36px 20px;text-align:center;background:radial-gradient(ellipse at top, rgba(0,230,118,0.10) 0%, transparent 70%);">
+                <div style="display:inline-block;padding:8px 16px;background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);border-radius:10px;margin-bottom:14px;">
+                  <span style="font-size:1.1rem;font-weight:900;color:#00e676;letter-spacing:0.5px;">💰 SaveHatke</span>
+                </div>
+                <div style="font-size:2rem;line-height:1;margin-bottom:8px;">🛟</div>
+                <h1 style="margin:0;font-size:1.5rem;font-weight:800;color:#ffffff;line-height:1.3;">SaveHatke Support</h1>
+                <p style="margin:8px 0 0;font-size:0.95rem;color:#a8c0dc;">Your support request has been received</p>
+              </td>
+            </tr>
+
+            <!-- Greeting -->
+            <tr>
+              <td style="padding:20px 36px 0;">
+                <p style="margin:0 0 14px;font-size:1rem;color:#e2ecff;line-height:1.6;">Hello <strong style="color:#00e676;">${safeName}</strong>,</p>
+                <p style="margin:0 0 18px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">We've received your support request and created a case for it.</p>
+              </td>
+            </tr>
+
+            <!-- Case details -->
+            <tr>
+              <td style="padding:0 36px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(79,195,247,0.04);border:1px solid rgba(79,195,247,0.12);border-radius:12px;">
+                  <tr>
+                    <td style="padding:16px 20px;">
+                      <p style="margin:0 0 10px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;"><strong style="color:#8ba2c4;">Case ID:</strong> &nbsp;<span style="font-family:'Courier New',Courier,monospace;color:#4fc3f7;font-weight:700;">#${safeCaseId}</span></p>
+                      <p style="margin:0 0 10px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;"><strong style="color:#8ba2c4;">Subject:</strong> &nbsp;${safeSubject}</p>
+                      <p style="margin:0 0 10px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;"><strong style="color:#8ba2c4;">Created:</strong> &nbsp;${escapeHtml(createdDate)}</p>
+                      <p style="margin:0;font-size:0.88rem;color:#a8c0dc;line-height:1.6;"><strong style="color:#8ba2c4;">Status:</strong> &nbsp;<span style="display:inline-block;padding:2px 10px;border-radius:6px;background:rgba(0,230,118,0.12);color:#00e676;font-weight:700;font-size:0.76rem;letter-spacing:0.05em;text-transform:uppercase;">Open</span></p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Your Message -->
+            <tr>
+              <td style="padding:22px 36px 0;">
+                <p style="margin:0 0 10px;font-size:0.78rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4fc3f7;">Your Message</p>
+                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(79,195,247,0.1);border-radius:12px;padding:16px 18px;">
+                  <p style="margin:0;font-size:0.9rem;color:#e2ecff;line-height:1.7;white-space:pre-wrap;">${safeMessage}</p>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Body copy -->
+            <tr>
+              <td style="padding:20px 36px 0;">
+                <p style="margin:0 0 12px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Our support team will review your request and get back to you as soon as possible.</p>
+                <p style="margin:0 0 20px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Please keep your <strong style="color:#4fc3f7;">Case ID <span style="font-family:'Courier New',Courier,monospace;">#${safeCaseId}</span></strong> for future reference when contacting SaveHatke Support about this request.</p>
+              </td>
+            </tr>
+
+            <!-- CTA -->
+            <tr>
+              <td style="padding:0 36px 8px;" align="center">
+                <a href="${viewUrl}" style="display:inline-block;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f !important;text-decoration:none;font-weight:700;font-size:0.92rem;padding:12px 26px;border-radius:10px;">View Support Request →</a>
+              </td>
+            </tr>
+
+            <!-- Security note -->
+            <tr>
+              <td style="padding:14px 36px 0;">
+                <div style="background:rgba(255,183,77,0.05);border:1px solid rgba(255,183,77,0.2);border-radius:10px;padding:12px 16px;">
+                  <p style="margin:0;font-size:0.8rem;color:#ffb74d;line-height:1.5;">⚠️ If you did not submit this request, please contact us immediately.</p>
+                </div>
+              </td>
+            </tr>
+
+            <!-- Sign-off -->
+            <tr>
+              <td style="padding:22px 36px 0;">
+                <p style="margin:0;font-size:0.88rem;color:#8ba2c4;line-height:1.5;">Regards,<br><strong style="color:#e2ecff;">SaveHatke Support Team</strong></p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding:26px 36px 22px;background:rgba(6,13,31,0.6);border-top:1px solid rgba(79,195,247,0.1);text-align:center;">
+                <p style="margin:0 0 4px;font-size:0.78rem;color:#5a789a;">© ${year} SaveHatke. All rights reserved.</p>
+                <p style="margin:0;font-size:0.72rem;color:#4a6890;">You're receiving this because you submitted a support request on SaveHatke.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+  </html>
+  `;
+
+  try {
+    const info = await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: cleanEmail,
+      replyTo: supportFrom || undefined,
+      subject: subject_,
+      text: textBody,
+      html: htmlContent,
+      headers: {
+        'X-Entity-Ref-ID': `support-ack-${safeCaseId}`,
+      },
+    });
+
+    console.log(`✅ [EmailService] Support acknowledgment sent to ${cleanEmail} for case #${safeCaseId} (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send support acknowledgment to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendOTPEmail,
   sendWelcomeEmail,
+  sendSupportAckEmail,
   isEmailConfigured,
+  isSupportEmailConfigured,
 };
