@@ -717,5 +717,6 @@ const GmailApp = (() => {
     openCompose, reply, replyAll, forward, toggleCcBcc, closeCompose,
     addFiles, removeAtt, sendCompose, saveDraft,
     confirmDialog, closeConfirm, toggleSide,
+    loadStatus,
   };
 })();
