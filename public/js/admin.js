@@ -588,11 +588,11 @@ function userSessionStatusBadge(sessionStatus, accountStatus) {
 function emailAvatarHtml(email, name) {
   const initials = userInitials(name);
   const emailStr = escapeHtml(email || '');
-  // Use unavatar.io for Gmail profile pictures — falls back gracefully to initials
+  const fixedSize = 'width:28px;height:28px;min-width:28px;border-radius:50%;object-fit:cover;flex-shrink:0';
   if (emailStr) {
-    return `<img src="https://unavatar.io/${emailStr}?fallback=false" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.outerHTML='<div class=\\'u-avatar\\'>${escapeHtml(initials)}</div>'">`;
+    return `<img src="https://unavatar.io/${emailStr}?fallback=false" alt="" style="${fixedSize}" onerror="this.outerHTML='<div class=\\'u-avatar\\' style=\\'${fixedSize};display:flex;align-items:center;justify-content:center;font-size:.65rem\\'>${escapeHtml(initials)}</div>'">`;
   }
-  return `<div class="u-avatar">${escapeHtml(initials)}</div>`;
+  return `<div class="u-avatar" style="${fixedSize};display:flex;align-items:center;justify-content:center;font-size:.65rem">${escapeHtml(initials)}</div>`;
 }
 
 async function loadUsers() {
@@ -649,7 +649,7 @@ function renderUsers() {
       : `<a href="#" style="color:#ffb74d;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','suspended')">Suspend</a>`;
     return `<tr>
       <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
-      <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
+      <td><div style="display:flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
       <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDate(u.createdAt)}</td>
       <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
       <td style="text-align:center">${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
@@ -677,7 +677,7 @@ function renderLoginHistory() {
 
   body.innerHTML = rows.map((u) => `<tr>
     <td><strong>${escapeHtml(u.name)}</strong></td>
-    <td><div style="display:inline-flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
+    <td><div style="display:flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
     <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
     <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
     <td>${loginMethodBadge(u.loginMethod)}</td>
