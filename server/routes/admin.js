@@ -713,17 +713,53 @@ router.post('/coupons/:id/notify-retry', authenticateToken, requireAdmin, async 
 // GET /api/admin/users — List all users (live Google Sheets Users tab)
 router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const users = await db.getRows(db.SHEETS.USERS);
-    const list = users.map((u) => ({
-      id: u.user_id || u.id || '',
-      name: u.name || u.username || String(u.email || '').split('@')[0] || 'Unknown',
-      username: u.username || '',
-      email: u.email || '',
-      status: String(u.status || 'active').toLowerCase().trim(),
-      createdAt: u.created_at || u.createdAt || '',
-      lastLoginAt: u.last_login_at || '',
-      lastLogoutAt: u.last_logout_at || '',
-    }));
+    const [users, coupons, sessions] = await Promise.all([
+      db.getRows(db.SHEETS.USERS),
+      db.getRows(db.SHEETS.COUPONS).catch(() => []),
+      supabase.isConfigured() ? supabase.getAllSessions().catch(() => []) : Promise.resolve([]),
+    ]);
+
+    // Build bought/sold counts keyed by lowercase email
+    const boughtMap = {};
+    const soldMap = {};
+    for (const c of coupons) {
+      const buyer = String(c.buyerEmail || '').toLowerCase().trim();
+      const seller = String(c.sellerEmail || '').toLowerCase().trim();
+      if (buyer) boughtMap[buyer] = (boughtMap[buyer] || 0) + 1;
+      if (seller) soldMap[seller] = (soldMap[seller] || 0) + 1;
+    }
+
+    // Build latest session per email (most recent login_time wins)
+    const latestSessionMap = {};
+    for (const s of sessions) {
+      const sEmail = String(s.email || '').toLowerCase().trim();
+      if (!sEmail) continue;
+      const existing = latestSessionMap[sEmail];
+      if (!existing || new Date(s.login_time || 0) > new Date(existing.login_time || 0)) {
+        latestSessionMap[sEmail] = s;
+      }
+    }
+
+    const list = users.map((u) => {
+      const email = String(u.email || '').toLowerCase().trim();
+      const session = latestSessionMap[email] || {};
+      const sessionStatus = String(session.status || '').toLowerCase();
+      return {
+        id: u.user_id || u.id || '',
+        name: u.name || u.username || String(u.email || '').split('@')[0] || 'Unknown',
+        username: u.username || '',
+        email: u.email || '',
+        status: String(u.status || 'active').toLowerCase().trim(),
+        createdAt: u.created_at || u.createdAt || '',
+        lastLoginAt: session.login_time || u.last_login_at || '',
+        lastLogoutAt: session.last_active && (sessionStatus === 'logged out' || sessionStatus === 'expired')
+          ? session.last_active : (u.last_logout_at || ''),
+        loginMethod: session.login_method || '',
+        sessionStatus: session.status || '',
+        couponsBought: boughtMap[email] || 0,
+        couponsSold: soldMap[email] || 0,
+      };
+    });
     res.json({
       users: list,
       counts: {

@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // SaveHatke — Admin Panel Logic
 // ============================================
 
@@ -590,7 +590,7 @@ async function loadUsers() {
     renderUsers();
     renderLoginHistory();
   } catch (err) {
-    if (body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+    if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
   } finally {
     usersLoading = false;
   }
@@ -611,22 +611,26 @@ function renderUsers() {
   });
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
     return;
   }
 
   body.innerHTML = rows.map((u) => {
     const suspended = u.status === 'suspended' || u.status === 'banned';
-    const action = suspended
-      ? `<button class="btn btn-success btn-sm" onclick="toggleUserStatus('${escapeHtml(u.id)}','active')">Activate</button>`
-      : `<button class="btn btn-warning btn-sm" onclick="toggleUserStatus('${escapeHtml(u.id)}','suspended')">Suspend</button>`;
+    const statusBadge = suspended ? '🔴 Suspended' : '🟢 Active';
+    const statusBadgeHtml = userStatusBadge(u.status);
+    const toggleAction = suspended
+      ? `<a href="#" style="color:#00e676;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','active')">Activate</a>`
+      : `<a href="#" style="color:#ffb74d;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','suspended')">Suspend</a>`;
     return `<tr>
       <td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">${escapeHtml(userInitials(u.name))}</div><strong>${escapeHtml(u.name)}</strong></div></td>
       <td>${escapeHtml(u.email || '—')}</td>
       <td>${fmtDate(u.createdAt)}</td>
       <td>${fmtDateTime(u.lastLoginAt)}</td>
-      <td>${userStatusBadge(u.status)}</td>
-      <td><div style="display:flex;gap:6px">${action}</div></td>
+      <td>${statusBadgeHtml}</td>
+      <td><span class="mono" style="font-weight:600;color:#ce93d8">${u.couponsBought || 0}</span></td>
+      <td><span class="mono" style="font-weight:600;color:#00e676">${u.couponsSold || 0}</span></td>
+      <td><span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><a href="#" style="color:#4fc3f7;font-weight:600;font-size:.82rem" onclick="event.preventDefault();viewUserDetail('${escapeHtml(u.id)}')">View</a> <span style="color:#6b88aa">·</span> ${toggleAction}</span></td>
     </tr>`;
   }).join('');
 }
@@ -665,6 +669,65 @@ async function toggleUserStatus(userId, nextStatus) {
     showToast(err.message || 'Failed to update user status.', 'error');
   }
 }
+
+function viewUserDetail(userId) {
+  const user = usersCache.find((u) => u.id === userId);
+  if (!user) { showToast('User not found.', 'error'); return; }
+
+  const suspended = user.status === 'suspended' || user.status === 'banned';
+  const statusColor = suspended ? '#ef9a9a' : '#00e676';
+  const statusText = suspended ? '🔴 Suspended' : '🟢 Active';
+
+  // Build modal HTML
+  const html = `
+    <div class="modal-overlay open" id="userDetailModal" onclick="if(event.target===this)this.classList.remove('open')">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-hdr" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+          <div class="modal-title" style="font-family:'DM Serif Display',serif;font-size:1.3rem">User Details</div>
+          <button class="modal-close" onclick="document.getElementById('userDetailModal').classList.remove('open');setTimeout(()=>document.getElementById('userDetailModal')?.remove(),300)" style="background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1.2rem;padding:2px 6px">✕</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
+          <div class="u-avatar" style="width:48px;height:48px;font-size:1rem">${escapeHtml(userInitials(user.name))}</div>
+          <div>
+            <div style="font-weight:700;font-size:1.05rem;color:#e2ecff">${escapeHtml(user.name)}</div>
+            <div style="font-size:.82rem;color:#6b88aa">${escapeHtml(user.email || '—')}</div>
+          </div>
+          <span style="margin-left:auto;font-size:.78rem;font-weight:700;color:${statusColor}">${statusText}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+          <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">Joined</div>
+            <div style="font-size:.88rem;color:#e2ecff;font-weight:600">${fmtDate(user.createdAt)}</div>
+          </div>
+          <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">Last Login</div>
+            <div style="font-size:.88rem;color:#e2ecff;font-weight:600">${fmtDateTime(user.lastLoginAt)}</div>
+          </div>
+          <div style="background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.15);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">🎟️ Coupons Bought</div>
+            <div style="font-size:1.3rem;font-family:'JetBrains Mono',monospace;color:#ce93d8;font-weight:600">${user.couponsBought || 0}</div>
+          </div>
+          <div style="background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.15);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">💰 Coupons Sold</div>
+            <div style="font-size:1.3rem;font-family:'JetBrains Mono',monospace;color:#00e676;font-weight:600">${user.couponsSold || 0}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end">
+          ${suspended
+            ? `<button class="btn btn-success btn-sm" onclick="toggleUserStatus('${escapeHtml(user.id)}','active');document.getElementById('userDetailModal')?.remove()">✅ Activate</button>`
+            : `<button class="btn btn-warning btn-sm" onclick="toggleUserStatus('${escapeHtml(user.id)}','suspended');document.getElementById('userDetailModal')?.remove()">⚠️ Suspend</button>`
+          }
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('userDetailModal').classList.remove('open');setTimeout(()=>document.getElementById('userDetailModal')?.remove(),300)">Close</button>
+        </div>
+      </div>
+    </div>`;
+
+  // Remove any existing modal first
+  document.getElementById('userDetailModal')?.remove();
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+window.viewUserDetail = viewUserDetail;
 
 // Search / filter wiring for the users table
 function initUsersTableControls() {
