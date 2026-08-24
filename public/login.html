@@ -353,10 +353,8 @@
 
   <div class="auth-card">
 
-    <!-- Session expired notice (shown via /login.html?expired=1) -->
-    <div id="sessionExpiredBanner" style="display:none;background:rgba(255,183,77,.08);border:1px solid rgba(255,183,77,.3);border-radius:12px;padding:12px 16px;margin-bottom:18px;font-size:.86rem;color:#ffb74d;line-height:1.5">
-      ⏱️ Your login session has expired (2 days for users, 2 hours for admins). Please log in again.
-    </div>
+    <!-- (Session-expired notice removed: logout is silent.) -->
+    <div id="sessionExpiredBanner" style="display:none"></div>
 
     <!-- Login Form State -->
     <div id="loginState">
@@ -590,17 +588,14 @@
 
 <script src="js/app.js"></script>
 <script>
-  /* ── 48h session-expired notice (?expired=1 redirect from app.js) ── */
-  (function showSessionExpiredNotice() {
+  /* ── 48h session-expired cleanup (?expired=1 redirect from app.js) ──
+     Session expiry is silent: no banner, no toast. We just clean the
+     query param so a refresh doesn't replay anything, then leave the
+     user on a normal-looking login page. */
+  (function cleanExpiredQueryParam() {
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get('expired') === '1') {
-        const banner = document.getElementById('sessionExpiredBanner');
-        if (banner) banner.style.display = 'block';
-        if (typeof showToast === 'function') {
-          showToast('Your login session has expired. Please log in again.', 'warning', 6000);
-        }
-        // Clean the query param so a page refresh doesn't re-show the notice
         window.history.replaceState({}, '', window.location.pathname);
       }
     } catch (e) {}

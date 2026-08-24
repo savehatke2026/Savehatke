@@ -245,9 +245,11 @@ async function api(endpoint, options = {}) {
 
     if (!res.ok) {
       // 48-hour session is over (revoked or expired) — clear local auth
-      // state and redirect to the login page with an explanatory message.
+      // state and redirect to the login page silently. The thrown error
+      // carries no user-facing copy so callers can detect sessionExpired
+      // without showing a toast or banner.
       if (data && data.code === 'SESSION_EXPIRED') {
-        const err = new Error(data.error || 'Your 2-day login session has expired. Please log in again.');
+        const err = new Error('');
         err.status = res.status;
         err.sessionExpired = true;
         handleSessionExpired();
