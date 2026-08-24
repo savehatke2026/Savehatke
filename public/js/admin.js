@@ -570,8 +570,7 @@ function userStatusBadge(status) {
 
 function loginMethodBadge(method) {
   const m = String(method || '').toLowerCase().trim();
-  const googleLogo = '<img src="/google.png" alt="Google" style="width:16px;height:16px;object-fit:contain;vertical-align:middle">';
-  if (m.includes('google')) return `<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#4fc3f7">${googleLogo}Google</span>`;
+  if (m.includes('google')) return '<img src="/google.png" alt="Google" style="width:20px;height:20px;object-fit:contain;vertical-align:middle">';
   if (m.includes('otp') || m.includes('email')) return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:.82rem;font-weight:600;color:#ffb74d">✉️ Email OTP</span>';
   if (m) return `<span style="font-size:.82rem;color:#6b88aa">${escapeHtml(method)}</span>`;
   return '<span style="font-size:.82rem;color:#6b88aa">—</span>';
@@ -649,14 +648,14 @@ function renderUsers() {
       ? `<a href="#" style="color:#00e676;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','active')">Activate</a>`
       : `<a href="#" style="color:#ffb74d;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','suspended')">Suspend</a>`;
     return `<tr>
-      <td><strong>${escapeHtml(u.name)}</strong></td>
-      <td><div style="display:inline-flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
-      <td style="font-size:.82rem;color:#a8c0dc">${fmtDate(u.createdAt)}</td>
-      <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
-      <td>${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
-      <td><span class="mono" style="font-weight:600;color:#ce93d8">${u.couponsBought || 0}</span></td>
-      <td><span class="mono" style="font-weight:600;color:#00e676">${u.couponsSold || 0}</span></td>
-      <td>${toggleAction}</td>
+      <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
+      <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
+      <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDate(u.createdAt)}</td>
+      <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
+      <td style="text-align:center">${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
+      <td style="text-align:center"><span class="mono" style="font-weight:600;color:#ce93d8">${u.couponsBought || 0}</span></td>
+      <td style="text-align:center"><span class="mono" style="font-weight:600;color:#00e676">${u.couponsSold || 0}</span></td>
+      <td style="text-align:center">${toggleAction}</td>
     </tr>`;
   }).join('');
 }
@@ -677,8 +676,8 @@ function renderLoginHistory() {
   }
 
   body.innerHTML = rows.map((u) => `<tr>
-    <td><div style="display:flex;align-items:center;gap:10px">${emailAvatarHtml(u.email, u.name)}<strong>${escapeHtml(u.name)}</strong></div></td>
-    <td><a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></td>
+    <td><strong>${escapeHtml(u.name)}</strong></td>
+    <td><div style="display:inline-flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
     <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
     <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
     <td>${loginMethodBadge(u.loginMethod)}</td>
