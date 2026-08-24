@@ -386,27 +386,30 @@ const handleCouponSubmission = async (req, res) => {
         continue; // No WhatsApp notification when the DB save failed
       }
 
-      // Notify the admin via WhatsApp (failure never deletes/invalidates the coupon)
-      const reviewUrl = `${APP_BASE_URL}/admin/coupons/${coupon.id}`;
-      const notify = await twilioWhatsApp.sendCouponSubmissionAlert(coupon, reviewUrl);
+      submitted.push(coupon);
+    }
+
+    // ── Batch WhatsApp notification — one message for ALL submitted coupons ──
+    if (submitted.length > 0) {
+      const reviewUrl = `${APP_BASE_URL}/admin`;
+      const sellerInfo = { name: req.user.name || '', email: sellerEmail };
+      const notify = await twilioWhatsApp.sendCouponSubmissionAlert(submitted, sellerInfo, reviewUrl);
+      const now = new Date().toISOString();
       const notifyUpdate = {
         whatsappStatus: notify.success ? 'sent' : 'failed',
         whatsappSid: notify.success ? (notify.sid || '') : '',
-        whatsappLastAttempt: new Date().toISOString(),
+        whatsappLastAttempt: now,
         whatsappError: notify.success ? '' : (notify.error || 'Unknown error'),
       };
-      Object.assign(coupon, notifyUpdate);
 
-      if (supabase.isConfigured()) {
-        try {
-          await supabase.updateCoupon(coupon.id, notifyUpdate);
-        } catch (e) {}
+      // Update WhatsApp status on every submitted coupon
+      for (const coupon of submitted) {
+        Object.assign(coupon, notifyUpdate);
+        if (supabase.isConfigured()) {
+          try { await supabase.updateCoupon(coupon.id, notifyUpdate); } catch (e) {}
+        }
+        try { await db.updateRow(db.SHEETS.COUPONS, 'id', coupon.id, notifyUpdate); } catch (e) {}
       }
-      try {
-        await db.updateRow(db.SHEETS.COUPONS, 'id', coupon.id, notifyUpdate);
-      } catch (e) {}
-
-      submitted.push(coupon);
     }
 
     if (submitted.length === 0) {
