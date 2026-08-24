@@ -1,8 +1,9 @@
 // ============================================
 // SaveHatke — MongoDB Atlas Admin Seeding Script
 // ============================================
-
-require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
+// Reads from the project-root .env. The legacy server/.env was removed
+// in favour of a single root .env, so we no longer need a fallback here.
+require('dotenv').config({ path: require('path').resolve(__dirname, '../../.env') });
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
