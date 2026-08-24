@@ -571,7 +571,7 @@ function userStatusBadge(status) {
 function loginMethodBadge(method) {
   const m = String(method || '').toLowerCase().trim();
   if (m.includes('google')) return '<img src="/google.png" alt="Google" style="width:28px;height:28px;object-fit:contain;vertical-align:middle">';
-  if (m.includes('otp') || m.includes('email')) return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:.82rem;font-weight:600;color:#ffb74d">✉️ Email OTP</span>';
+  if (m.includes('otp') || m.includes('email')) return '<img src="/gmail.svg" alt="Email OTP" title="Email OTP" style="width:28px;height:28px;object-fit:contain;vertical-align:middle">';
   if (m) return `<span style="font-size:.82rem;color:#6b88aa">${escapeHtml(method)}</span>`;
   return '<span style="font-size:.82rem;color:#6b88aa">—</span>';
 }
