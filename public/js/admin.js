@@ -568,6 +568,34 @@ function userStatusBadge(status) {
   return `<span class="badge badge-orange">${escapeHtml(status)}</span>`;
 }
 
+function loginMethodBadge(method) {
+  const m = String(method || '').toLowerCase().trim();
+  const googleLogo = '<img src="https://www.google.com/favicon.ico" alt="G" style="width:14px;height:14px;border-radius:2px;vertical-align:middle;margin-right:4px">';
+  if (m.includes('google')) return `<span style="display:inline-flex;align-items:center;gap:3px;font-size:.82rem;font-weight:600;color:#4fc3f7">${googleLogo}Google</span>`;
+  if (m.includes('otp') || m.includes('email')) return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:.82rem;font-weight:600;color:#ffb74d">✉️ Email OTP</span>';
+  if (m) return `<span style="font-size:.82rem;color:#6b88aa">${escapeHtml(method)}</span>`;
+  return '<span style="font-size:.82rem;color:#6b88aa">—</span>';
+}
+
+function userSessionStatusBadge(sessionStatus, accountStatus) {
+  const ss = String(sessionStatus || '').toLowerCase();
+  const as = String(accountStatus || 'active').toLowerCase();
+  if (as === 'suspended' || as === 'banned') return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#ef9a9a">🔴 Suspended</span>';
+  if (ss === 'active') return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#00e676">🟢 Active</span>';
+  if (ss === 'logged out' || ss === 'expired') return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#6b88aa">⚪ Logged Out</span>';
+  return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#6b88aa">⚪ Offline</span>';
+}
+
+function emailAvatarHtml(email, name) {
+  const initials = userInitials(name);
+  const emailStr = escapeHtml(email || '');
+  // Use unavatar.io for Gmail profile pictures — falls back gracefully to initials
+  if (emailStr) {
+    return `<img src="https://unavatar.io/${emailStr}?fallback=false" alt="" style="width:30px;height:30px;border-radius:50%;object-fit:cover;flex-shrink:0" onerror="this.outerHTML='<div class=\\'u-avatar\\'>${escapeHtml(initials)}</div>'">`;
+  }
+  return `<div class="u-avatar">${escapeHtml(initials)}</div>`;
+}
+
 async function loadUsers() {
   // Single-flight: ignore re-entries while a previous call is still in flight.
   if (usersLoading) return;
@@ -575,7 +603,7 @@ async function loadUsers() {
   const body = document.getElementById('usersTableBody');
   try {
     const data = await api('/admin/users', { useAdmin: true });
-    usersCache = (data.users || []).slice().sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+    usersCache = (data.users || []).slice().sort((a, b) => String(b.lastLoginAt || b.createdAt || '').localeCompare(String(a.lastLoginAt || a.createdAt || '')));
 
     const c = data.counts || {};
     const total = c.total ?? usersCache.length;
@@ -590,7 +618,7 @@ async function loadUsers() {
     renderUsers();
     renderLoginHistory();
   } catch (err) {
-    if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+    if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
   } finally {
     usersLoading = false;
   }
@@ -611,23 +639,22 @@ function renderUsers() {
   });
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
     return;
   }
 
   body.innerHTML = rows.map((u) => {
     const suspended = u.status === 'suspended' || u.status === 'banned';
-    const statusBadge = suspended ? '🔴 Suspended' : '🟢 Active';
-    const statusBadgeHtml = userStatusBadge(u.status);
     const toggleAction = suspended
       ? `<a href="#" style="color:#00e676;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','active')">Activate</a>`
       : `<a href="#" style="color:#ffb74d;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','suspended')">Suspend</a>`;
     return `<tr>
-      <td><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">${escapeHtml(userInitials(u.name))}</div><strong>${escapeHtml(u.name)}</strong></div></td>
-      <td>${escapeHtml(u.email || '—')}</td>
-      <td>${fmtDate(u.createdAt)}</td>
-      <td>${fmtDateTime(u.lastLoginAt)}</td>
-      <td>${statusBadgeHtml}</td>
+      <td><div style="display:flex;align-items:center;gap:10px">${emailAvatarHtml(u.email, u.name)}<strong>${escapeHtml(u.name)}</strong></div></td>
+      <td><a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></td>
+      <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
+      <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
+      <td>${loginMethodBadge(u.loginMethod)}</td>
+      <td>${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
       <td><span class="mono" style="font-weight:600;color:#ce93d8">${u.couponsBought || 0}</span></td>
       <td><span class="mono" style="font-weight:600;color:#00e676">${u.couponsSold || 0}</span></td>
       <td><span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><a href="#" style="color:#4fc3f7;font-weight:600;font-size:.82rem" onclick="event.preventDefault();viewUserDetail('${escapeHtml(u.id)}')">View</a> <span style="color:#6b88aa">·</span> ${toggleAction}</span></td>
@@ -646,16 +673,17 @@ function renderLoginHistory() {
     .slice(0, 10);
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">No logins recorded yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#6b88aa;padding:24px;">No logins recorded yet.</td></tr>';
     return;
   }
 
   body.innerHTML = rows.map((u) => `<tr>
-    <td><strong>${escapeHtml(u.name)}</strong></td>
-    <td>${escapeHtml(u.email || '—')}</td>
-    <td>${fmtDateTime(u.lastLoginAt)}</td>
-    <td>${fmtDateTime(u.lastLogoutAt)}</td>
-    <td>${userStatusBadge(u.status)}</td>
+    <td><div style="display:flex;align-items:center;gap:10px">${emailAvatarHtml(u.email, u.name)}<strong>${escapeHtml(u.name)}</strong></div></td>
+    <td><a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></td>
+    <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
+    <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
+    <td>${loginMethodBadge(u.loginMethod)}</td>
+    <td>${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
   </tr>`).join('');
 }
 
@@ -675,8 +703,11 @@ function viewUserDetail(userId) {
   if (!user) { showToast('User not found.', 'error'); return; }
 
   const suspended = user.status === 'suspended' || user.status === 'banned';
-  const statusColor = suspended ? '#ef9a9a' : '#00e676';
-  const statusText = suspended ? '🔴 Suspended' : '🟢 Active';
+  const emailStr = escapeHtml(user.email || '');
+  const avatarUrl = emailStr ? `https://unavatar.io/${emailStr}?fallback=false` : '';
+  const avatarHtml = avatarUrl
+    ? `<img src="${avatarUrl}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(0,230,118,.3)" onerror="this.outerHTML='<div class=\\'u-avatar\\' style=\\'width:52px;height:52px;font-size:1.1rem\\'>${escapeHtml(userInitials(user.name))}</div>'">`
+    : `<div class="u-avatar" style="width:52px;height:52px;font-size:1.1rem">${escapeHtml(userInitials(user.name))}</div>`;
 
   // Build modal HTML
   const html = `
@@ -687,22 +718,28 @@ function viewUserDetail(userId) {
           <button class="modal-close" onclick="document.getElementById('userDetailModal').classList.remove('open');setTimeout(()=>document.getElementById('userDetailModal')?.remove(),300)" style="background:none;border:none;color:#6b88aa;cursor:pointer;font-size:1.2rem;padding:2px 6px">✕</button>
         </div>
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
-          <div class="u-avatar" style="width:48px;height:48px;font-size:1rem">${escapeHtml(userInitials(user.name))}</div>
+          ${avatarHtml}
           <div>
             <div style="font-weight:700;font-size:1.05rem;color:#e2ecff">${escapeHtml(user.name)}</div>
-            <div style="font-size:.82rem;color:#6b88aa">${escapeHtml(user.email || '—')}</div>
+            <a href="mailto:${emailStr}" style="font-size:.82rem;color:#4fc3f7">${emailStr || '—'}</a>
           </div>
-          <span style="margin-left:auto;font-size:.78rem;font-weight:700;color:${statusColor}">${statusText}</span>
+          <span style="margin-left:auto">${userSessionStatusBadge(user.sessionStatus, user.status)}</span>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
           <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:12px 14px">
             <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">Joined</div>
-            <div style="font-size:.88rem;color:#e2ecff;font-weight:600">${fmtDate(user.createdAt)}</div>
+            <div style="font-size:.85rem;color:#e2ecff;font-weight:600">${fmtDate(user.createdAt)}</div>
           </div>
           <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:12px 14px">
             <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">Last Login</div>
-            <div style="font-size:.88rem;color:#e2ecff;font-weight:600">${fmtDateTime(user.lastLoginAt)}</div>
+            <div style="font-size:.85rem;color:#e2ecff;font-weight:600">${fmtDateTime(user.lastLoginAt)}</div>
           </div>
+          <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:12px 14px">
+            <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">Login Method</div>
+            <div style="font-size:.85rem">${loginMethodBadge(user.loginMethod)}</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
           <div style="background:rgba(206,147,216,.06);border:1px solid rgba(206,147,216,.15);border-radius:10px;padding:12px 14px">
             <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">🎟️ Coupons Bought</div>
             <div style="font-size:1.3rem;font-family:'JetBrains Mono',monospace;color:#ce93d8;font-weight:600">${user.couponsBought || 0}</div>
