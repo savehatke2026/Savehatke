@@ -570,7 +570,7 @@ function userStatusBadge(status) {
 
 function loginMethodBadge(method) {
   const m = String(method || '').toLowerCase().trim();
-  if (m.includes('google')) return '<img src="/google.png" alt="Google" style="width:20px;height:20px;object-fit:contain;vertical-align:middle">';
+  if (m.includes('google')) return '<img src="/google.png" alt="Google" style="width:28px;height:28px;object-fit:contain;vertical-align:middle">';
   if (m.includes('otp') || m.includes('email')) return '<span style="display:inline-flex;align-items:center;gap:3px;font-size:.82rem;font-weight:600;color:#ffb74d">✉️ Email OTP</span>';
   if (m) return `<span style="font-size:.82rem;color:#6b88aa">${escapeHtml(method)}</span>`;
   return '<span style="font-size:.82rem;color:#6b88aa">—</span>';
@@ -676,12 +676,12 @@ function renderLoginHistory() {
   }
 
   body.innerHTML = rows.map((u) => `<tr>
-    <td><strong>${escapeHtml(u.name)}</strong></td>
+    <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
     <td><div style="display:flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
-    <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
-    <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
-    <td>${loginMethodBadge(u.loginMethod)}</td>
-    <td>${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
+    <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
+    <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
+    <td style="text-align:center">${loginMethodBadge(u.loginMethod)}</td>
+    <td style="text-align:center">${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
   </tr>`).join('');
 }
 
