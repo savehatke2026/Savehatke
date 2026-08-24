@@ -42,6 +42,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const db = require('../services/googleSheets');
+const dbConfig = require('../config/db');
 const getClientIP = require('../middleware/getClientIP');
 const { generateToken, authenticateToken, requireAdmin } = require('../middleware/auth');
 const BackupCode = require('../models/BackupCode');
@@ -110,6 +111,21 @@ function isBackupCodeShape(s) {
 
 function isMongoReady() {
   return mongoose.connection && mongoose.connection.readyState === 1;
+}
+
+/**
+ * Wait for Mongo to be ready (up to maxMs) before the backup-code
+ * route continues. The first time the server starts (especially right
+ * after a fresh Atlas IP whitelist) the connection can take a few
+ * seconds, and we want the user to be able to use the SOS code without
+ * a manual server restart.
+ */
+async function ensureMongoReady(maxMs = 5000) {
+  if (isMongoReady()) return true;
+  if (dbConfig && typeof dbConfig.waitForMongoReady === 'function') {
+    return dbConfig.waitForMongoReady(maxMs);
+  }
+  return false;
 }
 
 function codePrefixFromHash(hash) {
@@ -192,7 +208,7 @@ router.post('/init', async (req, res) => {
     return res.status(400).json({ error: 'Reason is too long (max 500 characters).' });
   }
 
-  if (!isMongoReady()) {
+  if (!await ensureMongoReady(5000)) {
     await writeAuditRow({
       codePrefix: '(mongo-down)',
       reason: reasonText, ip, userAgent: ua, chosenEmail: '',
@@ -285,7 +301,7 @@ router.post('/complete', async (req, res) => {
   }
 
   // Re-check against MongoDB (defence in depth + cap / expiry freshness).
-  if (!isMongoReady()) {
+  if (!await ensureMongoReady(5000)) {
     initTokenStore.delete(initToken);
     return res.status(503).json({ error: 'Backup-code service is offline. Please try again in a moment.' });
   }
