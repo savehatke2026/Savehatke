@@ -34,6 +34,7 @@ const HEADERS = {
     'name',
     'username',
     'status',
+    'picture',
     'created_at',
     'updated_at',
     'last_login_at',
@@ -407,6 +408,16 @@ async function getRows(sheetName) {
           if (obj[nk] === undefined) obj[nk] = v;
         });
         if (sheetName === SHEETS.USERS) {
+          // Normalize email on read so every downstream lookup
+          // (findRow, updateRow) is case-insensitive. Without this, a
+          // historical row written with mixed-case email would never
+          // match a lowercased cleanEmail and a duplicate row would
+          // be appended on the next login.
+          if (typeof obj.email === 'string') {
+            obj.email = obj.email.toLowerCase().trim();
+          }
+        }
+        if (sheetName === SHEETS.USERS) {
           // Resolve the canonical user_id even if the sheet's header uses a
           // different naming convention (userId, userid, UserID, id, uuid…).
           // The sheet's `user_id` column is the source of truth for sessions
@@ -522,11 +533,35 @@ async function appendRow(sheetName, data) {
 }
 
 /**
- * Find a single row matching a field value.
+ * Normalize a lookup value for case-insensitive matching on the user
+ * email field. Without this, a row written long ago with mixed-case
+ * email (e.g. "Rupayan@Example.com") would never match the lowercased
+ * `cleanEmail` the auth code uses, and a duplicate user row would be
+ * appended on the next login.
  */
+function normalizeLookupValue(sheetName, field, value) {
+  if (sheetName === SHEETS.USERS && field === 'email' && typeof value === 'string') {
+    return value.toLowerCase().trim();
+  }
+  return value;
+}
+
+/**
+ * Normalize the same key on the row side, so lookups match even when
+ * the row's stored email value hasn't been through `getRows` yet (e.g.
+ * freshly-appended rows sitting in memoryDB).
+ */
+function normalizeRowValue(sheetName, field, value) {
+  if (sheetName === SHEETS.USERS && field === 'email' && typeof value === 'string') {
+    return value.toLowerCase().trim();
+  }
+  return value;
+}
+
 async function findRow(sheetName, field, value) {
   const rows = await getRows(sheetName);
-  return rows.find((r) => r[field] === value) || null;
+  const nv = normalizeLookupValue(sheetName, field, value);
+  return rows.find((r) => normalizeRowValue(sheetName, field, r[field]) === nv) || null;
 }
 
 /**
@@ -534,7 +569,8 @@ async function findRow(sheetName, field, value) {
  */
 async function findRows(sheetName, field, value) {
   const rows = await getRows(sheetName);
-  return rows.filter((r) => r[field] === value);
+  const nv = normalizeLookupValue(sheetName, field, value);
+  return rows.filter((r) => normalizeRowValue(sheetName, field, r[field]) === nv);
 }
 
 /**
@@ -543,7 +579,8 @@ async function findRows(sheetName, field, value) {
 async function updateRow(sheetName, field, value, updatedData) {
   // Always update memoryDB to guarantee local consistency
   const arr = memoryDB[sheetName] || [];
-  const idx = arr.findIndex((r) => r[field] === value);
+  const nv = normalizeLookupValue(sheetName, field, value);
+  const idx = arr.findIndex((r) => normalizeRowValue(sheetName, field, r[field]) === nv);
   if (idx !== -1) {
     arr[idx] = { ...arr[idx], ...updatedData };
   }
@@ -576,7 +613,7 @@ async function updateRow(sheetName, field, value, updatedData) {
     // Find the row index (1-indexed, +1 for header)
     let rowIndex = -1;
     for (let i = 1; i < rows.length; i++) {
-      if (rows[i][fieldIdx] === value) {
+      if (normalizeRowValue(sheetName, field, rows[i][fieldIdx]) === nv) {
         rowIndex = i + 1; // Sheets is 1-indexed
         break;
       }
