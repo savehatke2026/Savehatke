@@ -374,11 +374,8 @@
 
       <form id="loginPageForm" onsubmit="handleAuthSubmit(event)" novalidate>
         <div class="fgroup">
-          <label class="flabel" for="inputEmail">Email or Backup Code</label>
-          <input type="text" inputmode="email" class="finput" id="inputEmail" placeholder="you@example.com  or  SH-BK-XXXX-XXXX-XXXX-XXXX" required autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-          <div style="margin-top:6px;font-size:.74rem;color:#6b88aa;line-height:1.5">
-            Enter your email for a normal sign-in, or paste a <strong style="color:#fbbf24">backup code</strong> for SOS admin access.
-          </div>
+          <label class="flabel" for="inputEmail">Email Address</label>
+          <input type="text" inputmode="email" class="finput" id="inputEmail" placeholder="you@example.com" required autocomplete="email">
         </div>
         <!-- Cloudflare Turnstile CAPTCHA — revealed after email + Continue -->
         <div class="fgroup" id="loginTurnstileGroup" style="display:none;justify-content:center;margin-bottom:14px"></div>
