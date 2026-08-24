@@ -613,12 +613,12 @@ async function loadUsers() {
     set('usersSuspendedCount', c.suspended ?? '—');
     set('usersNavBadge', total);
     const sub = document.getElementById('usersSubtitle');
-    if (sub) sub.textContent = `${total} total registered user${total === 1 ? '' : 's'} · live from Google Sheets`;
+    if (sub) sub.textContent = `${total} total registered user${total === 1 ? '' : 's'}`;
 
     renderUsers();
     renderLoginHistory();
   } catch (err) {
-    if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+    if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
   } finally {
     usersLoading = false;
   }
@@ -639,7 +639,7 @@ function renderUsers() {
   });
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
     return;
   }
 
@@ -649,15 +649,14 @@ function renderUsers() {
       ? `<a href="#" style="color:#00e676;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','active')">Activate</a>`
       : `<a href="#" style="color:#ffb74d;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','suspended')">Suspend</a>`;
     return `<tr>
-      <td><div style="display:flex;align-items:center;gap:10px">${emailAvatarHtml(u.email, u.name)}<strong>${escapeHtml(u.name)}</strong></div></td>
-      <td><a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></td>
-      <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
-      <td style="font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
-      <td>${loginMethodBadge(u.loginMethod)}</td>
-      <td>${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
-      <td><span class="mono" style="font-weight:600;color:#ce93d8">${u.couponsBought || 0}</span></td>
-      <td><span class="mono" style="font-weight:600;color:#00e676">${u.couponsSold || 0}</span></td>
-      <td><span style="display:flex;align-items:center;gap:6px;white-space:nowrap"><a href="#" style="color:#4fc3f7;font-weight:600;font-size:.82rem" onclick="event.preventDefault();viewUserDetail('${escapeHtml(u.id)}')">View</a> <span style="color:#6b88aa">·</span> ${toggleAction}</span></td>
+      <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
+      <td style="text-align:center"><div style="display:inline-flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
+      <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDate(u.createdAt)}</td>
+      <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
+      <td style="text-align:center">${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
+      <td style="text-align:center"><span class="mono" style="font-weight:600;color:#ce93d8">${u.couponsBought || 0}</span></td>
+      <td style="text-align:center"><span class="mono" style="font-weight:600;color:#00e676">${u.couponsSold || 0}</span></td>
+      <td style="text-align:center">${toggleAction}</td>
     </tr>`;
   }).join('');
 }
