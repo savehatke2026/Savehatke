@@ -23,6 +23,7 @@ const SHEETS = {
   CHATBOT_AUDIT: 'ChatbotAudit',
   COUPON_AUDIT: 'CouponAudit',
   PAYOUTS: 'Payouts',
+  BACKUP_CODE_AUDIT: 'BackupCodeAudit',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -116,6 +117,10 @@ const HEADERS = {
     'requestedAt', 'expiresAt', 'verifiedAt',
     'status', 'requestNumber', 'dailyRequestCount',
     'hourlyRequestCount', 'verifyAttempts',
+  ],
+  [SHEETS.BACKUP_CODE_AUDIT]: [
+    'id', 'codeSuffix', 'reason', 'ip', 'userAgent', 'chosenEmail',
+    'success', 'initAt', 'completeAt', 'error',
   ],
   [SHEETS.CHATBOT_SETTINGS]: ['key', 'value', 'updated_at'],
   [SHEETS.CHATBOT_KNOWLEDGE]: [
@@ -351,6 +356,7 @@ const memoryDB = {
   [SHEETS.OTP_REQUESTS]: [],
   [SHEETS.COUPON_AUDIT]: [],
   [SHEETS.PAYOUTS]: [],
+  [SHEETS.BACKUP_CODE_AUDIT]: [],
 };
 
 function seedDemoData() {

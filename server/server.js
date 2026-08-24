@@ -30,6 +30,7 @@ const gmailRoutes = require('./routes/gmail');
 const payoutRoutes = require('./routes/payouts');
 const paymentRoutes = require('./routes/payments');
 const driveProxyRoutes = require('./routes/driveProxy');
+const backupCodeRoutes = require('./routes/backupCode');
 
 const app = express();
 
@@ -126,6 +127,7 @@ app.use('/api/coupons/proof', couponSubmissionLimiter);
 app.use('/api/coupons', apiLimiter, couponRoutes);
 app.use('/api/tracker', apiLimiter, trackerRoutes);
 app.use('/api/admin/gmail', gmailRoutes); // own rate limits; must precede /api/admin to avoid the generic limiter
+app.use('/api/admin/backup-code', backupCodeRoutes); // SOS admin access — has its own per-IP rate limit
 
 // Admin API — use a much more generous limiter than the public one. The admin
 // panel makes 5+ requests per page-load (users + sessions + coupons + stats
