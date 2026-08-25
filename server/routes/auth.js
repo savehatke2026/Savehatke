@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
@@ -37,7 +37,7 @@ const router = express.Router();
  *
  * The user_id is resolved against the Users Google Sheet first (by email),
  * so Supabase always stores the real user id that exists in the sheet.
- * Geo-IP enrichment runs in the background — it never delays the login.
+ * Geo-IP enrichment runs in the background â€” it never delays the login.
  *
  * @returns {Promise<{token:string, sessionId:string, expiresAt:string}|null>}
  *   null when Supabase is unreachable (login still succeeds; the JWT is
@@ -54,7 +54,7 @@ const router = express.Router();
  */
 function extractUserIdFromSheetUser(sheetUser) {
   if (!sheetUser || typeof sheetUser !== 'object') return '';
-  // Direct field names first — covers the common header variants
+  // Direct field names first â€” covers the common header variants
   for (const key of ['user_id', 'userId', 'userid', 'id', 'uuid']) {
     if (sheetUser[key]) return String(sheetUser[key]);
   }
@@ -74,15 +74,15 @@ async function resolveSessionUserId(userId, cleanEmail) {
 
   let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
   if (!sheetUser) {
-    // Retry case/whitespace-insensitive — sheet rows may hold mixed-case emails
+    // Retry case/whitespace-insensitive â€” sheet rows may hold mixed-case emails
     const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
     sheetUser = allRows.find((r) => String(r.email || '').toLowerCase().trim() === cleanEmail) || null;
   }
 
   let fromSheet = extractUserIdFromSheetUser(sheetUser);
 
-  // ── Backfill: sheet has the user row but the user_id cell is empty.
-  //    This is the most common cause of "wrong user_id in Supabase" —
+  // â”€â”€ Backfill: sheet has the user row but the user_id cell is empty.
+  //    This is the most common cause of "wrong user_id in Supabase" â€”
   //    the row was created before the user_id column was populated, or the
   //    column was added later by ensureSheets(). Generate a UUID,
   //    write it back to the sheet, and use it for the session.
@@ -96,7 +96,7 @@ async function resolveSessionUserId(userId, cleanEmail) {
       });
       fromSheet = newId;
       userIdSource = 'sheet-row-backfilled';
-      console.log(`[session] Backfilled empty user_id for ${cleanEmail} → ${newId}`);
+      console.log(`[session] Backfilled empty user_id for ${cleanEmail} â†’ ${newId}`);
     } catch (e) {
       console.warn(`[session] Failed to backfill user_id for ${cleanEmail}:`, e.message);
     }
@@ -134,7 +134,7 @@ function parseUserAgent(req) {
 }
 
 /**
- * Background geo enrichment — looks up country/state/city for the login IP
+ * Background geo enrichment â€” looks up country/state/city for the login IP
  * and updates the session row. Fire-and-forget; failures are harmless.
  */
 async function enrichSessionGeo(sessionId, ip) {
@@ -166,7 +166,7 @@ async function enrichSessionGeo(sessionId, ip) {
           const geo = await geoRes.json();
           const result = svc.parse(geo);
           if (result.ok) {
-            if (result.country) country = result.country === 'India' ? 'India 🇮🇳' : result.country;
+            if (result.country) country = result.country === 'India' ? 'India ðŸ‡®ðŸ‡³' : result.country;
             if (result.state) state = result.state;
             if (result.city) city = result.city;
             break;
@@ -195,7 +195,7 @@ async function createLoginSession(req, userId, loginMethod, email) {
     const finalUserId = realUserId || ('user_' + Date.now());
 
     const { deviceStr, osStr, browserStr, raw: userAgentRaw } = parseUserAgent(req);
-    const ip = getClientIP(req); // Real client IP only — never a sample/hardcoded address
+    const ip = getClientIP(req); // Real client IP only â€” never a sample/hardcoded address
 
     // Cryptographically random session identifier. The raw value goes into
     // the JWT and cookie; only its SHA-256 hash is stored in the database.
@@ -219,14 +219,14 @@ async function createLoginSession(req, userId, loginMethod, email) {
 
     if (!sessionResult || !sessionResult.session_token) {
       // Row created without the session_token column (pre-migration DB) or
-      // insert failed entirely — no enforceable session for this login.
-      console.warn('⚠️ Login session not enforceable (Supabase session_token unavailable) — issuing time-limited JWT only.');
+      // insert failed entirely â€” no enforceable session for this login.
+      console.warn('âš ï¸ Login session not enforceable (Supabase session_token unavailable) â€” issuing time-limited JWT only.');
       return null;
     }
 
-    console.log(`✅ Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
+    console.log(`âœ… Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
 
-    // Geo-IP enrichment in the background — never blocks the login response
+    // Geo-IP enrichment in the background â€” never blocks the login response
     enrichSessionGeo(sessionResult.session_id, ip).catch(() => {});
 
     return {
@@ -261,9 +261,9 @@ function issueLoginToken(user, session) {
   return generateToken(payload, expiresIn);
 }
 
-// ── POST /api/auth/send-otp ────────────────────────────────────────────────
+// â”€â”€ POST /api/auth/send-otp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Send OTP to email with full security: rate limiting, hashing, audit trail.
-// Identity is derived server-side — never trust frontend-supplied userId or IP.
+// Identity is derived server-side â€” never trust frontend-supplied userId or IP.
 router.post('/send-otp', async (req, res) => {
   try {
     const { email } = req.body;
@@ -307,7 +307,7 @@ router.post('/send-otp', async (req, res) => {
         userId = existingUser.user_id || existingUser.id || '';
       }
     } catch (e) {
-      // User lookup failed — continue with empty userId (new user flow)
+      // User lookup failed â€” continue with empty userId (new user flow)
     }
     if (!userId) {
       userId = `pending_${Date.now()}`;
@@ -345,7 +345,7 @@ router.post('/send-otp', async (req, res) => {
   }
 });
 
-// ── POST /api/auth/verify-otp ──────────────────────────────────────────────
+// â”€â”€ POST /api/auth/verify-otp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Verify OTP, log the attempt, and create an authenticated session.
 router.post('/verify-otp', async (req, res) => {
   try {
@@ -369,22 +369,41 @@ router.post('/verify-otp', async (req, res) => {
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
     let isNewSignup = false;
     if (!sheetUser) {
-      // New user - create account
-      const userId = uuidv4();
-      sheetUser = {
-        user_id: userId,
-        id: userId,
-        name: cleanEmail.split('@')[0],
-        username: cleanEmail.split('@')[0],
-        email: cleanEmail,
-        status: 'active',
-        created_at: now,
-        updated_at: now,
-        last_login_at: now,
-        last_logout_at: '',
-      };
-      await db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
-      isNewSignup = true;
+      // ── Paranoid pre-create scan ─────────────────────────────────────
+      // findRow above should normally find any existing user. This
+      // extra pass is a safety net: do a full case-insensitive scan
+      // against the live sheet before appending. If anything matches,
+      // we update that row in place instead of creating a duplicate.
+      const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
+      const existingDup = (allRows || []).find((r) => {
+        const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
+        return v && v === cleanEmail;
+      });
+      if (existingDup) {
+        sheetUser = existingDup;
+        isNewSignup = false;
+        await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
+          last_login_at: now,
+          updated_at: now,
+        }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
+      } else {
+        // New user - create account
+        const userId = uuidv4();
+        sheetUser = {
+          user_id: userId,
+          id: userId,
+          name: cleanEmail.split('@')[0],
+          username: cleanEmail.split('@')[0],
+          email: cleanEmail,
+          status: 'active',
+          created_at: now,
+          updated_at: now,
+          last_login_at: now,
+          last_logout_at: '',
+        };
+        await db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
+        isNewSignup = true;
+      }
     } else {
       // Existing user - update last login
       await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
@@ -393,7 +412,7 @@ router.post('/verify-otp', async (req, res) => {
       }).catch((e) => console.warn('GSheet update notice:', e.message));
     }
 
-    // Create the server-side 48h session (must be awaited — the JWT and
+    // Create the server-side 48h session (must be awaited â€” the JWT and
     // cookie carry this session's token)
     const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail).catch(() => null);
 
@@ -406,13 +425,13 @@ router.post('/verify-otp', async (req, res) => {
     }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
 
-    // Send welcome email on first-time signup (fire-and-forget — never blocks the response)
+    // Send welcome email on first-time signup (fire-and-forget â€” never blocks the response)
     if (isNewSignup) {
       const welcomeName = sheetUser.name || cleanEmail.split('@')[0];
       emailService.sendWelcomeEmail(cleanEmail, welcomeName)
         .then((r) => {
-          if (r.success) console.log(`📧 Welcome email queued for new user: ${cleanEmail}`);
-          else if (!r.isSimulated) console.warn(`📧 Welcome email failed for ${cleanEmail}: ${r.error}`);
+          if (r.success) console.log(`ðŸ“§ Welcome email queued for new user: ${cleanEmail}`);
+          else if (!r.isSimulated) console.warn(`ðŸ“§ Welcome email failed for ${cleanEmail}: ${r.error}`);
         })
         .catch((e) => console.warn('Welcome email notice:', e.message));
     }
@@ -442,7 +461,7 @@ function getSheetsFallbackError(message) {
   return db.getWriteAvailabilityError(message);
 }
 
-// POST /api/auth/register — Save user EXCLUSIVELY to Google Sheets (Users tab)
+// POST /api/auth/register â€” Save user EXCLUSIVELY to Google Sheets (Users tab)
 router.post('/register', async (req, res) => {
   try {
     const { email, password, name, username } = req.body;
@@ -506,16 +525,16 @@ router.post('/register', async (req, res) => {
     const token = issueLoginToken({ id: userId, email: cleanEmail, name: cleanName, role: 'user' }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
 
-    // Send welcome email to the newly registered user (fire-and-forget — never blocks the response)
+    // Send welcome email to the newly registered user (fire-and-forget â€” never blocks the response)
     emailService.sendWelcomeEmail(cleanEmail, cleanName)
       .then((r) => {
-        if (r.success) console.log(`📧 Welcome email queued for new user: ${cleanEmail}`);
-        else if (!r.isSimulated) console.warn(`📧 Welcome email failed for ${cleanEmail}: ${r.error}`);
+        if (r.success) console.log(`ðŸ“§ Welcome email queued for new user: ${cleanEmail}`);
+        else if (!r.isSimulated) console.warn(`ðŸ“§ Welcome email failed for ${cleanEmail}: ${r.error}`);
       })
       .catch((e) => console.warn('Welcome email notice:', e.message));
 
     res.status(201).json({
-      message: 'Account created successfully in Google Sheets! 📊',
+      message: 'Account created successfully in Google Sheets! ðŸ“Š',
       token,
       session_id: session ? session.sessionId : undefined,
       session_expires_at: session ? session.expiresAt : undefined,
@@ -535,7 +554,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// POST /api/auth/login — Read user EXCLUSIVELY from Google Sheets
+// POST /api/auth/login â€” Read user EXCLUSIVELY from Google Sheets
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -546,7 +565,7 @@ router.post('/login', async (req, res) => {
 
     const loginEmail = email.toLowerCase().trim();
 
-    // ── 1. Check MongoDB Admin collection ─────────────────────────────
+    // â”€â”€ 1. Check MongoDB Admin collection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     let Admin;
     try {
       Admin = require('../models/Admin');
@@ -593,7 +612,7 @@ router.post('/login', async (req, res) => {
       } catch (e) {}
     }
 
-    // ── 2. Hardcoded admin fallback ──────────────────────────────────
+    // â”€â”€ 2. Hardcoded admin fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     const hardcodedAdmins = [
       { email: 'rupayandas2024@gmail.com', password: 'Rupayan', name: 'Rupayan' },
       { email: 'jaggik8888@gmail.com', password: 'Jaggik', name: 'Jaggik' },
@@ -627,7 +646,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // ── 3. Read user EXCLUSIVELY from Google Sheets (Users tab) ──────
+    // â”€â”€ 3. Read user EXCLUSIVELY from Google Sheets (Users tab) â”€â”€â”€â”€â”€â”€
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
 
     if (sheetUser) {
@@ -676,7 +695,7 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    // ── 4. Auto-register user in Google Sheets if email-only flow ────
+    // â”€â”€ 4. Auto-register user in Google Sheets if email-only flow â”€â”€â”€â”€
     const nameFromEmail = loginEmail.split('@')[0];
     const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
     const newUserId = uuidv4();
@@ -704,8 +723,8 @@ router.post('/login', async (req, res) => {
     // Send welcome email to the auto-registered user (fire-and-forget)
     emailService.sendWelcomeEmail(loginEmail, displayName)
       .then((r) => {
-        if (r.success) console.log(`📧 Welcome email queued for new user: ${loginEmail}`);
-        else if (!r.isSimulated) console.warn(`📧 Welcome email failed for ${loginEmail}: ${r.error}`);
+        if (r.success) console.log(`ðŸ“§ Welcome email queued for new user: ${loginEmail}`);
+        else if (!r.isSimulated) console.warn(`ðŸ“§ Welcome email failed for ${loginEmail}: ${r.error}`);
       })
       .catch((e) => console.warn('Welcome email notice:', e.message));
 
@@ -739,8 +758,8 @@ router.get('/google-config', (req, res) => {
   });
 });
 
-// GET /api/auth/google-redirect — Handle OAuth fragment redirects (#access_token=... or #id_token=...)
-// OAuth handoff page — stores auth state and redirects immediately.
+// GET /api/auth/google-redirect â€” Handle OAuth fragment redirects (#access_token=... or #id_token=...)
+// OAuth handoff page â€” stores auth state and redirects immediately.
 // Renders no visible "logging in" window: just the site background and the
 // same top progress bar every page shows, so the hop reads as a page load.
 function sendAuthHandoff(res, innerScript) {
@@ -819,7 +838,7 @@ router.get('/google-redirect', (req, res) => {
   `);
 });
 
-// POST /api/auth/google-redirect — Handle Google OAuth redirect mode (same-page login)
+// POST /api/auth/google-redirect â€” Handle Google OAuth redirect mode (same-page login)
 router.post('/google-redirect', async (req, res) => {
   try {
     // Google form_post sends the token as 'id_token', but we also support 'credential'
@@ -895,20 +914,34 @@ router.post('/google-redirect', async (req, res) => {
     const now = new Date().toISOString();
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
-      const userId = uuidv4();
-      sheetUser = {
-        user_id: userId,
-        id: userId,
-        name: userName,
-        username: userEmail.split('@')[0],
-        email: userEmail,
-        status: 'active',
-        created_at: now,
-        updated_at: now,
-        last_login_at: now,
-        last_logout_at: '',
-      };
-      db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
+      // Paranoid pre-create scan — see verify-otp path for rationale.
+      const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
+      const existingDup = (allRows || []).find((r) => {
+        const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
+        return v && v === userEmail;
+      });
+      if (existingDup) {
+        sheetUser = existingDup;
+        db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
+          last_login_at: now,
+          updated_at: now,
+        }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
+      } else {
+        const userId = uuidv4();
+        sheetUser = {
+          user_id: userId,
+          id: userId,
+          name: userName,
+          username: userEmail.split('@')[0],
+          email: userEmail,
+          status: 'active',
+          created_at: now,
+          updated_at: now,
+          last_login_at: now,
+          last_logout_at: '',
+        };
+        db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
+      }
     } else {
       db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
         last_login_at: now,
@@ -950,7 +983,7 @@ router.post('/google-redirect', async (req, res) => {
   }
 });
 
-// POST /api/auth/google — Google login stored EXCLUSIVELY to Google Sheets
+// POST /api/auth/google â€” Google login stored EXCLUSIVELY to Google Sheets
 router.post('/google', async (req, res) => {
   try {
     const { credential, email, name, picture } = req.body;
@@ -1023,20 +1056,34 @@ router.post('/google', async (req, res) => {
     const now = new Date().toISOString();
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
-      const userId = uuidv4();
-      sheetUser = {
-        user_id: userId,
-        id: userId,
-        name: userName,
-        username: userEmail.split('@')[0],
-        email: userEmail,
-        status: 'active',
-        created_at: now,
-        updated_at: now,
-        last_login_at: now,
-        last_logout_at: '',
-      };
-      db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
+      // Paranoid pre-create scan — see verify-otp path for rationale.
+      const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
+      const existingDup = (allRows || []).find((r) => {
+        const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
+        return v && v === userEmail;
+      });
+      if (existingDup) {
+        sheetUser = existingDup;
+        db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
+          last_login_at: now,
+          updated_at: now,
+        }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
+      } else {
+        const userId = uuidv4();
+        sheetUser = {
+          user_id: userId,
+          id: userId,
+          name: userName,
+          username: userEmail.split('@')[0],
+          email: userEmail,
+          status: 'active',
+          created_at: now,
+          updated_at: now,
+          last_login_at: now,
+          last_logout_at: '',
+        };
+        db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
+      }
     } else {
       db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
         last_login_at: now,
@@ -1076,7 +1123,7 @@ router.post('/google', async (req, res) => {
   }
 });
 
-// POST /api/auth/logout — Revoke the current session, record last_logout_at
+// POST /api/auth/logout â€” Revoke the current session, record last_logout_at
 // in the G Sheet, and clear the session cookie.
 // Priority: the Bearer token's session (logs out only THIS device), then an
 // explicit body.session_id, then the legacy email/user_id fallback (ends all
@@ -1104,7 +1151,7 @@ router.post('/logout', async (req, res) => {
       supabase.endSession(session_id).catch(() => {});
     }
 
-    // 3) Legacy fallback — no session info available: end ALL sessions
+    // 3) Legacy fallback â€” no session info available: end ALL sessions
     if (!revokedByToken && !session_id) {
       if (user_id) {
         supabase.endAllUserSessions(user_id).catch(() => {});
@@ -1131,7 +1178,7 @@ router.post('/logout', async (req, res) => {
   }
 });
 
-// POST /api/auth/refresh — Issue a new token from an expired one.
+// POST /api/auth/refresh â€” Issue a new token from an expired one.
 // The new token can NEVER outlive the 48-hour session window that started
 // at login; if the session was revoked or has expired, refresh is refused
 // with SESSION_EXPIRED and the user must log in again.
@@ -1163,15 +1210,15 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
-// ── Device / session management (user-facing) ──────────────────────────────
+// â”€â”€ Device / session management (user-facing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// GET /api/auth/sessions — List the current user's sessions (device page).
-// Never exposes raw session tokens — only metadata plus an is_current flag.
+// GET /api/auth/sessions â€” List the current user's sessions (device page).
+// Never exposes raw session tokens â€” only metadata plus an is_current flag.
 router.get('/sessions', authenticateToken, async (req, res) => {
   try {
     const rows = await supabase.getUserSessions(req.user.id);
 
-    // req.sessionId was set by the middleware from the validated session —
+    // req.sessionId was set by the middleware from the validated session â€”
     // use it to flag which row is the device making this request.
     const sessions = rows.map((r) => ({
       session_id: r.session_id,
@@ -1194,8 +1241,8 @@ router.get('/sessions', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/auth/sessions/revoke — "Log out this device".
-// The session id must belong to the authenticated user — one user can never
+// POST /api/auth/sessions/revoke â€” "Log out this device".
+// The session id must belong to the authenticated user â€” one user can never
 // revoke another user's session.
 router.post('/sessions/revoke', authenticateToken, async (req, res) => {
   try {
@@ -1224,7 +1271,7 @@ router.post('/sessions/revoke', authenticateToken, async (req, res) => {
   }
 });
 
-// POST /api/auth/sessions/revoke-all — "Log out all devices".
+// POST /api/auth/sessions/revoke-all â€” "Log out all devices".
 // Revokes every Active session for the authenticated user (including the
 // current one). The account/profile is untouched.
 router.post('/sessions/revoke-all', authenticateToken, async (req, res) => {
@@ -1238,7 +1285,7 @@ router.post('/sessions/revoke-all', authenticateToken, async (req, res) => {
   }
 });
 
-// GET|POST /api/auth/session-cleanup — 10-minute expiry sweep endpoint for
+// GET|POST /api/auth/session-cleanup â€” 10-minute expiry sweep endpoint for
 // external/Vercel cron. Guarded by SESSION_CLEANUP_SECRET (query param
 // `secret` or `x-cleanup-secret` header) when configured; otherwise only
 // an authenticated admin may trigger it.
@@ -1250,7 +1297,7 @@ router.all('/session-cleanup', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized.' });
     }
   } else {
-    // No secret configured — require an admin bearer token
+    // No secret configured â€” require an admin bearer token
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Unauthorized.' });

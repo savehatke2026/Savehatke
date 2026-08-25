@@ -34,7 +34,6 @@ const HEADERS = {
     'name',
     'username',
     'status',
-    'picture',
     'created_at',
     'updated_at',
     'last_login_at',
@@ -482,6 +481,16 @@ function dataByNormKey(data) {
 async function appendRow(sheetName, data) {
   const headers = HEADERS[sheetName];
   if (!headers) throw new Error(`Unknown sheet: ${sheetName}`);
+
+  // Normalize on write so every newly-appended row has a canonical
+  // email value. Without this, a row written by an older code path
+  // (e.g. mixed case) would still cause a duplicate-row bug because
+  // getRows cannot retroactively normalize values that were never
+  // fetched yet (i.e. they only exist in the live sheet until the
+  // next read).
+  if (sheetName === SHEETS.USERS && data && typeof data.email === 'string') {
+    data = { ...data, email: data.email.toLowerCase().trim() };
+  }
 
   // Always store in memory fallback first to guarantee availability
   memoryDB[sheetName] = memoryDB[sheetName] || [];
