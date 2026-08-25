@@ -79,12 +79,12 @@
     .hero { min-height:100vh; padding-top:68px; display:flex; align-items:center; position:relative; overflow:hidden; }
     .hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 70% 55% at 15% 30%,rgba(0,230,118,.07) 0%,transparent 65%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.07) 0%,transparent 65%); pointer-events:none; }
     .hero-gridbg { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.04) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
-    .hero-inner { position:relative; z-index:1; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; padding:80px 0 100px; }
-    .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; border-radius:9999px; font-size:.8rem; font-weight:600; padding:6px 16px; margin-bottom:28px; }
-    .hero-title { font-family:'DM Serif Display',serif; font-size:clamp(2.8rem,5.5vw,4.4rem); line-height:1.1; margin-bottom:22px; }
-    .hero-desc { font-size:1.05rem; color:#a8c0dc; line-height:1.75; margin-bottom:36px; max-width:480px; }
-    .hero-actions { display:flex; gap:14px; flex-wrap:wrap; margin-bottom:52px; }
-    .hero-stats { display:flex; gap:40px; }
+    .hero-inner { position:relative; z-index:1; display:grid; grid-template-columns:1fr; gap:0; align-items:center; justify-items:center; text-align:center; padding:80px 0 100px; }
+    .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; border-radius:9999px; font-size:.8rem; font-weight:600; padding:6px 16px; margin:0 auto 28px; }
+    .hero-title { font-family:'DM Serif Display',serif; font-size:clamp(2.8rem,5.5vw,4.4rem); line-height:1.1; margin:0 auto 22px; max-width:900px; }
+    .hero-desc { font-size:1.05rem; color:#a8c0dc; line-height:1.75; margin:0 auto 36px; max-width:560px; }
+    .hero-actions { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin:0 auto 52px; }
+    .hero-stats { display:flex; gap:40px; justify-content:center; }
     .stat-val { font-family:'JetBrains Mono',monospace; font-size:1.8rem; font-weight:600; line-height:1; }
     .stat-lbl { font-size:.78rem; color:#6b88aa; font-weight:500; margin-top:4px; }
     .hero-visual { position:relative; display:flex; justify-content:center; }
@@ -701,24 +701,6 @@
           <div><div class="stat-val gtext" id="stat-saved-by-users">₹2L+</div><div class="stat-lbl">Saved by Users</div></div>
         </div>
       </div>
-      <div class="hero-visual fu in d2">
-        <div class="hero-glow"></div>
-        <div class="price-card">
-          <div class="card-hdr">
-            <div class="card-ico">📊</div>
-            <div>
-              <div class="card-ttl">Price Comparison</div>
-              <div class="card-sub">Sony WH-1000XM5 Headphones</div>
-            </div>
-          </div>
-          <div class="pr-row"><span class="pr-site">🛒 Amazon.in</span><span class="pr-amt">₹24,990</span></div>
-          <div class="pr-row best"><span class="pr-site">🛍️ Flipkart</span><span class="pr-amt bp">₹22,499 <span class="bbadge">BEST</span></span></div>
-          <div class="pr-row"><span class="pr-site">🏪 Croma</span><span class="pr-amt">₹25,990</span></div>
-          <div class="savings-pill">💡 You save ₹3,491 by buying on Flipkart!</div>
-        </div>
-        <div class="fbadge fb1"><div class="bdot"></div> Price dropped! ₹2,000 off</div>
-        <div class="fbadge fb2">🎟️ Coupon sold — ₹10 credited</div>
-      </div>
     </div>
   </div>
 </section>
@@ -837,11 +819,7 @@
           <span class="ext-bar-lbl">SaveHatke Extension v1.0</span>
         </div>
         <div class="ext-body">
-          <div class="ext-ttl">📊 Price Comparison — Sony WH-1000XM5</div>
-          <div class="ext-row"><span class="ext-site">🛒 Amazon.in</span><span class="ext-price">₹24,990</span></div>
-          <div class="ext-row br"><span class="ext-site">🛍️ Flipkart</span><span class="ext-price bp">₹22,499 ✨ BEST</span></div>
-          <div class="ext-row"><span class="ext-site">🏪 Croma</span><span class="ext-price">₹25,990</span></div>
-          <div class="ext-sav">💡 You save ₹3,491 by buying on Flipkart!</div>
+          <div class="ext-ttl" style="text-align:center;color:#a8c0dc;font-size:.95rem;padding:32px 12px">Price Comparison removed — this panel is empty.</div>
         </div>
       </div>
     </div>
