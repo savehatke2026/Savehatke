@@ -1,4 +1,4 @@
-﻿// ============================================
+// ============================================
 // SaveHatke — Shared App Utilities
 // ============================================
 // Auth state, API client, toast notifications, nav, mobile menu
@@ -414,6 +414,13 @@ function updateNavAuth() {
   const navActions = document.querySelector('.nav-actions');
   if (!navActions) return;
 
+  // Remove any existing profile wrapper (but preserve other children like notification bell)
+  const existingProfile = navActions.querySelector('.nav-profile-wrapper');
+  if (existingProfile) existingProfile.remove();
+  // Also remove any existing login button
+  const existingLogin = navActions.querySelector('.nav-auth-login');
+  if (existingLogin) existingLogin.remove();
+
   if (Auth.isLoggedIn()) {
     const user = Auth.getUser() || {};
     const name = user.name || 'User';
@@ -435,8 +442,9 @@ function updateNavAuth() {
       ? `<img src="${user.picture}" alt="${name}" />`
       : initials;
 
-    navActions.innerHTML = `
-      <div class="nav-profile-wrapper">
+    const profileDiv = document.createElement('div');
+    profileDiv.className = 'nav-profile-wrapper';
+    profileDiv.innerHTML = `
         <button class="nav-profile-btn" id="navProfileCircleBtn" title="${name} (${email})">
           ${avatarHtmlBtn}
         </button>
@@ -456,8 +464,8 @@ function updateNavAuth() {
           </button>
           <div class="npd-footer">Secured by Savehatke</div>
         </div>
-      </div>
     `;
+    navActions.appendChild(profileDiv);
 
     const btn = document.getElementById('navProfileCircleBtn');
     const dropdown = document.getElementById('navProfileDropdown');
@@ -494,9 +502,12 @@ function updateNavAuth() {
     // Don't overwrite login page's custom nav-actions (← Home button)
     const currentPage = window.location.pathname.split('/').pop() || '';
     if (currentPage === 'login' || currentPage === 'login.html') return;
-    navActions.innerHTML = `
-      <button type="button" class="btn btn-primary btn-sm" onclick="location.href='login.html'">Log In</button>
-    `;
+    const loginBtn = document.createElement('button');
+    loginBtn.type = 'button';
+    loginBtn.className = 'btn btn-primary btn-sm nav-auth-login';
+    loginBtn.textContent = 'Log In';
+    loginBtn.onclick = () => { location.href = 'login.html'; };
+    navActions.appendChild(loginBtn);
   }
 }
 

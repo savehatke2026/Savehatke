@@ -85,7 +85,7 @@
     .nav-links a{font-size:.88rem;font-weight:500;color:#6b88aa;transition:color .2s;position:relative;padding-bottom:3px}
     .nav-links a:hover,.nav-links a.active{color:#e2ecff}
     .nav-links a.active::after{content:'';position:absolute;bottom:-4px;left:0;right:0;height:2px;background:#00e676;border-radius:1px}
-    .nav-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
+    .nav-actions{margin-left:auto;display:flex;align-items:center;gap:10px;flex-shrink:0}
 
     /* Notification bell */
     .notif-wrapper{position:relative}
@@ -93,14 +93,27 @@
     .notif-btn:hover{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.06);color:#00e676}
     .notif-badge{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;background:#ff6b6b;border:2px solid #060d1f}
 
-    /* Profile */
-    .profile-wrapper{position:relative;display:flex;align-items:center;gap:9px;cursor:pointer}
-    .profile-avatar{width:38px;height:38px;border-radius:50%;border:2px solid #00e676;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.88rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .22s;box-shadow:0 0 12px rgba(0,230,118,.3);overflow:hidden}
-    .profile-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
-    .profile-wrapper:hover .profile-avatar{transform:scale(1.08);box-shadow:0 0 20px rgba(0,230,118,.5)}
-    .profile-name{font-size:.85rem;font-weight:600;color:#e2ecff;white-space:nowrap}
-    .profile-chevron{font-size:.65rem;color:#6b88aa;transition:transform .2s}
-    .profile-wrapper.open .profile-chevron{transform:rotate(180deg)}
+    /* Nav profile (injected by app.js) */
+    .nav-profile-wrapper { position:relative; display:inline-block; }
+    .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00e676; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,230,118,.35); outline:none; overflow:hidden; }
+    .nav-profile-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(0,230,118,.65); border-color:#4fc3f7; }
+    .nav-profile-btn img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .nav-profile-dropdown { position:absolute; top:calc(100% + 12px); right:0; width:230px; background:rgba(12,24,53,.96); backdrop-filter:blur(20px); border:1px solid rgba(79,195,247,.25); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.65); padding:10px; display:none; flex-direction:column; gap:6px; z-index:1000; animation:dropdownFadeIn .2s ease-out forwards; }
+    .nav-profile-dropdown.active { display:flex; }
+    @keyframes dropdownFadeIn { from{opacity:0;transform:translateY(-8px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+    .npd-header { display:flex; align-items:center; gap:10px; padding:8px; border-bottom:1px solid rgba(79,195,247,.12); margin-bottom:4px; padding-bottom:10px; }
+    .npd-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+    .npd-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .npd-info { display:flex; flex-direction:column; overflow:hidden; }
+    .npd-name { font-size:.88rem; font-weight:700; color:#e2ecff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .npd-email { font-size:.74rem; color:#6b88aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .npd-status { display:inline-block; font-size:.6rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(0,230,118,.15); color:#00e676; margin-left:6px; vertical-align:middle; }
+    .npd-status.suspended { background:rgba(255,107,107,.15); color:#ff6b6b; }
+    .npd-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; color:#e2ecff; font-size:.86rem; font-weight:600; text-decoration:none; cursor:pointer; transition:all .18s; background:transparent; border:none; width:100%; text-align:left; font-family:'Outfit',sans-serif; }
+    .npd-item:hover { background:rgba(0,230,118,.12); color:#00e676; }
+    .npd-item-logout { color:#ff6b6b; }
+    .npd-item-logout:hover { background:rgba(255,80,80,.12); color:#ff8585; }
+    .npd-footer { font-size:.65rem; color:#3a4f6e; text-align:center; padding:6px 0 2px; }
 
     /* Mobile toggle */
     .nav-toggle{display:none;flex-direction:column;gap:5px;background:none;border:none;cursor:pointer;padding:4px;margin-left:4px}
@@ -355,8 +368,6 @@
       .footer-grid{grid-template-columns:1fr 1fr;gap:28px}
       table.activity-desktop{display:none}
       .activity-mobile{display:block}
-      .profile-name{display:none}
-      .profile-chevron{display:none}
     }
     @media(max-width:480px){
       .stats-grid{grid-template-columns:1fr 1fr}
@@ -434,32 +445,24 @@
 ===================================================== -->
 <nav class="navbar" id="mainNav">
   <div class="container">
-
     <a href="index" class="nav-brand">
       <div class="brand-icon">💰</div>
       <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
-
     <div class="nav-links" id="navLinks">
       <a href="index">Home</a>
-      <a href="marketplace">Buy Coupons</a>
+      <a href="marketplace">Coupons</a>
       <a href="sell">Sell Coupons</a>
-      <a href="#my-coupons" id="navMyCoupons">My Coupons</a>
-      <a href="#wallet" id="navWallet">Wallet</a>
       <a href="about">About</a>
       <a href="support">Support</a>
     </div>
-
-    <div class="nav-right">
-
-      <!-- Notification Bell -->
+    <div class="nav-actions" id="navActions">
+      <!-- Notification Bell (dashboard only) -->
       <div class="notif-wrapper" id="notifWrapper">
         <button class="notif-btn" id="notifBtn" onclick="toggleNotif(event)" title="Notifications">
           🔔
           <span class="notif-badge" id="notifBadge"></span>
         </button>
-
-        <!-- Notification Panel -->
         <div class="notif-panel" id="notifPanel">
           <div class="notif-panel-hdr">
             <div class="notif-panel-title">
@@ -471,39 +474,11 @@
           <div class="notif-list" id="notifList"></div>
         </div>
       </div>
-
-      <!-- Profile -->
-      <div class="profile-wrapper" id="profileWrapper" onclick="toggleProfile(event)">
-        <div class="profile-avatar" id="profileAvatar">RK</div>
-        <span class="profile-name" id="profileNameNav">Rahul Kumar</span>
-        <span class="profile-chevron">▼</span>
-
-        <!-- Profile Dropdown -->
-        <div class="profile-dropdown" id="profileDropdown">
-          <div class="pd-header">
-            <div class="pd-avatar" id="pdAvatar">RK</div>
-            <div>
-              <div class="pd-name"><span id="pdName">Rahul Kumar</span><span class="pd-status" id="pdStatusTag">Active</span></div>
-              <div class="pd-email" id="pdEmail">rahul@gmail.com</div>
-            </div>
-          </div>
-          <button class="pd-item" onclick="showToast('Profile page coming soon!','warn')">👤 My Profile</button>
-          <button class="pd-item" onclick="scrollToSec('security')">🔒 Security Settings</button>
-          <button class="pd-item" onclick="scrollToSec('my-coupons')">🎟️ My Coupons</button>
-          <button class="pd-item" onclick="scrollToSec('wallet')">💰 Wallet</button>
-          <button class="pd-item" onclick="location.href='support'">🎧 Support</button>
-          <div class="pd-divider"></div>
-          <button class="pd-item pd-item-danger" onclick="openModal('logoutModal')">🚪 Logout</button>
-          <div class="pd-footer">Secured by Savehatke</div>
-        </div>
-      </div>
-
-      <!-- Mobile toggle -->
-      <button class="nav-toggle" id="navToggle" onclick="toggleMobileNav()" aria-label="Menu">
-        <span></span><span></span><span></span>
-      </button>
-
+      <!-- Profile button will be injected by app.js updateNavAuth() -->
     </div>
+    <button class="nav-toggle" id="navToggle" onclick="toggleMobileNav()" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </nav>
 
@@ -2056,9 +2031,7 @@
     // Device sessions (48-hour server-side sessions)
     loadMySessions();
 
-    // Intercept navbar hash links to use view system
-    document.getElementById('navMyCoupons')?.addEventListener('click', e => { e.preventDefault(); showView('my-coupons'); });
-    document.getElementById('navWallet')?.addEventListener('click', e => { e.preventDefault(); showView('wallet'); });
+    // Nav hash links removed — navbar now matches index page structure
 
     // Handle URL hash on load
     const hash = window.location.hash.replace('#', '');
@@ -2142,11 +2115,7 @@
     document.getElementById('notifPanel').classList.toggle('open');
   }
 
-  function toggleProfile(e) {
-    if (e) e.stopPropagation();
-    document.getElementById('notifPanel').classList.remove('open');
-    document.getElementById('profileDropdown').classList.toggle('open');
-  }
+  // toggleProfile removed — profile is now handled by app.js updateNavAuth()
 
   function markAllRead() {
     STATE.notifications.forEach((n) => n.unread = false);
@@ -2161,7 +2130,6 @@
   // Close dropdowns on outside click
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#notifWrapper')) document.getElementById('notifPanel')?.classList.remove('open');
-    if (!e.target.closest('#profileWrapper')) document.getElementById('profileDropdown')?.classList.remove('open');
   });
 
   // ─── Modal functions ───────────────────────────────────────────
