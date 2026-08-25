@@ -7,7 +7,7 @@ let currentCategory = 'all';
 let currentSource = '';
 let searchQuery = '';
 let currentPage = 1;
-const PER_PAGE = 18;
+const PER_PAGE = 30;
 
 document.addEventListener('DOMContentLoaded', () => {
   loadCoupons();
@@ -61,18 +61,6 @@ function renderFilteredCoupons() {
   const source = document.getElementById('sourceFilter')?.value || currentSource;
   if (source) {
     filtered = filtered.filter((c) => c.source === source);
-  }
-
-  const resultsText = document.getElementById('resultsText');
-  if (resultsText) {
-    if (filtered.length === 0) {
-      resultsText.textContent = 'No coupons found in database';
-    } else {
-      const paidCount = filtered.filter((c) => c.source !== 'auto-scraped').length;
-      const totalPgs = Math.ceil(paidCount / PER_PAGE);
-      resultsText.textContent = `Showing ${filtered.length} verified coupon${filtered.length === 1 ? '' : 's'} from database` +
-        (totalPgs > 1 ? ` · Page ${currentPage} of ${totalPgs}` : '');
-    }
   }
 
   // Separate paid and free coupons
@@ -261,6 +249,7 @@ function renderPagination(totalPages) {
   const pagesSpan = document.getElementById('pgPages');
   const prevBtn = document.getElementById('pgPrev');
   const nextBtn = document.getElementById('pgNext');
+  const infoSpan = document.getElementById('pgInfo');
 
   if (!bar || totalPages <= 1) {
     if (bar) bar.style.display = 'none';
@@ -295,9 +284,8 @@ function renderPagination(totalPages) {
       pagesHtml += `<button class="pg-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
     }
   }
-  // Page indicator
-  pagesHtml += `<span class="pg-info">Page ${currentPage}/${totalPages}</span>`;
   if (pagesSpan) pagesSpan.innerHTML = pagesHtml;
+  if (infoSpan) infoSpan.textContent = `Page ${currentPage}/${totalPages}`;
 }
 
 function changePage(delta) {
