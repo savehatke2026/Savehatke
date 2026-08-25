@@ -1,0 +1,1274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SaveHatke — India's smartest coupon marketplace. Buy verified coupons, sell unused ones, and save more on every purchase.">
+  <title>SaveHatke — Smart Coupon Marketplace</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://accounts.google.com" crossorigin>
+  <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
+  <link rel="dns-prefetch" href="https://accounts.google.com">
+  <link rel="dns-prefetch" href="https://www.googleapis.com">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Outfit', sans-serif; background: #060d1f; color: #e2ecff; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #060d1f; }
+    ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+    a { text-decoration: none; color: inherit; }
+
+    @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    @keyframes ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+    @keyframes pulse-ring { 0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,.45)} 50%{box-shadow:0 0 0 10px rgba(0,230,118,0)} }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(26px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes dropdownFadeIn { from{opacity:0;transform:translateY(-8px) scale(.96)} to{opacity:1;transform:translateY(0) scale(1)} }
+    @keyframes chatbot-slide-up { from{opacity:0;transform:translateY(16px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+    @keyframes typing-dot { 0%,80%,100%{transform:translateY(0);opacity:.4} 40%{transform:translateY(-5px);opacity:1} }
+    @keyframes chatbot-pulse { 0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,.45),0 6px 24px rgba(0,230,118,.3)} 60%{box-shadow:0 0 0 8px rgba(0,230,118,0),0 6px 24px rgba(0,230,118,.3)} }
+    @keyframes hero-glow-pulse { 0%,100%{opacity:.6} 50%{opacity:1} }
+
+    .fu { opacity:0; transform:translateY(26px); transition:opacity .65s ease, transform .65s ease; }
+    .fu.in { opacity:1; transform:translateY(0); }
+    .d1{transition-delay:.1s} .d2{transition-delay:.22s} .d3{transition-delay:.34s}
+
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+
+    .gtext { background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .shimmer { background:linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 3.5s linear infinite; }
+    .slabel { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:12px; }
+    .stitle { font-family:'DM Serif Display',serif; font-size:clamp(1.9rem,4vw,2.8rem); line-height:1.15; margin-bottom:16px; }
+    .ssub { font-size:1rem; color:#a8c0dc; line-height:1.75; max-width:560px; margin:0 auto; }
+
+    /* Buttons */
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; }
+    .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
+    .btn-lg { height:54px; padding:0 36px; font-size:1rem; border-radius:12px; }
+    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+    .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); }
+    .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
+    .btn-success { background:linear-gradient(135deg,#00c853,#009624); color:#fff; }
+    .btn-success:hover { transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,200,83,.38); }
+    .btn-outline { background:transparent; color:#00e676; border:1.5px solid rgba(0,230,118,.35); }
+    .btn-outline:hover { background:rgba(0,230,118,.08); border-color:#00e676; }
+
+    /* NAVBAR */
+    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
+    .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
+    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .bhl { color:#00e676; }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
+    .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
+    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00e676; border-radius:1px; }
+    .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
+    .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
+    @media(max-width:768px){
+      .nav-links,.nav-actions{display:none}
+      .nav-toggle{display:flex}
+      .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
+      .nav-actions.open{display:flex;position:absolute;top:240px;right:24px;flex-direction:column;gap:10px;z-index:99}
+    }
+
+    /* Profile Avatar & Dropdown */
+    .nav-profile-wrapper { position:relative; display:inline-block; }
+    .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00e676; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,230,118,.35); outline:none; overflow:hidden; }
+    .nav-profile-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(0,230,118,.65); border-color:#4fc3f7; }
+    .nav-profile-btn img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .nav-profile-dropdown { position:absolute; top:calc(100% + 12px); right:0; width:230px; background:rgba(12,24,53,.96); backdrop-filter:blur(20px); border:1px solid rgba(79,195,247,.25); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.65); padding:10px; display:none; flex-direction:column; gap:6px; z-index:1000; animation:dropdownFadeIn .2s ease-out forwards; }
+    .nav-profile-dropdown.active { display:flex; }
+    .npd-header { display:flex; align-items:center; gap:10px; padding:8px; border-bottom:1px solid rgba(79,195,247,.12); margin-bottom:4px; padding-bottom:10px; }
+    .npd-avatar { width:34px; height:34px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+    .npd-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
+    .npd-info { display:flex; flex-direction:column; overflow:hidden; }
+    .npd-name { font-size:.88rem; font-weight:700; color:#e2ecff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .npd-email { font-size:.74rem; color:#6b88aa; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .npd-item { display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:8px; color:#e2ecff; font-size:.86rem; font-weight:600; text-decoration:none; cursor:pointer; transition:all .18s; background:transparent; border:none; width:100%; text-align:left; font-family:'Outfit',sans-serif; }
+    .npd-item:hover { background:rgba(0,230,118,.12); color:#00e676; }
+    .npd-item-logout { color:#ff6b6b; }
+    .npd-item-logout:hover { background:rgba(255,80,80,.12); color:#ff8585; }
+
+    /* HERO */
+    .hero { min-height:100vh; padding-top:68px; display:flex; align-items:center; position:relative; overflow:hidden; }
+    .hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 80% 60% at 50% 30%,rgba(0,230,118,.09) 0%,transparent 60%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.07) 0%,transparent 65%); pointer-events:none; animation:hero-glow-pulse 6s ease-in-out infinite; }
+    .hero-gridbg { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.04) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
+    .hero-inner { position:relative; z-index:1; max-width:900px; margin:0 auto; text-align:center; padding:90px 0 80px; }
+    .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; border-radius:9999px; font-size:.8rem; font-weight:600; padding:6px 16px; margin-bottom:28px; }
+    .hero-title { font-family:'DM Serif Display',serif; font-size:clamp(2.8rem,6vw,4.8rem); line-height:1.08; margin-bottom:24px; }
+    .hero-typing-line { font-family:'DM Serif Display',serif; font-size:clamp(2rem,4.5vw,3.4rem); line-height:1.15; margin-bottom:28px; min-height:1.3em; }
+    .hero-typing-text { background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .hero-typing-cursor { display:inline-block; width:3px; height:1em; background:#00e676; border-radius:2px; vertical-align:middle; animation:blink 1s step-end infinite; margin-left:3px; }
+    .hero-desc { font-size:1.08rem; color:#a8c0dc; line-height:1.75; margin-bottom:36px; max-width:580px; margin-left:auto; margin-right:auto; }
+    .hero-actions { display:flex; gap:14px; flex-wrap:wrap; justify-content:center; margin-bottom:52px; }
+    .hero-stats { display:flex; gap:48px; justify-content:center; flex-wrap:wrap; }
+    .stat-val { font-family:'JetBrains Mono',monospace; font-size:1.9rem; font-weight:600; line-height:1; }
+    .stat-lbl { font-size:.78rem; color:#6b88aa; font-weight:500; margin-top:5px; }
+
+    /* Info typing bar (no box) */
+    .info-bar-section { padding:18px 0 10px; text-align:center; }
+    .info-typing-bar { display:inline; background:none; border:none; box-shadow:none; padding:0; }
+    .info-typing-text { font-size:.95rem; color:#a8c0dc; font-weight:500; }
+    .info-typing-cursor { display:inline-block; width:2px; height:.85em; background:#00e676; border-radius:1px; vertical-align:middle; animation:blink 1s step-end infinite; margin-left:2px; }
+
+    /* TRUST */
+    .trust-bar { border-top:1px solid rgba(79,195,247,.1); border-bottom:1px solid rgba(79,195,247,.1); background:rgba(15,30,58,.5); overflow:hidden; }
+    .trust-wrap { padding:18px 0; overflow:hidden; }
+    .trust-ticker { display:flex; white-space:nowrap; animation:ticker 22s linear infinite; width:max-content; }
+    .trust-item { display:inline-flex; align-items:center; gap:10px; padding:0 48px; font-size:.88rem; font-weight:600; color:#a8c0dc; border-right:1px solid rgba(79,195,247,.1); }
+
+    /* SECTIONS */
+    .section { padding:96px 0; }
+    .section-alt { background:rgba(12,24,53,.55); }
+    .sec-hdr { text-align:center; margin-bottom:60px; }
+
+    /* STEPS */
+    .steps-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:28px; }
+    .step-card { padding:36px 32px; border-radius:18px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); position:relative; overflow:hidden; transition:all .3s; }
+    .step-card:hover { border-color:rgba(0,230,118,.25); transform:translateY(-5px); box-shadow:0 24px 60px rgba(0,0,0,.3); }
+    .step-n { font-family:'JetBrains Mono',monospace; font-size:3rem; font-weight:600; line-height:1; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; margin-bottom:20px; }
+    .step-card h3 { font-size:1.15rem; font-weight:700; margin-bottom:12px; }
+    .step-card p { font-size:.92rem; color:#a8c0dc; line-height:1.7; }
+    @media(max-width:768px){.steps-grid{grid-template-columns:1fr}}
+
+    /* COUPONS */
+    .cpills { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:36px; }
+    .cpill { padding:8px 20px; border-radius:9999px; font-size:.85rem; font-weight:600; border:1.5px solid rgba(79,195,247,.18); background:transparent; color:#a8c0dc; cursor:pointer; transition:all .2s; font-family:'Outfit',sans-serif; }
+    .cpill:hover { border-color:rgba(0,230,118,.35); color:#e2ecff; }
+    .cpill.active { background:linear-gradient(135deg,#00e676,#00c853); border-color:transparent; color:#060d1f; }
+    .coupon-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+    .coupon-card { padding:24px; border-radius:16px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); transition:all .3s; cursor:pointer; position:relative; overflow:hidden; }
+    .coupon-card::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(0,230,118,.04),transparent); opacity:0; transition:opacity .3s; pointer-events:none; }
+    .coupon-card:hover { border-color:rgba(0,230,118,.28); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.3); }
+    .coupon-card:hover::before { opacity:1; }
+    .ctop { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+    .cbrand { font-weight:700; font-size:1rem; }
+    .coff { font-family:'JetBrains Mono',monospace; font-size:1.05rem; font-weight:700; color:#00e676; }
+    .cdesc { font-size:.83rem; color:#a8c0dc; margin-bottom:16px; line-height:1.5; }
+    .cmeta { display:flex; justify-content:space-between; align-items:center; }
+    .clbl { font-size:.7rem; color:#6b88aa; display:block; }
+    .cval { font-family:'JetBrains Mono',monospace; font-size:1.05rem; font-weight:700; }
+    .ccat { font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; padding:4px 10px; border-radius:6px; background:rgba(79,195,247,.1); color:#4fc3f7; }
+    .text-center { text-align:center; }
+    .mt-10 { margin-top:40px; }
+    @media(max-width:900px){.coupon-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:600px){.coupon-grid{grid-template-columns:1fr}}
+
+    /* SELL CTA */
+    .sell-card { border-radius:24px; padding:72px 60px; text-align:center; background:linear-gradient(135deg,rgba(0,230,118,.08) 0%,rgba(79,195,247,.06) 100%); border:1px solid rgba(0,230,118,.2); position:relative; overflow:hidden; }
+    .sell-card::before { content:''; position:absolute; width:400px; height:400px; border-radius:50%; background:radial-gradient(circle,rgba(0,230,118,.1) 0%,transparent 70%); top:-100px; right:-100px; pointer-events:none; }
+    .sell-actions { display:flex; gap:16px; justify-content:center; margin-top:36px; flex-wrap:wrap; }
+    .mhl { color:#00e676; font-weight:800; }
+    @media(max-width:600px){.sell-card{padding:48px 28px}}
+
+    /* EXTENSION / COMING SOON */
+    .ext-wrap { display:grid; grid-template-columns:1fr 1fr; gap:72px; align-items:center; }
+    .ext-content h2 { font-family:'DM Serif Display',serif; font-size:clamp(1.8rem,3.5vw,2.6rem); line-height:1.2; margin-bottom:16px; }
+    .ext-content p { font-size:1rem; color:#a8c0dc; line-height:1.75; margin-bottom:28px; }
+    .ext-list { list-style:none; margin-bottom:36px; }
+    .ext-list li { display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; font-size:.92rem; color:#a8c0dc; }
+    .ext-list li::before { content:'✓'; color:#00e676; font-weight:800; margin-top:2px; flex-shrink:0; }
+    .ext-mock { border-radius:18px; overflow:hidden; border:1px solid rgba(79,195,247,.12); box-shadow:0 32px 80px rgba(0,0,0,.5); }
+    .ext-bar { background:rgba(9,18,40,.95); padding:12px 16px; display:flex; align-items:center; gap:6px; border-bottom:1px solid rgba(79,195,247,.1); }
+    .edot { width:10px; height:10px; border-radius:50%; }
+    .ext-bar-lbl { font-size:.75rem; color:#6b88aa; margin-left:8px; font-family:'JetBrains Mono',monospace; }
+    .ext-body { background:rgba(12,24,48,.95); padding:20px; }
+    .ext-ttl { font-size:.88rem; font-weight:700; margin-bottom:14px; color:#a8c0dc; }
+    .ext-row { display:flex; justify-content:space-between; align-items:center; padding:9px 12px; border-radius:8px; margin-bottom:6px; background:rgba(255,255,255,.03); font-size:.83rem; }
+    .ext-row.br { background:rgba(0,230,118,.08); border:1px solid rgba(0,230,118,.2); }
+    .ext-site { color:#a8c0dc; }
+    .ext-price { font-family:'JetBrains Mono',monospace; font-weight:600; }
+    .ext-price.bp { color:#00e676; }
+    .ext-sav { margin-top:14px; padding:10px 12px; border-radius:8px; background:linear-gradient(135deg,rgba(0,230,118,.12),rgba(79,195,247,.08)); font-size:.8rem; font-weight:600; color:#00e676; text-align:center; }
+    @media(max-width:900px){.ext-wrap{grid-template-columns:1fr;gap:40px}}
+
+    /* TESTIMONIALS */
+    .tgrid { display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }
+    .tcard { padding:32px; border-radius:18px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); transition:all .3s; position:relative; overflow:hidden; }
+    .tcard::before { content:'"'; position:absolute; top:16px; right:24px; font-family:'DM Serif Display',serif; font-size:5rem; line-height:1; color:rgba(0,230,118,.08); pointer-events:none; }
+    .tcard:hover { border-color:rgba(79,195,247,.25); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.25); }
+    .tstars { color:#ffd740; letter-spacing:3px; font-size:.9rem; margin-bottom:16px; }
+    .ttext { font-size:.93rem; color:#a8c0dc; line-height:1.75; margin-bottom:24px; font-style:italic; }
+    .tauthor { display:flex; align-items:center; gap:14px; }
+    .tavatar { width:42px; height:42px; border-radius:50%; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:.8rem; font-weight:700; color:#060d1f; flex-shrink:0; }
+    .tname { font-weight:700; font-size:.9rem; }
+    .trole { font-size:.78rem; color:#6b88aa; margin-top:2px; }
+    @media(max-width:900px){.tgrid{grid-template-columns:1fr}}
+
+    /* FINAL CTA */
+    .final-cta { padding:120px 0; background:radial-gradient(ellipse 80% 60% at 50% 50%,rgba(0,230,118,.07) 0%,transparent 70%); text-align:center; border-top:1px solid rgba(79,195,247,.1); }
+    .final-cta .stitle { font-size:clamp(2.4rem,5vw,3.8rem); }
+
+    /* FOOTER */
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; padding-bottom:52px; }
+    .fbrand p { font-size:.88rem; color:#6b88aa; line-height:1.7; margin-top:16px; max-width:280px; }
+    .fcol h4 { font-size:.8rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:20px; }
+    .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
+    .fcol a:hover { color:#00e676; }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
+    @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:32px}}
+    @media(max-width:600px){.footer-grid{grid-template-columns:1fr}.fbot{flex-direction:column;gap:8px;text-align:center}}
+
+    /* MODAL */
+    .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
+    .modal-overlay.open { opacity:1; pointer-events:auto; }
+    .modal { width:100%; max-width:420px; border-radius:22px; padding:40px; background:#0c1835; border:1px solid rgba(79,195,247,.15); box-shadow:0 40px 100px rgba(0,0,0,.6); transform:translateY(20px) scale(.97); transition:transform .25s; }
+    .modal-overlay.open .modal { transform:translateY(0) scale(1); }
+    .mhdr { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:28px; }
+    .mtitle { font-family:'DM Serif Display',serif; font-size:1.7rem; }
+    .mclose { background:none; border:none; color:#6b88aa; cursor:pointer; font-size:1.4rem; padding:2px 6px; transition:color .2s; }
+    .mclose:hover { color:#e2ecff; }
+    .mtabs { display:flex; margin-bottom:28px; border-radius:10px; background:rgba(255,255,255,.04); padding:4px; }
+    .mtab { flex:1; padding:10px; border-radius:8px; border:none; background:transparent; color:#6b88aa; font-family:'Outfit',sans-serif; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s; }
+    .mtab.active { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .fgroup { margin-bottom:18px; }
+    .flabel { display:block; font-size:.82rem; font-weight:600; color:#a8c0dc; margin-bottom:8px; }
+    .finput { width:100%; padding:12px 16px; border-radius:10px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem; transition:border-color .2s; outline:none; }
+    .finput:focus { border-color:rgba(0,230,118,.45); }
+    .finput::placeholder { color:#6b88aa; }
+    .fsubmit { width:100%; margin-top:8px; font-size:1rem; height:50px; border-radius:12px; }
+    .w-full { width:100%; }
+
+    /* Toast */
+    .toast-container { position:fixed; bottom:80px; left:50%; transform:translateX(-50%); z-index:9999; display:flex; flex-direction:column; gap:8px; pointer-events:none; }
+    .toast { padding:12px 20px; border-radius:10px; font-size:.88rem; font-weight:600; color:#e2ecff; background:rgba(12,24,53,.96); border:1px solid rgba(79,195,247,.2); backdrop-filter:blur(16px); animation:fadeUp .3s ease; white-space:nowrap; }
+    .toast.success { border-color:rgba(0,230,118,.3); color:#00e676; }
+    .toast.error { border-color:rgba(255,107,107,.3); color:#ff8585; }
+    .toast.warning { border-color:rgba(255,215,64,.3); color:#ffd740; }
+
+    /* CHATBOT */
+    .chatbot-fab { position:fixed; bottom:24px; right:24px; z-index:9990; width:48px; height:48px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:1.15rem; animation:chatbot-pulse 2.8s ease infinite; transition:transform .22s ease, background .22s ease; color:#060d1f; }
+    .chatbot-fab:hover { transform:scale(1.1); }
+    .chatbot-fab:focus-visible { outline:2.5px solid #00e676; outline-offset:3px; }
+    .chatbot-fab .cb-icon-open, .chatbot-fab .cb-icon-close { position:absolute; transition:opacity .2s, transform .2s; line-height:1; }
+    .chatbot-fab .cb-icon-close { opacity:0; transform:rotate(-90deg); font-size:1rem; font-weight:700; font-family:'Outfit',sans-serif; }
+    .chatbot-fab.is-open .cb-icon-open { opacity:0; transform:rotate(90deg); }
+    .chatbot-fab.is-open .cb-icon-close { opacity:1; transform:rotate(0deg); }
+    .chatbot-fab.is-open { background:linear-gradient(135deg,#0c1835,#0a1428); animation:none; box-shadow:0 8px 32px rgba(0,0,0,.5); border:1.5px solid rgba(0,230,118,.3); color:#00e676; }
+    .chatbot-window { position:fixed; bottom:86px; right:24px; z-index:9989; width:380px; height:560px; max-width:calc(100vw - 32px); max-height:calc(100dvh - 110px); background:#0c1835; border:1px solid rgba(0,230,118,.18); border-radius:20px; box-shadow:0 32px 90px rgba(0,0,0,.65),0 0 0 1px rgba(0,230,118,.08); display:flex; flex-direction:column; overflow:hidden; opacity:0; transform:translateY(18px) scale(.96); pointer-events:none; transition:opacity .25s cubic-bezier(.4,0,.2,1), transform .25s cubic-bezier(.34,1.3,.64,1); }
+    .chatbot-window.is-open { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+    @media(max-width:520px){
+      .chatbot-fab { bottom:16px; right:16px; width:44px; height:44px; font-size:1.05rem; }
+      .chatbot-window { bottom:0; right:0; left:0; width:100%; max-width:100%; height:88dvh; max-height:88dvh; border-radius:20px 20px 0 0; }
+    }
+    .chatbot-header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:linear-gradient(135deg,rgba(0,230,118,.1),rgba(0,200,83,.06)); border-bottom:1px solid rgba(0,230,118,.15); flex-shrink:0; }
+    .chatbot-header-left { display:flex; align-items:center; gap:12px; }
+    .chatbot-avatar { width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg,#00e676,#00c853); display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0; }
+    .chatbot-header-name { font-weight:700; font-size:.93rem; color:#e2ecff; line-height:1.2; }
+    .chatbot-header-status { font-size:.74rem; color:#6b88aa; margin-top:2px; display:flex; align-items:center; gap:5px; }
+    .chatbot-status-dot { width:7px; height:7px; border-radius:50%; background:#00e676; display:inline-block; flex-shrink:0; }
+    .chatbot-status-dot.offline { background:#ff6b6b; }
+    .chatbot-header-actions { display:flex; align-items:center; gap:4px; }
+    .chatbot-icon-btn { width:32px; height:32px; border-radius:8px; background:transparent; border:none; color:#6b88aa; cursor:pointer; display:flex; align-items:center; justify-content:center; font-size:.9rem; transition:background .18s, color .18s; font-family:'Outfit',sans-serif; }
+    .chatbot-icon-btn:hover { background:rgba(0,230,118,.1); color:#00e676; }
+    .chatbot-icon-btn:focus-visible { outline:2px solid #00e676; outline-offset:2px; }
+    .chatbot-messages { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:12px; scrollbar-width:thin; scrollbar-color:rgba(0,230,118,.15) transparent; }
+    .chatbot-messages::-webkit-scrollbar { width:4px; }
+    .chatbot-messages::-webkit-scrollbar-thumb { background:rgba(0,230,118,.2); border-radius:2px; }
+    .cb-msg { display:flex; gap:8px; align-items:flex-end; max-width:86%; }
+    .cb-msg.cb-user { align-self:flex-end; flex-direction:row-reverse; }
+    .cb-msg.cb-ai { align-self:flex-start; }
+    .cb-bubble { padding:10px 14px; border-radius:16px; font-size:.88rem; line-height:1.6; word-break:break-word; max-width:100%; }
+    .cb-msg.cb-user .cb-bubble { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; border-bottom-right-radius:4px; font-weight:500; }
+    .cb-msg.cb-ai .cb-bubble { background:rgba(15,30,58,.9); border:1px solid rgba(0,230,118,.12); color:#e2ecff; border-bottom-left-radius:4px; }
+    .cb-msg.cb-ai .cb-bubble strong { color:#00e676; }
+    .cb-msg.cb-ai .cb-bubble em { color:#66ffa6; font-style:italic; }
+    .cb-msg.cb-ai .cb-bubble code { background:rgba(0,230,118,.08); padding:1px 5px; border-radius:4px; font-family:'JetBrains Mono',monospace; font-size:.82em; color:#69f0ae; }
+    .cb-ts { font-size:.67rem; color:#6b88aa; margin-top:3px; padding:0 4px; flex-shrink:0; }
+    .cb-msg.cb-user .cb-ts { text-align:right; }
+    .cb-typing { display:flex; align-items:center; gap:5px; padding:10px 14px; background:rgba(15,30,58,.9); border:1px solid rgba(0,230,118,.12); border-radius:16px; border-bottom-left-radius:4px; width:fit-content; }
+    .cb-typing span { width:6px; height:6px; border-radius:50%; background:#00e676; display:inline-block; }
+    .cb-typing span:nth-child(1) { animation:typing-dot 1.2s .0s ease infinite; }
+    .cb-typing span:nth-child(2) { animation:typing-dot 1.2s .2s ease infinite; }
+    .cb-typing span:nth-child(3) { animation:typing-dot 1.2s .4s ease infinite; }
+    .cb-quick-actions { display:flex; flex-direction:column; gap:6px; margin-top:4px; }
+    .cb-quick-btn { padding:8px 12px; border-radius:10px; background:rgba(0,230,118,.07); border:1px solid rgba(0,230,118,.2); color:#00e676; font-family:'Outfit',sans-serif; font-size:.82rem; font-weight:600; cursor:pointer; text-align:left; transition:background .18s, border-color .18s; }
+    .cb-quick-btn:hover { background:rgba(0,230,118,.14); border-color:rgba(0,230,118,.4); }
+    .cb-quick-btn:focus-visible { outline:2px solid #00e676; outline-offset:2px; }
+    .cb-sys-msg { align-self:center; font-size:.78rem; color:#6b88aa; background:rgba(255,255,255,.03); border:1px solid rgba(0,230,118,.08); border-radius:8px; padding:7px 12px; text-align:center; max-width:90%; }
+    .cb-sys-msg.cb-error { color:#ff8585; border-color:rgba(255,107,107,.15); background:rgba(255,107,107,.05); }
+    .chatbot-privacy { padding:6px 16px; font-size:.7rem; color:#6b88aa; text-align:center; border-top:1px solid rgba(0,230,118,.08); flex-shrink:0; }
+    .chatbot-privacy a { color:#00e676; text-decoration:underline; }
+    .chatbot-input-area { display:flex; align-items:flex-end; gap:8px; padding:10px 12px; border-top:1px solid rgba(0,230,118,.1); background:rgba(6,13,31,.6); flex-shrink:0; }
+    .chatbot-textarea { flex:1; background:rgba(255,255,255,.05); border:1.5px solid rgba(0,230,118,.15); border-radius:12px; color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.9rem; padding:10px 14px; resize:none; outline:none; min-height:42px; max-height:120px; line-height:1.5; transition:border-color .2s; overflow-y:auto; }
+    .chatbot-textarea:focus { border-color:rgba(0,230,118,.45); }
+    .chatbot-textarea::placeholder { color:#6b88aa; }
+    .chatbot-textarea:disabled { opacity:.6; cursor:not-allowed; }
+    .chatbot-send-btn { width:42px; height:42px; border-radius:12px; background:linear-gradient(135deg,#00e676,#00c853); border:none; color:#060d1f; font-size:1.1rem; cursor:pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; transition:opacity .2s, transform .2s; }
+    .chatbot-send-btn:hover { opacity:.85; transform:scale(1.06); }
+    .chatbot-send-btn:disabled { opacity:.4; cursor:not-allowed; transform:none; }
+    .chatbot-send-btn:focus-visible { outline:2px solid #00e676; outline-offset:2px; }
+    .chatbot-char-count { font-size:.68rem; color:#6b88aa; text-align:right; padding:0 14px 6px; flex-shrink:0; }
+    .chatbot-char-count.near-limit { color:#ffd740; }
+    .chatbot-char-count.at-limit { color:#ff6b6b; }
+  </style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar" id="nav">
+  <div class="container">
+    <a href="index" class="nav-brand">
+      <div class="brand-icon">💰</div>
+      <span class="brand-name">Save<span class="bhl">Hatke</span></span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="index" class="active">Home</a>
+      <a href="marketplace">Coupons</a>
+      <a href="sell">Sell Coupons</a>
+      <a href="about">About</a>
+      <a href="support">Support</a>
+    </div>
+    <div class="nav-actions" id="navActions"></div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-mesh"></div>
+  <div class="hero-gridbg"></div>
+  <div class="container">
+    <div class="hero-inner fu in">
+      <div class="hero-badge" id="heroBadge">🎟️ Smart Coupon Marketplace — Now Live!</div>
+      <h1 class="hero-title">Save Smarter.</h1>
+      <div class="hero-typing-line">
+        <span class="hero-typing-text" id="heroTypingText"></span><span class="hero-typing-cursor" id="heroTypingCursor"></span>
+      </div>
+      <p class="hero-desc">Buy verified coupons at great prices. Sell the ones you don't need. Discover better deals with SaveHatke — India's premier coupon marketplace.</p>
+      <div class="hero-actions">
+        <a href="marketplace" class="btn btn-primary btn-lg">🏷️ Browse Coupons</a>
+        <a href="sell" class="btn btn-ghost btn-lg">💰 Sell a Coupon</a>
+      </div>
+      <div class="hero-stats">
+        <div><div class="stat-val gtext" id="stat-active-users">10K+</div><div class="stat-lbl">Active Users</div></div>
+        <div><div class="stat-val gtext" id="stat-coupons-traded">50K+</div><div class="stat-lbl">Coupons Traded</div></div>
+        <div><div class="stat-val gtext" id="stat-saved-by-users">₹2L+</div><div class="stat-lbl">Saved by Users</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECOND TYPING / INFO BAR -->
+<div class="info-bar-section">
+  <span class="info-typing-bar">
+    <span class="info-typing-text" id="infoTypingText"></span><span class="info-typing-cursor" id="infoTypingCursor"></span>
+  </span>
+</div>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+  <div class="trust-wrap">
+    <div class="trust-ticker">
+      <div class="trust-item">📧 Email Support</div>
+      <div class="trust-item">📱 WhatsApp Support</div>
+      <div class="trust-item">🔐 Secure Data Handling</div>
+      <div class="trust-item">💳 UPI Payments</div>
+      <div class="trust-item">🛡️ Secure Platform</div>
+      <div class="trust-item">✅ Verified Coupons</div>
+      <div class="trust-item">🇮🇳 Made in India</div>
+      <div class="trust-item">📧 Email Support</div>
+      <div class="trust-item">📱 WhatsApp Support</div>
+      <div class="trust-item">🔐 Secure Data Handling</div>
+      <div class="trust-item">💳 UPI Payments</div>
+      <div class="trust-item">🛡️ Secure Platform</div>
+      <div class="trust-item">✅ Verified Coupons</div>
+      <div class="trust-item">🇮🇳 Made in India</div>
+    </div>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="container">
+    <div class="sec-hdr fu">
+      <span class="slabel">How It Works</span>
+      <h2 class="stitle">Buy, Save &amp; Earn in <span class="gtext">3 Simple Steps</span></h2>
+      <p class="ssub">Whether you're buying coupons or selling unused ones, SaveHatke makes it effortless.</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card fu">
+        <div class="step-n">01</div>
+        <h3>Find a Coupon</h3>
+        <p>Browse verified discount coupons across Makeup, Electronics, Fashion, Food &amp; more — all from real users at unbeatable prices.</p>
+      </div>
+      <div class="step-card fu d1">
+        <div class="step-n">02</div>
+        <h3>Buy &amp; Save</h3>
+        <p>Pay a small fee to unlock the coupon code. Instantly save 5x–25x more on your purchase than what you paid for the coupon.</p>
+      </div>
+      <div class="step-card fu d2">
+        <div class="step-n">03</div>
+        <h3>Sell Unused Coupons</h3>
+        <p>Have a coupon gathering dust? List it on SaveHatke and earn cash. Turn your unused rewards into real money — instantly.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COUPON MARKETPLACE -->
+<section class="section section-alt" id="marketplace">
+  <div class="container">
+    <div class="sec-hdr fu">
+      <span class="slabel">Coupon Marketplace</span>
+      <h2 class="stitle">Premium Coupons at <span class="gtext">Unreal Prices</span></h2>
+      <p class="ssub">Verified codes from real users — at a fraction of their face value. Why pay full price?</p>
+    </div>
+    <div class="cpills fu">
+      <button class="cpill active" data-cat="all">All</button>
+      <button class="cpill" data-cat="Makeup">💄 Makeup</button>
+      <button class="cpill" data-cat="Electronics">⚡ Electronics</button>
+      <button class="cpill" data-cat="Fashion">Fashion</button>
+      <button class="cpill" data-cat="Food">🍔 Food</button>
+    </div>
+    <div class="coupon-grid fu" id="couponGrid"></div>
+    <div class="text-center mt-10 fu">
+      <a href="marketplace" class="btn btn-outline btn-lg">View All Coupons →</a>
+    </div>
+  </div>
+</section>
+
+<!-- SELL & EARN -->
+<section class="section" id="sell">
+  <div class="container">
+    <div class="sell-card fu">
+      <span class="slabel">💸 Earn Money</span>
+      <h2 class="stitle" style="position:relative">Have a Coupon You Don't Need?</h2>
+      <p class="ssub" style="margin:0 auto;position:relative">
+        That Nykaa coupon you'll never use? That PhonePe reward gathering dust?<br>
+        List it on SaveHatke and let someone who needs it buy it. <span class="mhl">Simple. Fast. Real.</span>
+      </p>
+      <div class="sell-actions">
+        <a href="sell" class="btn btn-success btn-lg">💰 Sell Your Coupons Now</a>
+        <a href="support" class="btn btn-ghost btn-lg">Learn More</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMING SOON -->
+<section class="section section-alt" id="extension">
+  <div class="container">
+    <div class="ext-wrap">
+      <div class="ext-content fu">
+        <span class="slabel">Coming Soon</span>
+        <h2>SaveHatke<br><span class="gtext">Browser Extension</span></h2>
+        <p>Real-time price comparison while you shop. Auto-apply the best coupon codes without leaving the page.</p>
+        <ul class="ext-list">
+          <li>Instant price comparison across Amazon, Flipkart &amp; Croma</li>
+          <li>Auto-detect and apply best available coupon codes</li>
+          <li>Price history graph — know if it's a real deal</li>
+          <li>One-click add to watchlist for price drop alerts</li>
+        </ul>
+        <button class="btn btn-ghost btn-lg" disabled style="opacity:.5;cursor:not-allowed">🔔 Notify Me When Available</button>
+      </div>
+      <div class="ext-mock fu d2">
+        <div class="ext-bar">
+          <span class="edot" style="background:#ff5f57"></span>
+          <span class="edot" style="background:#febc2e"></span>
+          <span class="edot" style="background:#28c840"></span>
+          <span class="ext-bar-lbl">SaveHatke Extension v1.0</span>
+        </div>
+        <div class="ext-body">
+          <div class="ext-ttl">📊 Smart Coupon Matching — Active</div>
+          <div class="ext-row"><span class="ext-site">💄 Nykaa Coupon</span><span class="ext-price">₹500 OFF</span></div>
+          <div class="ext-row br"><span class="ext-site">⚡ Electronics Deal</span><span class="ext-price bp">₹3,491 BEST ✨</span></div>
+          <div class="ext-row"><span class="ext-site">👟 Fashion Code</span><span class="ext-price">₹200 OFF</span></div>
+          <div class="ext-sav">💡 Best coupon auto-applied at checkout!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TESTIMONIALS -->
+<section class="section" id="testimonials">
+  <div class="container">
+    <div class="sec-hdr fu">
+      <span class="slabel">Testimonials</span>
+      <h2 class="stitle">Loved by <span class="gtext">10,000+ Smart Shoppers</span></h2>
+      <p class="ssub">Real stories from real users who save big with SaveHatke.</p>
+    </div>
+    <div class="tgrid">
+      <div class="tcard fu">
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">"I had ₹500 worth of Nykaa coupons I was never going to use. Sold them all on SaveHatke and got cash instantly. Genius concept!"</p>
+        <div class="tauthor">
+          <div class="tavatar">RK</div>
+          <div><div class="tname">Rahul Kumar</div><div class="trole">Software Engineer, Bangalore</div></div>
+        </div>
+      </div>
+      <div class="tcard fu d1">
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">"Found a ₹1,000 off coupon for just ₹20 on SaveHatke. Saved big on my order without even hunting for deals. Absolutely recommend!"</p>
+        <div class="tauthor">
+          <div class="tavatar">PS</div>
+          <div><div class="tname">Priya Sharma</div><div class="trole">College Student, Delhi</div></div>
+        </div>
+      </div>
+      <div class="tcard fu d2">
+        <div class="tstars">★★★★★</div>
+        <p class="ttext">"Bought a Puma coupon for ₹20 that gave ₹500 off. That's a 25x return! SaveHatke is my go-to before any online purchase now."</p>
+        <div class="tauthor">
+          <div class="tavatar">AM</div>
+          <div><div class="tname">Aditya Mehta</div><div class="trole">Freelancer, Mumbai</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL CTA -->
+<section class="final-cta">
+  <div class="container fu">
+    <span class="slabel">Join the Revolution</span>
+    <h2 class="stitle">Ready to Save <span class="shimmer">Smarter?</span></h2>
+    <p class="ssub" style="margin-bottom:40px">Join thousands of smart shoppers who refuse to pay full price. Free to start, always.</p>
+    <div style="display:flex;gap:16px;justify-content:center;flex-wrap:wrap">
+      <a href="marketplace" class="btn btn-primary btn-lg">🏷️ Browse Coupons</a>
+      <a href="sell" class="btn btn-ghost btn-lg">💰 Sell a Coupon</a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="fbrand">
+        <a href="index" class="nav-brand" style="font-size:1.2rem">
+          <div class="brand-icon">💰</div><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+        </a>
+        <p>India's smartest peer-to-peer coupon marketplace. Buy verified coupons, sell unused ones, and save more on every purchase.</p>
+      </div>
+      <div class="fcol">
+        <h4>Platform</h4>
+        <a href="marketplace">Coupon Marketplace</a>
+        <a href="sell">Sell Coupons</a>
+        <a href="dashboard">My Dashboard</a>
+        <a href="#extension">Browser Extension</a>
+      </div>
+      <div class="fcol">
+        <h4>Company</h4>
+        <a href="about">About Us</a>
+        <a href="support">Help Center</a>
+        <a href="terms">Terms &amp; Conditions</a>
+        <a href="privacy">Privacy Policy</a>
+      </div>
+      <div class="fcol">
+        <h4>Categories</h4>
+        <a href="marketplace?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace?cat=Food">Food &amp; Delivery</a>
+      </div>
+    </div>
+    <div class="fbot">
+      <span>© 2026 SaveHatke. All rights reserved.</span>
+      <span>Made with ❤️ in India</span>
+    </div>
+  </div>
+</footer>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <div class="mhdr">
+      <div class="mtitle" id="modalTitle">Welcome Back</div>
+      <button class="mclose" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mtabs">
+      <button class="mtab active" id="tabLogin" onclick="switchTab('login')">Log In</button>
+      <button class="mtab" id="tabRegister" onclick="switchTab('register')">Sign Up</button>
+    </div>
+    <div id="loginForm">
+      <div class="fgroup"><label class="flabel">Email Address</label><input type="email" class="finput" id="mEmail" placeholder="you@example.com"></div>
+      <div class="fgroup"><label class="flabel">Password</label><input type="password" class="finput" id="mPass" placeholder="Enter password"></div>
+      <button class="btn btn-primary fsubmit" onclick="submitModalForm('login')">Log In to SaveHatke</button>
+      <div style="display:flex;align-items:center;gap:12px;margin:20px 0;">
+        <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+        <span style="font-size:.75rem;color:#6b88aa;text-transform:uppercase;letter-spacing:.1em">Or continue with</span>
+        <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+      </div>
+      <div id="authGoogleButton"></div>
+    </div>
+    <div id="registerForm" style="display:none">
+      <div class="fgroup"><label class="flabel">Full Name</label><input type="text" class="finput" id="mName" placeholder="Rahul Kumar"></div>
+      <div class="fgroup"><label class="flabel">Email Address</label><input type="email" class="finput" id="mRegEmail" placeholder="you@example.com"></div>
+      <div class="fgroup"><label class="flabel">Create Password</label><input type="password" class="finput" id="mRegPass" placeholder="Min. 8 characters"></div>
+      <button class="btn btn-primary fsubmit" onclick="submitModalForm('register')">Create Free Account</button>
+      <div style="display:flex;align-items:center;gap:12px;margin:20px 0;">
+        <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+        <span style="font-size:.75rem;color:#6b88aa;text-transform:uppercase;letter-spacing:.1em">Or continue with</span>
+        <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
+      </div>
+      <div id="authGoogleButtonReg"></div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- CHATBOT FAB -->
+<button id="chatbotFab" class="chatbot-fab" aria-label="Open SaveHatke AI Assistant" aria-expanded="false" aria-controls="chatbotWindow">
+  <span class="cb-icon-open" aria-hidden="true">🤖</span>
+  <span class="cb-icon-close" aria-hidden="true">✕</span>
+</button>
+
+<!-- CHAT WINDOW -->
+<div id="chatbotWindow" class="chatbot-window" role="dialog" aria-modal="true" aria-label="SaveHatke AI Assistant" aria-hidden="true">
+  <div class="chatbot-header">
+    <div class="chatbot-header-left">
+      <div class="chatbot-avatar" aria-hidden="true">🤖</div>
+      <div>
+        <div class="chatbot-header-name">SaveHatke AI Assistant</div>
+        <div class="chatbot-header-status" id="cbStatus">
+          <span class="chatbot-status-dot" id="cbStatusDot"></span>
+          <span id="cbStatusText">Online</span>
+        </div>
+      </div>
+    </div>
+    <div class="chatbot-header-actions">
+      <button class="chatbot-icon-btn" id="chatbotNewChat" aria-label="Start new conversation" title="New conversation">↺</button>
+      <button class="chatbot-icon-btn" id="chatbotClose" aria-label="Close chat">✕</button>
+    </div>
+  </div>
+  <div id="chatbotMessages" class="chatbot-messages" aria-live="polite" aria-label="Chat messages" role="log"></div>
+  <div class="chatbot-privacy">Chats may be processed to provide AI assistance. <a href="privacy" tabindex="-1">Privacy Policy</a></div>
+  <div class="chatbot-input-area">
+    <textarea id="chatbotTextarea" class="chatbot-textarea" placeholder="Ask anything about SaveHatke..." rows="1" aria-label="Type your message" maxlength="1000"></textarea>
+    <button id="chatbotSendBtn" class="chatbot-send-btn" aria-label="Send message" disabled>➤</button>
+  </div>
+  <div class="chatbot-char-count" id="cbCharCount" aria-live="polite" aria-atomic="true"></div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   API HELPER
+═══════════════════════════════════════════════ */
+async function api(endpoint, options = {}) {
+  const token = localStorage.getItem('sh_token');
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers['Authorization'] = 'Bearer ' + token;
+  Object.assign(headers, options.headers || {});
+
+  const res = await fetch('/api' + endpoint, {
+    method: options.method || 'GET',
+    headers,
+    credentials: 'same-origin',
+    body: options.body ? JSON.stringify(options.body) : undefined,
+  });
+
+  if (!res.ok) {
+    let errData = {};
+    try { errData = await res.json(); } catch {}
+    throw new Error(errData.message || 'Request failed (' + res.status + ')');
+  }
+  return res.json();
+}
+
+/* ═══════════════════════════════════════════════
+   AUTH
+═══════════════════════════════════════════════ */
+const Auth = {
+  getToken() { return localStorage.getItem('sh_token'); },
+  getUser() {
+    try { return JSON.parse(localStorage.getItem('sh_user') || 'null'); } catch { return null; }
+  },
+  setAuth(token, user) {
+    localStorage.setItem('sh_token', token);
+    localStorage.setItem('sh_user', JSON.stringify(user));
+  },
+  setAdminAuth(token, user) {
+    localStorage.setItem('sh_admin_token', token);
+    localStorage.setItem('sh_admin_user', JSON.stringify(user));
+  },
+  logout() {
+    localStorage.removeItem('sh_token');
+    localStorage.removeItem('sh_user');
+  },
+  isLoggedIn() { return !!this.getToken(); }
+};
+
+/* ═══════════════════════════════════════════════
+   TOAST
+═══════════════════════════════════════════════ */
+function showToast(message, type) {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = 'toast' + (type ? ' ' + type : '');
+  toast.textContent = message;
+  container.appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transition = 'opacity .3s'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+
+/* ═══════════════════════════════════════════════
+   NAVBAR AUTH
+═══════════════════════════════════════════════ */
+function updateNavAuth() {
+  const navActions = document.getElementById('navActions');
+  if (!navActions) return;
+  const user = Auth.getUser();
+
+  if (user && Auth.isLoggedIn()) {
+    const initials = (user.name || user.email || 'U').slice(0, 2).toUpperCase();
+    const avatar = user.photoURL
+      ? '<img src="' + user.photoURL + '" alt="Profile">'
+      : initials;
+
+    navActions.innerHTML = '<div class="nav-profile-wrapper" id="profileWrapper">' +
+      '<button class="nav-profile-btn" id="profileBtn" aria-label="Profile menu" aria-expanded="false">' + avatar + '</button>' +
+      '<div class="nav-profile-dropdown" id="profileDropdown">' +
+        '<div class="npd-header">' +
+          '<div class="npd-avatar">' + avatar + '</div>' +
+          '<div class="npd-info">' +
+            '<div class="npd-name">' + (user.name || 'User') + '</div>' +
+            '<div class="npd-email">' + (user.email || '') + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<a class="npd-item" href="dashboard">📊 Dashboard</a>' +
+        '<a class="npd-item" href="profile">👤 My Profile</a>' +
+        '<button class="npd-item npd-item-logout" onclick="handleLogout()">🚪 Logout</button>' +
+      '</div>' +
+    '</div>';
+
+    const profileBtn = document.getElementById('profileBtn');
+    const profileDropdown = document.getElementById('profileDropdown');
+    if (profileBtn && profileDropdown) {
+      profileBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        const isActive = profileDropdown.classList.toggle('active');
+        profileBtn.setAttribute('aria-expanded', String(isActive));
+      });
+      document.addEventListener('click', function() {
+        profileDropdown.classList.remove('active');
+        profileBtn.setAttribute('aria-expanded', 'false');
+      }, { once: false });
+    }
+  } else {
+    navActions.innerHTML = '<button class="btn btn-primary btn-sm" onclick="openModal()">Login / Sign Up</button>';
+  }
+}
+
+function handleLogout() {
+  Auth.logout();
+  updateNavAuth();
+  window.location.reload();
+}
+
+/* ═══════════════════════════════════════════════
+   MODAL
+═══════════════════════════════════════════════ */
+function openModal(tab) {
+  window.location.href = 'login.html';
+}
+function closeModal() {
+  const el = document.getElementById('modalOverlay');
+  if (el) { el.classList.remove('open'); document.body.style.overflow = ''; }
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+}
+function switchTab(tab) {
+  document.getElementById('tabLogin')?.classList.toggle('active', tab === 'login');
+  document.getElementById('tabRegister')?.classList.toggle('active', tab === 'register');
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+  const titleEl = document.getElementById('modalTitle');
+  if (titleEl) titleEl.textContent = tab === 'login' ? 'Welcome Back' : 'Join SaveHatke';
+}
+async function submitModalForm(type) {
+  try {
+    if (type === 'login') {
+      const email = document.getElementById('mEmail')?.value;
+      const password = document.getElementById('mPass')?.value;
+      if (!email || !password) { showToast('Please fill email and password', 'warning'); return; }
+      const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+      Auth.setAuth(data.token, data.user);
+      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+        Auth.setAdminAuth(data.token, data.user);
+        window.location.href = 'vault'; return;
+      }
+      closeModal();
+      updateNavAuth();
+      window.location.reload();
+    } else {
+      const name = document.getElementById('mName')?.value;
+      const email = document.getElementById('mRegEmail')?.value;
+      const password = document.getElementById('mRegPass')?.value;
+      if (!email || !password || !name) { showToast('Please fill all fields', 'warning'); return; }
+      const data = await api('/auth/register', { method: 'POST', body: { name, email, password } });
+      Auth.setAuth(data.token, data.user);
+      closeModal();
+      updateNavAuth();
+      window.location.reload();
+    }
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeModal(); });
+
+/* ═══════════════════════════════════════════════
+   COUPON MARKETPLACE
+═══════════════════════════════════════════════ */
+let liveCoupons = [];
+let activeCat = 'all';
+
+const categoryEmojis = { 'Makeup': '💄', 'Electronics': '⚡', 'Fashion': '👟', 'Food': '🍔', 'Travel': '✈️', 'Health': '💊' };
+
+async function loadIndexCoupons() {
+  try {
+    const data = await api('/coupons');
+    liveCoupons = data.coupons || [];
+    renderCoupons();
+  } catch {
+    liveCoupons = [];
+    renderCoupons();
+  }
+}
+
+function renderCoupons() {
+  const grid = document.getElementById('couponGrid');
+  if (!grid) return;
+  const filtered = activeCat === 'all' ? liveCoupons : liveCoupons.filter(c => (c.category || '').toLowerCase() === activeCat.toLowerCase());
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;background:rgba(255,255,255,0.02);border:1px solid rgba(79,195,247,0.1);border-radius:16px;"><div style="font-size:2rem;margin-bottom:8px;">🏷️</div><div style="font-weight:700;color:#e2ecff;margin-bottom:4px;">No coupons found in database</div><div style="font-size:0.82rem;color:#6b88aa;">Check out the marketplace for all available offers!</div></div>';
+    return;
+  }
+  grid.innerHTML = filtered.slice(0, 6).map(function(c) {
+    const emoji = categoryEmojis[c.category] || '🏷️';
+    const isFree = c.source === 'auto-scraped';
+    const priceText = isFree ? 'FREE' : '₹' + (c.sellingPrice || '15');
+    const offText = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : '₹' + c.discount + ' OFF') : (c.originalValue ? '₹' + c.originalValue + ' OFF' : 'SPECIAL OFFER');
+    return '<div class="coupon-card" onclick="goToCheckout(\'' + c.id + '\')">' +
+      '<div class="ctop"><div class="cbrand">' + emoji + ' ' + c.brand + '</div><div class="coff">' + offText + '</div></div>' +
+      '<div class="cdesc">' + (c.title || c.description || 'Verified Discount Offer') + '</div>' +
+      '<div class="cmeta"><div><span class="clbl">Selling Price</span><span class="cval">' + priceText + '</span></div><span class="ccat">' + c.category + '</span></div>' +
+    '</div>';
+  }).join('');
+}
+
+function goToCheckout(id) {
+  const coupon = liveCoupons.find(function(c) { return String(c.id) === String(id); });
+  if (coupon) {
+    const params = new URLSearchParams({ id: coupon.id, brand: coupon.brand || '', category: coupon.category || '', title: coupon.title || coupon.description || 'Verified Discount Offer', price: coupon.sellingPrice || 15, value: coupon.originalValue || coupon.discount || 200, code: coupon.code || '', minOrder: coupon.minOrderValue || '999' });
+    window.location.href = 'checkout?' + params.toString();
+  } else {
+    window.location.href = 'checkout?id=' + encodeURIComponent(id);
+  }
+}
+
+document.querySelectorAll('.cpill').forEach(function(pill) {
+  pill.addEventListener('click', function() {
+    document.querySelectorAll('.cpill').forEach(function(p) { p.classList.remove('active'); });
+    pill.classList.add('active');
+    activeCat = pill.dataset.cat || 'all';
+    renderCoupons();
+  });
+});
+
+/* ═══════════════════════════════════════════════
+   HERO TYPING ANIMATION
+═══════════════════════════════════════════════ */
+(function heroTyping() {
+  const phrases = ['Buy Coupons.', 'Sell Unused Coupons.', 'Discover Better Deals.', 'Save More.'];
+  const el = document.getElementById('heroTypingText');
+  if (!el) return;
+  let phraseIdx = 0, charIdx = 0, deleting = false;
+
+  function tick() {
+    const phrase = phrases[phraseIdx];
+    if (!deleting) {
+      charIdx++;
+      el.textContent = phrase.slice(0, charIdx);
+      if (charIdx === phrase.length) {
+        deleting = true;
+        setTimeout(tick, 1800);
+      } else {
+        setTimeout(tick, 65);
+      }
+    } else {
+      charIdx--;
+      el.textContent = phrase.slice(0, charIdx);
+      if (charIdx === 0) {
+        deleting = false;
+        phraseIdx = (phraseIdx + 1) % phrases.length;
+        setTimeout(tick, 400);
+      } else {
+        setTimeout(tick, 38);
+      }
+    }
+  }
+  setTimeout(tick, 600);
+})();
+
+/* ═══════════════════════════════════════════════
+   INFO TYPING ANIMATION
+═══════════════════════════════════════════════ */
+(function infoTyping() {
+  const phrases = [
+    '✦ Buy verified coupons at better prices',
+    '✦ Sell coupons you don\'t need',
+    '✦ Discover deals across multiple categories',
+    '✦ Find coupons from popular brands',
+    '✦ Shop smarter with SaveHatke',
+    '✦ New coupon listings added regularly'
+  ];
+  const el = document.getElementById('infoTypingText');
+  if (!el) return;
+  let phraseIdx = 0, charIdx = 0, deleting = false;
+
+  function tick() {
+    const phrase = phrases[phraseIdx];
+    if (!deleting) {
+      charIdx++;
+      el.textContent = phrase.slice(0, charIdx);
+      if (charIdx === phrase.length) {
+        deleting = true;
+        setTimeout(tick, 2200);
+      } else {
+        setTimeout(tick, 50);
+      }
+    } else {
+      charIdx--;
+      el.textContent = phrase.slice(0, charIdx);
+      if (charIdx === 0) {
+        deleting = false;
+        phraseIdx = (phraseIdx + 1) % phrases.length;
+        setTimeout(tick, 300);
+      } else {
+        setTimeout(tick, 28);
+      }
+    }
+  }
+  setTimeout(tick, 1200);
+})();
+
+/* ═══════════════════════════════════════════════
+   SCROLL REVEAL
+═══════════════════════════════════════════════ */
+const obs = new IntersectionObserver(function(entries) {
+  entries.forEach(function(e) { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.fu').forEach(function(el) { obs.observe(el); });
+
+/* ═══════════════════════════════════════════════
+   STICKY NAV
+═══════════════════════════════════════════════ */
+window.addEventListener('scroll', function() {
+  const nav = document.getElementById('nav');
+  if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
+});
+
+/* ═══════════════════════════════════════════════
+   MOBILE NAV
+═══════════════════════════════════════════════ */
+const navToggle = document.getElementById('navToggle');
+if (navToggle) {
+  navToggle.addEventListener('click', function() {
+    document.getElementById('navLinks')?.classList.toggle('open');
+    document.getElementById('navActions')?.classList.toggle('open');
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   DYNAMIC HERO STATS
+═══════════════════════════════════════════════ */
+(async function loadDynamicHeroStats() {
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data || !data.settings) return;
+    const s = data.settings;
+    const isVisible = function(val) { return val !== false && val !== 'false' && val !== 0 && val !== '0'; };
+
+    const heroBadgeEl = document.getElementById('heroBadge');
+    if (heroBadgeEl) {
+      if (isVisible(s.showHeroBadge)) { if (s.heroBadge) heroBadgeEl.textContent = s.heroBadge; }
+      else heroBadgeEl.style.display = 'none';
+    }
+
+    const setStatEl = function(elId, showKey, valKey) {
+      const el = document.getElementById(elId);
+      const container = el ? el.parentElement : null;
+      if (isVisible(s[showKey]) && s[valKey]) { if (el) el.textContent = s[valKey]; }
+      else if (container) container.style.display = 'none';
+    };
+    setStatEl('stat-active-users', 'showActiveUsers', 'activeUsers');
+    setStatEl('stat-coupons-traded', 'showCouponsTraded', 'couponsTraded');
+    setStatEl('stat-saved-by-users', 'showSavedByUsers', 'savedByUsers');
+  } catch {}
+})();
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function() {
+  updateNavAuth();
+  loadIndexCoupons();
+});
+</script>
+
+<script>
+/* ═══════════════════════════════════════════════
+   SAVEHATKE AI CHATBOT
+═══════════════════════════════════════════════ */
+(function SaveHatkeChatbot() {
+  let MAX_LEN = 1000;
+  const QUICK_ACTIONS = [
+    { label: '🔎 Find a Coupon',       text: 'How do I find a coupon on SaveHatke?' },
+    { label: '🎟️ Sell a Coupon',       text: 'How can I sell a coupon on SaveHatke?' },
+    { label: '💰 How Earnings Work',   text: 'How do earnings work on SaveHatke?' },
+    { label: '❓ How SaveHatke Works', text: 'How does SaveHatke work?' },
+    { label: '🛡️ Security & Privacy',  text: "What are SaveHatke's security and privacy practices?" },
+    { label: '📞 Contact Support',     text: 'How can I contact SaveHatke support?' },
+  ];
+
+  let chatConfig = null;
+  let conversationId = null;
+  let isBusy = false;
+  let isOpen = false;
+
+  const fab       = document.getElementById('chatbotFab');
+  const win       = document.getElementById('chatbotWindow');
+  const msgs      = document.getElementById('chatbotMessages');
+  const textarea  = document.getElementById('chatbotTextarea');
+  const sendBtn   = document.getElementById('chatbotSendBtn');
+  const charCount = document.getElementById('cbCharCount');
+  const newChatBtn= document.getElementById('chatbotNewChat');
+  const closeBtn  = document.getElementById('chatbotClose');
+  const statusDot = document.getElementById('cbStatusDot');
+  const statusText= document.getElementById('cbStatusText');
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function renderMarkdown(raw) {
+    let s = escHtml(raw);
+    s = s.replace(/\n/g,'<br>');
+    s = s.replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>');
+    s = s.replace(/\*(.+?)\*/g,'<em>$1</em>');
+    s = s.replace(/`([^`]+)`/g,'<code>$1</code>');
+    return s;
+  }
+  function now() { return new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}); }
+  function scrollBottom() { msgs.scrollTop = msgs.scrollHeight; }
+
+  function appendMessage(role, content, isHtml) {
+    const wrap = document.createElement('div');
+    wrap.className = 'cb-msg ' + (role === 'user' ? 'cb-user' : 'cb-ai');
+    const bubble = document.createElement('div');
+    bubble.className = 'cb-bubble';
+    if (isHtml) { bubble.innerHTML = content; }
+    else if (role === 'user') { bubble.textContent = content; }
+    else { bubble.innerHTML = renderMarkdown(content); }
+    const ts = document.createElement('div');
+    ts.className = 'cb-ts';
+    ts.textContent = now();
+    wrap.appendChild(bubble);
+    wrap.appendChild(ts);
+    msgs.appendChild(wrap);
+    scrollBottom();
+    return wrap;
+  }
+
+  function appendSystem(msg, isError) {
+    const el = document.createElement('div');
+    el.className = 'cb-sys-msg' + (isError ? ' cb-error' : '');
+    el.textContent = msg;
+    msgs.appendChild(el);
+    scrollBottom();
+  }
+
+  let typingEl = null;
+  function showTyping() {
+    if (typingEl) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'cb-msg cb-ai';
+    typingEl = document.createElement('div');
+    typingEl.className = 'cb-typing';
+    typingEl.innerHTML = '<span></span><span></span><span></span>';
+    typingEl.setAttribute('aria-label','SaveHatke AI is typing');
+    wrap.appendChild(typingEl);
+    msgs.appendChild(wrap);
+    scrollBottom();
+  }
+  function hideTyping() {
+    if (typingEl) { typingEl.parentElement?.remove(); typingEl = null; }
+  }
+
+  function appendWelcome() {
+    const bubble = document.createElement('div');
+    bubble.className = 'cb-msg cb-ai';
+    const inner = document.createElement('div');
+    inner.style.cssText = 'display:flex;flex-direction:column;gap:10px;max-width:100%';
+    const welcomeText = (chatConfig && chatConfig.welcomeMessage) || "👋 Hi! I'm the SaveHatke AI Assistant.\n\nI can help you with coupons, selling coupons, earnings, your account, and how SaveHatke works.";
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'cb-bubble';
+    msgDiv.innerHTML = renderMarkdown(welcomeText);
+    const actions = (chatConfig && Array.isArray(chatConfig.suggestedQuestions) && chatConfig.suggestedQuestions.length)
+      ? chatConfig.suggestedQuestions.map(function(label) { return { label, text: label }; })
+      : QUICK_ACTIONS;
+    const qDiv = document.createElement('div');
+    qDiv.className = 'cb-quick-actions';
+    actions.forEach(function(qa) {
+      const btn = document.createElement('button');
+      btn.className = 'cb-quick-btn';
+      btn.textContent = qa.label;
+      btn.setAttribute('aria-label', qa.label);
+      btn.addEventListener('click', function() { qDiv.remove(); sendMessage(qa.text); });
+      qDiv.appendChild(btn);
+    });
+    const ts = document.createElement('div');
+    ts.className = 'cb-ts';
+    ts.textContent = now();
+    inner.appendChild(msgDiv);
+    inner.appendChild(qDiv);
+    bubble.appendChild(inner);
+    bubble.appendChild(ts);
+    msgs.appendChild(bubble);
+    scrollBottom();
+  }
+
+  function openChat() {
+    isOpen = true;
+    win.classList.add('is-open');
+    win.setAttribute('aria-hidden','false');
+    fab.classList.add('is-open');
+    fab.setAttribute('aria-expanded','true');
+    fab.setAttribute('aria-label','Close SaveHatke AI Assistant');
+    if (msgs.children.length === 0) {
+      if (chatConfig && chatConfig.enabled === false) {
+        appendSystem(chatConfig.maintenanceMessage || '🤖 The SaveHatke AI Assistant is temporarily unavailable. Please check back soon.', true);
+        setInputDisabled(true);
+      } else {
+        appendWelcome();
+      }
+    }
+    setTimeout(function() { textarea.focus(); }, 200);
+  }
+
+  function closeChat() {
+    isOpen = false;
+    win.classList.remove('is-open');
+    win.setAttribute('aria-hidden','true');
+    fab.classList.remove('is-open');
+    fab.setAttribute('aria-expanded','false');
+    fab.setAttribute('aria-label','Open SaveHatke AI Assistant');
+    fab.focus();
+  }
+
+  function startNewConversation() {
+    conversationId = null;
+    msgs.innerHTML = '';
+    appendWelcome();
+    textarea.value = '';
+    updateCharCount();
+    updateSendBtn();
+  }
+
+  async function sendMessage(text) {
+    const trimmed = (text || textarea.value).trim();
+    if (!trimmed || isBusy) return;
+    if (trimmed.length > MAX_LEN) { appendSystem('Your message is too long (max 1,000 characters). Please shorten it and try again.', true); return; }
+    textarea.value = '';
+    updateCharCount();
+    updateSendBtn();
+    appendMessage('user', trimmed);
+    isBusy = true;
+    setInputDisabled(true);
+    showTyping();
+    try {
+      const body = { message: trimmed };
+      if (conversationId) body.conversationId = conversationId;
+      const headers = { 'Content-Type': 'application/json' };
+      try { const token = localStorage.getItem('sh_token'); if (token) headers['Authorization'] = 'Bearer ' + token; } catch {}
+      const res = await fetch('/api/chat', { method: 'POST', headers, credentials: 'same-origin', body: JSON.stringify(body) });
+      hideTyping();
+      if (res.status === 429) {
+        let data = {}; try { data = await res.json(); } catch {}
+        appendSystem((data && (data.message || data.reply)) || "You're sending messages too quickly. Please wait a moment and try again.", true);
+      } else if (res.status === 503 || res.status === 404) {
+        let data = {}; try { data = await res.json(); } catch {}
+        appendSystem((data && (data.message || data.reply)) || '🤖 SaveHatke AI Assistant is temporarily unavailable. Please try again later.', true);
+      } else if (!res.ok) {
+        appendSystem("Sorry, I'm having trouble responding right now. Please try again in a moment.", true);
+      } else {
+        let data; try { data = await res.json(); } catch { data = {}; }
+        const reply = data && typeof (data.message ?? data.reply) === 'string' ? (data.message ?? data.reply) : null;
+        if (reply) { if (data.conversationId) conversationId = data.conversationId; appendMessage('ai', reply); }
+        else { appendSystem("Sorry, I'm having trouble responding right now. Please try again in a moment.", true); }
+      }
+    } catch {
+      hideTyping();
+      appendSystem("Sorry, I'm having trouble responding right now. Please try again in a moment.", true);
+    } finally {
+      isBusy = false;
+      setInputDisabled(false);
+      textarea.focus();
+    }
+  }
+
+  function setInputDisabled(disabled) {
+    textarea.disabled = disabled;
+    sendBtn.disabled = disabled || textarea.value.trim().length === 0;
+  }
+  function updateSendBtn() { sendBtn.disabled = isBusy || textarea.value.trim().length === 0; }
+  function updateCharCount() {
+    const len = textarea.value.length;
+    if (len === 0) { charCount.textContent = ''; charCount.className = 'chatbot-char-count'; return; }
+    charCount.textContent = len + ' / ' + MAX_LEN;
+    if (len >= MAX_LEN) charCount.className = 'chatbot-char-count at-limit';
+    else if (len >= MAX_LEN * 0.85) charCount.className = 'chatbot-char-count near-limit';
+    else charCount.className = 'chatbot-char-count';
+  }
+  function autoResize() { textarea.style.height = 'auto'; textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px'; }
+
+  fab.addEventListener('click', function() { isOpen ? closeChat() : openChat(); });
+  closeBtn.addEventListener('click', closeChat);
+  newChatBtn.addEventListener('click', startNewConversation);
+  textarea.addEventListener('input', function() { updateSendBtn(); updateCharCount(); autoResize(); });
+  textarea.addEventListener('keydown', function(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sendBtn.disabled) sendMessage(); } });
+  sendBtn.addEventListener('click', function() { if (!sendBtn.disabled) sendMessage(); });
+  document.addEventListener('keydown', function(e) { if (e.key === 'Escape' && isOpen) closeChat(); });
+  win.addEventListener('keydown', function(e) {
+    if (e.key !== 'Tab' || !isOpen) return;
+    const focusable = Array.from(win.querySelectorAll('button:not([disabled]),textarea:not([disabled]),a[href]')).filter(function(el) { return el.offsetParent !== null; });
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+
+  async function checkStatus() {
+    try {
+      const res = await fetch('/api/chat/config', { credentials: 'same-origin' });
+      if (!res.ok) return;
+      const cfg = await res.json();
+      if (!cfg || typeof cfg !== 'object') return;
+      chatConfig = cfg;
+      if (cfg.maxMessageLength) { MAX_LEN = Math.min(Math.max(parseInt(cfg.maxMessageLength, 10) || 1000, 100), 4000); textarea.maxLength = MAX_LEN; }
+      if (cfg.botName) { const nameEl = document.querySelector('.chatbot-header-name'); if (nameEl) nameEl.textContent = cfg.botName; }
+      if (cfg.enabled === false) { statusDot.classList.add('offline'); statusText.textContent = 'Unavailable'; }
+    } catch {}
+  }
+  checkStatus();
+})();
+</script>
+</body>
+</html>

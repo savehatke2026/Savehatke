@@ -7,7 +7,7 @@ let currentCategory = 'all';
 let currentSource = '';
 let searchQuery = '';
 let currentPage = 1;
-const PER_PAGE = 9;
+const PER_PAGE = 18;
 
 document.addEventListener('DOMContentLoaded', () => {
   loadCoupons();
@@ -65,10 +65,14 @@ function renderFilteredCoupons() {
 
   const resultsText = document.getElementById('resultsText');
   if (resultsText) {
-    resultsText.textContent =
-      filtered.length === 0
-        ? 'No coupons found in database'
-        : `Showing ${filtered.length} verified coupon${filtered.length === 1 ? '' : 's'} from database`;
+    if (filtered.length === 0) {
+      resultsText.textContent = 'No coupons found in database';
+    } else {
+      const paidCount = filtered.filter((c) => c.source !== 'auto-scraped').length;
+      const totalPgs = Math.ceil(paidCount / PER_PAGE);
+      resultsText.textContent = `Showing ${filtered.length} verified coupon${filtered.length === 1 ? '' : 's'} from database` +
+        (totalPgs > 1 ? ` · Page ${currentPage} of ${totalPgs}` : '');
+    }
   }
 
   // Separate paid and free coupons
@@ -108,27 +112,27 @@ function renderCouponGrid(gridId, coupons) {
     return;
   }
 
-  const categoryEmojis = {
-    'Makeup': '💄',
-    'Electronics': '⚡',
-    'Fashion': '👟',
-    'Food': '🍔',
-    'Travel': '✈️',
-    'Health': '💊',
-  };
-
   grid.innerHTML = coupons
     .map((c) => {
-      const emoji = categoryEmojis[c.category] || '🏷️';
       const isFree = c.source === 'auto-scraped';
       const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '15'}`;
       const origVal = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`) : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
+      const logoUrl = getBrandLogo(c.brand);
+      const initial = getBrandInitial(c.brand);
 
       return `
         <div class="coupon-card" style="cursor:pointer" onclick="buyCoupon('${c.id}', ${isFree})">
           ${isFree ? '<span class="cfree-badge">FREE</span>' : '<div class="cverified">✓ VERIFIED DEAL</div>'}
           <div class="ctop">
-            <div class="cbrand">${emoji} ${c.brand}</div>
+            <div class="cbrand">
+              <span class="cbrand-logo-wrap">
+                ${logoUrl
+                  ? `<img class="cbrand-logo" src="${logoUrl}" alt="${c.brand}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="cbrand-initial" style="display:none">${initial}</span>`
+                  : `<span class="cbrand-initial">${initial}</span>`
+                }
+              </span>
+              <span class="cbrand-name">${c.brand}</span>
+            </div>
             <div class="coff">${origVal}</div>
           </div>
           <div class="cdesc">${c.title || c.description || 'Verified Discount Offer'}</div>
@@ -137,7 +141,7 @@ function renderCouponGrid(gridId, coupons) {
               <span class="clbl">Selling Price</span>
               <span class="cval">${priceText}</span>
             </div>
-            <span class="ccat ${c.category}">${c.category}</span>
+            <span class="ccat">${c.category}</span>
           </div>
           <button class="cbuy-btn" onclick="event.stopPropagation(); buyCoupon('${c.id}', ${isFree})">
             ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
@@ -146,6 +150,110 @@ function renderCouponGrid(gridId, coupons) {
       `;
     })
     .join('');
+}
+
+// ── Brand Logo Helpers ──────────────────────────────────────────────────
+const BRAND_DOMAINS = {
+  'Amazon': 'amazon.in',
+  'Amazon Pay': 'amazon.in',
+  'Amazon Prime': 'primevideo.com',
+  'Flipkart': 'flipkart.com',
+  'Meesho': 'meesho.com',
+  'Tata CLiQ': 'tatacliq.com',
+  'Croma': 'croma.com',
+  'JioMart': 'jiomart.com',
+  'BigBasket': 'bigbasket.com',
+  'Myntra': 'myntra.com',
+  'AJIO': 'ajio.com',
+  'H&M': 'hm.com',
+  'Puma': 'puma.com',
+  'Adidas': 'adidas.co.in',
+  'Nike': 'nike.com',
+  'Nykaa Fashion': 'nykaafashion.com',
+  'Lenskart': 'lenskart.com',
+  'Nykaa': 'nykaa.com',
+  'Purplle': 'purplle.com',
+  'Mamaearth': 'mamaearth.in',
+  'Minimalist': 'beminimalist.co',
+  'Lakmé': 'lakmeindia.com',
+  'The Body Shop': 'thebodyshop.in',
+  'mCaffeine': 'mcaffeine.com',
+  'WOW Skin Science': 'buywow.in',
+  'Plum': 'plumgoodness.com',
+  'Swiggy': 'swiggy.com',
+  'Swiggy Instamart': 'swiggy.com',
+  'Zomato': 'zomato.com',
+  "Domino's": 'dominos.co.in',
+  'Pizza Hut': 'pizzahut.co.in',
+  'EatSure': 'eatsure.com',
+  'KFC': 'kfc.co.in',
+  'MakeMyTrip': 'makemytrip.com',
+  'Cleartrip': 'cleartrip.com',
+  'EaseMyTrip': 'easemytrip.com',
+  'Uber': 'uber.com',
+  'Rapido': 'rapido.bike',
+  'Ola': 'olacabs.com',
+  'IRCTC': 'irctc.co.in',
+  'RedBus': 'redbus.in',
+  'IndiGo': 'goindigo.in',
+  'OYO': 'oyorooms.com',
+  'Booking.com': 'booking.com',
+  'Agoda': 'agoda.com',
+  'Goibibo': 'goibibo.com',
+  'Treebo': 'treebo.com',
+  'FabHotels': 'fabhotels.com',
+  'Airbnb': 'airbnb.co.in',
+  'Reliance Digital': 'reliancedigital.in',
+  'Samsung': 'samsung.com',
+  'OnePlus': 'oneplus.in',
+  'boAt': 'boat-lifestyle.com',
+  'Noise': 'gonoise.com',
+  'Apple': 'apple.com',
+  'Vijay Sales': 'vijaysales.com',
+  'PlayStation': 'playstation.com',
+  'Xbox': 'xbox.com',
+  'Steam': 'steampowered.com',
+  'Google Play': 'play.google.com',
+  'BookMyShow': 'bookmyshow.com',
+  'Netflix': 'netflix.com',
+  'Disney+ Hotstar': 'hotstar.com',
+  'Cult.fit': 'cult.fit',
+  'Decathlon': 'decathlon.in',
+  'HealthifyMe': 'healthifyme.com',
+  'GNC': 'gnc.com',
+  'PharmEasy': 'pharmeasy.in',
+  '1mg (Tata)': '1mg.com',
+  'Netmeds': 'netmeds.com',
+  'Apollo Pharmacy': 'apollopharmacy.in',
+  'Udemy': 'udemy.com',
+  'Coursera': 'coursera.org',
+  'Unacademy': 'unacademy.com',
+  "BYJU'S": 'byjus.com',
+  'Skillshare': 'skillshare.com',
+  'Simplilearn': 'simplilearn.com',
+  'Paytm': 'paytm.com',
+  'PhonePe': 'phonepe.com',
+  'Google Pay': 'pay.google.com',
+  'CRED': 'cred.club',
+  'FreeCharge': 'freecharge.in',
+  'Zepto': 'zeptonow.com',
+  'Blinkit': 'blinkit.com',
+  'Urban Company': 'urbancompany.com',
+  'Pepperfry': 'pepperfry.com',
+  'IKEA': 'ikea.in',
+  'Licious': 'licious.in',
+  'SonyLIV': 'sonyliv.com',
+  'ZEE5': 'zee5.com',
+};
+
+function getBrandLogo(brand) {
+  const domain = BRAND_DOMAINS[brand];
+  if (domain) return `https://logo.clearbit.com/${domain}`;
+  return '';
+}
+
+function getBrandInitial(brand) {
+  return (brand || '?').charAt(0).toUpperCase();
 }
 
 function renderPagination(totalPages) {
@@ -163,10 +271,32 @@ function renderPagination(totalPages) {
   if (prevBtn) prevBtn.disabled = currentPage <= 1;
   if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
 
-  let pagesHtml = '';
-  for (let i = 1; i <= totalPages; i++) {
-    pagesHtml += `<button class="pg-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+  // Smart page number list with ellipsis
+  const pages = [];
+  if (totalPages <= 7) {
+    // Show all pages if 7 or fewer
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    // Always show first, last, current, and neighbors
+    pages.push(1);
+    if (currentPage > 3) pages.push('…');
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push('…');
+    pages.push(totalPages);
   }
+
+  let pagesHtml = '';
+  for (const p of pages) {
+    if (p === '…') {
+      pagesHtml += `<span class="pg-ellipsis">…</span>`;
+    } else {
+      pagesHtml += `<button class="pg-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p}</button>`;
+    }
+  }
+  // Page indicator
+  pagesHtml += `<span class="pg-info">Page ${currentPage}/${totalPages}</span>`;
   if (pagesSpan) pagesSpan.innerHTML = pagesHtml;
 }
 
