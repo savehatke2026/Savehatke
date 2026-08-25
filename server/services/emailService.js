@@ -534,7 +534,7 @@ Regards,
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="dark">
+    <meta name="color-scheme" content="light">
     <title>Support Request Received — SaveHatke</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -544,8 +544,8 @@ Regards,
       html { scroll-behavior: smooth; }
       body {
         font-family: 'Outfit', sans-serif;
-        background: #060d1f;
-        color: #e2ecff;
+        background: #f4f5f7;
+        color: #0f1e3a;
         -webkit-font-smoothing: antialiased;
         min-height: 100vh;
         display: flex;
@@ -571,7 +571,7 @@ Regards,
         align-items: center;
         gap: 10px;
         text-decoration: none;
-        color: #e2ecff;
+        color: #0f1e3a;
         font-size: 1.3rem;
         font-weight: 800;
       }
@@ -585,15 +585,15 @@ Regards,
         justify-content: center;
         font-size: 1.1rem;
       }
-      .bhl { color: #00e676; }
+      .bhl { color: #00c853; }
 
-      /* Main email card */
+      /* Main email card — fully white */
       .email-card {
-        background: rgba(15, 30, 58, 0.92);
-        border: 1px solid rgba(79, 195, 247, 0.15);
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
         border-radius: 20px;
         overflow: hidden;
-        box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 8px 28px rgba(15, 30, 58, 0.08);
       }
 
       .email-body { padding: 36px 40px; }
@@ -603,61 +603,60 @@ Regards,
         font-size: 1.65rem;
         font-weight: 400;
         line-height: 1.25;
-        color: #e2ecff;
+        color: #0f1e3a;
         margin-bottom: 6px;
       }
       .email-subtitle {
         font-size: 1.05rem;
         font-weight: 500;
         line-height: 1.45;
-        color: #a8c0dc;
+        color: #4b5563;
         margin-bottom: 28px;
         padding-bottom: 22px;
-        border-bottom: 1px solid rgba(79, 195, 247, 0.1);
+        border-bottom: 1px solid #e5e7eb;
       }
 
       .line {
         font-size: 0.95rem;
-        color: #a8c0dc;
+        color: #374151;
         line-height: 1.75;
         margin-bottom: 18px;
       }
-      .line strong { color: #e2ecff; font-weight: 700; }
+      .line strong { color: #0f1e3a; font-weight: 700; }
       .mono { font-family: 'JetBrains Mono', monospace; }
 
       .case-list {
         list-style: none;
-        padding: 0;
-        margin: 0 0 24px;
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(79, 195, 247, 0.12);
-        border-radius: 12px;
         padding: 14px 20px;
+        margin: 0 0 24px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
       }
       .case-list li {
         font-size: 0.93rem;
-        color: #a8c0dc;
+        color: #374151;
         line-height: 1.7;
         padding: 4px 0;
       }
-      .case-list li strong { color: #e2ecff; font-weight: 700; }
+      .case-list li strong { color: #0f1e3a; font-weight: 700; }
 
       .section-h {
         font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
-        color: #6b88aa;
+        color: #6b7280;
         margin: 24px 0 10px;
       }
       .msg-box {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(79, 195, 247, 0.1);
-        border-left: 3px solid rgba(0, 230, 118, 0.5);
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-left: 3px solid #00c853;
         border-radius: 0 12px 12px 0;
         padding: 18px 20px;
         font-size: 0.92rem;
-        color: #a8c0dc;
+        color: #374151;
         line-height: 1.75;
         margin: 0 0 24px;
         word-break: break-word;
@@ -677,45 +676,45 @@ Regards,
         height: 50px;
         border-radius: 12px;
         background: linear-gradient(135deg, #00e676, #00c853);
-        color: #060d1f;
+        color: #0f1e3a;
         font-family: 'Outfit', sans-serif;
         font-size: 0.95rem;
         font-weight: 700;
         text-decoration: none;
-        box-shadow: 0 8px 24px rgba(0, 230, 118, 0.3);
+        box-shadow: 0 6px 16px rgba(0, 200, 83, 0.25);
       }
 
       .warn-line {
         font-size: 0.86rem;
-        color: #a8c0dc;
+        color: #92400e;
         line-height: 1.65;
         margin: 0 0 24px;
         padding: 14px 18px;
-        background: rgba(255, 183, 77, 0.05);
-        border: 1px solid rgba(255, 183, 77, 0.15);
+        background: #fffbeb;
+        border: 1px solid #fde68a;
         border-radius: 10px;
       }
-      .warn-line strong { color: #ffb74d; font-weight: 700; }
+      .warn-line strong { color: #78350f; font-weight: 700; }
 
       .signoff {
         font-size: 0.92rem;
-        color: #a8c0dc;
+        color: #374151;
         line-height: 1.75;
         margin-top: 24px;
         padding-top: 22px;
-        border-top: 1px solid rgba(79, 195, 247, 0.08);
+        border-top: 1px solid #e5e7eb;
       }
-      .signoff strong { color: #e2ecff; font-weight: 700; }
+      .signoff strong { color: #0f1e3a; font-weight: 700; }
 
       .email-footer {
-        background: rgba(9, 16, 34, 0.8);
-        border-top: 1px solid rgba(79, 195, 247, 0.08);
+        background: #f9fafb;
+        border-top: 1px solid #e5e7eb;
         padding: 22px 40px;
         text-align: center;
       }
       .footer-copy {
         font-size: 0.78rem;
-        color: rgba(107, 136, 170, 0.75);
+        color: #6b7280;
       }
 
       @media (max-width: 600px) {
