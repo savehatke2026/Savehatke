@@ -333,17 +333,22 @@ const BRAND_DOMAINS = {
 
 // Local SVGs (preferred — always loads). Add new entries as you need them.
 const BRAND_LOGOS = {
-  'Amazon':        '/logos/amazon.svg',
-  'Amazon Pay':    '/logos/amazon.svg',
-  'Amazon Prime':  '/logos/amazon.svg',
-  'Amazon Fresh':  '/logos/amazon.svg',
-  'Nykaa':         '/logos/nykaa.svg',
-  'Nykaa Fashion': '/logos/nykaa.svg',
-  'Adidas':        '/logos/adidas.svg',
-  'Puma':          '/logos/puma.svg',
-  'Zomato':        '/logos/zomato.svg',
-  'Google':        '/logos/google.svg',
-  'Google Pay':    '/logos/google.svg',
+  'Amazon':           '/logos/amazon.svg',
+  'Amazon Pay':       '/logos/amazon.svg',
+  'Amazon Prime':     '/logos/amazon.svg',
+  'Amazon Fresh':     '/logos/amazon.svg',
+  'Nykaa':            '/logos/nykaa.svg',
+  'Nykaa Fashion':    '/logos/nykaa.svg',
+  'Adidas':           '/logos/adidas.svg',
+  'Puma':             '/logos/puma.svg',
+  'Zomato':           '/logos/zomato.svg',
+  'Google':           '/logos/google.svg',
+  'Google Pay':       '/logos/google.svg',
+  'Myntra':           '/logos/myntra.svg',
+  'Swiggy':           '/logos/swiggy.svg',
+  'Swiggy Instamart': '/logos/swiggy.svg',
+  'Meesho':           '/logos/meesho.png',
+  "Domino's":         '/logos/dominos.svg',
 };
 
 function getBrandLogo(brand) {
