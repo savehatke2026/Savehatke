@@ -113,7 +113,7 @@ const HEADERS = {
     'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'heroBadge', 'showHeroBadge', 'updatedAt',
   ],
   [SHEETS.OTP_REQUESTS]: [
-    'id', 'userId', 'email', 'ipAddress', 'otpHash',
+    'id', 'userId', 'userIdEmail', 'email', 'ipAddress', 'otpHash',
     'requestedAt', 'expiresAt', 'verifiedAt',
     'status', 'requestNumber', 'dailyRequestCount',
     'hourlyRequestCount', 'verifyAttempts',

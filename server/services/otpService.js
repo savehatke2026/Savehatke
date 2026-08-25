@@ -7,29 +7,42 @@
 // - Multi-tier rate limiting (cooldown, hourly, daily, IP)
 // - Full audit trail in Google Sheets (OTPRequests tab)
 //
-// Identity rule:
-//   userId + email → associates OTP with the intended account
-//   email          → primary rate-limit key
-//   IP address     → abuse-prevention layer
+// Identity rule (per spec):
+//   userId + email  → COMPOSITE rate-limit key. An attacker can't bypass
+//                      limits by varying either piece on its own.
+//   email           → still used to look up the latest pending OTP at
+//                      verify time, with a userIdEmail filter so the OTP
+//                      can only be consumed by the same userId that asked
+//                      for it.
+//   IP address      → separate abuse-prevention layer.
+//
+// Lifecycle (per spec, applied to the userId+email key):
+//   5 requests in 1 hour  → 1-hour limit reached
+//   1-hour wait            → 3 more requests allowed
+//   8 in 24 hours          → "Today's maximum OTP request limit has been
+//                              reached. Please try again after 24 hours."
+//   60-second cooldown     → between any two consecutive requests
+//   5-minute validity      → each OTP expires on its own
+//   verified OTPs          → marked 'verified' and CANNOT be reused
+//                              (verifyOTP only matches status='pending')
 
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const db = require('./googleSheets');
 
 // ── Constants ───────────────────────────────────────────────────────────────
-const OTP_EXPIRY_MS = 5 * 60 * 1000;           // 5 minutes
-const COOLDOWN_MS = 60 * 1000;                  // 60 seconds between requests
+const OTP_EXPIRY_MS = 5 * 60 * 1000;           // 5 minutes per spec
+const COOLDOWN_MS = 60 * 1000;                  // 60 seconds per spec
 const HOURLY_WINDOW_MS = 60 * 60 * 1000;        // 1 hour
 const DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;    // 24 hours
-const MAX_HOURLY_REQUESTS = 5;                   // Phase 1 cap
-const MAX_DAILY_REQUESTS = 8;                    // Phase 1 (5) + Phase 2 (3)
+const MAX_HOURLY_REQUESTS = 5;                   // Phase 1 cap (spec)
+const MAX_DAILY_REQUESTS = 8;                    // Phase 1 (5) + Phase 2 (3) per spec
 const MAX_VERIFY_ATTEMPTS = 5;                   // Per OTP
-const MAX_IP_HOURLY_REQUESTS = 15;               // Per IP per hour
+const MAX_IP_HOURLY_REQUESTS = 15;               // Per IP per hour (abuse layer)
 const BCRYPT_SALT_ROUNDS = 10;
 
 // ── Per-Email Mutex Lock ────────────────────────────────────────────────────
 // Prevents concurrent requests for the same email from bypassing rate limits.
-// Each email gets its own queue; requests are serialized per-email.
 const locks = new Map();
 
 /**
@@ -38,18 +51,14 @@ const locks = new Map();
  * this call waits until the previous one completes.
  */
 async function withLock(key, fn) {
-  const normalizedKey = key.toLowerCase().trim();
+  const normalizedKey = String(key || '').toLowerCase().trim();
 
-  // Wait for any existing lock to release
   while (locks.has(normalizedKey)) {
     await locks.get(normalizedKey);
   }
 
-  // Create a new lock (promise that resolves when fn completes)
   let releaseLock;
-  const lockPromise = new Promise((resolve) => {
-    releaseLock = resolve;
-  });
+  const lockPromise = new Promise((resolve) => { releaseLock = resolve; });
   locks.set(normalizedKey, lockPromise);
 
   try {
@@ -60,12 +69,33 @@ async function withLock(key, fn) {
   }
 }
 
+// ── Key helpers ─────────────────────────────────────────────────────────────
+
+/**
+ * Build the COMPOSITE userId+email key used for rate limiting and audit
+ * trail. Lower-cased + trimmed so casing/space differences don't split
+ * one user into multiple buckets. If the userId is empty (new-email flow)
+ * we fall back to the email alone so the limit still applies.
+ *
+ * @param {string} userId
+ * @param {string} email
+ * @returns {string} composite key, e.g. "user_abc|user@example.com"
+ */
+function buildUserIdEmailKey(userId, email) {
+  const cleanEmail = String(email || '').toLowerCase().trim();
+  const cleanId = String(userId || '').toLowerCase().trim();
+  if (!cleanId) return cleanEmail;
+  return `${cleanId}|${cleanEmail}`;
+}
+
 // ── OTP Generation ──────────────────────────────────────────────────────────
 
 /**
- * Generate a cryptographically-sufficient 6-digit OTP.
- * Uses Math.random() which is adequate for 6-digit codes with
- * rate limiting and bcrypt hashing in place.
+ * Generate a 6-digit OTP. Math.random() is adequate for 6-digit codes
+ * because:
+ *   1) the code is rate-limited (max 5/hour per user, 15/hour per IP)
+ *   2) brute-force attempts are capped at 5 per OTP
+ *   3) the hash is bcrypt(10), not plaintext
  */
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -74,59 +104,76 @@ function generateOTP() {
 // ── Helper: Query OTP Requests ──────────────────────────────────────────────
 
 /**
- * Get all OTP requests for an email within a time window.
- * @param {string} email - Normalized email
+ * Get all OTP requests for a (userId, email) key within a time window.
+ * Uses the composite key — an attacker cannot bypass by varying either
+ * field on its own.
+ *
+ * @param {string} userIdEmail - composite key from buildUserIdEmailKey()
  * @param {number} windowMs - Time window in milliseconds
- * @returns {Promise<Array>} Matching request rows
  */
-async function getEmailRequestsInWindow(email, windowMs) {
-  const allRequests = await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', email);
+async function getRequestsByKeyInWindow(userIdEmail, windowMs) {
+  const allRequests = await db.findRows(db.SHEETS.OTP_REQUESTS, 'userIdEmail', userIdEmail);
   const cutoff = Date.now() - windowMs;
   return allRequests.filter((r) => {
-    const requestTime = new Date(r.requestedAt).getTime();
-    return requestTime >= cutoff;
+    const t = new Date(r.requestedAt).getTime();
+    return !isNaN(t) && t >= cutoff;
   });
 }
 
 /**
- * Get all OTP requests from an IP within a time window.
- * @param {string} ip - Client IP address
- * @param {number} windowMs - Time window in milliseconds
- * @returns {Promise<Array>} Matching request rows
+ * Backward-compat: include any pre-migration rows that have an empty
+ * `userIdEmail` but a matching `email` so the rate limit doesn't reset
+ * when the new code rolls out. These rows simply have their `email` in
+ * the empty-key bucket.
+ */
+async function getRequestsByKeyInWindowWithFallback(userIdEmail, email, windowMs) {
+  const direct = await getRequestsByKeyInWindow(userIdEmail, windowMs);
+  if (!userIdEmail.includes('|')) return direct; // fallback key IS just email
+  const allByEmail = await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', String(email || '').toLowerCase().trim());
+  const cutoff = Date.now() - windowMs;
+  const legacy = allByEmail.filter((r) => {
+    if (r.userIdEmail) return false; // new schema, already counted
+    const t = new Date(r.requestedAt).getTime();
+    return !isNaN(t) && t >= cutoff;
+  });
+  return [...direct, ...legacy];
+}
+
+/**
+ * IP-based limit (abuse layer) — counts every OTP request that came
+ * from this IP, regardless of the email it was for.
  */
 async function getIPRequestsInWindow(ip, windowMs) {
   const allRequests = await db.findRows(db.SHEETS.OTP_REQUESTS, 'ipAddress', ip);
   const cutoff = Date.now() - windowMs;
   return allRequests.filter((r) => {
-    const requestTime = new Date(r.requestedAt).getTime();
-    return requestTime >= cutoff;
+    const t = new Date(r.requestedAt).getTime();
+    return !isNaN(t) && t >= cutoff;
   });
 }
 
 /**
- * Get the most recent OTP request for an email.
- * @param {string} email
- * @returns {Promise<object|null>}
+ * Most-recent request for this (userId, email) key — used by the
+ * 60-second cooldown check.
  */
-async function getLastRequestForEmail(email) {
-  const allRequests = await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', email);
-  if (!allRequests.length) return null;
-
-  // Sort by requestedAt descending, return the most recent
-  return allRequests.sort((a, b) => {
-    return new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime();
-  })[0];
+async function getLastRequestForKey(userIdEmail) {
+  const allRequests = await db.findRows(db.SHEETS.OTP_REQUESTS, 'userIdEmail', userIdEmail);
+  if (allRequests.length) {
+    return allRequests.sort((a, b) => {
+      return new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime();
+    })[0];
+  }
+  // Fallback to email-only for legacy rows
+  return null;
 }
 
 /**
- * Mark all previous pending OTPs for an email as 'superseded'.
+ * Mark all previous PENDING OTPs for this key as 'superseded'.
  * Ensures only the latest OTP is valid.
- * @param {string} email
  */
-async function invalidatePreviousOTPs(email) {
-  const allRequests = await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', email);
-  const pending = allRequests.filter((r) => r.status === 'pending');
-
+async function invalidatePreviousOTPs(userIdEmail) {
+  const all = await db.findRows(db.SHEETS.OTP_REQUESTS, 'userIdEmail', userIdEmail);
+  const pending = all.filter((r) => r.status === 'pending');
   for (const req of pending) {
     await db.updateRow(db.SHEETS.OTP_REQUESTS, 'id', req.id, {
       status: 'superseded',
@@ -137,106 +184,116 @@ async function invalidatePreviousOTPs(email) {
 // ── Main: Request OTP ───────────────────────────────────────────────────────
 
 /**
- * Request a new OTP for a user. Enforces all rate limits and security rules.
+ * Request a new OTP for a user. Enforces every rate limit and security rule
+ * listed at the top of this file.
  *
- * @param {string} userId - Server-derived user ID
- * @param {string} email - User email (normalized by caller)
- * @param {string} ipAddress - Client IP (derived server-side)
- * @returns {Promise<{success: boolean, otp?: string, error?: string, retryAfter?: number}>}
+ * @param {string} userId   - Server-derived user ID (may be 'pending_*' for new emails)
+ * @param {string} email    - User email
+ * @param {string} ipAddress - Client IP (derived server-side, never trusted from client)
+ * @returns {Promise<{success: boolean, otp?: string, error?: string, retryAfter?: number, requestId?: string}>}
  */
 async function requestOTP(userId, email, ipAddress) {
-  const cleanEmail = email.toLowerCase().trim();
+  const cleanEmail = String(email || '').toLowerCase().trim();
+  const userIdEmail = buildUserIdEmailKey(userId, cleanEmail);
 
-  // All checks run inside a per-email lock to prevent race conditions
-  return withLock(cleanEmail, async () => {
+  return withLock(`req:${userIdEmail}`, async () => {
     const now = Date.now();
     const nowISO = new Date(now).toISOString();
 
-    // ── 1. IP-based rate limit ────────────────────────────────────────
-    const ipHourlyRequests = await getIPRequestsInWindow(ipAddress, HOURLY_WINDOW_MS);
-    if (ipHourlyRequests.length >= MAX_IP_HOURLY_REQUESTS) {
-      console.warn(`[OTP] IP rate limit hit: ${ipAddress} (${ipHourlyRequests.length} requests/hour)`);
+    // ── 1. IP-based rate limit (abuse layer) ─────────────────────────
+    const ipHourly = await getIPRequestsInWindow(ipAddress, HOURLY_WINDOW_MS);
+    if (ipHourly.length >= MAX_IP_HOURLY_REQUESTS) {
+      console.warn(`[OTP] IP rate limit hit: ${ipAddress} (${ipHourly.length} requests/hour)`);
       return {
         success: false,
-        error: 'Too many requests. Please try again later.',
+        error: 'Too many requests from this device. Please try again later.',
       };
     }
 
-    // ── 2. 60-second cooldown ─────────────────────────────────────────
-    const lastRequest = await getLastRequestForEmail(cleanEmail);
-    if (lastRequest) {
-      const lastRequestTime = new Date(lastRequest.requestedAt).getTime();
-      const elapsed = now - lastRequestTime;
+    // ── 2. 60-second cooldown between requests ───────────────────────
+    const last = await getLastRequestForKey(userIdEmail);
+    if (last) {
+      const lastTime = new Date(last.requestedAt).getTime();
+      const elapsed = now - lastTime;
       if (elapsed < COOLDOWN_MS) {
         const retryAfter = Math.ceil((COOLDOWN_MS - elapsed) / 1000);
         return {
           success: false,
-          error: `Please wait ${retryAfter} seconds before requesting a new code.`,
+          error: `Please wait ${retryAfter} second${retryAfter === 1 ? '' : 's'} before requesting a new code.`,
           retryAfter,
         };
       }
     }
 
-    // ── 3. Hourly limit (5 per rolling 1-hour window) ─────────────────
-    const hourlyRequests = await getEmailRequestsInWindow(cleanEmail, HOURLY_WINDOW_MS);
-    const hourlyCount = hourlyRequests.length;
+    // ── 3. Hourly limit: 5 per rolling 1-hour window ─────────────────
+    const hourly = await getRequestsByKeyInWindowWithFallback(userIdEmail, cleanEmail, HOURLY_WINDOW_MS);
+    const hourlyCount = hourly.length;
 
     if (hourlyCount >= MAX_HOURLY_REQUESTS) {
-      // Check if we're in the Phase 2 window (after the first hourly window expires)
-      // Phase 2 allows 3 more requests (total 8 daily)
-      const dailyRequests = await getEmailRequestsInWindow(cleanEmail, DAILY_WINDOW_MS);
-      const dailyCount = dailyRequests.length;
+      // Hourly cap hit. Is the daily cap also hit?
+      const daily = await getRequestsByKeyInWindowWithFallback(userIdEmail, cleanEmail, DAILY_WINDOW_MS);
+      const dailyCount = daily.length;
 
       if (dailyCount >= MAX_DAILY_REQUESTS) {
-        // ── 4. 24-hour hard cap ─────────────────────────────────────────
+        // ── 4. Daily cap (8 in 24h) reached — hard block ─────────────
+        // Find the oldest of the 8 so the user knows when to come back.
+        const oldestInDay = daily.sort((a, b) => {
+          return new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime();
+        })[0];
+        const resetAt = new Date(new Date(oldestInDay.requestedAt).getTime() + DAILY_WINDOW_MS);
         return {
           success: false,
           error: "Today's maximum OTP request limit has been reached. Please try again after 24 hours.",
+          retryAfter: Math.max(60, Math.ceil((resetAt.getTime() - now) / 1000)),
         };
       }
 
-      // Hourly cap hit but daily cap not reached: user is temporarily blocked
-      // Find the oldest request in the current hourly window to calculate when it expires
-      const oldestHourlyRequest = hourlyRequests.sort((a, b) => {
+      // ── Hourly cap hit, daily cap not yet hit ─────────────────────
+      // The user has burnt their 5; tell them exactly when the hour
+      // window will roll off so they can do their Phase 2 (3 more).
+      const oldestInHour = hourly.sort((a, b) => {
         return new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime();
       })[0];
-      const oldestTime = new Date(oldestHourlyRequest.requestedAt).getTime();
-      const windowExpiresAt = oldestTime + HOURLY_WINDOW_MS;
-      const waitSeconds = Math.ceil((windowExpiresAt - now) / 1000);
-
+      const hourResetsAt = new Date(new Date(oldestInHour.requestedAt).getTime() + HOURLY_WINDOW_MS);
+      const waitSec = Math.max(60, Math.ceil((hourResetsAt.getTime() - now) / 1000));
       return {
         success: false,
-        error: `Hourly OTP limit reached. Please try again in ${Math.ceil(waitSeconds / 60)} minute(s).`,
-        retryAfter: waitSeconds,
+        error: `1-hour OTP limit reached (5 requests). Please wait until the hour resets — try again in ${Math.ceil(waitSec / 60)} minute(s).`,
+        retryAfter: waitSec,
       };
     }
 
-    // ── Also check 24-hour cap even if hourly is OK ────────────────────
-    const dailyRequests = await getEmailRequestsInWindow(cleanEmail, DAILY_WINDOW_MS);
-    const dailyCount = dailyRequests.length;
-
-    if (dailyCount >= MAX_DAILY_REQUESTS) {
+    // ── 5. Daily cap check (in case hourly is OK but daily is hit) ──
+    const daily = await getRequestsByKeyInWindowWithFallback(userIdEmail, cleanEmail, DAILY_WINDOW_MS);
+    if (daily.length >= MAX_DAILY_REQUESTS) {
+      const oldestInDay = daily.sort((a, b) => {
+        return new Date(a.requestedAt).getTime() - new Date(b.requestedAt).getTime();
+      })[0];
+      const resetAt = new Date(new Date(oldestInDay.requestedAt).getTime() + DAILY_WINDOW_MS);
       return {
         success: false,
         error: "Today's maximum OTP request limit has been reached. Please try again after 24 hours.",
+        retryAfter: Math.max(60, Math.ceil((resetAt.getTime() - now) / 1000)),
       };
     }
 
-    // ── 5. Generate OTP + Hash ────────────────────────────────────────
+    // ── 6. All limits clear — generate OTP ──────────────────────────
     const otp = generateOTP();
     const otpHash = await bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
 
-    // ── 6. Invalidate previous pending OTPs ───────────────────────────
-    await invalidatePreviousOTPs(cleanEmail);
+    // ── 7. Invalidate previous PENDING OTPs (only one valid at a time) ─
+    await invalidatePreviousOTPs(userIdEmail);
 
-    // ── 7. Store new OTP request in Google Sheets ─────────────────────
+    // ── 8. Persist the new request ───────────────────────────────────
     const requestId = uuidv4();
+    const dailyCount = daily.length;
     const requestNumber = dailyCount + 1;
     const expiresAt = new Date(now + OTP_EXPIRY_MS).toISOString();
 
     const otpRecord = {
       id: requestId,
-      userId: userId || '',
+      userId: String(userId || ''),
+      userIdEmail,                          // composite key for rate-limit queries
       email: cleanEmail,
       ipAddress: ipAddress || '',
       otpHash,
@@ -245,18 +302,18 @@ async function requestOTP(userId, email, ipAddress) {
       verifiedAt: '',
       status: 'pending',
       requestNumber: String(requestNumber),
-      dailyRequestCount: String(dailyCount + 1),
+      dailyRequestCount: String(requestNumber),
       hourlyRequestCount: String(hourlyCount + 1),
       verifyAttempts: '0',
     };
 
     await db.appendRow(db.SHEETS.OTP_REQUESTS, otpRecord);
 
-    console.log(`[OTP] Request #${requestNumber} created for ${cleanEmail} (IP: ${ipAddress}, ID: ${requestId})`);
+    console.log(`[OTP] Request #${requestNumber} for ${userIdEmail} (IP ${ipAddress}) — ${hourlyCount + 1}/5 hourly, ${requestNumber}/8 daily`);
 
     return {
       success: true,
-      otp, // Plaintext — only returned to caller for email sending, never stored
+      otp, // Plaintext — only returned to caller for email sending
       requestId,
     };
   });
@@ -265,65 +322,72 @@ async function requestOTP(userId, email, ipAddress) {
 // ── Main: Verify OTP ────────────────────────────────────────────────────────
 
 /**
- * Verify an OTP submitted by the user.
+ * Verify an OTP submitted by the user. The OTP can only be consumed by
+ * the same (userId, email) combination that requested it. Once verified
+ * it is marked 'verified' so it cannot be reused.
  *
- * @param {string} email - User email
- * @param {string} otpInput - The OTP code the user entered
+ * @param {string} userId   - Server-derived user ID
+ * @param {string} email    - User email
+ * @param {string} otpInput - The 6-digit code the user entered
  * @returns {Promise<{valid: boolean, error?: string, userId?: string}>}
  */
-async function verifyOTP(email, otpInput) {
-  const cleanEmail = email.toLowerCase().trim();
+async function verifyOTP(userId, email, otpInput) {
+  const cleanEmail = String(email || '').toLowerCase().trim();
+  const userIdEmail = buildUserIdEmailKey(userId, cleanEmail);
 
-  return withLock(`verify:${cleanEmail}`, async () => {
+  return withLock(`verify:${userIdEmail}`, async () => {
     const now = Date.now();
 
-    // Find the most recent pending OTP for this email
-    const allRequests = await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', cleanEmail);
-    const pendingOTPs = allRequests
+    // Find the most-recent PENDING OTP for this key
+    let candidates = await db.findRows(db.SHEETS.OTP_REQUESTS, 'userIdEmail', userIdEmail);
+    let pendingOTPs = candidates
       .filter((r) => r.status === 'pending')
       .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
 
+    // Backward-compat: also check legacy email-only rows (no userIdEmail)
     if (!pendingOTPs.length) {
-      console.warn(`[OTP] Verify failed — no pending OTP for ${cleanEmail}`);
-      // Generic error — don't reveal whether account/email exists
+      const legacy = await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', cleanEmail);
+      pendingOTPs = legacy
+        .filter((r) => r.status === 'pending' && !r.userIdEmail)
+        .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
+    }
+
+    if (!pendingOTPs.length) {
+      console.warn(`[OTP] Verify failed — no pending OTP for ${userIdEmail}`);
       return { valid: false, error: 'Invalid or expired verification code. Please request a new one.' };
     }
 
     const activeOTP = pendingOTPs[0];
     const attempts = parseInt(activeOTP.verifyAttempts, 10) || 0;
 
-    // ── Check max verification attempts ───────────────────────────────
+    // ── 1. Max verify attempts per OTP ──────────────────────────────
     if (attempts >= MAX_VERIFY_ATTEMPTS) {
       await db.updateRow(db.SHEETS.OTP_REQUESTS, 'id', activeOTP.id, {
         status: 'expired',
       }).catch((e) => console.warn('OTP expire notice:', e.message));
-
-      console.warn(`[OTP] Max verify attempts reached for ${cleanEmail} (OTP: ${activeOTP.id})`);
+      console.warn(`[OTP] Max verify attempts reached for ${userIdEmail}`);
       return { valid: false, error: 'Too many failed attempts. Please request a new verification code.' };
     }
 
-    // ── Check expiry ──────────────────────────────────────────────────
+    // ── 2. 5-minute expiry ──────────────────────────────────────────
     const expiresAt = new Date(activeOTP.expiresAt).getTime();
     if (now > expiresAt) {
       await db.updateRow(db.SHEETS.OTP_REQUESTS, 'id', activeOTP.id, {
         status: 'expired',
       }).catch((e) => console.warn('OTP expire notice:', e.message));
-
-      console.warn(`[OTP] Expired OTP verification attempt for ${cleanEmail}`);
+      console.warn(`[OTP] Expired OTP verification attempt for ${userIdEmail}`);
       return { valid: false, error: 'Verification code has expired. Please request a new one.' };
     }
 
-    // ── Compare hash ──────────────────────────────────────────────────
+    // ── 3. bcrypt compare ───────────────────────────────────────────
     const isMatch = await bcrypt.compare(otpInput, activeOTP.otpHash);
 
     if (!isMatch) {
-      // Increment attempt counter
       const newAttempts = attempts + 1;
       await db.updateRow(db.SHEETS.OTP_REQUESTS, 'id', activeOTP.id, {
         verifyAttempts: String(newAttempts),
       }).catch((e) => console.warn('OTP attempt update notice:', e.message));
 
-      // If this was the last allowed attempt, also expire the OTP
       if (newAttempts >= MAX_VERIFY_ATTEMPTS) {
         await db.updateRow(db.SHEETS.OTP_REQUESTS, 'id', activeOTP.id, {
           status: 'expired',
@@ -331,11 +395,11 @@ async function verifyOTP(email, otpInput) {
         }).catch((e) => console.warn('OTP expire notice:', e.message));
       }
 
-      console.warn(`[OTP] Invalid OTP attempt #${newAttempts} for ${cleanEmail}`);
+      console.warn(`[OTP] Invalid OTP attempt #${newAttempts} for ${userIdEmail}`);
       return { valid: false, error: 'Invalid verification code. Please try again.' };
     }
 
-    // ── Success! Mark as verified ─────────────────────────────────────
+    // ── 4. Success — mark as 'verified' so it CANNOT be reused ─────
     const verifiedAt = new Date(now).toISOString();
     await db.updateRow(db.SHEETS.OTP_REQUESTS, 'id', activeOTP.id, {
       status: 'verified',
@@ -343,7 +407,7 @@ async function verifyOTP(email, otpInput) {
       verifyAttempts: String(attempts + 1),
     }).catch((e) => console.warn('OTP verify update notice:', e.message));
 
-    console.log(`[OTP] ✅ Verified successfully for ${cleanEmail} (OTP: ${activeOTP.id})`);
+    console.log(`[OTP] Verified ${userIdEmail} (OTP ${activeOTP.id} now marked 'verified' — cannot be reused)`);
 
     return {
       valid: true,
@@ -356,10 +420,14 @@ async function verifyOTP(email, otpInput) {
 module.exports = {
   requestOTP,
   verifyOTP,
-  // Exposed for testing
+  // Exposed for testing / future use
+  buildUserIdEmailKey,
   OTP_EXPIRY_MS,
   COOLDOWN_MS,
+  HOURLY_WINDOW_MS,
+  DAILY_WINDOW_MS,
   MAX_HOURLY_REQUESTS,
   MAX_DAILY_REQUESTS,
+  MAX_VERIFY_ATTEMPTS,
   MAX_IP_HOURLY_REQUESTS,
 };

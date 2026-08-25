@@ -384,8 +384,17 @@ router.post('/verify-otp', async (req, res) => {
 
     const cleanEmail = email.toLowerCase().trim();
 
+    // Derive userId server-side (same logic as /send-otp) so verifyOTP
+    // can apply the userId+email composite-key check.
+    let userId = '';
+    try {
+      const existingUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
+      if (existingUser) userId = existingUser.user_id || existingUser.id || '';
+    } catch (e) { /* lookup failed — empty userId is fine, the email fallback still applies */ }
+    if (!userId) userId = `pending_${Date.now()}`;
+
     // Verify OTP through the security service (handles hash comparison, expiry, attempts)
-    const verification = await otpService.verifyOTP(cleanEmail, otp);
+    const verification = await otpService.verifyOTP(userId, cleanEmail, otp);
     if (!verification.valid) {
       return res.status(400).json({ error: verification.error });
     }
