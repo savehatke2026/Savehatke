@@ -607,10 +607,10 @@ Regards,
         margin-bottom: 6px;
       }
       .email-subtitle {
-        font-size: 1.05rem;
-        font-weight: 500;
+        font-size: 1.1rem;
+        font-weight: 700;
         line-height: 1.45;
-        color: #4b5563;
+        color: #0f1e3a;
         margin-bottom: 28px;
         padding-bottom: 22px;
         border-bottom: 1px solid #e5e7eb;
@@ -634,12 +634,12 @@ Regards,
         border-radius: 12px;
       }
       .case-list li {
-        font-size: 0.93rem;
+        font-size: 0.95rem;
         color: #374151;
         line-height: 1.7;
         padding: 4px 0;
       }
-      .case-list li strong { color: #0f1e3a; font-weight: 700; }
+      .case-list li strong { color: #000000; font-weight: 800; }
 
       .section-h {
         font-size: 0.78rem;
@@ -671,17 +671,19 @@ Regards,
       .cta-btn {
         display: inline-flex;
         align-items: center;
+        justify-content: center;
         gap: 8px;
-        padding: 0 36px;
-        height: 50px;
+        padding: 0 40px;
+        height: 52px;
         border-radius: 12px;
         background: linear-gradient(135deg, #00e676, #00c853);
         color: #0f1e3a;
         font-family: 'Outfit', sans-serif;
-        font-size: 0.95rem;
-        font-weight: 700;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
         text-decoration: none;
-        box-shadow: 0 6px 16px rgba(0, 200, 83, 0.25);
+        box-shadow: 0 10px 24px rgba(0, 200, 83, 0.35);
       }
 
       .warn-line {
