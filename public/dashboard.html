@@ -396,6 +396,18 @@
     .sb-item:hover{background:rgba(79,195,247,.07);color:#a8c0dc}
     .sb-item.active{background:rgba(0,230,118,.1);color:#00e676;border-left:3px solid #00e676;padding-left:7px}
     .sb-item-ico{width:18px;text-align:center;flex-shrink:0;font-size:.95rem}
+
+    /* Sub-items (nested under a parent sb-item) */
+    .sb-subgroup{padding:2px 0 4px 28px;margin:0 0 4px 16px;border-left:1px solid rgba(79,195,247,.18)}
+    .sb-subitem{display:flex;align-items:center;gap:6px;width:100%;padding:5px 8px 5px 6px;border-radius:6px;font-size:.78rem;font-weight:500;color:#7a8fb0;background:none;border:none;cursor:pointer;text-align:left;font-family:'Outfit',sans-serif;transition:all .15s;text-decoration:none;white-space:nowrap;margin-bottom:1px}
+    .sb-subitem:hover{background:rgba(79,195,247,.06);color:#a8c0dc}
+    .sb-subitem.active{color:#00e676;background:rgba(0,230,118,.08);border-left:2px solid #00e676;padding-left:4px}
+    .sb-subitem-line{color:rgba(107,136,170,.45);font-family:'JetBrains Mono',monospace;font-size:.7rem;flex-shrink:0;width:14px;text-align:center;letter-spacing:-1px}
+
+    /* My-Coupons filter chips (driven by sidebar sub-items) */
+    .mc-chip{padding:5px 12px;border-radius:9999px;font-size:.74rem;font-weight:600;background:rgba(79,195,247,.08);color:#a8c0dc;border:1px solid rgba(79,195,247,.15);cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;white-space:nowrap}
+    .mc-chip:hover{background:rgba(79,195,247,.14);color:#e2ecff}
+    .mc-chip.active{background:rgba(0,230,118,.12);color:#00e676;border-color:rgba(0,230,118,.4)}
     .sb-sep{height:1px;background:rgba(79,195,247,.08);margin:8px 10px}
     .sb-item-logout{color:#ef9a9a}
     .sb-item-logout:hover{background:rgba(239,154,154,.08);color:#ff8585}
@@ -495,17 +507,37 @@
       </div>
     </div>
     <nav class="sb-nav">
-      <div class="sb-section-label">DASHBOARD</div>
       <button class="sb-item active" data-view="dashboard" onclick="showView('dashboard')"><span class="sb-item-ico">🏠</span> Dashboard</button>
-      <a href="marketplace" class="sb-item"><span class="sb-item-ico">🛍️</span> Buy Coupons</a>
-      <a href="sell" class="sb-item"><span class="sb-item-ico">💰</span> Sell Coupons</a>
-      <button class="sb-item" data-view="my-coupons" onclick="showView('my-coupons')"><span class="sb-item-ico">🎟️</span> My Coupons</button>
-      <div class="sb-section-label">MONEY</div>
-      <button class="sb-item" data-view="wallet" onclick="showView('wallet')"><span class="sb-item-ico">💼</span> Wallet</button>
-      <button class="sb-item" data-view="payouts" onclick="showView('payouts')"><span class="sb-item-ico">💸</span> Payouts</button>
-      <div class="sb-section-label">ACCOUNT</div>
-      <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🛡️</span> Security</button>
-      <button class="sb-item" data-view="support" onclick="showView('support')"><span class="sb-item-ico">🎧</span> Support</button>
+
+      <!-- My Purchases -->
+      <button class="sb-item" data-view="my-coupons" onclick="showView('my-coupons','active-purchases')"><span class="sb-item-ico">🎟️</span> My Purchases</button>
+      <div class="sb-subgroup">
+        <button class="sb-subitem" data-sub="active-purchases" onclick="showView('my-coupons','active-purchases')"><span class="sb-subitem-line">├─</span> Active Coupons</button>
+        <button class="sb-subitem" data-sub="used-expired" onclick="showView('my-coupons','used-expired')"><span class="sb-subitem-line">├─</span> Used / Expired</button>
+        <button class="sb-subitem" data-sub="purchase-history" onclick="showView('my-coupons','purchase-history')"><span class="sb-subitem-line">└─</span> Purchase History</button>
+      </div>
+
+      <!-- My Sales -->
+      <button class="sb-item" data-view="my-coupons" onclick="showView('my-coupons','active-listings')"><span class="sb-item-ico">💰</span> My Sales</button>
+      <div class="sb-subgroup">
+        <button class="sb-subitem" data-sub="active-listings" onclick="showView('my-coupons','active-listings')"><span class="sb-subitem-line">├─</span> Active Listings</button>
+        <button class="sb-subitem" data-sub="sold" onclick="showView('my-coupons','sold')"><span class="sb-subitem-line">├─</span> Sold Coupons</button>
+        <button class="sb-subitem" data-sub="payout-status" onclick="showView('payouts')"><span class="sb-subitem-line">└─</span> Payout Status</button>
+      </div>
+
+      <button class="sb-item" data-view="wallet" onclick="showView('wallet')"><span class="sb-item-ico">💳</span> Transactions</button>
+      <button class="sb-item" onclick="showToast('⭐ Reviews — coming soon!','info')"><span class="sb-item-ico">⭐</span> Reviews</button>
+      <button class="sb-item" onclick="showToast('🔔 Notifications — coming soon!','info')"><span class="sb-item-ico">🔔</span> Notifications</button>
+      <button class="sb-item" data-view="support" onclick="showView('support')"><span class="sb-item-ico">🎧</span> Help &amp; Support</button>
+
+      <!-- Security -->
+      <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🔐</span> Security</button>
+      <div class="sb-subgroup">
+        <button class="sb-subitem" onclick="showToast('📜 Full login history — coming soon!','info'); showView('security');"><span class="sb-subitem-line">├─</span> Login History</button>
+        <button class="sb-subitem" onclick="showView('security','active-sessions')"><span class="sb-subitem-line">└─</span> Active Sessions</button>
+      </div>
+
+      <button class="sb-item" onclick="showToast('⚙️ Account Settings — coming soon!','info')"><span class="sb-item-ico">⚙️</span> Account Settings</button>
     </nav>
     <div class="sb-sep"></div>
     <div class="sb-footer-nav">
@@ -765,8 +797,17 @@
           </div>
         </div>
 
+        <!-- Filter chips (driven by the sidebar sub-item selection) -->
+        <div id="mcFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 6px">
+          <button class="mc-chip active" data-filter="all" onclick="setMcFilter('all')">All</button>
+          <button class="mc-chip" data-filter="active-purchases" onclick="setMcFilter('active-purchases')">Active Coupons</button>
+          <button class="mc-chip" data-filter="used-expired" onclick="setMcFilter('used-expired')">Used / Expired</button>
+          <button class="mc-chip" data-filter="purchase-history" onclick="setMcFilter('purchase-history')">Purchase History</button>
+          <button class="mc-chip" data-filter="active-listings" onclick="setMcFilter('active-listings')">Active Listings</button>
+          <button class="mc-chip" data-filter="sold" onclick="setMcFilter('sold')">Sold Coupons</button>
+        </div>
+
         <div style="margin-top:4px">
-          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Active Coupons</div>
           <div id="myCouponsList"></div>
         </div>
       </div>
@@ -927,7 +968,7 @@
           <span class="sec-lbl">Account Status</span>
           <span class="sec-val" id="securityAccountStatus"><span class="sec-dot dot-green"></span>Active</span>
         </div>
-        <div class="sec-row-item" style="display:block">
+        <div class="sec-row-item" id="secActiveSessions" style="display:block">
           <span class="sec-lbl">Active Sessions <span style="color:#6b88aa;font-weight:400;text-transform:none;letter-spacing:0">(expire 48h after login)</span></span>
           <div id="mySessionsList" style="margin-top:8px;font-size:.8rem">
             <div style="color:#6b88aa">Loading sessions…</div>
@@ -1592,10 +1633,60 @@
     setText('ovSoldCount', sold.length);
     setText('ovExpiredCount', 0);
 
+    // ── Apply the active sub-filter (driven by the sidebar sub-items) ──
+    const filter = (window.MC_FILTER || 'all');
+    let list;
+    let emptyMessage = 'No coupons yet';
+    let emptyHint = 'Buy a coupon from the marketplace or submit one to sell.';
+    let emptyActions = `
+      <a href="marketplace" class="btn btn-ghost btn-xs">🛒 Buy</a>
+      <button class="btn btn-primary btn-xs" onclick="openModal('submitCouponModal')">📤 Submit</button>
+    `;
+
+    if (filter === 'all') {
+      list = [...active, ...sold, ...pending];
+    } else if (filter === 'active-purchases') {
+      list = active;
+      emptyMessage = 'No active coupons';
+      emptyHint = 'Coupons you buy will show up here, ready to use.';
+      emptyActions = '<a href="marketplace" class="btn btn-primary btn-xs">🛒 Browse Marketplace</a>';
+    } else if (filter === 'used-expired') {
+      // Backend doesn't currently track used/expired — empty state explains this
+      list = [];
+      emptyMessage = 'No used or expired coupons';
+      emptyHint = 'Once a coupon expires or is marked as used, it will appear here.';
+      emptyActions = '';
+    } else if (filter === 'purchase-history') {
+      list = active;
+      emptyMessage = 'No purchases yet';
+      emptyHint = 'Your full purchase history will appear here.';
+      emptyActions = '<a href="marketplace" class="btn btn-primary btn-xs">🛒 Browse Marketplace</a>';
+    } else if (filter === 'active-listings') {
+      // Coupons the user has submitted for sale that aren't sold yet
+      list = [...pending, ...sales.filter(isAvailable).map((c) => ({
+        kind: 'available',
+        brand: c.brand || 'Coupon',
+        code: c.code,
+        value: c.description || c.discount || c.category || 'Listed for sale',
+        exp: c.expiryDate || '',
+        addedAt: c.addedAt,
+      }))];
+      emptyMessage = 'No active listings';
+      emptyHint = 'Submit a coupon to list it for sale on the marketplace.';
+      emptyActions = '<button class="btn btn-primary btn-xs" onclick="openModal(\'submitCouponModal\')">📤 Submit Coupon</button>';
+    } else if (filter === 'sold') {
+      list = sold;
+      emptyMessage = 'No sold coupons yet';
+      emptyHint = 'Coupons you sell will appear here with your earnings.';
+      emptyActions = '<a href="marketplace" class="btn btn-primary btn-xs">🛒 Browse Marketplace</a>';
+    } else {
+      list = [...active, ...sold, ...pending];
+    }
+
     // List — newest first
-    const list = [...active, ...sold, ...pending]
+    list = list
       .sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0))
-      .slice(0, 5);
+      .slice(0, 20);
 
     const container = document.getElementById('myCouponsList');
     if (!container) return;
@@ -1604,20 +1695,17 @@
       container.innerHTML = `
         <div style="text-align:center;padding:24px 12px;color:#6b88aa">
           <div style="font-size:2rem;margin-bottom:8px">🎟️</div>
-          <div style="font-size:.88rem;font-weight:600;color:#a8c0dc;margin-bottom:4px">No coupons yet</div>
-          <div style="font-size:.78rem">Buy a coupon from the marketplace or submit one to sell.</div>
-          <div style="margin-top:12px;display:flex;gap:8px;justify-content:center">
-            <a href="marketplace" class="btn btn-ghost btn-xs">🛒 Buy</a>
-            <button class="btn btn-primary btn-xs" onclick="openModal('submitCouponModal')">📤 Submit</button>
-          </div>
+          <div style="font-size:.88rem;font-weight:600;color:#a8c0dc;margin-bottom:4px">${emptyMessage}</div>
+          <div style="font-size:.78rem">${emptyHint}</div>
+          ${emptyActions ? `<div style="margin-top:12px;display:flex;gap:8px;justify-content:center">${emptyActions}</div>` : ''}
         </div>
       `;
       return;
     }
 
     container.innerHTML = list.map((c) => {
-      const badgeMap = { purchased: 'badge-green', sold: 'badge-purple', pending: 'badge-orange' };
-      const labelMap = { purchased: 'Active', sold: 'Sold', pending: 'Pending' };
+      const badgeMap = { purchased: 'badge-green', sold: 'badge-purple', pending: 'badge-orange', available: 'badge-blue' };
+      const labelMap = { purchased: 'Active', sold: 'Sold', pending: 'Pending', available: 'Listed' };
       const exp = c.exp ? new Date(c.exp) : null;
       const expText = (exp && !isNaN(exp.getTime()))
         ? `Exp: ${exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
@@ -1635,6 +1723,20 @@
         </div>
       `;
     }).join('');
+  }
+
+  // ─── My-Coupons filter chip helpers ──────────────────────────────────
+  window.MC_FILTER = 'all';
+
+  function setMcFilter(filter) {
+    window.MC_FILTER = filter;
+    refreshMcFilterChips();
+    renderMyCoupons();
+  }
+
+  function refreshMcFilterChips() {
+    const chips = document.querySelectorAll('#mcFilterChips .mc-chip');
+    chips.forEach((c) => c.classList.toggle('active', c.dataset.filter === (window.MC_FILTER || 'all')));
   }
 
   function renderActivity() {
@@ -2371,16 +2473,68 @@
   }
 
   // ─── View switching ────────────────────────────────────────────
-  function showView(name) {
+  //   showView(name)            — top-level sidebar item
+  //   showView(name, sub)       — sidebar sub-item:
+  //                                * switches to the parent view
+  //                                * marks the matching .sb-subitem as active
+  //                                * applies the sub-filter to the my-coupons
+  //                                  list (active-purchases, used-expired,
+  //                                  purchase-history, active-listings, sold)
+  //                                * or scrolls to a section anchor inside
+  //                                  the security view (active-sessions)
+  function showView(name, sub) {
     document.querySelectorAll('.db-view').forEach(v => v.classList.remove('active'));
     const view = document.getElementById('view-' + name);
     if (view) view.classList.add('active');
+
+    // Top-level sb-item active state
     document.querySelectorAll('.sb-item[data-view]').forEach(item => {
       item.classList.toggle('active', item.dataset.view === name);
     });
+
+    // Sub-item active state — clear, then set the matching one
+    document.querySelectorAll('.sb-subitem').forEach((el) => el.classList.remove('active'));
+    if (sub) {
+      const subEl = document.querySelector(`.sb-subitem[data-sub="${sub}"]`);
+      if (subEl) subEl.classList.add('active');
+    }
+
+    // Apply the sub-filter to the my-coupons view
+    if (name === 'my-coupons' && sub) {
+      window.MC_FILTER = sub;
+      const titleEl = document.querySelector('#view-my-coupons .view-subtitle');
+      if (titleEl) {
+        const labels = {
+          'active-purchases': 'Active coupons you have purchased',
+          'used-expired':     'Used and expired purchases',
+          'purchase-history': 'Full purchase history',
+          'active-listings':  'Coupons you have listed for sale',
+          'sold':             'Coupons you have sold',
+        };
+        titleEl.textContent = labels[sub] || 'All your purchased and submitted coupons';
+      }
+      // Re-render the list with the new filter
+      if (typeof renderMyCoupons === 'function') renderMyCoupons();
+      // Refresh filter-chip selection if the chip UI is on screen
+      if (typeof refreshMcFilterChips === 'function') refreshMcFilterChips();
+    } else if (name === 'my-coupons' && !sub) {
+      window.MC_FILTER = 'all';
+      if (typeof renderMyCoupons === 'function') renderMyCoupons();
+      if (typeof refreshMcFilterChips === 'function') refreshMcFilterChips();
+    }
+
+    // Section anchor for the security sub-items
+    if (name === 'security' && sub === 'active-sessions') {
+      setTimeout(() => {
+        const el = document.getElementById('secActiveSessions');
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 60);
+    }
+
     const titles = { dashboard: 'Dashboard', 'my-coupons': 'My Coupons', wallet: 'Wallet', payouts: 'Payouts', security: 'Security', support: 'Support' };
     const titleEl = document.getElementById('mobileViewTitle');
     if (titleEl) titleEl.textContent = titles[name] || name;
+
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (window.innerWidth <= 960) closeSidebar();
   }
