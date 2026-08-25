@@ -186,7 +186,7 @@ async function enrichSessionGeo(sessionId, ip) {
   } catch (e) { /* enrichment is best-effort */ }
 }
 
-async function createLoginSession(req, userId, loginMethod, email) {
+async function createLoginSession(req, userId, loginMethod, email, userName) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const isAdminLogin = /admin/i.test(String(loginMethod || ''));
@@ -228,6 +228,33 @@ async function createLoginSession(req, userId, loginMethod, email) {
 
     // Geo-IP enrichment in the background â€” never blocks the login response
     enrichSessionGeo(sessionResult.session_id, ip).catch(() => {});
+
+    // Send the "New sign-in detected" security alert for USER logins only.
+    // Admins have their own audit pipeline in the vault; firing this for
+    // every admin login would be noisy. Opt-out via SIGNIN_ALERT_DISABLED=true.
+    if (!isAdminLogin && cleanEmail && process.env.SIGNIN_ALERT_DISABLED !== 'true') {
+      emailService.sendSignInAlertEmail({
+        to: cleanEmail,
+        userName: userName && String(userName).trim() ? String(userName).trim() : '',
+        userEmail: cleanEmail,
+        signInTime: now.toISOString(),
+        ip,
+        device: deviceStr,
+        browser: browserStr,
+        os: osStr,
+        loginMethod: loginMethod || 'Email',
+      })
+        .then((r) => {
+          if (r && r.success) {
+            console.log(`[Auth] Sign-in alert sent to ${cleanEmail} (IP ${ip}, device ${deviceStr})`);
+          } else if (r && r.isSimulated) {
+            console.warn(`[Auth] Sign-in alert NOT sent for ${cleanEmail} -> ${r.error || 'SMTP not configured'}`);
+          } else {
+            console.warn(`[Auth] Sign-in alert FAILED for ${cleanEmail}: ${(r && r.error) || 'unknown'}`);
+          }
+        })
+        .catch((e) => console.warn('[Auth] Sign-in alert unexpected error:', e && e.message ? e.message : e));
+    }
 
     return {
       token: rawToken,
@@ -414,7 +441,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Create the server-side 48h session (must be awaited â€” the JWT and
     // cookie carry this session's token)
-    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail).catch(() => null);
+    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail, sheetUser.name).catch(() => null);
 
     // Generate JWT token (48h hard limit, sid-bound to the session)
     const token = issueLoginToken({
@@ -519,7 +546,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Create the server-side 48h session
-    const session = await createLoginSession(req, userId, 'Email', cleanEmail).catch(() => null);
+    const session = await createLoginSession(req, userId, 'Email', cleanEmail, cleanName).catch(() => null);
 
     // Generate token (48h hard limit, sid-bound to the session)
     const token = issueLoginToken({ id: userId, email: cleanEmail, name: cleanName, role: 'user' }, session);
@@ -669,7 +696,7 @@ router.post('/login', async (req, res) => {
       }).catch((e) => console.warn('Background timestamp update notice:', e.message));
 
       // Server-side 48h session
-      const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail).catch(() => null);
+      const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail, sheetUser.name).catch(() => null);
       const token = issueLoginToken({
         id: sheetUser.user_id || sheetUser.id,
         email: sheetUser.email,
@@ -716,7 +743,7 @@ router.post('/login', async (req, res) => {
     await db.appendRow(db.SHEETS.USERS, sheetUser);
 
     // Server-side 48h session
-    const session = await createLoginSession(req, newUserId, 'Email', loginEmail).catch(() => null);
+    const session = await createLoginSession(req, newUserId, 'Email', loginEmail, displayName).catch(() => null);
     const token = issueLoginToken({ id: newUserId, email: loginEmail, name: displayName, role: 'user' }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
 
@@ -952,7 +979,7 @@ router.post('/google-redirect', async (req, res) => {
     const userId = sheetUser.user_id || sheetUser.id;
 
     // Server-side 48h session
-    const session = await createLoginSession(req, userId, 'Google', userEmail).catch(() => null);
+    const session = await createLoginSession(req, userId, 'Google', userEmail, sheetUser.name || userName).catch(() => null);
     const token = issueLoginToken({
       id: userId,
       email: userEmail,
@@ -1092,7 +1119,7 @@ router.post('/google', async (req, res) => {
     }
 
     // Server-side 48h session
-    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail).catch(() => null);
+    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail, sheetUser.name || userName).catch(() => null);
     const token = issueLoginToken({
       id: sheetUser.user_id || sheetUser.id,
       email: userEmail,

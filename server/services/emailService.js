@@ -1275,11 +1275,415 @@ SaveHatke Support Team
   }
 }
 
+/**
+ * Send the "New sign-in detected on your SaveHatke account" security alert
+ * after a successful user login. NOT sent for admin logins (admins have
+ * their own audit pipeline in the vault).
+ *
+ * @param {object} params
+ * @param {string} params.to - User's email address
+ * @param {string} params.userName - User's display name
+ * @param {string} params.userEmail - User's email (echoed for verification)
+ * @param {string} params.signInTime - ISO login timestamp
+ * @param {string} params.ip - Client IP address
+ * @param {string} params.device - Parsed device name (e.g. "iPhone 15 Pro")
+ * @param {string} params.browser - Parsed browser name (e.g. "Chrome 127")
+ * @param {string} params.os - Parsed OS name (e.g. "Windows 11")
+ * @param {string} [params.city] - Geo-IP city (optional)
+ * @param {string} [params.country] - Geo-IP country (optional)
+ * @param {string} [params.loginMethod] - "Email" | "Google" | "OTP"
+ * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
+ */
+async function sendSignInAlertEmail({
+  to, userName, userEmail, signInTime,
+  ip, device, browser, os,
+  city, country, loginMethod,
+}) {
+  const cleanEmail = String(to || '').toLowerCase().trim();
+  if (!cleanEmail) {
+    return { success: false, error: 'No recipient address provided.' };
+  }
+  const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
+  const safeEmail = escapeHtml(userEmail || cleanEmail);
+
+  const signInDate = signInTime
+    ? new Date(signInTime).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+      })
+    : new Date().toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+      });
+
+  const safeIp = escapeHtml(ip || 'Unknown');
+  const safeDevice = escapeHtml(device || 'Unknown device');
+  const safeBrowser = escapeHtml(browser || 'Unknown browser');
+  const safeOs = escapeHtml(os || 'Unknown OS');
+  const safeCity = escapeHtml(city || '');
+  const safeCountry = escapeHtml(country || '');
+  const locationLine = [safeCity, safeCountry].filter(Boolean).join(', ');
+  const safeMethod = escapeHtml(loginMethod || 'Email');
+
+  // From-address selection — same rules as the support emails
+  const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
+  const supportPass = (process.env.SUPPORT_EMAIL_PASSWORD || '').trim();
+  const hasDedicatedSupport = Boolean(supportFrom && supportPass);
+  // For security alerts we want the same "support" mailbox to be the
+  // verified sender so a tampered From: cannot impersonate SaveHatke.
+  // Falls back to the main SMTP account when no dedicated support creds.
+  const fromEmail = hasDedicatedSupport
+    ? supportFrom
+    : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
+  const fromName = (process.env.SECURITY_FROM_NAME || 'SaveHatke Security').trim();
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const secureUrl = `${siteUrl}/dashboard.html#security`;
+  const year = new Date().getFullYear();
+
+  const t = getSupportTransporter();
+  if (!t || !isSupportEmailConfigured()) {
+    console.warn(`⚠️ [EmailService] Support email not configured. Sign-in alert for ${cleanEmail} was NOT sent.`);
+    return {
+      success: false,
+      isSimulated: true,
+      error: 'Support email credentials not configured on server. Please add support email details to .env.',
+    };
+  }
+
+  const subject_ = `SaveHatke Security — New sign-in detected on your account`;
+
+  const textBody =
+`SaveHatke Security
+
+New sign-in detected on your SaveHatke account
+
+Hello ${userName && String(userName).trim() ? userName.trim() : 'there'} (${userEmail || cleanEmail}),
+
+We detected a new sign-in to your SaveHatke account. If this was you, you can safely ignore this email.
+
+Sign-in details:
+  Time: ${signInDate} IST
+  IP Address: ${ip || 'Unknown'}
+  Device: ${safeDevice}
+  Browser: ${safeBrowser}
+  Operating System: ${safeOs}
+  ${locationLine ? `Location: ${locationLine}` : ''}
+  Method: ${safeMethod}
+
+If you don't recognize this activity, please secure your account immediately:
+${secureUrl}
+
+Thank you,
+SaveHatke Security Team
+
+© ${year} SaveHatke. All rights reserved.`;
+
+  const htmlContent = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>New Sign-in Detected — SaveHatke Security</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: 'Outfit', sans-serif;
+        background: #f4f5f7;
+        color: #0f1e3a;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 48px 16px 64px;
+        line-height: 1.65;
+      }
+
+      .email-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 620px;
+      }
+
+      .email-header {
+        text-align: center;
+        margin-bottom: 28px;
+      }
+      .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: #0f1e3a;
+        font-size: 1.3rem;
+        font-weight: 800;
+      }
+      .brand-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #00e676, #4fc3f7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+      }
+      .bhl { color: #00c853; }
+
+      .email-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 8px 28px rgba(15, 30, 58, 0.08);
+      }
+
+      .email-body { padding: 36px 40px; }
+
+      .email-title {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1.65rem;
+        font-weight: 400;
+        line-height: 1.25;
+        color: #0f1e3a;
+        margin-bottom: 6px;
+      }
+      /* Per spec: the h2 ("New sign-in detected...") is BOLD BLACK */
+      .email-subtitle {
+        font-size: 1.1rem;
+        font-weight: 800;
+        line-height: 1.45;
+        color: #000000;
+        margin-bottom: 28px;
+        padding-bottom: 22px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .line {
+        font-size: 0.95rem;
+        color: #374151;
+        line-height: 1.75;
+        margin-bottom: 18px;
+      }
+      /* Per spec: {{user_name}} is "less bold black" — weight 700, dark navy */
+      .line .greeting-name {
+        color: #0f1e3a;
+        font-weight: 700;
+      }
+      /* Per spec: ({{user_email}}) is in website green */
+      .line .greeting-email {
+        color: #00c853;
+        font-weight: 600;
+      }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+
+      .case-list {
+        list-style: none;
+        padding: 14px 20px;
+        margin: 0 0 24px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+      }
+      .case-list li {
+        font-size: 0.95rem;
+        color: #374151;
+        line-height: 1.7;
+        padding: 4px 0;
+      }
+      .case-list li strong { color: #000000; font-weight: 800; }
+
+      .warn-line {
+        font-size: 0.86rem;
+        color: #92400e;
+        line-height: 1.65;
+        margin: 0 0 24px;
+        padding: 14px 18px;
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-radius: 10px;
+      }
+      .warn-line strong { color: #78350f; font-weight: 700; }
+
+      /* CTA Button — website green */
+      .cta-wrap {
+        text-align: center;
+        margin: 28px 0 24px;
+      }
+      .cta-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 40px;
+        height: 52px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #00e676, #00c853);
+        color: #0f1e3a;
+        font-family: 'Outfit', sans-serif;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        text-decoration: none;
+        box-shadow: 0 10px 24px rgba(0, 200, 83, 0.35);
+      }
+
+      .signoff {
+        font-size: 0.92rem;
+        color: #374151;
+        line-height: 1.75;
+        margin-top: 24px;
+        padding-top: 22px;
+        border-top: 1px solid #e5e7eb;
+      }
+      .signoff strong { color: #0f1e3a; font-weight: 700; }
+
+      .email-footer {
+        background: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+        padding: 22px 40px;
+        text-align: center;
+      }
+      .footer-copy {
+        font-size: 0.78rem;
+        color: #6b7280;
+      }
+
+      @media (max-width: 600px) {
+        body { padding: 28px 12px 48px; }
+        .email-body { padding: 28px 24px; }
+        .email-footer { padding: 20px 24px; }
+      }
+    </style>
+  </head>
+  <body>
+
+  <!-- Preheader (hidden inbox preview line) -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">New sign-in detected on your SaveHatke account at ${signInDate}.</div>
+
+  <div class="email-wrapper">
+
+    <!-- Brand Header -->
+    <div class="email-header">
+      <a href="${siteUrl}/index.html" class="brand-link">
+        <div class="brand-icon">🛡️</div>
+        <span>Save<span class="bhl">Hatke</span></span>
+      </a>
+    </div>
+
+    <!-- Email Card -->
+    <div class="email-card">
+
+      <div class="email-body">
+
+        <h1 class="email-title">SaveHatke Security</h1>
+        <h2 class="email-subtitle">New sign-in detected on your SaveHatke account</h2>
+
+        <p class="line">
+          Hello <span class="greeting-name">${safeName}</span>
+          <span class="greeting-email">(${safeEmail})</span>,
+        </p>
+
+        <p class="line">We detected a new sign-in to your SaveHatke account. If this was you, you can safely ignore this email.</p>
+
+        <ul class="case-list">
+          <li><strong>Time:</strong> <span class="mono">${escapeHtml(signInDate)} IST</span></li>
+          <li><strong>IP Address:</strong> <span class="mono">${safeIp}</span></li>
+          ${locationLine ? `<li><strong>Location:</strong> ${escapeHtml(locationLine)}</li>` : ''}
+          <li><strong>Device:</strong> ${safeDevice}</li>
+          <li><strong>Browser:</strong> ${safeBrowser}</li>
+          <li><strong>Operating System:</strong> ${safeOs}</li>
+          <li><strong>Sign-in Method:</strong> ${safeMethod}</li>
+        </ul>
+
+        <p class="warn-line"><strong>Didn't sign in?</strong> If you don't recognize this activity, please secure your account immediately — change your password and end all active sessions from the security page.</p>
+
+        <div class="cta-wrap">
+          <a href="${secureUrl}" class="cta-btn">🔒 Secure My Account</a>
+        </div>
+
+        <p class="line">Thank you,<br><strong>SaveHatke Security Team</strong></p>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="email-footer">
+        <div class="footer-copy">© ${year} SaveHatke. All rights reserved.</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  </body>
+  </html>
+  `;
+
+  // ── Deliverability headers ─────────────────────────────────────────
+  const fqdn = (() => {
+    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
+    catch { return 'savehatke.com'; }
+  })();
+  const emailHash = crypto.createHash('sha256').update(cleanEmail).digest('hex').slice(0, 16);
+  const unsubscribeMailto = `unsubscribe+${emailHash}@${fqdn}`;
+  const unsubscribeUrl = `${siteUrl}/unsubscribe?c=${emailHash}&type=security`;
+
+  const headers = {
+    'X-Entity-Ref-ID': `signin-alert-${emailHash}-${Date.now()}`,
+    'Auto-Submitted': 'auto-generated',
+    'X-Mailer': 'SaveHatke Security',
+    'X-Priority': '1', // Security alerts are high-priority
+    'Importance': 'High',
+    'List-Unsubscribe': `<mailto:${unsubscribeMailto}>, <${unsubscribeUrl}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+
+  const mailOptions = {
+    from: `"${fromName}" <${fromEmail}>`,
+    to: cleanEmail,
+    replyTo: supportFrom || undefined,
+    subject: subject_,
+    text: textBody,
+    html: htmlContent,
+    envelope: { from: fromEmail, to: cleanEmail },
+    messageId: `<signin-alert-${emailHash}-${Date.now()}@${fqdn}>`,
+    headers,
+  };
+
+  if (
+    process.env.DKIM_DOMAIN &&
+    process.env.DKIM_SELECTOR &&
+    process.env.DKIM_PRIVATE_KEY
+  ) {
+    mailOptions.dkim = {
+      domainName: process.env.DKIM_DOMAIN.trim(),
+      keySelector: process.env.DKIM_SELECTOR.trim(),
+      privateKey: process.env.DKIM_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    };
+  }
+
+  try {
+    const info = await t.sendMail(mailOptions);
+    console.log(`✅ [EmailService] Sign-in alert sent to ${cleanEmail} (IP: ${ip || 'n/a'}, device: ${safeDevice}) (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send sign-in alert to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendOTPEmail,
   sendWelcomeEmail,
   sendSupportAckEmail,
   sendSupportResolvedEmail,
+  sendSignInAlertEmail,
   isEmailConfigured,
   isSupportEmailConfigured,
 };
