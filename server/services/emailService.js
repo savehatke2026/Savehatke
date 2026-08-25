@@ -493,33 +493,37 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
   const subject_ = `SaveHatke Support — Request received (Case #${safeCaseId})`;
 
   const textBody =
-`SaveHatke Support
+`# SaveHatke Support
 
-Your support request has been received
+## Your support request has been received
 
 Hello ${userName ? String(userName).trim() : 'there'},
 
 We've received your support request and created a case for it.
 
-Case ID: #${caseId}
-Subject: ${subject}
-Created: ${createdDate}
-Status: Open
+**Case ID:** #${caseId}
 
-Your Message:
+**Subject:** ${subject}
+
+**Created:** ${createdDate}
+
+**Status:** Open
+
+### Your Message
 
 ${message}
 
 Our support team will review your request and get back to you as soon as possible.
 
-Please keep your Case ID #${caseId} for future reference when contacting SaveHatke Support about this request.
+Please keep your **Case ID #${caseId}** for future reference when contacting SaveHatke Support about this request.
 
 View Support Request: ${viewUrl}
 
 If you did not submit this request, please contact us immediately.
 
 Regards,
-SaveHatke Support Team
+
+**SaveHatke Support Team**
 
 © ${year} SaveHatke. All rights reserved.`;
 
@@ -546,35 +550,12 @@ SaveHatke Support Team
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: flex-start;
         padding: 48px 16px 64px;
+        line-height: 1.65;
       }
 
-      /* Background mesh */
-      .bg-mesh {
-        position: fixed;
-        inset: 0;
-        background:
-          radial-gradient(ellipse 70% 55% at 15% 20%, rgba(0,230,118,.06) 0%, transparent 65%),
-          radial-gradient(ellipse 60% 70% at 85% 80%, rgba(79,195,247,.05) 0%, transparent 65%);
-        pointer-events: none;
-        z-index: 0;
-      }
-      .bg-grid {
-        position: fixed;
-        inset: 0;
-        background-image:
-          linear-gradient(rgba(79,195,247,.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(79,195,247,.03) 1px, transparent 1px);
-        background-size: 52px 52px;
-        pointer-events: none;
-        z-index: 0;
-      }
-
-      /* Wrapper */
       .email-wrapper {
         position: relative;
-        z-index: 1;
         width: 100%;
         max-width: 620px;
       }
@@ -582,7 +563,7 @@ SaveHatke Support Team
       /* Top brand bar */
       .email-header {
         text-align: center;
-        margin-bottom: 32px;
+        margin-bottom: 28px;
       }
       .brand-link {
         display: inline-flex;
@@ -602,7 +583,6 @@ SaveHatke Support Team
         align-items: center;
         justify-content: center;
         font-size: 1.1rem;
-        flex-shrink: 0;
       }
       .bhl { color: #00e676; }
 
@@ -615,147 +595,59 @@ SaveHatke Support Team
         box-shadow: 0 32px 80px rgba(0, 0, 0, 0.5);
       }
 
-      /* Email card top banner */
-      .email-banner {
-        background: linear-gradient(135deg, rgba(0,230,118,.12) 0%, rgba(79,195,247,.08) 100%);
-        border-bottom: 1px solid rgba(0, 230, 118, 0.18);
-        padding: 36px 40px 32px;
-        text-align: center;
-      }
-      .banner-icon {
-        width: 64px;
-        height: 64px;
-        border-radius: 18px;
-        background: linear-gradient(135deg, #00e676, #00c853);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.9rem;
-        margin: 0 auto 20px;
-        box-shadow: 0 12px 32px rgba(0, 230, 118, 0.3);
-      }
-      .banner-title {
+      .email-body { padding: 36px 40px; }
+
+      .email-title {
         font-family: 'DM Serif Display', serif;
-        font-size: clamp(1.55rem, 3vw, 2rem);
-        line-height: 1.2;
-        margin-bottom: 8px;
+        font-size: 1.65rem;
+        font-weight: 400;
+        line-height: 1.25;
         color: #e2ecff;
+        margin-bottom: 6px;
       }
-      .banner-sub {
-        font-size: 0.92rem;
+      .email-subtitle {
+        font-size: 1.05rem;
+        font-weight: 500;
+        line-height: 1.45;
         color: #a8c0dc;
-        line-height: 1.6;
-      }
-      .gtext {
-        background: linear-gradient(135deg, #00e676, #4fc3f7);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-      }
-
-      /* Email body */
-      .email-body {
-        padding: 36px 40px;
-      }
-
-      /* Greeting */
-      .greeting {
-        font-size: 1rem;
-        color: #a8c0dc;
-        line-height: 1.7;
         margin-bottom: 28px;
-      }
-      .greeting strong {
-        color: #e2ecff;
-        font-weight: 700;
+        padding-bottom: 22px;
+        border-bottom: 1px solid rgba(79, 195, 247, 0.1);
       }
 
-      /* Case details card */
-      .case-card {
+      .line {
+        font-size: 0.95rem;
+        color: #a8c0dc;
+        line-height: 1.75;
+        margin-bottom: 18px;
+      }
+      .line strong { color: #e2ecff; font-weight: 700; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+
+      .case-list {
+        list-style: none;
+        padding: 0;
+        margin: 0 0 24px;
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(79, 195, 247, 0.12);
-        border-radius: 14px;
-        overflow: hidden;
-        margin-bottom: 28px;
-      }
-      .case-card-hdr {
-        display: flex;
-        align-items: center;
-        gap: 8px;
+        border-radius: 12px;
         padding: 14px 20px;
-        background: rgba(0, 230, 118, 0.06);
-        border-bottom: 1px solid rgba(0, 230, 118, 0.12);
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: #00e676;
       }
-      .case-fields {
-        padding: 6px 0;
+      .case-list li {
+        font-size: 0.93rem;
+        color: #a8c0dc;
+        line-height: 1.7;
+        padding: 4px 0;
       }
-      .case-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 13px 20px;
-        border-bottom: 1px solid rgba(79, 195, 247, 0.06);
-        gap: 16px;
-      }
-      .case-row:last-child {
-        border-bottom: none;
-      }
-      .case-label {
-        font-size: 0.8rem;
-        color: #6b88aa;
-        font-weight: 600;
-        white-space: nowrap;
-        flex-shrink: 0;
-      }
-      .case-value {
-        font-size: 0.88rem;
-        color: #e2ecff;
-        font-weight: 600;
-        text-align: right;
-      }
-      .case-value.mono {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.85rem;
-      }
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: rgba(0, 230, 118, 0.1);
-        border: 1px solid rgba(0, 230, 118, 0.28);
-        color: #00e676;
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        padding: 4px 12px;
-        border-radius: 9999px;
-      }
-      .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background: #00e676;
-        animation: pulse 2s ease infinite;
-      }
-      @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.4; }
-      }
+      .case-list li strong { color: #e2ecff; font-weight: 700; }
 
-      /* Message block */
-      .msg-label {
-        font-size: 0.72rem;
+      .section-h {
+        font-size: 0.78rem;
         font-weight: 700;
         letter-spacing: 0.14em;
         text-transform: uppercase;
         color: #6b88aa;
-        margin-bottom: 12px;
+        margin: 24px 0 10px;
       }
       .msg-box {
         background: rgba(255, 255, 255, 0.03);
@@ -763,65 +655,18 @@ SaveHatke Support Team
         border-left: 3px solid rgba(0, 230, 118, 0.5);
         border-radius: 0 12px 12px 0;
         padding: 18px 20px;
-        font-size: 0.9rem;
+        font-size: 0.92rem;
         color: #a8c0dc;
         line-height: 1.75;
-        margin-bottom: 28px;
+        margin: 0 0 24px;
         word-break: break-word;
         white-space: pre-wrap;
       }
 
-      /* Info notice */
-      .info-notice {
-        background: rgba(79, 195, 247, 0.05);
-        border: 1px solid rgba(79, 195, 247, 0.15);
-        border-radius: 12px;
-        padding: 18px 20px;
-        font-size: 0.88rem;
-        color: #a8c0dc;
-        line-height: 1.7;
-        margin-bottom: 28px;
-      }
-      .info-notice strong {
-        color: #4fc3f7;
-      }
-
-      /* Case ID highlight */
-      .case-id-callout {
-        background: rgba(0, 230, 118, 0.06);
-        border: 1px solid rgba(0, 230, 118, 0.2);
-        border-radius: 12px;
-        padding: 16px 20px;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        margin-bottom: 28px;
-        flex-wrap: wrap;
-      }
-      .case-id-text {
-        font-size: 0.83rem;
-        color: #a8c0dc;
-      }
-      .case-id-text strong {
-        color: #e2ecff;
-      }
-      .case-id-badge {
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.9rem;
-        font-weight: 700;
-        color: #00e676;
-        background: rgba(0, 230, 118, 0.1);
-        border: 1px solid rgba(0, 230, 118, 0.25);
-        padding: 6px 14px;
-        border-radius: 8px;
-        white-space: nowrap;
-      }
-
-      /* CTA Button */
+      /* CTA Button — website green */
       .cta-wrap {
         text-align: center;
-        margin-bottom: 28px;
+        margin: 28px 0 24px;
       }
       .cta-btn {
         display: inline-flex;
@@ -836,104 +681,53 @@ SaveHatke Support Team
         font-size: 0.95rem;
         font-weight: 700;
         text-decoration: none;
-        border: none;
-        cursor: pointer;
-        transition: all 0.22s;
         box-shadow: 0 8px 24px rgba(0, 230, 118, 0.3);
       }
-      .cta-btn:hover {
-        opacity: 0.88;
-        transform: translateY(-2px);
-        box-shadow: 0 12px 32px rgba(0, 230, 118, 0.45);
-      }
 
-      /* Divider */
-      .divider {
-        height: 1px;
-        background: rgba(79, 195, 247, 0.08);
-        margin: 0 0 28px;
-      }
-
-      /* Warning notice */
-      .warn-notice {
+      .warn-line {
+        font-size: 0.86rem;
+        color: #a8c0dc;
+        line-height: 1.65;
+        margin: 0 0 24px;
+        padding: 14px 18px;
         background: rgba(255, 183, 77, 0.05);
         border: 1px solid rgba(255, 183, 77, 0.15);
         border-radius: 10px;
-        padding: 14px 18px;
-        font-size: 0.82rem;
-        color: #a8c0dc;
-        line-height: 1.65;
-        margin-bottom: 28px;
       }
-      .warn-notice strong {
-        color: #ffb74d;
-      }
+      .warn-line strong { color: #ffb74d; font-weight: 700; }
 
-      /* Sign-off */
       .signoff {
-        font-size: 0.9rem;
+        font-size: 0.92rem;
         color: #a8c0dc;
         line-height: 1.75;
+        margin-top: 24px;
+        padding-top: 22px;
+        border-top: 1px solid rgba(79, 195, 247, 0.08);
       }
-      .signoff strong {
-        color: #e2ecff;
-        font-weight: 700;
-      }
+      .signoff strong { color: #e2ecff; font-weight: 700; }
 
-      /* Email footer */
       .email-footer {
         background: rgba(9, 16, 34, 0.8);
         border-top: 1px solid rgba(79, 195, 247, 0.08);
-        padding: 24px 40px;
+        padding: 22px 40px;
         text-align: center;
-      }
-      .footer-links {
-        display: flex;
-        justify-content: center;
-        gap: 24px;
-        flex-wrap: wrap;
-        margin-bottom: 14px;
-      }
-      .footer-links a {
-        font-size: 0.78rem;
-        color: #6b88aa;
-        text-decoration: none;
-        transition: color 0.2s;
-      }
-      .footer-links a:hover {
-        color: #00e676;
       }
       .footer-copy {
-        font-size: 0.76rem;
-        color: rgba(107, 136, 170, 0.7);
-      }
-
-      /* Bottom brand note */
-      .bottom-note {
-        text-align: center;
-        margin-top: 24px;
-        font-size: 0.75rem;
-        color: rgba(107, 136, 170, 0.6);
+        font-size: 0.78rem;
+        color: rgba(107, 136, 170, 0.75);
       }
 
       @media (max-width: 600px) {
         body { padding: 28px 12px 48px; }
-        .email-banner { padding: 28px 24px 24px; }
         .email-body { padding: 28px 24px; }
         .email-footer { padding: 20px 24px; }
-        .case-row { flex-direction: column; align-items: flex-start; gap: 4px; }
-        .case-value { text-align: left; }
-        .case-id-callout { flex-direction: column; align-items: flex-start; }
       }
     </style>
   </head>
   <body>
 
   <!-- Preheader (hidden inbox preview line) -->
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your support request has been received — Case #${safeCaseId} is now open.</div>
-
-  <div class="bg-mesh"></div>
-  <div class="bg-grid"></div>
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">We've received your support request — Case #${safeCaseId} is now open.</div>
 
   <div class="email-wrapper">
 
@@ -948,84 +742,35 @@ SaveHatke Support Team
     <!-- Email Card -->
     <div class="email-card">
 
-      <!-- Banner -->
-      <div class="email-banner">
-        <div class="banner-icon">🎧</div>
-        <h1 class="banner-title">Support Request <span class="gtext">Received</span></h1>
-        <p class="banner-sub">We've got your message and are on it.</p>
-      </div>
-
-      <!-- Body -->
       <div class="email-body">
 
-        <!-- Greeting -->
-        <p class="greeting">
-          Hello <strong>${safeName}</strong>,<br><br>
-          We've received your support request and a case has been created for it. Our support team will review your request and get back to you as soon as possible.
-        </p>
+        <h1 class="email-title">SaveHatke Support</h1>
+        <h2 class="email-subtitle">Your support request has been received</h2>
 
-        <!-- Case Details -->
-        <div class="case-card">
-          <div class="case-card-hdr">
-            📋 &nbsp;Case Details
-          </div>
-          <div class="case-fields">
-            <div class="case-row">
-              <span class="case-label">Case ID</span>
-              <span class="case-value mono">#${safeCaseId}</span>
-            </div>
-            <div class="case-row">
-              <span class="case-label">Subject</span>
-              <span class="case-value">${safeSubject}</span>
-            </div>
-            <div class="case-row">
-              <span class="case-label">Created</span>
-              <span class="case-value mono">${escapeHtml(createdDate)} IST</span>
-            </div>
-            <div class="case-row">
-              <span class="case-label">Status</span>
-              <span class="case-value">
-                <span class="status-pill">
-                  <span class="status-dot"></span>
-                  Open
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
+        <p class="line">Hello <strong>${safeName}</strong>,</p>
 
-        <!-- User Message -->
-        <div class="msg-label">Your Message</div>
+        <p class="line">We've received your support request and created a case for it.</p>
+
+        <ul class="case-list">
+          <li><strong>Case ID:</strong> <span class="mono">#${safeCaseId}</span></li>
+          <li><strong>Subject:</strong> ${safeSubject}</li>
+          <li><strong>Created:</strong> <span class="mono">${escapeHtml(createdDate)} IST</span></li>
+          <li><strong>Status:</strong> Open</li>
+        </ul>
+
+        <h3 class="section-h">Your Message</h3>
         <div class="msg-box">${safeMessage}</div>
 
-        <!-- Info -->
-        <div class="info-notice">
-          Our support team will review your request and get back to you as soon as possible. Response times are typically <strong>within 2–4 hours</strong> on business days.
-        </div>
+        <p class="line">Our support team will review your request and get back to you as soon as possible.</p>
 
-        <!-- Case ID Callout -->
-        <div class="case-id-callout">
-          <div class="case-id-text">
-            Keep your <strong>Case ID</strong> handy for future reference when contacting SaveHatke Support about this request.
-          </div>
-          <div class="case-id-badge">#${safeCaseId}</div>
-        </div>
+        <p class="line">Please keep your <strong>Case ID #${safeCaseId}</strong> for future reference when contacting SaveHatke Support about this request.</p>
 
-        <!-- CTA -->
         <div class="cta-wrap">
-          <a href="${viewUrl}" class="cta-btn">
-            🔍 View Support Request
-          </a>
+          <a href="${viewUrl}" class="cta-btn">View Support Request</a>
         </div>
 
-        <div class="divider"></div>
+        <p class="warn-line">If you did not submit this request, please contact us immediately.</p>
 
-        <!-- Warning -->
-        <div class="warn-notice">
-          ⚠️ <strong>Didn't submit this request?</strong> If you did not submit this support request, please contact us immediately at <strong><a href="mailto:support@savehatke.com" style="color:#ffb74d;text-decoration:none;">support@savehatke.com</a></strong> so we can secure your account.
-        </div>
-
-        <!-- Sign-off -->
         <div class="signoff">
           Regards,<br>
           <strong>SaveHatke Support Team</strong>
@@ -1035,19 +780,9 @@ SaveHatke Support Team
 
       <!-- Footer -->
       <div class="email-footer">
-        <div class="footer-links">
-          <a href="${siteUrl}/support.html">Help Center</a>
-          <a href="${siteUrl}/privacy.html">Privacy Policy</a>
-          <a href="${siteUrl}/terms.html">Terms &amp; Conditions</a>
-          <a href="${siteUrl}/marketplace.html">Marketplace</a>
-        </div>
-        <div class="footer-copy">© ${year} SaveHatke. All rights reserved. &nbsp;·&nbsp; Made with ❤️ in India</div>
+        <div class="footer-copy">© ${year} SaveHatke. All rights reserved.</div>
       </div>
 
-    </div>
-
-    <div class="bottom-note">
-      This is an automated email from SaveHatke Support. Please do not reply directly to this email.
     </div>
 
   </div>
