@@ -74,8 +74,44 @@ function escapeHtml(str) {
 }
 
 /**
+ * Build a dedicated transporter for the no-reply account that sends
+ * welcome emails. If the user has configured NOREPLY_SMTP_* env vars
+ * (separate Gmail / SendGrid / Resend / SMTP account dedicated to
+ * outbound notifications) we use those; otherwise we fall back to
+ * the main SMTP transporter with a noreply@… "from" address — most
+ * providers (Gmail via "Send mail as", SendGrid, SES, etc.) allow
+ * this when the address is a verified alias on the same account.
+ */
+function getNoreplyTransporter() {
+  const host = (process.env.NOREPLY_SMTP_HOST || '').trim();
+  const port = parseInt(process.env.NOREPLY_SMTP_PORT, 10) || 465;
+  const user = (process.env.NOREPLY_SMTP_USER || '').trim();
+  const pass = (process.env.NOREPLY_SMTP_PASS || '').trim();
+  const service = (process.env.NOREPLY_EMAIL_SERVICE || '').trim();
+
+  if (user && pass && (host || service)) {
+    const passClean = (service.toLowerCase() === 'gmail' || host.includes('gmail'))
+      ? pass.replace(/\s+/g, '')
+      : pass;
+    if (service.toLowerCase() === 'gmail') {
+      return nodemailer.createTransport({ service: 'gmail', auth: { user, pass: passClean } });
+    }
+    const isSecure = process.env.NOREPLY_SMTP_SECURE === 'true' || port === 465;
+    return nodemailer.createTransport({
+      host, port, secure: isSecure, auth: { user, pass: passClean },
+      tls: { rejectUnauthorized: false },
+    });
+  }
+
+  // Fall back to the main SMTP transporter
+  return getTransporter();
+}
+
+/**
  * Send a Welcome Email to a newly registered user.
- * Same dark SaveHatke branding as the OTP email, but celebratory.
+ * Sent only for first-time sign-ups (the auth code guards on isNewSignup
+ * before calling this). Uses the no-reply account by default so replies
+ * are routed to the support inbox via Reply-To.
  *
  * @param {string} to - Recipient email address
  * @param {string} userName - Display name to greet the user with
@@ -84,11 +120,22 @@ function escapeHtml(str) {
 async function sendWelcomeEmail(to, userName) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
-  const fromEmail = process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com';
-  const fromName = process.env.EMAIL_FROM_NAME || 'SaveHatke';
 
-  const t = getTransporter();
-  if (!t || !isEmailConfigured()) {
+  // No-reply "from" — separate config if the user has set it up,
+  // otherwise fall back to the main SMTP_USER.
+  const noreplyEmail = (process.env.NOREPLY_EMAIL
+    || (process.env.NOREPLY_SMTP_USER && `${process.env.NOREPLY_SMTP_USER}`)
+    || process.env.SMTP_USER
+    || process.env.EMAIL_USER
+    || 'noreply@savehatke.com').trim();
+  const noreplyName = (process.env.NOREPLY_NAME
+    || process.env.EMAIL_FROM_NAME
+    || 'SaveHatke').trim();
+  // Replies go to support (not the no-reply inbox)
+  const replyTo = process.env.SUPPORT_EMAIL || 'support@savehatke.com';
+
+  const t = getNoreplyTransporter();
+  if (!t) {
     console.warn(`⚠️ [EmailService] SMTP not configured. Welcome email for ${cleanEmail} was NOT sent.`);
     console.warn(`ℹ️ To send real emails, add SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS to your .env file.`);
     return {
@@ -103,29 +150,30 @@ async function sendWelcomeEmail(to, userName) {
   const currentYear = year === 2026 ? year : year;
 
   const textBody =
-`Welcome to SaveHatke! 🎉
+`# Welcome to SaveHatke! 🎉
 
-Hi ${safeName},
+Hi **${safeName}**,
 
-Welcome to SaveHatke — a simple and convenient platform to buy and sell unused coupons. 🛍️💰
+Welcome to **SaveHatke** — India's coupon marketplace! 🛍️💰
 
 We're excited to have you with us.
 
 With SaveHatke, you can:
 
-🏷️ Buy coupons at better prices
-💰 Sell coupons you don't need
-🔎 Discover available deals and discounts
-🔐 Trade through a simple and secure platform
+* 🏷️ **Buy premium coupons** at discounted prices
+* 💰 **Sell coupons** you don't need
+* 🔐 Find **verified coupons** from real users
+* 💸 Save more on your favourite brands and services
 
-Your account has been successfully created. You can now explore available coupons, find great savings, or list coupons you no longer need.
+Your account has been successfully created. You can now explore SaveHatke and start saving.
 
-Happy Saving! 💙
+**Happy Saving! 💙**
 
 If you need any help, our support team is always here for you.
 
 Regards,
-Team SaveHatke`;
+**Team SaveHatke**
+India's Coupon Marketplace`;
 
   const htmlContent = `
   <!DOCTYPE html>
@@ -139,16 +187,15 @@ Team SaveHatke`;
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#060d1f;padding:40px 15px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" style="max-width:560px;background:#0c1835;border:1px solid rgba(79,195,247,0.2);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);" cellspacing="0" cellpadding="0" border="0">
+          <table role="presentation" width="100%" style="max-width:580px;background:#0c1835;border:1px solid rgba(79,195,247,0.2);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);" cellspacing="0" cellpadding="0" border="0">
             <!-- Header / Hero -->
             <tr>
-              <td style="padding:36px 36px 24px;text-align:center;background:radial-gradient(ellipse at top, rgba(0,230,118,0.10) 0%, transparent 70%);">
+              <td style="padding:36px 36px 18px;text-align:center;background:radial-gradient(ellipse at top, rgba(0,230,118,0.10) 0%, transparent 70%);">
                 <div style="display:inline-block;padding:8px 16px;background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);border-radius:10px;margin-bottom:16px;">
-                  <span style="font-size:1.1rem;font-weight:900;color:#00e676;letter-spacing:0.5px;">💰 SaveHatke</span>
+                  <span style="font-size:1.05rem;font-weight:900;color:#00e676;letter-spacing:0.5px;">💰 SaveHatke</span>
                 </div>
-                <div style="font-size:2.6rem;line-height:1;margin-bottom:10px;">🎉</div>
-                <h1 style="margin:0;font-size:1.7rem;font-weight:800;color:#ffffff;line-height:1.3;">Welcome to SaveHatke!</h1>
-                <p style="margin:10px 0 0;font-size:0.95rem;color:#a8c0dc;">India's coupon marketplace — built around a simple idea.</p>
+                <div style="font-size:2.4rem;line-height:1;margin-bottom:8px;">🎉</div>
+                <h1 style="margin:0;font-size:1.6rem;font-weight:800;color:#ffffff;line-height:1.3;">Welcome to SaveHatke!</h1>
               </td>
             </tr>
 
@@ -156,8 +203,8 @@ Team SaveHatke`;
             <tr>
               <td style="padding:8px 36px 0;">
                 <p style="margin:0 0 14px;font-size:1rem;color:#e2ecff;line-height:1.6;">Hi <strong style="color:#00e676;">${safeName}</strong>,</p>
-                <p style="margin:0 0 18px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Welcome to SaveHatke — a simple and convenient platform to buy and sell unused coupons. 🛍️💰</p>
-                <p style="margin:0 0 22px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">We're excited to have you with us.</p>
+                <p style="margin:0 0 18px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Welcome to <strong style="color:#e2ecff;">SaveHatke</strong> — India's coupon marketplace! 🛍️💰</p>
+                <p style="margin:0 0 18px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">We're excited to have you with us.</p>
               </td>
             </tr>
 
@@ -167,11 +214,11 @@ Team SaveHatke`;
                 <p style="margin:0 0 12px;font-size:0.78rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4fc3f7;">With SaveHatke, you can:</p>
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(79,195,247,0.04);border:1px solid rgba(79,195,247,0.12);border-radius:12px;">
                   <tr>
-                    <td style="padding:18px 20px;">
-                      <p style="margin:0 0 10px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">🏷️ <strong>Buy coupons</strong> at better prices</p>
-                      <p style="margin:0 0 10px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">💰 <strong>Sell coupons</strong> you don't need</p>
-                      <p style="margin:0 0 10px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">🔎 <strong>Discover</strong> available deals and discounts</p>
-                      <p style="margin:0;font-size:0.95rem;color:#e2ecff;line-height:1.5;">🔐 <strong>Trade</strong> through a simple and secure platform</p>
+                    <td style="padding:16px 20px;">
+                      <p style="margin:0 0 8px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">🏷️ <strong>Buy premium coupons</strong> at discounted prices</p>
+                      <p style="margin:0 0 8px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">💰 <strong>Sell coupons</strong> you don't need</p>
+                      <p style="margin:0 0 8px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">🔐 Find <strong>verified coupons</strong> from real users</p>
+                      <p style="margin:0;font-size:0.95rem;color:#e2ecff;line-height:1.5;">💸 Save more on your favourite brands and services</p>
                     </td>
                   </tr>
                 </table>
@@ -181,7 +228,7 @@ Team SaveHatke`;
             <!-- Account ready -->
             <tr>
               <td style="padding:22px 36px 0;">
-                <p style="margin:0;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Your account has been successfully created. You can now explore available coupons, find great savings, or list coupons you no longer need.</p>
+                <p style="margin:0;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Your account has been successfully created. You can now explore SaveHatke and start saving.</p>
               </td>
             </tr>
 
@@ -206,7 +253,7 @@ Team SaveHatke`;
               <td style="padding:24px 36px 0;">
                 <p style="margin:0 0 6px;font-size:1rem;font-weight:700;color:#00e676;">Happy Saving! 💙</p>
                 <p style="margin:0 0 18px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">If you need any help, our support team is always here for you.</p>
-                <p style="margin:0;font-size:0.88rem;color:#8ba2c4;line-height:1.5;">Regards,<br><strong style="color:#e2ecff;">Team SaveHatke</strong></p>
+                <p style="margin:0;font-size:0.88rem;color:#8ba2c4;line-height:1.5;">Regards,<br><strong style="color:#e2ecff;">Team SaveHatke</strong><br><span style="color:#6b88aa;">India's Coupon Marketplace</span></p>
               </td>
             </tr>
 
@@ -214,7 +261,7 @@ Team SaveHatke`;
             <tr>
               <td style="padding:28px 36px 22px;background:rgba(6,13,31,0.6);border-top:1px solid rgba(79,195,247,0.1);text-align:center;">
                 <p style="margin:0 0 4px;font-size:0.78rem;color:#5a789a;">© ${currentYear} SaveHatke — India's Smartest Price Tracker &amp; Coupon Marketplace.</p>
-                <p style="margin:0;font-size:0.72rem;color:#4a6890;">You're receiving this because you just created a SaveHatke account.</p>
+                <p style="margin:0;font-size:0.72rem;color:#4a6890;">This is a one-time welcome message sent to ${safeName}. Replies are not monitored — please reach support@savehatke.com for help.</p>
               </td>
             </tr>
           </table>
@@ -227,18 +274,19 @@ Team SaveHatke`;
 
   try {
     const info = await t.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
+      from: `"${noreplyName}" <${noreplyEmail}>`,
       to: cleanEmail,
-      replyTo: process.env.SUPPORT_EMAIL || 'support@savehatke.com',
+      replyTo,
       subject,
       text: textBody,
       html: htmlContent,
       headers: {
         'X-Entity-Ref-ID': `welcome-${Date.now()}`,
+        'Auto-Submitted': 'auto-generated',
       },
     });
 
-    console.log(`✅ [EmailService] Welcome email sent to ${cleanEmail} (Message ID: ${info.messageId})`);
+    console.log(`✅ [EmailService] Welcome email sent to ${cleanEmail} from ${noreplyEmail} (Message ID: ${info.messageId})`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
     console.error(`❌ [EmailService] Failed to send welcome email to ${cleanEmail}:`, err.message);
