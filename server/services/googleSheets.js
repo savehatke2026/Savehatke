@@ -107,7 +107,7 @@ const HEADERS = {
   ],
   [SHEETS.SUPPORT_TICKETS]: [
     'id', 'name', 'userEmail', 'subject', 'message',
-    'status', 'createdAt', 'resolvedAt', 'attachmentUrl', 'attachmentName',
+    'status', 'createdAt', 'resolvedAt', 'resolution', 'attachmentUrl', 'attachmentName',
   ],
   [SHEETS.SETTINGS]: [
     'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'heroBadge', 'showHeroBadge', 'updatedAt',

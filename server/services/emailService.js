@@ -860,10 +860,426 @@ Regards,
   }
 }
 
+/**
+ * Send the "Your support case has been resolved ✅" email when an admin
+ * clicks Mark Resolved in the admin support-cases page.
+ *
+ * @param {object} params
+ * @param {string} params.to - User's email address
+ * @param {string} params.userName - User's display name
+ * @param {string} params.caseId - Support case / ticket ID
+ * @param {string} params.subject - Ticket subject
+ * @param {string} params.resolvedAt - ISO resolution timestamp
+ * @param {string} params.userMessage - The user's original submitted message
+ * @param {string} params.resolution - Admin-typed resolution message
+ * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
+ */
+async function sendSupportResolvedEmail({ to, userName, caseId, subject, resolvedAt, userMessage, resolution }) {
+  const cleanEmail = String(to || '').toLowerCase().trim();
+  const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
+  const safeCaseId = escapeHtml(caseId);
+  const safeSubject = escapeHtml(subject);
+  const safeUserMessage = escapeHtml(userMessage);
+  const safeResolution = escapeHtml(resolution && String(resolution).trim() ? resolution.trim() : 'Your case has been marked as resolved by the SaveHatke Support team.');
+
+  const resolvedDate = resolvedAt
+    ? new Date(resolvedAt).toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+      })
+    : '—';
+
+  const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
+  const supportPass = (process.env.SUPPORT_EMAIL_PASSWORD || '').trim();
+  const hasDedicatedSupport = Boolean(supportFrom && supportPass);
+  // CRITICAL: when we fall back to the main SMTP account, the from address MUST
+  // match the authenticated user. Otherwise Gmail / strict SMTP servers reject
+  // the send as a forgery attempt. Only use SUPPORT_EMAIL as the from when we
+  // also have a password for it (i.e. we're authenticated as that user).
+  const fromEmail = hasDedicatedSupport
+    ? supportFrom
+    : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
+  const fromName = (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim();
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const viewUrl = `${siteUrl}/support.html`;
+  const year = new Date().getFullYear();
+
+  const t = getSupportTransporter();
+  if (!t || !isSupportEmailConfigured()) {
+    console.warn(`⚠️ [EmailService] Support email not configured. Resolution notice for case ${safeCaseId} was NOT sent.`);
+    console.warn(`ℹ️ Add SUPPORT_EMAIL + SUPPORT_EMAIL_PASSWORD (or SMTP_USER/SMTP_PASS) to your .env file.`);
+    return {
+      success: false,
+      isSimulated: true,
+      error: 'Support email credentials not configured on server. Please add support email details to .env.',
+    };
+  }
+
+  const subject_ = `SaveHatke Support — Your case #${safeCaseId} has been resolved ✅`;
+
+  const textBody =
+`SaveHatke Support
+
+Your support case has been resolved ✅
+
+Hello ${userName ? String(userName).trim() : 'there'},
+
+We're writing to let you know that your support request has been resolved.
+
+Case ID: #${caseId}
+Subject: ${subject}
+Resolved: ${resolvedDate}
+Status: Resolved
+
+Your Message
+
+${userMessage}
+
+Resolution
+
+${resolution && String(resolution).trim() ? resolution : 'Your case has been marked as resolved by the SaveHatke Support team.'}
+
+We hope your issue has been resolved successfully. If you're still experiencing the same problem or need further assistance, you can reopen this case or contact our support team again.
+
+View Case Details: ${viewUrl}
+
+Thank you for contacting SaveHatke Support.
+
+Regards,
+SaveHatke Support Team
+
+© ${year} SaveHatke. All rights reserved.`;
+
+  const htmlContent = `
+  <!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
+    <title>Support Case Resolved — SaveHatke</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html { scroll-behavior: smooth; }
+      body {
+        font-family: 'Outfit', sans-serif;
+        background: #f4f5f7;
+        color: #0f1e3a;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 48px 16px 64px;
+        line-height: 1.65;
+      }
+
+      .email-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 620px;
+      }
+
+      /* Top brand bar */
+      .email-header {
+        text-align: center;
+        margin-bottom: 28px;
+      }
+      .brand-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        text-decoration: none;
+        color: #0f1e3a;
+        font-size: 1.3rem;
+        font-weight: 800;
+      }
+      .brand-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        background: linear-gradient(135deg, #00e676, #4fc3f7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+      }
+      .bhl { color: #00c853; }
+
+      /* Main email card — fully white */
+      .email-card {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        overflow: hidden;
+        box-shadow: 0 8px 28px rgba(15, 30, 58, 0.08);
+      }
+
+      .email-body { padding: 36px 40px; }
+
+      .email-title {
+        font-family: 'DM Serif Display', serif;
+        font-size: 1.65rem;
+        font-weight: 400;
+        line-height: 1.25;
+        color: #0f1e3a;
+        margin-bottom: 6px;
+      }
+      .email-subtitle {
+        font-size: 1.1rem;
+        font-weight: 700;
+        line-height: 1.45;
+        color: #0f1e3a;
+        margin-bottom: 28px;
+        padding-bottom: 22px;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .line {
+        font-size: 0.95rem;
+        color: #374151;
+        line-height: 1.75;
+        margin-bottom: 18px;
+      }
+      .line strong { color: #0f1e3a; font-weight: 700; }
+      .mono { font-family: 'JetBrains Mono', monospace; }
+
+      .case-list {
+        list-style: none;
+        padding: 14px 20px;
+        margin: 0 0 24px;
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+      }
+      .case-list li {
+        font-size: 0.95rem;
+        color: #374151;
+        line-height: 1.7;
+        padding: 4px 0;
+      }
+      .case-list li strong { color: #000000; font-weight: 800; }
+
+      .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: #dcfce7;
+        color: #166534;
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        padding: 3px 10px;
+        border-radius: 9999px;
+        border: 1px solid #bbf7d0;
+        margin-left: 4px;
+        vertical-align: middle;
+      }
+
+      .section-h {
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #6b7280;
+        margin: 24px 0 10px;
+      }
+      .msg-box, .resolution-box {
+        background: #f9fafb;
+        border: 1px solid #e5e7eb;
+        border-radius: 0 12px 12px 0;
+        padding: 18px 20px;
+        font-size: 0.92rem;
+        color: #374151;
+        line-height: 1.75;
+        margin: 0 0 24px;
+        word-break: break-word;
+        white-space: pre-wrap;
+      }
+      .msg-box { border-left: 3px solid #00c853; }
+      .resolution-box { border-left: 3px solid #0ea5e9; }
+
+      /* CTA Button — website green */
+      .cta-wrap {
+        text-align: center;
+        margin: 28px 0 24px;
+      }
+      .cta-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 0 40px;
+        height: 52px;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #00e676, #00c853);
+        color: #0f1e3a;
+        font-family: 'Outfit', sans-serif;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.01em;
+        text-decoration: none;
+        box-shadow: 0 10px 24px rgba(0, 200, 83, 0.35);
+      }
+
+      .signoff {
+        font-size: 0.92rem;
+        color: #374151;
+        line-height: 1.75;
+        margin-top: 24px;
+        padding-top: 22px;
+        border-top: 1px solid #e5e7eb;
+      }
+      .signoff strong { color: #0f1e3a; font-weight: 700; }
+
+      .email-footer {
+        background: #f9fafb;
+        border-top: 1px solid #e5e7eb;
+        padding: 22px 40px;
+        text-align: center;
+      }
+      .footer-copy {
+        font-size: 0.78rem;
+        color: #6b7280;
+      }
+
+      @media (max-width: 600px) {
+        body { padding: 28px 12px 48px; }
+        .email-body { padding: 28px 24px; }
+        .email-footer { padding: 20px 24px; }
+      }
+    </style>
+  </head>
+  <body>
+
+  <!-- Preheader (hidden inbox preview line) -->
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your SaveHatke support case #${safeCaseId} has been resolved.</div>
+
+  <div class="email-wrapper">
+
+    <!-- Brand Header -->
+    <div class="email-header">
+      <a href="${siteUrl}/index.html" class="brand-link">
+        <div class="brand-icon">💰</div>
+        <span>Save<span class="bhl">Hatke</span></span>
+      </a>
+    </div>
+
+    <!-- Email Card -->
+    <div class="email-card">
+
+      <div class="email-body">
+
+        <h1 class="email-title">SaveHatke Support</h1>
+        <h2 class="email-subtitle">Your support case has been resolved ✅</h2>
+
+        <p class="line">Hello <strong>${safeName}</strong>,</p>
+
+        <p class="line">We're writing to let you know that your support request has been resolved.</p>
+
+        <ul class="case-list">
+          <li><strong>Case ID:</strong> <span class="mono">#${safeCaseId}</span></li>
+          <li><strong>Subject:</strong> ${safeSubject}</li>
+          <li><strong>Resolved:</strong> <span class="mono">${escapeHtml(resolvedDate)} IST</span></li>
+          <li><strong>Status:</strong> <span class="status-pill">✅ Resolved</span></li>
+        </ul>
+
+        <h3 class="section-h">Your Message</h3>
+        <div class="msg-box">${safeUserMessage}</div>
+
+        <h3 class="section-h">Resolution</h3>
+        <div class="resolution-box">${safeResolution}</div>
+
+        <p class="line">We hope your issue has been resolved successfully. If you're still experiencing the same problem or need further assistance, you can reopen this case or contact our support team again.</p>
+
+        <div class="cta-wrap">
+          <a href="${viewUrl}" class="cta-btn">View Case Details</a>
+        </div>
+
+        <p class="line">Thank you for contacting SaveHatke Support.</p>
+
+        <div class="signoff">
+          Regards,<br>
+          <strong>SaveHatke Support Team</strong>
+        </div>
+
+      </div>
+
+      <!-- Footer -->
+      <div class="email-footer">
+        <div class="footer-copy">© ${year} SaveHatke. All rights reserved.</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  </body>
+  </html>
+  `;
+
+  // ── Deliverability headers (same as sendSupportAckEmail) ────────────
+  const fqdn = (() => {
+    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
+    catch { return 'savehatke.com'; }
+  })();
+  const emailHash = crypto.createHash('sha256').update(cleanEmail).digest('hex').slice(0, 16);
+  const unsubscribeMailto = `unsubscribe+${emailHash}@${fqdn}`;
+  const unsubscribeUrl = `${siteUrl}/unsubscribe?c=${emailHash}&case=${encodeURIComponent(safeCaseId)}`;
+
+  const headers = {
+    'X-Entity-Ref-ID': `support-resolved-${safeCaseId}`,
+    'Auto-Submitted': 'auto-generated',
+    'X-Mailer': 'SaveHatke Support',
+    'X-Priority': '3',
+    'Importance': 'Normal',
+    'List-Unsubscribe': `<mailto:${unsubscribeMailto}>, <${unsubscribeUrl}>`,
+    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
+  };
+
+  const mailOptions = {
+    from: `"${fromName}" <${fromEmail}>`,
+    to: cleanEmail,
+    replyTo: supportFrom || undefined,
+    subject: subject_,
+    text: textBody,
+    html: htmlContent,
+    envelope: { from: fromEmail, to: cleanEmail },
+    messageId: `<support-resolved-${safeCaseId}-${Date.now()}@${fqdn}>`,
+    headers,
+  };
+
+  if (
+    process.env.DKIM_DOMAIN &&
+    process.env.DKIM_SELECTOR &&
+    process.env.DKIM_PRIVATE_KEY
+  ) {
+    mailOptions.dkim = {
+      domainName: process.env.DKIM_DOMAIN.trim(),
+      keySelector: process.env.DKIM_SELECTOR.trim(),
+      privateKey: process.env.DKIM_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    };
+  }
+
+  try {
+    const info = await t.sendMail(mailOptions);
+    console.log(`✅ [EmailService] Support resolution notice sent to ${cleanEmail} for case #${safeCaseId} (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send support resolution notice to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendOTPEmail,
   sendWelcomeEmail,
   sendSupportAckEmail,
+  sendSupportResolvedEmail,
   isEmailConfigured,
   isSupportEmailConfigured,
 };

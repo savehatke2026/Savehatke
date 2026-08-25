@@ -122,6 +122,7 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       status: 'open',
       createdAt: new Date().toISOString(),
       resolvedAt: '',
+      resolution: '',
       attachmentUrl: safeAttachmentUrl,
       attachmentName: attachmentName ? String(attachmentName).slice(0, 120) : '',
     };

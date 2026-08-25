@@ -2361,6 +2361,47 @@ tbody td strong{color:#e2ecff;font-weight:600}
   </div>
 </div>
 
+<!-- ── MODAL: RESOLVE CASE (asks for the resolution message that goes to the user) ── -->
+<div class="modal-overlay" id="resolveCaseModal">
+  <div class="modal" style="max-width:640px">
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title">✅ Resolve Case <span class="gtext" id="rcmCaseLabel">—</span></div>
+        <div style="font-size:.78rem;color:#6b88aa;margin-top:4px" id="rcmSubject">—</div>
+      </div>
+      <button class="modal-close" onclick="closeResolveModal()">✕</button>
+    </div>
+
+    <div style="font-size:.85rem;color:#a8c0dc;line-height:1.65;margin-bottom:14px">
+      The user will be emailed a <strong style="color:#e2ecff">"Your case has been resolved"</strong> notice
+      containing this message in the <strong style="color:#e2ecff">Resolution</strong> block.
+      If you leave the box empty, a generic default will be sent instead.
+    </div>
+
+    <div class="form-group" style="margin:0 0 14px">
+      <label class="form-label" for="rcmResolution">
+        Resolution message <span style="color:#6b88aa;font-weight:500;font-size:.78rem">(sent to the user)</span>
+      </label>
+      <textarea
+        class="form-textarea"
+        id="rcmResolution"
+        rows="7"
+        maxlength="4000"
+        placeholder="Example: We reset your account password and removed the stuck session. Please try logging in again with the new password we sent to your email. Let us know if the issue persists."
+      ></textarea>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;font-size:.72rem;color:#6b88aa">
+        <span>Be specific and friendly. Plain text only — no markdown.</span>
+        <span><span id="rcmCharCount">0</span> / 4000</span>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeResolveModal()">Cancel</button>
+      <button class="btn btn-success" id="rcmConfirmBtn" onclick="confirmResolve()">✅ Send &amp; Resolve</button>
+    </div>
+  </div>
+</div>
+
 <!-- ── MODAL: CHATBOT KNOWLEDGE ADD/EDIT ── -->
 <div class="modal-overlay" id="cbKnowledgeModal">
   <div class="modal">
@@ -3361,6 +3402,15 @@ function viewCase(id) {
       <div class="msg-meta">${esc(c.user)} · ${fmtDT(c.createdAt)}</div>
       <div class="msg-bubble msg-user">${esc(c.message || '(no message)')}</div>
     </div>
+    ${c.resolution ? `
+      <div style="margin-top:14px">
+        <div class="msg-meta" style="color:#00e676">✅ Support · ${fmtDT(c.resolvedAt || c.createdAt)}</div>
+        <div class="msg-bubble msg-admin" style="border-color:rgba(0,200,83,.35)">
+          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#00c853;margin-bottom:6px">Resolution sent to user</div>
+          ${esc(c.resolution)}
+        </div>
+      </div>
+    ` : ''}
   `;
 
   openModal('viewCaseModal');
@@ -3368,20 +3418,92 @@ function viewCase(id) {
 
 async function changeStatus(newStatus) {
   if (!currentViewId) return;
+  if (newStatus === 'resolved') {
+    // Open the dedicated modal so the admin can type the resolution
+    // message that gets emailed to the user. The actual API call happens
+    // when they click "Send & Resolve" inside the modal.
+    openResolveModal(currentViewId, /* fromView */ true);
+    return;
+  }
   await updateCaseStatus(currentViewId, newStatus);
   closeModal('viewCaseModal');
 }
 
 async function quickStatus(id, newStatus) {
+  if (newStatus === 'resolved') {
+    openResolveModal(id, /* fromView */ false);
+    return;
+  }
   await updateCaseStatus(id, newStatus);
 }
 
-async function updateCaseStatus(id, newStatus) {
+// ── Resolve-case modal ───────────────────────────────────────────────
+let _resolveTargetId = null;
+let _resolveFromView = false;
+
+function openResolveModal(id, fromView) {
+  const c = cases.find(x => x.id === id);
+  if (!c) return;
+  _resolveTargetId = id;
+  _resolveFromView = !!fromView;
+
+  const labelEl = document.getElementById('rcmCaseLabel');
+  const subjEl  = document.getElementById('rcmSubject');
+  const taEl    = document.getElementById('rcmResolution');
+  if (labelEl) labelEl.textContent = shortId(c.id);
+  if (subjEl)  subjEl.textContent  = c.subject || '—';
+  if (taEl)    taEl.value          = c.resolution || '';
+
+  updateRcmCharCount();
+  openModal('resolveCaseModal');
+
+  // Focus the textarea once the modal animation finishes
+  setTimeout(() => { if (taEl) taEl.focus(); }, 60);
+}
+
+function closeResolveModal() {
+  closeModal('resolveCaseModal');
+  _resolveTargetId = null;
+  _resolveFromView = false;
+}
+
+function updateRcmCharCount() {
+  const ta = document.getElementById('rcmResolution');
+  const cc = document.getElementById('rcmCharCount');
+  if (ta && cc) cc.textContent = String(ta.value.length);
+}
+
+async function confirmResolve() {
+  if (!_resolveTargetId) return;
+  const ta = document.getElementById('rcmResolution');
+  const btn = document.getElementById('rcmConfirmBtn');
+  const resolution = (ta && ta.value ? ta.value : '').trim();
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
   try {
+    await updateCaseStatus(_resolveTargetId, 'resolved', { resolution });
+    showToast(`Case ${shortId(_resolveTargetId)} resolved & user notified`, 'success');
+    closeResolveModal();
+    if (_resolveFromView) closeModal('viewCaseModal');
+  } catch (err) {
+    showToast(err.message || 'Failed to resolve case.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✅ Send & Resolve'; }
+  }
+}
+
+// Wire the live char counter as soon as the modal is in the DOM
+document.addEventListener('input', (e) => {
+  if (e.target && e.target.id === 'rcmResolution') updateRcmCharCount();
+});
+
+async function updateCaseStatus(id, newStatus, extra) {
+  try {
+    const body = Object.assign({ status: newStatus }, extra || {});
     await api(`/admin/support-cases/${encodeURIComponent(id)}/status`, {
       method: 'PUT',
       useAdmin: true,
-      body: { status: newStatus },
+      body,
     });
     showToast(`Case ${shortId(id)} → ${newStatus}`, 'success');
     await loadSupportCases();
@@ -3442,9 +3564,14 @@ function renderRecentActivity() {
 }
 
 // Close support modal on overlay click
-['viewCaseModal'].forEach(id => {
+['viewCaseModal', 'resolveCaseModal'].forEach(id => {
   const ov = document.getElementById(id);
-  if (ov) ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('open'); });
+  if (ov) ov.addEventListener('click', e => {
+    if (e.target === ov) {
+      if (id === 'resolveCaseModal') closeResolveModal();
+      else ov.classList.remove('open');
+    }
+  });
 });
 
 function renderAll() {

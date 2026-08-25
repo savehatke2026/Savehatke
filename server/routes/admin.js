@@ -10,6 +10,7 @@ const { authenticateToken, requireAdmin, generateToken } = require('../middlewar
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -963,6 +964,7 @@ router.get('/support-cases', authenticateToken, requireAdmin, async (req, res) =
       status: normStatus(t.status),
       createdAt: t.createdAt || '',
       resolvedAt: t.resolvedAt || '',
+      resolution: t.resolution || '',
       attachmentUrl: t.attachmentUrl || '',
       attachmentName: t.attachmentName || '',
     })).sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)));
@@ -980,7 +982,7 @@ router.get('/support-cases', authenticateToken, requireAdmin, async (req, res) =
 // PUT /api/admin/support-cases/:id/status — Move a ticket between statuses in the sheet
 router.put('/support-cases/:id/status', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { status } = req.body;
+    const { status, resolution } = req.body;
     const id = req.params.id;
     if (!id || !['open', 'inprogress', 'resolved', 'closed'].includes(status)) {
       return res.status(400).json({ error: 'A status of open/inprogress/resolved/closed is required.' });
@@ -989,9 +991,46 @@ router.put('/support-cases/:id/status', authenticateToken, requireAdmin, async (
     const existing = await db.findRow(db.SHEETS.SUPPORT_TICKETS, 'id', id);
     if (!existing) return res.status(404).json({ error: 'Support case not found.' });
 
+    const wasResolved = existing.status === 'resolved';
     const now = new Date().toISOString();
     const resolvedAt = (status === 'resolved' || status === 'closed') ? (existing.resolvedAt || now) : '';
-    await db.updateRow(db.SHEETS.SUPPORT_TICKETS, 'id', id, { status, resolvedAt });
+
+    // Persist the admin's resolution message when transitioning into "resolved".
+    // Don't overwrite an existing one on subsequent status flips (e.g. reopen -> resolved).
+    const cleanResolution = resolution && String(resolution).trim()
+      ? String(resolution).trim().slice(0, 4000)
+      : (existing.resolution || '');
+    const update = { status, resolvedAt };
+    if (status === 'resolved' && cleanResolution) update.resolution = cleanResolution;
+
+    await db.updateRow(db.SHEETS.SUPPORT_TICKETS, 'id', id, update);
+
+    // Fire the "Your case has been resolved ✅" email to the user — only on the
+    // first transition into "resolved" (not on later flips). Fire-and-forget so
+    // a SMTP hiccup never blocks the admin UI.
+    if (status === 'resolved' && !wasResolved && existing.userEmail) {
+      emailService.sendSupportResolvedEmail({
+        to: existing.userEmail,
+        userName: existing.name || '',
+        caseId: existing.id,
+        subject: existing.subject || '',
+        resolvedAt: resolvedAt || now,
+        userMessage: existing.message || '',
+        resolution: cleanResolution || '',
+      })
+        .then((r) => {
+          if (r && r.success) {
+            console.log(`📧 [Admin] Resolution email sent for case #${existing.id} → ${existing.userEmail}`);
+          } else if (r && r.isSimulated) {
+            console.warn(`📧 [Admin] Resolution email NOT sent for case #${existing.id} → ${existing.userEmail}`);
+            console.warn(`   Reason: ${r.error || 'SMTP not configured'}`);
+          } else {
+            console.warn(`📧 [Admin] Resolution email FAILED for case #${existing.id} → ${existing.userEmail}: ${(r && r.error) || 'unknown'}`);
+          }
+        })
+        .catch((e) => console.warn('📧 [Admin] Resolution email unexpected error:', e && e.message ? e.message : e));
+    }
+
     res.json({ message: `Case moved to ${status}.`, status, resolvedAt });
   } catch (err) {
     console.error('Admin support case status error:', err);
