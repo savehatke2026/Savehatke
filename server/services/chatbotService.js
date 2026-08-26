@@ -745,7 +745,7 @@ async function handleMessage({ message, conversationId, user, ip }) {
 
     if (!result.ok) {
       const errorType = result.error || 'api_error';
-      const fallback = errorType === 'timeout' ? 'The response took too long. Please try again in a moment.' : settings.fallbackMessage;
+      const fallback = errorType === 'timeout' ? 'The connection timed out. This sometimes happens during peak hours — please try again.' : settings.fallbackMessage;
       await addMessage(conv.id, 'assistant', fallback, { model: settings.model, status: 'error', responseTimeMs: Date.now() - started });
       await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conv.id, model: settings.model, responseTimeMs: Date.now() - started, status: 'error', errorType });
       return { ok: true, reply: fallback, conversationId: conv.id, requestId };

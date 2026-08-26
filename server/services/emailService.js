@@ -862,6 +862,14 @@ Regards,
     'Importance': 'Normal',
   };
 
+  // Message-ID domain — derive from the site URL so it aligns with the
+  // sending domain (helps DMARC/spam scoring). Must be defined here; it is
+  // not shared from other functions.
+  const fqdn = (() => {
+    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
+    catch { return 'savehatke.com'; }
+  })();
+
   const mailOptions = {
     from: `"${fromName}" <${fromEmail}>`,
     to: cleanEmail,
@@ -1273,6 +1281,14 @@ SaveHatke Support Team
     'X-Mailer': 'SaveHatke Support',
     'Importance': 'Normal',
   };
+
+  // Message-ID domain — derive from the site URL so it aligns with the
+  // sending domain (helps DMARC/spam scoring). Must be defined here; it is
+  // not shared from other functions.
+  const fqdn = (() => {
+    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
+    catch { return 'savehatke.com'; }
+  })();
 
   const mailOptions = {
     from: `"${fromName}" <${fromEmail}>`,

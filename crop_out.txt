@@ -1,0 +1,4 @@
+﻿IMG W=2065 H=761
+ICON L=134 R=1963 T=143 B=590
+CROP L=116 T=125 W=1866 H=484
+SAVED C:\Users\Rupayan\Desktop\SaveHatke\public\logo-s.png

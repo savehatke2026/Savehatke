@@ -485,7 +485,7 @@
     const QUICK_ACTIONS = [
       { label: '🔎 Find a Coupon',       text: 'How do I find a coupon on SaveHatke?' },
       { label: '🎟️ Sell a Coupon',       text: 'How can I sell a coupon on SaveHatke?' },
-      { label: '💰 How Earnings Work',   text: 'How do earnings work on SaveHatke?' },
+      { label: '💰 Check My Earnings',   text: 'How do earnings work on SaveHatke?' },
       { label: '❓ How SaveHatke Works', text: 'How does SaveHatke work?' },
       { label: '🛡️ Security & Privacy',  text: 'What are SaveHatke\'s security and privacy practices?' },
       { label: '📞 Contact Support',     text: 'How can I contact SaveHatke support?' },
@@ -600,7 +600,7 @@
       inner.style.cssText = 'display:flex;flex-direction:column;gap:10px;max-width:100%';
 
       const welcomeText = (chatConfig && chatConfig.welcomeMessage) ||
-        "👋 Hi! I'm the SaveHatke AI Assistant.\n\nI can help you with coupons, selling coupons, earnings, your account, and how SaveHatke works.";
+        "Hey! I'm your SaveHatke AI Assistant. How can I help you save smarter today? Ask me about coupons, payments, your account, or anything SaveHatke.";
 
       const msgDiv = document.createElement('div');
       msgDiv.className = 'cb-bubble';

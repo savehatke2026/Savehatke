@@ -1,0 +1,8 @@
+corner           A=  3 RGB=(  0,  0,  0) bri=0 sat=0
+smoke-top        A= 48 RGB=(  5, 10, 26) bri=0.1 sat=0.81
+smoke-left       A=172 RGB=( 13, 23, 16) bri=0.09 sat=0.43
+smoke-botright   A=108 RGB=(  0,  7, 30) bri=0.12 sat=1
+icon-green       A=251 RGB=(166,247, 22) bri=0.97 sat=0.91
+icon-blue        A=249 RGB=(  0,  6, 25) bri=0.1 sat=1
+tag-ring-white   A=250 RGB=(  0, 18, 56) bri=0.22 sat=1
+green-speedline  A=243 RGB=( 11, 24, 22) bri=0.09 sat=0.54

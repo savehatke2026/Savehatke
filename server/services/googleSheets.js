@@ -29,10 +29,10 @@ const SHEETS = {
 // Column headers for each sheet (used for initialization and row mapping)
 const HEADERS = {
   [SHEETS.USERS]: [
-    'user_id',
-    'email',
+    'user_ID',
     'name',
     'username',
+    'email',
     'status',
     'created_at',
     'updated_at',
@@ -322,9 +322,8 @@ async function ensureSheets() {
             spreadsheetId,
             range: `${sheetName}!1:1`,
           });
-          const current = ((hdrRes.data.values && hdrRes.data.values[0]) || [])
-            .map((h) => String(h).trim());
-          const missing = headers.filter((h) => !current.includes(h));
+          const currentNorm = current.map((c) => normKey(c));
+          const missing = headers.filter((h) => !currentNorm.includes(normKey(h)));
           if (missing.length) {
             const startCol = columnToLetter(current.length + 1);
             await sheetsClient.spreadsheets.values.update({
@@ -430,8 +429,9 @@ async function getRows(sheetName) {
               break;
             }
           }
-          if (!resolvedUserId) resolvedUserId = obj.user_id || obj.userId || obj.userid || obj.id || obj.uuid || '';
+          if (!resolvedUserId) resolvedUserId = obj.user_ID || obj.user_id || obj.userId || obj.userid || obj.id || obj.uuid || '';
           obj.id = resolvedUserId;
+          obj.user_ID = resolvedUserId;
           obj.user_id = resolvedUserId;
           obj.createdAt = obj.created_at || obj.createdAt || '';
           obj.created_at = obj.created_at || obj.createdAt || '';

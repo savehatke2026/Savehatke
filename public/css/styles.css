@@ -1298,34 +1298,34 @@ button, input, select, textarea { font-family: inherit; }
 .footer {
   background: rgba(5,10,20,0.9);
   border-top: 1px solid rgba(255,255,255,0.06);
-  padding: 64px 0 32px;
+  padding: 36px 0 16px;
 }
 .footer-grid {
   display: grid;
   grid-template-columns: 2fr 1fr 1fr 1fr;
-  gap: 48px;
-  margin-bottom: 48px;
+  gap: 32px;
+  margin-bottom: 24px;
 }
 .footer-brand p {
-  font-size: 0.875rem;
+  font-size: 0.84rem;
   color: var(--slate-500);
-  line-height: 1.7;
-  margin-top: 16px;
-  max-width: 280px;
+  line-height: 1.6;
+  margin-top: 12px;
+  max-width: 320px;
 }
 .footer-col h4 {
-  font-size: 0.875rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: var(--white);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
 .footer-col a {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.84rem;
   color: var(--slate-500);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   transition: var(--transition);
 }
 .footer-col a:hover { color: var(--slate-200); padding-left: 4px; }
@@ -1333,9 +1333,9 @@ button, input, select, textarea { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-top: 32px;
+  padding-top: 14px;
   border-top: 1px solid rgba(255,255,255,0.06);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   color: var(--slate-600);
 }
 

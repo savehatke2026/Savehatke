@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
@@ -426,6 +426,7 @@ router.post('/verify-otp', async (req, res) => {
         // New user - create account
         const userId = uuidv4();
         sheetUser = {
+          user_ID: userId,
           user_id: userId,
           id: userId,
           name: cleanEmail.split('@')[0],
@@ -524,6 +525,7 @@ router.post('/register', async (req, res) => {
     const userId = uuidv4();
 
     const sheetUser = {
+      user_ID: userId,
       user_id: userId,
       id: userId,
       name: cleanName,
@@ -738,6 +740,7 @@ router.post('/login', async (req, res) => {
     const now = new Date().toISOString();
 
     sheetUser = {
+      user_ID: newUserId,
       user_id: newUserId,
       id: newUserId,
       name: displayName,
@@ -965,6 +968,7 @@ router.post('/google-redirect', async (req, res) => {
       } else {
         const userId = uuidv4();
         sheetUser = {
+          user_ID: userId,
           user_id: userId,
           id: userId,
           name: userName,
@@ -1107,6 +1111,7 @@ router.post('/google', async (req, res) => {
       } else {
         const userId = uuidv4();
         sheetUser = {
+          user_ID: userId,
           user_id: userId,
           id: userId,
           name: userName,
