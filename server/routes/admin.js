@@ -390,6 +390,7 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       isExclusive,
       isVerified,
       onSale,
+      timerOn,
     } = req.body;
 
     if (!code || !brand) {
@@ -438,9 +439,10 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       status: status ? status.toLowerCase() : 'available',
       source: source ? source.toLowerCase().replace(/\s+/g, '-') : 'admin',
       // Only sent when the caller explicitly asks for a state. Left out otherwise
-      // so `coupons.on_sale DEFAULT TRUE` decides — which also keeps inserts
-      // working before server/setup_coupon_sale_timer.sql has been applied.
+      // so the `DEFAULT TRUE` on on_sale / timer_on decides — which also keeps
+      // inserts working before server/setup_coupon_sale_timer.sql is applied.
       ...(onSale !== undefined ? { onSale: Boolean(onSale !== false && onSale !== 'false') } : {}),
+      ...(timerOn !== undefined ? { timerOn: Boolean(timerOn !== false && timerOn !== 'false') } : {}),
       addedAt: new Date().toISOString(),
       soldAt: '',
       buyerEmail: '',

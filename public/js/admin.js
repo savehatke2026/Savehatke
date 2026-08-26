@@ -300,8 +300,8 @@ async function loadInventory() {
             <colgroup>
               <col style="width:190px"><col style="width:150px"><col style="width:120px">
               <col style="width:88px"><col style="width:92px"><col style="width:70px">
-              <col style="width:206px"><col style="width:116px"><col style="width:104px">
-              <col style="width:110px">
+              <col style="width:70px"><col style="width:206px"><col style="width:116px">
+              <col style="width:104px"><col style="width:110px">
             </colgroup>
             <thead>
               <tr>
@@ -311,6 +311,7 @@ async function loadInventory() {
                 <th>Value</th>
                 <th>Price</th>
                 <th title="Show the 🔥 Sale badge on the marketplace card">Sale</th>
+                <th title="Show the expiry countdown on the marketplace card. Turning it off keeps the date — it just stops counting down.">Timer</th>
                 <th title="When this coupon expires — drives the countdown on the marketplace card">Expires</th>
                 <th>Source</th>
                 <th>Status</th>
@@ -351,7 +352,7 @@ async function loadInventory() {
   }
 }
 
-/** One inventory row: brand logo, inline sale switch, inline expiry timer. */
+/** One inventory row: brand logo, inline sale + timer switches, inline expiry. */
 function invRowHtml(c) {
   const id = escHtml(c.id || '');
   const brand = c.brand || '';
@@ -360,6 +361,7 @@ function invRowHtml(c) {
   const logoUrl = getBrandLogo(brand);
   const initial = escHtml(getBrandInitial(brand));
   const onSale = c.onSale !== false;
+  const timerOn = c.timerOn !== false;
   const timerValue = escHtml(toTimerInputValue(c.expiryDate));
 
   return `
@@ -386,10 +388,17 @@ function invRowHtml(c) {
         </label>
       </td>
       <td>
-        <input class="inv-timer" type="datetime-local" value="${timerValue}" data-prev-value="${timerValue}"
-               title="Set when this coupon expires — clear the field to remove the timer"
+        <label class="toggle" title="${timerOn ? 'Timer is ON — turn it off to hide the countdown (the date is kept)' : 'Timer is OFF — turn it on to show the countdown again'}">
+          <input type="checkbox" ${timerOn ? 'checked' : ''} onchange="setCouponTimer('${id}', this.checked, this)">
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>
+        <input class="inv-timer${timerOn ? '' : ' inv-timer-off'}" type="datetime-local" value="${timerValue}" data-prev-value="${timerValue}"
+               title="${timerOn ? 'Set when this coupon expires — clear the field to remove the timer' : 'Turn the Timer switch on to edit this'}"
+               ${timerOn ? '' : 'disabled'}
                onchange="setCouponExpiry('${id}', this.value, this)">
-        ${invExpiryChip(c.expiryDate)}
+        ${invExpiryChip(c.expiryDate, timerOn)}
       </td>
       <td><span class="badge badge-${sourceBadge}">${escHtml(c.source || '—')}</span></td>
       <td><span class="badge badge-${statusBadge}">${escHtml(c.status || '—')}</span></td>
@@ -421,12 +430,21 @@ function toTimerInputValue(raw) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 
-/** Countdown chip beside the picker — same colour bands as the marketplace. */
-function invExpiryChip(raw) {
+/**
+ * Countdown chip beside the picker — same colour bands as the marketplace.
+ * With the Timer switch off it shows a muted "Timer off" chip carrying the date
+ * in its tooltip, and deliberately omits `data-inv-expiry` so the ticker leaves
+ * it alone.
+ */
+function invExpiryChip(raw, timerOn) {
   const at = parseExpiry(raw);
   if (at === null) return '<span class="inv-exp-none">No timer set</span>';
+  const when = new Date(at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  if (timerOn === false) {
+    return `<div class="inv-exp inv-exp-off" title="Timer switched off — expiry ${when} is still saved">⏸ Timer off</div>`;
+  }
   const msLeft = at - Date.now();
-  return `<div class="inv-exp inv-exp-${expiryBand(msLeft)}" data-inv-expiry="${at}" title="Expires ${new Date(at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}">${expiryLabel(msLeft)}</div>`;
+  return `<div class="inv-exp inv-exp-${expiryBand(msLeft)}" data-inv-expiry="${at}" title="Expires ${when}">${expiryLabel(msLeft)}</div>`;
 }
 
 let invExpiryTimerId = null;
@@ -472,6 +490,53 @@ async function setCouponSale(id, on, inputEl) {
   }
 }
 
+/**
+ * Flip the per-coupon timer switch. The expiry date itself is left untouched —
+ * turning the timer off only hides the countdown on the marketplace card, so
+ * turning it back on restores the date that's already saved. Persists via PUT
+ * and reverts the checkbox if the write fails.
+ */
+async function setCouponTimer(id, on, inputEl) {
+  inputEl.disabled = true;
+  try {
+    await api(`/admin/coupons/${id}`, { method: 'PUT', useAdmin: true, body: { timerOn: on } });
+    const cached = INVENTORY_CACHE.find((c) => c.id === id);
+    if (cached) cached.timerOn = on;
+
+    const label = inputEl.closest('label');
+    if (label) {
+      label.title = on
+        ? 'Timer is ON — turn it off to hide the countdown (the date is kept)'
+        : 'Timer is OFF — turn it on to show the countdown again';
+    }
+
+    // The picker and the chip live in the next cell over, so walk up to the row.
+    const row = inputEl.closest('tr');
+    const picker = row?.querySelector('.inv-timer');
+    if (picker) {
+      picker.disabled = !on;
+      picker.classList.toggle('inv-timer-off', !on);
+      picker.title = on
+        ? 'Set when this coupon expires — clear the field to remove the timer'
+        : 'Turn the Timer switch on to edit this';
+    }
+    const chip = row?.querySelector('.inv-exp, .inv-exp-none');
+    // The chip re-renders with (or without) data-inv-expiry; the shared ticker
+    // re-queries the DOM every second, so it picks the change up on its own.
+    if (chip) chip.outerHTML = invExpiryChip(cached ? cached.expiryDate : picker?.value, on);
+
+    showToast(
+      on ? '⏱ Timer turned ON for this coupon.' : 'Timer turned OFF — the expiry date is still saved.',
+      'success'
+    );
+  } catch (err) {
+    inputEl.checked = !on; // put the switch back where it was
+    if (!err.sessionExpired) showToast(err.message || 'Could not save the timer switch.', 'error');
+  } finally {
+    inputEl.disabled = false;
+  }
+}
+
 /** Save the per-coupon expiry timer and refresh just that row's countdown chip. */
 async function setCouponExpiry(id, value, inputEl) {
   const previous = inputEl.dataset.prevValue || '';
@@ -483,7 +548,9 @@ async function setCouponExpiry(id, value, inputEl) {
     if (cached) cached.expiryDate = value;
 
     const chip = inputEl.parentElement?.querySelector('.inv-exp, .inv-exp-none');
-    if (chip) chip.outerHTML = invExpiryChip(value);
+    // Only reachable while the Timer switch is on (the picker is disabled when
+    // it's off), but read the flag back rather than assuming it.
+    if (chip) chip.outerHTML = invExpiryChip(value, cached ? cached.timerOn !== false : true);
 
     showToast(value ? 'Timer saved for this coupon.' : 'Timer cleared for this coupon.', 'success');
   } catch (err) {

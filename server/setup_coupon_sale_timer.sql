@@ -2,21 +2,31 @@
 -- SaveHatke — Supabase migration for the coupon sale switch + expiry timer
 -- ============================================
 -- Run this in the Supabase SQL editor (Dashboard → SQL Editor → New query).
--- Everything here is idempotent, so re-running it is safe.
+-- Everything here is idempotent, so re-running it is safe — and you DO need to
+-- re-run it if you already ran an earlier version, because step 1b is new.
 --
 -- Until it is applied:
---   • the Sale switch in Coupon Management will show an error toast and revert
---     (the on_sale column simply isn't there yet)
+--   • the Sale and Timer switches in Coupon Management will show an error toast
+--     and revert (the on_sale / timer_on columns simply aren't there yet)
 --   • coupon ids keep being generated in Node instead of by Postgres
 -- The rest of the app keeps working exactly as before either way.
 
--- 1) Sale switch, one flag per coupon.
---    DEFAULT TRUE so the coupons already in the table keep the "🔥 SALE" badge
---    that the marketplace currently shows on every paid coupon.
+-- 1a) Sale switch, one flag per coupon.
+--     DEFAULT TRUE so the coupons already in the table keep the "🔥 SALE" badge
+--     that the marketplace currently shows on every paid coupon.
 ALTER TABLE coupons ADD COLUMN IF NOT EXISTS on_sale BOOLEAN NOT NULL DEFAULT TRUE;
 
 -- Backfill in case the column was added earlier without a default.
 UPDATE coupons SET on_sale = TRUE WHERE on_sale IS NULL;
+
+-- 1b) Timer switch, one flag per coupon. Gates the "expires in …" countdown on
+--     the marketplace card without discarding expiry_date, so switching the
+--     timer back on restores the date the admin already entered.
+--     DEFAULT TRUE so the 298 coupons that already have an expiry keep counting
+--     down exactly as they do today.
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS timer_on BOOLEAN NOT NULL DEFAULT TRUE;
+
+UPDATE coupons SET timer_on = TRUE WHERE timer_on IS NULL;
 
 -- 2) Let Supabase mint the unique coupon id.
 --    coupons.id is TEXT (not UUID), so cast the generated uuid to text.

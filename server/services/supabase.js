@@ -198,6 +198,7 @@ function toSupabaseCoupon(c) {
     // New review/notification fields — only included when provided so writes
     // tolerate databases where the migration hasn't been applied yet
     ...(c.onSale !== undefined ? { on_sale: Boolean(c.onSale !== false && c.onSale !== 'false') } : {}),
+    ...(c.timerOn !== undefined ? { timer_on: Boolean(c.timerOn !== false && c.timerOn !== 'false') } : {}),
     ...(c.proofUrl !== undefined ? { proof_url: c.proofUrl || '' } : {}),
     ...(c.adminNotes !== undefined ? { admin_notes: c.adminNotes || '' } : {}),
     ...(c.verifiedAt !== undefined ? { verified_at: c.verifiedAt || null } : {}),
@@ -233,9 +234,12 @@ function fromSupabaseCoupon(r) {
     sellerEmail: r.seller_email || '',
     status: r.status || 'available',
     source: r.source || 'admin',
-    // Reads as ON when the column is missing (pre-migration) or NULL, which
+    // Both read as ON when the column is missing (pre-migration) or NULL, which
     // matches the DEFAULT TRUE the migration installs.
     onSale: r.on_sale !== false,
+    // Timer OFF hides the countdown but keeps expiry_date, so flipping it back
+    // on restores the date the admin already entered.
+    timerOn: r.timer_on !== false,
     addedAt: r.added_at || new Date().toISOString(),
     soldAt: r.sold_at || '',
     buyerEmail: r.buyer_email || '',
@@ -372,8 +376,9 @@ async function updateCoupon(id, updates) {
   if (updates.status !== undefined) patch.status = updates.status.toLowerCase();
   if (updates.soldAt !== undefined) patch.sold_at = updates.soldAt;
   if (updates.buyerEmail !== undefined) patch.buyer_email = updates.buyerEmail;
-  // Sale switch + expiry timer, both edited inline from Coupon Management
+  // Sale switch, timer switch + expiry date, all edited inline from Coupon Management
   if (updates.onSale !== undefined) patch.on_sale = Boolean(updates.onSale !== false && updates.onSale !== 'false');
+  if (updates.timerOn !== undefined) patch.timer_on = Boolean(updates.timerOn !== false && updates.timerOn !== 'false');
   if (updates.expiryDate !== undefined) patch.expiry_date = updates.expiryDate || null;
 
   if (Object.keys(patch).length === 0) {

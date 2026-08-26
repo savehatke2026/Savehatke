@@ -270,7 +270,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .admin-actions.ta-right{justify-content:flex-end}
 
 /* ── COUPON INVENTORY TABLE ── */
-.inv-table{table-layout:fixed;min-width:1246px}
+.inv-table{table-layout:fixed;min-width:1316px}
 .inv-table td{overflow:hidden}
 .inv-brand{display:flex;align-items:center;gap:9px;min-width:0}
 .inv-brand-logo{width:28px;height:28px;border-radius:7px;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(79,195,247,.14);object-fit:contain;padding:3px}
@@ -280,12 +280,15 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .inv-timer{width:100%;max-width:186px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.16);border-radius:6px;color:#e2ecff;font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:5px 7px;outline:none;color-scheme:dark}
 .inv-timer:focus{border-color:rgba(79,195,247,.45);background:rgba(79,195,247,.06)}
 .inv-timer:disabled{opacity:.5;cursor:wait}
+/* Timer switch off — the date is still stored, it just isn't counting down */
+.inv-timer.inv-timer-off{opacity:.4;cursor:not-allowed}
 .inv-exp{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 7px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:700;border:1px solid transparent;white-space:nowrap}
 .inv-exp-green{color:#00e676;background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.22)}
 .inv-exp-yellow{color:#ffd740;background:rgba(255,215,64,.09);border-color:rgba(255,215,64,.3)}
 .inv-exp-red{color:#ff5252;background:rgba(255,82,82,.1);border-color:rgba(255,82,82,.38);animation:invExpFlash 1s ease-in-out infinite}
 .inv-exp-expired{color:#8ba2c4;background:rgba(139,162,196,.08);border-color:rgba(139,162,196,.2)}
 .inv-exp-none{color:#6b88aa;font-size:.68rem;margin-top:5px;display:inline-block}
+.inv-exp-off{color:#8ba2c4;background:rgba(139,162,196,.06);border-color:rgba(139,162,196,.16);font-weight:600}
 @keyframes invExpFlash{0%,100%{opacity:1}50%{opacity:.5}}
 @media (prefers-reduced-motion:reduce){.inv-exp-red{animation:none}}
 .inv-price{font-weight:700;color:#00e676;font-family:'JetBrains Mono',monospace;font-size:.8rem}

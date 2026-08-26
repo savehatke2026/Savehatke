@@ -82,6 +82,9 @@ router.get('/', optionalAuth, async (req, res) => {
       expiryDate: c.expiryDate || '',
       // Admin-controlled sale switch — gates the "🔥 Sale" badge on the card.
       onSale: c.onSale !== false,
+      // Admin-controlled timer switch — when off the card hides the countdown
+      // even though expiryDate is still set.
+      timerOn: c.timerOn !== false,
     }));
 
     res.json({ coupons: sanitized, total: sanitized.length });

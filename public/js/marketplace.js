@@ -140,7 +140,7 @@ function renderCouponGrid(gridId, coupons) {
             </div>
             <span class="ccat">${c.category}</span>
           </div>
-          ${renderExpiryTimer(c.expiryDate)}
+          ${renderExpiryTimer(c.expiryDate, c.timerOn)}
           <button class="cbuy-btn" onclick="event.stopPropagation(); buyCoupon('${c.id}', ${isFree})">
             ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
           </button>
@@ -162,8 +162,13 @@ function expiryClass(msLeft) {
   return `cexpiry-${expiryBand(msLeft)}`;
 }
 
-/** Markup for one card's countdown row (empty string when no expiry is set). */
-function renderExpiryTimer(raw) {
+/**
+ * Markup for one card's countdown row. Empty string when no expiry is set, or
+ * when the admin turned this coupon's timer off in Coupon Management — the
+ * expiry date stays stored either way, so switching it back on restores it.
+ */
+function renderExpiryTimer(raw, timerOn) {
+  if (timerOn === false) return '';
   const at = parseExpiry(raw);
   if (at === null) return '';
   const msLeft = at - Date.now();
