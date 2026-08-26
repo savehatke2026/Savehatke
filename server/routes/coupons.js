@@ -77,6 +77,9 @@ router.get('/', optionalAuth, async (req, res) => {
       sellingPrice: c.sellingPrice,
       source: c.source,
       addedAt: c.addedAt,
+      // Expiry is not sensitive (the code itself is still withheld) and the
+      // marketplace cards render a live "expires in" countdown from it.
+      expiryDate: c.expiryDate || '',
     }));
 
     res.json({ coupons: sanitized, total: sanitized.length });

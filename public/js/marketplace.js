@@ -110,7 +110,13 @@ function renderCouponGrid(gridId, coupons) {
 
       return `
         <div class="coupon-card" style="cursor:pointer" onclick="buyCoupon('${c.id}', ${isFree})">
-          ${isFree ? '<span class="cfree-badge">FREE</span>' : '<div class="cverified">✓ VERIFIED DEAL</div>'}
+          ${isFree
+            ? '<span class="cfree-badge">FREE</span>'
+            : `<div class="cbadges">
+                 <span class="cverified">✓ VERIFIED DEAL</span>
+                 <span class="csale-badge">🔥 Sale</span>
+               </div>`
+          }
           <div class="ctop">
             <div class="cbrand">
               <span class="cbrand-logo-wrap">
@@ -131,6 +137,7 @@ function renderCouponGrid(gridId, coupons) {
             </div>
             <span class="ccat">${c.category}</span>
           </div>
+          ${renderExpiryTimer(c.expiryDate)}
           <button class="cbuy-btn" onclick="event.stopPropagation(); buyCoupon('${c.id}', ${isFree})">
             ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
           </button>
@@ -138,6 +145,85 @@ function renderCouponGrid(gridId, coupons) {
       `;
     })
     .join('');
+
+  startExpiryTicker();
+}
+
+// ── Expiry Countdown ────────────────────────────────────────────────────
+// Colour bands, by whole days left until the coupon expires:
+//   ≤ 1 week (7d) → red, flashing   ≤ 2 weeks (14d) → yellow   beyond → green
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Parse a coupon expiry value into a timestamp.
+ * Date-only strings ("2026-10-11") are treated as end-of-day local time so a
+ * coupon stays usable for the whole of its final day.
+ * @returns {number|null} epoch ms, or null when unset/unparseable
+ */
+function parseExpiry(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s) return null;
+  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  const d = dateOnly
+    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 23, 59, 59, 999)
+    : new Date(s);
+  const t = d.getTime();
+  return Number.isFinite(t) ? t : null;
+}
+
+/**
+ * Pick the colour class for the time remaining.
+ * Counts whole days so a coupon dated exactly one week out reads as "1 week"
+ * (red) rather than tipping into the next band on the end-of-day padding.
+ */
+function expiryClass(msLeft) {
+  if (msLeft <= 0) return 'cexpiry-expired';
+  const daysLeft = Math.floor(msLeft / DAY_MS);
+  if (daysLeft <= 7) return 'cexpiry-red';
+  if (daysLeft <= 14) return 'cexpiry-yellow';
+  return 'cexpiry-green';
+}
+
+/** Human countdown text — coarse when far out, ticks to seconds near the end. */
+function expiryLabel(msLeft) {
+  if (msLeft <= 0) return '⌛ Expired';
+  const totalSec = Math.floor(msLeft / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (d >= 1) return `⏳ ${d}d ${h}h left`;
+  if (h >= 1) return `⏳ ${h}h ${m}m left`;
+  return `⏳ ${m}m ${s}s left`;
+}
+
+/** Markup for one card's countdown row (empty string when no expiry is set). */
+function renderExpiryTimer(raw) {
+  const at = parseExpiry(raw);
+  if (at === null) return '';
+  const msLeft = at - Date.now();
+  return `<div class="cexpiry ${expiryClass(msLeft)}" data-expiry="${at}" title="Expires ${new Date(at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}">${expiryLabel(msLeft)}</div>`;
+}
+
+let expiryTimerId = null;
+
+/** Tick every countdown on the page once a second (single shared interval). */
+function startExpiryTicker() {
+  if (expiryTimerId !== null) return; // already running — re-renders are picked up on the next tick
+  const tick = () => {
+    const nodes = document.querySelectorAll('.cexpiry[data-expiry]');
+    if (nodes.length === 0) return;
+    const now = Date.now();
+    nodes.forEach((el) => {
+      const msLeft = Number(el.dataset.expiry) - now;
+      const label = expiryLabel(msLeft);
+      if (el.textContent !== label) el.textContent = label;
+      const cls = `cexpiry ${expiryClass(msLeft)}`;
+      if (el.className !== cls) el.className = cls;
+    });
+  };
+  tick();
+  expiryTimerId = setInterval(tick, 1000);
 }
 
 // ── Brand Logo Helpers ──────────────────────────────────────────────────

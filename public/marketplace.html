@@ -66,7 +66,6 @@
     .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
     .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
     .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
-    .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
 .bhl { color:#00e676; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
@@ -147,6 +146,23 @@
     .cbuy-btn:hover { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; transform:translateY(-1px); }
     .cfree-badge { position:absolute; top:14px; right:14px; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-size:.65rem; font-weight:800; padding:3px 8px; border-radius:5px; letter-spacing:.06em; }
     .cverified { display:inline-flex; align-items:center; gap:4px; font-size:.7rem; font-weight:600; color:#4fc3f7; margin-bottom:10px; }
+
+    /* BADGE ROW — "✓ VERIFIED DEAL" + "🔥 SALE" tag */
+    .cbadges { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .cbadges .cverified { margin-bottom:0; }
+    .csale-badge { display:inline-flex; align-items:center; gap:4px; font-size:.65rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:5px; background:linear-gradient(135deg,#ff6b35,#ff3d00); color:#fff; box-shadow:0 2px 10px rgba(255,61,0,.32); }
+
+    /* EXPIRY COUNTDOWN — green >2wks, yellow ≤2wks, red flashing ≤1wk */
+    .cexpiry { display:flex; align-items:center; gap:6px; margin-top:14px; padding:7px 10px; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:.72rem; font-weight:700; border:1px solid transparent; }
+    .cexpiry-green   { color:#00e676; background:rgba(0,230,118,.08);   border-color:rgba(0,230,118,.22); }
+    .cexpiry-yellow  { color:#ffd740; background:rgba(255,215,64,.09);  border-color:rgba(255,215,64,.30); }
+    .cexpiry-red     { color:#ff5252; background:rgba(255,82,82,.10);   border-color:rgba(255,82,82,.38); animation:cexpiryFlash 1s ease-in-out infinite; }
+    .cexpiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.20); }
+    @keyframes cexpiryFlash {
+      0%,100% { opacity:1;   box-shadow:0 0 0 0 rgba(255,82,82,.40); }
+      50%     { opacity:.55; box-shadow:0 0 0 5px rgba(255,82,82,0); }
+    }
+    @media (prefers-reduced-motion: reduce) { .cexpiry-red { animation:none; } }
 
     /* SKELETON */
     .skeleton-card { padding:24px; border-radius:16px; background:rgba(15,30,58,.6); border:1px solid rgba(79,195,247,.08); animation:skeletonPulse 1.6s ease infinite; }
@@ -247,9 +263,8 @@
 <!-- NAVBAR -->
 <nav class="navbar" id="nav">
   <div class="container">
-    <a href="index" class="nav-brand">
+    <a href="index" class="nav-brand" aria-label="SaveHatke">
       <img src="logo.png" alt="SaveHatke" class="brand-icon">
-      <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
     <div class="nav-links" id="navLinks">
       <a href="index">Home</a>
@@ -579,5 +594,6 @@
     }
   })();
 </script>
+<script src="js/chatbot.js"></script>
 </body>
 </html>
