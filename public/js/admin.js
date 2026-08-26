@@ -241,6 +241,8 @@ function resetAddCouponForm(form) {
 // ── Inventory ───────────────────────────────────────────────────────────
 let inventoryLoading = false;
 let inventoryRequestSeq = 0;
+let invCurrentPage = 1;
+const INV_PAGE_SIZE = 20;
 
 async function loadInventory() {
   const container = document.getElementById('inventoryTable');
@@ -277,6 +279,13 @@ async function loadInventory() {
       );
     }
 
+    // Pagination
+    const totalFiltered = coupons.length;
+    const totalPages = Math.max(1, Math.ceil(totalFiltered / INV_PAGE_SIZE));
+    if (invCurrentPage > totalPages) invCurrentPage = totalPages;
+    const startIdx = (invCurrentPage - 1) * INV_PAGE_SIZE;
+    const pageCoupons = coupons.slice(startIdx, startIdx + INV_PAGE_SIZE);
+
     container.innerHTML = `
       <div class="table-wrapper">
         <table class="table">
@@ -293,7 +302,7 @@ async function loadInventory() {
             </tr>
           </thead>
           <tbody>
-            ${coupons.map((c) => {
+            ${pageCoupons.map((c) => {
               const statusBadge = c.status === 'sold' ? 'green' : c.status === 'pending' ? 'amber' : 'blue';
               const sourceBadge = c.source === 'admin' ? 'purple' : c.source === 'auto-scraped' ? 'teal' : 'blue';
               return `
@@ -317,8 +326,15 @@ async function loadInventory() {
           </tbody>
         </table>
       </div>
-      <div style="padding: var(--space-4); color: var(--color-slate-500); font-size: 0.75rem;">
-        Showing ${coupons.length} of ${data.total} coupons
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-top:1px solid rgba(79,195,247,.08);font-size:.82rem;color:#6b88aa">
+        <span>Showing ${startIdx + 1}–${Math.min(startIdx + INV_PAGE_SIZE, totalFiltered)} of ${totalFiltered} coupons</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="invGoToPage(1)" ${invCurrentPage <= 1 ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>«</button>
+          <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${invCurrentPage - 1})" ${invCurrentPage <= 1 ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>‹ Prev</button>
+          <span style="font-weight:700;color:#e2ecff">Page ${invCurrentPage} / ${totalPages}</span>
+          <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${invCurrentPage + 1})" ${invCurrentPage >= totalPages ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>Next ›</button>
+          <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${totalPages})" ${invCurrentPage >= totalPages ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>»</button>
+        </div>
       </div>
     `;
   } catch (err) {
@@ -330,205 +346,374 @@ async function loadInventory() {
   }
 }
 
-// One-time init for the inventory filter controls. The previous version bound
-// these listeners inside loadInventory itself, so every call added another
-// listener (memory leak + duplicate fires + extra rate-limit hits).
-function initInventoryTableControls() {
-  const search = document.getElementById('invSearch');
-  const filter = document.getElementById('invStatusFilter');
-  if (search) search.addEventListener('input', debounce(loadInventory, 300));
-  if (filter) filter.addEventListener('change', loadInventory);
-}
-
-// ── Pending Submissions ─────────────────────────────────────────────────
-async function loadPending() {
-  const container = document.getElementById('pendingList');
-  const badge = document.getElementById('pendingTabBadge');
-
-  try {
-    const data = await api('/admin/coupons?status=pending', { useAdmin: true });
-    const count = data.coupons ? data.coupons.length : 0;
-
-    if (badge) {
-      if (count > 0) {
-        badge.textContent = count;
-        badge.style.display = 'inline-block';
-      } else {
-        badge.style.display = 'none';
-      }
-    }
-
-    if (!container) return;
-
-    if (count === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">✅</div>
-          <h3>All caught up!</h3>
-          <p>No pending coupon submissions to review.</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = data.coupons.map((c) => {
-      const waStatus = String(c.whatsappStatus || 'pending').toLowerCase();
-      const waBadge = waStatus === 'sent'
-        ? '<span class="badge badge-green">WhatsApp: Sent</span>'
-        : waStatus === 'failed'
-          ? '<span class="badge badge-red">WhatsApp: Failed</span>'
-          : '<span class="badge badge-amber">WhatsApp: Pending</span>';
-      const waMeta = c.whatsappLastAttempt
-        ? ` · Last attempt: ${formatDate ? formatDate(c.whatsappLastAttempt) : c.whatsappLastAttempt}`
-        : '';
-      return `
-      <div class="card mb-4" style="display: block;">
-        <div style="display: flex; align-items: center; gap: var(--space-5); flex-wrap: wrap;">
-          <div style="flex: 1; min-width: 220px;">
-            <div style="font-weight: 700; color: var(--color-white); margin-bottom: 0.25rem;">${escapeHtml(c.brand)} — ${escapeHtml(c.category)}</div>
-            <code style="background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 4px; color: var(--color-teal-400); font-weight: 600;">${escapeHtml(c.code)}</code>
-            <div style="font-size: 0.75rem; color: var(--color-slate-500); margin-top: 0.5rem;">${escapeHtml(c.description || 'No description')}</div>
-            <div style="font-size: 0.75rem; color: var(--color-slate-500);">Submitted by: ${escapeHtml(c.sellerEmail || 'Admin')} · ${formatDate(c.addedAt)}</div>
-            ${c.expiryDate ? `<div style="font-size: 0.75rem; color: var(--color-slate-500);">Expires: ${escapeHtml(c.expiryDate)} · Selling price: ₹${escapeHtml(c.sellingPrice || '20')}</div>` : ''}
-            <div style="font-size: 0.75rem; margin-top: 0.4rem; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
-              ${waBadge}${waMeta ? `<span style="color: var(--color-slate-500);">${waMeta}</span>` : ''}
-            </div>
-          </div>
-          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;">
-            <a class="btn btn-secondary btn-sm" href="/admin/coupons/${encodeURIComponent(c.id)}" target="_blank" rel="noopener">🔍 Review</a>
-            <button class="btn btn-success btn-sm" onclick="pendingReviewAction('${escapeHtml(c.id)}','approve',this)">✅ Approve</button>
-            <button class="btn btn-danger btn-sm" onclick="pendingReviewAction('${escapeHtml(c.id)}','reject',this)">❌ Reject</button>
-            <button class="btn btn-secondary btn-sm" onclick="pendingReviewAction('${escapeHtml(c.id)}','request_proof',this)">📎 More Proof</button>
-            ${waStatus !== 'sent' ? `<button class="btn btn-secondary btn-sm" onclick="retryPendingNotify('${escapeHtml(c.id)}',this)">🔄 Retry WhatsApp</button>` : ''}
-          </div>
-        </div>
-        <textarea id="pendingNotes-${escapeHtml(c.id)}" placeholder="Admin notes (optional)…" style="width:100%;margin-top:12px;background:rgba(6,13,31,.6);border:1px solid rgba(79,195,247,.15);border-radius:8px;color:#e2ecff;padding:9px 12px;font-size:.8rem;min-height:44px;resize:vertical;"></textarea>
-      </div>
-    `;
-    }).join('');
-  } catch (err) {
-    if (container) container.innerHTML = `<p class="text-danger">Failed to load: ${err.message}</p>`;
+function invPrev() {
+  if (invCurrentPage > 1) {
+    invCurrentPage--;
+    loadInventory();
   }
 }
 
-// Approve / Reject / Request More Proof straight from the pending list
-async function pendingReviewAction(id, action, btn) {
-  const original = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '⏳'; }
+function invNext() {
+  invCurrentPage++;
+  loadInventory();
+}
+
+function invGoToPage(page) {
+  if (page < 1) page = 1;
+  invCurrentPage = page;
+  loadInventory();
+}
+
+// ── Coupon Reviews (In-Panel) ──────────────────────────────────────────
+let reviewsCache = { pending: [], available: [], rejected: [] };
+let reviewsLoading = false;
+let currentReviewCouponId = null;
+let currentReviewData = null;
+
+async function loadReviews() {
+  if (reviewsLoading) return;
+  reviewsLoading = true;
   try {
-    const notesEl = document.getElementById('pendingNotes-' + id);
-    const notes = notesEl ? notesEl.value.trim() : '';
-    const data = await api(`/admin/coupons/${id}/review-action`, {
+    const data = await api('/admin/coupons', { useAdmin: true });
+    const all = data.coupons || [];
+    reviewsCache.pending = all.filter(c => c.status === 'pending' || c.status === 'proof_requested');
+    reviewsCache.available = all.filter(c => c.status === 'available');
+    reviewsCache.rejected = all.filter(c => c.status === 'rejected');
+
+    // Update nav badge in sidebar
+    const navBadge = document.getElementById('reviewsNavBadge');
+    if (navBadge) {
+      navBadge.textContent = reviewsCache.pending.length;
+      navBadge.style.display = reviewsCache.pending.length > 0 ? 'inline-block' : 'none';
+    }
+    // Update tab badge
+    const tabBadge = document.getElementById('reviewPendingBadge');
+    if (tabBadge) {
+      tabBadge.textContent = reviewsCache.pending.length;
+      tabBadge.style.display = reviewsCache.pending.length > 0 ? 'inline-block' : 'none';
+    }
+
+    renderReviewTable('pending', reviewsCache.pending);
+    renderReviewTable('approved', reviewsCache.available);
+    renderReviewTable('rejected', reviewsCache.rejected);
+  } catch (err) {
+    const el = document.getElementById('reviewsPendingTable');
+    if (el) el.innerHTML = `<p class="text-danger">Failed to load reviews: ${err.message}</p>`;
+  } finally {
+    reviewsLoading = false;
+  }
+}
+
+function renderReviewTable(type, coupons) {
+  const containerId = type === 'approved' ? 'reviewsApprovedTable' : type === 'rejected' ? 'reviewsRejectedTable' : 'reviewsPendingTable';
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (coupons.length === 0) {
+    const label = type === 'pending' ? 'pending review' : type === 'approved' ? 'approved' : 'rejected';
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-state-icon">${type === 'pending' ? '⏳' : type === 'approved' ? '✅' : '❌'}</div>
+        <h3>No ${label} coupons</h3>
+        <p>${type === 'pending' ? 'All caught up! No coupons awaiting review.' : `No ${label} coupons found.`}</p>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Code</th>
+            <th>Brand</th>
+            <th>Category</th>
+            <th>Value</th>
+            <th>Price</th>
+            <th>Seller</th>
+            <th>Submitted</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${coupons.map(c => {
+            const submittedDate = c.createdAt || c.addedAt ? new Date(c.createdAt || c.addedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+            const statusBadge = c.status === 'available' ? 'green' : c.status === 'rejected' ? 'red' : c.status === 'proof_requested' ? 'blue' : 'amber';
+            const sellerDisplay = c.sellerEmail || 'Admin';
+            return `
+              <tr>
+                <td><code style="background:rgba(37,99,235,.12);padding:2px 8px;border-radius:4px;color:#4fc3f7;font-weight:600">${escapeHtml(c.code)}</code></td>
+                <td style="font-weight:600;color:#e2ecff">${escapeHtml(c.brand)}</td>
+                <td>${escapeHtml(c.category || 'General')}</td>
+                <td>₹${escapeHtml(c.originalValue || '—')}</td>
+                <td style="font-weight:700;color:#00e676">₹${escapeHtml(c.sellingPrice || '0')}</td>
+                <td style="font-size:.8rem;color:#a8c0dc;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(sellerDisplay)}">${escapeHtml(sellerDisplay)}</td>
+                <td style="font-size:.78rem;color:#6b88aa">${submittedDate}</td>
+                <td><span class="badge badge-${statusBadge}">${escapeHtml(c.status || 'pending')}</span></td>
+                <td>
+                  <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center">
+                    <button class="btn btn-ghost btn-sm" onclick="openReviewModal('${escapeHtml(c.id)}')" title="Review Full Details" style="border:1px solid rgba(79,195,247,.3);color:#4fc3f7">🔍 Review</button>
+                    ${type === 'pending' ? `
+                      <button class="btn btn-success btn-sm" onclick="quickReviewAction('${escapeHtml(c.id)}','approve')" title="Quick Approve">✓</button>
+                      <button class="btn btn-danger btn-sm" onclick="quickReviewAction('${escapeHtml(c.id)}','reject')" title="Quick Reject">✗</button>
+                    ` : ''}
+                  </div>
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:10px 16px;font-size:.78rem;color:#6b88aa;border-top:1px solid rgba(79,195,247,.08)">
+      ${coupons.length} ${type} coupon${coupons.length !== 1 ? 's' : ''}
+    </div>
+  `;
+}
+
+async function quickReviewAction(couponId, action) {
+  if (!confirm(`Are you sure you want to ${action} this coupon?`)) return;
+  try {
+    const data = await api(`/admin/coupons/${couponId}/review-action`, {
+      method: 'POST',
+      useAdmin: true,
+      body: { action },
+    });
+    if (typeof showToast === 'function') showToast(data.message || `Coupon ${action}d successfully!`, 'success');
+    loadReviews();
+    if (typeof loadAdminStats === 'function') loadAdminStats();
+    if (typeof loadInventory === 'function') loadInventory();
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(`Failed to ${action} coupon: ${err.message}`, 'error');
+  }
+}
+
+function showReviewTab(tab, btnEl) {
+  const tabRow = btnEl?.closest('.tab-row');
+  if (tabRow) {
+    tabRow.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    if (btnEl) btnEl.classList.add('active');
+  }
+  // Toggle tab content
+  const section = document.getElementById('sec-reviews');
+  if (section) {
+    section.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+    const target = document.getElementById(`rtab-${tab}`);
+    if (target) target.classList.add('active');
+  }
+}
+
+// ── In-Panel Review Modal Logic ─────────────────────────────────────────
+async function openReviewModal(couponId) {
+  currentReviewCouponId = couponId;
+  const modal = document.getElementById('adminReviewModal');
+  const loading = document.getElementById('armLoading');
+  const content = document.getElementById('armContent');
+  if (!modal) return;
+
+  modal.style.display = 'flex';
+  if (loading) loading.style.display = 'block';
+  if (content) content.style.display = 'none';
+
+  const couponIdEl = document.getElementById('armCouponId');
+  if (couponIdEl) couponIdEl.textContent = `ID: ${couponId}`;
+
+  try {
+    const data = await api(`/admin/coupons/${encodeURIComponent(couponId)}/review`, { useAdmin: true });
+    currentReviewData = data;
+    const c = data.coupon || {};
+
+    // Header Badge
+    const statusBadgeEl = document.getElementById('armStatusBadge');
+    if (statusBadgeEl) {
+      const s = String(c.status || 'pending').toLowerCase();
+      const bColor = s === 'available' ? 'green' : s === 'rejected' ? 'red' : s === 'proof_requested' ? 'blue' : 'amber';
+      statusBadgeEl.innerHTML = `<span class="badge badge-${bColor}">${escapeHtml(s)}</span>`;
+    }
+
+    // Coupon Details
+    const brandEl = document.getElementById('armBrand');
+    if (brandEl) brandEl.textContent = c.brand || '—';
+
+    const codeEl = document.getElementById('armCode');
+    if (codeEl) {
+      codeEl.innerHTML = `<code style="background:rgba(37,99,235,.15);padding:3px 10px;border-radius:6px;color:#4fc3f7;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:1px">${escapeHtml(c.code || '—')}</code>`;
+    }
+
+    const catEl = document.getElementById('armCategory');
+    if (catEl) catEl.textContent = c.category || 'General';
+
+    const typeEl = document.getElementById('armType');
+    if (typeEl) typeEl.textContent = c.type || 'Public';
+
+    const valEl = document.getElementById('armValue');
+    if (valEl) valEl.textContent = c.originalValue ? `₹${c.originalValue}` : '—';
+
+    const priceEl = document.getElementById('armPrice');
+    if (priceEl) priceEl.textContent = c.sellingPrice ? `₹${c.sellingPrice}` : '₹0';
+
+    const descEl = document.getElementById('armDesc');
+    if (descEl) descEl.textContent = c.description || c.title || '—';
+
+    const expEl = document.getElementById('armExpiry');
+    if (expEl) expEl.textContent = c.expiryDate ? new Date(c.expiryDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+
+    const subEl = document.getElementById('armSubmitted');
+    if (subEl) subEl.textContent = c.addedAt || c.createdAt ? new Date(c.addedAt || c.createdAt).toLocaleString('en-IN') : '—';
+
+    // Seller Details
+    const sEmailEl = document.getElementById('armSellerEmail');
+    if (sEmailEl) sEmailEl.textContent = c.sellerEmail || 'Admin';
+
+    const sIdEl = document.getElementById('armSellerId');
+    if (sIdEl) sIdEl.textContent = c.sellerUserId || '—';
+
+    const sourceEl = document.getElementById('armSource');
+    if (sourceEl) sourceEl.textContent = c.source || 'user-submitted';
+
+    // Duplicate Check
+    const dupEl = document.getElementById('armDuplicateCheck');
+    if (dupEl) {
+      const dup = data.duplicateCheck || {};
+      if (dup.isDuplicate) {
+        dupEl.innerHTML = `
+          <div style="background:rgba(255,82,82,.12);border:1px solid rgba(255,82,82,.3);border-radius:8px;padding:8px 12px;color:#ef9a9a;">
+            <strong>⚠️ Duplicate Found:</strong> Another coupon with code <code>${escapeHtml(c.code)}</code> exists (Status: ${escapeHtml(dup.duplicateStatus || '—')}).
+          </div>
+        `;
+      } else {
+        dupEl.innerHTML = `
+          <div style="background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);border-radius:8px;padding:8px 12px;color:#00e676;">
+            ✅ No other coupon with this code was found.
+          </div>
+        `;
+      }
+    }
+
+    // WhatsApp Notification Status
+    renderReviewModalNotify(data.notification || {});
+
+    // Proof screenshot
+    const proofContainer = document.getElementById('armProofContainer');
+    if (proofContainer) {
+      if (c.proofUrl) {
+        const rawUrl = String(c.proofUrl);
+        let imgSrc = rawUrl;
+        let linkHref = rawUrl;
+        if (rawUrl.startsWith('drive:')) {
+          const fileId = rawUrl.slice('drive:'.length);
+          imgSrc = '/api/proxy/drive/' + encodeURIComponent(fileId);
+          linkHref = imgSrc;
+        }
+        proofContainer.innerHTML = `
+          <a href="${escapeHtml(linkHref)}" target="_blank" rel="noopener" style="display:inline-block">
+            <img src="${escapeHtml(imgSrc)}" alt="Coupon Proof" style="max-width:100%;max-height:280px;border-radius:8px;border:1px solid rgba(79,195,247,.2);box-shadow:0 8px 24px rgba(0,0,0,.4);" />
+            <div style="margin-top:6px;font-size:.78rem;color:#4fc3f7;">↗ Click to open full size</div>
+          </a>
+        `;
+      } else {
+        proofContainer.innerHTML = `<span style="color:#6b88aa;font-size:.82rem">No proof screenshot was submitted with this coupon.</span>`;
+      }
+    }
+
+    // Admin Notes
+    const notesEl = document.getElementById('armAdminNotes');
+    if (notesEl) notesEl.value = c.adminNotes || '';
+
+    if (loading) loading.style.display = 'none';
+    if (content) content.style.display = 'block';
+  } catch (err) {
+    if (loading) loading.innerHTML = `<div class="text-danger">Failed to load coupon details: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function renderReviewModalNotify(n) {
+  const notifyEl = document.getElementById('armNotificationInfo');
+  if (!notifyEl) return;
+  const status = String(n.status || 'pending').toLowerCase();
+  const badgeColor = status === 'sent' ? 'green' : status === 'failed' ? 'red' : 'amber';
+  notifyEl.innerHTML = `
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span class="badge badge-${badgeColor}">Status: ${escapeHtml(status)}</span>
+      <span style="color:#6b88aa;font-size:.76rem">SID: ${escapeHtml(n.sid || '—')}</span>
+      ${n.lastAttempt ? `<span style="color:#6b88aa;font-size:.76rem">· ${new Date(n.lastAttempt).toLocaleString('en-IN')}</span>` : ''}
+    </div>
+    ${n.error ? `<div style="color:#ff6b6b;font-size:.76rem;margin-top:4px">${escapeHtml(n.error)}</div>` : ''}
+  `;
+}
+
+function closeReviewModal() {
+  const modal = document.getElementById('adminReviewModal');
+  if (modal) modal.style.display = 'none';
+  currentReviewCouponId = null;
+  currentReviewData = null;
+}
+
+async function submitReviewModalAction(action) {
+  if (!currentReviewCouponId) return;
+  const buttons = ['armApproveBtn', 'armRejectBtn', 'armProofBtn'];
+  buttons.forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.disabled = true;
+  });
+
+  const notesEl = document.getElementById('armAdminNotes');
+  const notes = notesEl ? notesEl.value.trim() : '';
+
+  try {
+    const data = await api(`/admin/coupons/${encodeURIComponent(currentReviewCouponId)}/review-action`, {
       method: 'POST',
       useAdmin: true,
       body: { action, notes },
     });
-    showToast(data.message || 'Action completed.', 'success');
-    loadAdminStats();
-    loadPending();
-    loadInventory();
+    if (typeof showToast === 'function') showToast(data.message || `Coupon ${action}d successfully!`, 'success');
+    closeReviewModal();
+    loadReviews();
+    if (typeof loadAdminStats === 'function') loadAdminStats();
+    if (typeof loadInventory === 'function') loadInventory();
   } catch (err) {
-    showToast(err.message || 'Action failed.', 'error');
-    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+    if (typeof showToast === 'function') showToast(`Action failed: ${err.message}`, 'error');
+  } finally {
+    buttons.forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.disabled = false;
+    });
   }
 }
 
-// Re-send the WhatsApp submission alert from the pending list
-async function retryPendingNotify(id, btn) {
-  const original = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Sending…'; }
-  try {
-    const data = await api(`/admin/coupons/${id}/notify-retry`, { method: 'POST', useAdmin: true });
-    showToast(data.message || 'WhatsApp notification sent.', 'success');
-    loadPending();
-  } catch (err) {
-    showToast(err.message || 'Notification retry failed.', 'error');
-    if (btn) { btn.disabled = false; btn.innerHTML = original; }
-  }
-}
-window.pendingReviewAction = pendingReviewAction;
-window.retryPendingNotify = retryPendingNotify;
-
-// ── Active Coupons ──────────────────────────────────────────────────────
-async function loadActiveCoupons() {
-  const container = document.getElementById('activeList');
-  if (!container) return;
+async function retryReviewModalNotify() {
+  if (!currentReviewCouponId) return;
+  const btn = document.getElementById('armRetryNotifyBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Retrying…'; }
 
   try {
-    const data = await api('/admin/coupons?status=available', { useAdmin: true });
-    if (data.coupons.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">🏷️</div>
-          <h3>No active coupons found</h3>
-          <p>Publish a new coupon to make it active.</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = data.coupons.map((c) => `
-      <div class="coupon-item" style="margin-bottom: 8px;">
-        <div class="ci-brand">🏷️</div>
-        <div class="ci-body">
-          <div class="ci-name">${c.brand} — ${c.title || c.description || c.discount || 'Active Offer'}</div>
-          <div class="ci-code">${c.code}</div>
-          <div class="ci-meta">
-            <span class="badge badge-green">Active</span>
-            <span class="badge badge-blue">${c.category}</span>
-            <span style="font-size:.78rem;color:#a8c0dc">₹${c.sellingPrice} · ${c.source}</span>
-          </div>
-        </div>
-        <div class="ci-actions">
-          <button class="btn btn-danger btn-sm" onclick="deleteCoupon('${c.id}')">🗑 Delete</button>
-        </div>
-      </div>
-    `).join('');
+    const data = await api(`/admin/coupons/${encodeURIComponent(currentReviewCouponId)}/notify-retry`, {
+      method: 'POST',
+      useAdmin: true,
+    });
+    if (typeof showToast === 'function') showToast(data.message || 'Notification retry initiated.', 'success');
+    if (data.notification) renderReviewModalNotify(data.notification);
   } catch (err) {
-    container.innerHTML = `<p class="text-danger">Failed to load active coupons: ${err.message}</p>`;
-  }
-}
-
-// ── Expired Coupons ─────────────────────────────────────────────────────
-async function loadExpiredCoupons() {
-  const container = document.getElementById('expiredList');
-  if (!container) return;
-
-  try {
-    const data = await api('/admin/coupons?status=expired', { useAdmin: true });
-    if (data.coupons.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">🎉</div>
-          <h3>No expired coupons</h3>
-          <p>All active coupons are valid and up to date.</p>
-        </div>
-      `;
-      return;
-    }
-
-    container.innerHTML = data.coupons.map((c) => `
-      <div class="coupon-item" style="opacity:.6; margin-bottom: 8px;">
-        <div class="ci-brand">⏰</div>
-        <div class="ci-body">
-          <div class="ci-name">${c.brand} — ${c.code}</div>
-          <div class="ci-meta"><span class="badge badge-red">Expired</span></div>
-        </div>
-        <div class="ci-actions">
-          <button class="btn btn-danger btn-sm" onclick="deleteCoupon('${c.id}')">🗑 Delete</button>
-        </div>
-      </div>
-    `).join('');
-  } catch (err) {
-    container.innerHTML = `<p class="text-danger">Failed to load expired coupons: ${err.message}</p>`;
+    if (typeof showToast === 'function') showToast(`Retry failed: ${err.message}`, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 Retry'; }
   }
 }
 
 // Global functions for inline onclick handlers
 window.loadInventory = loadInventory;
-window.loadPending = loadPending;
-window.loadActiveCoupons = loadActiveCoupons;
-window.loadExpiredCoupons = loadExpiredCoupons;
+window.invPrev = invPrev;
+window.invNext = invNext;
+window.invGoToPage = invGoToPage;
+window.loadReviews = loadReviews;
+window.showReviewTab = showReviewTab;
+window.quickReviewAction = quickReviewAction;
+window.openReviewModal = openReviewModal;
+window.closeReviewModal = closeReviewModal;
+window.submitReviewModalAction = submitReviewModalAction;
+window.retryReviewModalNotify = retryReviewModalNotify;
 window.loadUsers = loadUsers;
 window.toggleUserStatus = toggleUserStatus;
 window.loadSessions = loadSessions;
@@ -964,85 +1149,236 @@ function initCreateAdminForm() {
   });
 }
 
-async function loadAdminsList() {
+// ────────────────────────────────────────────────────────────────
+// Admin & Role Management table
+// ────────────────────────────────────────────────────────────────
+
+// In-memory cache so the search filter doesn't re-fetch
+let ADMINS_CACHE = [];
+
+// Tiny escape helper (used in HTML string templates)
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Date helpers — short, readable, locale-aware
+function fmtDate(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+function fmtDateTime(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+function fmtRelative(s) {
+  if (!s) return '';
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return '';
+  const diffMs = Date.now() - d.getTime();
+  const min = Math.round(diffMs / 60000);
+  if (min < 1) return 'just now';
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.round(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const day = Math.round(hr / 24);
+  if (day < 30) return `${day}d ago`;
+  return fmtDate(s);
+}
+
+// Initials helper for the avatar fallback
+function adminInitials(name, email) {
+  const src = (name && String(name).trim()) || (email && String(email).split('@')[0]) || 'A';
+  const parts = src.split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return src.slice(0, 2).toUpperCase();
+}
+
+// Role → badge color (matches the existing palette in vault.html)
+function adminRoleClass(role) {
+  if (role === 'Super Admin') return 'purple';
+  if (role === 'Support') return 'teal';
+  return 'blue';
+}
+
+// Build a single row's HTML
+function adminRowHtml(a) {
+  const realId = a.id || a._id || '';
+  const shortId = realId ? realId.slice(0, 8).toUpperCase() : '—';
+  const name = a.name || a.full_name || 'Admin';
+  const email = a.email || '—';
+  const role = a.role || 'Admin';
+  const phone = a.phone || '';
+  const initials = adminInitials(name, email);
+  const avatar = a.profile_image
+    ? `<img src="${escHtml(a.profile_image)}" alt="">`
+    : escHtml(initials);
+  const lastLogin = fmtDateTime(a.last_login);
+  const lastLoginRel = fmtRelative(a.last_login);
+  const joined = fmtDate(a.created_at);
+  const roleClass = adminRoleClass(role);
+  const statusClass = a.is_active ? 'green' : 'red';
+  const statusLabel = a.is_active ? 'Active' : 'Inactive';
+
+  return `
+    <tr data-admin-id="${escHtml(realId)}">
+      <td>
+        <span class="admin-id" title="Click to copy full ID" onclick="copyAdminId(this, '${escHtml(realId)}')">
+          <span>${escHtml(shortId)}…</span>
+          <span style="font-size:.85em;opacity:.7">⧉</span>
+        </span>
+      </td>
+      <td>
+        <div class="admin-cell">
+          <div class="admin-avatar">${avatar}</div>
+          <div style="min-width:0">
+            <div class="admin-name">${escHtml(name)}</div>
+            <div class="admin-email">${escHtml(email)}</div>
+          </div>
+        </div>
+      </td>
+      <td><span class="badge badge-${roleClass}">${escHtml(role)}</span></td>
+      <td class="admin-phone">${phone ? escHtml(phone) : '<span class="admin-muted">—</span>'}</td>
+      <td><span class="badge badge-${statusClass}">${statusLabel}</span></td>
+      <td>
+        <div class="admin-dt">
+          <div class="admin-dt-time">${escHtml(lastLogin)}</div>
+          ${lastLoginRel ? `<div class="admin-dt-rel">${escHtml(lastLoginRel)}</div>` : '<div class="admin-dt-rel">never</div>'}
+        </div>
+      </td>
+      <td class="admin-dt admin-dt-time">${escHtml(joined)}</td>
+      <td>
+        <div class="admin-actions">
+          <button class="btn btn-ghost btn-xs" onclick="toggleAdminStatus('${escHtml(realId)}', ${!a.is_active})" title="${a.is_active ? 'Deactivate this admin' : 'Activate this admin'}">
+            ${a.is_active ? '⏸ Deactivate' : '▶ Activate'}
+          </button>
+          <button class="btn btn-danger btn-xs" onclick="deleteAdminUser('${escHtml(realId)}')" title="Delete this admin permanently">
+            🗑 Delete
+          </button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+// Render the table body for whatever subset of ADMINS_CACHE matches the filter
+function renderAdminsTable() {
   const container = document.getElementById('adminsTableContainer');
   if (!container) return;
 
-  try {
-    const data = await api('/admin/list-admins', { useAdmin: true });
-    const admins = data.admins || [];
+  const q = (document.getElementById('adminsSearch')?.value || '').toLowerCase().trim();
+  const filtered = !q
+    ? ADMINS_CACHE
+    : ADMINS_CACHE.filter((a) => {
+        const blob = ((a.name || '') + ' ' + (a.email || '') + ' ' + (a.role || '') + ' ' + (a.phone || '')).toLowerCase();
+        return blob.includes(q);
+      });
 
-    if (admins.length === 0) {
-      container.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-state-icon">👥</div>
-          <h3>No admin accounts found</h3>
-          <p>Create your first admin account using the form above.</p>
-        </div>
-      `;
-      return;
-    }
-
+  if (filtered.length === 0) {
     container.innerHTML = `
-      <div class="table-wrapper">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Realtime ID</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Phone</th>
-              <th>Status</th>
-              <th>Last Login</th>
-              <th>Created At</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${admins.map((a) => {
-              const roleBadge = a.role === 'Super Admin' ? 'purple' : a.role === 'Support' ? 'teal' : 'blue';
-              const statusBadge = a.is_active ? 'green' : 'red';
-              const realId = a.id || a._id;
-              const adminName = a.name || a.full_name || 'Admin';
-              const lastLoginFormatted = a.last_login ? new Date(a.last_login).toLocaleString('en-IN') : 'Never';
-              const createdAtFormatted = a.created_at ? new Date(a.created_at).toLocaleDateString('en-IN') : '—';
-
-              return `
-                <tr>
-                  <td><code style="background: rgba(37,99,235,0.1); padding: 2px 6px; border-radius: 4px; color: var(--color-gold-400); font-size: 0.75rem;">${realId.substring(0, 8)}...</code></td>
-                  <td style="font-weight: 600; color: var(--color-white);">
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                      ${a.profile_image ? `<img src="${a.profile_image}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;">` : '👤'}
-                      <span>${adminName}</span>
-                    </div>
-                  </td>
-                  <td>${a.email}</td>
-                  <td><span class="badge badge-${roleBadge}">${a.role}</span></td>
-                  <td>${a.phone || '—'}</td>
-                  <td><span class="badge badge-${statusBadge}">${a.is_active ? 'Active' : 'Inactive'}</span></td>
-                  <td style="font-size: 0.75rem; color: var(--color-slate-400);">${lastLoginFormatted}</td>
-                  <td style="font-size: 0.75rem; color: var(--color-slate-400);">${createdAtFormatted}</td>
-                  <td>
-                    <div style="display: flex; gap: 4px;">
-                      <button class="btn btn-ghost btn-sm" onclick="toggleAdminStatus('${realId}', ${!a.is_active})">
-                        ${a.is_active ? '⏸️' : '▶️'}
-                      </button>
-                      <button class="btn btn-danger btn-sm" onclick="deleteAdminUser('${realId}')">🗑</button>
-                    </div>
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div style="padding: var(--space-4); color: var(--color-slate-500); font-size: 0.75rem;">
-        Total Admins in MongoDB Atlas: ${admins.length}
+      <div class="admin-empty">
+        <div class="admin-empty-icon">${q ? '🔍' : '👥'}</div>
+        <div class="admin-empty-title">${q ? 'No admins match your search' : 'No admin accounts yet'}</div>
+        <div class="admin-empty-hint">${q
+          ? 'Try a different name, email, or role.'
+          : 'Use the "Create Admin in MongoDB Atlas" button above to add the first one.'}</div>
       </div>
     `;
+    return;
+  }
+
+  container.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th style="width:110px">ID</th>
+          <th>Admin</th>
+          <th style="width:120px">Role</th>
+          <th style="width:130px">Phone</th>
+          <th style="width:100px">Status</th>
+          <th style="width:170px">Last Login</th>
+          <th style="width:110px">Joined</th>
+          <th style="width:200px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${filtered.map(adminRowHtml).join('')}
+      </tbody>
+    </table>
+    <div style="padding:12px 20px;border-top:1px solid rgba(79,195,247,.08);color:#6b88aa;font-size:.74rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <span>Showing <strong style="color:#e2ecff">${filtered.length}</strong> of <strong style="color:#e2ecff">${ADMINS_CACHE.length}</strong> admin${ADMINS_CACHE.length === 1 ? '' : 's'} in MongoDB Atlas${q ? ` matching "<strong style="color:#4fc3f7">${escHtml(q)}</strong>"` : ''}.</span>
+      <span>Click any ID chip to copy the full admin ID.</span>
+    </div>
+  `;
+}
+
+// Filter on input — just re-renders the existing cache, no fetch
+function filterAdmins() {
+  renderAdminsTable();
+}
+
+// Click an ID chip to copy the full ID to the clipboard
+async function copyAdminId(el, fullId) {
+  if (!fullId || fullId === 'undefined') return;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(fullId);
+    } else {
+      // Fallback for non-HTTPS or older browsers
+      const ta = document.createElement('textarea');
+      ta.value = fullId;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
+    el.classList.add('admin-id-copied');
+    const original = el.innerHTML;
+    el.innerHTML = '<span>✓ copied</span>';
+    setTimeout(() => {
+      el.classList.remove('admin-id-copied');
+      el.innerHTML = original;
+    }, 1400);
+    if (typeof showToast === 'function') showToast('Admin ID copied to clipboard', 'success');
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('Could not copy — please copy manually', 'error');
+  }
+}
+
+async function loadAdminsList(force) {
+  const container = document.getElementById('adminsTableContainer');
+  if (!container) return;
+
+  // Skeleton while loading (only on a forced / first load)
+  if (force || !ADMINS_CACHE.length) {
+    container.innerHTML = `
+      <div style="padding:24px;text-align:center;color:#6b88aa;font-size:.85rem">
+        <span style="display:inline-block;width:16px;height:16px;border:2px solid rgba(0,230,118,.2);border-top-color:#00e676;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle"></span>
+        Loading admins from MongoDB Atlas…
+      </div>
+    `;
+  }
+
+  try {
+    const data = await api('/admin/list-admins', { useAdmin: true });
+    ADMINS_CACHE = data.admins || [];
+    renderAdminsTable();
   } catch (err) {
-    container.innerHTML = `<p class="text-danger">Failed to load admin list: ${err.message}</p>`;
+    container.innerHTML = `
+      <div class="admin-empty">
+        <div class="admin-empty-icon">⚠️</div>
+        <div class="admin-empty-title">Failed to load admin list</div>
+        <div class="admin-empty-hint">${escHtml(err.message || 'Unknown error')}</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="loadAdminsList(true)">🔄 Retry</button>
+      </div>
+    `;
   }
 }
 
@@ -1089,7 +1425,7 @@ async function loadSystemSettings() {
       if (document.getElementById('toggleActiveUsers')) document.getElementById('toggleActiveUsers').checked = s.showActiveUsers !== false;
       if (document.getElementById('toggleCouponsTraded')) document.getElementById('toggleCouponsTraded').checked = s.showCouponsTraded !== false;
       if (document.getElementById('toggleSavedByUsers')) document.getElementById('toggleSavedByUsers').checked = s.showSavedByUsers !== false;
-      if (document.getElementById('setHeroBadge')) document.getElementById('setHeroBadge').value = s.heroBadge || "🚀 India's #1 Coupon Marketplace — Now Live!";
+      if (document.getElementById('setHeroBadge')) document.getElementById('setHeroBadge').value = s.heroBadge || "🔥 Buy & Sell Coupons — All in One Place!";
       if (document.getElementById('toggleHeroBadge')) document.getElementById('toggleHeroBadge').checked = s.showHeroBadge !== false;
     }
   } catch (err) {
@@ -1114,7 +1450,7 @@ async function saveSystemSettings() {
     const showActiveUsers = document.getElementById('toggleActiveUsers')?.checked !== false;
     const showCouponsTraded = document.getElementById('toggleCouponsTraded')?.checked !== false;
     const showSavedByUsers = document.getElementById('toggleSavedByUsers')?.checked !== false;
-    const heroBadge = document.getElementById('setHeroBadge')?.value?.trim() || "🚀 India's #1 Coupon Marketplace — Now Live!";
+    const heroBadge = document.getElementById('setHeroBadge')?.value?.trim() || "🔥 Buy & Sell Coupons — All in One Place!";
     const showHeroBadge = document.getElementById('toggleHeroBadge')?.checked !== false;
 
     const data = await api('/admin/settings', {

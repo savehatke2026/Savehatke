@@ -19,7 +19,7 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
 
 .topbar{position:sticky;top:0;z-index:40;background:rgba(6,13,31,.95);border-bottom:1px solid rgba(79,195,247,.1);padding:14px 24px;display:flex;align-items:center;gap:12px}
 .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:1.05rem}
-.brand-icon{width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.9rem}
+.brand-icon{width:30px;height:30px;object-fit:contain;flex-shrink:0}
 .bhl{color:#00e676}
 .admin-badge{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,230,118,.15);color:#00e676;border:1px solid rgba(0,230,118,.25);border-radius:5px;padding:2px 7px}
 .topbar-link{margin-left:auto;font-size:.82rem;color:#6b88aa;padding:7px 14px;border:1px solid rgba(79,195,247,.15);border-radius:8px;transition:all .2s}
@@ -74,7 +74,7 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
 <body>
 
 <header class="topbar">
-  <div class="brand"><span class="brand-icon">🎟️</span> Save<span class="bhl">Hatke</span> <span class="admin-badge">Admin</span></div>
+  <div class="brand"><img src="logo.png" alt="SaveHatke" class="brand-icon"> Save<span class="bhl">Hatke</span> <span class="admin-badge">Admin</span></div>
   <a class="topbar-link" href="/vault.html">← Back to Admin Panel</a>
 </header>
 

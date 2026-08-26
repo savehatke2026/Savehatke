@@ -851,25 +851,15 @@ Regards,
   // List-Unsubscribe for bulk senders. Even for low-volume transactional
   // mail, adding the header avoids the new "missing unsubscribe" penalty
   // that pushes otherwise-clean mail to Spam.
-  const fqdn = (() => {
-    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
-    catch { return 'savehatke.com'; }
-  })();
-  const emailHash = crypto.createHash('sha256').update(cleanEmail).digest('hex').slice(0, 16);
-  const unsubscribeMailto = `unsubscribe+${emailHash}@${fqdn}`;
-  const unsubscribeUrl = `${siteUrl}/unsubscribe?c=${emailHash}&case=${encodeURIComponent(safeCaseId)}`;
-
   const headers = {
     'X-Entity-Ref-ID': `support-ack-${safeCaseId}`,
     // RFC 3834 — tells spam filters this is an automated transactional
     // notification (not marketing/bulk), which helps inbox placement.
     'Auto-Submitted': 'auto-generated',
+    'Precedence': 'transactional',
+    'Feedback-ID': `support:ack:${safeCaseId}:SaveHatke`,
     'X-Mailer': 'SaveHatke Support',
-    'X-Priority': '3',
     'Importance': 'Normal',
-    // RFC 8058 one-click unsubscribe — required by Gmail/Yahoo/Outlook.
-    'List-Unsubscribe': `<mailto:${unsubscribeMailto}>, <${unsubscribeUrl}>`,
-    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   };
 
   const mailOptions = {
@@ -1275,23 +1265,13 @@ SaveHatke Support Team
   </html>
   `;
 
-  // ── Deliverability headers (same as sendSupportAckEmail) ────────────
-  const fqdn = (() => {
-    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
-    catch { return 'savehatke.com'; }
-  })();
-  const emailHash = crypto.createHash('sha256').update(cleanEmail).digest('hex').slice(0, 16);
-  const unsubscribeMailto = `unsubscribe+${emailHash}@${fqdn}`;
-  const unsubscribeUrl = `${siteUrl}/unsubscribe?c=${emailHash}&case=${encodeURIComponent(safeCaseId)}`;
-
   const headers = {
     'X-Entity-Ref-ID': `support-resolved-${safeCaseId}`,
     'Auto-Submitted': 'auto-generated',
+    'Precedence': 'transactional',
+    'Feedback-ID': `support:resolved:${safeCaseId}:SaveHatke`,
     'X-Mailer': 'SaveHatke Support',
-    'X-Priority': '3',
     'Importance': 'Normal',
-    'List-Unsubscribe': `<mailto:${unsubscribeMailto}>, <${unsubscribeUrl}>`,
-    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
   };
 
   const mailOptions = {
