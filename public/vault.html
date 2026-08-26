@@ -60,7 +60,7 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
   display:flex;align-items:center;gap:10px;
   font-size:1.12rem;font-weight:800;flex-shrink:0;
 }
-.brand-icon{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0}
+.brand-icon{width:32px;height:32px;object-fit:contain;flex-shrink:0}
 .bhl{color:#00e676}
 .admin-badge{font-size:.58rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;background:rgba(0,230,118,.15);color:#00e676;border:1px solid rgba(0,230,118,.25);border-radius:5px;padding:2px 7px;margin-left:auto;white-space:nowrap}
 
@@ -643,7 +643,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 <!-- SIDEBAR -->
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-logo">
-    <div class="brand-icon">💰</div>
+    <img src="logo.png" alt="SaveHatke" class="brand-icon">
     <span>Save<span class="bhl">Hatke</span></span>
     <span class="admin-badge">ADMIN</span>
   </div>
@@ -1699,7 +1699,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="form-group">
             <label class="form-label">Hero Banner (Top Announcement)</label>
             <div style="display:flex; align-items:center; gap:12px;">
-              <input class="form-input" id="setHeroBadge" value="🚀 India's #1 Coupon Marketplace — Now Live!" placeholder="e.g. 🚀 India's #1 Coupon Marketplace — Now Live!" style="flex:1;">
+              <input class="form-input" id="setHeroBadge" value="🔥 Buy & Sell Coupons — All in One Place!" placeholder="e.g. 🔥 Buy & Sell Coupons — All in One Place!" style="flex:1;">
               <label class="toggle" style="flex-shrink:0;">
                 <input type="checkbox" id="toggleHeroBadge" checked>
                 <span class="toggle-slider"></span>

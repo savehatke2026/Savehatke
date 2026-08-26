@@ -74,8 +74,9 @@
     .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
     .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
     .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
-    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
-    .bhl { color:#00e676; }
+    .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
+    .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
+.bhl { color:#00e676; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
     .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
@@ -320,7 +321,7 @@
 <nav class="navbar" id="nav">
   <div class="container">
     <a href="index" class="nav-brand">
-      <div class="brand-icon">💰</div>
+      <img src="logo.png" alt="SaveHatke" class="brand-icon">
       <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
     <div class="nav-links" id="navLinks">
@@ -345,7 +346,7 @@
   <div class="particles" id="pageParticles"></div>
   <div class="container">
     <div class="page-hero-inner fu in">
-      <div class="page-hero-badge">💸 Earn instant cash from unused coupons</div>
+      <div class="page-hero-badge">🔥 Buy & Sell Coupons — All in One Place!</div>
       <h1 class="page-hero-title">Sell Your <span class="gtext">Unused Coupons</span></h1>
       <p class="page-hero-sub">Turn those dusty reward codes into instant cash. We pay <strong>₹10 per coupon</strong> — verified and paid within 24 hours. Submit up to 5 coupons at once!</p>
     </div>
@@ -502,9 +503,9 @@
     <div class="footer-grid">
       <div class="fbrand">
         <a href="index" class="nav-brand" style="font-size:1.2rem">
-          <div class="brand-icon">💰</div><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+          <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
         </a>
-        <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
+        <p>India's smart coupon marketplace. Buy discounted coupons, sell unused ones, and discover great deals — all in one place.</p>
       </div>
       <div class="fcol">
         <h4>Platform</h4>

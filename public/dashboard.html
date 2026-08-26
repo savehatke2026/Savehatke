@@ -79,7 +79,7 @@
     .navbar{position:fixed;top:0;left:0;right:0;z-index:200;height:68px;background:rgba(6,13,31,.92);backdrop-filter:blur(20px);border-bottom:1px solid rgba(79,195,247,.1);transition:background .3s}
     .navbar .container{height:100%;display:flex;align-items:center;gap:28px}
     .nav-brand{display:flex;align-items:center;gap:10px;font-size:1.25rem;font-weight:800;flex-shrink:0;color:#e2ecff}
-    .brand-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0}
+    .brand-icon{width:34px;height:34px;object-fit:contain;flex-shrink:0}
     .bhl{color:#00e676}
     .nav-links{display:flex;align-items:center;gap:22px}
     .nav-links a{font-size:.88rem;font-weight:500;color:#6b88aa;transition:color .2s;position:relative;padding-bottom:3px}
@@ -394,14 +394,15 @@
     .sb-section-label{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(107,136,170,.5);padding:12px 10px 5px}
     .sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:8px;font-size:.84rem;font-weight:600;color:#6b88aa;background:none;border:none;cursor:pointer;text-align:left;font-family:'Outfit',sans-serif;transition:all .17s;text-decoration:none;margin-bottom:2px;white-space:nowrap}
     .sb-item:hover{background:rgba(79,195,247,.07);color:#a8c0dc}
-    .sb-item.active{background:rgba(0,230,118,.1);color:#00e676;border-left:3px solid #00e676;padding-left:7px}
+    .sb-item.active{background:rgba(0,230,118,.1);color:#00e676}
     .sb-item-ico{width:18px;text-align:center;flex-shrink:0;font-size:.95rem}
 
-    /* Sub-items (nested under a parent sb-item) */
-    .sb-subgroup{padding:2px 0 4px 28px;margin:0 0 4px 16px;border-left:1px solid rgba(79,195,247,.18)}
+    /* Sub-items (nested under a parent sb-item) — collapsed until parent is clicked */
+    .sb-subgroup{padding:0 0 0 28px;margin:0 0 0 16px;border-left:1px solid rgba(79,195,247,.18);max-height:0;overflow:hidden;opacity:0;transition:max-height .28s ease,opacity .2s ease,padding .28s ease,margin .28s ease}
+    .sb-subgroup.open{max-height:240px;opacity:1;padding:2px 0 4px 28px;margin:0 0 4px 16px}
     .sb-subitem{display:flex;align-items:center;gap:6px;width:100%;padding:5px 8px 5px 6px;border-radius:6px;font-size:.78rem;font-weight:500;color:#7a8fb0;background:none;border:none;cursor:pointer;text-align:left;font-family:'Outfit',sans-serif;transition:all .15s;text-decoration:none;white-space:nowrap;margin-bottom:1px}
     .sb-subitem:hover{background:rgba(79,195,247,.06);color:#a8c0dc}
-    .sb-subitem.active{color:#00e676;background:rgba(0,230,118,.08);border-left:2px solid #00e676;padding-left:4px}
+    .sb-subitem.active{color:#00e676;background:rgba(0,230,118,.08)}
     .sb-subitem-line{color:rgba(107,136,170,.45);font-family:'JetBrains Mono',monospace;font-size:.7rem;flex-shrink:0;width:14px;text-align:center;letter-spacing:-1px}
 
     /* My-Coupons filter chips (driven by sidebar sub-items) */
@@ -458,7 +459,7 @@
 <nav class="navbar" id="mainNav">
   <div class="container">
     <a href="index" class="nav-brand">
-      <div class="brand-icon">💰</div>
+      <img src="logo.png" alt="SaveHatke" class="brand-icon">
       <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
     <div class="nav-links" id="navLinks">
@@ -1055,9 +1056,9 @@
     <div class="footer-grid">
       <div class="fbrand">
         <a href="index" class="nav-brand" style="font-size:1.2rem">
-          <div class="brand-icon">💰</div><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+          <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
         </a>
-        <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
+        <p>India's smart coupon marketplace. Buy discounted coupons, sell unused ones, and discover great deals — all in one place.</p>
       </div>
       <div class="fcol">
         <h4>Platform</h4>
@@ -2129,6 +2130,9 @@
     const local = Auth.getUser();
     if (local) applyUserToUI(local);
 
+    // Collapsible sidebar sub-sections (open on parent click)
+    initSidebarAccordion();
+
     await refreshDashboard();
     startAutoRefresh();
 
@@ -2539,6 +2543,22 @@
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (window.innerWidth <= 960) closeSidebar();
+  }
+
+  // Sidebar accordion: clicking a main section opens its sub-section (and
+  // closes the others). Main items without a sub-section just close any open one.
+  function initSidebarAccordion() {
+    const items = document.querySelectorAll('.sb-nav .sb-item');
+    items.forEach((item) => {
+      const group = item.nextElementSibling;
+      const hasGroup = group && group.classList.contains('sb-subgroup');
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.sb-nav .sb-subgroup').forEach((g) => {
+          if (g !== group) g.classList.remove('open');
+        });
+        if (hasGroup) group.classList.toggle('open');
+      });
+    });
   }
 
   function openSidebar() {
