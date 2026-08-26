@@ -62,6 +62,23 @@ function isEmailConfigured() {
 }
 
 /**
+ * Resolve a "From" address that stays aligned with the authenticated SMTP
+ * account (the main "SaveHatke Security" mailbox). A From on a different
+ * domain than the SMTP login breaks SPF/DKIM alignment and lands the mail in
+ * Spam (Gmail may even reject a mismatched From as a forgery), so we only
+ * honour SMTP_FROM / EMAIL_FROM when it shares the login's domain; otherwise
+ * we fall back to the authenticated login itself. Both the OTP and the
+ * "new sign-in" security alert send from this same resolved address.
+ */
+function resolveMainFromAddress() {
+  const authUser = (process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const desiredFrom = (process.env.SMTP_FROM || process.env.EMAIL_FROM || '').trim();
+  const domainOf = (a) => (String(a).split('@')[1] || '').toLowerCase();
+  const aligned = desiredFrom && authUser && domainOf(desiredFrom) === domainOf(authUser);
+  return aligned ? desiredFrom : (authUser || desiredFrom || 'noreply@savehatke.com');
+}
+
+/**
  * Escape user-supplied text before injecting it into an HTML email template.
  * Prevents broken markup and accidental HTML injection from the user_name.
  */
@@ -178,48 +195,56 @@ India's Coupon Marketplace`;
 
   const htmlContent = `
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>Welcome to SaveHatke</title>
   </head>
-  <body style="margin:0;padding:0;background-color:#060d1f;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e2ecff;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#060d1f;padding:40px 15px;">
+  <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;padding:40px 15px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" style="max-width:580px;background:#0c1835;border:1px solid rgba(79,195,247,0.2);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);" cellspacing="0" cellpadding="0" border="0">
-            <!-- Header / Hero -->
+
+          <!-- Brand -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:22px;">
             <tr>
-              <td style="padding:36px 36px 18px;text-align:center;background:radial-gradient(ellipse at top, rgba(0,230,118,0.10) 0%, transparent 70%);">
-                <div style="display:inline-block;padding:8px 16px;background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);border-radius:10px;margin-bottom:16px;">
-                  <span style="font-size:1.05rem;font-weight:900;color:#00e676;letter-spacing:0.5px;">💰 SaveHatke</span>
-                </div>
-                <div style="font-size:2.4rem;line-height:1;margin-bottom:8px;">🎉</div>
-                <h1 style="margin:0;font-size:1.6rem;font-weight:800;color:#ffffff;line-height:1.3;">Welcome to SaveHatke!</h1>
+              <td style="text-align:center;">
+                <span style="font-size:1.3rem;font-weight:800;color:#0f1e3a;">💰 Save<span style="color:#00c853;">Hatke</span></span>
+              </td>
+            </tr>
+          </table>
+
+          <table role="presentation" width="100%" style="max-width:580px;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;overflow:hidden;box-shadow:0 8px 28px rgba(15,30,58,0.08);" cellspacing="0" cellpadding="0" border="0">
+            <!-- Hero -->
+            <tr>
+              <td style="padding:34px 40px 14px;text-align:center;">
+                <div style="font-size:2.4rem;line-height:1;margin-bottom:6px;">🎉</div>
+                <h1 style="margin:0;font-size:1.6rem;font-weight:800;color:#0f1e3a;line-height:1.3;">Welcome to SaveHatke!</h1>
               </td>
             </tr>
 
             <!-- Greeting -->
             <tr>
-              <td style="padding:8px 36px 0;">
-                <p style="margin:0 0 14px;font-size:1rem;color:#e2ecff;line-height:1.6;">Hi <strong style="color:#00e676;">${safeName}</strong>,</p>
-                <p style="margin:0 0 18px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Welcome to <strong style="color:#e2ecff;">SaveHatke</strong> — India's coupon marketplace! 🛍️💰</p>
-                <p style="margin:0 0 18px;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">We're excited to have you with us.</p>
+              <td style="padding:8px 40px 0;">
+                <p style="margin:0 0 14px;font-size:1rem;color:#0f1e3a;line-height:1.6;">Hi <strong style="color:#00c853;">${safeName}</strong>,</p>
+                <p style="margin:0 0 16px;font-size:0.95rem;color:#374151;line-height:1.7;">Welcome to <strong style="color:#0f1e3a;">SaveHatke</strong> — India's coupon marketplace! 🛍️💰</p>
+                <p style="margin:0 0 16px;font-size:0.95rem;color:#374151;line-height:1.7;">We're excited to have you with us.</p>
               </td>
             </tr>
 
             <!-- What you can do -->
             <tr>
-              <td style="padding:0 36px;">
-                <p style="margin:0 0 12px;font-size:0.78rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4fc3f7;">With SaveHatke, you can:</p>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:rgba(79,195,247,0.04);border:1px solid rgba(79,195,247,0.12);border-radius:12px;">
+              <td style="padding:0 40px;">
+                <p style="margin:0 0 10px;font-size:0.76rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">With SaveHatke, you can:</p>
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
                   <tr>
                     <td style="padding:16px 20px;">
-                      <p style="margin:0 0 8px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">🏷️ <strong>Buy premium coupons</strong> at discounted prices</p>
-                      <p style="margin:0 0 8px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">💰 <strong>Sell coupons</strong> you don't need</p>
-                      <p style="margin:0 0 8px;font-size:0.95rem;color:#e2ecff;line-height:1.5;">🔐 Find <strong>verified coupons</strong> from real users</p>
-                      <p style="margin:0;font-size:0.95rem;color:#e2ecff;line-height:1.5;">💸 Save more on your favourite brands and services</p>
+                      <p style="margin:0 0 8px;font-size:0.95rem;color:#374151;line-height:1.5;">🏷️ <strong style="color:#0f1e3a;">Buy premium coupons</strong> at discounted prices</p>
+                      <p style="margin:0 0 8px;font-size:0.95rem;color:#374151;line-height:1.5;">💰 <strong style="color:#0f1e3a;">Sell coupons</strong> you don't need</p>
+                      <p style="margin:0 0 8px;font-size:0.95rem;color:#374151;line-height:1.5;">🔐 Find <strong style="color:#0f1e3a;">verified coupons</strong> from real users</p>
+                      <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.5;">💸 Save more on your favourite brands and services</p>
                     </td>
                   </tr>
                 </table>
@@ -228,21 +253,21 @@ India's Coupon Marketplace`;
 
             <!-- Account ready -->
             <tr>
-              <td style="padding:22px 36px 0;">
-                <p style="margin:0;font-size:0.95rem;color:#a8c0dc;line-height:1.7;">Your account has been successfully created. You can now explore SaveHatke and start saving.</p>
+              <td style="padding:20px 40px 0;">
+                <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.7;">Your account has been successfully created. You can now explore SaveHatke and start saving.</p>
               </td>
             </tr>
 
             <!-- CTA Buttons -->
             <tr>
-              <td style="padding:26px 36px 8px;" align="center">
+              <td style="padding:24px 40px 8px;" align="center">
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0">
                   <tr>
                     <td style="padding:0 6px;">
-                      <a href="https://savehatke.com/marketplace.html" style="display:inline-block;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f !important;text-decoration:none;font-weight:700;font-size:0.92rem;padding:12px 22px;border-radius:10px;">Browse Coupons →</a>
+                      <a href="https://savehatke.com/marketplace.html" style="display:inline-block;background:linear-gradient(135deg,#00e676,#00c853);color:#0f1e3a !important;text-decoration:none;font-weight:800;font-size:0.92rem;padding:13px 24px;border-radius:10px;">Browse Coupons →</a>
                     </td>
                     <td style="padding:0 6px;">
-                      <a href="https://savehatke.com/sell.html" style="display:inline-block;background:transparent;color:#00e676 !important;text-decoration:none;font-weight:700;font-size:0.92rem;padding:11px 22px;border-radius:10px;border:1.5px solid rgba(0,230,118,0.45);">Sell a Coupon →</a>
+                      <a href="https://savehatke.com/sell.html" style="display:inline-block;background:#ffffff;color:#00a844 !important;text-decoration:none;font-weight:800;font-size:0.92rem;padding:12px 24px;border-radius:10px;border:1.5px solid #00c853;">Sell a Coupon →</a>
                     </td>
                   </tr>
                 </table>
@@ -251,18 +276,18 @@ India's Coupon Marketplace`;
 
             <!-- Sign-off -->
             <tr>
-              <td style="padding:24px 36px 0;">
-                <p style="margin:0 0 6px;font-size:1rem;font-weight:700;color:#00e676;">Happy Saving! 💙</p>
-                <p style="margin:0 0 18px;font-size:0.88rem;color:#a8c0dc;line-height:1.6;">If you need any help, our support team is always here for you.</p>
-                <p style="margin:0;font-size:0.88rem;color:#8ba2c4;line-height:1.5;">Regards,<br><strong style="color:#e2ecff;">Team SaveHatke</strong><br><span style="color:#6b88aa;">India's Coupon Marketplace</span></p>
+              <td style="padding:24px 40px 0;">
+                <p style="margin:0 0 6px;font-size:1rem;font-weight:700;color:#00a844;">Happy Saving! 💙</p>
+                <p style="margin:0 0 16px;font-size:0.88rem;color:#374151;line-height:1.6;">If you need any help, our support team is always here for you.</p>
+                <p style="margin:0;font-size:0.88rem;color:#6b7280;line-height:1.5;">Regards,<br><strong style="color:#0f1e3a;">Team SaveHatke</strong><br><span style="color:#6b7280;">India's Coupon Marketplace</span></p>
               </td>
             </tr>
 
             <!-- Footer -->
             <tr>
-              <td style="padding:28px 36px 22px;background:rgba(6,13,31,0.6);border-top:1px solid rgba(79,195,247,0.1);text-align:center;">
-                <p style="margin:0 0 4px;font-size:0.78rem;color:#5a789a;">© ${currentYear} SaveHatke — India's Smartest Price Tracker &amp; Coupon Marketplace.</p>
-                <p style="margin:0;font-size:0.72rem;color:#4a6890;">This is a one-time welcome message sent to ${safeName}. Replies are not monitored — please reach support@savehatke.com for help.</p>
+              <td style="padding:26px 40px 22px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="margin:0 0 4px;font-size:0.78rem;color:#6b7280;">© ${currentYear} SaveHatke — India's Smartest Price Tracker &amp; Coupon Marketplace.</p>
+                <p style="margin:0;font-size:0.72rem;color:#9ca3af;">This is a one-time welcome message sent to ${safeName}. Replies are not monitored — please reach support@savehatke.com for help.</p>
               </td>
             </tr>
           </table>
@@ -303,8 +328,15 @@ India's Coupon Marketplace`;
  */
 async function sendOTPEmail(to, otp) {
   const cleanEmail = to.toLowerCase().trim();
-  const fromEmail = process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com';
-  const fromName = process.env.EMAIL_FROM_NAME || 'SaveHatke';
+
+  // Both the OTP and the "new sign-in" security alert send from the SAME
+  // main "SaveHatke Security" mailbox. The From MUST stay aligned with the
+  // authenticated SMTP login, or SPF/DKIM alignment breaks and the code lands
+  // in Spam (Gmail may even reject a mismatched From outright as a forgery) —
+  // resolveMainFromAddress() enforces that rule.
+  const fromEmail = resolveMainFromAddress();
+  const fromName = process.env.EMAIL_FROM_NAME || 'SaveHatke Security';
+  const year = new Date().getFullYear();
 
   const t = getTransporter();
 
@@ -320,59 +352,61 @@ async function sendOTPEmail(to, otp) {
 
   const htmlContent = `
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light">
     <title>Your SaveHatke Verification Code</title>
   </head>
-  <body style="margin:0;padding:0;background-color:#060d1f;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#e2ecff;">
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#060d1f;padding:40px 15px;">
+  <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
+    <!-- Preheader (hidden) -->
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">${otp} is your SaveHatke verification code — it expires in 5 minutes.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;padding:40px 15px;">
       <tr>
         <td align="center">
-          <table role="presentation" width="100%" max-width="520" style="max-width:520px;background:#0c1835;border:1px solid rgba(79,195,247,0.2);border-radius:18px;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.6);" cellspacing="0" cellpadding="0" border="0">
+
+          <!-- Brand -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:22px;">
+            <tr>
+              <td style="text-align:center;">
+                <span style="font-size:1.3rem;font-weight:800;color:#0f1e3a;">💰 Save<span style="color:#00c853;">Hatke</span></span>
+              </td>
+            </tr>
+          </table>
+
+          <table role="presentation" width="100%" max-width="520" style="max-width:520px;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;overflow:hidden;box-shadow:0 8px 28px rgba(15,30,58,0.08);" cellspacing="0" cellpadding="0" border="0">
             <!-- Header -->
             <tr>
-              <td style="padding:32px 36px 20px;text-align:center;background:linear-gradient(180deg, rgba(0,230,118,0.08) 0%, transparent 100%);">
-                <div style="display:inline-block;padding:8px 16px;background:rgba(0,230,118,0.12);border:1px solid rgba(0,230,118,0.3);border-radius:10px;margin-bottom:14px;">
-                  <span style="font-size:1.1rem;font-weight:900;color:#00e676;letter-spacing:0.5px;">💰 SaveHatke</span>
-                </div>
-                <h1 style="margin:0;font-size:1.6rem;font-weight:800;color:#ffffff;line-height:1.3;">Verification Code</h1>
-                <p style="margin:8px 0 0;font-size:0.9rem;color:#a8c0dc;">Use the code below to log in or verify your SaveHatke account.</p>
+              <td style="padding:34px 40px 12px;text-align:center;">
+                <h1 style="margin:0;font-size:1.55rem;font-weight:800;color:#0f1e3a;line-height:1.3;">Verification Code</h1>
+                <p style="margin:10px 0 0;font-size:0.92rem;color:#6b7280;line-height:1.6;">Use the code below to log in or verify your SaveHatke account.</p>
               </td>
             </tr>
 
             <!-- OTP Box -->
             <tr>
-              <td style="padding:20px 36px;" align="center">
-                <div style="background:rgba(0,230,118,0.07);border:2px dashed #00e676;border-radius:14px;padding:22px 28px;display:inline-block;margin:10px auto;">
-                  <div style="font-family:'Courier New',Courier,monospace;font-size:2.4rem;font-weight:800;letter-spacing:10px;color:#00e676;text-align:center;padding-left:10px;">
-                    ${otp}
-                  </div>
+              <td style="padding:22px 40px 6px;" align="center">
+                <div style="background:#f0fdf4;border:2px dashed #00c853;border-radius:14px;padding:20px 30px;display:inline-block;">
+                  <div style="font-family:'Courier New',Courier,monospace;font-size:2.4rem;font-weight:800;letter-spacing:10px;color:#00a844;text-align:center;padding-left:10px;">${otp}</div>
                 </div>
-                <p style="margin:14px 0 0;font-size:0.82rem;color:#6b88aa;">
-                  ⏱️ This code will expire in <strong style="color:#4fc3f7;">5 minutes</strong>.
-                </p>
+                <p style="margin:16px 0 0;font-size:0.82rem;color:#6b7280;">⏱️ This code will expire in <strong style="color:#0f1e3a;">5 minutes</strong>.</p>
               </td>
             </tr>
 
             <!-- Security Notice -->
             <tr>
-              <td style="padding:10px 36px 28px;">
-                <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(79,195,247,0.1);border-radius:10px;padding:14px 18px;">
-                  <p style="margin:0;font-size:0.8rem;color:#8ba2c4;line-height:1.5;">
-                    🔒 <strong>Security Tip:</strong> Never share this code with anyone. SaveHatke support will never ask for your OTP. If you did not request this, you can safely ignore this email.
-                  </p>
+              <td style="padding:16px 40px 30px;">
+                <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:14px 18px;">
+                  <p style="margin:0;font-size:0.82rem;color:#374151;line-height:1.6;">🔒 <strong style="color:#0f1e3a;">Security Tip:</strong> Never share this code with anyone. SaveHatke will never ask for your OTP. If you did not request this, you can safely ignore this email.</p>
                 </div>
               </td>
             </tr>
 
             <!-- Footer -->
             <tr>
-              <td style="padding:20px 36px;background:rgba(6,13,31,0.6);border-top:1px solid rgba(79,195,247,0.1);text-align:center;">
-                <p style="margin:0;font-size:0.75rem;color:#5a789a;">
-                  © 2026 SaveHatke — India's Smartest Price Tracker & Coupon Marketplace.
-                </p>
+              <td style="padding:20px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="margin:0;font-size:0.75rem;color:#6b7280;">© ${year} SaveHatke — India's Smartest Price Tracker &amp; Coupon Marketplace.</p>
               </td>
             </tr>
           </table>
@@ -383,6 +417,22 @@ async function sendOTPEmail(to, otp) {
   </html>
   `;
 
+  // ── Deliverability headers ─────────────────────────────────────────
+  // The same transactional signals the support emails use to stay out of
+  // Spam. RFC 3834 Auto-Submitted marks this as automated transactional mail
+  // (not bulk), and a Message-ID whose domain matches the From address keeps
+  // DKIM/SPF alignment intact. Priority is left Normal (a "verification code"
+  // subject flagged High-importance reads as phishy to some filters). We do
+  // NOT add List-Unsubscribe — a one-time security code isn't a subscription.
+  const fromDomain = (String(fromEmail).split('@')[1] || 'savehatke.com').toLowerCase();
+  const headers = {
+    'X-Entity-Ref-ID': `otp-${Date.now()}`,
+    'Auto-Submitted': 'auto-generated',
+    'X-Mailer': 'SaveHatke Auth',
+    'X-Priority': '3',
+    'Importance': 'Normal',
+  };
+
   try {
     const info = await t.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
@@ -390,6 +440,9 @@ async function sendOTPEmail(to, otp) {
       subject: `${otp} is your SaveHatke verification code`,
       text: `Your SaveHatke verification code is: ${otp}. It expires in 5 minutes. Do not share this code with anyone.`,
       html: htmlContent,
+      envelope: { from: fromEmail, to: cleanEmail },
+      messageId: `<otp-${Date.now()}-${crypto.randomBytes(6).toString('hex')}@${fromDomain}>`,
+      headers,
     });
 
     console.log(`✅ [EmailService] OTP email sent successfully to ${cleanEmail} (Message ID: ${info.messageId})`);
@@ -544,7 +597,7 @@ Regards,
       html { scroll-behavior: smooth; }
       body {
         font-family: 'Outfit', sans-serif;
-        background: #f4f5f7;
+        background: #ffffff;
         color: #0f1e3a;
         -webkit-font-smoothing: antialiased;
         min-height: 100vh;
@@ -966,7 +1019,7 @@ SaveHatke Support Team
       html { scroll-behavior: smooth; }
       body {
         font-family: 'Outfit', sans-serif;
-        background: #f4f5f7;
+        background: #ffffff;
         color: #0f1e3a;
         -webkit-font-smoothing: antialiased;
         min-height: 100vh;
@@ -1325,28 +1378,27 @@ async function sendSignInAlertEmail({
   const locationLine = [safeCity, safeCountry].filter(Boolean).join(', ');
   const safeMethod = escapeHtml(loginMethod || 'Email');
 
-  // From-address selection — same rules as the support emails
-  const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
-  const supportPass = (process.env.SUPPORT_EMAIL_PASSWORD || '').trim();
-  const hasDedicatedSupport = Boolean(supportFrom && supportPass);
-  // For security alerts we want the same "support" mailbox to be the
-  // verified sender so a tampered From: cannot impersonate SaveHatke.
-  // Falls back to the main SMTP account when no dedicated support creds.
-  const fromEmail = hasDedicatedSupport
-    ? supportFrom
-    : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
+  // Sender — the "new sign-in" alert goes out from the SAME main
+  // "SaveHatke Security" mailbox as the OTP email (per product decision), so
+  // both security messages share one verified, SPF/DKIM-aligned sender.
+  // resolveMainFromAddress() keeps the From aligned with the SMTP login;
+  // sending a security alert from a mismatched From breaks alignment and
+  // pushes it to Spam.
+  const fromEmail = resolveMainFromAddress();
   const fromName = (process.env.SECURITY_FROM_NAME || 'SaveHatke Security').trim();
+  // Replies to a security alert still route to the support inbox when set.
+  const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
   const secureUrl = `${siteUrl}/dashboard.html#security`;
   const year = new Date().getFullYear();
 
-  const t = getSupportTransporter();
-  if (!t || !isSupportEmailConfigured()) {
-    console.warn(`⚠️ [EmailService] Support email not configured. Sign-in alert for ${cleanEmail} was NOT sent.`);
+  const t = getTransporter();
+  if (!t || !isEmailConfigured()) {
+    console.warn(`⚠️ [EmailService] SMTP not configured. Sign-in alert for ${cleanEmail} was NOT sent.`);
     return {
       success: false,
       isSimulated: true,
-      error: 'Support email credentials not configured on server. Please add support email details to .env.',
+      error: 'SMTP credentials not configured on server. Please add SMTP details to .env.',
     };
   }
 
@@ -1394,7 +1446,7 @@ SaveHatke Security Team
       html { scroll-behavior: smooth; }
       body {
         font-family: 'Outfit', sans-serif;
-        background: #f4f5f7;
+        background: #ffffff;
         color: #0f1e3a;
         -webkit-font-smoothing: antialiased;
         min-height: 100vh;
@@ -1652,7 +1704,7 @@ SaveHatke Security Team
     text: textBody,
     html: htmlContent,
     envelope: { from: fromEmail, to: cleanEmail },
-    messageId: `<signin-alert-${emailHash}-${Date.now()}@${fqdn}>`,
+    messageId: `<signin-alert-${emailHash}-${Date.now()}@${(String(fromEmail).split('@')[1] || fqdn).toLowerCase()}>`,
     headers,
   };
 

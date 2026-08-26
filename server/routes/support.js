@@ -129,28 +129,35 @@ router.post('/ticket', optionalAuth, async (req, res) => {
 
     await db.appendRow(db.SHEETS.SUPPORT_TICKETS, ticket);
 
-    // Send the "request received" acknowledgment email (fire-and-forget —
-    // never blocks or fails the submission response)
-    emailService.sendSupportAckEmail({
-      to: ticket.userEmail,
-      userName: ticket.name,
-      caseId: ticket.id,
-      subject: ticket.subject,
-      createdAt: ticket.createdAt,
-      message: ticket.message,
-    })
-      .then((r) => {
-        if (r && r.success) {
-          console.log(`📧 [Support] Ack email sent to ${ticket.userEmail} for case #${ticket.id} (messageId=${r.messageId})`);
-        } else if (r && r.isSimulated) {
-          console.warn(`📧 [Support] Ack email NOT sent for case #${ticket.id} → ${ticket.userEmail}`);
-          console.warn(`   Reason: ${r.error || 'SMTP not configured'}`);
-          console.warn(`   Fix: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in your .env (or SUPPORT_EMAIL + SUPPORT_EMAIL_PASSWORD for a dedicated support mailbox).`);
-        } else {
-          console.warn(`📧 [Support] Ack email FAILED for case #${ticket.id} → ${ticket.userEmail}: ${(r && r.error) || 'unknown error'}`);
-        }
-      })
-      .catch((e) => console.warn('📧 [Support] Ack email unexpected error:', e && e.message ? e.message : e));
+    // Send the "request received" acknowledgment email.
+    // IMPORTANT: this MUST be awaited, not fire-and-forget. On Vercel the
+    // serverless function is frozen the instant the HTTP response is sent,
+    // which kills any in-flight SMTP connection — so a detached
+    // .then()/.catch() send never actually goes out in production (this was
+    // the root cause of "support email not going"). We await it and swallow
+    // any error so a mail failure still can't fail the submission: the ticket
+    // row was already saved above.
+    try {
+      const r = await emailService.sendSupportAckEmail({
+        to: ticket.userEmail,
+        userName: ticket.name,
+        caseId: ticket.id,
+        subject: ticket.subject,
+        createdAt: ticket.createdAt,
+        message: ticket.message,
+      });
+      if (r && r.success) {
+        console.log(`📧 [Support] Ack email sent to ${ticket.userEmail} for case #${ticket.id} (messageId=${r.messageId})`);
+      } else if (r && r.isSimulated) {
+        console.warn(`📧 [Support] Ack email NOT sent for case #${ticket.id} → ${ticket.userEmail}`);
+        console.warn(`   Reason: ${r.error || 'SMTP not configured'}`);
+        console.warn(`   Fix: set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS in your .env (or SUPPORT_EMAIL + SUPPORT_EMAIL_PASSWORD for a dedicated support mailbox).`);
+      } else {
+        console.warn(`📧 [Support] Ack email FAILED for case #${ticket.id} → ${ticket.userEmail}: ${(r && r.error) || 'unknown error'}`);
+      }
+    } catch (e) {
+      console.warn('📧 [Support] Ack email unexpected error:', e && e.message ? e.message : e);
+    }
 
     res.status(201).json({
       message: 'Support ticket submitted successfully. We will get back to you within 24 hours.',

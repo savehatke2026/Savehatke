@@ -1006,29 +1006,33 @@ router.put('/support-cases/:id/status', authenticateToken, requireAdmin, async (
     await db.updateRow(db.SHEETS.SUPPORT_TICKETS, 'id', id, update);
 
     // Fire the "Your case has been resolved ✅" email to the user — only on the
-    // first transition into "resolved" (not on later flips). Fire-and-forget so
-    // a SMTP hiccup never blocks the admin UI.
+    // first transition into "resolved" (not on later flips).
+    // IMPORTANT: awaited, not fire-and-forget. On Vercel the serverless
+    // function is frozen the instant the response is sent, which would kill an
+    // un-awaited SMTP send before it completes. We await and swallow errors so
+    // a mail failure still can't fail the status update (row is already saved).
     if (status === 'resolved' && !wasResolved && existing.userEmail) {
-      emailService.sendSupportResolvedEmail({
-        to: existing.userEmail,
-        userName: existing.name || '',
-        caseId: existing.id,
-        subject: existing.subject || '',
-        resolvedAt: resolvedAt || now,
-        userMessage: existing.message || '',
-        resolution: cleanResolution || '',
-      })
-        .then((r) => {
-          if (r && r.success) {
-            console.log(`📧 [Admin] Resolution email sent for case #${existing.id} → ${existing.userEmail}`);
-          } else if (r && r.isSimulated) {
-            console.warn(`📧 [Admin] Resolution email NOT sent for case #${existing.id} → ${existing.userEmail}`);
-            console.warn(`   Reason: ${r.error || 'SMTP not configured'}`);
-          } else {
-            console.warn(`📧 [Admin] Resolution email FAILED for case #${existing.id} → ${existing.userEmail}: ${(r && r.error) || 'unknown'}`);
-          }
-        })
-        .catch((e) => console.warn('📧 [Admin] Resolution email unexpected error:', e && e.message ? e.message : e));
+      try {
+        const r = await emailService.sendSupportResolvedEmail({
+          to: existing.userEmail,
+          userName: existing.name || '',
+          caseId: existing.id,
+          subject: existing.subject || '',
+          resolvedAt: resolvedAt || now,
+          userMessage: existing.message || '',
+          resolution: cleanResolution || '',
+        });
+        if (r && r.success) {
+          console.log(`📧 [Admin] Resolution email sent for case #${existing.id} → ${existing.userEmail}`);
+        } else if (r && r.isSimulated) {
+          console.warn(`📧 [Admin] Resolution email NOT sent for case #${existing.id} → ${existing.userEmail}`);
+          console.warn(`   Reason: ${r.error || 'SMTP not configured'}`);
+        } else {
+          console.warn(`📧 [Admin] Resolution email FAILED for case #${existing.id} → ${existing.userEmail}: ${(r && r.error) || 'unknown'}`);
+        }
+      } catch (e) {
+        console.warn('📧 [Admin] Resolution email unexpected error:', e && e.message ? e.message : e);
+      }
     }
 
     res.json({ message: `Case moved to ${status}.`, status, resolvedAt });
