@@ -281,9 +281,7 @@
       <a href="about.html" class="active" aria-current="page">About</a>
       <a href="support.html">Support</a>
     </div>
-    <div class="nav-actions" id="navActions">
-      <a href="login.html" class="btn btn-primary btn-sm">Log In</a>
-    </div>
+    <div class="nav-actions" id="navActions"></div>
     <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu" aria-expanded="false">
       <span></span><span></span><span></span>
     </button>
@@ -809,6 +807,9 @@
     }
   });
 </script>
+<!-- app.js owns #navActions — it swaps the Log In button for the profile avatar
+     and dropdown when a session is present, exactly as on every other page. -->
+<script src="js/app.js"></script>
 <script src="js/chatbot.js"></script>
 </body>
 </html>
