@@ -4,6 +4,7 @@
 // Handles user CRUD operations via Supabase (PostgreSQL)
 
 const { createClient } = require('@supabase/supabase-js');
+const { randomUUID } = require('crypto');
 const sessionCache = require('./sessionCache');
 
 const SUPABASE_URL = process.env.SUPABASE_URL || '';
@@ -168,7 +169,9 @@ function isConfigured() {
 // ── Coupon Mapping Helpers ──────────────────────────────────────────────
 function toSupabaseCoupon(c) {
   return {
-    id: c.id,
+    // Omitted on purpose when the caller has no id yet — coupons.id defaults to
+    // gen_random_uuid()::text, so Postgres mints the unique id on insert.
+    ...(c.id ? { id: c.id } : {}),
     code: c.code ? c.code.toUpperCase().trim() : '',
     title: c.title || '',
     type: c.type || 'Public',
@@ -194,6 +197,7 @@ function toSupabaseCoupon(c) {
     buyer_email: c.buyerEmail || '',
     // New review/notification fields — only included when provided so writes
     // tolerate databases where the migration hasn't been applied yet
+    ...(c.onSale !== undefined ? { on_sale: Boolean(c.onSale !== false && c.onSale !== 'false') } : {}),
     ...(c.proofUrl !== undefined ? { proof_url: c.proofUrl || '' } : {}),
     ...(c.adminNotes !== undefined ? { admin_notes: c.adminNotes || '' } : {}),
     ...(c.verifiedAt !== undefined ? { verified_at: c.verifiedAt || null } : {}),
@@ -229,6 +233,9 @@ function fromSupabaseCoupon(r) {
     sellerEmail: r.seller_email || '',
     status: r.status || 'available',
     source: r.source || 'admin',
+    // Reads as ON when the column is missing (pre-migration) or NULL, which
+    // matches the DEFAULT TRUE the migration installs.
+    onSale: r.on_sale !== false,
     addedAt: r.added_at || new Date().toISOString(),
     soldAt: r.sold_at || '',
     buyerEmail: r.buyer_email || '',
@@ -253,11 +260,20 @@ async function createCoupon(couponData) {
   if (!client) throw new Error('Supabase not configured');
 
   const row = toSupabaseCoupon(couponData);
-  const { data, error } = await client
+  let { data, error } = await client
     .from('coupons')
     .insert(row)
     .select()
     .single();
+
+  // The id is deliberately omitted so `coupons.id DEFAULT gen_random_uuid()::text`
+  // (server/setup_coupon_sale_timer.sql) mints it. If that migration hasn't been
+  // applied yet the column is still NOT NULL with no default, so Postgres answers
+  // 23502 — mint the id here once and retry, rather than losing the coupon.
+  if (error && error.code === '23502' && !row.id) {
+    row.id = randomUUID();
+    ({ data, error } = await client.from('coupons').insert(row).select().single());
+  }
 
   if (error) {
     if (error.code === '23505') {
@@ -356,6 +372,13 @@ async function updateCoupon(id, updates) {
   if (updates.status !== undefined) patch.status = updates.status.toLowerCase();
   if (updates.soldAt !== undefined) patch.sold_at = updates.soldAt;
   if (updates.buyerEmail !== undefined) patch.buyer_email = updates.buyerEmail;
+  // Sale switch + expiry timer, both edited inline from Coupon Management
+  if (updates.onSale !== undefined) patch.on_sale = Boolean(updates.onSale !== false && updates.onSale !== 'false');
+  if (updates.expiryDate !== undefined) patch.expiry_date = updates.expiryDate || null;
+
+  if (Object.keys(patch).length === 0) {
+    throw new Error('No updatable fields were supplied.');
+  }
 
   const { data, error } = await client
     .from('coupons')

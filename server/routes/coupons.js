@@ -80,6 +80,8 @@ router.get('/', optionalAuth, async (req, res) => {
       // Expiry is not sensitive (the code itself is still withheld) and the
       // marketplace cards render a live "expires in" countdown from it.
       expiryDate: c.expiryDate || '',
+      // Admin-controlled sale switch — gates the "🔥 Sale" badge on the card.
+      onSale: c.onSale !== false,
     }));
 
     res.json({ coupons: sanitized, total: sanitized.length });
@@ -334,7 +336,8 @@ const handleCouponSubmission = async (req, res) => {
       }
 
       const coupon = {
-        id: uuidv4(),
+        // id omitted — Supabase mints it; a local uuid is only used as a
+        // fallback below when Supabase isn't configured or rejects the insert.
         code: cleanCode,
         category: String(c.category).trim().slice(0, 60),
         brand: cleanBrand,
@@ -370,12 +373,14 @@ const handleCouponSubmission = async (req, res) => {
       let saved = false;
       if (supabase.isConfigured()) {
         try {
-          await supabase.createCoupon(coupon);
+          const created = await supabase.createCoupon(coupon);
+          coupon.id = created.id; // Supabase-generated unique id
           saved = true;
         } catch (e) {
           console.warn('Supabase coupon save notice:', e.message);
         }
       }
+      if (!coupon.id) coupon.id = uuidv4();
       try {
         await db.appendRow(db.SHEETS.COUPONS, coupon);
         saved = true;

@@ -208,6 +208,14 @@ router.post('/create-admin', authenticateToken, requireAdmin, async (req, res) =
 });
 
 // GET /api/admin/list-admins — List all admins stored in MongoDB Atlas (with fallback)
+// The response carries `source` so the admin panel can say *why* Phone / Last Login /
+// Joined are blank instead of looking like a broken table: 'mongodb' means the rows
+// are real, 'fallback' means Atlas was unreachable and these are the built-in owners.
+const FALLBACK_ADMINS = () => [
+  { id: '1', name: 'Rupayan', email: 'rupayandas2024@gmail.com', role: 'Super Admin', is_active: true, phone: '', created_at: null, last_login: null },
+  { id: '2', name: 'Jaggik', email: 'jaggik8888@gmail.com', role: 'Super Admin', is_active: true, phone: '', created_at: null, last_login: null },
+];
+
 router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => {
   try {
     let admins = [];
@@ -215,21 +223,14 @@ router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => 
       admins = await Admin.find().select('-password_hash').sort({ created_at: -1 });
     }
     if (!admins || admins.length === 0) {
-      admins = [
-        { id: '1', name: 'Rupayan', email: 'rupayandas2024@gmail.com', role: 'Super Admin', is_active: true },
-        { id: '2', name: 'Jaggik', email: 'jaggik8888@gmail.com', role: 'Super Admin', is_active: true }
-      ];
+      admins = FALLBACK_ADMINS();
+      return res.json({ admins, total: admins.length, source: 'fallback' });
     }
-    res.json({ admins, total: admins.length });
+    res.json({ admins, total: admins.length, source: 'mongodb' });
   } catch (err) {
     console.error('List admins error:', err);
-    res.json({
-      admins: [
-        { id: '1', name: 'Rupayan', email: 'rupayandas2024@gmail.com', role: 'Super Admin', is_active: true },
-        { id: '2', name: 'Jaggik', email: 'jaggik8888@gmail.com', role: 'Super Admin', is_active: true }
-      ],
-      total: 2
-    });
+    const admins = FALLBACK_ADMINS();
+    res.json({ admins, total: admins.length, source: 'fallback' });
   }
 });
 
@@ -388,6 +389,7 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       isFeatured,
       isExclusive,
       isVerified,
+      onSale,
     } = req.body;
 
     if (!code || !brand) {
@@ -412,7 +414,9 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
     }
 
     const coupon = {
-      id: uuidv4(),
+      // No id here on purpose — Supabase mints it (coupons.id defaults to
+      // gen_random_uuid()::text). A uuid is only generated locally below when
+      // Supabase isn't configured at all.
       code: cleanCode,
       title: title ? title.trim() : '',
       type: type ? type.trim() : 'Public',
@@ -433,26 +437,46 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       sellerEmail,
       status: status ? status.toLowerCase() : 'available',
       source: source ? source.toLowerCase().replace(/\s+/g, '-') : 'admin',
+      // Only sent when the caller explicitly asks for a state. Left out otherwise
+      // so `coupons.on_sale DEFAULT TRUE` decides — which also keeps inserts
+      // working before server/setup_coupon_sale_timer.sql has been applied.
+      ...(onSale !== undefined ? { onSale: Boolean(onSale !== false && onSale !== 'false') } : {}),
       addedAt: new Date().toISOString(),
       soldAt: '',
       buyerEmail: '',
     };
 
-    // Save coupon EXCLUSIVELY to Google Sheets (Coupons tab)
-    const saved = await db.appendRow(db.SHEETS.COUPONS, coupon);
-
-    // Dual-sync to Supabase as backup if configured
+    // Supabase first — it owns the coupon id and is the live store the
+    // marketplace reads from. Sheets is the mirror and gets the same id.
+    let created = null;
     if (supabase.isConfigured()) {
       try {
-        await supabase.createCoupon(coupon);
+        created = await supabase.createCoupon(coupon);
+        coupon.id = created.id;
       } catch (err) {
-        console.warn('Supabase backup createCoupon notice:', err.message);
+        if (/already exists/i.test(err.message)) {
+          return res.status(409).json({ error: 'This coupon code already exists.' });
+        }
+        console.warn('Supabase createCoupon notice:', err.message);
       }
     }
 
+    // Fallback id for the Sheets mirror when Supabase is off or unreachable
+    if (!coupon.id) coupon.id = uuidv4();
+
+    let saved = null;
+    try {
+      saved = await db.appendRow(db.SHEETS.COUPONS, coupon);
+    } catch (err) {
+      console.warn('Sheets appendRow notice:', err.message);
+      if (!created) throw err; // nothing persisted anywhere — surface the failure
+    }
+
     res.status(201).json({
-      message: 'Coupon published successfully to Google Sheets! 📊',
-      coupon: saved || coupon,
+      message: created
+        ? 'Coupon published successfully! 🎟️'
+        : 'Coupon published successfully to Google Sheets! 📊',
+      coupon: created || saved || coupon,
     });
   } catch (err) {
     console.error('Admin add coupon error:', err);
@@ -493,16 +517,35 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => 
     const updates = req.body;
 
     let updated = null;
+    let supabaseError = null;
     if (supabase.isConfigured()) {
       try {
         updated = await supabase.updateCoupon(id, updates);
-      } catch (e) {}
+      } catch (e) {
+        supabaseError = e;
+      }
     }
 
     try {
       const gUpdated = await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
       if (!updated) updated = gUpdated;
     } catch (e) {}
+
+    // Supabase is the live store the marketplace reads from, so a failed write
+    // there must not be reported as success — the admin panel reverts its
+    // inline sale switch / timer on a non-2xx response. A "no rows" error is
+    // tolerated when the Sheets mirror did update (legacy Sheets-only coupons).
+    if (supabaseError) {
+      const missingColumn = /column .* does not exist|Could not find the '.*' column/i.test(supabaseError.message);
+      const notInSupabase = /no rows|PGRST116/i.test(supabaseError.message);
+      if (missingColumn || !(notInSupabase && updated)) {
+        return res.status(missingColumn ? 400 : 500).json({
+          error: missingColumn
+            ? `${supabaseError.message} — run server/setup_coupon_sale_timer.sql in the Supabase SQL editor.`
+            : supabaseError.message,
+        });
+      }
+    }
 
     res.json({ message: 'Coupon updated successfully.', coupon: updated || { id, ...updates } });
   } catch (err) {

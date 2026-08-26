@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>SaveHatke Admin Panel</title>
+<link rel="icon" type="image/png" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -257,6 +259,37 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .admin-dt{font-size:.78rem;line-height:1.3}
 .admin-dt-time{color:#a8c0dc}
 .admin-dt-rel{color:#6b88aa;font-size:.7rem}
+.admin-notice{display:flex;align-items:flex-start;gap:10px;margin:0;padding:11px 20px;background:rgba(255,183,77,.08);border-bottom:1px solid rgba(255,183,77,.18);color:#ffb74d;font-size:.78rem;line-height:1.45}
+.admin-notice strong{color:#ffcc80;font-weight:700}
+.admin-tfoot{padding:12px 20px;border-top:1px solid rgba(79,195,247,.08);color:#6b88aa;font-size:.74rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.admin-tfoot strong{color:#e2ecff}
+.data-table{table-layout:fixed;min-width:1080px}
+.data-table td{overflow:hidden;text-overflow:ellipsis}
+.nowrap{white-space:nowrap}
+.ta-right{text-align:right}
+.admin-actions.ta-right{justify-content:flex-end}
+
+/* ── COUPON INVENTORY TABLE ── */
+.inv-table{table-layout:fixed;min-width:1246px}
+.inv-table td{overflow:hidden}
+.inv-brand{display:flex;align-items:center;gap:9px;min-width:0}
+.inv-brand-logo{width:28px;height:28px;border-radius:7px;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(79,195,247,.14);object-fit:contain;padding:3px}
+.inv-brand-initial{width:28px;height:28px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#00e676,#4fc3f7);color:#060d1f;font-weight:800;font-size:.8rem;border:1px solid rgba(79,195,247,.14)}
+.inv-brand-name{font-size:.78rem;font-weight:600;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-code{font-family:'JetBrains Mono',monospace;font-size:.76rem;font-weight:600;color:#4fc3f7;background:rgba(79,195,247,.1);padding:3px 8px;border-radius:5px;white-space:nowrap;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.inv-timer{width:100%;max-width:186px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.16);border-radius:6px;color:#e2ecff;font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:5px 7px;outline:none;color-scheme:dark}
+.inv-timer:focus{border-color:rgba(79,195,247,.45);background:rgba(79,195,247,.06)}
+.inv-timer:disabled{opacity:.5;cursor:wait}
+.inv-exp{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 7px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:700;border:1px solid transparent;white-space:nowrap}
+.inv-exp-green{color:#00e676;background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.22)}
+.inv-exp-yellow{color:#ffd740;background:rgba(255,215,64,.09);border-color:rgba(255,215,64,.3)}
+.inv-exp-red{color:#ff5252;background:rgba(255,82,82,.1);border-color:rgba(255,82,82,.38);animation:invExpFlash 1s ease-in-out infinite}
+.inv-exp-expired{color:#8ba2c4;background:rgba(139,162,196,.08);border-color:rgba(139,162,196,.2)}
+.inv-exp-none{color:#6b88aa;font-size:.68rem;margin-top:5px;display:inline-block}
+@keyframes invExpFlash{0%,100%{opacity:1}50%{opacity:.5}}
+@media (prefers-reduced-motion:reduce){.inv-exp-red{animation:none}}
+.inv-price{font-weight:700;color:#00e676;font-family:'JetBrains Mono',monospace;font-size:.8rem}
+.inv-tfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid rgba(79,195,247,.08);font-size:.8rem;color:#6b88aa}
 
 /* ── BADGES ── */
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
@@ -1297,7 +1330,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" id="acMinOrder" placeholder="e.g. 999"></div>
             <div class="form-group"><label class="form-label">Original Value / Max Discount (₹)</label><input class="form-input" type="number" id="acValue" placeholder="e.g. 500"></div>
             <div class="form-group"><label class="form-label">Valid From</label><input class="form-input" type="date" id="acValidFrom"></div>
-            <div class="form-group"><label class="form-label">Expiry Date</label><input class="form-input" type="date" id="acExpiry"></div>
+            <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="acExpiry"></div>
             <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select" id="acSource"><option value="admin">Admin</option><option value="partner">Partner</option><option value="user-submitted">User Submitted</option></select></div>
             <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="acStatus"><option value="available">Active (Available)</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option></select></div>
             <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" id="acLink" placeholder="https://..."></div>
@@ -1628,7 +1661,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <button class="btn btn-ghost btn-sm" onclick="loadAdminsList()">🔄 Refresh</button>
           </div>
         </div>
-        <div id="adminsTableContainer" class="overflow-x">
+        <div id="adminsTableContainer">
           <div class="shimmer" style="padding: 24px; text-align: center;">Loading admins from MongoDB Atlas...</div>
         </div>
       </div>
@@ -2563,6 +2596,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 <div class="toast-container" id="toastContainer"></div>
 
 <script src="js/app.js"></script>
+<script src="js/coupon-meta.js"></script>
 <script src="js/admin.js"></script>
 <script src="js/chatbotAdmin.js"></script>
 <script src="js/gmail.js"></script>

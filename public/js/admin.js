@@ -243,6 +243,9 @@ let inventoryLoading = false;
 let inventoryRequestSeq = 0;
 let invCurrentPage = 1;
 const INV_PAGE_SIZE = 20;
+// Last rendered page-set, so an inline sale/timer edit can patch its row in
+// place instead of re-fetching and losing the page + scroll position.
+let INVENTORY_CACHE = [];
 
 async function loadInventory() {
   const container = document.getElementById('inventoryTable');
@@ -261,11 +264,12 @@ async function loadInventory() {
     if (seq !== inventoryRequestSeq) return;
 
     if (data.coupons.length === 0) {
+      INVENTORY_CACHE = [];
       container.innerHTML = `
         <div class="empty-state">
-          <div class="empty-state-icon">📋</div>
-          <h3>No coupons in inventory</h3>
-          <p>Add your first coupon using the form above.</p>
+          <div class="es-icon">📋</div>
+          <div class="es-title">No coupons in inventory</div>
+          <div class="es-sub">Add your first coupon with the “➕ Add Coupon” button above.</div>
         </div>
       `;
       return;
@@ -275,7 +279,9 @@ async function loadInventory() {
     let coupons = data.coupons;
     if (search) {
       coupons = coupons.filter(
-        (c) => c.code.toLowerCase().includes(search) || c.brand.toLowerCase().includes(search)
+        (c) =>
+          (c.code || '').toLowerCase().includes(search) ||
+          (c.brand || '').toLowerCase().includes(search)
       );
     }
 
@@ -285,64 +291,206 @@ async function loadInventory() {
     if (invCurrentPage > totalPages) invCurrentPage = totalPages;
     const startIdx = (invCurrentPage - 1) * INV_PAGE_SIZE;
     const pageCoupons = coupons.slice(startIdx, startIdx + INV_PAGE_SIZE);
+    INVENTORY_CACHE = pageCoupons;
 
     container.innerHTML = `
-      <div class="table-wrapper">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Code</th>
-              <th>Brand</th>
-              <th>Category</th>
-              <th>Value</th>
-              <th>Price</th>
-              <th>Source</th>
-              <th>Status</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${pageCoupons.map((c) => {
-              const statusBadge = c.status === 'sold' ? 'green' : c.status === 'pending' ? 'amber' : 'blue';
-              const sourceBadge = c.source === 'admin' ? 'purple' : c.source === 'auto-scraped' ? 'teal' : 'blue';
-              return `
-                <tr>
-                  <td><code style="background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 4px; color: var(--color-teal-400); font-weight: 600;">${c.code}</code></td>
-                  <td>${c.brand}</td>
-                  <td>${c.category}</td>
-                  <td>₹${c.originalValue || '—'}</td>
-                  <td style="font-weight: 700;">₹${c.sellingPrice}</td>
-                  <td><span class="badge badge-${sourceBadge}">${c.source}</span></td>
-                  <td><span class="badge badge-${statusBadge}">${c.status}</span></td>
-                  <td>
-                    <div style="display: flex; gap: 0.25rem;">
-                      ${c.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="approveCoupon('${c.id}')">✓</button>` : ''}
-                      <button class="btn btn-danger btn-sm" onclick="deleteCoupon('${c.id}')">🗑</button>
-                    </div>
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-top:1px solid rgba(79,195,247,.08);font-size:.82rem;color:#6b88aa">
-        <span>Showing ${startIdx + 1}–${Math.min(startIdx + INV_PAGE_SIZE, totalFiltered)} of ${totalFiltered} coupons</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          <button class="btn btn-ghost btn-sm" onclick="invGoToPage(1)" ${invCurrentPage <= 1 ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>«</button>
-          <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${invCurrentPage - 1})" ${invCurrentPage <= 1 ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>‹ Prev</button>
-          <span style="font-weight:700;color:#e2ecff">Page ${invCurrentPage} / ${totalPages}</span>
-          <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${invCurrentPage + 1})" ${invCurrentPage >= totalPages ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>Next ›</button>
-          <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${totalPages})" ${invCurrentPage >= totalPages ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>»</button>
+      <div class="table-card" style="margin-bottom:0">
+        <div class="overflow-x">
+          <table class="inv-table">
+            <colgroup>
+              <col style="width:190px"><col style="width:150px"><col style="width:120px">
+              <col style="width:88px"><col style="width:92px"><col style="width:70px">
+              <col style="width:206px"><col style="width:116px"><col style="width:104px">
+              <col style="width:110px">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Code</th>
+                <th>Category</th>
+                <th>Value</th>
+                <th>Price</th>
+                <th title="Show the 🔥 Sale badge on the marketplace card">Sale</th>
+                <th title="When this coupon expires — drives the countdown on the marketplace card">Expires</th>
+                <th>Source</th>
+                <th>Status</th>
+                <th class="ta-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pageCoupons.map(invRowHtml).join('')}
+            </tbody>
+          </table>
+        </div>
+        <div class="inv-tfoot">
+          <span>Showing ${startIdx + 1}–${Math.min(startIdx + INV_PAGE_SIZE, totalFiltered)} of ${totalFiltered} coupons</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="btn btn-ghost btn-sm" onclick="invGoToPage(1)" ${invCurrentPage <= 1 ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>«</button>
+            <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${invCurrentPage - 1})" ${invCurrentPage <= 1 ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>‹ Prev</button>
+            <span style="font-weight:700;color:#e2ecff">Page ${invCurrentPage} / ${totalPages}</span>
+            <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${invCurrentPage + 1})" ${invCurrentPage >= totalPages ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>Next ›</button>
+            <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${totalPages})" ${invCurrentPage >= totalPages ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>»</button>
+          </div>
         </div>
       </div>
     `;
+
+    startInventoryExpiryTicker();
   } catch (err) {
     if (seq === inventoryRequestSeq) {
-      container.innerHTML = `<p class="text-danger">Failed to load inventory: ${err.message}</p>`;
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="es-icon">⚠️</div>
+          <div class="es-title">Failed to load inventory</div>
+          <div class="es-sub">${escHtml(err.message || 'Unknown error')}</div>
+        </div>
+      `;
     }
   } finally {
     inventoryLoading = false;
+  }
+}
+
+/** One inventory row: brand logo, inline sale switch, inline expiry timer. */
+function invRowHtml(c) {
+  const id = escHtml(c.id || '');
+  const brand = c.brand || '';
+  const statusBadge = c.status === 'sold' ? 'green' : c.status === 'pending' ? 'orange' : 'blue';
+  const sourceBadge = c.source === 'admin' ? 'purple' : c.source === 'auto-scraped' ? 'teal' : 'blue';
+  const logoUrl = getBrandLogo(brand);
+  const initial = escHtml(getBrandInitial(brand));
+  const onSale = c.onSale !== false;
+  const timerValue = escHtml(toTimerInputValue(c.expiryDate));
+
+  return `
+    <tr data-coupon-id="${id}">
+      <td>
+        <div class="inv-brand" title="${escHtml(brand)}">
+          ${logoUrl
+            ? `<img class="inv-brand-logo" src="${escHtml(logoUrl)}" alt="${escHtml(brand)}" loading="lazy"
+                    onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+               ><span class="inv-brand-initial" style="display:none">${initial}</span>`
+            : `<span class="inv-brand-initial">${initial}</span>`
+          }
+          <span class="inv-brand-name">${escHtml(brand) || '—'}</span>
+        </div>
+      </td>
+      <td><code class="inv-code">${escHtml(c.code || '')}</code></td>
+      <td>${escHtml(c.category || '—')}</td>
+      <td>₹${escHtml(c.originalValue || '—')}</td>
+      <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
+      <td>
+        <label class="toggle" title="${onSale ? 'Sale is ON — turn it off' : 'Sale is OFF — turn it on'}">
+          <input type="checkbox" ${onSale ? 'checked' : ''} onchange="setCouponSale('${id}', this.checked, this)">
+          <span class="toggle-slider"></span>
+        </label>
+      </td>
+      <td>
+        <input class="inv-timer" type="datetime-local" value="${timerValue}" data-prev-value="${timerValue}"
+               title="Set when this coupon expires — clear the field to remove the timer"
+               onchange="setCouponExpiry('${id}', this.value, this)">
+        ${invExpiryChip(c.expiryDate)}
+      </td>
+      <td><span class="badge badge-${sourceBadge}">${escHtml(c.source || '—')}</span></td>
+      <td><span class="badge badge-${statusBadge}">${escHtml(c.status || '—')}</span></td>
+      <td>
+        <div class="admin-actions ta-right">
+          ${c.status === 'pending' ? `<button class="btn btn-success btn-xs" title="Approve this coupon" onclick="approveCoupon('${id}')">✓</button>` : ''}
+          <button class="btn btn-danger btn-xs" title="Delete this coupon" onclick="deleteCoupon('${id}')">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+/**
+ * Supabase stores expiry as text — 'YYYY-MM-DD' for older rows, and
+ * 'YYYY-MM-DDTHH:mm' for anything set with the timer picker. Normalise both
+ * into the value a <input type="datetime-local"> expects (a bare date becomes
+ * 23:59 that day, matching how the countdown treats it).
+ */
+function toTimerInputValue(raw) {
+  const s = String(raw == null ? '' : raw).trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T23:59`;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s)) return s;
+  const at = parseExpiry(s);
+  if (at === null) return '';
+  const d = new Date(at);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** Countdown chip beside the picker — same colour bands as the marketplace. */
+function invExpiryChip(raw) {
+  const at = parseExpiry(raw);
+  if (at === null) return '<span class="inv-exp-none">No timer set</span>';
+  const msLeft = at - Date.now();
+  return `<div class="inv-exp inv-exp-${expiryBand(msLeft)}" data-inv-expiry="${at}" title="Expires ${new Date(at).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}">${expiryLabel(msLeft)}</div>`;
+}
+
+let invExpiryTimerId = null;
+
+/** Tick every inventory countdown once a second (single shared interval). */
+function startInventoryExpiryTicker() {
+  if (invExpiryTimerId !== null) return; // already running — re-renders are picked up on the next tick
+  const tick = () => {
+    const nodes = document.querySelectorAll('[data-inv-expiry]');
+    if (nodes.length === 0) return;
+    const now = Date.now();
+    nodes.forEach((el) => {
+      const msLeft = Number(el.dataset.invExpiry) - now;
+      const label = expiryLabel(msLeft);
+      if (el.textContent !== label) el.textContent = label;
+      const cls = `inv-exp inv-exp-${expiryBand(msLeft)}`;
+      if (el.className !== cls) el.className = cls;
+    });
+  };
+  tick();
+  invExpiryTimerId = setInterval(tick, 1000);
+}
+
+/**
+ * Flip the per-coupon sale switch. Persists to Supabase via PUT and reverts the
+ * checkbox if the write fails, so the UI never claims a save that didn't happen.
+ */
+async function setCouponSale(id, on, inputEl) {
+  inputEl.disabled = true;
+  try {
+    await api(`/admin/coupons/${id}`, { method: 'PUT', useAdmin: true, body: { onSale: on } });
+    const cached = INVENTORY_CACHE.find((c) => c.id === id);
+    if (cached) cached.onSale = on;
+    const label = inputEl.closest('label');
+    if (label) label.title = on ? 'Sale is ON — turn it off' : 'Sale is OFF — turn it on';
+    showToast(on ? '🔥 Sale turned ON for this coupon.' : 'Sale turned OFF for this coupon.', 'success');
+  } catch (err) {
+    inputEl.checked = !on; // put the switch back where it was
+    // A session-expired error carries no copy — app.js already handles that one.
+    if (!err.sessionExpired) showToast(err.message || 'Could not save the sale switch.', 'error');
+  } finally {
+    inputEl.disabled = false;
+  }
+}
+
+/** Save the per-coupon expiry timer and refresh just that row's countdown chip. */
+async function setCouponExpiry(id, value, inputEl) {
+  const previous = inputEl.dataset.prevValue || '';
+  inputEl.disabled = true;
+  try {
+    await api(`/admin/coupons/${id}`, { method: 'PUT', useAdmin: true, body: { expiryDate: value || '' } });
+    inputEl.dataset.prevValue = value;
+    const cached = INVENTORY_CACHE.find((c) => c.id === id);
+    if (cached) cached.expiryDate = value;
+
+    const chip = inputEl.parentElement?.querySelector('.inv-exp, .inv-exp-none');
+    if (chip) chip.outerHTML = invExpiryChip(value);
+
+    showToast(value ? 'Timer saved for this coupon.' : 'Timer cleared for this coupon.', 'success');
+  } catch (err) {
+    inputEl.value = previous; // roll the picker back
+    if (!err.sessionExpired) showToast(err.message || 'Could not save the timer.', 'error');
+  } finally {
+    inputEl.disabled = false;
   }
 }
 
@@ -362,6 +510,25 @@ function invGoToPage(page) {
   if (page < 1) page = 1;
   invCurrentPage = page;
   loadInventory();
+}
+
+// Search / filter wiring for the coupon inventory table.
+// initAdminApp() has always called this, but it was never defined — so typing in
+// the Coupon Management search box did nothing and the ReferenceError aborted the
+// rest of initAdminApp() (loadSystemSettings never ran).
+function initInventoryTableControls() {
+  const search = document.getElementById('invSearch');
+  const filter = document.getElementById('invStatusFilter');
+  // Debounced because loadInventory() refetches, and its single-flight guard
+  // drops calls that overlap — undebounced keystrokes would lose renders.
+  if (search) search.addEventListener('input', debounce(() => {
+    invCurrentPage = 1;
+    loadInventory();
+  }, 220));
+  if (filter) filter.addEventListener('change', () => {
+    invCurrentPage = 1;
+    loadInventory();
+  });
 }
 
 // ── Coupon Reviews (In-Panel) ──────────────────────────────────────────
@@ -1155,6 +1322,10 @@ function initCreateAdminForm() {
 
 // In-memory cache so the search filter doesn't re-fetch
 let ADMINS_CACHE = [];
+// 'mongodb' when Atlas answered, 'fallback' when the API served built-in owner
+// accounts because Atlas was unreachable. Drives the notice above the table so
+// the blank Phone / Last Login / Joined cells are explained, not mysterious.
+let ADMINS_SOURCE = '';
 
 // Tiny escape helper (used in HTML string templates)
 function escHtml(s) {
@@ -1243,17 +1414,17 @@ function adminRowHtml(a) {
         </div>
       </td>
       <td><span class="badge badge-${roleClass}">${escHtml(role)}</span></td>
-      <td class="admin-phone">${phone ? escHtml(phone) : '<span class="admin-muted">—</span>'}</td>
+      <td class="admin-phone nowrap">${phone ? escHtml(phone) : '<span class="admin-muted">—</span>'}</td>
       <td><span class="badge badge-${statusClass}">${statusLabel}</span></td>
-      <td>
+      <td class="nowrap">
         <div class="admin-dt">
           <div class="admin-dt-time">${escHtml(lastLogin)}</div>
           ${lastLoginRel ? `<div class="admin-dt-rel">${escHtml(lastLoginRel)}</div>` : '<div class="admin-dt-rel">never</div>'}
         </div>
       </td>
-      <td class="admin-dt admin-dt-time">${escHtml(joined)}</td>
+      <td class="admin-dt admin-dt-time nowrap">${escHtml(joined)}</td>
       <td>
-        <div class="admin-actions">
+        <div class="admin-actions ta-right">
           <button class="btn btn-ghost btn-xs" onclick="toggleAdminStatus('${escHtml(realId)}', ${!a.is_active})" title="${a.is_active ? 'Deactivate this admin' : 'Activate this admin'}">
             ${a.is_active ? '⏸ Deactivate' : '▶ Activate'}
           </button>
@@ -1279,8 +1450,19 @@ function renderAdminsTable() {
         return blob.includes(q);
       });
 
+  // Shown above the table whenever the rows didn't come from Atlas
+  const notice = ADMINS_SOURCE === 'fallback'
+    ? `<div class="admin-notice">
+         <span>⚠️</span>
+         <span><strong>MongoDB Atlas is unreachable</strong> — showing the built-in owner accounts so you can still sign in.
+         Phone, Last Login and Joined are blank because that data lives in Atlas. Check the cluster's IP allow-list, then
+         <a href="javascript:loadAdminsList(true)" style="color:#ffcc80;text-decoration:underline">retry</a>.</span>
+       </div>`
+    : '';
+
   if (filtered.length === 0) {
     container.innerHTML = `
+      ${notice}
       <div class="admin-empty">
         <div class="admin-empty-icon">${q ? '🔍' : '👥'}</div>
         <div class="admin-empty-title">${q ? 'No admins match your search' : 'No admin accounts yet'}</div>
@@ -1292,26 +1474,36 @@ function renderAdminsTable() {
     return;
   }
 
+  const store = ADMINS_SOURCE === 'fallback' ? 'built-in fallback' : 'MongoDB Atlas';
+
   container.innerHTML = `
-    <table>
-      <thead>
-        <tr>
-          <th style="width:110px">ID</th>
-          <th>Admin</th>
-          <th style="width:120px">Role</th>
-          <th style="width:130px">Phone</th>
-          <th style="width:100px">Status</th>
-          <th style="width:170px">Last Login</th>
-          <th style="width:110px">Joined</th>
-          <th style="width:200px">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${filtered.map(adminRowHtml).join('')}
-      </tbody>
-    </table>
-    <div style="padding:12px 20px;border-top:1px solid rgba(79,195,247,.08);color:#6b88aa;font-size:.74rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
-      <span>Showing <strong style="color:#e2ecff">${filtered.length}</strong> of <strong style="color:#e2ecff">${ADMINS_CACHE.length}</strong> admin${ADMINS_CACHE.length === 1 ? '' : 's'} in MongoDB Atlas${q ? ` matching "<strong style="color:#4fc3f7">${escHtml(q)}</strong>"` : ''}.</span>
+    ${notice}
+    <div class="overflow-x">
+      <table class="data-table">
+        <colgroup>
+          <col style="width:118px"><col style="width:250px"><col style="width:124px">
+          <col style="width:132px"><col style="width:100px"><col style="width:158px">
+          <col style="width:110px"><col style="width:188px">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Admin</th>
+            <th>Role</th>
+            <th>Phone</th>
+            <th>Status</th>
+            <th>Last Login</th>
+            <th>Joined</th>
+            <th class="ta-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${filtered.map(adminRowHtml).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div class="admin-tfoot">
+      <span>Showing <strong>${filtered.length}</strong> of <strong>${ADMINS_CACHE.length}</strong> admin${ADMINS_CACHE.length === 1 ? '' : 's'} from ${store}${q ? ` matching "<strong style="color:#4fc3f7">${escHtml(q)}</strong>"` : ''}.</span>
       <span>Click any ID chip to copy the full admin ID.</span>
     </div>
   `;
@@ -1369,6 +1561,7 @@ async function loadAdminsList(force) {
   try {
     const data = await api('/admin/list-admins', { useAdmin: true });
     ADMINS_CACHE = data.admins || [];
+    ADMINS_SOURCE = data.source || '';
     renderAdminsTable();
   } catch (err) {
     container.innerHTML = `
