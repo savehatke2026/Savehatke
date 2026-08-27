@@ -1230,7 +1230,7 @@ async function loadSessions() {
     const sub = document.getElementById('sessionsSubtitle');
     if (sub) {
       const total = c.total ?? sessionsCache.length;
-      sub.textContent = `${total} total session${total === 1 ? '' : 's'} · live from Supabase sessions table`;
+      sub.textContent = `${total} total session${total === 1 ? '' : 's'} · live from Supabase user_sessions table`;
     }
 
     renderSessions();

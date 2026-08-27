@@ -955,7 +955,7 @@ router.post('/sessions/backfill-userids', authenticateToken, requireAdmin, async
 
       try {
         const { error } = await supabaseClient
-          .from('sessions')
+          .from('user_sessions')
           .update({ user_id: correctId })
           .eq('session_id', s.session_id);
         if (error) {

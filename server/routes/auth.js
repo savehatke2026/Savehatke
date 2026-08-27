@@ -181,7 +181,12 @@ async function enrichSessionGeo(sessionId, ip) {
   try {
     const client = supabase.getClient();
     if (client) {
-      await client.from('sessions').update({ country, state, city }).eq('session_id', sessionId);
+      // The session lives in exactly one of the two tables; updating both is
+      // harmless (the non-matching table simply updates zero rows).
+      await Promise.all([
+        client.from('user_sessions').update({ country, state, city }).eq('session_id', sessionId),
+        client.from('admin_sessions').update({ country, state, city }).eq('session_id', sessionId),
+      ]);
     }
   } catch (e) { /* enrichment is best-effort */ }
 }

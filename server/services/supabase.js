@@ -440,9 +440,21 @@ async function countCoupons(filters = {}) {
 const SESSION_TTL_MS = 48 * 60 * 60 * 1000;
 const ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 
+// Sessions are split across two physical tables so admin and user logins are
+// never mixed together. Admin logins land in admin_sessions; everyone else in
+// user_sessions. Token/id lookups that don't know the role upfront check both.
+const USER_SESSIONS_TABLE = 'user_sessions';
+const ADMIN_SESSIONS_TABLE = 'admin_sessions';
+const SESSION_TABLES = [USER_SESSIONS_TABLE, ADMIN_SESSIONS_TABLE];
+
 // Admin logins record login_method 'Admin' or 'Google Admin'.
 function isAdminLoginMethod(method) {
   return /^(google\s+)?admin$/i.test(String(method || '').trim());
+}
+
+// Pick the destination table for a brand-new session from its login_method.
+function sessionTableFor(loginMethod) {
+  return isAdminLoginMethod(loginMethod) ? ADMIN_SESSIONS_TABLE : USER_SESSIONS_TABLE;
 }
 
 // Matches PostgREST errors raised when the sessions table hasn't been
@@ -453,21 +465,22 @@ function isMissingColumnError(err) {
 }
 
 /**
- * Ensure the sessions table exists in Supabase.
+ * Ensure the session tables exist in Supabase.
  * Called once on startup; silently succeeds if already present.
  */
 async function ensureSessionsTable() {
   const client = getClient();
   if (!client) return;
 
-  try {
-    // Try a lightweight probe — if it succeeds, the table (and the
-    // session_token column added by the 48h-session upgrade) exists.
-    await client.from('sessions').select('session_id, session_token').limit(1);
-  } catch (err) {
-    // Table likely doesn't exist — try to create it via rpc or just log
-    console.warn('Sessions table probe failed (may need manual creation):', err.message);
-    console.warn('Run server/setup_sessions_table.sql in Supabase SQL Editor.');
+  for (const table of SESSION_TABLES) {
+    try {
+      // Lightweight probe — if it succeeds, the table (and the session_token
+      // column added by the 48h-session upgrade) exists.
+      await client.from(table).select('session_id, session_token').limit(1);
+    } catch (err) {
+      console.warn(`Sessions table probe failed for "${table}" (may need manual creation):`, err.message);
+      console.warn('Run server/setup_sessions_table.sql in Supabase SQL Editor.');
+    }
   }
 }
 
@@ -508,7 +521,7 @@ async function createSession(sessionData, ttlMs) {
 
   async function insert(payload) {
     const { data, error } = await client
-      .from('sessions')
+      .from(sessionTableFor(sessionData.login_method))
       .insert(payload)
       .select()
       .single();
@@ -562,23 +575,31 @@ async function findSessionByToken(tokenHash) {
   const client = getClient();
   if (!client) return null;
 
-  try {
-    const { data, error } = await client
-      .from('sessions')
-      .select('session_id, user_id, email, status, expires_at, login_time, last_active, login_method')
-      .eq('session_token', tokenHash)
-      .limit(1);
+  let sawMissingColumn = false;
 
-    if (error) {
-      if (isMissingColumnError(error)) return { unavailable: true };
-      console.warn('Find session by token warning:', error.message);
-      return null;
+  for (const table of SESSION_TABLES) {
+    try {
+      const { data, error } = await client
+        .from(table)
+        .select('session_id, user_id, email, status, expires_at, login_time, last_active, login_method')
+        .eq('session_token', tokenHash)
+        .limit(1);
+
+      if (error) {
+        if (isMissingColumnError(error)) { sawMissingColumn = true; continue; }
+        console.warn('Find session by token warning:', error.message);
+        continue;
+      }
+      if (data && data.length) return data[0];
+    } catch (err) {
+      console.warn('Find session by token exception:', err.message);
     }
-    return (data && data.length) ? data[0] : null;
-  } catch (err) {
-    console.warn('Find session by token exception:', err.message);
-    return null;
   }
+
+  // Every table reported the session_token column missing (pre-migration DB)
+  // so callers can fail open instead of locking every user out.
+  if (sawMissingColumn) return { unavailable: true };
+  return null;
 }
 
 /**
@@ -588,17 +609,20 @@ async function findSessionById(sessionId) {
   const client = getClient();
   if (!client) return null;
 
-  try {
-    const { data, error } = await client
-      .from('sessions')
-      .select('session_id, user_id, status')
-      .eq('session_id', sessionId)
-      .limit(1);
-    if (error) return null;
-    return (data && data.length) ? data[0] : null;
-  } catch (err) {
-    return null;
+  for (const table of SESSION_TABLES) {
+    try {
+      const { data, error } = await client
+        .from(table)
+        .select('session_id, user_id, status')
+        .eq('session_id', sessionId)
+        .limit(1);
+      if (error) continue;
+      if (data && data.length) return data[0];
+    } catch (err) {
+      // try next table
+    }
   }
+  return null;
 }
 
 /**
@@ -613,26 +637,28 @@ async function endSessionByToken(tokenHash, reason = 'Logged out') {
   const base = { status: reason, last_active: now };
   const updates = reason === 'Logged out' ? { ...base, logged_out_at: now } : base;
 
-  try {
-    let { error } = await client
-      .from('sessions')
-      .update({ ...updates, revoked_at: now })
-      .eq('session_token', tokenHash)
-      .eq('status', 'Active');
-    if (error && isMissingColumnError(error)) {
-      ({ error } = await client
-        .from('sessions')
-        .update(updates)
+  for (const table of SESSION_TABLES) {
+    try {
+      let { error } = await client
+        .from(table)
+        .update({ ...updates, revoked_at: now })
         .eq('session_token', tokenHash)
-        .eq('status', 'Active'));
+        .eq('status', 'Active');
+      if (error && isMissingColumnError(error)) {
+        ({ error } = await client
+          .from(table)
+          .update(updates)
+          .eq('session_token', tokenHash)
+          .eq('status', 'Active'));
+      }
+      if (error) console.warn('End session by token warning:', error.message);
+    } catch (err) {
+      console.warn('End session by token exception:', err.message);
     }
-    // Honor the revocation immediately on this instance (other instances
-    // pick it up within the validation-cache TTL).
-    sessionCache.remove(tokenHash);
-    if (error) console.warn('End session by token warning:', error.message);
-  } catch (err) {
-    console.warn('End session by token exception:', err.message);
   }
+  // Honor the revocation immediately on this instance (other instances
+  // pick it up within the validation-cache TTL).
+  sessionCache.remove(tokenHash);
 }
 
 /**
@@ -642,13 +668,15 @@ async function updateSessionActivity(sessionId) {
   const client = getClient();
   if (!client) return;
 
-  try {
-    await client
-      .from('sessions')
-      .update({ last_active: new Date().toISOString() })
-      .eq('session_id', sessionId);
-  } catch (err) {
-    console.warn('Update session activity warning:', err.message);
+  for (const table of SESSION_TABLES) {
+    try {
+      await client
+        .from(table)
+        .update({ last_active: new Date().toISOString() })
+        .eq('session_id', sessionId);
+    } catch (err) {
+      console.warn('Update session activity warning:', err.message);
+    }
   }
 }
 
@@ -670,22 +698,24 @@ async function endSession(sessionId, reason = 'Logged out') {
     updates.logged_out_at = now;
   }
 
-  try {
-    let { error } = await client
-      .from('sessions')
-      .update({ ...updates, revoked_at: now })
-      .eq('session_id', sessionId);
-    if (error && isMissingColumnError(error)) {
-      ({ error } = await client
-        .from('sessions')
-        .update(updates)
-        .eq('session_id', sessionId));
+  for (const table of SESSION_TABLES) {
+    try {
+      let { error } = await client
+        .from(table)
+        .update({ ...updates, revoked_at: now })
+        .eq('session_id', sessionId);
+      if (error && isMissingColumnError(error)) {
+        ({ error } = await client
+          .from(table)
+          .update(updates)
+          .eq('session_id', sessionId));
+      }
+      if (error) console.warn('End session warning:', error.message);
+    } catch (err) {
+      console.warn('End session exception:', err.message);
     }
-    sessionCache.invalidateBySessionId(sessionId);
-    if (error) console.warn('End session warning:', error.message);
-  } catch (err) {
-    console.warn('End session exception:', err.message);
   }
+  sessionCache.invalidateBySessionId(sessionId);
 }
 
 /**
@@ -702,24 +732,26 @@ async function endAllUserSessions(userId) {
     last_active: now,
   };
 
-  try {
-    let { error } = await client
-      .from('sessions')
-      .update({ ...updates, revoked_at: now })
-      .eq('user_id', userId)
-      .eq('status', 'Active');
-    if (error && isMissingColumnError(error)) {
-      ({ error } = await client
-        .from('sessions')
-        .update(updates)
+  for (const table of SESSION_TABLES) {
+    try {
+      let { error } = await client
+        .from(table)
+        .update({ ...updates, revoked_at: now })
         .eq('user_id', userId)
-        .eq('status', 'Active'));
+        .eq('status', 'Active');
+      if (error && isMissingColumnError(error)) {
+        ({ error } = await client
+          .from(table)
+          .update(updates)
+          .eq('user_id', userId)
+          .eq('status', 'Active'));
+      }
+      if (error) console.warn('End all user sessions warning:', error.message);
+    } catch (err) {
+      console.warn('End all user sessions exception:', err.message);
     }
-    sessionCache.invalidateByUserId(userId);
-    if (error) console.warn('End all user sessions warning:', error.message);
-  } catch (err) {
-    console.warn('End all user sessions exception:', err.message);
   }
+  sessionCache.invalidateByUserId(userId);
 }
 
 /**
@@ -735,38 +767,40 @@ async function expireOutdatedSessions() {
 
   const now = new Date().toISOString();
   const updates = { status: 'Expired', last_active: now };
+  let total = 0;
 
-  try {
-    let req = client
-      .from('sessions')
-      .update({ ...updates, revoked_at: now })
-      .eq('status', 'Active')
-      .lte('expires_at', now)
-      .select('session_id');
-    let { data, error } = await req;
-    if (error && isMissingColumnError(error)) {
-      ({ data, error } = await client
-        .from('sessions')
-        .update(updates)
+  for (const table of SESSION_TABLES) {
+    try {
+      let { data, error } = await client
+        .from(table)
+        .update({ ...updates, revoked_at: now })
         .eq('status', 'Active')
         .lte('expires_at', now)
-        .select('session_id'));
+        .select('session_id');
+      if (error && isMissingColumnError(error)) {
+        ({ data, error } = await client
+          .from(table)
+          .update(updates)
+          .eq('status', 'Active')
+          .lte('expires_at', now)
+          .select('session_id'));
+      }
+      if (error) {
+        console.warn('Expire outdated sessions warning:', error.message);
+        continue;
+      }
+      total += (data || []).length;
+    } catch (err) {
+      console.warn('Expire outdated sessions exception:', err.message);
     }
-    if (error) {
-      console.warn('Expire outdated sessions warning:', error.message);
-      return { count: 0 };
-    }
-    sessionCache.clear(); // swept rows may be cached as Active
-    return { count: (data || []).length };
-  } catch (err) {
-    console.warn('Expire outdated sessions exception:', err.message);
-    return { count: 0 };
   }
+  sessionCache.clear(); // swept rows may be cached as Active
+  return { count: total };
 }
 
 /**
  * Get all USER sessions (for the admin panel's "User Sessions" page).
- * Admin logins have their own page. The session_token hash is never
+ * Admin logins live in their own table. The session_token hash is never
  * exposed — not even to admins.
  */
 async function getAllSessions() {
@@ -775,18 +809,16 @@ async function getAllSessions() {
 
   try {
     const { data, error } = await client
-      .from('sessions')
+      .from(USER_SESSIONS_TABLE)
       .select('*')
       .order('login_time', { ascending: false })
       .limit(200);
 
     if (error) return [];
-    return (data || [])
-      .filter((row) => !isAdminLoginMethod(row.login_method))
-      .map((row) => {
-        delete row.session_token;
-        return row;
-      });
+    return (data || []).map((row) => {
+      delete row.session_token;
+      return row;
+    });
   } catch (err) {
     return [];
   }
@@ -803,18 +835,16 @@ async function getAdminSessions() {
 
   try {
     const { data, error } = await client
-      .from('sessions')
+      .from(ADMIN_SESSIONS_TABLE)
       .select('*')
       .order('login_time', { ascending: false })
       .limit(200);
 
     if (error) return [];
-    return (data || [])
-      .filter((row) => isAdminLoginMethod(row.login_method))
-      .map((row) => {
-        delete row.session_token;
-        return row;
-      });
+    return (data || []).map((row) => {
+      delete row.session_token;
+      return row;
+    });
   } catch (err) {
     return [];
   }
@@ -831,7 +861,7 @@ async function getUserSessions(userId) {
 
   try {
     const { data, error } = await client
-      .from('sessions')
+      .from(USER_SESSIONS_TABLE)
       .select('*')
       .eq('user_id', userId)
       .order('login_time', { ascending: false })
@@ -848,23 +878,25 @@ async function getUserSessions(userId) {
 }
 
 /**
- * Count active sessions.
+ * Count active sessions across both user and admin tables.
  */
 async function countActiveSessions() {
   const client = getClient();
   if (!client) return 0;
 
-  try {
-    const { count, error } = await client
-      .from('sessions')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'Active');
-
-    if (error) return 0;
-    return count || 0;
-  } catch (err) {
-    return 0;
+  let total = 0;
+  for (const table of SESSION_TABLES) {
+    try {
+      const { count, error } = await client
+        .from(table)
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'Active');
+      if (!error) total += (count || 0);
+    } catch (err) {
+      // ignore — count best-effort
+    }
   }
+  return total;
 }
 
 module.exports = {
