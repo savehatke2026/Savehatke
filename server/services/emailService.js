@@ -530,7 +530,7 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
     : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
   const fromName = (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim();
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
-  const viewUrl = `${siteUrl}/support.html`;
+  const viewUrl = `${siteUrl}/dashboard`;
   const year = new Date().getFullYear();
 
   const t = getSupportTransporter();
@@ -579,7 +579,9 @@ Regards,
 
 **SaveHatke Support Team**
 
-© ${year} SaveHatke. All rights reserved.`;
+© ${year} SaveHatke. All rights reserved.
+
+This email was sent to ${cleanEmail} because you submitted a support request to SaveHatke. You may receive emails related to this support request, including case updates and responses from our support team.`;
 
   const logoUrl = `${siteUrl}/logo.png`;
 
@@ -606,9 +608,17 @@ Regards,
           <!-- Brand Header with Logo -->
           <tr>
             <td align="center" style="padding-bottom:32px;">
-              <a href="${siteUrl}/index.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px;">
-                <img src="${logoUrl}" alt="SaveHatke" width="36" height="36" style="width:36px;height:36px;border-radius:8px;object-fit:contain;">
-                <span style="font-size:1.3rem;font-weight:800;color:#0f1e3a;">Save<span style="color:#10b981;">Hatke</span> Support</span>
+              <a href="${siteUrl}/index.html" style="text-decoration:none;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="display:inline-table;">
+                  <tr>
+                    <td style="vertical-align:middle;padding-right:10px;">
+                      <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" style="width:34px;height:34px;border-radius:8px;object-fit:contain;display:block;">
+                    </td>
+                    <td style="vertical-align:middle;">
+                      <span style="font-size:1.25rem;font-weight:800;color:#0f1e3a;white-space:nowrap;">Save<span style="color:#10b981;">Hatke</span></span>
+                    </td>
+                  </tr>
+                </table>
               </a>
             </td>
           </tr>
@@ -690,7 +700,8 @@ Regards,
           <!-- Footer -->
           <tr>
             <td align="center" style="padding:26px 0 0;">
-              <p style="font-size:0.78rem;color:#6b7280;margin:0;">&copy; ${year} SaveHatke. All rights reserved.</p>
+              <p style="font-size:0.78rem;color:#6b7280;margin:0 0 12px;">&copy; ${year} SaveHatke. All rights reserved.</p>
+              <p style="font-size:0.72rem;color:#9ca3af;margin:0;line-height:1.6;font-weight:400;">This email was sent to ${cleanEmail} because you submitted a support request to SaveHatke. You may receive emails related to this support request, including case updates and responses from our support team.</p>
             </td>
           </tr>
 
