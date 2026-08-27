@@ -232,6 +232,7 @@ function getBrandInitial(brand) {
 }
 
 // ── Expiry Countdown ────────────────────────────────────────────────────
+// Timer defaults to 2 weeks from addedAt when no explicit expiry is set.
 // Colour bands, by whole days left until the coupon expires:
 //   ≤ 1 week (7d) → red   ≤ 2 weeks (14d) → yellow   beyond → green
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -272,26 +273,44 @@ function expiryBand(msLeft) {
  * Split the time remaining into clock segments. This is the primitive the
  * marketplace ticker writes straight into per-digit spans, which is why the
  * hours/minutes/seconds come back as already-padded two-character strings.
+ *
+ * Format rules (2-week countdown):
+ *   ≥ 7 days  →  DDd HH:MM:SS  (days shown, hours are 0-23 within the day)
+ *   < 7 days  →  HH:MM:SS      (no days, hours = total remaining hours)
+ *
  * @returns {{expired:boolean, days:number, dd:string, hh:string, mm:string, ss:string}}
- *   `dd` is '' below one day, otherwise '39d' — the day count is never padded
- *   because it has no fixed width to pad to.
  */
 function expiryParts(msLeft) {
   if (msLeft <= 0) return { expired: true, days: 0, dd: '', hh: '00', mm: '00', ss: '00' };
   const totalSec = Math.floor(msLeft / 1000);
   const days = Math.floor(totalSec / 86400);
   const pad = (n) => String(n).padStart(2, '0');
+
+  if (days >= 7) {
+    // ≥ 7 days: show day count + hours within the day
+    return {
+      expired: false,
+      days,
+      dd: `${days}d`,
+      hh: pad(Math.floor((totalSec % 86400) / 3600)),
+      mm: pad(Math.floor((totalSec % 3600) / 60)),
+      ss: pad(totalSec % 60),
+    };
+  }
+
+  // < 7 days: collapse days into total hours for urgency
+  const totalHours = Math.floor(totalSec / 3600);
   return {
     expired: false,
     days,
-    dd: days >= 1 ? `${days}d` : '',
-    hh: pad(Math.floor((totalSec % 86400) / 3600)),
+    dd: '',
+    hh: pad(totalHours),
     mm: pad(Math.floor((totalSec % 3600) / 60)),
     ss: pad(totalSec % 60),
   };
 }
 
-/** Bare clock text: '39d 18:23:15' beyond a day, '18:23:15' inside one. */
+/** Bare clock text: '14d 06:23:15' when ≥7 days, '142:23:15' under 7 days. */
 function expiryClockText(msLeft) {
   const p = expiryParts(msLeft);
   if (p.expired) return 'Ended';

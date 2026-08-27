@@ -79,7 +79,9 @@ router.get('/', optionalAuth, async (req, res) => {
       addedAt: c.addedAt,
       // Expiry is not sensitive (the code itself is still withheld) and the
       // marketplace cards render a live "expires in" countdown from it.
-      expiryDate: c.expiryDate || '',
+      // When no explicit expiry is set, default to addedAt + 14 days (2 weeks)
+      // so every coupon shows a live countdown timer.
+      expiryDate: c.expiryDate || (c.addedAt ? new Date(new Date(c.addedAt).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString() : ''),
       // Admin-controlled sale switch — gates the "🔥 Sale" badge on the card.
       onSale: c.onSale !== false,
       // Admin-controlled timer switch — when off the card hides the countdown

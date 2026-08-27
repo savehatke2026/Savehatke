@@ -155,7 +155,8 @@ function renderCouponGrid(gridId, coupons) {
 // ── Expiry Countdown ────────────────────────────────────────────────────
 // parseExpiry / expiryBand / expiryParts live in js/coupon-meta.js so the admin
 // Coupon Management table shares the exact same maths and colour bands:
-//   ≤ 1 week (7d) → red   ≤ 2 weeks (14d) → yellow   beyond → green
+//   Timer starts at 2 weeks (auto-set when no expiry is configured).
+//   ≥ 7 days → DDd HH:MM:SS (green/yellow)   < 7 days → HH:MM:SS (red)
 
 /** Card-level colour class for the time remaining. */
 function expiryClass(msLeft) {

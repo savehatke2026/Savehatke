@@ -154,7 +154,8 @@
     .cbadges .cverified { margin-bottom:0; }
     .csale-badge { display:inline-flex; align-items:center; gap:4px; font-size:.65rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:5px; background:linear-gradient(135deg,#ff6b35,#ff3d00); color:#fff; box-shadow:0 2px 10px rgba(255,61,0,.32); }
 
-    /* EXPIRY COUNTDOWN — a live HH:MM:SS readout, green >2wks / yellow ≤2wks / red ≤1wk.
+    /* EXPIRY COUNTDOWN — a live countdown, green >2wks / yellow ≤2wks / red ≤1wk.
+       Timer starts at 2 weeks. ≥7 days shows DDd HH:MM:SS, <7 days shows HH:MM:SS.
        Soft label on the left, hard monospace numerals on the right. The colons are
        the only thing that moves: one honest "this is ticking" signal, which is why
        the old whole-pill flash is gone. Digits sit in fixed 2ch cells so the row
@@ -164,7 +165,7 @@
     .cexp-label { font-size:.66rem; font-weight:600; letter-spacing:.07em; text-transform:uppercase; opacity:.72; }
     .cexp-clock { margin-left:auto; display:flex; align-items:baseline; font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; font-size:.78rem; font-weight:700; }
     .cexp-d { font-size:.7rem; font-weight:600; opacity:.8; margin-right:6px; }
-    .cexp-d:empty { display:none; }            /* collapses inside the final 24 hours */
+    .cexp-d:empty { display:none; }            /* collapses when < 7 days remaining */
     .cexp-n { width:2ch; text-align:center; }  /* fixed cells — digits never shift the row */
     .cexp-sep { font-style:normal; padding:0 1px; animation:cexpBlink 1s linear infinite; }
     @keyframes cexpBlink { 0%,49.9% { opacity:.8; } 50%,100% { opacity:.18; } }
