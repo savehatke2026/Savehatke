@@ -263,6 +263,52 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .admin-notice strong{color:#ffcc80;font-weight:700}
 .admin-tfoot{padding:12px 20px;border-top:1px solid rgba(79,195,247,.08);color:#6b88aa;font-size:.74rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
 .admin-tfoot strong{color:#e2ecff}
+
+/* ── STATUS PILL (used in user table, login history, sessions, admin sessions) ── */
+.status-pill{display:inline-flex;align-items:center;gap:6px;font-size:.78rem;font-weight:600;letter-spacing:.01em;white-space:nowrap;padding:0;background:none;border:0;line-height:1}
+.status-pill .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px rgba(255,255,255,.04)}
+.status-pill.active{color:#00e676}
+.status-pill.active .dot{background:#00e676;box-shadow:0 0 0 3px rgba(0,230,118,.15)}
+.status-pill.suspended{color:#ef5350}
+.status-pill.suspended .dot{background:#ef5350;box-shadow:0 0 0 3px rgba(239,83,80,.15);animation:status-pulse 1.6s ease-in-out infinite}
+.status-pill.expired{color:#ffb74d}
+.status-pill.expired .dot{background:#ffb74d;box-shadow:0 0 0 3px rgba(255,183,77,.15)}
+.status-pill.logged-out{color:#6b88aa}
+.status-pill.logged-out .dot{background:#6b88aa;box-shadow:0 0 0 3px rgba(107,136,170,.15)}
+.status-pill.unknown{color:#a8c0dc}
+.status-pill.unknown .dot{background:#a8c0dc;box-shadow:0 0 0 3px rgba(168,192,220,.15)}
+@keyframes status-pulse{0%,100%{box-shadow:0 0 0 3px rgba(239,83,80,.15)}50%{box-shadow:0 0 0 6px rgba(239,83,80,0)}}
+
+/* ── LOGIN METHOD ICONS (Google logo big, Gmail for email) ── */
+.login-method-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid rgba(79,195,247,.1);overflow:hidden}
+.login-method-icon img{width:24px;height:24px;object-fit:contain;display:block}
+
+/* ── USER TABLE — Suspend action (red) + Activate (green) ── */
+.user-action-suspend{color:#ef5350;font-weight:700;font-size:.82rem;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:rgba(239,83,80,.08);border:1px solid rgba(239,83,80,.25);transition:all .15s;cursor:pointer}
+.user-action-suspend:hover{background:rgba(239,83,80,.18);border-color:rgba(239,83,80,.5)}
+.user-action-activate{color:#00e676;font-weight:700;font-size:.82rem;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.25);transition:all .15s;cursor:pointer}
+.user-action-activate:hover{background:rgba(0,230,118,.18);border-color:rgba(0,230,118,.5)}
+
+/* ── SUSPEND USER MODAL (reason input + confirm) ── */
+.suspend-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(4px);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.suspend-modal-overlay.open{display:flex}
+.suspend-modal-box{background:linear-gradient(160deg,rgba(26,16,30,.96),rgba(12,24,52,.96));border:1px solid rgba(239,83,80,.25);border-radius:18px;max-width:520px;width:100%;box-shadow:0 24px 80px rgba(239,83,80,.18);overflow:hidden;animation:modalPop .25s ease}
+@keyframes modalPop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.suspend-modal-hdr{display:flex;align-items:center;gap:12px;padding:18px 22px;border-bottom:1px solid rgba(239,83,80,.18);background:linear-gradient(135deg,rgba(239,83,80,.12),rgba(239,83,80,.04))}
+.suspend-modal-hdr-icon{width:38px;height:38px;border-radius:50%;background:rgba(239,83,80,.15);color:#ef5350;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.suspend-modal-hdr-text h3{font-size:1rem;font-weight:700;color:#ffcdd2;margin:0}
+.suspend-modal-hdr-text p{font-size:.74rem;color:rgba(255,205,210,.7);margin-top:2px}
+.suspend-modal-body{padding:18px 22px}
+.suspend-modal-body label{display:block;font-size:.74rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#ffb74d;margin-bottom:8px}
+.suspend-modal-body textarea{width:100%;min-height:110px;background:rgba(0,0,0,.25);border:1px solid rgba(239,83,80,.2);border-radius:10px;padding:12px 14px;color:#e2ecff;font-family:inherit;font-size:.88rem;line-height:1.55;resize:vertical}
+.suspend-modal-body textarea:focus{outline:none;border-color:rgba(239,83,80,.55);background:rgba(0,0,0,.35)}
+.suspend-modal-body textarea::placeholder{color:#6b88aa}
+.suspend-modal-user{font-size:.82rem;color:#a8c0dc;padding:8px 12px;background:rgba(79,195,247,.06);border:1px solid rgba(79,195,247,.12);border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.suspend-modal-user strong{color:#e2ecff}
+.suspend-modal-footer{display:flex;justify-content:flex-end;gap:8px;padding:14px 22px;border-top:1px solid rgba(79,195,247,.08);background:rgba(0,0,0,.18)}
+.btn-danger-strong{background:rgba(239,83,80,.18);color:#ff8a80;border:1px solid rgba(239,83,80,.4)}
+.btn-danger-strong:hover{background:rgba(239,83,80,.32);border-color:#ef5350;color:#fff;box-shadow:0 4px 14px rgba(239,83,80,.3)}
+.btn-danger-strong:disabled{opacity:.5;cursor:not-allowed;box-shadow:none}
 .data-table{table-layout:fixed;min-width:1080px}
 .data-table td{overflow:hidden;text-overflow:ellipsis}
 .nowrap{white-space:nowrap}
