@@ -163,7 +163,10 @@ router.post('/proof', authenticateToken, async (req, res) => {
           webViewLink: result.webViewLink,
         });
       } catch (driveErr) {
-        console.warn('[coupons/proof] Drive upload failed, falling back:', driveErr.message);
+        console.warn(
+          `[coupons/proof] Google Drive upload failed (${driveErr.code || 'error'}) — saving to ` +
+          `Supabase Storage instead. Reason: ${driveErr.message}`
+        );
         // Fall through to Supabase below.
       }
     }

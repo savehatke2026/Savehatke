@@ -1,50 +1,84 @@
 // ============================================
 // SaveHatke — Google Drive Service
 // ============================================
-// Reuses the same service account as Google Sheets to upload proof
-// screenshots. Files are kept private (owned by the service account)
-// and only viewable through our server proxy.
+// Uploads coupon proof screenshots to a Google Drive folder. Files stay
+// private and are only viewable through our server proxy
+// (/api/proxy/drive/:fileId).
 //
-// Env variables (server/.env):
-//   GOOGLE_SERVICE_ACCOUNT_EMAIL  — already used by Sheets
-//   GOOGLE_PRIVATE_KEY            — already used by Sheets
+// Auth modes (in priority order):
+//   1. OAuth user account (GOOGLE_DRIVE_REFRESH_TOKEN) — required for a
+//      normal @gmail.com Drive. Service accounts have NO storage quota of
+//      their own, so files must be owned by a real user.
+//   2. Service account (GOOGLE_SERVICE_ACCOUNT_EMAIL / GOOGLE_PRIVATE_KEY)
+//      — only works when GOOGLE_DRIVE_FOLDER_ID lives in a Workspace
+//      Shared Drive, which supplies the quota.
+//
+// Env variables (.env):
 //   GOOGLE_DRIVE_FOLDER_ID        — Drive folder ID for screenshots
+//   GOOGLE_DRIVE_REFRESH_TOKEN    — from `node scripts/authorize-drive.js`
+//   GOOGLE_DRIVE_CLIENT_ID        — optional; defaults to GOOGLE_CLIENT_ID
+//   GOOGLE_DRIVE_CLIENT_SECRET    — optional; defaults to GOOGLE_CLIENT_SECRET
 //   GOOGLE_DRIVE_VISIBILITY       — "private" (default) | "public"
+//   GOOGLE_SERVICE_ACCOUNT_EMAIL  — Shared Drive mode only
+//   GOOGLE_PRIVATE_KEY            — Shared Drive mode only
 //
-// Setup checklist (one-time):
-//   1. Create a folder in Google Drive for "SaveHatke Coupon Proofs".
-//   2. Share that folder with GOOGLE_SERVICE_ACCOUNT_EMAIL as Editor.
-//   3. Copy the folder ID from the URL
-//      (https://drive.google.com/drive/folders/<THIS_PART>)
-//      and set it as GOOGLE_DRIVE_FOLDER_ID in .env.
+// Setup checklist (one-time, OAuth mode):
+//   1. Create a folder in your Drive, e.g. "SaveHatke Coupon Proofs", and
+//      put its ID (from the URL) in GOOGLE_DRIVE_FOLDER_ID.
+//   2. Run `node scripts/authorize-drive.js` and follow the printed steps.
+//   3. Paste the returned GOOGLE_DRIVE_REFRESH_TOKEN into .env.
 //   4. Restart the server.
 //
-// When GOOGLE_DRIVE_FOLDER_ID is empty, isConfigured() returns false and
-// callers should fall back to a non-Drive storage backend.
+// When neither mode is usable, isConfigured() returns false and callers
+// fall back to Supabase Storage.
 // ============================================
 
 const { google } = require('googleapis');
+const { Readable } = require('stream');
 
-// Lazy singleton state
+const DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive'];
+
+// Lazy singleton
 let _drive = null;
-let _initialized = false;
+
+function clean(value) {
+  return String(value || '').trim().replace(/^["']|["']$/g, '');
+}
+
+function isPlaceholder(value) {
+  return !value || value.includes('YOUR_');
+}
 
 function getCreds() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || '';
+  const folderId = clean(process.env.GOOGLE_DRIVE_FOLDER_ID);
+  const refreshToken = clean(process.env.GOOGLE_DRIVE_REFRESH_TOKEN);
+  const clientId = clean(process.env.GOOGLE_DRIVE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID);
+  const clientSecret = clean(
+    process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET
+  );
+  const email = clean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL);
   const privateKey = process.env.GOOGLE_PRIVATE_KEY || '';
-  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID || '';
   const visibility =
-    (process.env.GOOGLE_DRIVE_VISIBILITY || 'private').toLowerCase() === 'public'
-      ? 'public'
-      : 'private';
-  const configured =
-    !!email &&
-    !!privateKey &&
-    !!folderId &&
-    !email.includes('YOUR_') &&
-    !privateKey.includes('YOUR_') &&
-    !folderId.includes('YOUR_');
-  return { email, privateKey, folderId, visibility, configured };
+    clean(process.env.GOOGLE_DRIVE_VISIBILITY).toLowerCase() === 'public' ? 'public' : 'private';
+
+  const oauthReady =
+    !isPlaceholder(refreshToken) && !isPlaceholder(clientId) && !isPlaceholder(clientSecret);
+  const serviceReady = !isPlaceholder(email) && !isPlaceholder(privateKey);
+
+  const mode = oauthReady ? 'oauth' : serviceReady ? 'service-account' : 'none';
+  const configured = !isPlaceholder(folderId) && mode !== 'none';
+
+  return {
+    folderId,
+    refreshToken,
+    clientId,
+    clientSecret,
+    email,
+    privateKey,
+    visibility,
+    mode,
+    configured,
+  };
 }
 
 function isConfigured() {
@@ -53,17 +87,28 @@ function isConfigured() {
 
 function getDriveClient() {
   if (_drive !== null) return _drive;
-  const { configured, email, privateKey } = getCreds();
-  if (!configured) {
+  const c = getCreds();
+  if (!c.configured) {
     _drive = false; // sentinel
     return _drive;
   }
   try {
-    const cleanKey = String(privateKey).replace(/^["']|["']$/g, '').replace(/\\n/g, '\n');
-    const auth = new google.auth.JWT(email, null, cleanKey, [
-      'https://www.googleapis.com/auth/drive.file', // per-file access; least-privilege
-    ]);
+    let auth;
+    if (c.mode === 'oauth') {
+      auth = new google.auth.OAuth2(c.clientId, c.clientSecret);
+      auth.setCredentials({ refresh_token: c.refreshToken });
+    } else {
+      const key = clean(c.privateKey).replace(/\\n/g, '\n');
+      auth = new google.auth.JWT(c.email, null, key, DRIVE_SCOPES);
+    }
     _drive = google.drive({ version: 'v3', auth });
+    console.log(
+      `[googleDrive] Client ready in ${c.mode} mode (folder ${c.folderId}, ${c.visibility}).` +
+      (c.mode === 'service-account'
+        ? ' NOTE: service accounts have no Drive quota — uploads into a personal folder will fail.' +
+          ' Run `cd server && node scripts/authorize-drive.js` to switch to OAuth mode.'
+        : '')
+    );
   } catch (e) {
     console.error('[googleDrive] Failed to build Drive client:', e.message);
     _drive = false;
@@ -97,8 +142,8 @@ async function uploadProofScreenshot(input) {
     .slice(0, 80) || 'proof';
 
   // Drive requires a multipart/related body when supplying metadata + file.
-  // googleapis's { requestBody, media } shorthand handles the multipart
-  // upload for us — no need to build the body by hand.
+  // googleapis pipes `media.body`, so it must be a stream — a raw Buffer
+  // throws "part.body.pipe is not a function".
   const metadata = {
     name: safeName,
     parents: [folderId],
@@ -107,15 +152,43 @@ async function uploadProofScreenshot(input) {
       : `SaveHatke coupon proof uploaded on ${new Date().toISOString()}`,
   };
 
-  const createRes = await drive.files.create({
-    requestBody: metadata,
-    media: {
-      mimeType: mimeType || 'application/octet-stream',
-      body: buffer, // googleapis streams this as a multipart upload
-    },
-    fields: 'id, name, mimeType, size, webViewLink',
-    supportsAllDrives: true,
-  });
+  let createRes;
+  try {
+    createRes = await drive.files.create({
+      requestBody: metadata,
+      media: {
+        mimeType: mimeType || 'application/octet-stream',
+        body: Readable.from(buffer),
+      },
+      fields: 'id, name, mimeType, size, webViewLink',
+      supportsAllDrives: true,
+    });
+  } catch (e) {
+    // Translate the two failures that actually happen in practice into
+    // something the operator can act on, instead of a bare API message that
+    // gets swallowed by the caller's Supabase fallback.
+    const reason = (e.errors && e.errors[0] && e.errors[0].reason) || '';
+    const mode = getCreds().mode;
+    if (reason === 'storageQuotaExceeded' || /storage quota/i.test(e.message || '')) {
+      const err = new Error(
+        'Google Drive rejected the upload: a service account has no storage quota of its own, so it ' +
+        'cannot write into a personal Drive folder. Mint a user refresh token with ' +
+        '`cd server && node scripts/authorize-drive.js`, put it in GOOGLE_DRIVE_REFRESH_TOKEN, and ' +
+        'restart the server (or move GOOGLE_DRIVE_FOLDER_ID into a Workspace Shared Drive).'
+      );
+      err.code = 'DRIVE_NO_QUOTA';
+      throw err;
+    }
+    if (e.code === 404 || /File not found/i.test(e.message || '')) {
+      const err = new Error(
+        `Google Drive folder ${folderId} is not visible to the authenticated account (${mode} mode). ` +
+        'Check GOOGLE_DRIVE_FOLDER_ID and make sure that account can edit the folder.'
+      );
+      err.code = 'DRIVE_FOLDER_NOT_FOUND';
+      throw err;
+    }
+    throw e;
+  }
 
   const file = createRes.data;
   if (!file || !file.id) {
