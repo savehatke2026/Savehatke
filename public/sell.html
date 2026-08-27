@@ -116,7 +116,7 @@
     /* ── How It Works Mini — REDESIGNED ── */
     .how-mini { border-radius:20px; padding:32px 28px; background:linear-gradient(135deg,rgba(0,230,118,.06) 0%,rgba(79,195,247,.04) 100%); border:1px solid rgba(0,230,118,.15); margin-bottom:40px; }
     .how-mini-label { font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:20px; display:block; }
-    .how-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .how-mini-grid { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:10px; align-items:stretch; }
     .how-mini-item {
       position:relative;
       background:rgba(6,13,31,.55);
@@ -138,11 +138,15 @@
     .how-mini-icon { font-size:1.35rem; display:inline-block; }
     .how-mini-title { font-weight:700; color:#e2ecff; font-size:.88rem; margin-bottom:4px; line-height:1.3; }
     .how-mini-sub { font-size:.72rem; color:#6b88aa; line-height:1.5; }
+    /* Arrow that sits in the grid gap and links the three steps together. */
     .how-mini-connector {
-      display:none;
+      display:flex; align-items:center; justify-content:center;
+      color:#00e676; opacity:.45; font-size:1.05rem; font-weight:700;
+      user-select:none;
     }
     @media(max-width:600px){
-      .how-mini-grid { grid-template-columns:1fr; gap:10px; }
+      .how-mini-grid { grid-template-columns:1fr; gap:8px; }
+      .how-mini-connector { transform:rotate(90deg); font-size:.95rem; }
     }
 
     /* ── Stepper ── */
@@ -157,6 +161,16 @@
     .stepper-line { flex:1; height:2px; background:rgba(79,195,247,.1); margin:0 12px; border-radius:1px; position:relative; overflow:hidden; }
     .stepper-line::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transform-origin:left; transition:transform .4s ease; border-radius:1px; }
     .stepper-line.done::after { transform:scaleX(1); }
+    /* Completed steps are clickable shortcuts back to that step. */
+    .stepper-step.done { cursor:pointer; }
+    .stepper-step.done:hover .stepper-circle { border-color:#00e676; background:rgba(0,230,118,.25); }
+    .stepper-step.done:hover .stepper-label { color:#e2ecff; }
+    @media(max-width:520px){
+      .stepper-step { gap:7px; }
+      .stepper-circle { width:30px; height:30px; font-size:.74rem; }
+      .stepper-label { font-size:.72rem; }
+      .stepper-line { margin:0 7px; }
+    }
 
     /* ── Form Card ── */
     .form-card { border-radius:20px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); overflow:hidden; }
@@ -176,6 +190,49 @@
     }
     .cat-select:focus { border-color:rgba(0,230,118,.45); box-shadow:0 0 0 3px rgba(0,230,118,.1); }
     .cat-select option { background:#0c1835; color:#e2ecff; }
+
+    /* ── Category Cards (visual picker; the <select> above stays the source of truth) ── */
+    .step-hint { font-size:.85rem; color:#6b88aa; margin:-18px 0 22px; }
+    .cat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; }
+    .cat-card {
+      display:flex; align-items:flex-start; gap:14px; text-align:left;
+      padding:18px 16px; border-radius:14px; cursor:pointer;
+      background:rgba(255,255,255,.04); border:1.5px solid rgba(79,195,247,.14);
+      font-family:'Outfit',sans-serif; color:#e2ecff;
+      transition:border-color .2s, background .2s, transform .2s;
+    }
+    .cat-card:hover { border-color:rgba(0,230,118,.4); background:rgba(0,230,118,.05); transform:translateY(-2px); }
+    .cat-card.selected { border-color:#00e676; background:rgba(0,230,118,.1); box-shadow:0 0 0 3px rgba(0,230,118,.1); }
+    .cat-card-icon {
+      flex-shrink:0; width:42px; height:42px; border-radius:11px;
+      display:flex; align-items:center; justify-content:center; font-size:1.3rem;
+      background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.18);
+    }
+    .cat-card-name { display:block; font-size:.95rem; font-weight:700; margin-bottom:3px; }
+    .cat-card-brands { display:block; font-size:.74rem; color:#6b88aa; line-height:1.45; }
+    .cat-card-check { flex-shrink:0; margin-left:auto; color:#00e676; font-size:.95rem; opacity:0; transition:opacity .2s; }
+    .cat-card.selected .cat-card-check { opacity:1; }
+    @media(max-width:600px){ .cat-grid { grid-template-columns:1fr; gap:10px; } }
+
+    /* ── Screenshot Dropzone ── */
+    .drop-zone {
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+      padding:26px 18px; border-radius:14px; cursor:pointer; text-align:center;
+      background:rgba(255,255,255,.03); border:1.5px dashed rgba(79,195,247,.28);
+      transition:border-color .2s, background .2s;
+    }
+    .drop-zone:hover, .drop-zone.dragover { border-color:#00e676; background:rgba(0,230,118,.06); }
+    .drop-zone-icon { font-size:1.7rem; }
+    .drop-zone-title { font-size:.9rem; font-weight:700; color:#e2ecff; }
+    .drop-zone-sub { font-size:.75rem; color:#6b88aa; }
+    .proof-preview { display:none; align-items:center; gap:14px; margin-top:12px; padding:12px; border-radius:12px; background:rgba(9,18,40,.75); border:1px solid rgba(0,230,118,.22); }
+    .proof-preview.show { display:flex; }
+    .proof-thumb { width:56px; height:56px; border-radius:9px; object-fit:cover; flex-shrink:0; border:1px solid rgba(79,195,247,.15); }
+    .proof-meta { flex:1; min-width:0; }
+    .proof-name { font-size:.85rem; font-weight:600; color:#e2ecff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .proof-size { font-size:.74rem; color:#00e676; font-family:'JetBrains Mono',monospace; margin-top:2px; }
+    .proof-remove { background:none; border:none; color:#f87171; cursor:pointer; font-size:.8rem; font-weight:700; font-family:'Outfit',sans-serif; padding:6px 10px; border-radius:8px; transition:background .2s; }
+    .proof-remove:hover { background:rgba(239,68,68,.12); }
 
     /* ── Form Inputs ── */
     .fgroup { margin-bottom:20px; }
@@ -389,11 +446,13 @@
           <div class="how-mini-title">Submit Codes</div>
           <div class="how-mini-sub">Enter 1–5 coupons at once</div>
         </div>
+        <div class="how-mini-connector" aria-hidden="true">→</div>
         <div class="how-mini-item">
           <div class="how-mini-head"><div class="how-mini-step-num">2</div><span class="how-mini-icon">✅</span></div>
           <div class="how-mini-title">We Verify</div>
           <div class="how-mini-sub">Quick validation check</div>
         </div>
+        <div class="how-mini-connector" aria-hidden="true">→</div>
         <div class="how-mini-item">
           <div class="how-mini-head"><div class="how-mini-step-num">3</div><span class="how-mini-icon">💸</span></div>
           <div class="how-mini-title">Get Paid ₹10 Each</div>
@@ -426,7 +485,46 @@
       <!-- ── Step 1: Category — REDESIGNED ── -->
       <div class="step-content active" id="step-1">
         <h2 class="step-title">Select Coupon Category</h2>
-        <select class="cat-select" id="categorySelect" onchange="selectCategory(this)">
+        <p class="step-hint">Pick the category your coupons belong to — this decides the brand list in the next step.</p>
+
+        <!-- Visual picker. The <select> below is kept as the single source of truth
+             (validation, review summary and resetForm all read #categorySelect). -->
+        <div class="cat-grid" id="catGrid">
+          <button type="button" class="cat-card" data-value="Makeup" onclick="pickCategory(this)">
+            <span class="cat-card-icon">💄</span>
+            <span>
+              <span class="cat-card-name">Makeup &amp; Beauty</span>
+              <span class="cat-card-brands">Nykaa, Lakme, Mamaearth</span>
+            </span>
+            <span class="cat-card-check">✓</span>
+          </button>
+          <button type="button" class="cat-card" data-value="Electronics" onclick="pickCategory(this)">
+            <span class="cat-card-icon">⚡</span>
+            <span>
+              <span class="cat-card-name">Electronics</span>
+              <span class="cat-card-brands">boAt, Croma, Samsung</span>
+            </span>
+            <span class="cat-card-check">✓</span>
+          </button>
+          <button type="button" class="cat-card" data-value="Fashion" onclick="pickCategory(this)">
+            <span class="cat-card-icon">👟</span>
+            <span>
+              <span class="cat-card-name">Fashion &amp; Shoes</span>
+              <span class="cat-card-brands">Puma, Myntra, AJIO</span>
+            </span>
+            <span class="cat-card-check">✓</span>
+          </button>
+          <button type="button" class="cat-card" data-value="Food" onclick="pickCategory(this)">
+            <span class="cat-card-icon">🍔</span>
+            <span>
+              <span class="cat-card-name">Food &amp; Delivery</span>
+              <span class="cat-card-brands">Swiggy, Zomato, Dominos</span>
+            </span>
+            <span class="cat-card-check">✓</span>
+          </button>
+        </div>
+
+        <select class="cat-select" id="categorySelect" onchange="selectCategory(this)" hidden aria-hidden="true" tabindex="-1">
           <option value="">— Choose a category —</option>
           <option value="Makeup">💄 Makeup &amp; Beauty — Nykaa, Lakme, Mamaearth</option>
           <option value="Electronics">⚡ Electronics — boAt, Croma, Samsung</option>
@@ -442,11 +540,26 @@
         <!-- Dynamic coupon cards will be injected here -->
         <div class="coupon-cards-container" id="couponCardsContainer"></div>
 
-        <!-- Screenshot / proof upload (mandatory, validated client + server side) -->
+        <!-- Screenshot / proof upload (mandatory, validated client + server side).
+             The file input stays the source of truth; the dropzone only drives it. -->
         <div class="fgroup" style="margin-top:18px">
           <label class="flabel" for="proofFile">📸 Coupon Screenshot / Proof <span class="frequired">*mandatory*</span></label>
-          <input type="file" id="proofFile" class="finput" accept="image/png,image/jpeg,image/webp">
-          <span class="fhint">Mandatory — PNG, JPG or WEBP, max 3MB. Admins use the screenshot to verify your coupon.</span>
+          <input type="file" id="proofFile" accept="image/png,image/jpeg,image/webp" hidden onchange="onProofPicked(this.files)">
+          <div class="drop-zone" id="proofDropZone" role="button" tabindex="0"
+               onclick="document.getElementById('proofFile').click()"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('proofFile').click();}">
+            <span class="drop-zone-icon">🖼️</span>
+            <span class="drop-zone-title">Click to upload or drag &amp; drop</span>
+            <span class="drop-zone-sub">PNG, JPG or WEBP · max 3MB · admins use it to verify your coupon</span>
+          </div>
+          <div class="proof-preview" id="proofPreview">
+            <img class="proof-thumb" id="proofThumb" alt="Screenshot preview">
+            <div class="proof-meta">
+              <div class="proof-name" id="proofName"></div>
+              <div class="proof-size" id="proofSize"></div>
+            </div>
+            <button type="button" class="proof-remove" onclick="clearProof()">Remove</button>
+          </div>
         </div>
 
         <div class="step-actions">
@@ -1089,9 +1202,21 @@ function buildReviewSummary() {
 /* ── Category select ── */
 function selectCategory(sel) {
   selectedCategory = sel.value;
+  // Keep the visual cards in sync when the value changes programmatically.
+  document.querySelectorAll('.cat-card').forEach(c => {
+    c.classList.toggle('selected', !!selectedCategory && c.dataset.value === selectedCategory);
+  });
   if (selectedCategory) {
     setTimeout(() => goToStep(2), 300);
   }
+}
+
+/* Category card click → drive the hidden <select>, which stays the source of truth. */
+function pickCategory(card) {
+  const sel = document.getElementById('categorySelect');
+  if (!sel || !card) return;
+  sel.value = card.dataset.value || '';
+  selectCategory(sel);
 }
 
 /* ── Step navigation ── */
@@ -1129,12 +1254,84 @@ function updateStepper(active) {
     s.classList.remove('active', 'done');
     if (n === active) s.classList.add('active');
     else if (n < active) s.classList.add('done');
+    // Completed steps show a tick and become a shortcut back to that step.
+    const circle = s.querySelector('.stepper-circle');
+    if (circle) circle.textContent = n < active ? '✓' : String(n);
+    s.setAttribute('role', n < active ? 'button' : 'presentation');
+    s.onclick = n < active ? () => goToStep(n) : null;
   });
   const line12 = document.getElementById('line-1-2');
   const line23 = document.getElementById('line-2-3');
   if (line12) line12.classList.toggle('done', active > 1);
   if (line23) line23.classList.toggle('done', active > 2);
 }
+
+/* ── Screenshot proof: validate, preview, clear ── */
+function onProofPicked(files) {
+  const input = document.getElementById('proofFile');
+  const file = files && files[0];
+  const preview = document.getElementById('proofPreview');
+  if (!file) { if (preview) preview.classList.remove('show'); return; }
+
+  // Same rules the submit handler and the server enforce — fail fast here so the
+  // seller finds out before they reach the review step.
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    showToast('Screenshot must be PNG, JPG or WEBP.', 'error');
+    clearProof();
+    return;
+  }
+  if (file.size > 3 * 1024 * 1024) {
+    showToast('Screenshot is too large. Maximum size is 3MB.', 'error');
+    clearProof();
+    return;
+  }
+
+  const thumb = document.getElementById('proofThumb');
+  if (thumb) {
+    if (thumb.dataset.url) URL.revokeObjectURL(thumb.dataset.url);
+    const url = URL.createObjectURL(file);
+    thumb.dataset.url = url;
+    thumb.src = url;
+  }
+  document.getElementById('proofName').textContent = file.name;
+  document.getElementById('proofSize').textContent =
+    (file.size < 1024 ? file.size + ' B' : (file.size / 1024).toFixed(0) + ' KB') + ' · ready to upload';
+  if (preview) preview.classList.add('show');
+  if (input) input.title = file.name;
+}
+
+function clearProof() {
+  const input = document.getElementById('proofFile');
+  if (input) input.value = '';
+  const thumb = document.getElementById('proofThumb');
+  if (thumb && thumb.dataset.url) {
+    URL.revokeObjectURL(thumb.dataset.url);
+    delete thumb.dataset.url;
+    thumb.removeAttribute('src');
+  }
+  const preview = document.getElementById('proofPreview');
+  if (preview) preview.classList.remove('show');
+}
+
+/* Drag & drop onto the screenshot dropzone. */
+(function initProofDropZone() {
+  const zone = document.getElementById('proofDropZone');
+  const input = document.getElementById('proofFile');
+  if (!zone || !input) return;
+  ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, (e) => {
+    e.preventDefault();
+    zone.classList.add('dragover');
+  }));
+  ['dragleave', 'drop'].forEach(evt => zone.addEventListener(evt, () => zone.classList.remove('dragover')));
+  zone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const dropped = e.dataTransfer && e.dataTransfer.files;
+    if (!dropped || !dropped.length) return;
+    // DataTransfer.files is assignable to a file input in all modern browsers.
+    try { input.files = dropped; } catch { return; }
+    onProofPicked(dropped);
+  });
+})();
 
 /* ── Read a file as base64 (no data: URL prefix) ── */
 function fileToBase64(file) {
@@ -1259,10 +1456,10 @@ function resetForm() {
   // Reset category
   const catSelect = document.getElementById('categorySelect');
   if (catSelect) catSelect.value = '';
+  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('selected'));
 
   // Reset proof screenshot input
-  const proofInput = document.getElementById('proofFile');
-  if (proofInput) proofInput.value = '';
+  clearProof();
 
   // Reset steps
   document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
