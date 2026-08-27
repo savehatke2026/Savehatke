@@ -530,7 +530,7 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
     : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
   const fromName = (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim();
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
-  const viewUrl = `${siteUrl}/dashboard`;
+  const viewUrl = `https://savehatke.vercel.app/dashboard`;
   const year = new Date().getFullYear();
 
   const t = getSupportTransporter();
@@ -544,7 +544,7 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
     };
   }
 
-  const subject_ = `SaveHatke Support — Request received (Case #${safeCaseId})`;
+  const subject_ = `SaveHatke Support — Request received (Case ${safeCaseId})`;
 
   const textBody =
 `# SaveHatke Support
@@ -555,7 +555,7 @@ Hello ${userName ? String(userName).trim() : 'there'},
 
 We've received your support request and created a case for it.
 
-**Case ID:** #${caseId}
+**Case ID:** ${caseId}
 
 **Subject:** ${subject}
 
@@ -569,7 +569,7 @@ ${message}
 
 Our support team will review your request and get back to you as soon as possible.
 
-Please keep your **Case ID #${caseId}** for future reference when contacting SaveHatke Support about this request.
+Please keep your **Case ID ${caseId}** for future reference when contacting SaveHatke Support about this request.
 
 View Support Request: ${viewUrl}
 
@@ -583,7 +583,7 @@ Regards,
 
 This email was sent to ${cleanEmail} because you submitted a support request to SaveHatke. You may receive emails related to this support request, including case updates and responses from our support team.`;
 
-  const logoUrl = `${siteUrl}/logo.png`;
+  const logoUrl = `https://savehatke.vercel.app/logo.png`;
 
   const htmlContent = `
   <!DOCTYPE html>
@@ -597,7 +597,7 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
   <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
 
   <!-- Preheader (hidden inbox preview line) -->
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">We've received your support request — Case #${safeCaseId} is now open.</div>
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">We've received your support request — Case ${safeCaseId} is now open.</div>
 
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;">
     <tr>
@@ -650,7 +650,7 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
                 <tr>
                   <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
-                    <strong style="color:#0f1e3a;font-weight:700;">Case ID:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">#${safeCaseId}</span>
+                    <strong style="color:#0f1e3a;font-weight:700;">Case ID:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${safeCaseId}</span>
                   </td>
                 </tr>
                 <tr>
@@ -676,7 +676,7 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
 
               <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Our support team will review your request and get back to you as soon as possible.</p>
 
-              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Please keep your <strong style="color:#0f1e3a;font-weight:700;">Case ID #${safeCaseId}</strong> for future reference when contacting SaveHatke Support about this request.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Please keep your <strong style="color:#0f1e3a;font-weight:700;">Case ID ${safeCaseId}</strong> for future reference when contacting SaveHatke Support about this request.</p>
 
               <!-- CTA Button — website green -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
