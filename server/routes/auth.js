@@ -137,7 +137,13 @@ function parseUserAgent(req) {
  * Background geo enrichment â€” looks up country/state/city for the login IP
  * and updates the session row. Fire-and-forget; failures are harmless.
  */
-async function enrichSessionGeo(sessionId, ip) {
+/**
+ * Look up country/state/city for a login IP. Best-effort: private/loopback
+ * addresses and total provider failure both yield 'Unknown' fields. Shared by
+ * the session-row enrichment and the "new sign-in" alert email, so a login
+ * only ever costs one geo lookup.
+ */
+async function resolveGeo(ip) {
   let country = 'Unknown', state = 'Unknown', city = 'Unknown';
   const isIPv6 = ip.includes(':');
   const lookupable = ip && ip !== 'unknown' && ip !== '127.0.0.1'
@@ -166,7 +172,7 @@ async function enrichSessionGeo(sessionId, ip) {
           const geo = await geoRes.json();
           const result = svc.parse(geo);
           if (result.ok) {
-            if (result.country) country = result.country === 'India' ? 'India ðŸ‡®ðŸ‡³' : result.country;
+            if (result.country) country = result.country;
             if (result.state) state = result.state;
             if (result.city) city = result.city;
             break;
@@ -177,6 +183,21 @@ async function enrichSessionGeo(sessionId, ip) {
       }
     }
   }
+
+  return { country, state, city };
+}
+
+/**
+ * Write the resolved geo onto the session row. Pass an already-resolved `geo`
+ * to reuse the login's single lookup. Fire-and-forget: on failure the row just
+ * keeps its 'Unknown' placeholders.
+ */
+async function enrichSessionGeo(sessionId, ip, geo) {
+  const { country: rawCountry, state, city } = geo || (await resolveGeo(ip));
+  // The admin Sessions view shows a flag beside India; the alert email keeps
+  // the plain provider name. Written as escapes so the emoji is not at the
+  // mercy of this file's encoding.
+  const country = rawCountry === 'India' ? 'India \u{1F1EE}\u{1F1F3}' : rawCountry;
 
   try {
     const client = supabase.getClient();
@@ -201,6 +222,43 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
 
     const { deviceStr, osStr, browserStr, raw: userAgentRaw } = parseUserAgent(req);
     const ip = getClientIP(req); // Real client IP only â€” never a sample/hardcoded address
+
+    // One geo lookup per login, shared by the alert email (which prints the
+    // Location line) and the session row enrichment below. Never awaited on
+    // the login response path.
+    const signInAt = new Date().toISOString();
+    const geoPromise = resolveGeo(ip).catch(() => null);
+
+    // Send the "New sign-in detected" security alert to the account's own
+    // address (user or admin) from the SaveHatke Security mailbox. It runs
+    // before the session row is written so a Supabase outage can never
+    // swallow the notification. Opt-out via SIGNIN_ALERT_DISABLED=true.
+    if (cleanEmail && process.env.SIGNIN_ALERT_DISABLED !== 'true') {
+      geoPromise
+        .then((geo) => emailService.sendSignInAlertEmail({
+          to: cleanEmail,
+          userName: userName && String(userName).trim() ? String(userName).trim() : '',
+          userEmail: cleanEmail,
+          signInTime: signInAt,
+          ip,
+          device: deviceStr,
+          browser: browserStr,
+          os: osStr,
+          city: geo ? geo.city : '',
+          country: geo ? geo.country : '',
+          loginMethod: loginMethod || (isAdminLogin ? 'Admin' : 'Email'),
+        }))
+        .then((r) => {
+          if (r && r.success) {
+            console.log(`[Auth] Sign-in alert sent to ${cleanEmail} (IP ${ip}, device ${deviceStr})`);
+          } else if (r && r.isSimulated) {
+            console.warn(`[Auth] Sign-in alert NOT sent for ${cleanEmail} -> ${r.error || 'SMTP not configured'}`);
+          } else {
+            console.warn(`[Auth] Sign-in alert FAILED for ${cleanEmail}: ${(r && r.error) || 'unknown'}`);
+          }
+        })
+        .catch((e) => console.warn('[Auth] Sign-in alert unexpected error:', e && e.message ? e.message : e));
+    }
 
     // Cryptographically random session identifier. The raw value goes into
     // the JWT and cookie; only its SHA-256 hash is stored in the database.
@@ -232,33 +290,9 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
     console.log(`âœ… Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
 
     // Geo-IP enrichment in the background â€” never blocks the login response
-    enrichSessionGeo(sessionResult.session_id, ip).catch(() => {});
-
-    // Send the "New sign-in detected" security alert for both user and admin logins.
-    // Opt-out via SIGNIN_ALERT_DISABLED=true.
-    if (cleanEmail && process.env.SIGNIN_ALERT_DISABLED !== 'true') {
-      emailService.sendSignInAlertEmail({
-        to: cleanEmail,
-        userName: userName && String(userName).trim() ? String(userName).trim() : '',
-        userEmail: cleanEmail,
-        signInTime: now.toISOString(),
-        ip,
-        device: deviceStr,
-        browser: browserStr,
-        os: osStr,
-        loginMethod: loginMethod || (isAdminLogin ? 'Admin' : 'Email'),
-      })
-        .then((r) => {
-          if (r && r.success) {
-            console.log(`[Auth] Sign-in alert sent to ${cleanEmail} (IP ${ip}, device ${deviceStr})`);
-          } else if (r && r.isSimulated) {
-            console.warn(`[Auth] Sign-in alert NOT sent for ${cleanEmail} -> ${r.error || 'SMTP not configured'}`);
-          } else {
-            console.warn(`[Auth] Sign-in alert FAILED for ${cleanEmail}: ${(r && r.error) || 'unknown'}`);
-          }
-        })
-        .catch((e) => console.warn('[Auth] Sign-in alert unexpected error:', e && e.message ? e.message : e));
-    }
+    geoPromise
+      .then((geo) => enrichSessionGeo(sessionResult.session_id, ip, geo))
+      .catch(() => {});
 
     return {
       token: rawToken,
@@ -627,7 +661,7 @@ router.post('/login', async (req, res) => {
             await dbAdmin.save();
 
             // Server-side 48h session for the admin login
-            const session = await createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Admin', dbAdmin.email).catch(() => null);
+            const session = await createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Admin', dbAdmin.email, dbAdmin.name || dbAdmin.full_name).catch(() => null);
             const token = issueLoginToken({
               id: dbAdmin.id || dbAdmin._id.toString(),
               email: dbAdmin.email,
@@ -665,7 +699,7 @@ router.post('/login', async (req, res) => {
       const hardcodedId = uuidv4();
 
       // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, hardcodedId, 'Admin', hardcoded.email).catch(() => null);
+      const session = await createLoginSession(req, hardcodedId, 'Admin', hardcoded.email, hardcoded.name).catch(() => null);
       const token = issueLoginToken({
         id: hardcodedId,
         email: hardcoded.email,
@@ -930,7 +964,7 @@ router.post('/google-redirect', async (req, res) => {
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
 
       // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail).catch(() => null);
+      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName).catch(() => null);
       const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
       if (session) setSessionCookie(res, session.token, session.ttlMs);
 
@@ -1077,7 +1111,7 @@ router.post('/google', async (req, res) => {
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
 
       // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail).catch(() => null);
+      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName).catch(() => null);
       const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
       if (session) setSessionCookie(res, session.token, session.ttlMs);
 

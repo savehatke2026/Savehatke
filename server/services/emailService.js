@@ -1222,7 +1222,6 @@ async function sendSignInAlertEmail({
     return { success: false, error: 'No recipient address provided.' };
   }
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
-  const safeEmail = escapeHtml(userEmail || cleanEmail);
 
   const signInDate = signInTime
     ? new Date(signInTime).toLocaleString('en-IN', {
@@ -1234,14 +1233,20 @@ async function sendSignInAlertEmail({
         hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
       });
 
-  const safeIp = escapeHtml(ip || 'Unknown');
   const safeDevice = escapeHtml(device || 'Unknown device');
   const safeBrowser = escapeHtml(browser || 'Unknown browser');
-  const safeOs = escapeHtml(os || 'Unknown OS');
-  const safeCity = escapeHtml(city || '');
-  const safeCountry = escapeHtml(country || '');
-  const locationLine = [safeCity, safeCountry].filter(Boolean).join(', ');
-  const safeMethod = escapeHtml(loginMethod || 'Email');
+  // Plain-text values for the text part, escaped twins for the HTML part.
+  // Location falls back to "Unknown" rather than being hidden: the alert
+  // always shows the four fields (Location / Time / Browser / Device).
+  const locationText = [city, country]
+    .map((v) => String(v || '').trim())
+    .filter((v) => v && v.toLowerCase() !== 'unknown')
+    .join(', ') || 'Unknown';
+  const deviceText = os && String(os).trim() && String(os).trim() !== 'Unknown'
+    ? `${device || 'Unknown device'} (${String(os).trim()})`
+    : (device || 'Unknown device');
+  const safeLocation = escapeHtml(locationText);
+  const safeDeviceLine = escapeHtml(deviceText);
 
   // Sender — the "new sign-in" alert goes out from the SAME main
   // "SaveHatke Security" mailbox as the OTP email (per product decision), so
@@ -1270,28 +1275,34 @@ async function sendSignInAlertEmail({
   const subject_ = `SaveHatke Security — New sign-in detected on your account`;
 
   const textBody =
-`SaveHatke Security
+`SaveHatke
 
 New sign-in detected on your SaveHatke account
 
-Hello ${userName && String(userName).trim() ? userName.trim() : 'there'} (${userEmail || cleanEmail}),
+Hello, ${userName && String(userName).trim() ? userName.trim() : 'there'}.
 
-We detected a new sign-in to your SaveHatke account. If this was you, you can safely ignore this email.
+Your SaveHatke account was recently signed in from a new location, device, or browser.
 
-Sign-in details:
+Sign-in details
+
+  Location: ${locationText}
   Time: ${signInDate} IST
-  IP Address: ${ip || 'Unknown'}
-  Device: ${safeDevice}
-  Browser: ${safeBrowser}
-  Operating System: ${safeOs}
-  ${locationLine ? `Location: ${locationLine}` : ''}
-  Method: ${safeMethod}
+  Browser: ${browser || 'Unknown browser'}
+  Device: ${deviceText}
 
-If you don't recognize this activity, please secure your account immediately:
+Don't recognize this activity?
+
+If you didn't sign in to your account, we recommend reviewing your account security and changing your password immediately:
 ${secureUrl}
 
-Thank you,
-SaveHatke Security Team
+If this was you, you can safely ignore this email.
+
+This alert is sent when we detect a sign-in from a device, browser, or location that we haven't seen before. This can happen when you use a new device, browser, network, or VPN.
+
+If you believe someone else accessed your account, please contact SaveHatke Support${supportFrom ? ` (${supportFrom})` : ''} as soon as possible.
+
+Regards,
+Team SaveHatke
 
 © ${year} SaveHatke. All rights reserved.`;
 
@@ -1393,11 +1404,6 @@ SaveHatke Security Team
         color: #0f1e3a;
         font-weight: 700;
       }
-      /* Per spec: ({{user_email}}) is in website green */
-      .line .greeting-email {
-        color: #00c853;
-        font-weight: 600;
-      }
       .mono { font-family: 'JetBrains Mono', monospace; }
 
       .case-list {
@@ -1415,6 +1421,30 @@ SaveHatke Security Team
         padding: 4px 0;
       }
       .case-list li strong { color: #000000; font-weight: 800; }
+
+      /* "Sign-in details" label above the detail list */
+      .detail-label {
+        font-size: 0.95rem;
+        font-weight: 800;
+        color: #000000;
+        margin: 0 0 10px;
+      }
+
+      /* "Don't recognize this activity?" section heading */
+      .email-h3 {
+        font-size: 1.02rem;
+        font-weight: 800;
+        color: #0f1e3a;
+        margin: 26px 0 12px;
+      }
+
+      /* Explanatory note — why this alert was sent */
+      .note {
+        font-size: 0.86rem;
+        color: #6b7280;
+      }
+
+      .support-link { color: #00c853; text-decoration: none; }
 
       .warn-line {
         font-size: 0.86rem;
@@ -1499,33 +1529,42 @@ SaveHatke Security Team
 
       <div class="email-body">
 
-        <h1 class="email-title">SaveHatke Security</h1>
+        <h1 class="email-title">SaveHatke</h1>
         <h2 class="email-subtitle">New sign-in detected on your SaveHatke account</h2>
 
         <p class="line">
-          Hello <span class="greeting-name">${safeName}</span>
-          <span class="greeting-email">(${safeEmail})</span>,
+          Hello, <span class="greeting-name">${safeName}</span>.
         </p>
 
-        <p class="line">We detected a new sign-in to your SaveHatke account. If this was you, you can safely ignore this email.</p>
+        <p class="line">Your SaveHatke account was recently signed in from a new location, device, or browser.</p>
+
+        <p class="detail-label">Sign-in details</p>
 
         <ul class="case-list">
+          <li><strong>Location:</strong> ${safeLocation}</li>
           <li><strong>Time:</strong> <span class="mono">${escapeHtml(signInDate)} IST</span></li>
-          <li><strong>IP Address:</strong> <span class="mono">${safeIp}</span></li>
-          ${locationLine ? `<li><strong>Location:</strong> ${escapeHtml(locationLine)}</li>` : ''}
-          <li><strong>Device:</strong> ${safeDevice}</li>
           <li><strong>Browser:</strong> ${safeBrowser}</li>
-          <li><strong>Operating System:</strong> ${safeOs}</li>
-          <li><strong>Sign-in Method:</strong> ${safeMethod}</li>
+          <li><strong>Device:</strong> ${safeDeviceLine}</li>
         </ul>
 
-        <p class="warn-line"><strong>Didn't sign in?</strong> If you don't recognize this activity, please secure your account immediately — change your password and end all active sessions from the security page.</p>
+        <h3 class="email-h3">Don't recognize this activity?</h3>
+
+        <p class="warn-line">If you didn't sign in to your account, we recommend reviewing your account security and changing your password immediately.</p>
+
+        <p class="line">If this was you, you can safely ignore this email.</p>
 
         <div class="cta-wrap">
-          <a href="${secureUrl}" class="cta-btn">🔒 Secure My Account</a>
+          <a href="${secureUrl}" class="cta-btn">🔒 Review Account Security</a>
         </div>
 
-        <p class="line">Thank you,<br><strong>SaveHatke Security Team</strong></p>
+        <p class="line note">This alert is sent when we detect a sign-in from a device, browser, or location that we haven't seen before. This can happen when you use a new device, browser, network, or VPN.</p>
+
+        <p class="line">If you believe someone else accessed your account, please contact
+          ${supportFrom
+            ? `<a href="mailto:${escapeHtml(supportFrom)}" class="support-link"><strong>SaveHatke Support</strong></a>`
+            : '<strong>SaveHatke Support</strong>'} as soon as possible.</p>
+
+        <p class="signoff">Regards,<br><strong>Team SaveHatke</strong></p>
 
       </div>
 
