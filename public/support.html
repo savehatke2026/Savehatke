@@ -176,12 +176,24 @@
     .ftextarea { resize:vertical; min-height:120px; }
     .fsubmit { width:100%; margin-top:8px; font-size:1rem; height:52px; border-radius:12px; }
 
-    /* TOAST */
-    .toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; }
-    .toast { padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; box-shadow:0 12px 40px rgba(0,0,0,.5); display:flex; align-items:center; gap:10px; animation:fadeUp .3s ease; max-width:320px; }
-    .toast-success { background:rgba(0,200,83,.15); border:1px solid rgba(0,200,83,.3); color:#00e676; }
-    .toast-error { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.25); color:#f87171; }
-    .toast-warning { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
+    /* TOAST — react-toastify style (colored theme, top-right, Bounce) */
+    .toast-container { position:fixed; top:80px; right:20px; z-index:9999; display:flex; flex-direction:column; gap:12px; width:340px; max-width:calc(100vw - 40px); }
+    .toast { position:relative; overflow:hidden; padding:16px 40px 16px 18px; border-radius:10px; font-size:.9rem; font-weight:600; color:#fff; box-shadow:0 12px 40px rgba(0,0,0,.35); display:flex; align-items:center; gap:12px; cursor:default; touch-action:pan-y; will-change:transform; }
+    .toast.bounce-in { animation:toastBounceIn .7s cubic-bezier(.215,.61,.355,1) both; }
+    .toast.bounce-out { animation:toastBounceOut .7s cubic-bezier(.6,-0.28,.735,.045) both; }
+    .toast-success { background:#07bc0c; }
+    .toast-error   { background:#e74c3c; }
+    .toast-warning { background:#f1c40f; color:#1a1a1a; }
+    .toast-info    { background:#3498db; }
+    .toast-icon { font-size:1.1rem; line-height:1; flex-shrink:0; }
+    .toast-body { flex:1; word-break:break-word; }
+    .toast-close { position:absolute; top:8px; right:10px; background:none; border:none; color:currentColor; font-size:.95rem; line-height:1; cursor:pointer; opacity:.7; padding:2px; }
+    .toast-close:hover { opacity:1; }
+    .toast-progress { position:absolute; bottom:0; left:0; height:4px; width:100%; transform-origin:left; background:rgba(255,255,255,.7); }
+    .toast-warning .toast-progress { background:rgba(0,0,0,.3); }
+    @keyframes toastProgress { from{transform:scaleX(1)} to{transform:scaleX(0)} }
+    @keyframes toastBounceIn { 0%{opacity:0;transform:translateX(3000px)} 60%{opacity:1;transform:translateX(-25px)} 75%{transform:translateX(10px)} 90%{transform:translateX(-5px)} 100%{transform:translateX(0)} }
+    @keyframes toastBounceOut { 20%{transform:translateX(-20px)} 100%{opacity:0;transform:translateX(2000px)} }
 
     /* FOOTER */
     .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:36px 0 0; }
@@ -581,12 +593,70 @@
   function showToast(message, type = 'success') {
     const container = document.getElementById('toastContainer');
     if (!container) return;
+    const autoClose = 5000; // ms — matches react-toastify autoClose:5000
+
     const toast = document.createElement('div');
-    toast.className = `toast toast-${type}`;
-    const icons = { success: '✅', error: '❌', warning: '⚠️' };
-    toast.innerHTML = `<span>${icons[type] || '📢'}</span><span>${message}</span>`;
+    toast.className = `toast toast-${type} bounce-in`;
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    toast.innerHTML =
+      `<span class="toast-icon">${icons[type] || '📢'}</span>` +
+      `<span class="toast-body">${message}</span>` +
+      `<button class="toast-close" aria-label="close">✕</button>` +
+      `<div class="toast-progress"></div>`;
     container.appendChild(toast);
-    setTimeout(() => toast.remove(), 4000);
+
+    const progress = toast.querySelector('.toast-progress');
+    progress.style.animation = `toastProgress ${autoClose}ms linear forwards`;
+
+    let closed = false;
+    const dismiss = () => {
+      if (closed) return;
+      closed = true;
+      toast.classList.remove('bounce-in');
+      toast.classList.add('bounce-out');
+      toast.addEventListener('animationend', () => toast.remove(), { once: true });
+    };
+
+    let remaining = autoClose;
+    let startedAt = Date.now();
+    let timer = setTimeout(dismiss, remaining);
+
+    // pauseOnHover: true
+    toast.addEventListener('mouseenter', () => {
+      clearTimeout(timer);
+      remaining -= Date.now() - startedAt;
+      progress.style.animationPlayState = 'paused';
+    });
+    toast.addEventListener('mouseleave', () => {
+      startedAt = Date.now();
+      timer = setTimeout(dismiss, remaining);
+      progress.style.animationPlayState = 'running';
+    });
+
+    // closeOnClick: false — only the ✕ button closes on click
+    toast.querySelector('.toast-close').addEventListener('click', (e) => { e.stopPropagation(); clearTimeout(timer); dismiss(); });
+
+    // draggable: true — swipe right to dismiss
+    let dragStartX = 0, dragging = false;
+    const onDown = (x) => { dragging = true; dragStartX = x; clearTimeout(timer); toast.style.transition = 'none'; };
+    const onMove = (x) => {
+      if (!dragging) return;
+      const dx = x - dragStartX;
+      if (dx > 0) { toast.style.transform = `translateX(${dx}px)`; toast.style.opacity = String(Math.max(0, 1 - dx / 200)); }
+    };
+    const onUp = (x) => {
+      if (!dragging) return;
+      dragging = false;
+      const dx = x - dragStartX;
+      if (dx > 120) { toast.remove(); }
+      else { toast.style.transition = 'transform .2s, opacity .2s'; toast.style.transform = ''; toast.style.opacity = ''; startedAt = Date.now(); timer = setTimeout(dismiss, remaining); }
+    };
+    toast.addEventListener('mousedown', (e) => onDown(e.clientX));
+    window.addEventListener('mousemove', (e) => onMove(e.clientX));
+    window.addEventListener('mouseup', (e) => onUp(e.clientX));
+    toast.addEventListener('touchstart', (e) => onDown(e.touches[0].clientX), { passive: true });
+    toast.addEventListener('touchmove', (e) => onMove(e.touches[0].clientX), { passive: true });
+    toast.addEventListener('touchend', (e) => onUp(e.changedTouches[0].clientX));
   }
 
   /* =====================

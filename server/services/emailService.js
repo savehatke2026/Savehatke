@@ -581,6 +581,8 @@ Regards,
 
 © ${year} SaveHatke. All rights reserved.`;
 
+  const logoUrl = `${siteUrl}/logo.png`;
+
   const htmlContent = `
   <!DOCTYPE html>
   <html lang="en">
@@ -589,258 +591,114 @@ Regards,
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light">
     <title>Support Request Received — SaveHatke</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      html { scroll-behavior: smooth; }
-      body {
-        font-family: 'Outfit', sans-serif;
-        background: #ffffff;
-        color: #0f1e3a;
-        -webkit-font-smoothing: antialiased;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 48px 16px 64px;
-        line-height: 1.65;
-      }
-
-      .email-wrapper {
-        position: relative;
-        width: 100%;
-        max-width: 620px;
-      }
-
-      /* Top brand bar */
-      .email-header {
-        text-align: center;
-        margin-bottom: 28px;
-      }
-      .brand-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        text-decoration: none;
-        color: #0f1e3a;
-        font-size: 1.3rem;
-        font-weight: 800;
-      }
-      .brand-icon {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #00e676, #4fc3f7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.1rem;
-      }
-      .bhl { color: #00c853; }
-
-      /* Main email card — fully white */
-      .email-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 8px 28px rgba(15, 30, 58, 0.08);
-      }
-
-      .email-body { padding: 36px 40px; }
-
-      .email-title {
-        font-family: 'DM Serif Display', serif;
-        font-size: 1.65rem;
-        font-weight: 400;
-        line-height: 1.25;
-        color: #0f1e3a;
-        margin-bottom: 6px;
-      }
-      .email-subtitle {
-        font-size: 1.1rem;
-        font-weight: 700;
-        line-height: 1.45;
-        color: #0f1e3a;
-        margin-bottom: 28px;
-        padding-bottom: 22px;
-        border-bottom: 1px solid #e5e7eb;
-      }
-
-      .line {
-        font-size: 0.95rem;
-        color: #374151;
-        line-height: 1.75;
-        margin-bottom: 18px;
-      }
-      .line strong { color: #0f1e3a; font-weight: 700; }
-      .mono { font-family: 'JetBrains Mono', monospace; }
-
-      .case-list {
-        list-style: none;
-        padding: 14px 20px;
-        margin: 0 0 24px;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-      }
-      .case-list li {
-        font-size: 0.95rem;
-        color: #374151;
-        line-height: 1.7;
-        padding: 4px 0;
-      }
-      .case-list li strong { color: #000000; font-weight: 800; }
-
-      .section-h {
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: #6b7280;
-        margin: 24px 0 10px;
-      }
-      .msg-box {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-left: 3px solid #00c853;
-        border-radius: 0 12px 12px 0;
-        padding: 18px 20px;
-        font-size: 0.92rem;
-        color: #374151;
-        line-height: 1.75;
-        margin: 0 0 24px;
-        word-break: break-word;
-        white-space: pre-wrap;
-      }
-
-      /* CTA Button — website green */
-      .cta-wrap {
-        text-align: center;
-        margin: 28px 0 24px;
-      }
-      .cta-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 0 40px;
-        height: 52px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #00e676, #00c853);
-        color: #0f1e3a;
-        font-family: 'Outfit', sans-serif;
-        font-size: 1rem;
-        font-weight: 800;
-        letter-spacing: 0.01em;
-        text-decoration: none;
-        box-shadow: 0 10px 24px rgba(0, 200, 83, 0.35);
-      }
-
-      .warn-line {
-        font-size: 0.86rem;
-        color: #92400e;
-        line-height: 1.65;
-        margin: 0 0 24px;
-        padding: 14px 18px;
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        border-radius: 10px;
-      }
-      .warn-line strong { color: #78350f; font-weight: 700; }
-
-      .signoff {
-        font-size: 0.92rem;
-        color: #374151;
-        line-height: 1.75;
-        margin-top: 24px;
-        padding-top: 22px;
-        border-top: 1px solid #e5e7eb;
-      }
-      .signoff strong { color: #0f1e3a; font-weight: 700; }
-
-      .email-footer {
-        background: #f9fafb;
-        border-top: 1px solid #e5e7eb;
-        padding: 22px 40px;
-        text-align: center;
-      }
-      .footer-copy {
-        font-size: 0.78rem;
-        color: #6b7280;
-      }
-
-      @media (max-width: 600px) {
-        body { padding: 28px 12px 48px; }
-        .email-body { padding: 28px 24px; }
-        .email-footer { padding: 20px 24px; }
-      }
-    </style>
   </head>
-  <body>
+  <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
 
   <!-- Preheader (hidden inbox preview line) -->
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">We've received your support request — Case #${safeCaseId} is now open.</div>
 
-  <div class="email-wrapper">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;">
+    <tr>
+      <td align="center" style="padding:48px 16px 64px;">
 
-    <!-- Brand Header -->
-    <div class="email-header">
-      <a href="${siteUrl}/index.html" class="brand-link">
-        <div class="brand-icon">💰</div>
-        <span>Save<span class="bhl">Hatke</span></span>
-      </a>
-    </div>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;">
 
-    <!-- Email Card -->
-    <div class="email-card">
+          <!-- Brand Header with Logo -->
+          <tr>
+            <td align="center" style="padding-bottom:32px;">
+              <a href="${siteUrl}/index.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:10px;">
+                <img src="${logoUrl}" alt="SaveHatke" width="36" height="36" style="width:36px;height:36px;border-radius:8px;object-fit:contain;">
+                <span style="font-size:1.3rem;font-weight:800;color:#0f1e3a;">Save<span style="color:#10b981;">Hatke</span> Support</span>
+              </a>
+            </td>
+          </tr>
 
-      <div class="email-body">
+          <!-- Email Body -->
+          <tr>
+            <td style="padding:0;">
 
-        <h1 class="email-title">SaveHatke Support</h1>
-        <h2 class="email-subtitle">Your support request has been received</h2>
+              <!-- Title -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="padding-bottom:8px;">
+                    <h2 style="margin:0;font-size:1.1rem;font-weight:700;color:#0f1e3a;line-height:1.45;">Your support request has been received</h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom:28px;">
+                    <div style="height:1px;background:#e5e7eb;"></div>
+                  </td>
+                </tr>
+              </table>
 
-        <p class="line">Hello <strong>${safeName}</strong>,</p>
+              <!-- Greeting -->
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello <strong style="color:#10b981;font-weight:700;">${safeName}</strong>,</p>
 
-        <p class="line">We've received your support request and created a case for it.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">We've received your support request and created a case for it.</p>
 
-        <ul class="case-list">
-          <li><strong>Case ID:</strong> <span class="mono">#${safeCaseId}</span></li>
-          <li><strong>Subject:</strong> ${safeSubject}</li>
-          <li><strong>Created:</strong> <span class="mono">${escapeHtml(createdDate)} IST</span></li>
-          <li><strong>Status:</strong> Open</li>
-        </ul>
+              <!-- Case Details — no box, clean lines -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Case ID:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">#${safeCaseId}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Subject:</strong>&nbsp; ${safeSubject}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Created:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${escapeHtml(createdDate)} IST</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Status:</strong>&nbsp; Open
+                  </td>
+                </tr>
+              </table>
 
-        <h3 class="section-h">Your Message</h3>
-        <div class="msg-box">${safeMessage}</div>
+              <!-- Your Message — no box -->
+              <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Your Message</p>
+              <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0 0 24px;word-break:break-word;white-space:pre-wrap;">${safeMessage}</p>
 
-        <p class="line">Our support team will review your request and get back to you as soon as possible.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Our support team will review your request and get back to you as soon as possible.</p>
 
-        <p class="line">Please keep your <strong>Case ID #${safeCaseId}</strong> for future reference when contacting SaveHatke Support about this request.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Please keep your <strong style="color:#0f1e3a;font-weight:700;">Case ID #${safeCaseId}</strong> for future reference when contacting SaveHatke Support about this request.</p>
 
-        <div class="cta-wrap">
-          <a href="${viewUrl}" class="cta-btn">View Support Request</a>
-        </div>
+              <!-- CTA Button — website green -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
+                <tr>
+                  <td align="center">
+                    <a href="${viewUrl}" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#10b981;color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
+                  </td>
+                </tr>
+              </table>
 
-        <p class="warn-line">If you did not submit this request, please contact us immediately.</p>
+              <p style="font-size:0.86rem;color:#92400e;line-height:1.65;margin:0 0 24px;">If you did not submit this request, please contact us immediately.</p>
 
-        <div class="signoff">
-          Regards,<br>
-          <strong>SaveHatke Support Team</strong>
-        </div>
+              <!-- Sign-off -->
+              <div style="margin-top:24px;padding-top:22px;border-top:1px solid #e5e7eb;">
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;">Regards,<br><strong style="color:#0f1e3a;font-weight:700;">SaveHatke Support Team</strong></p>
+              </div>
 
-      </div>
+            </td>
+          </tr>
 
-      <!-- Footer -->
-      <div class="email-footer">
-        <div class="footer-copy">© ${year} SaveHatke. All rights reserved.</div>
-      </div>
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding:26px 0 0;">
+              <p style="font-size:0.78rem;color:#6b7280;margin:0;">&copy; ${year} SaveHatke. All rights reserved.</p>
+            </td>
+          </tr>
 
-    </div>
+        </table>
 
-  </div>
+      </td>
+    </tr>
+  </table>
 
   </body>
   </html>

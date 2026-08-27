@@ -25,3 +25,7 @@ build/
 .dbg/
 .vercel/
 .zcode/
+
+# Sensitive scratch files and local notes
+*api key*
+*task*.txt
