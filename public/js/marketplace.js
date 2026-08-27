@@ -153,9 +153,9 @@ function renderCouponGrid(gridId, coupons) {
 }
 
 // ── Expiry Countdown ────────────────────────────────────────────────────
-// parseExpiry / expiryBand / expiryLabel live in js/coupon-meta.js so the admin
+// parseExpiry / expiryBand / expiryParts live in js/coupon-meta.js so the admin
 // Coupon Management table shares the exact same maths and colour bands:
-//   ≤ 1 week (7d) → red, flashing   ≤ 2 weeks (14d) → yellow   beyond → green
+//   ≤ 1 week (7d) → red   ≤ 2 weeks (14d) → yellow   beyond → green
 
 /** Card-level colour class for the time remaining. */
 function expiryClass(msLeft) {
@@ -166,13 +166,33 @@ function expiryClass(msLeft) {
  * Markup for one card's countdown row. Empty string when no expiry is set, or
  * when the admin turned this coupon's timer off in Coupon Management — the
  * expiry date stays stored either way, so switching it back on restores it.
+ *
+ * The digits sit in their own long-lived spans and the "Offer ended" copy ships
+ * with every pill, hidden by CSS. That way the ticker below only ever writes
+ * `textContent`: the separator nodes are never replaced, so their 1Hz blink
+ * animation keeps running instead of restarting from zero every second, and the
+ * expired state is reached by a class swap rather than a re-render.
  */
 function renderExpiryTimer(raw, timerOn) {
   if (timerOn === false) return '';
   const at = parseExpiry(raw);
   if (at === null) return '';
   const msLeft = at - Date.now();
-  return `<div class="cexpiry ${expiryClass(msLeft)}" data-expiry="${at}" title="Expires ${new Date(at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}">${expiryLabel(msLeft)}</div>`;
+  const p = expiryParts(msLeft);
+  const when = new Date(at).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  return `<div class="cexpiry ${expiryClass(msLeft)}" data-expiry="${at}" title="Expires ${when}">
+            <svg class="cexp-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+              <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+            <span class="cexp-label">Ends in</span>
+            <span class="cexp-clock">
+              <b class="cexp-d">${p.dd}</b><b class="cexp-n cexp-h">${p.hh}</b><i class="cexp-sep">:</i><b class="cexp-n cexp-m">${p.mm}</b><i class="cexp-sep">:</i><b class="cexp-n cexp-s">${p.ss}</b>
+            </span>
+            <span class="cexp-over">Offer ended</span>
+          </div>`;
 }
 
 let expiryTimerId = null;
@@ -180,14 +200,22 @@ let expiryTimerId = null;
 /** Tick every countdown on the page once a second (single shared interval). */
 function startExpiryTicker() {
   if (expiryTimerId !== null) return; // already running — re-renders are picked up on the next tick
+  const setText = (el, value) => {
+    if (el && el.textContent !== value) el.textContent = value;
+  };
   const tick = () => {
     const nodes = document.querySelectorAll('.cexpiry[data-expiry]');
     if (nodes.length === 0) return;
     const now = Date.now();
     nodes.forEach((el) => {
       const msLeft = Number(el.dataset.expiry) - now;
-      const label = expiryLabel(msLeft);
-      if (el.textContent !== label) el.textContent = label;
+      const p = expiryParts(msLeft);
+      // Digits only — never innerHTML, or the blinking colons reset each second.
+      setText(el.querySelector('.cexp-d'), p.dd); // '' collapses via .cexp-d:empty
+      setText(el.querySelector('.cexp-h'), p.hh);
+      setText(el.querySelector('.cexp-m'), p.mm);
+      setText(el.querySelector('.cexp-s'), p.ss);
+      // Colour band, and the clock → "Offer ended" swap, both ride on this class.
       const cls = `cexpiry ${expiryClass(msLeft)}`;
       if (el.className !== cls) el.className = cls;
     });

@@ -282,15 +282,15 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .inv-timer:disabled{opacity:.5;cursor:wait}
 /* Timer switch off — the date is still stored, it just isn't counting down */
 .inv-timer.inv-timer-off{opacity:.4;cursor:not-allowed}
-.inv-exp{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 7px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-size:.68rem;font-weight:700;border:1px solid transparent;white-space:nowrap}
+.inv-exp{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 7px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:.68rem;font-weight:700;border:1px solid transparent;white-space:nowrap}
 .inv-exp-green{color:#00e676;background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.22)}
 .inv-exp-yellow{color:#ffd740;background:rgba(255,215,64,.09);border-color:rgba(255,215,64,.3)}
-.inv-exp-red{color:#ff5252;background:rgba(255,82,82,.1);border-color:rgba(255,82,82,.38);animation:invExpFlash 1s ease-in-out infinite}
+/* No flash: the chip now counts down in HH:MM:SS, so it already reads as live —
+   pulsing the background on top of that just makes the digits hard to follow. */
+.inv-exp-red{color:#ff5252;background:rgba(255,82,82,.11);border-color:rgba(255,82,82,.4)}
 .inv-exp-expired{color:#8ba2c4;background:rgba(139,162,196,.08);border-color:rgba(139,162,196,.2)}
 .inv-exp-none{color:#6b88aa;font-size:.68rem;margin-top:5px;display:inline-block}
 .inv-exp-off{color:#8ba2c4;background:rgba(139,162,196,.06);border-color:rgba(139,162,196,.16);font-weight:600}
-@keyframes invExpFlash{0%,100%{opacity:1}50%{opacity:.5}}
-@media (prefers-reduced-motion:reduce){.inv-exp-red{animation:none}}
 .inv-price{font-weight:700;color:#00e676;font-family:'JetBrains Mono',monospace;font-size:.8rem}
 .inv-tfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid rgba(79,195,247,.08);font-size:.8rem;color:#6b88aa}
 

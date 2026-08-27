@@ -32,37 +32,58 @@
       0%,80%,100% { transform:translateY(0); opacity:.4; }
       40%          { transform:translateY(-5px); opacity:1; }
     }
-    @keyframes chatbot-pulse {
-      0%,100% { box-shadow:0 0 0 0 rgba(0,230,118,.45), 0 6px 24px rgba(0,230,118,.3); }
-      60%      { box-shadow:0 0 0 8px rgba(0,230,118,0), 0 6px 24px rgba(0,230,118,.3); }
+    /* Breathing halo for the launcher. It rides on a ::before ring rather than the
+       button's own box-shadow so the button can keep a static, dimensional shadow
+       — and so the button never scales, which would make it a moving click target. */
+    @keyframes chatbot-halo {
+      0%       { transform:scale(1);    opacity:.75; }
+      70%,100% { transform:scale(1.42); opacity:0; }
     }
 
-    /* Launcher button — smaller & green */
+    /* Launcher button — the coupon-ticket mark */
     .chatbot-fab {
       position: fixed;
       bottom: 24px;
       right: 24px;
       z-index: 9990;
-      width: 48px;
-      height: 48px;
+      width: 56px;
+      height: 56px;
       border-radius: 50%;
-      background: linear-gradient(135deg, #00e676, #00c853);
+      background: linear-gradient(145deg, #00e676 0%, #00c853 55%, #00b248 100%);
       border: none;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.15rem;
-      animation: chatbot-pulse 2.8s ease infinite;
-      transition: transform .22s ease, opacity .18s ease, visibility .18s ease;
-      color: #060d1f;
+      color: #052013;
+      box-shadow:
+        0 8px 22px rgba(0, 200, 83, .36),
+        0 2px 5px rgba(0, 0, 0, .34),
+        inset 0 1px 0 rgba(255, 255, 255, .34);
+      transition: transform .24s cubic-bezier(.34, 1.5, .64, 1), box-shadow .24s ease, opacity .18s ease, visibility .18s ease;
     }
-    .chatbot-fab:hover { transform: scale(1.1); }
+    .chatbot-fab::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0, 230, 118, .55);
+      animation: chatbot-halo 2.8s ease-out infinite;
+      pointer-events: none;
+    }
+    .chatbot-fab:hover {
+      transform: translateY(-3px);
+      box-shadow:
+        0 14px 30px rgba(0, 200, 83, .48),
+        0 2px 5px rgba(0, 0, 0, .34),
+        inset 0 1px 0 rgba(255, 255, 255, .4);
+    }
+    .chatbot-fab:active { transform: translateY(-1px); }
     .chatbot-fab:focus-visible {
       outline: 2.5px solid #00e676;
       outline-offset: 3px;
     }
-    .chatbot-fab .cb-icon-open { line-height: 1; }
+    .chatbot-fab .cb-icon-open { width: 27px; height: 27px; display: block; }
     /* Open state: the window sits on top of the icon, so the icon steps aside
        (no ✕ swap — the window header owns the close action). */
     .chatbot-fab.is-open {
@@ -70,8 +91,8 @@
       visibility: hidden;
       transform: scale(.55);
       pointer-events: none;
-      animation: none;
     }
+    .chatbot-fab.is-open::before { animation: none; }
 
     /* Chat window — anchored to the launcher so it opens upon the icon */
     .chatbot-window {
@@ -105,7 +126,8 @@
 
     /* Mobile: near-full-screen bottom sheet */
     @media (max-width: 520px) {
-      .chatbot-fab { bottom: 16px; right: 16px; width: 44px; height: 44px; font-size: 1.05rem; }
+      .chatbot-fab { bottom: 16px; right: 16px; width: 50px; height: 50px; }
+      .chatbot-fab .cb-icon-open { width: 24px; height: 24px; }
       .chatbot-window {
         bottom: 0;
         right: 0;
@@ -120,7 +142,8 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
-      .chatbot-fab { animation: none; }
+      .chatbot-fab::before { animation: none; }
+      .chatbot-fab:hover { transform: none; }
       .chatbot-window { transition: opacity .15s linear; }
     }
 
@@ -396,7 +419,20 @@
   aria-expanded="false"
   aria-controls="chatbotWindow"
 >
-  <span class="cb-icon-open" aria-hidden="true">🤖</span>
+  <svg class="cb-icon-open" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+    <!-- One path, knocked out with evenodd so the gradient shows through the three
+         dots. The silhouette is a coupon ticket — notched on both short edges —
+         with a speech tail, so it reads as "chat" at a glance but stays specific
+         to SaveHatke rather than being another generic message bubble. -->
+    <path fill="currentColor" fill-rule="evenodd" d="
+      M6 4 H22 A3.5 3.5 0 0 1 25.5 7.5 V8.9 A2.6 2.6 0 0 0 25.5 14.1 V15.5
+      A3.5 3.5 0 0 1 22 19 H14.5 L7 23.9 L10.2 19 H6
+      A3.5 3.5 0 0 1 2.5 15.5 V14.1 A2.6 2.6 0 0 0 2.5 8.9 V7.5 A3.5 3.5 0 0 1 6 4 Z
+      M8.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+      M12.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+      M16.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+    "/>
+  </svg>
 </button>
 
 <!-- Chat window (opens on top of the launcher) -->

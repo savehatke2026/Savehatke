@@ -233,7 +233,7 @@ function getBrandInitial(brand) {
 
 // ── Expiry Countdown ────────────────────────────────────────────────────
 // Colour bands, by whole days left until the coupon expires:
-//   ≤ 1 week (7d) → red, flashing   ≤ 2 weeks (14d) → yellow   beyond → green
+//   ≤ 1 week (7d) → red   ≤ 2 weeks (14d) → yellow   beyond → green
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -268,15 +268,42 @@ function expiryBand(msLeft) {
   return 'green';
 }
 
-/** Human countdown text — coarse when far out, ticks to seconds near the end. */
-function expiryLabel(msLeft) {
-  if (msLeft <= 0) return '⌛ Expired';
+/**
+ * Split the time remaining into clock segments. This is the primitive the
+ * marketplace ticker writes straight into per-digit spans, which is why the
+ * hours/minutes/seconds come back as already-padded two-character strings.
+ * @returns {{expired:boolean, days:number, dd:string, hh:string, mm:string, ss:string}}
+ *   `dd` is '' below one day, otherwise '39d' — the day count is never padded
+ *   because it has no fixed width to pad to.
+ */
+function expiryParts(msLeft) {
+  if (msLeft <= 0) return { expired: true, days: 0, dd: '', hh: '00', mm: '00', ss: '00' };
   const totalSec = Math.floor(msLeft / 1000);
-  const d = Math.floor(totalSec / 86400);
-  const h = Math.floor((totalSec % 86400) / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (d >= 1) return `⏳ ${d}d ${h}h left`;
-  if (h >= 1) return `⏳ ${h}h ${m}m left`;
-  return `⏳ ${m}m ${s}s left`;
+  const days = Math.floor(totalSec / 86400);
+  const pad = (n) => String(n).padStart(2, '0');
+  return {
+    expired: false,
+    days,
+    dd: days >= 1 ? `${days}d` : '',
+    hh: pad(Math.floor((totalSec % 86400) / 3600)),
+    mm: pad(Math.floor((totalSec % 3600) / 60)),
+    ss: pad(totalSec % 60),
+  };
+}
+
+/** Bare clock text: '39d 18:23:15' beyond a day, '18:23:15' inside one. */
+function expiryClockText(msLeft) {
+  const p = expiryParts(msLeft);
+  if (p.expired) return 'Ended';
+  const clock = `${p.hh}:${p.mm}:${p.ss}`;
+  return p.dd ? `${p.dd} ${clock}` : clock;
+}
+
+/**
+ * Single-string countdown for the admin inventory chip, whose ticker replaces
+ * `textContent` wholesale and so cannot carry the marketplace's blinking colons.
+ * The marketplace renders from `expiryParts` instead.
+ */
+function expiryLabel(msLeft) {
+  return msLeft <= 0 ? '⌛ Ended' : `⏳ ${expiryClockText(msLeft)}`;
 }
