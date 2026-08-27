@@ -615,7 +615,7 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
                       <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" style="width:34px;height:34px;border-radius:8px;object-fit:contain;display:block;">
                     </td>
                     <td style="vertical-align:middle;">
-                      <span style="font-size:1.25rem;font-weight:800;color:#0f1e3a;white-space:nowrap;">Save<span style="color:#10b981;">Hatke</span></span>
+                      <span style="font-size:1.25rem;font-weight:800;color:#0f1e3a;white-space:nowrap;">Save<span style="color:#00e676;">Hatke</span></span>
                     </td>
                   </tr>
                 </table>
@@ -642,7 +642,7 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
               </table>
 
               <!-- Greeting -->
-              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello <strong style="color:#10b981;font-weight:700;">${safeName}</strong>,</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello <strong style="color:#00e676;font-weight:700;">${safeName}</strong>,</p>
 
               <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">We've received your support request and created a case for it.</p>
 
@@ -682,7 +682,7 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
                 <tr>
                   <td align="center">
-                    <a href="${viewUrl}" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#10b981;color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
+                    <a href="${viewUrl}" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#00e676;color:#0f1e3a;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
                   </td>
                 </tr>
               </table>

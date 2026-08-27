@@ -234,10 +234,9 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
     // Geo-IP enrichment in the background â€” never blocks the login response
     enrichSessionGeo(sessionResult.session_id, ip).catch(() => {});
 
-    // Send the "New sign-in detected" security alert for USER logins only.
-    // Admins have their own audit pipeline in the vault; firing this for
-    // every admin login would be noisy. Opt-out via SIGNIN_ALERT_DISABLED=true.
-    if (!isAdminLogin && cleanEmail && process.env.SIGNIN_ALERT_DISABLED !== 'true') {
+    // Send the "New sign-in detected" security alert for both user and admin logins.
+    // Opt-out via SIGNIN_ALERT_DISABLED=true.
+    if (cleanEmail && process.env.SIGNIN_ALERT_DISABLED !== 'true') {
       emailService.sendSignInAlertEmail({
         to: cleanEmail,
         userName: userName && String(userName).trim() ? String(userName).trim() : '',
@@ -247,7 +246,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
         device: deviceStr,
         browser: browserStr,
         os: osStr,
-        loginMethod: loginMethod || 'Email',
+        loginMethod: loginMethod || (isAdminLogin ? 'Admin' : 'Email'),
       })
         .then((r) => {
           if (r && r.success) {
