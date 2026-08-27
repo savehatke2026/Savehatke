@@ -12,6 +12,18 @@ const googleDrive = require('../services/googleDrive');
 
 const router = express.Router();
 
+// Every coupon shows a live "expires in" countdown that starts at 2 weeks.
+// When a coupon has no explicit expiry we anchor the 14-day window to its
+// addedAt timestamp (stable across reloads); if addedAt is also missing we
+// anchor to "now" so the coupon still gets a 14-day timer instead of none.
+const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
+function defaultExpiry(explicitExpiry, addedAt) {
+  if (explicitExpiry) return explicitExpiry;
+  const base = addedAt ? new Date(addedAt).getTime() : Date.now();
+  const t = Number.isFinite(base) ? base : Date.now();
+  return new Date(t + TWO_WEEKS_MS).toISOString();
+}
+
 // Proof screenshot upload constraints
 const PROOF_MAX_BYTES = 3 * 1024 * 1024; // 3MB
 const PROOF_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
@@ -79,9 +91,10 @@ router.get('/', optionalAuth, async (req, res) => {
       addedAt: c.addedAt,
       // Expiry is not sensitive (the code itself is still withheld) and the
       // marketplace cards render a live "expires in" countdown from it.
-      // When no explicit expiry is set, default to addedAt + 14 days (2 weeks)
-      // so every coupon shows a live countdown timer.
-      expiryDate: c.expiryDate || (c.addedAt ? new Date(new Date(c.addedAt).getTime() + 14 * 24 * 60 * 60 * 1000).toISOString() : ''),
+      // Every coupon's timer starts at 2 weeks: when no explicit expiry is
+      // set we anchor 14 days to addedAt (or to now if addedAt is missing),
+      // so every coupon always shows a live countdown timer.
+      expiryDate: defaultExpiry(c.expiryDate, c.addedAt),
       // Admin-controlled sale switch — gates the "🔥 Sale" badge on the card.
       onSale: c.onSale !== false,
       // Admin-controlled timer switch — when off the card hides the countdown
