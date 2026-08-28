@@ -157,28 +157,29 @@
     .csale-badge { display:inline-flex; align-items:center; gap:4px; font-size:.65rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:5px; background:linear-gradient(135deg,#ff6b35,#ff3d00); color:#fff; box-shadow:0 2px 10px rgba(255,61,0,.32); }
 
     /* EXPIRY COUNTDOWN — a live countdown, green >2wks / yellow ≤2wks / red ≤1wk.
-       Timer starts at 2 weeks. ≥7 days shows the days tile, <7 days drops it and
-       the hours run past 24 for urgency. Each unit is its own tile: value on top,
-       unit letter beneath, so the row reads at a glance rather than as one run of
-       digits. Values sit in fixed 2ch cells so nothing jitters as they change,
-       and the only moving part is the clock icon's slow breathe — one honest
-       "this is ticking" signal, which is why the old whole-pill flash and the
-       blinking colons are both gone. */
-    .cexpiry { display:flex; align-items:center; gap:10px; margin-top:14px; padding:8px 10px; border-radius:11px; border:1px solid transparent; }
-    .cexp-head { display:flex; align-items:center; gap:6px; min-width:0; }
-    .cexp-icon { width:14px; height:14px; flex-shrink:0; animation:cexpBreathe 2.4s ease-in-out infinite; }
+       Timer starts at 2 weeks. ≥7 days shows the days unit, <7 days drops it and
+       the hours run past 24 for urgency. Deliberately one slim line: each value
+       is followed by its own small unit letter on the same baseline, so the row
+       reads as "04h 33m 07s" without the boxes-in-a-box look that made the pill
+       tall. Values sit in fixed 2ch cells so nothing jitters as they change, and
+       the only moving part is the clock icon's slow breathe — one honest "this
+       is ticking" signal, which is why the old whole-pill flash and the blinking
+       colons are both gone. */
+    .cexpiry { display:flex; align-items:center; gap:8px; margin-top:12px; padding:5px 9px; border-radius:8px; border:1px solid transparent; }
+    .cexp-head { display:flex; align-items:center; gap:5px; min-width:0; }
+    .cexp-icon { width:12px; height:12px; flex-shrink:0; animation:cexpBreathe 2.4s ease-in-out infinite; }
     @keyframes cexpBreathe { 0%,100% { opacity:.95; } 50% { opacity:.42; } }
-    .cexp-label { font-size:.64rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; opacity:.72; white-space:nowrap; }
+    .cexp-label { font-size:.6rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.7; white-space:nowrap; }
 
-    .cexp-clock { margin-left:auto; display:flex; align-items:stretch; gap:5px; }
-    .cexp-tile { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:3px 6px 2px; border-radius:8px; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.09); }
-    .cexp-tile b { font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; font-size:.82rem; font-weight:700; line-height:1.15; min-width:2ch; text-align:center; }
-    .cexp-tile i { font-style:normal; font-size:.52rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.6; line-height:1; margin-top:2px; }
+    .cexp-clock { margin-left:auto; display:flex; align-items:baseline; gap:6px; }
+    .cexp-tile { display:inline-flex; align-items:baseline; }  /* inline pair, no box */
+    .cexp-tile b { font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; font-size:.78rem; font-weight:700; line-height:1; min-width:2ch; text-align:right; }
+    .cexp-tile i { font-style:normal; font-size:.56rem; font-weight:700; text-transform:lowercase; opacity:.55; line-height:1; margin-left:1px; }
     .cexp-no-days .cexp-tile-d { display:none; }   /* under a week — hours carry the total */
 
     /* Expired: ships with every pill, revealed by the class swap so the ticker
        never has to rebuild the markup. */
-    .cexp-over { display:none; font-size:.72rem; font-weight:700; margin-left:auto; }
+    .cexp-over { display:none; font-size:.68rem; font-weight:700; margin-left:auto; }
     .cexpiry-expired .cexp-label, .cexpiry-expired .cexp-clock { display:none; }
     .cexpiry-expired .cexp-over { display:block; }
     .cexpiry-expired .cexp-icon { opacity:.55; animation:none; }

@@ -167,14 +167,14 @@ function expiryClass(msLeft) {
  * when the admin turned this coupon's timer off in Coupon Management — the
  * expiry date stays stored either way, so switching it back on restores it.
  *
- * Each unit sits in its own tile — value on top, unit letter beneath — so the
- * remaining time reads at a glance instead of as one run of digits. The digits
+ * Each unit is a value followed by its own small unit letter on the same
+ * baseline, so the row reads as "04h 33m 07s" on one slim line. The digits
  * live in their own long-lived spans and the "Offer ended" copy ships with
  * every pill, hidden by CSS. That way the ticker below only ever writes
- * `textContent`: the tiles and the breathing clock icon are never replaced, so
- * the animation keeps running instead of restarting every second, and both the
- * expired state and the "no days left to show" state are reached by a class
- * swap rather than a re-render.
+ * `textContent`: the unit spans and the breathing clock icon are never
+ * replaced, so the animation keeps running instead of restarting every second,
+ * and both the expired state and the "no days left to show" state are reached
+ * by a class swap rather than a re-render.
  */
 function renderExpiryTimer(raw, timerOn) {
   if (timerOn === false) return '';
@@ -233,7 +233,7 @@ function startExpiryTicker() {
       setText(el.querySelector('.cexp-h'), p.hh);
       setText(el.querySelector('.cexp-m'), p.mm);
       setText(el.querySelector('.cexp-s'), p.ss);
-      // Colour band, the clock → "Offer ended" swap, and hiding the days tile
+      // Colour band, the clock → "Offer ended" swap, and hiding the days unit
       // once under a week remains all ride on this one class string.
       const cls = `cexpiry ${expiryClass(msLeft)}${p.dd ? '' : ' cexp-no-days'}`;
       if (el.className !== cls) el.className = cls;
