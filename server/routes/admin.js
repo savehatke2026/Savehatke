@@ -828,12 +828,30 @@ router.put('/users/status', authenticateToken, requireAdmin, async (req, res) =>
       return res.status(400).json({ error: 'userId and a status of active/suspended are required.' });
     }
 
+    // A suspension must always carry its reason — the admin UI collects it in
+    // the suspend modal, and this check keeps direct API calls honest too.
+    const reason = String(req.body.reason || '').trim().slice(0, 500);
+    if (status === 'suspended' && reason.length < 3) {
+      return res.status(400).json({ error: 'A suspension reason of at least 3 characters is required.' });
+    }
+
     let existing = await db.findRow(db.SHEETS.USERS, 'user_id', userId);
     if (!existing) existing = await db.findRow(db.SHEETS.USERS, 'id', userId);
     if (!existing) return res.status(404).json({ error: 'User not found.' });
 
     const now = new Date().toISOString();
-    await db.updateRow(db.SHEETS.USERS, 'user_id', userId, { status, updated_at: now });
+    // suspend_reason / suspended_at are only written when the Users sheet has
+    // those columns; updateRow ignores keys with no matching header.
+    await db.updateRow(db.SHEETS.USERS, 'user_id', userId, {
+      status,
+      updated_at: now,
+      suspend_reason: status === 'suspended' ? reason : '',
+      suspended_at: status === 'suspended' ? now : '',
+    });
+    console.log(
+      `[admin] ${req.user && req.user.email ? req.user.email : 'admin'} set ${existing.email || userId} to ${status}` +
+      (status === 'suspended' ? ` — reason: ${reason}` : '')
+    );
     res.json({ message: `User is now ${status}.`, status });
   } catch (err) {
     console.error('Admin user status error:', err);

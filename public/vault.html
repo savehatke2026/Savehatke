@@ -280,8 +280,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
 @keyframes status-pulse{0%,100%{box-shadow:0 0 0 3px rgba(239,83,80,.15)}50%{box-shadow:0 0 0 6px rgba(239,83,80,0)}}
 
 /* ── LOGIN METHOD ICONS (Google logo big, Gmail for email) ── */
-.login-method-icon{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;flex-shrink:0;background:rgba(255,255,255,.04);border:1px solid rgba(79,195,247,.1);overflow:hidden}
-.login-method-icon img{width:24px;height:24px;object-fit:contain;display:block}
+.login-method-icon{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:9px;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(79,195,247,.14);overflow:hidden}
+.login-method-icon img{width:28px;height:28px;object-fit:contain;display:block}
 
 /* ── USER TABLE — Suspend action (red) + Activate (green) ── */
 .user-action-suspend{color:#ef5350;font-weight:700;font-size:.82rem;text-decoration:none;display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:6px;background:rgba(239,83,80,.08);border:1px solid rgba(239,83,80,.25);transition:all .15s;cursor:pointer}
@@ -349,6 +349,9 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .badge-purple{background:rgba(206,147,216,.12);color:#ce93d8}
 .badge-gray{background:rgba(107,136,170,.12);color:#6b88aa}
 .badge-teal{background:rgba(128,203,196,.12);color:#80cbc4}
+/* Suspended accounts — the Active badge's shape in a real red, not the pale
+   .badge-red used for softer warnings elsewhere. */
+.badge-danger{background:rgba(239,83,80,.16);color:#ff5f56}
 
 /* ── BUTTONS ── */
 .btn{display:inline-flex;align-items:center;gap:6px;padding:0 18px;height:36px;border-radius:8px;font-family:'Outfit',sans-serif;font-size:.83rem;font-weight:700;border:none;cursor:pointer;white-space:nowrap;transition:all .22s}
@@ -2651,6 +2654,28 @@ tbody td strong{color:#e2ecff;font-weight:600}
   </div>
 </div>
 
+<!-- ══ SUSPEND USER — reason is mandatory before Confirm unlocks ══ -->
+<div class="suspend-modal-overlay" id="suspendModal" onclick="if(event.target===this)closeSuspendModal()">
+  <div class="suspend-modal-box">
+    <div class="suspend-modal-hdr">
+      <div class="suspend-modal-hdr-icon">🚫</div>
+      <div class="suspend-modal-hdr-text">
+        <h3>Suspend this account</h3>
+        <p>The user will be blocked from signing in until reactivated.</p>
+      </div>
+    </div>
+    <div class="suspend-modal-body">
+      <div class="suspend-modal-user" id="suspendModalUser">👤 <strong>—</strong></div>
+      <label for="suspendReason">Suspension text <span style="color:#ef5350">*</span></label>
+      <textarea id="suspendReason" placeholder="Why is this account being suspended? e.g. Repeated invalid coupon submissions." oninput="syncSuspendConfirm()"></textarea>
+    </div>
+    <div class="suspend-modal-footer">
+      <button class="btn btn-ghost btn-sm" onclick="closeSuspendModal()">Cancel</button>
+      <button class="btn btn-sm btn-danger-strong" id="suspendConfirmBtn" disabled onclick="confirmSuspendUser()">🚫 Suspend Account</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 
 <script src="js/app.js"></script>
@@ -3324,9 +3349,9 @@ function renderAdminSessions() {
   }
 
   const statusBadge = {
-    'Active': '<span class="badge badge-green">ACTIVE</span>',
-    'Logged out': '<span class="badge badge-gray">LOGGED OUT</span>',
-    'Expired': '<span class="badge badge-orange">EXPIRED (2H)</span>',
+    'Active': statusTag('active'),
+    'Logged out': statusTag('logged out'),
+    'Expired': statusTag('expired', 'Expired (2h)'),
   };
 
   tbody.innerHTML = rows.map((s) => {
@@ -3335,7 +3360,7 @@ function renderAdminSessions() {
       <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">${esc(String(s.email || '?').split('@')[0].slice(0, 2).toUpperCase())}</div><strong>${esc(s.email || 'Unknown admin')}</strong></div></td>
       <td>${esc(s.device || '—')}<div style="font-size:.72rem;color:#6b88aa;margin-top:2px">${esc(s.browser || '')}${s.os ? ' · ' + esc(s.os) : ''}</div></td>
       <td class="mono" style="font-size:.78rem">${esc(s.ip_address || '—')}</td>
-      <td><span class="badge ${/google/i.test(String(s.login_method)) ? 'badge-blue' : 'badge-purple'}">${esc(s.login_method || 'Admin')}</span></td>
+      <td>${loginMethodBadge(s.login_method || 'Admin')}</td>
       <td style="font-size:.78rem">${esc(fmtDT(s.login_time))}</td>
       <td>${active
         ? `<strong class="mono" style="color:${/expired/i.test(fmtCountdown(s.expires_at)) ? '#ffb74d' : '#00e676'};font-size:.8rem">⏳ ${esc(fmtCountdown(s.expires_at))}</strong>`

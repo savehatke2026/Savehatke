@@ -982,15 +982,43 @@ function userInitials(name) {
 
 function userStatusBadge(status) {
   const s = String(status || 'active').toLowerCase();
-  if (s === 'suspended' || s === 'banned') return '<span class="badge badge-red">Suspended</span>';
-  if (s === 'active') return '<span class="badge badge-green">Active</span>';
+  if (s === 'suspended' || s === 'banned') return statusTag('suspended');
+  if (s === 'active') return statusTag('active');
   return `<span class="badge badge-orange">${escapeHtml(status)}</span>`;
 }
 
+/**
+ * The one status tag used everywhere: User Management, Recent Login History,
+ * User Sessions and Admin Sessions. Same pill shape in every table — green for
+ * Active, red for Suspended, grey once a session has ended.
+ */
+function statusTag(kind, label) {
+  const map = {
+    active: ['badge-green', 'Active'],
+    suspended: ['badge-danger', 'Suspended'],
+    'logged out': ['badge-gray', 'Logged out'],
+    expired: ['badge-orange', 'Expired'],
+    offline: ['badge-gray', 'Offline'],
+  };
+  const [cls, fallback] = map[String(kind || '').toLowerCase()] || ['badge-blue', kind || '—'];
+  return `<span class="badge ${cls}">${escapeHtml(label || fallback)}</span>`;
+}
+
+/**
+ * Google logins get the Google mark, email / OTP logins get the Gmail mark,
+ * both on a 38px plate so they are actually legible in a table row.
+ */
 function loginMethodBadge(method) {
   const m = String(method || '').toLowerCase().trim();
-  if (m.includes('google')) return '<img src="/google.png" alt="Google" style="width:28px;height:28px;object-fit:contain;vertical-align:middle">';
-  if (m.includes('otp') || m.includes('email')) return '<img src="/gmail.svg" alt="Email OTP" title="Email OTP" style="width:28px;height:28px;object-fit:contain;vertical-align:middle">';
+  const plate = (src, label) =>
+    `<span class="login-method-icon" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">` +
+    `<img src="${src}" alt="${escapeHtml(label)}"></span>`;
+  if (m.includes('google')) return plate('/google.png', method || 'Google');
+  if (m.includes('otp')) return plate('/gmail.svg', method || 'Email OTP');
+  if (m.includes('email') || m.includes('mail')) return plate('/gmail.svg', method || 'Email');
+  // Admin panel password logins are email-based too — "Google Admin" already
+  // matched above, so anything left here signed in with an email address.
+  if (m.includes('admin') || m.includes('password')) return plate('/gmail.svg', method || 'Email');
   if (m) return `<span style="font-size:.82rem;color:#6b88aa">${escapeHtml(method)}</span>`;
   return '<span style="font-size:.82rem;color:#6b88aa">—</span>';
 }
@@ -998,10 +1026,10 @@ function loginMethodBadge(method) {
 function userSessionStatusBadge(sessionStatus, accountStatus) {
   const ss = String(sessionStatus || '').toLowerCase();
   const as = String(accountStatus || 'active').toLowerCase();
-  if (as === 'suspended' || as === 'banned') return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#ef9a9a">🔴 Suspended</span>';
-  if (ss === 'active') return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#00e676">🟢 Active</span>';
-  if (ss === 'logged out' || ss === 'expired') return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#6b88aa">⚪ Logged Out</span>';
-  return '<span style="display:inline-flex;align-items:center;gap:5px;font-size:.82rem;font-weight:600;color:#6b88aa">⚪ Offline</span>';
+  if (as === 'suspended' || as === 'banned') return statusTag('suspended');
+  if (ss === 'active') return statusTag('active');
+  if (ss === 'logged out' || ss === 'expired') return statusTag('logged out');
+  return statusTag('offline');
 }
 
 function emailAvatarHtml(email, name) {
@@ -1063,9 +1091,12 @@ function renderUsers() {
 
   body.innerHTML = rows.map((u) => {
     const suspended = u.status === 'suspended' || u.status === 'banned';
+    const idAttr = escapeHtml(u.id);
+    const nameAttr = escapeHtml(String(u.name || '').replace(/'/g, '&#39;'));
+    const emailAttr = escapeHtml(String(u.email || '').replace(/'/g, '&#39;'));
     const toggleAction = suspended
-      ? `<a href="#" style="color:#00e676;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','active')">Activate</a>`
-      : `<a href="#" style="color:#ffb74d;font-weight:600;font-size:.82rem" onclick="event.preventDefault();toggleUserStatus('${escapeHtml(u.id)}','suspended')">Suspend</a>`;
+      ? `<span class="user-action-activate" onclick="toggleUserStatus('${idAttr}','active')">✅ Activate</span>`
+      : `<span class="user-action-suspend" onclick="openSuspendModal('${idAttr}','${nameAttr}','${emailAttr}')">🚫 Suspend</span>`;
     return `<tr>
       <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
       <td><div style="display:flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
@@ -1104,10 +1135,66 @@ function renderLoginHistory() {
   </tr>`).join('');
 }
 
-async function toggleUserStatus(userId, nextStatus) {
-  if (!confirm(nextStatus === 'suspended' ? 'Suspend this user?' : 'Reactivate this user?')) return;
+/* ── Suspend user: reason is mandatory ─────────────────────────────────
+   Suspending an account is not a one-click action. The modal collects the
+   suspension text and Confirm stays disabled until at least 3 characters
+   have been typed, so no account is ever suspended without a stated reason. */
+let suspendTargetId = null;
+
+function openSuspendModal(userId, name, email) {
+  suspendTargetId = userId;
+  const overlay = document.getElementById('suspendModal');
+  if (!overlay) { // modal markup missing — fall back to the plain prompt
+    const reason = window.prompt('Reason for suspending this account:');
+    if (reason && reason.trim().length >= 3) toggleUserStatus(userId, 'suspended', reason.trim());
+    return;
+  }
+  const who = document.getElementById('suspendModalUser');
+  if (who) who.innerHTML = `👤 <strong>${escapeHtml(name || 'This user')}</strong>${email ? ' · ' + escapeHtml(email) : ''}`;
+  const ta = document.getElementById('suspendReason');
+  if (ta) ta.value = '';
+  syncSuspendConfirm();
+  overlay.classList.add('open');
+  setTimeout(() => ta && ta.focus(), 60);
+}
+
+function closeSuspendModal() {
+  suspendTargetId = null;
+  document.getElementById('suspendModal')?.classList.remove('open');
+}
+
+// Confirm is only clickable once a reason has actually been written.
+function syncSuspendConfirm() {
+  const ta = document.getElementById('suspendReason');
+  const btn = document.getElementById('suspendConfirmBtn');
+  if (!btn) return;
+  btn.disabled = String(ta?.value || '').trim().length < 3;
+}
+
+async function confirmSuspendUser() {
+  const reason = String(document.getElementById('suspendReason')?.value || '').trim();
+  if (!suspendTargetId) return;
+  if (reason.length < 3) {
+    showToast('Enter the suspension reason first.', 'warning');
+    return;
+  }
+  const userId = suspendTargetId;
+  closeSuspendModal();
+  await toggleUserStatus(userId, 'suspended', reason);
+}
+
+async function toggleUserStatus(userId, nextStatus, reason) {
+  // Suspension always goes through openSuspendModal(), which supplies the
+  // reason; only reactivation still asks for a plain confirmation.
+  if (nextStatus === 'suspended' && !String(reason || '').trim()) {
+    openSuspendModal(userId);
+    return;
+  }
+  if (nextStatus !== 'suspended' && !confirm('Reactivate this user?')) return;
   try {
-    await api('/admin/users/status', { method: 'PUT', useAdmin: true, body: { userId, status: nextStatus } });
+    const body = { userId, status: nextStatus };
+    if (nextStatus === 'suspended') body.reason = String(reason).trim();
+    await api('/admin/users/status', { method: 'PUT', useAdmin: true, body });
     showToast(`User is now ${nextStatus}.`, 'success');
     loadUsers();
   } catch (err) {
@@ -1169,7 +1256,7 @@ function viewUserDetail(userId) {
         <div style="display:flex;gap:10px;justify-content:flex-end">
           ${suspended
             ? `<button class="btn btn-success btn-sm" onclick="toggleUserStatus('${escapeHtml(user.id)}','active');document.getElementById('userDetailModal')?.remove()">✅ Activate</button>`
-            : `<button class="btn btn-warning btn-sm" onclick="toggleUserStatus('${escapeHtml(user.id)}','suspended');document.getElementById('userDetailModal')?.remove()">⚠️ Suspend</button>`
+            : `<button class="btn btn-danger btn-sm" onclick="document.getElementById('userDetailModal')?.remove();openSuspendModal('${escapeHtml(user.id)}','${escapeHtml(String(user.name || '').replace(/'/g, '&#39;'))}','${escapeHtml(String(user.email || '').replace(/'/g, '&#39;'))}')">🚫 Suspend</button>`
           }
           <button class="btn btn-ghost btn-sm" onclick="document.getElementById('userDetailModal').classList.remove('open');setTimeout(()=>document.getElementById('userDetailModal')?.remove(),300)">Close</button>
         </div>
@@ -1197,9 +1284,9 @@ let sessionsLoading = false;
 
 function sessionStatusBadge(status) {
   const s = String(status || '').toLowerCase();
-  if (s === 'active') return '<span class="badge badge-green">Active</span>';
-  if (s === 'logged out') return '<span class="badge badge-gray">Logged out</span>';
-  if (s === 'expired') return '<span class="badge badge-orange">Expired</span>';
+  if (s === 'active') return statusTag('active');
+  if (s === 'logged out') return statusTag('logged out');
+  if (s === 'expired') return statusTag('expired');
   return `<span class="badge badge-blue">${escapeHtml(status || '—')}</span>`;
 }
 
@@ -1272,7 +1359,7 @@ function renderSessions() {
       <td>${escapeHtml(sessionListLabel(s, ['device', 'os', 'browser']))}</td>
       <td>${escapeHtml(sessionLocation(s))}</td>
       <td style="font-family:'JetBrains Mono',monospace;font-size:.78rem">${escapeHtml(s.ip_address || '—')}</td>
-      <td><span class="badge badge-blue">${escapeHtml(s.login_method || 'Email')}</span></td>
+      <td>${loginMethodBadge(s.login_method || 'Email')}</td>
       <td style="font-size:.78rem;color:#6b88aa">${fmtDateTime(s.login_time)}</td>
       <td style="font-size:.78rem;color:#6b88aa">${fmtDateTime(s.last_active)}</td>
       <td>${sessionStatusBadge(s.status)}</td>
