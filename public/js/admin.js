@@ -298,7 +298,10 @@ async function loadInventory() {
         <div class="overflow-x">
           <table class="inv-table">
             <colgroup>
-              <col style="width:190px"><col style="width:150px"><col style="width:120px">
+              <!-- Brand is logo-only now, so it needs far less room than it did
+                   with the name beside it; the width it gives up goes to Code,
+                   where long coupon codes were being ellipsised. -->
+              <col style="width:112px"><col style="width:228px"><col style="width:120px">
               <col style="width:88px"><col style="width:92px"><col style="width:70px">
               <col style="width:70px"><col style="width:206px"><col style="width:116px">
               <col style="width:104px"><col style="width:110px">
@@ -352,13 +355,14 @@ async function loadInventory() {
   }
 }
 
-/** One inventory row: brand logo, inline sale + timer switches, inline expiry. */
+/** One inventory row: brand logo (no name — the logo is the label), inline sale + timer switches, inline expiry. */
 function invRowHtml(c) {
   const id = escHtml(c.id || '');
   const brand = c.brand || '';
   const statusBadge = c.status === 'sold' ? 'green' : c.status === 'pending' ? 'orange' : 'blue';
   const sourceBadge = c.source === 'admin' ? 'purple' : c.source === 'auto-scraped' ? 'teal' : 'blue';
   const logoUrl = getBrandLogo(brand);
+  const logoClass = getBrandLogoClass(logoUrl);
   const initial = escHtml(getBrandInitial(brand));
   const onSale = c.onSale !== false;
   const timerOn = c.timerOn !== false;
@@ -369,12 +373,11 @@ function invRowHtml(c) {
       <td>
         <div class="inv-brand" title="${escHtml(brand)}">
           ${logoUrl
-            ? `<img class="inv-brand-logo" src="${escHtml(logoUrl)}" alt="${escHtml(brand)}" loading="lazy"
+            ? `<img class="inv-brand-logo${logoClass ? ' ' + logoClass : ''}" src="${escHtml(logoUrl)}" alt="${escHtml(brand)}" loading="lazy"
                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
                ><span class="inv-brand-initial" style="display:none">${initial}</span>`
             : `<span class="inv-brand-initial">${initial}</span>`
           }
-          <span class="inv-brand-name">${escHtml(brand) || '—'}</span>
         </div>
       </td>
       <td><code class="inv-code">${escHtml(c.code || '')}</code></td>

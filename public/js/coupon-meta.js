@@ -197,7 +197,8 @@ const BRAND_DOMAINS = {
   'Godrej Interio': 'godrejinterio.com',
 };
 
-// Local SVGs (preferred — always loads). Add new entries as you need them.
+// Local logo files (preferred — always loads, no third-party dependency).
+// Add new entries as you need them; the file must exist under public/logos/.
 const BRAND_LOGOS = {
   'Amazon':           '/logos/amazon.svg',
   'Amazon Pay':       '/logos/amazon.svg',
@@ -215,17 +216,116 @@ const BRAND_LOGOS = {
   'Swiggy Instamart': '/logos/swiggy.svg',
   'Meesho':           '/logos/meesho.png',
   "Domino's":         '/logos/dominos.svg',
+  'Blinkit':            '/logos/blinkit.svg',
+  'Zepto':              '/logos/zepto.svg',
+  'Pizza Hut':          '/logos/pizzahut.svg',
+  'Croma':              '/logos/croma.svg',
+  'AJIO':               '/logos/ajio.svg',
+  'Mamaearth':          '/logos/mamaearth.png',
+  'Lakmé':              '/logos/lakme.svg',
+  'Uber':               '/logos/uber.svg',
+  'Booking.com':        '/logos/booking.svg',
+  'Reliance Digital':   '/logos/reliance-digital.svg',
 };
 
+/**
+ * Brand names reach us three ways — an admin picking from a list, a seller
+ * free-typing into the sell form, and whatever is already sitting in the
+ * sheet — so "AJIO", "Ajio" and "ajio" all turn up for the same brand. Look
+ * the logo up on a squashed key (lowercased, accents dropped, punctuation and
+ * spaces removed) so one map entry covers every spelling: 'Lakmé' also
+ * answers for "Lakme", 'Booking.com' for "booking com", 'Pizza Hut' for
+ * "pizzahut".
+ */
+function normBrandKey(brand) {
+  return String(brand || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')   // strip diacritics: Lakmé -> Lakme
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '');        // drop spaces, dots, apostrophes, &
+}
+
+const BRAND_LOGOS_NORM = Object.create(null);
+for (const [name, url] of Object.entries(BRAND_LOGOS)) {
+  const key = normBrandKey(name);
+  if (key && !(key in BRAND_LOGOS_NORM)) BRAND_LOGOS_NORM[key] = url;
+}
+// Spellings that do not squash down to a listed brand name on their own.
+Object.assign(BRAND_LOGOS_NORM, {
+  booking:          '/logos/booking.svg',   // "Booking" without the .com
+  reliancedigi:     '/logos/reliance-digital.svg',
+  instamart:        '/logos/swiggy.svg',
+  dominos:          '/logos/dominos.svg',   // typed without the apostrophe
+});
+
+const BRAND_DOMAINS_NORM = Object.create(null);
+for (const [name, domain] of Object.entries(BRAND_DOMAINS)) {
+  const key = normBrandKey(name);
+  if (key && !(key in BRAND_DOMAINS_NORM)) BRAND_DOMAINS_NORM[key] = domain;
+}
+
 function getBrandLogo(brand) {
-  // 1) Local SVG first (reliable, offline-friendly)
-  const local = BRAND_LOGOS[brand];
+  // 1) Local file first (reliable, offline-friendly), exact key then squashed
+  const local = BRAND_LOGOS[brand] || BRAND_LOGOS_NORM[normBrandKey(brand)];
   if (local) return local;
   // 2) Fall back to clearbit's domain-based logo
-  const domain = BRAND_DOMAINS[brand];
+  const domain = BRAND_DOMAINS[brand] || BRAND_DOMAINS_NORM[normBrandKey(brand)];
   if (domain) return `https://logo.clearbit.com/${domain}`;
   return '';
 }
+
+// ── Dark-surface legibility ─────────────────────────────────────────────
+// Every surface that shows these logos is dark (#060d1f cards, the admin table,
+// the sell form), and brands publish their logos for white backgrounds. Measured
+// against the card background, three of them are literally invisible — 100% of
+// their pixels land under a 2:1 contrast ratio — and two more lose most of their
+// artwork. Rather than putting the old plate back behind every logo, each of
+// those files gets the narrowest treatment that fixes it.
+
+// Single-colour dark artwork: repainting it white keeps the mark's shape exactly
+// and costs nothing, because there is only one colour to lose. Never add a
+// multi-colour logo here — inverting one rewrites its brand colours.
+const BRAND_LOGO_MONO_DARK = new Set([
+  '/logos/croma.svg',   // one fill, #191c1f
+  '/logos/uber.svg',    // one fill, #010202
+  '/logos/lakme.svg',   // no fill attributes at all, so it paints black
+]);
+
+// Brand colours worth keeping, but with dark artwork mixed in (Booking.com's
+// navy wordmark, Pizza Hut's black lettering). These get a light chip behind
+// them — the logo is untouched, the chip is only as big as the logo.
+const BRAND_LOGO_LIGHT_CHIP = new Set([
+  '/logos/booking.svg',
+  '/logos/pizzahut.svg',
+]);
+
+/**
+ * Extra class for a brand logo <img>, given whatever getBrandLogo returned.
+ * Returns '' for logos that already read fine on a dark background.
+ */
+function getBrandLogoClass(logoUrl) {
+  if (BRAND_LOGO_MONO_DARK.has(logoUrl)) return 'blogo-lift';
+  if (BRAND_LOGO_LIGHT_CHIP.has(logoUrl)) return 'blogo-chip';
+  return '';
+}
+
+// The rules ship with the list they belong to, so a new entry above needs no
+// matching edit in marketplace.html / index.html / vault.html / sell.html. The
+// selectors are element+class so they outrank each page's own `.cbrand-logo` /
+// `.inv-brand-logo` background and padding without needing !important.
+(function injectBrandLogoCss() {
+  if (typeof document === 'undefined' || document.getElementById('sh-brand-logo-css')) return;
+  const el = document.createElement('style');
+  el.id = 'sh-brand-logo-css';
+  el.textContent =
+    'img.blogo-lift{filter:brightness(0) invert(1)}' +
+    // height:auto makes the chip hug the artwork. Without it the <img> keeps
+    // filling the slot's full height and a short wordmark like Booking.com ends
+    // up as a small logo floating in a tall white slab.
+    'img.blogo-chip{background:#fff;border-radius:7px;padding:4px 6px;' +
+    'width:auto;height:auto;max-width:100%;max-height:100%}';
+  (document.head || document.documentElement).appendChild(el);
+})();
 
 function getBrandInitial(brand) {
   return (brand || '?').charAt(0).toUpperCase();

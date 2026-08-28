@@ -780,6 +780,8 @@ function updateBrandLogo(id) {
     img.alt = brand;
     img.setAttribute('src', url);
   }
+  // Dark-background treatment for the few logos that need it (coupon-meta.js).
+  img.className = typeof getBrandLogoClass === 'function' ? getBrandLogoClass(url) : '';
   box.hidden = false;
 }
 

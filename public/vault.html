@@ -318,10 +318,17 @@ tbody td strong{color:#e2ecff;font-weight:600}
 /* ── COUPON INVENTORY TABLE ── */
 .inv-table{table-layout:fixed;min-width:1316px}
 .inv-table td{overflow:hidden}
-.inv-brand{display:flex;align-items:center;gap:9px;min-width:0}
-.inv-brand-logo{width:28px;height:28px;border-radius:7px;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(79,195,247,.14);object-fit:contain;padding:3px}
-.inv-brand-initial{width:28px;height:28px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#00e676,#4fc3f7);color:#060d1f;font-weight:800;font-size:.8rem;border:1px solid rgba(79,195,247,.14)}
-.inv-brand-name{font-size:.78rem;font-weight:600;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Logo-only brand cell: the row carries no brand text, so the box is wide
+   enough for wordmark logos (Uber, Booking.com, Reliance Digital) to stay
+   readable while square logos still centre inside it. The brand name lives on
+   the cell's title attribute and the img alt.
+   The explicit height is what `img.blogo-chip`'s max-height:100% resolves
+   against (coupon-meta.js). Without it the percentage has no definite height to
+   measure and a near-square chipped logo like Pizza Hut grows to its intrinsic
+   size, stretching the whole table row. */
+.inv-brand{display:flex;align-items:center;height:30px;min-width:0}
+.inv-brand-logo{width:74px;height:30px;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(79,195,247,.14);border-radius:7px;object-fit:contain;padding:3px}
+.inv-brand-initial{width:30px;height:30px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#00e676,#4fc3f7);color:#060d1f;font-weight:800;font-size:.8rem;border:1px solid rgba(79,195,247,.14)}
 .inv-code{font-family:'JetBrains Mono',monospace;font-size:.76rem;font-weight:600;color:#4fc3f7;background:rgba(79,195,247,.1);padding:3px 8px;border-radius:5px;white-space:nowrap;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .inv-timer{width:100%;max-width:186px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.16);border-radius:6px;color:#e2ecff;font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:5px 7px;outline:none;color-scheme:dark}
 .inv-timer:focus{border-color:rgba(79,195,247,.45);background:rgba(79,195,247,.06)}
@@ -526,6 +533,34 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .modal-close:hover{color:#e2ecff}
 .modal-sub{font-size:.8rem;color:#6b88aa;margin-top:4px}
 .modal-footer{display:flex;gap:10px;margin-top:24px;justify-content:flex-end}
+
+/* ── Landscape case-detail dialog (Support → Open Cases → View) ── */
+.modal.modal-case{max-width:820px;padding:0;display:flex;flex-direction:column;min-height:min(84vh,420px);max-height:min(88vh,560px);border-radius:14px;overflow:hidden}
+.case-hdr{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid rgba(79,195,247,.1);background:linear-gradient(135deg,rgba(79,195,247,.08),rgba(0,230,118,.04));flex-shrink:0}
+.case-hdr-title{font-family:'DM Serif Display',serif;font-size:1.18rem;color:#e2ecff;display:flex;align-items:center;gap:9px}
+.case-body{display:grid;grid-template-columns:minmax(0,270px) minmax(0,1fr);gap:0;flex:1;min-height:0}
+.case-col{padding:18px 22px;min-width:0;overflow-y:auto}
+.case-col-left{border-right:1px solid rgba(79,195,247,.1);background:rgba(255,255,255,.015)}
+.case-col-label{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6b88aa;margin-bottom:14px}
+.case-info-row{margin-bottom:13px}
+.case-info-row:last-child{margin-bottom:0}
+.case-info-k{font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6b88aa;margin-bottom:3px}
+.case-info-v{font-size:.86rem;color:#e2ecff;font-weight:500;word-break:break-word;line-height:1.45}
+.case-info-v.mono{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:#a8c0dc}
+.case-msg-box{border:1px solid rgba(79,195,247,.14);border-radius:11px;background:rgba(255,255,255,.03);padding:14px 15px;font-size:.87rem;color:#cfe0f5;line-height:1.68;white-space:pre-wrap;word-break:break-word}
+.case-res-box{margin-top:12px;border:1px solid rgba(0,200,83,.3);border-radius:11px;background:rgba(0,230,118,.05);padding:12px 15px;font-size:.85rem;color:#cfe0f5;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.case-att{margin-top:14px}
+.case-att-item{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:9px;border:1px solid rgba(79,195,247,.18);background:rgba(79,195,247,.06);font-size:.8rem;color:#4fc3f7;text-decoration:none;max-width:100%}
+.case-att-item:hover{border-color:rgba(79,195,247,.4);background:rgba(79,195,247,.12)}
+.case-att-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.case-actions{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end;padding:13px 22px;border-top:1px solid rgba(79,195,247,.1);background:rgba(6,13,31,.5);flex-shrink:0}
+@media(max-width:780px){
+  .modal.modal-case{max-height:92vh}
+  .case-body{grid-template-columns:1fr}
+  .case-col-left{border-right:none;border-bottom:1px solid rgba(79,195,247,.1)}
+  .case-actions{justify-content:stretch}
+  .case-actions .btn{flex:1}
+}
 .form-grp{margin-bottom:14px}
 .form-lbl{display:block;font-size:.8rem;font-weight:600;color:#a8c0dc;margin-bottom:6px}
 .form-inp{width:100%;background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);color:#e2ecff;border-radius:9px;padding:9px 12px;font-size:.86rem;outline:none;transition:border-color .2s;font-family:'Outfit',sans-serif}
@@ -2473,35 +2508,30 @@ tbody td strong{color:#e2ecff;font-weight:600}
   </div> <!-- /content -->
 </div> <!-- /main -->
 
-<!-- ── MODAL: VIEW / EDIT CASE ── -->
+<!-- ── MODAL: VIEW / EDIT CASE (landscape, opens in-page — never navigates) ── -->
 <div class="modal-overlay" id="viewCaseModal">
-  <div class="modal" style="max-width:700px">
-    <div class="modal-hdr">
-      <div>
-        <div class="modal-title" id="vcTitle">Case Detail</div>
-        <div style="font-size:.78rem;color:#6b88aa;margin-top:4px" id="vcSubtitle"></div>
+  <div class="modal modal-case" role="dialog" aria-modal="true" aria-labelledby="vcTitle">
+    <div class="case-hdr">
+      <div class="case-hdr-title" id="vcTitle">📬 Case Details</div>
+      <button class="modal-close" onclick="closeModal('viewCaseModal')" aria-label="Close case details">✕</button>
+    </div>
+
+    <div class="case-body">
+      <!-- LEFT — case information -->
+      <div class="case-col case-col-left">
+        <div class="case-col-label">Case Information</div>
+        <div id="vcInfo"></div>
       </div>
-      <button class="modal-close" onclick="closeModal('viewCaseModal')">✕</button>
-    </div>
 
-    <!-- META -->
-    <div class="detail-meta" id="vcMeta"></div>
-
-    <!-- TICKET MESSAGE -->
-    <div style="margin-bottom:12px">
-      <div style="font-size:.8rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:12px">💬 Message from User</div>
-      <div id="vcMessages" style="max-height:260px;overflow-y:auto;padding-right:4px;display:flex;flex-direction:column;gap:8px"></div>
-    </div>
-
-    <!-- STATUS ACTIONS -->
-    <div style="border-top:1px solid rgba(79,195,247,.08);padding-top:16px;margin-top:8px">
-      <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn btn-success btn-sm" onclick="changeStatus('resolved')">✅ Mark Resolved</button>
-        <button class="btn btn-info btn-sm" onclick="changeStatus('inprogress')">⚙️ In Progress</button>
-        <button class="btn btn-warning btn-sm" onclick="changeStatus('open')">📬 Reopen</button>
-        <button class="btn btn-danger btn-sm" onclick="changeStatus('closed')">🔒 Close Case</button>
+      <!-- RIGHT — user message + attachments -->
+      <div class="case-col">
+        <div class="case-col-label">💬 User Message</div>
+        <div id="vcMessage"></div>
       </div>
     </div>
+
+    <!-- Status-aware action bar -->
+    <div class="case-actions" id="vcActions"></div>
   </div>
 </div>
 
@@ -3555,42 +3585,90 @@ function globalSearchCases(val) {
   ['open','inprogress','resolved','closed'].forEach(s => { activeFilters[s] = val; renderTable(s); });
 }
 
+/**
+ * Open the landscape case-detail dialog for one support case.
+ * Everything happens in-page: no navigation, no new tab, the URL is untouched
+ * and the Open Cases table stays exactly where it was.
+ */
 function viewCase(id) {
   const c = cases.find(x => x.id === id);
   if (!c) return;
   currentViewId = id;
 
-  document.getElementById('vcTitle').innerHTML = `${esc(shortId(c.id))} <span class="gtext">Detail</span>`;
-  document.getElementById('vcSubtitle').textContent = c.subject;
-
   const statusBadge = { open:'badge-orange', inprogress:'badge-blue', resolved:'badge-green', closed:'badge-purple' };
   const statusLabel = { open:'Open', inprogress:'In Progress', resolved:'Resolved', closed:'Closed' };
+  const statusDot   = { open:'#ffa726', inprogress:'#4fc3f7', resolved:'#00e676', closed:'#b388ff' };
 
-  document.getElementById('vcMeta').innerHTML = `
-    <div class="detail-meta-item"><div class="detail-meta-label">Status</div><div class="detail-meta-value"><span class="badge ${statusBadge[c.status]}">${statusLabel[c.status]}</span></div></div>
-    <div class="detail-meta-item"><div class="detail-meta-label">User</div><div class="detail-meta-value">${esc(c.user)} (${esc(c.email || '—')})</div></div>
-    <div class="detail-meta-item"><div class="detail-meta-label">Submitted</div><div class="detail-meta-value">${fmtDT(c.createdAt)}</div></div>
-    <div class="detail-meta-item"><div class="detail-meta-label">Resolved At</div><div class="detail-meta-value">${fmtDT(c.resolvedAt)}</div></div>
-    ${c.attachmentUrl ? `<div class="detail-meta-item"><div class="detail-meta-label">Attachment</div><div class="detail-meta-value"><a href="${esc(c.attachmentUrl)}" target="_blank" rel="noopener noreferrer" style="color:#4fc3f7;text-decoration:underline">📎 ${esc(c.attachmentName || 'View file')}</a></div></div>` : ''}
-  `;
+  // ── LEFT: case information ────────────────────────────────────────────
+  const rows = [
+    ['Subject', esc(c.subject || '—')],
+    ['Case ID', `<span class="case-info-v mono">${esc(c.id || '—')}</span>`, true],
+    ['Status', `<span style="color:${statusDot[c.status] || '#a8c0dc'}">●</span> <span class="badge ${statusBadge[c.status] || ''}">${statusLabel[c.status] || esc(c.status || '—')}</span>`],
+    ['User', esc(c.user || '—')],
+    ['Email', esc(c.email || '—')],
+    ['Submitted', esc(fmtDT(c.createdAt))],
+  ];
+  if (c.resolvedAt) rows.push(['Resolved', esc(fmtDT(c.resolvedAt))]);
 
-  document.getElementById('vcMessages').innerHTML = `
-    <div>
-      <div class="msg-meta">${esc(c.user)} · ${fmtDT(c.createdAt)}</div>
-      <div class="msg-bubble msg-user">${esc(c.message || '(no message)')}</div>
-    </div>
+  document.getElementById('vcInfo').innerHTML = rows.map(([k, v, raw]) => `
+    <div class="case-info-row">
+      <div class="case-info-k">${k}</div>
+      ${raw ? v : `<div class="case-info-v">${v}</div>`}
+    </div>`).join('');
+
+  // ── RIGHT: the user's message, resolution reply and attachments ────────
+  const attachments = Array.isArray(c.attachments) && c.attachments.length
+    ? c.attachments
+    : (c.attachmentUrl ? [{ url: c.attachmentUrl, name: c.attachmentName || 'Attachment' }] : []);
+
+  document.getElementById('vcMessage').innerHTML = `
+    <div class="case-msg-box">${esc(c.message || '(no message submitted)')}</div>
     ${c.resolution ? `
-      <div style="margin-top:14px">
-        <div class="msg-meta" style="color:#00e676">✅ Support · ${fmtDT(c.resolvedAt || c.createdAt)}</div>
-        <div class="msg-bubble msg-admin" style="border-color:rgba(0,200,83,.35)">
-          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#00c853;margin-bottom:6px">Resolution sent to user</div>
-          ${esc(c.resolution)}
+      <div class="case-res-box">
+        <div style="font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#00c853;margin-bottom:6px">✅ Resolution sent to user</div>
+        ${esc(c.resolution)}
+      </div>` : ''}
+    ${attachments.length ? `
+      <div class="case-att">
+        <div class="case-col-label" style="margin-bottom:9px">📎 Attachments</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          ${attachments.map(a => `
+            <a class="case-att-item" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" title="${esc(a.name || 'Attachment')}">
+              📄 <span class="case-att-name">${esc(a.name || 'Attachment')}</span>
+            </a>`).join('')}
         </div>
-      </div>
-    ` : ''}
+      </div>` : ''}
   `;
+
+  // ── Status-aware action bar ───────────────────────────────────────────
+  document.getElementById('vcActions').innerHTML = caseActionButtons(c.status);
 
   openModal('viewCaseModal');
+}
+
+/**
+ * Primary actions for the case-detail dialog, chosen by current status:
+ *   open       → Start Working (→ In Progress) | Close Case
+ *   inprogress → Continue Working (opens the resolve-and-reply dialog) | Close Case
+ *   resolved   → Reopen Case | Close Case
+ *   closed     → Reopen Case
+ */
+function caseActionButtons(status) {
+  const close = `<button class="btn btn-danger btn-sm" onclick="changeStatus('closed')">🔒 Close Case</button>`;
+  const reopen = `<button class="btn btn-warning btn-sm" onclick="changeStatus('open')">📬 Reopen Case</button>`;
+
+  switch (status) {
+    case 'inprogress':
+      return `<button class="btn btn-success btn-sm" onclick="changeStatus('resolved')">✅ Continue Working</button>${close}`;
+    case 'resolved':
+      return `${reopen}${close}`;
+    case 'closed':
+      return reopen;
+    default: // open
+      return `<button class="btn btn-info btn-sm" onclick="changeStatus('inprogress')">⚙️ Start Working</button>`
+        + `<button class="btn btn-success btn-sm" onclick="changeStatus('resolved')">✅ Mark Resolved</button>`
+        + close;
+  }
 }
 
 async function changeStatus(newStatus) {
@@ -3749,6 +3827,18 @@ function renderRecentActivity() {
       else ov.classList.remove('open');
     }
   });
+});
+
+// Esc closes the topmost open support dialog (resolve sits above case detail)
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  const resolve = document.getElementById('resolveCaseModal');
+  const view = document.getElementById('viewCaseModal');
+  if (resolve && resolve.classList.contains('open')) {
+    closeResolveModal();
+  } else if (view && view.classList.contains('open')) {
+    view.classList.remove('open');
+  }
 });
 
 function renderAll() {

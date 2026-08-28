@@ -141,10 +141,13 @@
        does not depend on the logo's own aspect ratio. The initial fallback
        keeps its gradient chip — that chip is the substitute mark itself, not a
        frame around one, and it needs a fill to stay legible. */
+    /* The logo is the only brand mark on the card, so the box grows sideways for
+       wordmark logos (Uber, Booking.com, Reliance Digital) that would otherwise
+       shrink to a sliver inside a square. Square logos still render 54x54. */
     .cbrand { display:flex; align-items:center; min-width:0; }
-    .cbrand-logo-wrap { width:54px; height:54px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
-    .cbrand-logo { width:100%; height:100%; object-fit:contain; background:transparent; padding:0; }
-    .cbrand-initial { width:100%; height:100%; display:flex; align-items:center; justify-content:center; font-size:1.15rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); border-radius:10px; }
+    .cbrand-logo-wrap { height:54px; min-width:54px; max-width:132px; flex-shrink:1; display:flex; align-items:center; justify-content:center; }
+    .cbrand-logo { max-width:100%; width:auto; height:100%; object-fit:contain; background:transparent; padding:0; }
+    .cbrand-initial { width:54px; height:54px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.15rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); border-radius:10px; }
     .coff { font-family:'JetBrains Mono',monospace; font-size:1.05rem; font-weight:700; color:#00e676; flex-shrink:0; white-space:nowrap; }
     .cdesc { font-size:.83rem; color:#a8c0dc; margin-bottom:16px; line-height:1.55; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     .cmeta { display:flex; justify-content:space-between; align-items:center; }
