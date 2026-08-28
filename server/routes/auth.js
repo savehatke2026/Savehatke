@@ -217,9 +217,6 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const isAdminLogin = /admin/i.test(String(loginMethod || ''));
 
-    const { realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail);
-    const finalUserId = realUserId || ('user_' + Date.now());
-
     const { deviceStr, osStr, browserStr, raw: userAgentRaw } = parseUserAgent(req);
     const ip = getClientIP(req); // Real client IP only â€” never a sample/hardcoded address
 
@@ -231,8 +228,9 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
 
     // Send the "New sign-in detected" security alert to the account's own
     // address (user or admin) from the SaveHatke Security mailbox. It runs
-    // before the session row is written so a Supabase outage can never
-    // swallow the notification. Opt-out via SIGNIN_ALERT_DISABLED=true.
+    // before the user-id lookup and the session row are written, so neither a
+    // Google Sheets nor a Supabase outage can swallow the notification.
+    // Opt-out via SIGNIN_ALERT_DISABLED=true.
     if (cleanEmail && process.env.SIGNIN_ALERT_DISABLED !== 'true') {
       geoPromise
         .then((geo) => emailService.sendSignInAlertEmail({
@@ -263,6 +261,9 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
     // Cryptographically random session identifier. The raw value goes into
     // the JWT and cookie; only its SHA-256 hash is stored in the database.
     const rawToken = generateSessionToken();
+
+    const { realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail);
+    const finalUserId = realUserId || ('user_' + Date.now());
 
     // Admin sessions are short-lived: automatic logout 2 hours after login.
     // User sessions last 48 hours.
