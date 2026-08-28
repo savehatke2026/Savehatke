@@ -34,6 +34,11 @@ const HEADERS = {
     'username',
     'email',
     'status',
+    // Google's own avatar URL for the account, captured at Google login. The
+    // admin panel renders it next to the email instead of guessing an avatar
+    // from a third-party service. ensureSheets() adds this column to tabs
+    // created before it existed, so old sheets fill in on the next login.
+    'profile_picture',
     'created_at',
     'updated_at',
     'last_login_at',

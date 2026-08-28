@@ -183,29 +183,28 @@
     .sec-heading{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#a8c0dc;display:flex;align-items:center;gap:8px}
     .sec-heading::after{content:'';flex:1;height:1px;background:rgba(79,195,247,.1);display:none}
 
-    /* ===================================================
-       WELCOME SECTION
-    =================================================== */
-    .welcome-section{padding:28px 0 24px;margin-bottom:28px;border-bottom:1px solid rgba(79,195,247,.07)}
-    .welcome-inner{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap}
-    .welcome-greeting{font-family:'DM Serif Display',serif;font-size:clamp(1.7rem,3.2vw,2.3rem);line-height:1.15;margin-bottom:8px}
-    .welcome-sub{font-size:.92rem;color:#a8c0dc;margin-bottom:16px}
-    .welcome-tags{display:flex;gap:8px;flex-wrap:wrap}
-    .wtag{display:inline-flex;align-items:center;gap:6px;font-size:.74rem;font-weight:600;padding:4px 12px;border-radius:9999px}
-    .wtag-verified{background:rgba(0,230,118,.1);color:#00e676;border:1px solid rgba(0,230,118,.25)}
-    .wtag-member{background:rgba(79,195,247,.08);color:#4fc3f7;border:1px solid rgba(79,195,247,.2)}
-    .welcome-date{font-size:.82rem;color:#6b88aa;text-align:right}
-    .welcome-date span{display:block;font-size:1rem;color:#a8c0dc;font-weight:600;margin-top:2px}
+    /* Dashboard section rhythm — generous, even spacing between blocks */
+    .db-section{margin-bottom:34px}
+    .db-section:last-child{margin-bottom:10px}
 
     /* ===================================================
-       STAT CARDS — same design language as index.html
+       WELCOME SECTION — compact header, two primary actions
     =================================================== */
-    .stats-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px}
-    .stat-card{background:rgba(15,30,58,.78);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:20px;transition:all .3s;cursor:default;position:relative;overflow:hidden}
-    .stat-card::before{content:none}
-    .stat-card:hover{border-color:rgba(0,230,118,.22);transform:translateY(-3px);box-shadow:0 16px 40px rgba(0,0,0,.3)}
-    .stat-card-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
-    .stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.2rem}
+    .welcome-section{padding:26px 0 22px;margin-bottom:32px;border-bottom:1px solid rgba(79,195,247,.07)}
+    .welcome-inner{display:flex;justify-content:space-between;align-items:flex-end;gap:20px;flex-wrap:wrap}
+    .welcome-greeting{font-family:'DM Serif Display',serif;font-size:clamp(1.55rem,2.9vw,2.05rem);line-height:1.15;margin-bottom:6px}
+    .welcome-sub{font-size:.88rem;color:#6b88aa}
+    .welcome-actions{display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0}
+
+    /* ===================================================
+       STAT CARDS — subtle glass tiles, one row of four
+    =================================================== */
+    .stats-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+    .stat-card{background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.09);border-radius:14px;padding:18px;transition:border-color .25s,background .25s}
+    .stat-card:hover{border-color:rgba(0,230,118,.2);background:rgba(17,34,66,.7)}
+    .stat-card-top{display:flex;align-items:center;gap:9px;margin-bottom:14px}
+    .stat-name{font-size:.78rem;font-weight:600;color:#a8c0dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .stat-icon{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
     .si-green{background:rgba(0,230,118,.12)}
     .si-blue{background:rgba(79,195,247,.12)}
     .si-purple{background:rgba(206,147,216,.12)}
@@ -214,23 +213,23 @@
     .stat-trend{font-size:.7rem;font-weight:700;padding:2px 7px;border-radius:5px}
     .trend-up{background:rgba(0,230,118,.12);color:#00e676}
     .trend-dn{background:rgba(239,154,154,.12);color:#ef9a9a}
-    .stat-val{font-family:'JetBrains Mono',monospace;font-size:1.55rem;font-weight:600;line-height:1;margin-bottom:4px;animation:countUp .5s ease}
-    .stat-lbl{font-size:.74rem;color:#6b88aa;font-weight:500}
+    .stat-val{font-family:'JetBrains Mono',monospace;font-size:1.7rem;font-weight:600;line-height:1;margin-bottom:6px;color:#e2ecff}
+    .stat-lbl{font-size:.7rem;color:#6b88aa;font-weight:500}
 
     /* ===================================================
-       QUICK ACTIONS
+       QUICK ACTIONS — compact horizontal cards
     =================================================== */
-    .qa-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:32px}
-    .qa-card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:22px 18px;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;transition:all .3s;color:inherit;border:1px solid rgba(79,195,247,.1)}
-    .qa-card:hover{border-color:rgba(0,230,118,.28);transform:translateY(-4px);box-shadow:0 20px 44px rgba(0,0,0,.28);background:rgba(18,36,72,.85)}
-    .qa-ico{width:54px;height:54px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:14px;transition:transform .3s}
-    .qa-card:hover .qa-ico{transform:scale(1.1) rotate(-4deg)}
-    .qa-ico-green{background:linear-gradient(135deg,rgba(0,230,118,.15),rgba(0,230,118,.06))}
-    .qa-ico-blue{background:linear-gradient(135deg,rgba(79,195,247,.15),rgba(79,195,247,.06))}
-    .qa-ico-purple{background:linear-gradient(135deg,rgba(206,147,216,.15),rgba(206,147,216,.06))}
-    .qa-ico-orange{background:linear-gradient(135deg,rgba(255,183,77,.15),rgba(255,183,77,.06))}
-    .qa-title{font-size:.9rem;font-weight:700;margin-bottom:6px;color:#e2ecff}
-    .qa-desc{font-size:.76rem;color:#6b88aa;line-height:1.5}
+    .qa-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .qa-card{background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.09);border-radius:14px;padding:16px 18px;display:flex;align-items:center;gap:14px;text-align:left;width:100%;cursor:pointer;transition:border-color .25s,background .25s;color:inherit;text-decoration:none;font-family:'Outfit',sans-serif}
+    .qa-card:hover{border-color:rgba(0,230,118,.26);background:rgba(17,34,66,.72)}
+    .qa-ico{width:40px;height:40px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:1.15rem;flex-shrink:0}
+    .qa-ico-green{background:rgba(0,230,118,.12)}
+    .qa-ico-blue{background:rgba(79,195,247,.12)}
+    .qa-ico-purple{background:rgba(206,147,216,.12)}
+    .qa-ico-orange{background:rgba(255,183,77,.12)}
+    .qa-body{min-width:0}
+    .qa-title{font-size:.88rem;font-weight:700;margin-bottom:3px;color:#e2ecff}
+    .qa-desc{font-size:.75rem;color:#6b88aa;line-height:1.45}
 
     /* ===================================================
        GRID LAYOUTS
@@ -264,6 +263,12 @@
     .act-mob-title{font-size:.85rem;font-weight:600;color:#e2ecff}
     .act-mob-amount{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:700}
     .act-mob-meta{display:flex;justify-content:space-between;align-items:center;font-size:.74rem;color:#6b88aa}
+
+    /* Recent Activity empty state — compact, not a giant blank table */
+    .act-empty{text-align:center;padding:32px 18px 34px}
+    .act-empty-ico{font-size:1.9rem;margin-bottom:10px;opacity:.8}
+    .act-empty-title{font-size:.92rem;font-weight:700;color:#a8c0dc;margin-bottom:5px}
+    .act-empty-sub{font-size:.79rem;color:#6b88aa;margin-bottom:18px}
 
     /* ===================================================
        COUPON SUMMARY
@@ -353,8 +358,10 @@
     /* ===================================================
        RESPONSIVE
     =================================================== */
-    @media(max-width:1100px){
-      .stats-grid{grid-template-columns:repeat(3,1fr)}
+    /* Narrow desktop: the 244px sidebar eats the row, so fold early. */
+    @media(max-width:1080px){
+      .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .qa-grid{grid-template-columns:minmax(0,1fr)}
     }
     @media(max-width:960px){
       .nav-links{display:none}
@@ -362,22 +369,29 @@
       .nav-toggle{display:flex}
       .two-col{grid-template-columns:1fr}
       .three-col{grid-template-columns:1fr 1fr}
-      .qa-grid{grid-template-columns:repeat(2,1fr)}
+      /* Sidebar is off-canvas below 960 — the full width is available again. */
+      .stats-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+      .qa-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    }
+    @media(max-width:860px){
+      .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .qa-grid{grid-template-columns:minmax(0,1fr)}
     }
     @media(max-width:720px){
-      .stats-grid{grid-template-columns:repeat(2,1fr)}
       .three-col{grid-template-columns:1fr}
       .footer-grid{grid-template-columns:1fr 1fr;gap:28px}
-      table.activity-desktop{display:none}
+      .activity-desktop{display:none}
       .activity-mobile{display:block}
     }
     @media(max-width:480px){
-      .stats-grid{grid-template-columns:1fr 1fr}
-      .qa-grid{grid-template-columns:1fr 1fr}
+      .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+      .qa-grid{grid-template-columns:minmax(0,1fr)}
+      .stat-val{font-size:1.45rem}
       .footer-grid{grid-template-columns:1fr}
       .fbot{flex-direction:column;gap:8px;text-align:center}
       .notif-panel{width:300px}
-      .welcome-date{display:none}
+      .welcome-actions{width:100%}
+      .welcome-actions .btn{flex:1;justify-content:center;min-height:42px}
     }
 
     /* ===================================================
@@ -385,16 +399,17 @@
     =================================================== */
     #sidebar{position:fixed;top:68px;left:0;width:244px;height:calc(100vh - 68px);background:rgba(8,16,42,.98);border-right:1px solid rgba(79,195,247,.1);z-index:150;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.4,0,.2,1)}
     .sb-inner{display:flex;flex-direction:column;min-height:100%;padding:16px 0 20px}
-    .sb-user{display:flex;align-items:center;gap:10px;padding:0 14px 14px;border-bottom:1px solid rgba(79,195,247,.08);margin-bottom:6px}
+    .sb-user{display:flex;align-items:center;gap:11px;padding:2px 14px 16px;border-bottom:1px solid rgba(79,195,247,.08);margin-bottom:4px}
     .sb-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:2px solid rgba(0,230,118,.35)}
     .sb-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
     .sb-user-info{min-width:0}
     .sb-user-name{font-size:.86rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .sb-user-email{font-size:.68rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
-    .sb-nav{flex:1;padding:6px 10px}
+    .sb-nav{flex:1;padding:4px 10px 8px}
     .sb-footer-nav{padding:0 10px 6px}
-    .sb-section-label{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(107,136,170,.5);padding:12px 10px 5px}
-    .sb-item{display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:8px;font-size:.84rem;font-weight:600;color:#6b88aa;background:none;border:none;cursor:pointer;text-align:left;font-family:'Outfit',sans-serif;transition:all .17s;text-decoration:none;margin-bottom:2px;white-space:nowrap}
+    .sb-section-label{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(107,136,170,.55);padding:14px 10px 6px}
+    .sb-section-label:first-child{padding-top:6px}
+    .sb-item{display:flex;align-items:center;gap:11px;width:100%;padding:9px 10px;border-radius:9px;font-size:.84rem;font-weight:600;color:#6b88aa;background:none;border:none;cursor:pointer;text-align:left;font-family:'Outfit',sans-serif;transition:all .17s;text-decoration:none;margin-bottom:3px;white-space:nowrap}
     .sb-item:hover{background:rgba(79,195,247,.07);color:#a8c0dc}
     .sb-item.active{background:rgba(0,230,118,.1);color:#00e676}
     .sb-item-ico{width:18px;text-align:center;flex-shrink:0;font-size:.95rem}
@@ -511,6 +526,9 @@
       </div>
     </div>
     <nav class="sb-nav">
+
+      <div class="sb-section-label">Main</div>
+
       <button class="sb-item active" data-view="dashboard" onclick="showView('dashboard')"><span class="sb-item-ico">🏠</span> Dashboard</button>
 
       <!-- My Purchases -->
@@ -530,9 +548,11 @@
       </div>
 
       <button class="sb-item" data-view="wallet" onclick="showView('wallet')"><span class="sb-item-ico">💳</span> Transactions</button>
-      <button class="sb-item" onclick="showToast('⭐ Reviews — coming soon!','info')"><span class="sb-item-ico">⭐</span> Reviews</button>
+
+      <div class="sb-section-label">Account</div>
+
       <button class="sb-item" onclick="showToast('🔔 Notifications — coming soon!','info')"><span class="sb-item-ico">🔔</span> Notifications</button>
-      <button class="sb-item" data-view="support" onclick="showView('support')"><span class="sb-item-ico">🎧</span> Help &amp; Support</button>
+      <button class="sb-item" onclick="showToast('⭐ Reviews — coming soon!','info')"><span class="sb-item-ico">⭐</span> Reviews</button>
 
       <!-- Security -->
       <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🔐</span> Security</button>
@@ -542,10 +562,14 @@
       </div>
 
       <button class="sb-item" onclick="showToast('⚙️ Account Settings — coming soon!','info')"><span class="sb-item-ico">⚙️</span> Account Settings</button>
+
+      <div class="sb-section-label">Support</div>
+
+      <button class="sb-item" data-view="support" onclick="showView('support')"><span class="sb-item-ico">🎧</span> Help &amp; Support</button>
+
     </nav>
     <div class="sb-sep"></div>
     <div class="sb-footer-nav">
-      <button class="sb-item" onclick="showToast('Settings coming soon!','warn')"><span class="sb-item-ico">⚙️</span> Settings</button>
       <button class="sb-item sb-item-logout" onclick="openModal('logoutModal')"><span class="sb-item-ico">🚪</span> Log Out</button>
     </div>
   </div>
@@ -594,168 +618,136 @@
     <div id="view-dashboard" class="db-view active">
     <div class="container">
 
-      <!-- ─── WELCOME SECTION ─── -->
+      <!-- ─── WELCOME ─── -->
       <section class="welcome-section">
         <div class="welcome-inner">
           <div>
             <p class="slabel">Dashboard</p>
             <h1 class="welcome-greeting">Welcome back, <span class="gtext" id="welcomeFirstName">Friend</span> 👋</h1>
-            <p class="welcome-sub">Here's what's happening with your SaveHatke account.</p>
-            <div class="welcome-tags">
-              <span class="wtag" style="background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.28);color:#00e676">🔥 Buy &amp; Sell Coupons — All in One Place!</span>
-              <span class="wtag wtag-verified" id="welcomeVerifiedTag">✅ Email Verified</span>
-              <span class="wtag wtag-member" id="welcomeMemberTag">🏅 Member</span>
-            </div>
+            <p class="welcome-sub">Manage your coupons, purchases and earnings.</p>
           </div>
-          <div class="welcome-date">
-            <div style="font-size:.78rem;color:#6b88aa">Today</div>
-            <span id="currentDate"></span>
-            <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
-              <button class="btn btn-ghost btn-xs" id="refreshBtn" onclick="refreshDashboard()" title="Refresh data">🔄 Refresh</button>
-              <span id="lastUpdatedPill" style="font-size:.7rem;color:#6b88aa;font-family:'JetBrains Mono',monospace">updating…</span>
-            </div>
-            <div style="margin-top:8px">
-              <button class="btn btn-primary btn-sm" id="welcomeWithdrawBtn" onclick="openModal('withdrawModal')">💸 Withdraw</button>
-            </div>
+          <div class="welcome-actions">
+            <a href="marketplace" class="btn btn-ghost btn-sm">Buy Coupons</a>
+            <a href="sell" class="btn btn-primary btn-sm">Sell a Coupon</a>
           </div>
         </div>
       </section>
 
-      <!-- ─── STATS CARDS ─── -->
-      <div class="stats-grid" style="margin-top:8px">
+      <!-- ─── OVERVIEW ─── -->
+      <section class="db-section">
+        <div class="sec-row"><p class="slabel" style="margin-bottom:0">Overview</p></div>
+        <div class="stats-grid">
 
-        <div class="stat-card sc-blue">
-          <div class="stat-card-top">
-            <div class="stat-icon si-blue">📤</div>
-            <span class="stat-trend trend-up" id="statTrendSubmitted">↑ 0</span>
+          <div class="stat-card">
+            <div class="stat-card-top">
+              <div class="stat-icon si-blue">🏷️</div>
+              <div class="stat-name">Coupons</div>
+            </div>
+            <div class="stat-val" id="statCoupons">0</div>
+            <div class="stat-lbl">Active</div>
           </div>
-          <div class="stat-val" style="color:#4fc3f7" id="statSubmitted">0</div>
-          <div class="stat-lbl">Coupons Submitted</div>
-        </div>
 
-        <div class="stat-card sc-purple">
-          <div class="stat-card-top">
-            <div class="stat-icon si-purple">🛒</div>
-            <span class="stat-trend trend-up" id="statTrendPurchased">↑ 0</span>
+          <div class="stat-card">
+            <div class="stat-card-top">
+              <div class="stat-icon si-purple">🛒</div>
+              <div class="stat-name">Purchased</div>
+            </div>
+            <div class="stat-val" id="statPurchased">0</div>
+            <div class="stat-lbl">Total</div>
           </div>
-          <div class="stat-val" style="color:#ce93d8" id="statPurchased">0</div>
-          <div class="stat-lbl">Coupons Purchased</div>
-        </div>
 
-        <div class="stat-card sc-orange">
-          <div class="stat-card-top">
-            <div class="stat-icon si-orange">💼</div>
-            <span class="stat-trend trend-up" id="statTrendSold">↑ 0</span>
+          <div class="stat-card">
+            <div class="stat-card-top">
+              <div class="stat-icon si-orange">💼</div>
+              <div class="stat-name">Sold</div>
+            </div>
+            <div class="stat-val" id="statSold">0</div>
+            <div class="stat-lbl">Total</div>
           </div>
-          <div class="stat-val" style="color:#ffb74d" id="statSold">0</div>
-          <div class="stat-lbl">Coupons Sold</div>
-        </div>
 
-        <div class="stat-card sc-green">
-          <div class="stat-card-top">
-            <div class="stat-icon si-green">📈</div>
-            <span class="stat-trend trend-up" id="statTrendEarnings">↑ ₹0</span>
+          <div class="stat-card">
+            <div class="stat-card-top">
+              <div class="stat-icon si-green">💰</div>
+              <div class="stat-name">Wallet Balance</div>
+            </div>
+            <div class="stat-val" style="color:#00e676" id="statBalance">₹0</div>
+            <div class="stat-lbl">Available</div>
           </div>
-          <div class="stat-val gtext" id="statEarnings">₹0</div>
-          <div class="stat-lbl">Total Earnings</div>
-        </div>
 
-        <div class="stat-card sc-teal">
-          <div class="stat-card-top">
-            <div class="stat-icon si-teal">💰</div>
-            <span class="stat-trend trend-up" id="statTrendBalance">↑ ₹0</span>
-          </div>
-          <div class="stat-val" style="color:#80cbc4" id="statBalance">₹0</div>
-          <div class="stat-lbl">Available Balance</div>
         </div>
-
-      </div>
+      </section>
 
       <!-- ─── QUICK ACTIONS ─── -->
-      <div class="sec-row" style="margin-bottom:16px">
-        <p class="slabel" style="margin-bottom:0">Quick Actions</p>
-      </div>
-      <div class="qa-grid">
+      <section class="db-section">
+        <div class="sec-row"><p class="slabel" style="margin-bottom:0">Quick Actions</p></div>
+        <div class="qa-grid">
 
-        <a href="marketplace" class="qa-card">
-          <div class="qa-ico qa-ico-blue">🏷️</div>
-          <div class="qa-title">Buy Coupons</div>
-          <div class="qa-desc">Browse verified coupons at unreal prices</div>
-        </a>
+          <a href="marketplace" class="qa-card">
+            <div class="qa-ico qa-ico-blue">🏷️</div>
+            <div class="qa-body">
+              <div class="qa-title">Buy Coupons</div>
+              <div class="qa-desc">Find verified coupons at lower prices</div>
+            </div>
+          </a>
 
-        <a href="sell" class="qa-card">
-          <div class="qa-ico qa-ico-green">💰</div>
-          <div class="qa-title">Sell Coupons</div>
-          <div class="qa-desc">Sell unused coupons and earn instant cash</div>
-        </a>
+          <a href="sell" class="qa-card">
+            <div class="qa-ico qa-ico-green">💰</div>
+            <div class="qa-body">
+              <div class="qa-title">Sell a Coupon</div>
+              <div class="qa-desc">Sell an unused coupon</div>
+            </div>
+          </a>
 
-        <div class="qa-card" onclick="openModal('submitCouponModal')">
-          <div class="qa-ico qa-ico-purple">📤</div>
-          <div class="qa-title">Submit Coupon</div>
-          <div class="qa-desc">Submit a new coupon code for review</div>
+          <button type="button" class="qa-card" onclick="showView('my-coupons')">
+            <div class="qa-ico qa-ico-purple">📤</div>
+            <div class="qa-body">
+              <div class="qa-title">My Coupons</div>
+              <div class="qa-desc">Manage your submitted coupons</div>
+            </div>
+          </button>
+
         </div>
+      </section>
 
-        <div class="qa-card" onclick="openModal('withdrawModal')">
-          <div class="qa-ico qa-ico-orange">🏦</div>
-          <div class="qa-title">Withdraw Money</div>
-          <div class="qa-desc">Withdraw balance to your bank or UPI</div>
-        </div>
-
-      </div>
-
-      <!-- ─── ACTIVITY + ACCOUNT SUMMARY ─── -->
-      <div class="two-col">
-
-        <!-- Recent Activity -->
+      <!-- ─── RECENT ACTIVITY ─── -->
+      <section class="db-section">
         <div class="card" id="activity">
           <div class="card-hdr">
-            <div class="card-title"><span class="ico">⚡</span> Recent Activity</div>
-            <button class="btn btn-ghost btn-sm" onclick="refreshDashboard()" title="Refresh activity">↻ Refresh</button>
-          </div>
-
-          <!-- Desktop table -->
-          <div class="overflow-x activity-desktop">
-            <table>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Details</th>
-                  <th>Amount</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody id="activityTableBody"></tbody>
-            </table>
-          </div>
-
-          <!-- Mobile cards -->
-          <div class="activity-mobile" id="activityMobile"></div>
-
-        </div>
-
-        <!-- Account Summary -->
-        <div class="card">
-          <div class="card-hdr">
-            <div class="card-title"><span class="ico">📊</span> Account Summary</div>
+            <div class="card-title">Recent Activity</div>
             <button class="btn btn-ghost btn-sm" onclick="showView('my-coupons')">View All →</button>
           </div>
-          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Coupons</div>
-          <div class="ov-row"><span class="ov-lbl">Active</span><span class="ov-val" style="color:#00e676" id="ovActiveCount">0</span></div>
-          <div class="ov-row"><span class="ov-lbl">Pending</span><span class="ov-val" style="color:#ffb74d" id="ovPendingCount">0</span></div>
-          <div class="ov-row"><span class="ov-lbl">Sold</span><span class="ov-val" style="color:#ce93d8" id="ovSoldCount">0</span></div>
-          <div class="ov-row"><span class="ov-lbl">Expired</span><span class="ov-val" style="color:#6b88aa" id="ovExpiredCount">0</span></div>
-          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin:16px 0 10px">Wallet</div>
-          <div style="font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:600;color:#00e676;line-height:1;margin-bottom:4px" id="ovBalance">₹0</div>
-          <div style="font-size:.74rem;color:#6b88aa;margin-bottom:16px">Available balance</div>
-          <button class="btn btn-primary btn-sm btn-full" onclick="openModal('withdrawModal')">💸 Withdraw</button>
-          <div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">
-            <button class="btn btn-ghost btn-sm btn-full" onclick="showView('wallet')">💼 Wallet Details</button>
-            <button class="btn btn-ghost btn-sm btn-full" onclick="showView('payouts')">💸 Payouts</button>
-          </div>
-        </div>
 
-      </div>
+          <!-- Empty state — swapped out for the feed as soon as there is activity -->
+          <div class="act-empty" id="activityEmpty">
+            <div class="act-empty-ico">📭</div>
+            <div class="act-empty-title">No activity yet</div>
+            <div class="act-empty-sub">Your purchases and sales will appear here.</div>
+            <a href="marketplace" class="btn btn-ghost btn-sm">Browse Coupons</a>
+          </div>
+
+          <div id="activityFeed" style="display:none">
+            <!-- Desktop table -->
+            <div class="overflow-x activity-desktop">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Details</th>
+                    <th>Amount</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="activityTableBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Mobile cards -->
+            <div class="activity-mobile" id="activityMobile"></div>
+          </div>
+
+        </div>
+      </section>
 
     </div><!-- /container -->
     </div><!-- /view-dashboard -->
@@ -914,7 +906,7 @@
         <div class="card-hdr">
           <div class="card-title"><span class="ico">💸</span> Payouts</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-ghost btn-sm" onclick="loadMyPayouts()" title="Refresh">↻ Refresh</button>
+            <button class="btn btn-ghost btn-sm" onclick="reloadPayoutsView()" title="Refresh">↻ Refresh</button>
             <button class="btn btn-primary btn-sm" onclick="openRequestPayoutModal()">💰 Request Payout</button>
           </div>
         </div>
@@ -1428,10 +1420,15 @@
     const email = user.email || '';
     const initials = name.split(' ').filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
 
-    document.getElementById('welcomeFirstName').textContent = name.split(' ')[0] || 'Friend';
-    document.getElementById('profileNameNav').textContent = name;
-    document.getElementById('pdName').textContent = name;
-    document.getElementById('pdEmail').textContent = email;
+    // The navbar profile UI is owned by app.js updateNavAuth(); these ids are
+    // only present on pages that still ship the old inline dropdown, so every
+    // lookup has to be optional — a hard dereference here used to throw and
+    // abort the whole DOMContentLoaded init chain.
+    const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    set('welcomeFirstName', name.split(' ')[0] || 'Friend');
+    set('profileNameNav', name);
+    set('pdName', name);
+    set('pdEmail', email);
 
     // Avatar — same as index.html: real picture when available, initials otherwise.
     // /auth/me doesn't return picture, so merge from the local stored user too.
@@ -1440,8 +1437,9 @@
     const avatarContent = picture
       ? `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}" />`
       : escapeHtml(initials);
-    document.getElementById('profileAvatar').innerHTML = avatarContent;
-    document.getElementById('pdAvatar').innerHTML = avatarContent;
+    const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+    setHtml('profileAvatar', avatarContent);
+    setHtml('pdAvatar', avatarContent);
 
     // Sidebar avatar, name, email
     const sbAv = document.getElementById('sbAvatar');
@@ -1452,35 +1450,8 @@
     const secEmail = document.getElementById('securityEmail');
     if (secEmail) secEmail.innerHTML = `<span class="sec-dot dot-green"></span>${escapeHtml(email || 'Verified')}`;
 
-    // Member-since tag — best effort. /auth/me doesn't return createdAt,
-    // so check the local user (sometimes has it from registration), then
-    // fall back to the current year.
-    const memberSince = local.createdAt || local.created_at || user.createdAt || user.created_at || null;
-    let memberLabel = `🏅 Member in ${new Date().getFullYear()}`;
-    if (memberSince) {
-      const d = new Date(memberSince);
-      if (!isNaN(d.getTime())) {
-        const m = d.toLocaleString('en-US', { month: 'short' });
-        memberLabel = `🏅 Member since ${m} ${d.getFullYear()}`;
-      }
-    }
-    const memberTag = document.getElementById('welcomeMemberTag');
-    if (memberTag) memberTag.textContent = memberLabel;
-
-    // Verified tag — adapt to account status
+    // Account status drives the profile-dropdown tag and the suspension screen.
     const status = (user.status || local.status || 'active').toLowerCase();
-    const verifiedTag = document.getElementById('welcomeVerifiedTag');
-    if (verifiedTag) {
-      if (status === 'active') {
-        verifiedTag.textContent = '✅ Email Verified';
-        verifiedTag.style.cssText = '';
-      } else {
-        verifiedTag.textContent = `⚠️ Account ${status}`;
-        verifiedTag.style.color = '#ffb74d';
-        verifiedTag.style.borderColor = 'rgba(255,183,77,.25)';
-        verifiedTag.style.background = 'rgba(255,183,77,.08)';
-      }
-    }
 
     // Profile dropdown status tag — Active, or Suspended when the account is suspended
     const statusTag = document.getElementById('pdStatusTag');
@@ -1533,9 +1504,9 @@
     const sales = STATE.sales;
     const purchases = STATE.purchases;
 
-    const totalSubmitted = sales.length;
     const soldCount = sales.filter(isSold).length;
     const pendingCount = sales.filter(isPending).length;
+    const activeListings = sales.filter(isAvailable).length;
     const totalPurchased = purchases.length;
 
     // Earnings: ₹10 per sold coupon (matches the backend offer in /api/coupons/sell)
@@ -1552,19 +1523,11 @@
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
       }).length * PER_COUPON;
 
-    // Stat cards
-    setText('statSubmitted', totalSubmitted);
+    // Overview cards — Coupons (active listings), Purchased, Sold, Wallet Balance
+    setText('statCoupons', activeListings);
     setText('statPurchased', totalPurchased);
     setText('statSold', soldCount);
-    setText('statEarnings', inr(totalEarnings));
     setText('statBalance', inr(availableBalance));
-
-    // Trend chips — meaningful when the numbers move
-    setText('statTrendSubmitted', totalSubmitted ? `↑ ${totalSubmitted}` : '—');
-    setText('statTrendPurchased', totalPurchased ? `↑ ${totalPurchased}` : '—');
-    setText('statTrendSold', soldCount ? `↑ ${soldCount}` : '—');
-    setText('statTrendEarnings', totalEarnings ? `↑ ${inr(totalEarnings)}` : '—');
-    setText('statTrendBalance', availableBalance ? `↑ ${inr(availableBalance)}` : '—');
 
     // Wallet
     setText('walletBalance', inr(availableBalance));
@@ -1572,25 +1535,6 @@
     setText('walletEarned', inr(totalEarnings));
     setText('walletWithdrawn', inr(0)); // no withdrawal flow exists yet
     setText('walletThisMonth', inr(monthEarnings));
-
-    // Overview balance in account summary
-    setText('ovBalance', inr(availableBalance));
-
-    // Welcome withdraw button — adapts to the real balance
-    const wBtn = document.getElementById('welcomeWithdrawBtn');
-    if (wBtn) {
-      if (availableBalance > 0) {
-        wBtn.textContent = `💸 Withdraw ${inr(availableBalance)}`;
-        wBtn.disabled = false;
-        wBtn.style.opacity = '';
-        wBtn.style.cursor = '';
-      } else {
-        wBtn.textContent = '💸 Withdraw';
-        wBtn.disabled = true;
-        wBtn.style.opacity = '.5';
-        wBtn.style.cursor = 'not-allowed';
-      }
-    }
   }
 
   function renderMyCoupons() {
@@ -1631,12 +1575,6 @@
     setText('csPendingCount', pending.length);
     setText('csSoldCount', sold.length);
     setText('csExpiredCount', 0); // backend doesn't track expiry
-
-    // Update overview summary counters in account summary card
-    setText('ovActiveCount', active.length);
-    setText('ovPendingCount', pending.length);
-    setText('ovSoldCount', sold.length);
-    setText('ovExpiredCount', 0);
 
     // ── Apply the active sub-filter (driven by the sidebar sub-items) ──
     const filter = (window.MC_FILTER || 'all');
@@ -1747,6 +1685,8 @@
   function renderActivity() {
     const tbody = document.getElementById('activityTableBody');
     const mob = document.getElementById('activityMobile');
+    const emptyBox = document.getElementById('activityEmpty');
+    const feed = document.getElementById('activityFeed');
     if (!tbody || !mob) return;
 
     // Build a single chronological feed from sales + purchases
@@ -1813,16 +1753,16 @@
     const top = events.slice(0, 8);
 
     if (top.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:#6b88aa">No activity yet — buy a coupon or submit one to get started.</td></tr>`;
-      mob.innerHTML = `
-        <div style="text-align:center;padding:24px 12px;color:#6b88aa">
-          <div style="font-size:2rem;margin-bottom:8px">⚡</div>
-          <div style="font-size:.88rem;font-weight:600;color:#a8c0dc;margin-bottom:4px">No activity yet</div>
-          <div style="font-size:.78rem">Your purchases and sales will show up here in real time.</div>
-        </div>
-      `;
+      // Show the compact empty state instead of an empty table.
+      tbody.innerHTML = '';
+      mob.innerHTML = '';
+      if (feed) feed.style.display = 'none';
+      if (emptyBox) emptyBox.style.display = '';
       return;
     }
+
+    if (emptyBox) emptyBox.style.display = 'none';
+    if (feed) feed.style.display = '';
 
     tbody.innerHTML = top.map((a) => `
       <tr>
@@ -2123,11 +2063,6 @@
       return;
     }
 
-    // Header / date first so the page is never blank
-    const d = new Date();
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    setText('currentDate', `${months[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`);
-
     // Apply basic user from localStorage immediately so the greeting isn't empty
     const local = Auth.getUser();
     if (local) applyUserToUI(local);
@@ -2221,7 +2156,7 @@
   // ─── Interaction handlers ──────────────────────────────────────
   function toggleNotif(e) {
     if (e) e.stopPropagation();
-    document.getElementById('profileDropdown').classList.remove('open');
+    document.getElementById('profileDropdown')?.classList.remove('open');
     document.getElementById('notifPanel').classList.toggle('open');
   }
 
@@ -2487,7 +2422,11 @@
   }
 
   // Manual refresh hook for the Payouts section's "↻ Refresh" button
-  async function loadMyPayouts() {
+  // Payouts view "Refresh" button. Deliberately NOT called loadMyPayouts —
+  // that name belongs to the /payouts/my data loader above, and redeclaring it
+  // here shadowed the loader (hoisting), so refreshDashboard() got undefined
+  // back and threw before any renderer ran.
+  async function reloadPayoutsView() {
     return await refreshDashboard({ silent: true });
   }
 
