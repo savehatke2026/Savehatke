@@ -121,14 +121,13 @@ function renderCouponGrid(gridId, coupons) {
                </div>`
           }
           <div class="ctop">
-            <div class="cbrand">
+            <div class="cbrand" title="${c.brand}">
               <span class="cbrand-logo-wrap">
                 ${logoUrl
                   ? `<img class="cbrand-logo" src="${logoUrl}" alt="${c.brand}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="cbrand-initial" style="display:none">${initial}</span>`
                   : `<span class="cbrand-initial">${initial}</span>`
                 }
               </span>
-              <span class="cbrand-name">${c.brand}</span>
             </div>
             <div class="coff">${origVal}</div>
           </div>
@@ -168,11 +167,14 @@ function expiryClass(msLeft) {
  * when the admin turned this coupon's timer off in Coupon Management — the
  * expiry date stays stored either way, so switching it back on restores it.
  *
- * The digits sit in their own long-lived spans and the "Offer ended" copy ships
- * with every pill, hidden by CSS. That way the ticker below only ever writes
- * `textContent`: the separator nodes are never replaced, so their 1Hz blink
- * animation keeps running instead of restarting from zero every second, and the
- * expired state is reached by a class swap rather than a re-render.
+ * Each unit sits in its own tile — value on top, unit letter beneath — so the
+ * remaining time reads at a glance instead of as one run of digits. The digits
+ * live in their own long-lived spans and the "Offer ended" copy ships with
+ * every pill, hidden by CSS. That way the ticker below only ever writes
+ * `textContent`: the tiles and the breathing clock icon are never replaced, so
+ * the animation keeps running instead of restarting every second, and both the
+ * expired state and the "no days left to show" state are reached by a class
+ * swap rather than a re-render.
  */
 function renderExpiryTimer(raw, timerOn) {
   if (timerOn === false) return '';
@@ -183,17 +185,31 @@ function renderExpiryTimer(raw, timerOn) {
   const when = new Date(at).toLocaleString('en-IN', {
     day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
   });
-  return `<div class="cexpiry ${expiryClass(msLeft)}" data-expiry="${at}" title="Expires ${when}">
-            <svg class="cexp-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
-              <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-            <span class="cexp-label">Ends in</span>
+  return `<div class="cexpiry ${expiryClass(msLeft)}${p.dd ? '' : ' cexp-no-days'}" data-expiry="${at}" title="Expires ${when}">
+            <span class="cexp-head">
+              <svg class="cexp-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="cexp-label">Ends in</span>
+            </span>
             <span class="cexp-clock">
-              <b class="cexp-d">${p.dd}</b><b class="cexp-n cexp-h">${p.hh}</b><i class="cexp-sep">:</i><b class="cexp-n cexp-m">${p.mm}</b><i class="cexp-sep">:</i><b class="cexp-n cexp-s">${p.ss}</b>
+              <span class="cexp-tile cexp-tile-d"><b class="cexp-d">${dayDigits(p.dd)}</b><i>d</i></span>
+              <span class="cexp-tile"><b class="cexp-n cexp-h">${p.hh}</b><i>h</i></span>
+              <span class="cexp-tile"><b class="cexp-n cexp-m">${p.mm}</b><i>m</i></span>
+              <span class="cexp-tile"><b class="cexp-n cexp-s">${p.ss}</b><i>s</i></span>
             </span>
             <span class="cexp-over">Offer ended</span>
           </div>`;
+}
+
+/**
+ * expiryParts() returns the day count with its own 'd' suffix ('12d') because
+ * the admin chip renders it as one string. The card tiles carry the unit letter
+ * in their own element, so strip it here.
+ */
+function dayDigits(dd) {
+  return dd ? String(dd).replace(/d$/i, '') : '';
 }
 
 let expiryTimerId = null;
@@ -211,13 +227,15 @@ function startExpiryTicker() {
     nodes.forEach((el) => {
       const msLeft = Number(el.dataset.expiry) - now;
       const p = expiryParts(msLeft);
-      // Digits only — never innerHTML, or the blinking colons reset each second.
-      setText(el.querySelector('.cexp-d'), p.dd); // '' collapses via .cexp-d:empty
+      // Digits only — never innerHTML, or the unit letters and the icon's
+      // breathing animation would be rebuilt (and restarted) every second.
+      setText(el.querySelector('.cexp-d'), dayDigits(p.dd));
       setText(el.querySelector('.cexp-h'), p.hh);
       setText(el.querySelector('.cexp-m'), p.mm);
       setText(el.querySelector('.cexp-s'), p.ss);
-      // Colour band, and the clock → "Offer ended" swap, both ride on this class.
-      const cls = `cexpiry ${expiryClass(msLeft)}`;
+      // Colour band, the clock → "Offer ended" swap, and hiding the days tile
+      // once under a week remains all ride on this one class string.
+      const cls = `cexpiry ${expiryClass(msLeft)}${p.dd ? '' : ' cexp-no-days'}`;
       if (el.className !== cls) el.className = cls;
     });
   };
