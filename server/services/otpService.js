@@ -168,12 +168,25 @@ async function getLastRequestForKey(userIdEmail) {
 }
 
 /**
- * Mark all previous PENDING OTPs for this key as 'superseded'.
- * Ensures only the latest OTP is valid.
+ * Mark all previous PENDING OTPs for this user as 'superseded' so only the
+ * latest code can be used. Matches on the composite key AND on the email,
+ * because rows for the same person can sit under different keys (a signup
+ * whose account was created after the code was sent, or pre-migration rows).
  */
-async function invalidatePreviousOTPs(userIdEmail) {
-  const all = await db.findRows(db.SHEETS.OTP_REQUESTS, 'userIdEmail', userIdEmail);
-  const pending = all.filter((r) => r.status === 'pending');
+async function invalidatePreviousOTPs(userIdEmail, email) {
+  const byKey = await db.findRows(db.SHEETS.OTP_REQUESTS, 'userIdEmail', userIdEmail);
+  const cleanEmail = String(email || '').toLowerCase().trim();
+  const byEmail = cleanEmail
+    ? await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', cleanEmail).catch(() => [])
+    : [];
+
+  const seen = new Set();
+  const pending = [...byKey, ...byEmail].filter((r) => {
+    if (!r || r.status !== 'pending' || seen.has(r.id)) return false;
+    seen.add(r.id);
+    return true;
+  });
+
   for (const req of pending) {
     await db.updateRow(db.SHEETS.OTP_REQUESTS, 'id', req.id, {
       status: 'superseded',
@@ -282,7 +295,7 @@ async function requestOTP(userId, email, ipAddress) {
     const otpHash = await bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
 
     // ── 7. Invalidate previous PENDING OTPs (only one valid at a time) ─
-    await invalidatePreviousOTPs(userIdEmail);
+    await invalidatePreviousOTPs(userIdEmail, cleanEmail);
 
     // ── 8. Persist the new request ───────────────────────────────────
     const requestId = uuidv4();
@@ -344,11 +357,16 @@ async function verifyOTP(userId, email, otpInput) {
       .filter((r) => r.status === 'pending')
       .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
 
-    // Backward-compat: also check legacy email-only rows (no userIdEmail)
+    // Fallback: any pending OTP issued for this email, whatever key it was
+    // filed under. The key can legitimately differ between the send and the
+    // verify — a pre-migration row with no userIdEmail, or an account that was
+    // created in between so the id went from empty to a real user_id. The code
+    // is bound to the email either way, which is the fact being proved, so a
+    // key mismatch must never strand a code the user actually received.
     if (!pendingOTPs.length) {
-      const legacy = await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', cleanEmail);
-      pendingOTPs = legacy
-        .filter((r) => r.status === 'pending' && !r.userIdEmail)
+      const byEmail = await db.findRows(db.SHEETS.OTP_REQUESTS, 'email', cleanEmail);
+      pendingOTPs = byEmail
+        .filter((r) => r.status === 'pending')
         .sort((a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime());
     }
 

@@ -7,6 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 const { optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const emailService = require('../services/emailService');
+const { verifyTurnstile } = require('../utils/turnstile');
 
 const router = express.Router();
 
@@ -68,33 +69,18 @@ router.post('/attachment', optionalAuth, async (req, res) => {
 // POST /api/support/ticket — Submit a support ticket
 router.post('/ticket', optionalAuth, async (req, res) => {
   try {
-    const { name, email, subject, message, attachmentUrl, attachmentName, cfTurnstileToken } = req.body;
+    const { name, email, subject, message, attachmentUrl, attachmentName } = req.body;
 
     if (!name || !email || !subject || !message) {
       return res.status(400).json({ error: 'All fields are required: name, email, subject, message.' });
     }
 
-    // Verify Cloudflare Turnstile token (skip gracefully if secret key not configured)
-    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
-    if (turnstileSecret) {
-      if (!cfTurnstileToken) {
-        return res.status(400).json({ error: 'Security check required. Please complete the CAPTCHA.' });
-      }
-
-      const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          secret: turnstileSecret,
-          response: cfTurnstileToken,
-        }),
-      });
-
-      const verifyData = await verifyRes.json();
-      if (!verifyData.success) {
-        console.warn('Turnstile verification failed:', verifyData['error-codes']);
-        return res.status(400).json({ error: 'Security check failed. Please try again.' });
-      }
+    // Same shared CAPTCHA verifier as the OTP route: fails open when the
+    // Turnstile infrastructure is the thing that's broken, closed on a real
+    // rejection from Cloudflare.
+    const captcha = await verifyTurnstile(req, 'support-ticket');
+    if (!captcha.ok) {
+      return res.status(400).json({ error: captcha.error });
     }
 
     // Only accept attachment URLs that point at our own storage

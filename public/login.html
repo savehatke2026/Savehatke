@@ -527,6 +527,9 @@
         <span id="timerText"> in <span class="timer" id="timerCount">30s</span></span>
       </div>
 
+      <!-- Turnstile for resend — CAPTCHA tokens are single-use, so a resend needs its own -->
+      <div class="fgroup" id="resendTurnstileGroup" style="display:none;justify-content:center;margin:12px 0 0"></div>
+
       <button class="back-link" onclick="goBack()">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M19 12H5"/>
@@ -726,6 +729,18 @@
   ══════════════════════════════════════════ */
   let loginTurnstileShown = false;   // widget rendered below the email box
   let loginTurnstileWidgetId = null; // 'error' when the widget failed to load
+  let turnstileSiteKeyPromise = null;
+
+  // Fetches (and caches) the public site key. Resolves to '' when CAPTCHA is off.
+  function getTurnstileSiteKey() {
+    if (!turnstileSiteKeyPromise) {
+      turnstileSiteKeyPromise = fetch((window.API_BASE || '/api') + '/turnstile-config')
+        .then(r => r.json())
+        .then(d => d.siteKey || '')
+        .catch(() => '');
+    }
+    return turnstileSiteKeyPromise;
+  }
 
   // Resolves as soon as the async Turnstile API script finishes loading (no polling)
   const loginTurnstileApiReady = new Promise((resolve) => {
@@ -734,15 +749,31 @@
     setTimeout(resolve, 8000); // safety cap if the script stalls
   });
 
+  /* A widget that renders but never inserts its iframe means Cloudflare itself
+     is unreachable — blocked by a proxy or extension, offline dev, or a
+     hostname that is not registered for this widget. Turnstile's
+     'error-callback' does not always fire in that case, which used to leave
+     the visitor stuck on "complete the security check" with no check to
+     complete, and no verification email ever sent. Detect the stall and mark
+     the challenge unavailable so the sign-in can continue. */
+  const CAPTCHA_LOAD_TIMEOUT_MS = 10000;
+
+  function watchCaptchaLoad(group, onUnavailable) {
+    setTimeout(() => {
+      if (group.querySelector('iframe')) return; // widget is alive
+      group.innerHTML = '<small style="color:#ffb4a2">CAPTCHA could not load — continuing without it.</small>';
+      onUnavailable();
+    }, CAPTCHA_LOAD_TIMEOUT_MS);
+  }
+
   async function showLoginTurnstile() {
     if (loginTurnstileShown) return;
     const group = document.getElementById('loginTurnstileGroup');
     if (!group) { loginTurnstileShown = true; return; }
     try {
       // Public endpoint — plain fetch, no Auth dependency
-      const res = await fetch((window.API_BASE || '/api') + '/turnstile-config');
-      const { siteKey } = await res.json();
-      if (!siteKey) { loginTurnstileShown = true; return; } // CAPTCHA not configured
+      const siteKey = await getTurnstileSiteKey();
+      if (!siteKey) { loginTurnstileShown = true; loginTurnstileWidgetId = 'error'; return; } // CAPTCHA not configured
       group.style.display = 'flex';
       await loginTurnstileApiReady;
       if (typeof turnstile !== 'undefined' && turnstile.render) {
@@ -755,11 +786,30 @@
             loginTurnstileWidgetId = 'error';
           },
         });
+        watchCaptchaLoad(group, () => { loginTurnstileWidgetId = 'error'; });
+      } else {
+        loginTurnstileWidgetId = 'error'; // API script never loaded
       }
       loginTurnstileShown = true;
     } catch (e) {
       console.warn('Turnstile init failed:', e);
       loginTurnstileShown = true; // don't block login on CAPTCHA infra failure
+      loginTurnstileWidgetId = 'error';
+    }
+  }
+
+  // True when there is no solvable challenge on screen: not configured, script
+  // blocked, wrong hostname, or the widget stalled without an iframe.
+  function isLoginCaptchaUnavailable() {
+    return loginTurnstileWidgetId == null || loginTurnstileWidgetId === 'error';
+  }
+
+  function getLoginTurnstileToken() {
+    if (isLoginCaptchaUnavailable()) return '';
+    try {
+      return turnstile.getResponse(loginTurnstileWidgetId) || '';
+    } catch (e) {
+      return '';
     }
   }
 
@@ -767,6 +817,51 @@
     if (typeof turnstile !== 'undefined' && turnstile.reset &&
         loginTurnstileWidgetId != null && loginTurnstileWidgetId !== 'error') {
       turnstile.reset(loginTurnstileWidgetId);
+    }
+  }
+
+  /* ── Resend CAPTCHA: its own widget, since tokens are single-use ── */
+  let resendTurnstileWidgetId = null; // null = not rendered, 'error' = failed/not configured
+
+  // Renders the resend widget on demand and returns a token, or '' when CAPTCHA
+  // is disabled/broken (the server then skips verification anyway).
+  async function getResendTurnstileToken() {
+    const group = document.getElementById('resendTurnstileGroup');
+    if (!group) return '';
+
+    if (resendTurnstileWidgetId === null) {
+      const siteKey = await getTurnstileSiteKey();
+      if (!siteKey) { resendTurnstileWidgetId = 'error'; return ''; }
+      await loginTurnstileApiReady;
+      if (typeof turnstile === 'undefined' || !turnstile.render) {
+        resendTurnstileWidgetId = 'error';
+        return '';
+      }
+      group.style.display = 'flex';
+      try {
+        resendTurnstileWidgetId = turnstile.render(group, {
+          sitekey: siteKey,
+          theme: 'dark',
+          'error-callback': () => {
+            group.innerHTML = '<small style="color:#ffb4a2">CAPTCHA could not load for this domain.</small>';
+            resendTurnstileWidgetId = 'error';
+          },
+        });
+        watchCaptchaLoad(group, () => { resendTurnstileWidgetId = 'error'; });
+      } catch (e) {
+        resendTurnstileWidgetId = 'error';
+        return '';
+      }
+    }
+
+    if (resendTurnstileWidgetId === 'error') return '';
+    return turnstile.getResponse(resendTurnstileWidgetId) || '';
+  }
+
+  function resetResendTurnstile() {
+    if (typeof turnstile !== 'undefined' && turnstile.reset &&
+        resendTurnstileWidgetId != null && resendTurnstileWidgetId !== 'error') {
+      turnstile.reset(resendTurnstileWidgetId);
     }
   }
 
@@ -795,15 +890,18 @@
       if (btn) { btn.disabled = true; btn.textContent = 'Loading security check…'; }
       await showLoginTurnstile();
       if (btn) { btn.disabled = false; btn.textContent = 'Continue \u2192'; }
-      if (loginTurnstileWidgetId !== 'error') {
+      // Only pause for a challenge that actually loaded. When the CAPTCHA is
+      // unavailable there is nothing to solve, so fall through and send the
+      // code instead of demanding a click that can never succeed.
+      if (!isLoginCaptchaUnavailable()) {
         showToast('Complete the security check, then press Continue.', 'warning');
+        return;
       }
-      return;
     }
 
     // Second click: require a completed CAPTCHA before sending the OTP
-    const turnstileToken = (typeof turnstile !== 'undefined' && turnstile.getResponse) ? turnstile.getResponse() : '';
-    if (loginTurnstileWidgetId !== 'error' && !turnstileToken) {
+    const turnstileToken = getLoginTurnstileToken();
+    if (!isLoginCaptchaUnavailable() && !turnstileToken) {
       showToast('Please complete the security check before continuing.', 'error');
       return;
     }
@@ -1085,11 +1183,23 @@
 
   async function handleResend() {
     const btn = document.getElementById('resendBtn');
-    btn.disabled = true;
-    btn.textContent = 'Sending\u2026';
     const email = sessionStorage.getItem('otp_email') || document.getElementById('displayEmail').textContent;
+
+    // The server gates /auth/send-otp behind Turnstile, and tokens are single-use,
+    // so the resend needs a freshly solved challenge of its own.
+    btn.disabled = true;
+    btn.textContent = 'Checking\u2026';
+    const token = await getResendTurnstileToken();
+    if (resendTurnstileWidgetId !== 'error' && !token) {
+      showToast('Complete the security check, then press Resend.', 'warning');
+      btn.textContent = 'Resend';
+      btn.disabled = false;
+      return;
+    }
+
+    btn.textContent = 'Sending\u2026';
     try {
-      await api('/auth/send-otp', { method: 'POST', body: { email } });
+      await api('/auth/send-otp', { method: 'POST', body: { email, cfTurnstileToken: token } });
       showToast('A new code has been sent to ' + email, 'success');
       otpInputs.forEach(i => { i.value = ''; i.classList.remove('filled', 'error', 'success'); });
       otpInputs[0].focus();
@@ -1098,6 +1208,7 @@
     } catch (err) {
       showToast(err.message || 'Could not resend OTP. Try again.', 'error');
     }
+    resetResendTurnstile(); // token consumed — refresh for the next resend
     btn.textContent = 'Resend';
     startTimer(30);
   }

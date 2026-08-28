@@ -23,6 +23,7 @@ const supabase = require('../services/supabase');
 const emailService = require('../services/emailService');
 const otpService = require('../services/otpService');
 const getClientIP = require('../middleware/getClientIP');
+const { verifyTurnstile } = require('../utils/turnstile');
 const sessionCleanup = require('../services/sessionCleanup');
 
 const router = express.Router();
@@ -346,26 +347,22 @@ router.post('/send-otp', async (req, res) => {
       return res.status(400).json({ error: 'Please enter a valid email address.' });
     }
 
-    // Verify Cloudflare Turnstile token (skip gracefully if secret key not configured)
-    const turnstileSecret = process.env.TURNSTILE_SECRET_KEY;
-    if (turnstileSecret) {
-      const { cfTurnstileToken } = req.body;
-      if (!cfTurnstileToken) {
-        return res.status(400).json({ error: 'Security check required. Please complete the CAPTCHA.' });
-      }
-      const verifyRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ secret: turnstileSecret, response: cfTurnstileToken }),
-      });
-      const verifyData = await verifyRes.json();
-      if (!verifyData.success) {
-        console.warn('Turnstile verification failed (send-otp):', verifyData['error-codes']);
-        return res.status(400).json({ error: 'Security check failed. Please try again.' });
-      }
+    // Verify the Cloudflare Turnstile token. The shared verifier fails open on
+    // CAPTCHA infrastructure problems (widget unreachable, siteverify down,
+    // misconfigured key) so a bot defence outage can never stop a real user
+    // from receiving their code; per-email and per-IP rate limits still apply.
+    const captcha = await verifyTurnstile(req, 'send-otp');
+    if (!captcha.ok) {
+      return res.status(400).json({ error: captcha.error });
     }
 
-    // Derive userId server-side (look up existing user, or use a temp ID)
+    // Derive userId server-side (look up existing user, or leave it empty).
+    // It must NOT be invented here: /verify-otp derives the same value again a
+    // few minutes later, and otpService keys every OTP row on userId+email. A
+    // clock-based placeholder produced a different key on each call, so a code
+    // sent to an address with no account yet could never be verified — and the
+    // per-email rate limits never matched either. An empty id keys the row on
+    // the email alone, which both routes can reproduce.
     let userId = '';
     try {
       const existingUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
@@ -374,9 +371,6 @@ router.post('/send-otp', async (req, res) => {
       }
     } catch (e) {
       // User lookup failed â€” continue with empty userId (new user flow)
-    }
-    if (!userId) {
-      userId = `pending_${Date.now()}`;
     }
 
     // Derive IP address server-side
@@ -396,14 +390,21 @@ router.post('/send-otp', async (req, res) => {
     // Send real OTP via Nodemailer email service
     const emailResult = await emailService.sendOTPEmail(cleanEmail, result.otp);
 
-    if (!emailResult.success && !emailResult.isSimulated) {
+    if (!emailResult.success) {
       console.warn('Email sending failed:', emailResult.error);
+      // SMTP is configured but the send failed — don't pretend the code is on its way.
+      if (!emailResult.isSimulated) {
+        return res.status(502).json({
+          error: 'We could not deliver the verification email right now. Please try again in a moment.',
+        });
+      }
     }
 
     res.json({
       message: 'Verification code sent to ' + cleanEmail + '.',
-      // In development or if SMTP is simulated, return OTP for easy testing
-      devOtp: process.env.NODE_ENV !== 'production' || emailResult.isSimulated ? result.otp : undefined,
+      // Only exposed when SMTP is not configured, so local dev without mail still works.
+      // A real, delivered code is never returned over HTTP.
+      devOtp: emailResult.isSimulated ? result.otp : undefined,
     });
   } catch (err) {
     console.error('Send OTP error:', err);
@@ -423,14 +424,13 @@ router.post('/verify-otp', async (req, res) => {
 
     const cleanEmail = email.toLowerCase().trim();
 
-    // Derive userId server-side (same logic as /send-otp) so verifyOTP
-    // can apply the userId+email composite-key check.
+    // Derive userId server-side exactly as /send-otp does, so verifyOTP looks
+    // under the same composite key. Never substitute a placeholder here.
     let userId = '';
     try {
       const existingUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
       if (existingUser) userId = existingUser.user_id || existingUser.id || '';
     } catch (e) { /* lookup failed — empty userId is fine, the email fallback still applies */ }
-    if (!userId) userId = `pending_${Date.now()}`;
 
     // Verify OTP through the security service (handles hash comparison, expiry, attempts)
     const verification = await otpService.verifyOTP(userId, cleanEmail, otp);
