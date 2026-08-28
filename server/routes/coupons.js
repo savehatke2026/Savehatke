@@ -28,6 +28,17 @@ function defaultExpiry(explicitExpiry, addedAt) {
 const PROOF_MAX_BYTES = 3 * 1024 * 1024; // 3MB
 const PROOF_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
+// ── Minimum shelf life for a submitted coupon ──
+// A seller has to hand us a coupon that is still valid at least 10 days out,
+// which is the number the sell form shows and enforces. The server measures
+// against 9 days instead: `date` and `datetime-local` inputs carry no timezone
+// offset, so the seller's clock and ours can read the same string up to a day
+// apart, and a seller in IST picking exactly the earliest allowed minute must
+// not be rejected by a UTC server. The extra day is slack, not a second rule.
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MIN_EXPIRY_DAYS = 10;
+const MIN_EXPIRY_FLOOR_DAYS = MIN_EXPIRY_DAYS - 1;
+
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
 
 // GET /api/coupons — List available coupons (public, with optional auth)
@@ -286,6 +297,31 @@ const handleCouponSubmission = async (req, res) => {
     const submitted = [];
     const skipped = [];
     let dbSaveFailed = false;
+
+    // ── Minimum shelf life ──
+    // A coupon is only worth listing if the buyer has time to use it, so every
+    // submission has to still be valid at least MIN_EXPIRY_DAYS out. Checked as
+    // a pre-pass over the whole batch, not inside the save loop below: that loop
+    // writes as it goes, so returning 400 from inside it would leave the earlier
+    // coupons already saved.
+    const expiryFloor = Date.now() + MIN_EXPIRY_FLOOR_DAYS * DAY_MS;
+    for (let i = 0; i < list.length; i++) {
+      const raw = String(list[i].expiryDate == null ? '' : list[i].expiryDate).trim();
+      if (!raw) {
+        return res.status(400).json({
+          error: `Coupon ${i + 1}: an expiry date is required, at least ${MIN_EXPIRY_DAYS} days from today.`,
+        });
+      }
+      const at = Date.parse(raw);
+      if (!Number.isFinite(at)) {
+        return res.status(400).json({ error: `Coupon ${i + 1}: expiry date is not a valid date.` });
+      }
+      if (at < expiryFloor) {
+        return res.status(400).json({
+          error: `Coupon ${i + 1}: the coupon must stay valid at least ${MIN_EXPIRY_DAYS} days from today. Please submit a coupon with a later expiry.`,
+        });
+      }
+    }
 
     for (let i = 0; i < list.length; i++) {
       const c = list[i];

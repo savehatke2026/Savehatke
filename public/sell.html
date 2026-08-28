@@ -173,15 +173,57 @@
     .cat-auto.unknown { background:rgba(255,193,7,.06); border-color:rgba(255,193,7,.18); }
     .cat-auto.unknown .cat-auto-val { color:#ffd97a; }
 
-    /* ── Live brand logo under the brand field ──
-       Logo only, no brand text: the seller types "zepto" and sees the Zepto
-       mark, which is the confirmation that we matched the right brand. Stays
-       hidden until a logo actually resolves and loads, so an unrecognised or
-       mistyped brand shows nothing rather than a broken image. The [hidden]
-       rule has to be spelled out because display:flex overrides the UA sheet. */
-    .brand-logo-preview { display:flex; align-items:center; height:40px; margin:-2px 0 12px; }
-    .brand-logo-preview[hidden] { display:none; }
-    .brand-logo-preview img { max-width:124px; width:auto; height:100%; object-fit:contain; }
+    /* ── Store / Brand picker ──
+       A searchable dropdown rather than a free-text box, matching the admin
+       panel's picker, so a listing always carries a brand we can show a logo
+       and derive a category for. Once picked, the closed button shows the logo
+       alone — the same logo-only rule as the marketplace cards and the admin
+       inventory table — and falls back to an initial chip plus the name for a
+       brand with no logo on file. Both logo slots have a definite height, which
+       is what the shared `img.blogo-chip` treatment (js/coupon-meta.js) sizes
+       itself against. */
+    .bsel { position:relative; }
+    .bsel-btn {
+      width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:9px 14px; border-radius:10px; background:rgba(255,255,255,.05);
+      border:1.5px solid rgba(79,195,247,.15); color:#e2ecff; font-family:'Outfit',sans-serif;
+      font-size:.92rem; font-weight:600; text-align:left; cursor:pointer;
+      transition:border-color .2s, background .2s;
+    }
+    .bsel-btn:hover { border-color:rgba(79,195,247,.3); }
+    .bsel.open .bsel-btn, .bsel-btn:focus-visible { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.03); outline:none; }
+    .bsel-val { display:flex; align-items:center; gap:10px; flex:1; min-width:0; height:34px; }
+    .bsel-val img { max-width:132px; width:auto; height:100%; object-fit:contain; }
+    .bsel-ico {
+      width:30px; height:30px; border-radius:7px; flex-shrink:0; display:inline-flex;
+      align-items:center; justify-content:center; background:linear-gradient(135deg,#00e676,#4fc3f7);
+      color:#060d1f; font-size:.95rem; font-weight:800;
+    }
+    .bsel-ph { color:#6b88aa; font-weight:500; }
+    .bsel-arrow { font-size:.7rem; color:#6b88aa; flex-shrink:0; transition:transform .2s; }
+    .bsel.open .bsel-arrow { transform:rotate(180deg); }
+    .bsel-drop {
+      display:none; position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:60;
+      padding:8px; border-radius:12px; background:#0c1835; border:1.5px solid rgba(79,195,247,.2);
+      box-shadow:0 20px 60px rgba(0,0,0,.8); max-height:300px; overflow-y:auto;
+    }
+    .bsel.open .bsel-drop { display:block; }
+    .bsel-search {
+      width:100%; padding:8px 12px; margin-bottom:8px; border-radius:8px;
+      background:rgba(255,255,255,.06); border:1px solid rgba(79,195,247,.15);
+      color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.83rem; outline:none;
+    }
+    .bsel-group { padding:8px 10px 4px; font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#00e676; }
+    .bsel-opt {
+      display:flex; align-items:center; gap:10px; width:100%; padding:7px 10px;
+      border:none; border-radius:8px; background:none; color:#a8c0dc;
+      font-family:'Outfit',sans-serif; font-size:.86rem; text-align:left; cursor:pointer;
+    }
+    .bsel-opt:hover, .bsel-opt:focus-visible { background:rgba(0,230,118,.1); color:#e2ecff; outline:none; }
+    .bsel-opt.on { background:rgba(0,230,118,.18); color:#00e676; font-weight:700; }
+    .bsel-opt-logo { width:46px; height:24px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; }
+    .bsel-opt-logo img { max-width:100%; width:auto; height:100%; object-fit:contain; }
+    .bsel-empty { padding:10px 12px; font-size:.82rem; color:#6b88aa; }
 
     /* ── Screenshot dropzone (one per coupon card) ── */
     .drop-zone {
@@ -222,7 +264,32 @@
     .finput:focus { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.03); }
     .finput::placeholder { color:#6b88aa; }
     .finput.code { text-transform:uppercase; letter-spacing:2px; font-family:'JetBrains Mono',monospace; font-weight:600; font-size:.9rem; }
+    /* Date pickers render their own calendar UI — tell it we are on a dark page. */
+    .finput[type=date], .finput[type=datetime-local] { color-scheme:dark; }
     .fhint { font-size:.75rem; color:#6b88aa; margin-top:6px; }
+
+    /* Selects and the terms box match .finput so the card reads as one form. */
+    .fselect {
+      width:100%; padding:12px 16px; border-radius:10px; color-scheme:dark;
+      background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15);
+      color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem;
+      transition:border-color .2s; outline:none;
+    }
+    .fselect:focus { border-color:rgba(0,230,118,.45); }
+    .fselect:disabled { color:#8fa8c8; opacity:.8; cursor:not-allowed; }
+    .ftextarea {
+      width:100%; min-height:96px; resize:vertical; padding:12px 16px; border-radius:10px;
+      background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15);
+      color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem; line-height:1.6;
+      transition:border-color .2s; outline:none;
+    }
+    .ftextarea:focus { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.03); }
+    .ftextarea::placeholder { color:#6b88aa; }
+
+    /* Two-up row for the short fields (code, price, dates…). Collapses to one
+       column on a phone, where a 2-column form is unusable. */
+    .fgrid { display:grid; grid-template-columns:1fr 1fr; gap:0 18px; }
+    @media(max-width:640px) { .fgrid { grid-template-columns:1fr; } }
     .step-actions { display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; }
 
     /* ── Multi Coupon Cards ── */
@@ -611,6 +678,41 @@ const proofFiles = {};
 const PROOF_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const PROOF_MAX_BYTES = 3 * 1024 * 1024;
 
+/* Screenshot proof is switched off for now. The dropzone, its validation and the
+   Drive upload are all still here and still work — flip this back to true to
+   show the field again and resume uploading before submit. */
+const PROOF_ENABLED = false;
+
+/* ══════════════════════════════════════
+   MINIMUM SHELF LIFE
+   ──────────────────────────────────────
+   A coupon is only worth listing if the buyer has time to use it, so it has to
+   still be valid at least 10 days from the moment it is submitted. Enforced
+   here (the form refuses to move on) and again in POST /api/coupons/submit,
+   which is the check that actually holds.
+══════════════════════════════════════ */
+const MIN_EXPIRY_DAYS = 10;
+const DAY_MS_SELL = 24 * 60 * 60 * 1000;
+
+/** Earliest expiry we accept, as epoch ms. */
+function minExpiryAt() {
+  return Date.now() + MIN_EXPIRY_DAYS * DAY_MS_SELL;
+}
+
+/** Format epoch ms the way <input type="datetime-local"> wants it (local time). */
+function toLocalDateTimeValue(ms) {
+  const d = new Date(ms);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** Human-readable version of the earliest allowed expiry, for error messages. */
+function minExpiryText() {
+  return new Date(minExpiryAt()).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
 /* ══════════════════════════════════════
    CATEGORY — auto-detected from the brand
    ──────────────────────────────────────
@@ -723,7 +825,7 @@ function updateCategoryChip(id) {
 
   if (!brand) {
     chip.classList.remove('unknown');
-    if (valEl) valEl.textContent = 'type a brand above';
+    if (valEl) valEl.textContent = 'pick a brand above';
     return;
   }
   const cat = deriveCategory(brand);
@@ -732,60 +834,289 @@ function updateCategoryChip(id) {
   if (valEl) valEl.textContent = isFallback ? cat + ' (brand not recognised)' : cat;
 }
 
-/**
- * Empty logo slot for one coupon card. Built once and reused by
- * updateBrandLogo, so the <img> element survives every keystroke and the
- * browser can serve a repeat brand from cache instead of re-fetching it.
- * The image hides its own row on error, which covers both a mistyped brand and
- * the clearbit fallback failing to resolve.
- */
-function createBrandLogoPreview(id) {
-  const box = document.createElement('div');
-  box.className = 'brand-logo-preview';
-  box.id = 'brand-logo-' + id;
-  box.hidden = true;
+/* ══════════════════════════════════════
+   STORE / BRAND CATALOGUE (dropdown options)
+   ──────────────────────────────────────
+   Derived rather than hand-written: the names come from BRAND_CATEGORY above,
+   so every option is guaranteed to resolve to a category, and the spelling is
+   borrowed from the shared logo/domain maps in js/coupon-meta.js so the list
+   reads "AJIO", "Lakmé", "boAt" the way each brand writes it.
+══════════════════════════════════════ */
 
-  const img = document.createElement('img');
-  img.alt = '';
-  // Not lazy-loaded on purpose: this sits right under the field the seller is
-  // typing into, so it has to appear the moment the brand matches.
-  img.addEventListener('error', () => { box.hidden = true; });
-  box.appendChild(img);
+/** Canonical spelling for a squashed brand key, taken from coupon-meta.js. */
+const BRAND_DISPLAY_NAMES = (function buildBrandDisplayNames() {
+  const out = Object.create(null);
+  if (typeof normBrandKey !== 'function') return out;
+  const add = (name) => {
+    const key = normBrandKey(name);
+    if (key && !(key in out)) out[key] = name;
+  };
+  if (typeof BRAND_LOGOS === 'object' && BRAND_LOGOS) Object.keys(BRAND_LOGOS).forEach(add);
+  if (typeof BRAND_DOMAINS === 'object' && BRAND_DOMAINS) Object.keys(BRAND_DOMAINS).forEach(add);
+  return out;
+})();
 
-  return box;
+/* Keys that exist in BRAND_CATEGORY only so a free-typed shorthand still lands
+   on the right category. Each one duplicates a fuller name that stays in the
+   list, so they are hidden from the dropdown instead of showing twice. */
+const BRAND_OPTION_HIDE = new Set([
+  'gpay',           // → Google Pay
+  'instamart',      // → Swiggy Instamart
+  'cult',           // → Cult.fit
+  'apollo',         // → Apollo Pharmacy
+  'booking',        // → Booking.com
+  'hotstar',        // → Disney+ Hotstar
+  'primevideo',     // → Amazon Prime
+  'appstore',       // → Apple App Store
+  'boatlifestyle',  // → boAt
+  'mi',             // → Xiaomi
+  'tata1mg',        // → 1mg
+]);
+
+/** Emoji for a category group header, mirroring the marketplace filter pills. */
+const CATEGORY_ICON = {
+  'E-Commerce': '🛒', 'Fashion': '👗', 'Beauty & Personal Care': '💄',
+  'Food & Delivery': '🍔', 'Travel & Transport': '✈️', 'Hotels & Stays': '🏨',
+  'Electronics & Gadgets': '📱', 'Gaming & Entertainment': '🎮',
+  'Fitness & Sports': '🏋️', 'Education': '📚', 'Health & Pharmacy': '💊',
+  'Finance & Payments': '💰', 'General': '🏠',
+};
+
+/** "urban ladder" → "Urban Ladder", leaving "1mg" and "levi's" alone. */
+function titleCaseBrand(name) {
+  return String(name).replace(/(^|\s)([a-z])/g, (m, sp, ch) => sp + ch.toUpperCase());
 }
 
+/** [{ name, category }], grouped in the order the categories first appear. */
+const BRAND_OPTIONS = (function buildBrandOptions() {
+  const squash = (s) => (typeof normBrandKey === 'function'
+    ? normBrandKey(s)
+    : String(s).toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+  const seen = new Set();
+  const groups = new Map();
+  for (const raw of Object.keys(BRAND_CATEGORY)) {
+    const key = squash(raw);
+    if (!key || seen.has(key) || BRAND_OPTION_HIDE.has(key)) continue;
+    seen.add(key);
+    const category = BRAND_CATEGORY[raw];
+    if (!groups.has(category)) groups.set(category, []);
+    groups.get(category).push(BRAND_DISPLAY_NAMES[key] || titleCaseBrand(raw));
+  }
+
+  const out = [];
+  for (const [category, names] of groups) {
+    names.sort((a, b) => a.localeCompare(b));
+    names.forEach((name) => out.push({ name, category }));
+  }
+  return out;
+})();
+
+/* ══════════════════════════════════════
+   BRAND PICKER (one per coupon card)
+══════════════════════════════════════ */
+
 /**
- * Live logo under the brand field — the logo alone, no brand text, matching how
- * the marketplace cards and the admin inventory table now show brands.
- * getBrandLogo (js/coupon-meta.js) matches on a squashed key, so free-typed
- * "zepto", "Zepto" and "ZEPTO" all resolve to the same file.
+ * The picker for one coupon card. The chosen brand lives in a hidden
+ * `brand-<id>` input, which is what every other function on this page reads, so
+ * swapping the old text box for this dropdown changed nothing downstream.
  */
-function updateBrandLogo(id) {
-  const box = document.getElementById('brand-logo-' + id);
-  const img = box && box.querySelector('img');
-  if (!img) return;
+function createBrandSelect(id) {
+  const group = document.createElement('div');
+  group.className = 'fgroup';
+  group.innerHTML = `
+    <label class="flabel" for="bsel-btn-${id}">Store / Brand <span class="frequired">*</span></label>
+    <input type="hidden" id="brand-${id}">
+    <div class="bsel" id="bsel-${id}">
+      <button type="button" class="bsel-btn" id="bsel-btn-${id}" aria-haspopup="listbox" aria-expanded="false">
+        <span class="bsel-val" id="bsel-val-${id}"></span>
+        <span class="bsel-arrow" aria-hidden="true">▼</span>
+      </button>
+      <div class="bsel-drop" id="bsel-drop-${id}">
+        <input type="text" class="bsel-search" id="bsel-search-${id}" placeholder="🔍 Search brand..." autocomplete="off">
+        <div id="bsel-list-${id}" role="listbox"></div>
+      </div>
+    </div>`;
 
+  const shell = group.querySelector('#bsel-' + id);
+  const btn = group.querySelector('#bsel-btn-' + id);
+  const search = group.querySelector('#bsel-search-' + id);
+
+  btn.addEventListener('click', () => {
+    const open = !shell.classList.contains('open');
+    document.querySelectorAll('.bsel.open').forEach((el) => el.classList.remove('open'));
+    shell.classList.toggle('open', open);
+    btn.setAttribute('aria-expanded', String(open));
+    if (open) {
+      search.value = '';
+      renderBrandOptions(id, '');
+      search.focus();
+    }
+  });
+
+  search.addEventListener('input', () => renderBrandOptions(id, search.value));
+  search.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    group.querySelector('.bsel-opt')?.click(); // top match
+  });
+
+  bindBrandSelectDismiss();
+  return group;
+}
+
+/* One document-level listener for every picker on the page: click outside or
+   press Escape to close. Registered on first use, never twice. */
+let brandDismissBound = false;
+function bindBrandSelectDismiss() {
+  if (brandDismissBound) return;
+  brandDismissBound = true;
+  const closeAll = (except) => {
+    document.querySelectorAll('.bsel.open').forEach((el) => {
+      if (except && el.contains(except)) return;
+      el.classList.remove('open');
+      el.querySelector('.bsel-btn')?.setAttribute('aria-expanded', 'false');
+    });
+  };
+  document.addEventListener('click', (e) => closeAll(e.target));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAll(null); });
+}
+
+/** Repaint the closed button: the logo alone, or an initial chip plus the name. */
+function renderBrandButton(id) {
+  const box = document.getElementById('bsel-val-' + id);
+  if (!box) return;
   const brand = (document.getElementById('brand-' + id)?.value || '').trim();
-  const url = brand && typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+  box.textContent = '';
 
-  if (!url) {
-    box.hidden = true;
-    img.removeAttribute('src');
+  if (!brand) {
+    box.appendChild(brandIcon('🏬'));
+    const ph = document.createElement('span');
+    ph.className = 'bsel-ph';
+    ph.textContent = '— Select Brand —';
+    box.appendChild(ph);
     return;
   }
-  // Only touch src when it actually changes, otherwise every keystroke restarts
-  // the download and the logo flickers.
-  if (img.getAttribute('src') !== url) {
-    img.alt = brand;
-    img.setAttribute('src', url);
-  }
-  // Dark-background treatment for the few logos that need it (coupon-meta.js).
-  img.className = typeof getBrandLogoClass === 'function' ? getBrandLogoClass(url) : '';
-  box.hidden = false;
+
+  document.getElementById('bsel-btn-' + id)?.setAttribute('title', brand);
+  const logo = brandLogoImg(brand, () => appendBrandNameFallback(box, brand));
+  if (logo) box.appendChild(logo);
+  else appendBrandNameFallback(box, brand);
 }
 
-/* ── Render a single coupon card ── */
+function appendBrandNameFallback(box, brand) {
+  box.appendChild(brandIcon(typeof getBrandInitial === 'function' ? getBrandInitial(brand) : '🏬'));
+  const name = document.createElement('span');
+  name.textContent = brand;
+  box.appendChild(name);
+}
+
+function brandIcon(text) {
+  const el = document.createElement('span');
+  el.className = 'bsel-ico';
+  el.textContent = text;
+  return el;
+}
+
+/**
+ * <img> for a brand, or null when no logo resolves. `onFail` runs if the file
+ * itself fails to load, so a dead logo degrades to the brand's initial.
+ * getBrandLogoClass adds the dark-background treatment (js/coupon-meta.js).
+ */
+function brandLogoImg(brand, onFail) {
+  const url = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+  if (!url) return null;
+  const img = document.createElement('img');
+  img.alt = brand;
+  img.className = typeof getBrandLogoClass === 'function' ? getBrandLogoClass(url) : '';
+  img.addEventListener('error', () => { img.remove(); if (onFail) onFail(); });
+  img.src = url;
+  return img;
+}
+
+/** Fill one picker's option list, filtered by the search box. */
+function renderBrandOptions(id, query) {
+  const list = document.getElementById('bsel-list-' + id);
+  if (!list) return;
+
+  const q = String(query || '').trim().toLowerCase();
+  const current = (document.getElementById('brand-' + id)?.value || '').trim();
+  const matches = q
+    ? BRAND_OPTIONS.filter((b) => b.name.toLowerCase().includes(q) || b.category.toLowerCase().includes(q))
+    : BRAND_OPTIONS;
+
+  list.textContent = '';
+  let group = '';
+  matches.forEach((b) => {
+    if (b.category !== group) {
+      group = b.category;
+      list.appendChild(brandOptGroup((CATEGORY_ICON[group] ? CATEGORY_ICON[group] + ' ' : '') + group));
+    }
+    list.appendChild(brandOption(id, b.name, b.name === current));
+  });
+
+  // A seller whose brand is not on the list can still send it through by hand:
+  // the marketplace only needs the name, and the logo and category fall back on
+  // their own. Without this the dropdown would be a dead end for them.
+  const typed = String(query || '').trim();
+  const exact = matches.some((b) => b.name.toLowerCase() === q);
+  if (typed && !exact) {
+    list.appendChild(brandOptGroup('Not listed'));
+    list.appendChild(brandOption(id, typed, typed === current, `Use “${typed}”`));
+  } else if (!matches.length) {
+    const empty = document.createElement('div');
+    empty.className = 'bsel-empty';
+    empty.textContent = 'No matching brand.';
+    list.appendChild(empty);
+  }
+}
+
+function brandOptGroup(text) {
+  const el = document.createElement('div');
+  el.className = 'bsel-group';
+  el.textContent = text;
+  return el;
+}
+
+function brandOption(id, brand, selected, labelText) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'bsel-opt' + (selected ? ' on' : '');
+  btn.setAttribute('role', 'option');
+  btn.setAttribute('aria-selected', String(!!selected));
+
+  const slot = document.createElement('span');
+  slot.className = 'bsel-opt-logo';
+  const logo = brandLogoImg(brand, () => { slot.textContent = '🏬'; });
+  if (logo) slot.appendChild(logo);
+  else slot.textContent = '🏬';
+
+  const label = document.createElement('span');
+  label.textContent = labelText || brand;
+
+  btn.appendChild(slot);
+  btn.appendChild(label);
+  btn.addEventListener('click', () => pickBrand(id, brand));
+  return btn;
+}
+
+/** Commit a choice: value, button, category chip, close. */
+function pickBrand(id, brand) {
+  const hidden = document.getElementById('brand-' + id);
+  if (hidden) hidden.value = brand;
+  renderBrandButton(id);
+  updateCategoryChip(id);
+  const shell = document.getElementById('bsel-' + id);
+  shell?.classList.remove('open');
+  document.getElementById('bsel-btn-' + id)?.setAttribute('aria-expanded', 'false');
+}
+
+/* ── Render a single coupon card ──
+   Same field set as the admin panel's Add Coupon form (vault.html), so a
+   seller-submitted listing arrives with everything an admin would have typed
+   and needs no follow-up before it can go live. Two fields are shown but
+   locked: the server forces source = user-submitted and status = pending, so
+   offering them as real inputs would be a lie. */
 function renderCouponCard(id, index) {
   const card = document.createElement('div');
   card.className = 'coupon-entry-card';
@@ -813,36 +1144,107 @@ function renderCouponCard(id, index) {
 
   card.appendChild(header);
 
-  // Fields
-  card.appendChild(createField('code-' + id, 'Coupon Code *', 'text', 'e.g. NYKAA200OFF', true, 'code', 'Enter the exact code as shown on your reward/voucher'));
-
-  const brandField = createField('brand-' + id, 'Brand / Platform *', 'text', 'e.g. Nykaa, PhonePe, Paytm', true);
-  card.appendChild(brandField);
-
-  // Logo-only confirmation of what the seller typed (see updateBrandLogo).
-  card.appendChild(createBrandLogoPreview(id));
+  // ── Store / Brand + derived category ──
+  card.appendChild(createBrandSelect(id));
 
   // Category is derived from the brand — shown read-only so the seller can
   // see where the coupon will be listed without having to choose anything.
   const chip = document.createElement('div');
   chip.className = 'cat-auto';
   chip.id = 'cat-chip-' + id;
-  chip.innerHTML = '<span>🏷️ Category:</span> <span class="cat-auto-val" id="cat-chip-val-' + id + '">type a brand above</span>';
+  chip.innerHTML = '<span>🏷️ Category:</span> <span class="cat-auto-val" id="cat-chip-val-' + id + '">pick a brand above</span>';
   card.appendChild(chip);
 
-  const brandInput = brandField.querySelector('input');
-  if (brandInput) {
-    brandInput.addEventListener('input', () => { updateCategoryChip(id); updateBrandLogo(id); });
-    brandInput.addEventListener('blur', () => { updateCategoryChip(id); updateBrandLogo(id); });
-  }
+  card.appendChild(makeField({
+    id: 'title-' + id, label: 'Coupon Title', required: true,
+    placeholder: 'e.g. 30% Off on Skincare',
+  }));
 
-  card.appendChild(createField('desc-' + id, 'What does the coupon offer?', 'text', 'e.g. ₹200 off on orders above ₹999'));
-  card.appendChild(createField('value-' + id, 'Coupon Face Value (₹)', 'number', 'e.g. 200'));
+  // ── Two-up rows for the short fields ──
+  card.appendChild(fieldRow(
+    makeField({
+      id: 'code-' + id, label: 'Coupon Code', required: true, extraClass: 'code',
+      placeholder: 'e.g. SAVE30',
+      hint: 'Exactly as it appears on your reward / voucher',
+    }),
+    makeField({
+      id: 'type-' + id, label: 'Coupon Type', kind: 'select', value: 'Discount',
+      options: [['Discount', 'Discount'], ['Cashback', 'Cashback'], ['BOGO', 'BOGO'], ['Free Delivery', 'Free Delivery']],
+    })
+  ));
+
+  card.appendChild(fieldRow(
+    makeField({
+      id: 'discount-' + id, label: 'Discount Value', required: true,
+      placeholder: 'e.g. 20% OFF or ₹500 OFF',
+    }),
+    // Price the coupon is listed at on the marketplace — seller-proposed and
+    // server-validated (1…100000), defaulting to the same ₹15 as the admin form.
+    // It is not the seller's payout, which is a flat ₹10 per verified coupon.
+    makeField({
+      id: 'price-' + id, label: 'Selling Price (₹)', type: 'number',
+      value: '15', placeholder: 'e.g. 15',
+      hint: 'What a buyer pays for it. You earn ₹10 per verified coupon.',
+    })
+  ));
+
+  card.appendChild(fieldRow(
+    makeField({
+      id: 'minorder-' + id, label: 'Minimum Order Value (₹)', type: 'number',
+      placeholder: 'e.g. 999',
+    }),
+    makeField({
+      id: 'value-' + id, label: 'Original Value / Max Discount (₹)', type: 'number',
+      placeholder: 'e.g. 500',
+    })
+  ));
+
+  card.appendChild(fieldRow(
+    makeField({ id: 'validfrom-' + id, label: 'Valid From', type: 'date' }),
+    makeField({
+      id: 'expiry-' + id, label: 'Expiry Date & Time', type: 'datetime-local', required: true,
+      min: toLocalDateTimeValue(minExpiryAt()),
+      hint: `Must stay valid at least ${MIN_EXPIRY_DAYS} days — so ${minExpiryText()} or later`,
+    })
+  ));
+
+  card.appendChild(fieldRow(
+    makeField({
+      id: 'source-' + id, label: 'Coupon Source', kind: 'select', disabled: true,
+      value: 'user-submitted', options: [['user-submitted', 'User Submitted']],
+      hint: 'Set automatically because you are selling this coupon',
+    }),
+    makeField({
+      id: 'status-' + id, label: 'Status', kind: 'select', disabled: true,
+      value: 'pending', options: [['pending', 'Pending review']],
+      hint: 'Goes live on the marketplace once our team verifies it',
+    })
+  ));
+
+  card.appendChild(makeField({
+    id: 'link-' + id, label: 'Affiliate Link (optional)', type: 'url',
+    placeholder: 'https://...',
+  }));
+
+  card.appendChild(makeField({
+    id: 'terms-' + id, label: 'Terms & Conditions', kind: 'textarea',
+    placeholder: 'e.g. Valid on orders above ₹999. One use per account. Not valid with other offers.',
+  }));
 
   // Screenshot / proof — one per coupon, last field in the card.
-  card.appendChild(createProofField(id));
+  if (PROOF_ENABLED) card.appendChild(createProofField(id));
 
+  renderBrandButton(id);
   return card;
+}
+
+/** Wrap two field groups into one two-column row (one column on a phone). */
+function fieldRow(left, right) {
+  const row = document.createElement('div');
+  row.className = 'fgrid';
+  row.appendChild(left);
+  row.appendChild(right);
+  return row;
 }
 
 /* ── Screenshot upload field (one per coupon card) ── */
@@ -954,29 +1356,76 @@ function fileToBase64(file) {
   });
 }
 
-function createField(id, labelText, type, placeholder, required = false, extraClass = '', hint = '') {
+/**
+ * One labelled form control. Takes a config object rather than positional
+ * arguments because the card now has fourteen fields across three control
+ * types, and `createField(id, label, 'text', ph, true, '', hint)` had become
+ * unreadable at the call site.
+ *
+ * @param {object} cfg
+ * @param {string} cfg.id           element id (also the label's `for`)
+ * @param {string} cfg.label        visible label, without the asterisk
+ * @param {'input'|'select'|'textarea'} [cfg.kind='input']
+ * @param {string} [cfg.type='text'] input type when kind is 'input'
+ * @param {string} [cfg.placeholder]
+ * @param {boolean} [cfg.required]  adds the red asterisk + the required attr
+ * @param {string} [cfg.value]      initial value / selected option
+ * @param {string} [cfg.min]        min attribute (dates, numbers)
+ * @param {boolean} [cfg.disabled]  greyed out and left out of form submission
+ * @param {boolean} [cfg.readOnly]  greyed out but still readable by collectCoupons
+ * @param {Array<[string,string]>} [cfg.options] [value, label] pairs for a select
+ * @param {string} [cfg.extraClass] extra class on the control
+ * @param {string} [cfg.hint]       small grey line under the control
+ */
+function makeField(cfg) {
   const group = document.createElement('div');
   group.className = 'fgroup';
 
   const label = document.createElement('label');
   label.className = 'flabel';
-  label.setAttribute('for', id);
-  label.textContent = labelText;
+  label.setAttribute('for', cfg.id);
+  label.textContent = cfg.label;
+  if (cfg.required) {
+    const star = document.createElement('span');
+    star.className = 'frequired';
+    star.textContent = '*';
+    label.append(' ', star);
+  }
   group.appendChild(label);
 
-  const input = document.createElement('input');
-  input.className = 'finput' + (extraClass ? ' ' + extraClass : '');
-  input.type = type;
-  input.id = id;
-  input.placeholder = placeholder;
-  if (required) input.required = true;
-  if (type === 'number') input.min = '0';
-  group.appendChild(input);
+  let control;
+  if (cfg.kind === 'select') {
+    control = document.createElement('select');
+    control.className = 'fselect' + (cfg.extraClass ? ' ' + cfg.extraClass : '');
+    (cfg.options || []).forEach(([value, text]) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = text;
+      control.appendChild(opt);
+    });
+  } else if (cfg.kind === 'textarea') {
+    control = document.createElement('textarea');
+    control.className = 'ftextarea' + (cfg.extraClass ? ' ' + cfg.extraClass : '');
+  } else {
+    control = document.createElement('input');
+    control.className = 'finput' + (cfg.extraClass ? ' ' + cfg.extraClass : '');
+    control.type = cfg.type || 'text';
+    if ((cfg.type || 'text') === 'number' && cfg.min === undefined) control.min = '0';
+  }
 
-  if (hint) {
+  control.id = cfg.id;
+  if (cfg.placeholder && cfg.kind !== 'select') control.placeholder = cfg.placeholder;
+  if (cfg.value !== undefined) control.value = cfg.value;
+  if (cfg.min !== undefined) control.min = cfg.min;
+  if (cfg.required) control.required = true;
+  if (cfg.readOnly) control.readOnly = true;
+  if (cfg.disabled) control.disabled = true;
+  group.appendChild(control);
+
+  if (cfg.hint) {
     const hintEl = document.createElement('span');
     hintEl.className = 'fhint';
-    hintEl.textContent = hint;
+    hintEl.textContent = cfg.hint;
     group.appendChild(hintEl);
   }
 
@@ -1043,15 +1492,25 @@ function updateAddButton() {
 
 /* ── Collect all coupon data ── */
 function collectCoupons() {
+  const val = (prefix, id) => (document.getElementById(prefix + '-' + id)?.value || '').trim();
+
   return couponIds.map(id => {
-    const brand = (document.getElementById('brand-' + id)?.value || '').trim();
+    const brand = val('brand', id);
     return {
       id,
-      code: (document.getElementById('code-' + id)?.value || '').trim().toUpperCase(),
       brand,
       category: deriveCategory(brand),
-      description: (document.getElementById('desc-' + id)?.value || '').trim(),
-      faceValue: (document.getElementById('value-' + id)?.value || '').trim(),
+      title: val('title', id),
+      code: val('code', id).toUpperCase(),
+      type: val('type', id),
+      discount: val('discount', id),
+      sellingPrice: val('price', id),
+      minOrderValue: val('minorder', id),
+      faceValue: val('value', id),
+      validFrom: val('validfrom', id),
+      expiryDate: val('expiry', id),
+      affiliateLink: val('link', id),
+      terms: val('terms', id),
       proofFile: proofFiles[id] || null
     };
   });
@@ -1064,22 +1523,58 @@ function validateCoupons() {
     showToast('Please add at least one coupon.', 'warning');
     return false;
   }
+
+  // Recomputed per submission attempt rather than reused from the `min`
+  // attribute set at render time, so a form left open for an hour is still
+  // measured against "10 days from now", not "10 days from when it loaded".
+  const floor = minExpiryAt();
+
   for (let i = 0; i < coupons.length; i++) {
     const c = coupons[i];
-    if (!c.code) {
-      showToast('Coupon ' + (i + 1) + ': Coupon Code is required.', 'warning');
-      document.getElementById('code-' + c.id)?.focus();
+    const n = i + 1;
+    const fail = (msg, fieldId) => {
+      showToast('Coupon ' + n + ': ' + msg, 'warning');
+      const el = fieldId && document.getElementById(fieldId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.focus?.();
+      }
       return false;
+    };
+
+    if (!c.brand) return fail('please pick a Store / Brand.', 'bsel-btn-' + c.id);
+    if (!c.title) return fail('Coupon Title is required.', 'title-' + c.id);
+    if (!c.code) return fail('Coupon Code is required.', 'code-' + c.id);
+    if (!c.discount) return fail('Discount Value is required.', 'discount-' + c.id);
+
+    const price = Number(c.sellingPrice);
+    if (!c.sellingPrice || !Number.isFinite(price) || price <= 0 || price > 100000) {
+      return fail('Selling Price must be between ₹1 and ₹100000.', 'price-' + c.id);
     }
-    if (!c.brand) {
-      showToast('Coupon ' + (i + 1) + ': Brand / Platform is required.', 'warning');
-      document.getElementById('brand-' + c.id)?.focus();
-      return false;
+
+    if (!c.expiryDate) return fail('Expiry Date & Time is required.', 'expiry-' + c.id);
+    const expiryAt = Date.parse(c.expiryDate);
+    if (!Number.isFinite(expiryAt)) return fail('Expiry Date & Time is not a valid date.', 'expiry-' + c.id);
+    if (expiryAt < floor) {
+      return fail(
+        `the coupon must stay valid at least ${MIN_EXPIRY_DAYS} days — set the expiry to ${minExpiryText()} or later.`,
+        'expiry-' + c.id
+      );
     }
-    if (!c.proofFile) {
-      showToast('Coupon ' + (i + 1) + ': please attach a screenshot of the coupon.', 'warning');
-      document.getElementById('dropzone-' + c.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      return false;
+
+    // Date-only value, so compare against the start of the expiry's day.
+    if (c.validFrom) {
+      const fromAt = Date.parse(c.validFrom);
+      if (!Number.isFinite(fromAt)) return fail('Valid From is not a valid date.', 'validfrom-' + c.id);
+      if (fromAt > expiryAt) return fail('Valid From is after the expiry date.', 'validfrom-' + c.id);
+    }
+
+    if (c.affiliateLink && !/^https?:\/\/\S+$/i.test(c.affiliateLink)) {
+      return fail('the affiliate link must start with http:// or https://.', 'link-' + c.id);
+    }
+
+    if (PROOF_ENABLED && !c.proofFile) {
+      return fail('please attach a screenshot of the coupon.', 'dropzone-' + c.id);
     }
   }
 
@@ -1095,6 +1590,17 @@ function validateCoupons() {
     seen[code] = i + 1;
   }
   return true;
+}
+
+/** Turn a date / datetime-local field value into readable local text. */
+function formatReviewDate(raw) {
+  const t = Date.parse(raw);
+  if (!Number.isFinite(t)) return raw;
+  const hasTime = String(raw).includes('T');
+  return new Date(t).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    ...(hasTime ? { hour: '2-digit', minute: '2-digit' } : {}),
+  });
 }
 
 /* ── Build review summary ── */
@@ -1113,13 +1619,21 @@ function buildReviewSummary() {
     block.appendChild(title);
 
     const rows = [
-      ['Brand / Platform', c.brand],
+      ['Store / Brand', c.brand],
       ['Category (auto)', c.category || '—'],
+      ['Coupon Title', c.title || '—'],
       ['Coupon Code', c.code],
-      ['Description', c.description || '—'],
-      ['Face Value', c.faceValue ? '₹' + c.faceValue : '—'],
-      ['Screenshot', c.proofFile ? c.proofFile.name : '— missing —']
+      ['Coupon Type', c.type || '—'],
+      ['Discount Value', c.discount || '—'],
+      ['Selling Price', c.sellingPrice ? '₹' + c.sellingPrice : '—'],
+      ['Minimum Order', c.minOrderValue ? '₹' + c.minOrderValue : '—'],
+      ['Original Value / Max Discount', c.faceValue ? '₹' + c.faceValue : '—'],
+      ['Valid From', c.validFrom ? formatReviewDate(c.validFrom) : '—'],
+      ['Expiry', c.expiryDate ? formatReviewDate(c.expiryDate) : '—'],
+      ['Affiliate Link', c.affiliateLink || '—'],
+      ['Terms & Conditions', c.terms || '—'],
     ];
+    if (PROOF_ENABLED) rows.push(['Screenshot', c.proofFile ? c.proofFile.name : '— missing —']);
 
     rows.forEach(([key, val]) => {
       const row = document.createElement('div');
@@ -1208,40 +1722,46 @@ async function submitCoupons() {
 
   // 1. Upload each coupon's screenshot to Drive and collect its drive:<id> token.
   //    Uploaded one at a time so a 3MB × 5 batch cannot blow up the request.
+  //    Skipped entirely while PROOF_ENABLED is false.
   const proofUrls = [];
-  for (let i = 0; i < coupons.length; i++) {
-    const c = coupons[i];
-    if (!c.proofFile) {
-      showToast('Coupon ' + (i + 1) + ': screenshot is missing.', 'error');
-      restoreBtn();
-      return;
-    }
-    btn.textContent = count > 1
-      ? `⏳ Uploading screenshot ${i + 1}/${count}...`
-      : '⏳ Uploading screenshot...';
-    try {
-      const dataBase64 = await fileToBase64(c.proofFile);
-      const upload = await api('/coupons/proof', {
-        method: 'POST',
-        body: { filename: c.proofFile.name, contentType: c.proofFile.type, dataBase64 }
-      });
-      const url = (upload && upload.url) || '';
-      if (!url) throw new Error('Upload did not return a file reference.');
-      proofUrls.push(url);
-    } catch (err) {
-      showToast(
-        'Coupon ' + (i + 1) + ': screenshot upload failed — ' + (err.message || 'please try again.'),
-        'error'
-      );
-      restoreBtn();
-      return;
+  if (PROOF_ENABLED) {
+    for (let i = 0; i < coupons.length; i++) {
+      const c = coupons[i];
+      if (!c.proofFile) {
+        showToast('Coupon ' + (i + 1) + ': screenshot is missing.', 'error');
+        restoreBtn();
+        return;
+      }
+      btn.textContent = count > 1
+        ? `⏳ Uploading screenshot ${i + 1}/${count}...`
+        : '⏳ Uploading screenshot...';
+      try {
+        const dataBase64 = await fileToBase64(c.proofFile);
+        const upload = await api('/coupons/proof', {
+          method: 'POST',
+          body: { filename: c.proofFile.name, contentType: c.proofFile.type, dataBase64 }
+        });
+        const url = (upload && upload.url) || '';
+        if (!url) throw new Error('Upload did not return a file reference.');
+        proofUrls.push(url);
+      } catch (err) {
+        showToast(
+          'Coupon ' + (i + 1) + ': screenshot upload failed — ' + (err.message || 'please try again.'),
+          'error'
+        );
+        restoreBtn();
+        return;
+      }
     }
   }
 
   // 2. Submit the coupons. The shared `category` keeps older server builds
   //    happy; each coupon also carries its own derived category + proof.
+  //    Blank optional fields are sent as undefined so JSON.stringify drops them
+  //    and the server keeps its own defaults instead of writing empty strings.
   btn.textContent = '⏳ Submitting...';
   try {
+    const orNone = (v) => (v ? v : undefined);
     const data = await api('/coupons/submit', {
       method: 'POST',
       body: {
@@ -1251,8 +1771,19 @@ async function submitCoupons() {
           code: c.code,
           brand: c.brand,
           category: c.category || FALLBACK_CATEGORY,
-          description: c.description || undefined,
+          title: orNone(c.title),
+          // The server stores `description` and falls back to the title when it
+          // is blank; this form has no separate description field.
+          description: orNone(c.title),
+          type: orNone(c.type),
+          discount: orNone(c.discount),
+          sellingPrice: c.sellingPrice ? Number(c.sellingPrice) : undefined,
+          minOrderValue: orNone(c.minOrderValue),
           faceValue: c.faceValue ? Number(c.faceValue) : undefined,
+          validFrom: orNone(c.validFrom),
+          expiryDate: orNone(c.expiryDate),
+          affiliateLink: orNone(c.affiliateLink),
+          terms: orNone(c.terms),
           proofUrl: proofUrls[i]
         }))
       }

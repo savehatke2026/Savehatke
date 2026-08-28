@@ -1190,8 +1190,9 @@
         <input type="text" class="form-inp" id="scDiscount" placeholder="e.g. 30% OFF">
       </div>
       <div class="form-grp">
-        <label class="form-lbl">Expiry Date</label>
+        <label class="form-lbl">Expiry Date *</label>
         <input type="date" class="form-inp" id="scExpiry">
+        <div style="font-size:.72rem;color:#6b88aa;margin-top:6px">At least 10 days from today</div>
       </div>
     </div>
     <div style="font-size:.76rem;color:#6b88aa;margin-bottom:4px">📝 Your coupon will be reviewed by our team. Once approved and sold, ₹10 will be added to your wallet.</div>
@@ -2243,6 +2244,13 @@
 
   // ─── Modal functions ───────────────────────────────────────────
   function openModal(id) {
+    // Recomputed each time the coupon modal opens: the floor is "10 days from
+    // now", and a dashboard left open overnight would otherwise offer a date the
+    // server has since started rejecting.
+    if (id === 'submitCouponModal') {
+      const el = document.getElementById('scExpiry');
+      if (el) el.min = minCouponExpiryDate();
+    }
     document.getElementById(id)?.classList.add('open');
   }
 
@@ -2306,6 +2314,19 @@
     showToast(`Withdrawal of ${inr(amount)} requested! Our team will process it within 1–3 business days.`, 'success', 5000);
   }
 
+  /* ── Minimum shelf life ──
+     POST /api/coupons/sell refuses a coupon that is not still valid at least
+     MIN_COUPON_EXPIRY_DAYS out, so the modal enforces the same rule rather than
+     letting the seller find out through a 400. Same number as the sell page. */
+  const MIN_COUPON_EXPIRY_DAYS = 10;
+
+  /** Earliest acceptable expiry as a <input type="date"> value (local time). */
+  function minCouponExpiryDate() {
+    const d = new Date(Date.now() + MIN_COUPON_EXPIRY_DAYS * 24 * 60 * 60 * 1000);
+    const p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
   async function submitCoupon() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
     const brand = (document.getElementById('scBrand')?.value || '').trim();
@@ -2319,6 +2340,20 @@
     if (!code) { showToast('Please enter the coupon code.', 'error'); return; }
     if (!category) { showToast('Please select a category.', 'error'); return; }
     if (!faceValue || Number(faceValue) <= 0) { showToast('Please enter a valid face value.', 'error'); return; }
+
+    const minExpiry = minCouponExpiryDate();
+    if (!expiry) {
+      showToast(`Please set an expiry date — ${minExpiry} or later.`, 'error');
+      return;
+    }
+    // Both values are YYYY-MM-DD, so a string compare is a date compare.
+    if (expiry < minExpiry) {
+      showToast(
+        `The coupon must stay valid at least ${MIN_COUPON_EXPIRY_DAYS} days — set the expiry to ${minExpiry} or later.`,
+        'error'
+      );
+      return;
+    }
 
     const btn = document.getElementById('scSubmitBtn');
     const origText = btn.textContent;
