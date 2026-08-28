@@ -370,6 +370,41 @@ function initNavigation() {
 
   // Update nav for auth state
   updateNavAuth();
+
+  // The cached user is a snapshot from login time, so an account suspended by
+  // an admin afterwards would still show "Active" in the profile box. Re-read
+  // the live status and re-render if it moved.
+  refreshAccountStatus();
+}
+
+/**
+ * Pull the live account status from /auth/me into the cached user so the
+ * profile box tag (Active / Suspended) reflects admin action without needing
+ * the user to sign out and back in. Silent on failure — a transient network
+ * error must never blank out the nav.
+ */
+async function refreshAccountStatus() {
+  if (!Auth.isLoggedIn()) return;
+  try {
+    const data = await api('/auth/me');
+    const fresh = (data && data.user) || {};
+    if (!fresh.status) return;
+
+    const cached = Auth.getUser() || {};
+    const before = String(cached.status || 'active').toLowerCase();
+    const after = String(fresh.status).toLowerCase();
+    if (before === after) return;
+
+    const merged = { ...cached, status: after };
+    if (fresh.suspendReason) merged.suspendReason = fresh.suspendReason;
+    else delete merged.suspendReason;
+
+    Auth.setAuth(Auth.getToken(), merged);
+    updateNavAuth(); // re-render the profile box with the new status tag
+  } catch (e) {
+    // Not signed in any more, or the endpoint is unreachable — leave the
+    // cached view alone rather than guessing.
+  }
 }
 
 // Navbar profile box styles — injected once so the avatar + dropdown render

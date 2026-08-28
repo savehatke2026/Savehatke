@@ -840,6 +840,19 @@ router.get('/google-config', (req, res) => {
 // OAuth handoff page â€” stores auth state and redirects immediately.
 // Renders no visible "logging in" window: just the site background and the
 // same top progress bar every page shows, so the hop reads as a page load.
+// Google hands us the account's own avatar URL in the ID token. Persisting it
+// is what lets the admin panel show the real Gmail profile photo next to an
+// email address instead of guessing one from a third-party avatar service.
+//
+// It is re-written on every Google login because Google rotates these URLs,
+// and it is only written when Google actually sent one -- a Google account
+// with no photo, or a later email-OTP login, must never blank a photo we
+// already have on file.
+function googlePictureFields(picture) {
+  const url = String(picture || '').trim();
+  return url ? { profile_picture: url } : {};
+}
+
 function sendAuthHandoff(res, innerScript) {
   res.setHeader('Content-Type', 'text/html');
   res.send(`<!DOCTYPE html>
@@ -1003,6 +1016,7 @@ router.post('/google-redirect', async (req, res) => {
         db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
           last_login_at: now,
           updated_at: now,
+          ...googlePictureFields(userPicture),
         }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
       } else {
         const userId = uuidv4();
@@ -1014,6 +1028,7 @@ router.post('/google-redirect', async (req, res) => {
           username: userEmail.split('@')[0],
           email: userEmail,
           status: 'active',
+          ...googlePictureFields(userPicture),
           created_at: now,
           updated_at: now,
           last_login_at: now,
@@ -1025,6 +1040,7 @@ router.post('/google-redirect', async (req, res) => {
       db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
         last_login_at: now,
         updated_at: now,
+        ...googlePictureFields(userPicture),
       }).catch((e) => console.warn('GSheet update notice:', e.message));
     }
 
@@ -1146,6 +1162,7 @@ router.post('/google', async (req, res) => {
         db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
           last_login_at: now,
           updated_at: now,
+          ...googlePictureFields(userPicture),
         }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
       } else {
         const userId = uuidv4();
@@ -1157,6 +1174,7 @@ router.post('/google', async (req, res) => {
           username: userEmail.split('@')[0],
           email: userEmail,
           status: 'active',
+          ...googlePictureFields(userPicture),
           created_at: now,
           updated_at: now,
           last_login_at: now,
@@ -1168,6 +1186,7 @@ router.post('/google', async (req, res) => {
       db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
         last_login_at: now,
         updated_at: now,
+        ...googlePictureFields(userPicture),
       }).catch((e) => console.warn('GSheet update notice:', e.message));
     }
 
@@ -1395,7 +1414,40 @@ router.all('/session-cleanup', async (req, res) => {
 // GET /api/auth/me
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    res.json({ user: { id: req.user.id, email: req.user.email, name: req.user.name, role: req.user.role } });
+    // The JWT is issued at login and never changes, so the account status has
+    // to be read live — otherwise an admin suspending the account is invisible
+    // to the logged-in browser until the user signs out and back in.
+    let status = 'active';
+    let suspendReason = '';
+    try {
+      let row = null;
+      if (req.user.id) {
+        row = await db.findRow(db.SHEETS.USERS, 'user_id', req.user.id)
+          || await db.findRow(db.SHEETS.USERS, 'id', req.user.id);
+      }
+      if (!row && req.user.email) {
+        row = await db.findRow(db.SHEETS.USERS, 'email', String(req.user.email).toLowerCase().trim());
+      }
+      if (row) {
+        status = String(row.status || 'active').toLowerCase();
+        if (status !== 'active') suspendReason = String(row.suspend_reason || '');
+      }
+    } catch (e) {
+      // Sheet unreachable — fall back to 'active' rather than locking the user
+      // out of their own dashboard on a transient read failure.
+      console.warn('[auth/me] account status lookup failed:', e.message);
+    }
+
+    res.json({
+      user: {
+        id: req.user.id,
+        email: req.user.email,
+        name: req.user.name,
+        role: req.user.role,
+        status,
+        ...(suspendReason ? { suspendReason } : {}),
+      },
+    });
   } catch (err) {
     console.error('Profile error:', err);
     res.status(500).json({ error: 'Internal server error.' });
