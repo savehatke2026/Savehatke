@@ -426,6 +426,41 @@
     .mc-chip{padding:5px 12px;border-radius:9999px;font-size:.74rem;font-weight:600;background:rgba(79,195,247,.08);color:#a8c0dc;border:1px solid rgba(79,195,247,.15);cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;white-space:nowrap}
     .mc-chip:hover{background:rgba(79,195,247,.14);color:#e2ecff}
     .mc-chip.active{background:rgba(0,230,118,.12);color:#00e676;border-color:rgba(0,230,118,.4)}
+
+/* ── Purchased Coupons view ── */
+/* Three equal stat tiles above the card, so the card itself only wraps its
+   own content instead of stretching into a tall empty container. */
+.pc-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.pc-card{padding-bottom:18px}
+.pc-tabs{display:flex;gap:6px;margin:0 0 16px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.pc-tabs::-webkit-scrollbar{display:none}
+.pc-tabs .mc-chip{flex:0 0 auto;white-space:nowrap}
+.pc-empty{text-align:center;padding:44px 20px 40px;color:#6b88aa}
+.pc-empty-ico{font-size:2.9rem;line-height:1;margin-bottom:14px}
+.pc-empty-title{font-size:1.05rem;font-weight:700;color:#e2ecff;margin-bottom:8px}
+.pc-empty-sub{font-size:.87rem;line-height:1.65;max-width:320px;margin:0 auto 20px}
+@media(max-width:640px){
+  .pc-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pc-empty{padding:34px 14px 30px}
+}
+@media(max-width:400px){
+  .pc-stats{grid-template-columns:1fr}
+}
+
+/* ── Wallet view: one column, content-height, no duplicated stats panel ── */
+.wallet-wrap{display:flex;flex-direction:column;gap:16px;max-width:560px;margin-bottom:20px}
+.wallet-section{margin-bottom:20px}
+.wallet-section-lbl{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px}
+.wallet-payouts{border-top:1px solid rgba(79,195,247,.08);padding-top:16px}
+.wallet-payout-empty{font-size:.8rem;color:#6b88aa;line-height:1.55;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;padding:11px 13px;margin-bottom:10px}
+.wallet-info{background:rgba(0,230,118,.04);border-color:rgba(0,230,118,.14)}
+.wallet-info-title{font-size:.88rem;font-weight:700;color:#e2ecff;margin-bottom:7px}
+.wallet-info-text{font-size:.83rem;color:#a8c0dc;line-height:1.7;margin:0}
+@media(max-width:640px){
+  .wallet-wrap{max-width:none}
+  .wallet-btns{flex-direction:column}
+  .wallet-btns .btn{width:100%}
+}
     .sb-sep{height:1px;background:rgba(79,195,247,.08);margin:8px 10px}
     .sb-item-logout{color:#ef9a9a}
     .sb-item-logout:hover{background:rgba(239,154,154,.08);color:#ff8585}
@@ -760,53 +795,45 @@
 
       <div class="view-hdr">
         <div>
-          <div class="view-title">My <span class="gtext">Coupons</span></div>
-          <div class="view-subtitle">All your purchased and submitted coupons</div>
+          <div class="view-title">Purchased <span class="gtext">Coupons</span></div>
+          <div class="view-subtitle">Manage and access your purchased coupon codes.</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
-          <button class="btn btn-primary btn-sm" onclick="openModal('submitCouponModal')">📤 Submit Coupon</button>
+          <a href="marketplace" class="btn btn-primary btn-sm">＋ Browse Coupons</a>
         </div>
       </div>
 
-      <div class="card" id="my-coupons">
+      <!-- Buyer-only stats: three equal tiles, no Pending/Sold (those are seller state) -->
+      <div class="pc-stats">
+        <div class="cs-item">
+          <div class="cs-num" style="color:#00e676" id="csAvailableCount">0</div>
+          <div class="cs-lbl">Available</div>
+        </div>
+        <div class="cs-item">
+          <div class="cs-num" style="color:#80cbc4" id="csUsedCount">0</div>
+          <div class="cs-lbl">Used</div>
+        </div>
+        <div class="cs-item">
+          <div class="cs-num" style="color:#6b88aa" id="csExpiredCount">0</div>
+          <div class="cs-lbl">Expired</div>
+        </div>
+      </div>
+
+      <div class="card pc-card" id="my-coupons">
         <div class="card-hdr">
-          <div class="card-title"><span class="ico">🎟️</span> My Coupons</div>
-          <a href="marketplace" class="btn btn-ghost btn-sm">Buy More</a>
+          <div class="card-title"><span class="ico">🎟️</span> Coupon Overview</div>
         </div>
 
-        <div class="cs-grid">
-          <div class="cs-item">
-            <div class="cs-num" style="color:#00e676" id="csActiveCount">0</div>
-            <div class="cs-lbl">Active</div>
-          </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#ffb74d" id="csPendingCount">0</div>
-            <div class="cs-lbl">Pending</div>
-          </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#ce93d8" id="csSoldCount">0</div>
-            <div class="cs-lbl">Sold</div>
-          </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#6b88aa" id="csExpiredCount">0</div>
-            <div class="cs-lbl">Expired</div>
-          </div>
-        </div>
-
-        <!-- Filter chips (driven by the sidebar sub-item selection) -->
-        <div id="mcFilterChips" style="display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 6px">
+        <!-- Buyer filters only — seller views live under My Sales -->
+        <div id="mcFilterChips" class="pc-tabs">
           <button class="mc-chip active" data-filter="all" onclick="setMcFilter('all')">All</button>
-          <button class="mc-chip" data-filter="active-purchases" onclick="setMcFilter('active-purchases')">Active Coupons</button>
-          <button class="mc-chip" data-filter="used-expired" onclick="setMcFilter('used-expired')">Used / Expired</button>
+          <button class="mc-chip" data-filter="available" onclick="setMcFilter('available')">Available</button>
+          <button class="mc-chip" data-filter="used" onclick="setMcFilter('used')">Used</button>
+          <button class="mc-chip" data-filter="expired" onclick="setMcFilter('expired')">Expired</button>
           <button class="mc-chip" data-filter="purchase-history" onclick="setMcFilter('purchase-history')">Purchase History</button>
-          <button class="mc-chip" data-filter="active-listings" onclick="setMcFilter('active-listings')">Active Listings</button>
-          <button class="mc-chip" data-filter="sold" onclick="setMcFilter('sold')">Sold Coupons</button>
         </div>
 
-        <div style="margin-top:4px">
-          <div id="myCouponsList"></div>
-        </div>
+        <div id="myCouponsList"></div>
       </div>
 
     </div><!-- /container -->
@@ -821,64 +848,46 @@
       <div class="view-hdr">
         <div>
           <div class="view-title">My <span class="gtext">Wallet</span></div>
-          <div class="view-subtitle">Your earnings, balance, and withdrawal history</div>
+          <div class="view-subtitle">Your earnings, balance, and withdrawal history.</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
           <button class="btn btn-primary btn-sm" onclick="openModal('withdrawModal')">💸 Withdraw</button>
         </div>
       </div>
 
-      <div class="two-col">
-
-        <!-- Left: Balance + Actions -->
+      <!-- One wallet card: balance, quick actions, payout history -->
+      <div class="wallet-wrap">
         <div class="card" id="wallet">
           <div class="card-hdr">
             <div class="card-title"><span class="ico">💰</span> Wallet</div>
-            <span class="badge badge-green">Active</span>
           </div>
+
           <div class="wallet-bal" id="walletBalance">₹0</div>
           <div class="wallet-sub">Available balance</div>
-          <div style="margin-bottom:20px">
-            <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Quick Actions</div>
+
+          <div class="wallet-section">
+            <div class="wallet-section-lbl">Quick Actions</div>
             <div class="wallet-btns">
-              <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showToast('Transaction history coming soon!','warn')">Transactions</button>
+              <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showView('payouts')">View Transactions</button>
               <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('withdrawModal')">💸 Withdraw</button>
             </div>
           </div>
-          <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Payout History</div>
-          <button class="btn btn-ghost btn-sm btn-full" onclick="showView('payouts')">💸 View All Payouts →</button>
-        </div>
 
-        <!-- Right: Wallet Stats -->
-        <div class="card">
-          <div class="card-hdr">
-            <div class="card-title"><span class="ico">📊</span> Wallet Stats</div>
-          </div>
-          <div class="wallet-stats">
-            <div class="ws-row">
-              <div class="ws-lbl">Pending</div>
-              <div class="ws-val" style="color:#ffb74d" id="walletPending">₹0</div>
-            </div>
-            <div class="ws-row">
-              <div class="ws-lbl">Total Earned</div>
-              <div class="ws-val" style="color:#00e676" id="walletEarned">₹0</div>
-            </div>
-            <div class="ws-row">
-              <div class="ws-lbl">Withdrawn</div>
-              <div class="ws-val" id="walletWithdrawn">₹0</div>
-            </div>
-            <div class="ws-row">
-              <div class="ws-lbl">This Month</div>
-              <div class="ws-val" style="color:#80cbc4" id="walletThisMonth">₹0</div>
-            </div>
-          </div>
-          <div style="margin-top:8px;padding:14px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.12);border-radius:10px">
-            <div style="font-size:.74rem;color:#6b88aa;margin-bottom:6px">How earnings work</div>
-            <div style="font-size:.82rem;color:#a8c0dc;line-height:1.6">You earn <strong style="color:#00e676">₹10</strong> for every coupon you submit that gets sold on the marketplace. Payouts are processed within 1–3 business days.</div>
+          <div class="wallet-payouts">
+            <div class="wallet-section-lbl">Payout History</div>
+            <div id="walletPayoutPreview" class="wallet-payout-empty">No payouts yet — your earnings will appear here once a coupon sells.</div>
+            <button class="btn btn-ghost btn-sm btn-full" onclick="showView('payouts')">View All Payouts →</button>
           </div>
         </div>
 
+        <!-- Earnings explainer. Deliberately amount-free: payouts vary per coupon. -->
+        <div class="card wallet-info">
+          <div class="wallet-info-title">💡 How your earnings work</div>
+          <p class="wallet-info-text">
+            Earn money when your submitted coupons are successfully sold on the SaveHatke marketplace.
+            Your payout amount may vary depending on the coupon and applicable terms.
+          </p>
+        </div>
       </div>
 
     </div><!-- /container -->
@@ -1538,13 +1547,22 @@
   }
 
   function renderMyCoupons() {
-    const sales = STATE.sales;
     const purchases = STATE.purchases;
 
-    const active = purchases
+    // Strictly buyer-side. Seller state (pending review, listed, sold) belongs
+    // to My Sales and is deliberately not read here.
+    const now = Date.now();
+    const isExpiredBuy = (c) => {
+      if (!c.expiryDate) return false;
+      const t = new Date(c.expiryDate).getTime();
+      return !isNaN(t) && t < now;
+    };
+    const isUsedBuy = (c) => Boolean(c.usedAt || c.used || c.redeemedAt);
+
+    const bought = purchases
       .filter((c) => c.code)
       .map((c) => ({
-        kind: 'purchased',
+        kind: isUsedBuy(c) ? 'used' : (isExpiredBuy(c) ? 'expired' : 'purchased'),
         brand: c.brand || 'Coupon',
         code: c.code,
         value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.description || ''),
@@ -1552,78 +1570,51 @@
         addedAt: c.purchasedAt || c.soldAt || c.addedAt,
       }));
 
-    const pending = sales.filter(isPending).map((c) => ({
-      kind: 'pending',
-      brand: c.brand || 'Coupon',
-      code: c.code,
-      value: c.description || c.discount || c.category || 'Awaiting review',
-      exp: c.expiryDate || '',
-      addedAt: c.addedAt,
-    }));
+    const availableList = bought.filter((c) => c.kind === 'purchased');
+    const usedList = bought.filter((c) => c.kind === 'used');
+    const expiredList = bought.filter((c) => c.kind === 'expired');
 
-    const sold = sales.filter(isSold).map((c) => ({
-      kind: 'sold',
-      brand: c.brand || 'Coupon',
-      code: c.code,
-      value: '+₹10 earned',
-      exp: c.soldAt || c.addedAt,
-      addedAt: c.soldAt || c.addedAt,
-    }));
+    // Counter tiles — Available / Used / Expired
+    setText('csAvailableCount', availableList.length);
+    setText('csUsedCount', usedList.length);
+    setText('csExpiredCount', expiredList.length);
 
-    // Counter tiles
-    setText('csActiveCount', active.length);
-    setText('csPendingCount', pending.length);
-    setText('csSoldCount', sold.length);
-    setText('csExpiredCount', 0); // backend doesn't track expiry
-
-    // ── Apply the active sub-filter (driven by the sidebar sub-items) ──
-    const filter = (window.MC_FILTER || 'all');
+    // ── Apply the active buyer filter ──
+    // The sidebar stays untouched by request, so its older sub-filter values
+    // are mapped onto the buyer tabs here instead of being dropped:
+    //   active-purchases -> available,  used-expired -> used + expired,
+    //   active-listings / sold (seller views) -> All.
+    const filter = normalizeMcFilter(window.MC_FILTER);
     let list;
     let emptyMessage = 'No coupons yet';
-    let emptyHint = 'Buy a coupon from the marketplace or submit one to sell.';
-    let emptyActions = `
-      <a href="marketplace" class="btn btn-ghost btn-xs">🛒 Buy</a>
-      <button class="btn btn-primary btn-xs" onclick="openModal('submitCouponModal')">📤 Submit</button>
-    `;
+    let emptyHint = 'When you purchase a coupon, it will appear here ready to use.';
+    let emptyActions = '<a href="marketplace" class="btn btn-primary btn-sm">Browse Coupons</a>';
 
-    if (filter === 'all') {
-      list = [...active, ...sold, ...pending];
-    } else if (filter === 'active-purchases') {
-      list = active;
-      emptyMessage = 'No active coupons';
-      emptyHint = 'Coupons you buy will show up here, ready to use.';
-      emptyActions = '<a href="marketplace" class="btn btn-primary btn-xs">🛒 Browse Marketplace</a>';
+    if (filter === 'available') {
+      list = availableList;
+      emptyMessage = 'No available coupons';
+      emptyHint = 'Coupons you buy show up here, ready to use.';
+    } else if (filter === 'used') {
+      list = usedList;
+      emptyMessage = 'No used coupons';
+      emptyHint = 'Once you mark a coupon as used, it will appear here.';
+      emptyActions = '';
+    } else if (filter === 'expired') {
+      list = expiredList;
+      emptyMessage = 'No expired coupons';
+      emptyHint = 'Coupons past their expiry date will appear here.';
+      emptyActions = '';
     } else if (filter === 'used-expired') {
-      // Backend doesn't currently track used/expired — empty state explains this
-      list = [];
+      list = [...usedList, ...expiredList];
       emptyMessage = 'No used or expired coupons';
-      emptyHint = 'Once a coupon expires or is marked as used, it will appear here.';
+      emptyHint = 'Coupons you have used, or that passed their expiry date, appear here.';
       emptyActions = '';
     } else if (filter === 'purchase-history') {
-      list = active;
+      list = bought;
       emptyMessage = 'No purchases yet';
       emptyHint = 'Your full purchase history will appear here.';
-      emptyActions = '<a href="marketplace" class="btn btn-primary btn-xs">🛒 Browse Marketplace</a>';
-    } else if (filter === 'active-listings') {
-      // Coupons the user has submitted for sale that aren't sold yet
-      list = [...pending, ...sales.filter(isAvailable).map((c) => ({
-        kind: 'available',
-        brand: c.brand || 'Coupon',
-        code: c.code,
-        value: c.description || c.discount || c.category || 'Listed for sale',
-        exp: c.expiryDate || '',
-        addedAt: c.addedAt,
-      }))];
-      emptyMessage = 'No active listings';
-      emptyHint = 'Submit a coupon to list it for sale on the marketplace.';
-      emptyActions = '<button class="btn btn-primary btn-xs" onclick="openModal(\'submitCouponModal\')">📤 Submit Coupon</button>';
-    } else if (filter === 'sold') {
-      list = sold;
-      emptyMessage = 'No sold coupons yet';
-      emptyHint = 'Coupons you sell will appear here with your earnings.';
-      emptyActions = '<a href="marketplace" class="btn btn-primary btn-xs">🛒 Browse Marketplace</a>';
     } else {
-      list = [...active, ...sold, ...pending];
+      list = bought;
     }
 
     // List — newest first
@@ -1636,19 +1627,19 @@
 
     if (list.length === 0) {
       container.innerHTML = `
-        <div style="text-align:center;padding:24px 12px;color:#6b88aa">
-          <div style="font-size:2rem;margin-bottom:8px">🎟️</div>
-          <div style="font-size:.88rem;font-weight:600;color:#a8c0dc;margin-bottom:4px">${emptyMessage}</div>
-          <div style="font-size:.78rem">${emptyHint}</div>
-          ${emptyActions ? `<div style="margin-top:12px;display:flex;gap:8px;justify-content:center">${emptyActions}</div>` : ''}
+        <div class="pc-empty">
+          <div class="pc-empty-ico">🎟️</div>
+          <div class="pc-empty-title">${emptyMessage}</div>
+          <div class="pc-empty-sub">${emptyHint}</div>
+          ${emptyActions ? `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">${emptyActions}</div>` : ''}
         </div>
       `;
       return;
     }
 
     container.innerHTML = list.map((c) => {
-      const badgeMap = { purchased: 'badge-green', sold: 'badge-purple', pending: 'badge-orange', available: 'badge-blue' };
-      const labelMap = { purchased: 'Active', sold: 'Sold', pending: 'Pending', available: 'Listed' };
+      const badgeMap = { purchased: 'badge-green', used: 'badge-blue', expired: 'badge-gray' };
+      const labelMap = { purchased: 'Available', used: 'Used', expired: 'Expired' };
       const exp = c.exp ? new Date(c.exp) : null;
       const expText = (exp && !isNaN(exp.getTime()))
         ? `Exp: ${exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
@@ -1671,6 +1662,18 @@
   // ─── My-Coupons filter chip helpers ──────────────────────────────────
   window.MC_FILTER = 'all';
 
+  /**
+   * Map any incoming sub-filter onto the five buyer tabs. The sidebar still
+   * carries its original values (and two seller ones we were asked to leave
+   * alone), so they are translated here rather than editing the sidebar.
+   */
+  function normalizeMcFilter(raw) {
+    const f = String(raw || 'all');
+    if (f === 'active-purchases') return 'available';
+    if (f === 'active-listings' || f === 'sold') return 'all'; // seller views live in My Sales
+    return f;
+  }
+
   function setMcFilter(filter) {
     window.MC_FILTER = filter;
     refreshMcFilterChips();
@@ -1678,8 +1681,17 @@
   }
 
   function refreshMcFilterChips() {
+    const active = normalizeMcFilter(window.MC_FILTER);
     const chips = document.querySelectorAll('#mcFilterChips .mc-chip');
-    chips.forEach((c) => c.classList.toggle('active', c.dataset.filter === (window.MC_FILTER || 'all')));
+    let matched = false;
+    chips.forEach((c) => {
+      const on = c.dataset.filter === active;
+      if (on) matched = true;
+      c.classList.toggle('active', on);
+    });
+    // A sidebar-only value (e.g. used-expired) has no chip — fall back to All
+    // so the tab row never looks like nothing is selected.
+    if (!matched && chips.length) chips[0].classList.add('active');
   }
 
   function renderActivity() {
@@ -1981,22 +1993,15 @@
   }
 
   function setLastUpdated() {
+    // The header no longer shows an "updating…" pill, but other views still
+    // read STATE.lastUpdated, so keep the timestamp itself.
     STATE.lastUpdated = new Date();
-    const pill = document.getElementById('lastUpdatedPill');
-    if (pill) pill.textContent = `updated ${timeAgo(STATE.lastUpdated)}`;
   }
 
   // ─── Main fetcher ──────────────────────────────────────────────
   async function refreshDashboard({ silent = false } = {}) {
     if (STATE.isFetching) return;
     STATE.isFetching = true;
-    const pill = document.getElementById('lastUpdatedPill');
-    if (pill && !silent) pill.textContent = 'updating…';
-    const refreshBtn = document.getElementById('refreshBtn');
-    if (refreshBtn && !silent) {
-      refreshBtn.disabled = true;
-      refreshBtn.textContent = '⏳ Refreshing';
-    }
 
     try {
       const [user, sales, purchases, tickets, payoutsData] = await Promise.all([
@@ -2024,13 +2029,8 @@
     } catch (err) {
       console.error('Dashboard refresh failed:', err);
       if (!silent) showToast(err.message || 'Failed to refresh dashboard', 'error');
-      if (pill) pill.textContent = 'refresh failed';
     } finally {
       STATE.isFetching = false;
-      if (refreshBtn) {
-        refreshBtn.disabled = false;
-        refreshBtn.textContent = '🔄 Refresh';
-      }
     }
   }
 
