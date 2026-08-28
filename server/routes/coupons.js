@@ -27,7 +27,6 @@ function defaultExpiry(explicitExpiry, addedAt) {
 // Proof screenshot upload constraints
 const PROOF_MAX_BYTES = 3 * 1024 * 1024; // 3MB
 const PROOF_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
-const PROOF_BUCKET = 'coupon-proofs';
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
 
@@ -136,7 +135,10 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// POST /api/coupons/proof — Upload a coupon proof screenshot to Supabase Storage (authenticated)
+// POST /api/coupons/proof — Upload a coupon proof screenshot to Google Drive.
+// Drive is the ONLY accepted destination for proof screenshots: they must stay
+// in the operator's own Drive folder, never on public object storage. If Drive
+// is not usable we fail loudly rather than silently stashing the file elsewhere.
 router.post('/proof', authenticateToken, async (req, res) => {
   try {
     const { filename, contentType, dataBase64 } = req.body;
@@ -157,62 +159,50 @@ router.post('/proof', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'File is too large. Maximum size is 3MB.' });
     }
 
-    // 1) Try Google Drive first (preferred — keeps proof screenshots off
-    //    public storage and owned by our service account). The proxy endpoint
-    //    streams the file back to authorized viewers only.
-    if (googleDrive.isConfigured()) {
-      try {
-        const result = await googleDrive.uploadProofScreenshot({
-          buffer,
-          filename,
-          mimeType: type,
-          sellerEmail: req.user?.email,
-        });
-        return res.status(201).json({
-          url: result.url,           // 'drive:<fileId>'
-          fileId: result.fileId,
-          storage: 'google-drive',
-          name: result.name,
-          webViewLink: result.webViewLink,
-        });
-      } catch (driveErr) {
-        console.warn(
-          `[coupons/proof] Google Drive upload failed (${driveErr.code || 'error'}) — saving to ` +
-          `Supabase Storage instead. Reason: ${driveErr.message}`
-        );
-        // Fall through to Supabase below.
-      }
-    }
-
-    // 2) Fallback: Supabase Storage (public bucket). Used when Drive is not
-    //    configured OR when the Drive upload just failed.
-    const supabaseClient = supabase.getClient();
-    if (!supabaseClient) {
+    // Drive must be configured — no fallback destination exists.
+    if (!googleDrive.isConfigured()) {
+      console.error(
+        '[coupons/proof] Google Drive is not configured — refusing the upload. ' +
+        'Set GOOGLE_DRIVE_FOLDER_ID and GOOGLE_DRIVE_REFRESH_TOKEN in .env.'
+      );
       return res.status(503).json({
-        error:
-          'Proof uploads are temporarily unavailable. Set GOOGLE_DRIVE_FOLDER_ID or configure Supabase storage.',
+        error: 'Screenshot uploads are temporarily unavailable. Please try again later.',
       });
     }
 
-    // Ensure the bucket exists (created once, then reused)
-    const buckets = await supabaseClient.storage.listBuckets();
-    const exists = (buckets.data || []).some((b) => b.name === PROOF_BUCKET);
-    if (!exists) {
-      const created = await supabaseClient.storage.createBucket(PROOF_BUCKET, { public: true });
-      if (created.error) throw new Error(created.error.message);
+    try {
+      const result = await googleDrive.uploadProofScreenshot({
+        buffer,
+        filename,
+        mimeType: type,
+        sellerEmail: req.user?.email,
+      });
+      return res.status(201).json({
+        url: result.url,           // 'drive:<fileId>'
+        fileId: result.fileId,
+        storage: 'google-drive',
+        name: result.name,
+        webViewLink: result.webViewLink,
+      });
+    } catch (driveErr) {
+      // Loud, specific server log so a misconfiguration is obvious in the
+      // console; the client gets a generic retry message.
+      if (driveErr.code === 'DRIVE_NO_QUOTA') {
+        console.error(
+          '[coupons/proof] Google Drive upload rejected: the service account has no storage ' +
+          'quota of its own and cannot write into a personal My Drive folder. Mint a user ' +
+          'refresh token with `cd server && node scripts/authorize-drive.js`, set ' +
+          'GOOGLE_DRIVE_REFRESH_TOKEN in .env, and restart the server.'
+        );
+      } else {
+        console.error(
+          `[coupons/proof] Google Drive upload failed (${driveErr.code || 'error'}): ${driveErr.message}`
+        );
+      }
+      return res.status(502).json({
+        error: 'Could not save your screenshot right now. Please try again in a moment.',
+      });
     }
-
-    const ext = (String(filename).match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
-    const safeName = String(filename).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
-    const path = `proofs/${uuidv4()}-${safeName || 'proof' + ext}`;
-
-    const upload = await supabaseClient.storage
-      .from(PROOF_BUCKET)
-      .upload(path, buffer, { contentType: type, upsert: false });
-    if (upload.error) throw new Error(upload.error.message);
-
-    const { data: urlData } = supabaseClient.storage.from(PROOF_BUCKET).getPublicUrl(path);
-    res.status(201).json({ url: urlData.publicUrl, path, name: filename, storage: 'supabase' });
   } catch (err) {
     console.error('Coupon proof upload error:', err);
     res.status(500).json({ error: 'Failed to upload screenshot.' });
@@ -249,21 +239,15 @@ const handleCouponSubmission = async (req, res) => {
       cleanSellingPrice = String(Math.round(priceNum));
     }
 
-    // Only accept proof URLs that point at our own storage
-    //   - Drive:   drive:<fileId>  (served via /api/proxy/drive/<fileId>)
-    //   - Supabase: <SUPABASE_URL>/storage/...
+    // Proof screenshots live in Google Drive only, so the only shape we accept
+    // is the `drive:<fileId>` token minted by our own /proof endpoint (served
+    // back through /api/proxy/drive/<fileId>). Anything else is dropped — a
+    // client cannot talk us into persisting an arbitrary external URL.
     let safeProofUrl = '';
     if (proofUrl) {
       const raw = String(proofUrl).trim();
       if (/^drive:[a-zA-Z0-9_-]{10,80}$/.test(raw)) {
-        // Drive-backed proof — the file id was minted by our own upload
-        // endpoint, so it's safe to persist as-is.
         safeProofUrl = raw.slice(0, 80);
-      } else {
-        const supabaseUrl = process.env.SUPABASE_URL || '';
-        if (supabaseUrl && raw.startsWith(supabaseUrl + '/storage/')) {
-          safeProofUrl = raw.slice(0, 500);
-        }
       }
     }
 
