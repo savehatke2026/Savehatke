@@ -163,35 +163,43 @@ async function sendWelcomeEmail(to, userName) {
     };
   }
 
-  const subject = 'Welcome to SaveHatke! 🎉';
+  const subject = 'Welcome to SaveHatke!';
   const year = new Date().getFullYear();
-  const currentYear = year === 2026 ? year : year;
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  // Mail clients cannot load a localhost image, so the logo always points at a
+  // publicly reachable URL. Override with EMAIL_LOGO_URL if the asset moves.
+  const logoUrl = (process.env.EMAIL_LOGO_URL || 'https://savehatke.vercel.app/logo.png').trim();
+  const exploreUrl = `${siteUrl}/marketplace.html`;
+  const safeEmail = escapeHtml(cleanEmail);
+  const displayName = userName && String(userName).trim() ? String(userName).trim() : 'there';
 
   const textBody =
-`# Welcome to SaveHatke! 🎉
+`Welcome to SaveHatke!
 
-Hi **${safeName}**,
+Hi ${displayName},
 
-Welcome to **SaveHatke** — India's coupon marketplace! 🛍️💰
-
+Welcome to SaveHatke — a simple and convenient platform to buy and sell unused coupons.
 We're excited to have you with us.
 
 With SaveHatke, you can:
 
-* 🏷️ **Buy premium coupons** at discounted prices
-* 💰 **Sell coupons** you don't need
-* 🔐 Find **verified coupons** from real users
-* 💸 Save more on your favourite brands and services
+* Buy coupons at great prices
+* Sell coupons you don't need
+* Discover available coupons and offers
+* Save more on your favourite brands
 
 Your account has been successfully created. You can now explore SaveHatke and start saving.
 
-**Happy Saving! 💙**
+Explore SaveHatke: ${exploreUrl}
 
-If you need any help, our support team is always here for you.
+Happy Saving!
 
 Regards,
-**Team SaveHatke**
-India's Coupon Marketplace`;
+Team SaveHatke
+
+This email was sent to ${cleanEmail} because you created an account with SaveHatke. You may receive emails related to your account, purchases, coupon submissions, sales, payments, security, support requests, and important service updates.
+
+© ${year} SaveHatke. All rights reserved.`;
 
   const htmlContent = `
   <!DOCTYPE html>
@@ -203,48 +211,61 @@ India's Coupon Marketplace`;
     <title>Welcome to SaveHatke</title>
   </head>
   <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
+    <!-- Preheader (hidden inbox preview line) -->
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your SaveHatke account is ready — start buying and selling coupons.</div>
+
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;padding:40px 15px;">
       <tr>
         <td align="center">
 
-          <!-- Brand -->
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:22px;">
+          <!-- Brand logo -->
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">
             <tr>
-              <td style="text-align:center;">
-                <span style="font-size:1.3rem;font-weight:800;color:#0f1e3a;">💰 Save<span style="color:#00c853;">Hatke</span></span>
+              <td align="center">
+                <a href="${siteUrl}/index.html" style="text-decoration:none;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="display:inline-table;">
+                    <tr>
+                      <td style="vertical-align:middle;padding-right:10px;">
+                        <img src="${logoUrl}" alt="SaveHatke" width="40" height="40" style="width:40px;height:40px;border-radius:10px;object-fit:contain;display:block;">
+                      </td>
+                      <td style="vertical-align:middle;">
+                        <span style="font-size:1.35rem;font-weight:800;color:#0f1e3a;white-space:nowrap;">Save<span style="color:#10b981;">Hatke</span></span>
+                      </td>
+                    </tr>
+                  </table>
+                </a>
               </td>
             </tr>
           </table>
 
           <table role="presentation" width="100%" style="max-width:580px;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;overflow:hidden;box-shadow:0 8px 28px rgba(15,30,58,0.08);" cellspacing="0" cellpadding="0" border="0">
-            <!-- Hero -->
+
+            <!-- Heading -->
             <tr>
-              <td style="padding:34px 40px 14px;text-align:center;">
-                <div style="font-size:2.4rem;line-height:1;margin-bottom:6px;">🎉</div>
-                <h1 style="margin:0;font-size:1.6rem;font-weight:800;color:#0f1e3a;line-height:1.3;">Welcome to SaveHatke!</h1>
+              <td align="center" style="padding:34px 36px 0;text-align:center;">
+                <h1 style="margin:0;font-size:1.6rem;font-weight:800;color:#0f1e3a;line-height:1.3;text-align:center;">Welcome to SaveHatke!</h1>
               </td>
             </tr>
-
-            <!-- Greeting -->
+            <!-- Greeting + intro (centred) -->
             <tr>
-              <td style="padding:8px 40px 0;">
-                <p style="margin:0 0 14px;font-size:1rem;color:#0f1e3a;line-height:1.6;">Hi <strong style="color:#00c853;">${safeName}</strong>,</p>
-                <p style="margin:0 0 16px;font-size:0.95rem;color:#374151;line-height:1.7;">Welcome to <strong style="color:#0f1e3a;">SaveHatke</strong> — India's coupon marketplace! 🛍️💰</p>
-                <p style="margin:0 0 16px;font-size:0.95rem;color:#374151;line-height:1.7;">We're excited to have you with us.</p>
+              <td align="center" style="padding:18px 36px 0;text-align:center;">
+                <p style="margin:0 0 14px;font-size:1rem;color:#0f1e3a;line-height:1.6;text-align:center;">Hi <strong style="color:#10b981;">${safeName}</strong>,</p>
+                <p style="margin:0 0 12px;font-size:0.95rem;color:#374151;line-height:1.7;text-align:center;">Welcome to <strong style="color:#0f1e3a;">SaveHatke</strong> — a simple and convenient platform to buy and sell unused coupons.</p>
+                <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.7;text-align:center;">We're excited to have you with us.</p>
               </td>
             </tr>
 
             <!-- What you can do -->
             <tr>
-              <td style="padding:0 40px;">
-                <p style="margin:0 0 10px;font-size:0.76rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;">With SaveHatke, you can:</p>
+              <td align="center" style="padding:22px 36px 0;text-align:center;">
+                <p style="margin:0 0 12px;font-size:0.76rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;text-align:center;">With SaveHatke, you can:</p>
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
                   <tr>
-                    <td style="padding:16px 20px;">
-                      <p style="margin:0 0 8px;font-size:0.95rem;color:#374151;line-height:1.5;">🏷️ <strong style="color:#0f1e3a;">Buy premium coupons</strong> at discounted prices</p>
-                      <p style="margin:0 0 8px;font-size:0.95rem;color:#374151;line-height:1.5;">💰 <strong style="color:#0f1e3a;">Sell coupons</strong> you don't need</p>
-                      <p style="margin:0 0 8px;font-size:0.95rem;color:#374151;line-height:1.5;">🔐 Find <strong style="color:#0f1e3a;">verified coupons</strong> from real users</p>
-                      <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.5;">💸 Save more on your favourite brands and services</p>
+                    <td align="center" style="padding:18px 20px;text-align:center;">
+                      <p style="margin:0 0 10px;font-size:0.95rem;color:#374151;line-height:1.5;text-align:center;">🏷️ Buy coupons at great prices</p>
+                      <p style="margin:0 0 10px;font-size:0.95rem;color:#374151;line-height:1.5;text-align:center;">💰 Sell coupons you don't need</p>
+                      <p style="margin:0 0 10px;font-size:0.95rem;color:#374151;line-height:1.5;text-align:center;">🔎 Discover available coupons and offers</p>
+                      <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.5;text-align:center;">💸 Save more on your favourite brands</p>
                     </td>
                   </tr>
                 </table>
@@ -253,43 +274,34 @@ India's Coupon Marketplace`;
 
             <!-- Account ready -->
             <tr>
-              <td style="padding:20px 40px 0;">
-                <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.7;">Your account has been successfully created. You can now explore SaveHatke and start saving.</p>
+              <td align="center" style="padding:22px 36px 0;text-align:center;">
+                <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.7;text-align:center;">Your account has been successfully created. You can now explore SaveHatke and start saving.</p>
               </td>
             </tr>
 
-            <!-- CTA Buttons -->
+            <!-- CTA — website green -->
             <tr>
-              <td style="padding:24px 40px 8px;" align="center">
-                <table role="presentation" cellspacing="0" cellpadding="0" border="0">
-                  <tr>
-                    <td style="padding:0 6px;">
-                      <a href="https://savehatke.com/marketplace.html" style="display:inline-block;background:linear-gradient(135deg,#00e676,#00c853);color:#0f1e3a !important;text-decoration:none;font-weight:800;font-size:0.92rem;padding:13px 24px;border-radius:10px;">Browse Coupons →</a>
-                    </td>
-                    <td style="padding:0 6px;">
-                      <a href="https://savehatke.com/sell.html" style="display:inline-block;background:#ffffff;color:#00a844 !important;text-decoration:none;font-weight:800;font-size:0.92rem;padding:12px 24px;border-radius:10px;border:1.5px solid #00c853;">Sell a Coupon →</a>
-                    </td>
-                  </tr>
-                </table>
+              <td align="center" style="padding:26px 36px 4px;text-align:center;">
+                <a href="${exploreUrl}" style="display:inline-block;background:#10b981;background-image:linear-gradient(135deg,#10b981,#059669);color:#ffffff !important;text-decoration:none;font-weight:800;font-size:0.95rem;padding:14px 30px;border-radius:12px;">Explore SaveHatke →</a>
               </td>
             </tr>
 
             <!-- Sign-off -->
             <tr>
-              <td style="padding:24px 40px 0;">
-                <p style="margin:0 0 6px;font-size:1rem;font-weight:700;color:#00a844;">Happy Saving! 💙</p>
-                <p style="margin:0 0 16px;font-size:0.88rem;color:#374151;line-height:1.6;">If you need any help, our support team is always here for you.</p>
-                <p style="margin:0;font-size:0.88rem;color:#6b7280;line-height:1.5;">Regards,<br><strong style="color:#0f1e3a;">Team SaveHatke</strong><br><span style="color:#6b7280;">India's Coupon Marketplace</span></p>
+              <td align="center" style="padding:26px 36px 0;text-align:center;">
+                <p style="margin:0 0 14px;font-size:1rem;font-weight:700;color:#059669;text-align:center;">Happy Saving! 💙</p>
+                <p style="margin:0;font-size:0.88rem;color:#6b7280;line-height:1.6;text-align:center;">Regards,<br><strong style="color:#0f1e3a;">Team SaveHatke</strong></p>
               </td>
             </tr>
 
             <!-- Footer -->
             <tr>
-              <td style="padding:26px 40px 22px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
-                <p style="margin:0 0 4px;font-size:0.78rem;color:#6b7280;">© ${currentYear} SaveHatke — India's Smartest Price Tracker &amp; Coupon Marketplace.</p>
-                <p style="margin:0;font-size:0.72rem;color:#9ca3af;">This is a one-time welcome message sent to ${safeName}. Replies are not monitored — please reach support@savehatke.com for help.</p>
+              <td align="center" style="padding:26px 36px 22px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
+                <p style="margin:0 0 8px;font-size:0.72rem;color:#9ca3af;line-height:1.6;text-align:center;">This email was sent to <span style="color:#6b7280;">${safeEmail}</span> because you created an account with SaveHatke. You may receive emails related to your account, purchases, coupon submissions, sales, payments, security, support requests, and important service updates.</p>
+                <p style="margin:0;font-size:0.78rem;color:#6b7280;text-align:center;">© ${year} SaveHatke. All rights reserved.</p>
               </td>
             </tr>
+
           </table>
         </td>
       </tr>
