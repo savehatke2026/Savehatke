@@ -2,12 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=vault.html#mailbox">
 <title>Support Mailbox — SaveHatke Admin</title>
 <style>body{background:#060d1f;color:#e2ecff;font-family:system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}a{color:#00e676}</style>
 </head>
 <body>
 <p>Redirecting to the <a href="vault.html#mailbox">Support Mailbox</a> in the Admin Panel…</p>
-<script>window.location.replace('vault.html#mailbox');</script>
+<script>
+  // The Gmail OAuth callback lands here with ?gmail=connected|error&… — forward
+  // the query string so the Admin Panel can show the right toast/setup hint.
+  (function () {
+    var qs = window.location.search || '';
+    window.location.replace('vault.html' + qs + '#mailbox');
+  })();
+</script>
+<noscript><p>JavaScript is required. <a href="vault.html#mailbox">Open the Support Mailbox</a>.</p></noscript>
 </body>
 </html>

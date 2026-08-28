@@ -1,12 +1,13 @@
 // ============================================
 // SaveHatke — Gmail Service
 // Google OAuth 2.0 + Gmail API helpers.
-// All token handling stays server-side.
+// All token handling stays server-side. No database is used:
+// the single support mailbox's refresh token lives in
+// GMAIL_REFRESH_TOKEN / the local token file (see gmailTokenStore).
 // ============================================
 
 const { google } = require('googleapis');
-const GmailConnection = require('../models/GmailConnection');
-const { decryptSecret } = require('./gmailCrypto');
+const tokenStore = require('./gmailTokenStore');
 
 // gmail.modify covers read/send/labels/trash without full mailbox access.
 // openid+email are only used to display the connected account address.
@@ -31,11 +32,20 @@ function isOAuthConfigured() {
 }
 
 function getRedirectUri(requestBase) {
-  // Explicit env override first; otherwise derive from the request's own
-  // origin so the flow works on any deployed domain (localhost, Vercel, etc.)
-  if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
-  const base = (requestBase || process.env.APP_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
-  return `${base}/api/admin/gmail/callback`;
+  const base = (requestBase || process.env.APP_BASE_URL || '').replace(/\/$/, '');
+  const override = String(process.env.GOOGLE_REDIRECT_URI || '').trim();
+
+  // Use the explicit override only when it belongs to the domain that is
+  // actually serving this request. Otherwise a localhost override in .env
+  // would break the OAuth flow on the deployed domain (and vice versa).
+  if (override) {
+    if (!base) return override;
+    try {
+      if (new URL(override).origin === new URL(base).origin) return override;
+    } catch (e) { /* malformed override — fall through to derivation */ }
+  }
+
+  return `${(base || 'http://localhost:3000')}/api/admin/gmail/callback`;
 }
 
 function getOAuth2Client(requestBase) {
@@ -70,30 +80,25 @@ async function exchangeCode(code, requestBase) {
 }
 
 /**
- * Load the current admin's Gmail connection and return an authorized
- * Gmail API client. Returns null if not connected or token is broken.
+ * Return an authorized Gmail API client for the shared support mailbox.
+ * Returns null when the mailbox has not been connected yet.
+ * No database lookup — the refresh token comes from gmailTokenStore.
  */
-async function getAuthorizedClient(adminUserId) {
-  const conn = await GmailConnection.findOne({ admin_user_id: String(adminUserId) });
-  if (!conn) return null;
-
-  const refreshToken = decryptSecret(conn.encrypted_refresh_token);
-  if (!refreshToken) return null;
+async function getAuthorizedClient() {
+  const conn = tokenStore.getConnection();
+  if (!conn || !conn.refresh_token) return null;
 
   const oauth2 = getOAuth2Client();
-  oauth2.setCredentials({ refresh_token: refreshToken });
+  oauth2.setCredentials({ refresh_token: conn.refresh_token });
 
-  // Persist refreshed access token metadata (best-effort)
-  oauth2.on('tokens', async (tokens) => {
+  // Keep access-token metadata and any rotated refresh token in step.
+  oauth2.on('tokens', (tokens) => {
     try {
-      const update = {};
-      if (tokens.expiry_date) update.access_token_expires_at = new Date(tokens.expiry_date);
-      if (tokens.refresh_token) {
-        const { encryptSecret } = require('./gmailCrypto');
-        update.encrypted_refresh_token = encryptSecret(tokens.refresh_token);
+      if (tokens.expiry_date) {
+        tokenStore.updateMeta({ access_token_expires_at: new Date(tokens.expiry_date).toISOString() });
       }
-      if (Object.keys(update).length) {
-        await GmailConnection.updateOne({ _id: conn._id }, { $set: update });
+      if (tokens.refresh_token && tokens.refresh_token !== conn.refresh_token) {
+        tokenStore.rotateRefreshToken(tokens.refresh_token);
       }
     } catch (e) {
       console.warn('Gmail token metadata update failed:', e.message);
@@ -105,25 +110,25 @@ async function getAuthorizedClient(adminUserId) {
 }
 
 /**
- * Revoke tokens and remove the connection.
+ * Revoke the token with Google and forget it locally.
  */
-async function disconnect(adminUserId) {
-  const conn = await GmailConnection.findOne({ admin_user_id: String(adminUserId) });
-  if (!conn) return;
+async function disconnect() {
+  const conn = tokenStore.getConnection();
+  if (!conn) return { revoked: false, envStillSet: false };
 
   // Best-effort revoke on Google's side
+  let revoked = false;
   try {
-    const refreshToken = decryptSecret(conn.encrypted_refresh_token);
-    if (refreshToken) {
-      const oauth2 = getOAuth2Client();
-      oauth2.setCredentials({ refresh_token: refreshToken });
-      await oauth2.revokeCredentials();
-    }
+    const oauth2 = getOAuth2Client();
+    oauth2.setCredentials({ refresh_token: conn.refresh_token });
+    await oauth2.revokeCredentials();
+    revoked = true;
   } catch (e) {
     console.warn('Gmail token revoke notice:', e.message);
   }
 
-  await GmailConnection.deleteOne({ _id: conn._id });
+  const cleared = tokenStore.clearConnection();
+  return { revoked, ...cleared };
 }
 
 // ── Well-known Gmail label IDs ─────────────────────────────────────────────
@@ -310,17 +315,43 @@ async function listLabels(gmail) {
 }
 
 /**
- * Unread count per system label + total inbox unread.
+ * Badge counts for the sidebar.
+ *
+ * IMPORTANT: users.labels.list returns a PARTIAL Label resource — only
+ * id/name/type, never messagesTotal / messagesUnread. The counts are only
+ * available from users.labels.get, so each badge label is fetched directly
+ * (in parallel). Reading them off labels.list silently yields 0 for everything.
+ *
+ * INBOX / SPAM / STARRED report unread; DRAFT reports its total, because a
+ * draft is never "unread".
  */
+const BADGE_LABELS = ['INBOX', 'SPAM', 'STARRED', 'DRAFT'];
+
 async function getUnreadCounts(gmail) {
-  const r = await gmail.users.labels.list({ userId: 'me' });
-  const counts = {};
-  (r.data.labels || []).forEach((l) => {
-    if (SYSTEM_LABELS[l.id] || l.id === 'INBOX') {
-      counts[l.id] = l.messagesUnread || 0;
-    }
-  });
-  return counts;
+  const results = await Promise.all(
+    BADGE_LABELS.map(async (id) => {
+      try {
+        const r = await gmail.users.labels.get({ userId: 'me', id });
+        const useTotal = id === 'DRAFT';
+        return [id, (useTotal ? r.data.messagesTotal : r.data.messagesUnread) || 0];
+      } catch (e) {
+        return [id, 0];
+      }
+    })
+  );
+  return Object.fromEntries(results);
+}
+
+/**
+ * Unread message count for the inbox only (used by the change poller).
+ */
+async function getInboxUnread(gmail) {
+  try {
+    const r = await gmail.users.labels.get({ userId: 'me', id: 'INBOX' });
+    return r.data.messagesUnread || 0;
+  } catch (e) {
+    return 0;
+  }
 }
 
 module.exports = {
@@ -340,4 +371,5 @@ module.exports = {
   getMessageFull,
   listLabels,
   getUnreadCounts,
+  getInboxUnread,
 };

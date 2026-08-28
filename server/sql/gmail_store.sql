@@ -1,0 +1,22 @@
+-- ============================================
+-- SaveHatke — Support Mailbox: NO DATABASE REQUIRED
+-- ============================================
+-- Nothing to run here.
+--
+-- The Admin Panel → Support Mailbox talks to the Gmail API directly. It is a
+-- single shared mailbox (SUPPORT_EMAIL), so the only value that has to persist
+-- is ONE OAuth refresh token. That token lives in:
+--
+--   1. GMAIL_REFRESH_TOKEN        (env var — permanent, recommended)
+--   2. server/.gmail-token.json   (AES-256-GCM encrypted, gitignored)
+--   3. process memory             (until the next restart)
+--
+-- See server/services/gmailTokenStore.js and
+--     server/scripts/authorize-gmail.js   (one-time setup helper)
+--
+-- No gmail_connections / gmail_audit_logs tables are created or used. Email
+-- bodies are never copied into a database; they are always read live from
+-- Gmail. The admin action trail is kept in memory + the server log.
+--
+-- This file is intentionally a no-op placeholder so nobody re-introduces a
+-- database dependency for the mailbox.

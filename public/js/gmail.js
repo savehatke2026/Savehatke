@@ -50,11 +50,18 @@ const GmailApp = (() => {
   function handleOAuthRedirectResult() {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('gmail');
-    if (status === 'connected') toast('Gmail connected successfully!', 'success');
+    if (status === 'connected') {
+      toast('Support mailbox connected!', 'success');
+      if (params.get('ephemeral') === '1') {
+        toast('Token is temporary — use "Show token" to store GMAIL_REFRESH_TOKEN permanently.', 'warning');
+      }
+    }
     if (status === 'error') toast(`Gmail connection failed: ${params.get('msg') || 'unknown error'}`, 'error');
     if (status) {
       params.delete('gmail');
       params.delete('msg');
+      params.delete('store');
+      params.delete('ephemeral');
       const qs = params.toString();
       window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''));
     }
@@ -66,20 +73,21 @@ const GmailApp = (() => {
       // The server returns a `reason` field that explains *why* the mailbox
       // isn't ready, so the connect screen can show the right setup steps.
       if (!data.configured || data.reason === 'oauth-not-configured') {
-        showConnectScreen('oauth-not-configured', data.message);
+        showConnectScreen('oauth-not-configured', data.message, data);
         toast('Gmail OAuth is not configured on the server yet.', 'warning');
         return;
       }
-      if (data.reason === 'database-not-connected') {
-        showConnectScreen('database-not-connected', data.message);
-        toast('Gmail storage is unavailable: MongoDB is not connected.', 'error');
+      if (data.reason === 'token-invalid') {
+        showConnectScreen('token-invalid', data.message, data);
+        toast('Gmail rejected the saved token — please reconnect.', 'error');
         return;
       }
       if (!data.connected) {
-        showConnectScreen('not-connected');
+        showConnectScreen('not-connected', data.message, data);
         return;
       }
       showApp(data.gmailEmail);
+      renderTokenBanner(data);
       if (data.unreadCounts) renderUnreadCounts(data.unreadCounts);
       await Promise.all([loadLabels(), loadMessages()]);
       startChangePolling();
@@ -90,28 +98,41 @@ const GmailApp = (() => {
   }
 
   // Build the per-reason "what to do" checklist shown on the connect screen.
-  function buildSetupHelp(reason, serverMessage) {
+  function buildSetupHelp(reason, serverMessage, data = {}) {
+    const redirectUri = data.redirectUri || (window.location.origin + '/api/admin/gmail/callback');
+
     if (reason === 'oauth-not-configured') {
       return `
         <div class="gm-setup">
           <h3>🔧 Gmail OAuth is not configured on the server</h3>
-          <p>Set these environment variables on the server (Vercel → Project → Settings → Environment Variables):</p>
+          <p>Set these environment variables on the server (Vercel → Project → Settings → Environment Variables, or <code>.env</code> locally):</p>
           <ul>
-            <li><code>GMAIL_CLIENT_ID</code> — from Google Cloud Console → APIs & Services → Credentials</li>
+            <li><code>GMAIL_CLIENT_ID</code> — from Google Cloud Console → APIs &amp; Services → Credentials</li>
             <li><code>GMAIL_CLIENT_SECRET</code> — the matching client secret</li>
-            <li><code>GMAIL_TOKEN_ENCRYPTION_KEY</code> — a base64-encoded 32-byte key used to encrypt refresh tokens at rest</li>
+            <li><code>GMAIL_TOKEN_ENCRYPTION_KEY</code> — a base64-encoded 32-byte key used to encrypt the refresh token at rest</li>
           </ul>
           <p>Then in Google Cloud Console, add this exact redirect URI under the OAuth client:</p>
-          <pre>${esc(window.location.origin + '/api/admin/gmail/callback')}</pre>
+          <pre>${esc(redirectUri)}</pre>
           <p style="opacity:.7">Server detail: <em>${esc(serverMessage || '')}</em></p>
         </div>`;
     }
-    if (reason === 'database-not-connected') {
+    if (reason === 'token-invalid') {
       return `
         <div class="gm-setup">
-          <h3>⚠️ MongoDB is not connected</h3>
-          <p>The Gmail connection records are stored in MongoDB Atlas. Set <code>MONGODB_URI</code> on the server to the same Atlas connection string used elsewhere in this app.</p>
+          <h3>⚠️ The saved Gmail token was rejected</h3>
+          <p>Google refused the stored refresh token — access was probably revoked from the Google account, or <code>GMAIL_REFRESH_TOKEN</code> is stale.</p>
+          <p>Click <strong>Connect Gmail</strong> above and sign in again with the support mailbox${data.expectedEmail ? ` (<code>${esc(data.expectedEmail)}</code>)` : ''}.</p>
           <p style="opacity:.7">Server detail: <em>${esc(serverMessage || '')}</em></p>
+        </div>`;
+    }
+    if (reason === 'not-connected') {
+      return `
+        <div class="gm-setup">
+          <h3>📮 No database required</h3>
+          <p>Sign in once with the support mailbox${data.expectedEmail ? ` <code>${esc(data.expectedEmail)}</code>` : ''}. The server keeps only Google's refresh token — messages are always read live from Gmail, nothing is copied into a database.</p>
+          <p>Make sure this exact redirect URI is registered on the OAuth client in Google Cloud Console:</p>
+          <pre>${esc(redirectUri)}</pre>
+          <p style="opacity:.7">After connecting, you'll get the token value to store as <code>GMAIL_REFRESH_TOKEN</code> so the connection survives restarts and redeploys.</p>
         </div>`;
     }
     if (reason === 'server-error') {
@@ -124,12 +145,12 @@ const GmailApp = (() => {
     return '';
   }
 
-  function showConnectScreen(reason, serverMessage) {
+  function showConnectScreen(reason, serverMessage, data = {}) {
     $('gmConnect').classList.add('on');
     $('gmApp').classList.remove('on');
     const helpEl = $('gmSetupHelp');
     if (helpEl) {
-      helpEl.innerHTML = buildSetupHelp(reason, serverMessage);
+      helpEl.innerHTML = buildSetupHelp(reason, serverMessage, data);
     }
   }
 
@@ -137,6 +158,64 @@ const GmailApp = (() => {
     $('gmConnect').classList.remove('on');
     $('gmApp').classList.add('on');
     $('gmAccountBadge').textContent = `✅ ${email}`;
+  }
+
+  // ── Token durability banner (replaces the old DB connection record) ───────
+  // tokenSource: 'env'    → permanent, nothing to do
+  //              'file'   → saved on this server's disk
+  //              'memory' → lost on restart/redeploy (serverless) → prompt
+  function renderTokenBanner(data) {
+    let bar = $('gmTokenBar');
+    if (!bar) {
+      const body = document.querySelector('#sec-mailbox .gm-body');
+      if (!body || !body.parentNode) return;
+      bar = document.createElement('div');
+      bar.id = 'gmTokenBar';
+      bar.style.cssText = 'display:none;padding:10px 16px;font-size:.8rem;line-height:1.6;border-bottom:1px solid rgba(255,193,7,.25);background:rgba(255,193,7,.08);color:#ffd97a';
+      body.parentNode.insertBefore(bar, body);
+    }
+
+    const mismatchNote = data && data.mismatch
+      ? `<div style="margin-top:6px">⚠️ Connected as <strong>${esc(data.gmailEmail || '')}</strong>, but the configured support address is <strong>${esc(data.expectedEmail || '')}</strong>.</div>`
+      : '';
+
+    if (!data || data.tokenSource === 'env') {
+      if (mismatchNote) {
+        bar.style.display = '';
+        bar.innerHTML = mismatchNote;
+      } else {
+        bar.style.display = 'none';
+        bar.innerHTML = '';
+      }
+      return;
+    }
+
+    bar.style.display = '';
+    bar.innerHTML = `
+      ${data.durable === false
+        ? '⚠️ This connection is <strong>temporary</strong> — it will be lost when the server restarts or redeploys.'
+        : 'ℹ️ The Gmail token is saved on this server\'s disk only.'}
+      Store it as <code>GMAIL_REFRESH_TOKEN</code> to make it permanent.
+      <button class="btn btn-sm" style="margin-left:8px" onclick="GmailApp.revealToken()">Show token</button>
+      ${mismatchNote}
+      <div id="gmTokenReveal" style="margin-top:8px"></div>`;
+  }
+
+  // Fetch the refresh token once so the admin can paste it into the server env.
+  async function revealToken() {
+    try {
+      const data = await api('/refresh-token');
+      const box = $('gmTokenReveal');
+      if (!box) return;
+      box.innerHTML = `
+        <div style="background:#0a1120;border:1px solid rgba(0,230,118,.25);border-radius:10px;padding:10px">
+          <div style="color:#8fa8c8;margin-bottom:6px">Add this to the server environment, then redeploy / restart:</div>
+          <textarea readonly rows="3" onclick="this.select()" style="width:100%;background:#060d1f;color:#00e676;border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:.72rem">GMAIL_REFRESH_TOKEN=${esc(data.refreshToken || '')}</textarea>
+          <div style="color:#6b88aa;margin-top:6px;font-size:.72rem">Treat this like a password — it grants ongoing access to ${esc(data.gmailEmail || 'the mailbox')}.</div>
+        </div>`;
+    } catch (err) {
+      toast(err.message || 'Could not read the refresh token.', 'error');
+    }
   }
 
   // ── OAuth connect / disconnect ───────────────────────────────────────────
@@ -155,11 +234,11 @@ const GmailApp = (() => {
   }
 
   function confirmDisconnect() {
-    confirmDialog('Disconnect Gmail?', 'The stored OAuth tokens will be revoked and removed. You can reconnect anytime.', async () => {
+    confirmDialog('Disconnect the support mailbox?', 'Access is revoked at Google and the saved refresh token is removed from this server. You can reconnect anytime.', async () => {
       try {
-        await api('/disconnect', { method: 'POST' });
-        toast('Gmail disconnected.', 'success');
-        setTimeout(() => window.location.reload(), 600);
+        const res = await api('/disconnect', { method: 'POST' });
+        toast(res.message || 'Support mailbox disconnected.', res.envStillSet ? 'warning' : 'success');
+        setTimeout(() => window.location.reload(), res.envStillSet ? 2500 : 600);
       } catch (err) {
         toast(err.message || 'Disconnect failed.', 'error');
       }
@@ -717,6 +796,6 @@ const GmailApp = (() => {
     openCompose, reply, replyAll, forward, toggleCcBcc, closeCompose,
     addFiles, removeAtt, sendCompose, saveDraft,
     confirmDialog, closeConfirm, toggleSide,
-    loadStatus,
+    loadStatus, revealToken,
   };
 })();

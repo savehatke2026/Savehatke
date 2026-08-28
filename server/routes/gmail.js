@@ -1,7 +1,9 @@
 // ============================================
 // SaveHatke — Gmail Admin Routes
 // Mounted at /api/admin/gmail behind JWT admin auth.
-// All Gmail tokens stay server-side.
+// All Gmail tokens stay server-side. NO DATABASE:
+// the single support mailbox's refresh token is held by
+// services/gmailTokenStore (GMAIL_REFRESH_TOKEN env var or local token file).
 // ============================================
 
 const express = require('express');
@@ -10,8 +12,7 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
-const gmailStore = require('../services/gmailStore');
-const { encryptSecret } = require('../services/gmailCrypto');
+const tokenStore = require('../services/gmailTokenStore');
 const { buildRawMessage, parseAddressList, htmlToText } = require('../services/gmailMime');
 const gmailService = require('../services/gmailService');
 
@@ -53,17 +54,26 @@ function requestBase(req) {
   return host ? `${proto}://${host}` : APP_BASE_URL;
 }
 
-// Best-effort audit log — never blocks the main action
-async function audit(req, action, targetId = '', details = '') {
+// Best-effort audit trail — kept in memory (no database). Survives until the
+// server restarts, which is enough for "who touched the support mailbox
+// recently"; every entry is also written to the server log for permanence.
+const AUDIT_LIMIT = 200;
+const auditLog = [];
+
+function audit(req, action, targetId = '', details = '') {
   try {
-    await GmailAuditLog.create({
+    const entry = {
       admin_user_id: String(req.user?.id || ''),
       admin_email: String(req.user?.email || ''),
-      action,
+      action: String(action || '').slice(0, 100),
       target_id: String(targetId || '').slice(0, 200),
       details: String(details || '').slice(0, 500),
       ip: clientIp(req),
-    });
+      created_at: new Date().toISOString(),
+    };
+    auditLog.unshift(entry);
+    if (auditLog.length > AUDIT_LIMIT) auditLog.length = AUDIT_LIMIT;
+    console.log(`[mailbox] ${entry.admin_email || 'admin'} ${entry.action} ${entry.target_id}`.trim());
   } catch (e) {
     console.warn('Gmail audit log notice:', e.message);
   }
@@ -89,15 +99,15 @@ function handleGmailError(res, err, context = 'Gmail request failed') {
   return res.status(502).json({ error: `${context}. Please try again.` });
 }
 
-/** Load an authorized Gmail client for the current admin, or 400/401 out. */
+/** Load an authorized Gmail client for the support mailbox, or 400/503 out. */
 async function requireGmail(req, res) {
   if (!gmailService.isOAuthConfigured()) {
     res.status(503).json({ error: 'Gmail OAuth is not configured. Set GMAIL_CLIENT_ID / GMAIL_CLIENT_SECRET on the server.' });
     return null;
   }
-  const auth = await gmailService.getAuthorizedClient(req.user.id);
+  const auth = await gmailService.getAuthorizedClient();
   if (!auth) {
-    res.status(400).json({ error: 'Gmail is not connected.', connected: false });
+    res.status(400).json({ error: 'The support mailbox is not connected.', connected: false });
     return null;
   }
   return auth;
@@ -113,35 +123,60 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
         connected: false,
         reason: 'oauth-not-configured',
         message: 'Gmail OAuth is not configured on the server. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET and GMAIL_TOKEN_ENCRYPTION_KEY in the server environment.',
+        redirectUri: gmailService.getRedirectUri(requestBase(req)),
       });
     }
 
-    if (!gmailStore.isReady()) {
+    const conn = tokenStore.getConnection();
+    if (!conn) {
       return res.json({
         configured: true,
         connected: false,
-        reason: 'database-not-configured',
-        message: 'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in your .env to enable the Support Mailbox.',
+        reason: 'not-connected',
+        expectedEmail: tokenStore.envMailbox() || null,
+        redirectUri: gmailService.getRedirectUri(requestBase(req)),
       });
     }
 
-    const conn = await gmailStore.getConnection(req.user.id);
-    if (!conn) return res.json({ configured: true, connected: false, reason: 'not-connected' });
-
+    // Confirm the token still works and pick up the live address + counts.
     let unreadCounts = null;
+    let gmailEmail = conn.gmail_email || '';
     try {
-      const auth = await gmailService.getAuthorizedClient(req.user.id);
-      if (auth) unreadCounts = await gmailService.getUnreadCounts(auth.gmail);
-    } catch (e) { /* non-fatal — Gmail may be unreachable; connection still valid */ }
+      const auth = await gmailService.getAuthorizedClient();
+      if (auth) {
+        const profile = await auth.gmail.users.getProfile({ userId: 'me' });
+        gmailEmail = String(profile.data.emailAddress || gmailEmail).toLowerCase();
+        if (gmailEmail && gmailEmail !== conn.gmail_email) tokenStore.updateMeta({ gmail_email: gmailEmail });
+        unreadCounts = await gmailService.getUnreadCounts(auth.gmail);
+      }
+    } catch (e) {
+      // Token present but Gmail rejected it — tell the panel to reconnect.
+      const msg = e?.response?.data?.error_description || e?.message || '';
+      if (/invalid_grant|unauthorized|invalid_client/i.test(msg)) {
+        return res.json({
+          configured: true,
+          connected: false,
+          reason: 'token-invalid',
+          message: 'The stored Gmail refresh token was rejected by Google. Reconnect the mailbox.',
+          redirectUri: gmailService.getRedirectUri(requestBase(req)),
+        });
+      }
+    }
 
+    const expected = tokenStore.envMailbox();
     res.json({
       configured: true,
       connected: true,
       reason: 'connected',
-      gmailEmail: conn.gmail_email,
+      gmailEmail,
       unreadCounts,
       watchExpiration: conn.watch_expiration,
-      connectedAt: conn.created_at,
+      connectedAt: conn.connected_at,
+      // How durable the stored token is: 'env' | 'file' | 'memory'
+      tokenSource: conn.source,
+      durable: conn.durable,
+      expectedEmail: expected || null,
+      mismatch: Boolean(expected && gmailEmail && expected !== gmailEmail),
     });
   } catch (err) {
     console.error('Gmail status error:', err.message);
@@ -205,8 +240,10 @@ router.get('/auth', gmailAuthLimiter, async (req, res) => {
 // GET /api/admin/gmail/callback — Google redirects back here
 router.get('/callback', gmailAuthLimiter, async (req, res) => {
   const reqBase = requestBase(req);
-  const done = (ok, message = '') => {
-    const qs = ok ? '?gmail=connected' : `?gmail=error&msg=${encodeURIComponent(message || 'Connection failed')}`;
+  const done = (ok, message = '', extra = '') => {
+    const qs = ok
+      ? `?gmail=connected${extra}`
+      : `?gmail=error&msg=${encodeURIComponent(message || 'Connection failed')}`;
     res.redirect(`${reqBase}/admin-gmail.html${qs}`);
   };
 
@@ -226,10 +263,10 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
 
     const tokens = await gmailService.exchangeCode(String(code), reqBase);
     if (!tokens.refresh_token) {
-      return done(false, 'Google did not return a refresh token. Disconnect SaveHatke from your Google account and reconnect.');
+      return done(false, 'Google did not return a refresh token. Remove SaveHatke from your Google account permissions and connect again.');
     }
 
-    // Identify the connected Gmail address via Gmail profile
+    // Identify the connected Gmail address via the Gmail profile
     const { google } = require('googleapis');
     const oauth2 = gmailService.getOAuth2Client(reqBase);
     oauth2.setCredentials({ access_token: tokens.access_token, refresh_token: tokens.refresh_token });
@@ -238,21 +275,19 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
     const gmailEmail = String(profile.data.emailAddress || '').toLowerCase();
     if (!gmailEmail) return done(false, 'Could not read the Gmail address.');
 
-    const encrypted = encryptSecret(tokens.refresh_token);
-
-    await gmailStore.upsertConnection({
-      admin_user_id: String(decoded.adminId),
-      admin_email: String(decoded.email || ''),
+    // No database — store the refresh token in the env var / local token file.
+    const saved = tokenStore.saveConnection({
+      refresh_token: tokens.refresh_token,
       gmail_email: gmailEmail,
-      encrypted_refresh_token: encrypted,
-      granted_scopes: String(tokens.scope || ''),
-      access_token_expires_at: tokens.expiry_date ? new Date(tokens.expiry_date).toISOString() : null,
       history_id: String(profile.data.historyId || ''),
     });
 
     req.user = { id: decoded.adminId, email: decoded.email };
-    await audit(req, 'gmail.connect', gmailEmail);
-    return done(true);
+    audit(req, 'gmail.connect', gmailEmail, `token stored in ${saved.source}`);
+
+    // Tell the panel whether the token survives a restart/redeploy so it can
+    // prompt the admin to copy it into GMAIL_REFRESH_TOKEN.
+    return done(true, '', `&store=${encodeURIComponent(saved.source)}${saved.durable ? '' : '&ephemeral=1'}`);
   } catch (err) {
     console.error('Gmail callback error:', err.message);
     return done(false, 'Token exchange failed. Please try again.');
@@ -262,14 +297,49 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
 // POST /api/admin/gmail/disconnect
 router.post('/disconnect', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const conn = await gmailStore.getConnection(req.user.id);
-    await gmailService.disconnect(req.user.id);
-    await gmailStore.deleteConnection(req.user.id);
-    await audit(req, 'gmail.disconnect', conn?.gmail_email || '');
-    res.json({ ok: true });
+    const conn = tokenStore.getConnection();
+    const result = await gmailService.disconnect();
+    audit(req, 'gmail.disconnect', conn?.gmail_email || '');
+    res.json({
+      ok: true,
+      revoked: result.revoked,
+      // When the token came from an env var, it must be removed there too.
+      envStillSet: Boolean(result.envStillSet),
+      message: result.envStillSet
+        ? 'Access revoked at Google. GMAIL_REFRESH_TOKEN is still set on the server — remove it to fully disconnect.'
+        : 'Support mailbox disconnected.',
+    });
   } catch (err) {
     console.error('Gmail disconnect error:', err.message);
-    res.status(500).json({ error: 'Failed to disconnect Gmail.' });
+    res.status(500).json({ error: 'Failed to disconnect the support mailbox.' });
+  }
+});
+
+// GET /api/admin/gmail/refresh-token — reveal the refresh token ONCE so the
+// admin can paste it into GMAIL_REFRESH_TOKEN (Vercel → Environment Variables)
+// and make the connection permanent.
+//
+// Security: admin JWT + rate limited + audit logged, and it refuses to echo a
+// token that is already stored in the environment (nothing left to set up).
+router.get('/refresh-token', gmailAuthLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const conn = tokenStore.getConnection();
+    if (!conn) return res.status(400).json({ error: 'The support mailbox is not connected.' });
+    if (conn.source === 'env') {
+      return res.status(409).json({
+        error: 'GMAIL_REFRESH_TOKEN is already set on the server. The connection is permanent — nothing to copy.',
+      });
+    }
+    audit(req, 'gmail.token.reveal', conn.gmail_email, 'refresh token revealed for env setup');
+    res.json({
+      gmailEmail: conn.gmail_email,
+      envVar: 'GMAIL_REFRESH_TOKEN',
+      refreshToken: conn.refresh_token,
+      note: 'Add this as GMAIL_REFRESH_TOKEN in your server environment (Vercel → Settings → Environment Variables, or .env locally), then redeploy/restart.',
+    });
+  } catch (err) {
+    console.error('Gmail token reveal error:', err.message);
+    res.status(500).json({ error: 'Failed to read the refresh token.' });
   }
 });
 
@@ -316,7 +386,7 @@ router.get('/messages/:id', authenticateToken, requireAdmin, async (req, res) =>
     if (!/^[\w-]{1,200}$/.test(req.params.id)) return res.status(400).json({ error: 'Invalid message id.' });
 
     const message = await gmailService.getMessageFull(auth.gmail, req.params.id);
-    await audit(req, 'gmail.read', req.params.id, message.subject);
+    audit(req, 'gmail.read', req.params.id, message.subject);
     res.json({ message });
   } catch (err) {
     handleGmailError(res, err, 'Failed to load message');
@@ -353,7 +423,7 @@ Object.keys(LABEL_OPS).forEach((op) => {
       if (!/^[\w-]{1,200}$/.test(req.params.id)) return res.status(400).json({ error: 'Invalid message id.' });
 
       await applyLabelOp(auth.gmail, req.params.id, op);
-      await audit(req, `gmail.${op}`, req.params.id);
+      audit(req, `gmail.${op}`, req.params.id);
       res.json({ ok: true });
     } catch (err) {
       handleGmailError(res, err, `Failed to ${op} message`);
@@ -376,7 +446,7 @@ router.post('/messages/:id/move', authenticateToken, requireAdmin, async (req, r
       id: req.params.id,
       requestBody: { addLabelIds: sanitizeIds(addLabelIds), removeLabelIds: sanitizeIds(removeLabelIds) },
     });
-    await audit(req, 'gmail.move', req.params.id, JSON.stringify({ addLabelIds, removeLabelIds }).slice(0, 200));
+    audit(req, 'gmail.move', req.params.id, JSON.stringify({ addLabelIds, removeLabelIds }).slice(0, 200));
     res.json({ ok: true });
   } catch (err) {
     handleGmailError(res, err, 'Failed to move message');
@@ -402,7 +472,7 @@ router.post('/messages/bulk', authenticateToken, requireAdmin, async (req, res) 
       userId: 'me',
       requestBody: { ids: cleanIds, addLabelIds: def.add, removeLabelIds: def.remove },
     });
-    await audit(req, `gmail.bulk.${action}`, '', `${cleanIds.length} messages`);
+    audit(req, `gmail.bulk.${action}`, '', `${cleanIds.length} messages`);
     res.json({ ok: true, count: cleanIds.length });
   } catch (err) {
     handleGmailError(res, err, 'Bulk action failed');
@@ -417,7 +487,7 @@ router.delete('/messages/:id', authenticateToken, requireAdmin, async (req, res)
     if (!/^[\w-]{1,200}$/.test(req.params.id)) return res.status(400).json({ error: 'Invalid message id.' });
 
     await auth.gmail.users.messages.delete({ userId: 'me', id: req.params.id });
-    await audit(req, 'gmail.delete', req.params.id);
+    audit(req, 'gmail.delete', req.params.id);
     res.json({ ok: true });
   } catch (err) {
     handleGmailError(res, err, 'Failed to delete message');
@@ -474,7 +544,7 @@ router.post('/send', authenticateToken, requireAdmin, async (req, res) => {
       sendBody.threadId = String(req.body.threadId);
     }
     const r = await auth.gmail.users.messages.send({ userId: 'me', requestBody: sendBody });
-    await audit(req, 'gmail.send', r.data.id, fields.subject);
+    audit(req, 'gmail.send', r.data.id, fields.subject);
     res.json({ ok: true, id: r.data.id, threadId: r.data.threadId });
   } catch (err) {
     handleGmailError(res, err, 'Failed to send email');
@@ -517,7 +587,7 @@ router.post('/messages/:id/reply', authenticateToken, requireAdmin, async (req, 
       userId: 'me',
       requestBody: { raw, threadId: original.threadId },
     });
-    await audit(req, 'gmail.reply', req.params.id, original.subject);
+    audit(req, 'gmail.reply', req.params.id, original.subject);
     res.json({ ok: true, id: r.data.id });
   } catch (err) {
     handleGmailError(res, err, 'Failed to send reply');
@@ -562,7 +632,7 @@ router.post('/messages/:id/forward', authenticateToken, requireAdmin, async (req
 
     const raw = buildRawMessage(fields);
     const r = await auth.gmail.users.messages.send({ userId: 'me', requestBody: { raw } });
-    await audit(req, 'gmail.forward', req.params.id, original.subject);
+    audit(req, 'gmail.forward', req.params.id, original.subject);
     res.json({ ok: true, id: r.data.id });
   } catch (err) {
     handleGmailError(res, err, 'Failed to forward email');
@@ -585,7 +655,7 @@ router.post('/drafts', authenticateToken, requireAdmin, async (req, res) => {
 
     const raw = buildRawMessage(fields);
     const r = await auth.gmail.users.drafts.create({ userId: 'me', requestBody: { message: { raw } } });
-    await audit(req, 'gmail.draft.create', r.data.id, fields.subject);
+    audit(req, 'gmail.draft.create', r.data.id, fields.subject);
     res.json({ ok: true, id: r.data.id });
   } catch (err) {
     handleGmailError(res, err, 'Failed to save draft');
@@ -612,7 +682,7 @@ router.put('/drafts/:id', authenticateToken, requireAdmin, async (req, res) => {
       id: req.params.id,
       requestBody: { message: { raw } },
     });
-    await audit(req, 'gmail.draft.update', req.params.id, fields.subject);
+    audit(req, 'gmail.draft.update', req.params.id, fields.subject);
     res.json({ ok: true, id: r.data.id });
   } catch (err) {
     handleGmailError(res, err, 'Failed to update draft');
@@ -627,7 +697,7 @@ router.post('/drafts/:id/send', authenticateToken, requireAdmin, async (req, res
     if (!/^[\w-]{1,200}$/.test(req.params.id)) return res.status(400).json({ error: 'Invalid draft id.' });
 
     const r = await auth.gmail.users.drafts.send({ userId: 'me', requestBody: { id: req.params.id } });
-    await audit(req, 'gmail.draft.send', req.params.id);
+    audit(req, 'gmail.draft.send', req.params.id);
     res.json({ ok: true, id: r.data.id });
   } catch (err) {
     handleGmailError(res, err, 'Failed to send draft');
@@ -642,7 +712,7 @@ router.delete('/drafts/:id', authenticateToken, requireAdmin, async (req, res) =
     if (!/^[\w-]{1,200}$/.test(req.params.id)) return res.status(400).json({ error: 'Invalid draft id.' });
 
     await auth.gmail.users.drafts.delete({ userId: 'me', id: req.params.id });
-    await audit(req, 'gmail.draft.delete', req.params.id);
+    audit(req, 'gmail.draft.delete', req.params.id);
     res.json({ ok: true });
   } catch (err) {
     handleGmailError(res, err, 'Failed to delete draft');
@@ -675,7 +745,7 @@ router.get('/attachments/:messageId/:attachmentId', authenticateToken, requireAd
     const r = await auth.gmail.users.messages.attachments.get({ userId: 'me', messageId, id: attachmentId });
     const data = Buffer.from(String(r.data.data || ''), 'base64url');
 
-    await audit(req, 'gmail.attachment.download', messageId, filename);
+    audit(req, 'gmail.attachment.download', messageId, filename);
 
     res.setHeader('Content-Type', /^[\w./+-]+$/.test(att?.mimeType || '') ? att.mimeType : 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
@@ -701,13 +771,14 @@ router.get('/changes', authenticateToken, requireAdmin, async (req, res) => {
 
     const changed = currentHistoryId !== stored;
     if (changed && currentHistoryId) {
-      await GmailConnection.updateOne({ _id: auth.conn._id }, { $set: { history_id: currentHistoryId } });
+      tokenStore.updateMeta({ history_id: currentHistoryId });
     }
 
     res.json({
       changed,
       historyId: currentHistoryId,
-      unreadCount: profile.data.messagesUnread || 0,
+      // users.getProfile carries no messagesUnread field — read it off the label.
+      unreadCount: await gmailService.getInboxUnread(auth.gmail),
       watchExpired: !!(auth.conn.watch_expiration && new Date(auth.conn.watch_expiration) < new Date()),
     });
   } catch (err) {
@@ -737,11 +808,12 @@ router.post('/watch', authenticateToken, requireAdmin, async (req, res) => {
       },
     });
 
-    await GmailConnection.updateOne(
-      { _id: auth.conn._id },
-      { $set: { watch_expiration: new Date(Number(r.data.expiration)), watch_push_token: pushToken, history_id: String(r.data.historyId || '') } }
-    );
-    await audit(req, 'gmail.watch.start', '', `expires ${r.data.expiration}`);
+    tokenStore.updateMeta({
+      watch_expiration: new Date(Number(r.data.expiration)).toISOString(),
+      watch_push_token: pushToken,
+      history_id: String(r.data.historyId || ''),
+    });
+    audit(req, 'gmail.watch.start', '', `expires ${r.data.expiration}`);
     res.json({ ok: true, expiration: r.data.expiration });
   } catch (err) {
     handleGmailError(res, err, 'Failed to start Gmail watch');
@@ -766,14 +838,14 @@ router.post('/push', async (req, res) => {
     const pushToken = String(msg.attributes?.pushToken || req.query.token || '');
     if (!email || !pushToken) return res.status(400).json({ error: 'Incomplete notification.' });
 
-    const conn = await GmailConnection.findOne({ gmail_email: email });
-    if (!conn || conn.watch_push_token !== pushToken) {
+    const conn = tokenStore.getConnection();
+    if (!conn || conn.gmail_email !== email || !conn.watch_push_token || conn.watch_push_token !== pushToken) {
       // Never reveal whether the account exists
       return res.status(200).json({ ok: true });
     }
 
     // Refresh historyId so the admin panel picks up the change on next poll
-    await GmailConnection.updateOne({ _id: conn._id }, { $set: { history_id: String(payload.historyId || conn.history_id) } });
+    tokenStore.updateMeta({ history_id: String(payload.historyId || conn.history_id || '') });
     res.status(200).json({ ok: true });
   } catch (err) {
     console.warn('Gmail push notice:', err.message);
@@ -782,11 +854,10 @@ router.post('/push', async (req, res) => {
 });
 
 // ── Audit log viewer (admin) ─────────────────────────────────────────────────
-// GET /api/admin/gmail/audit
+// GET /api/admin/gmail/audit — in-memory trail since the last server restart
 router.get('/audit', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const logs = await GmailAuditLog.find().sort({ created_at: -1 }).limit(200).lean();
-    res.json({ logs });
+    res.json({ logs: auditLog.slice(0, AUDIT_LIMIT), ephemeral: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load audit logs.' });
   }

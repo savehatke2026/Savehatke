@@ -7,6 +7,10 @@ node_modules/
 *.json.key
 service-account*.json
 
+# Support mailbox — Gmail OAuth refresh token written by the OAuth callback
+.gmail-token.json
+server/.gmail-token.json
+
 # Logs
 *.log
 npm-debug.log*
@@ -18,6 +22,7 @@ Thumbs.db
 # IDE
 .vscode/
 .idea/
+.claude/
 
 # Build
 dist/

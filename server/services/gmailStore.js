@@ -1,14 +1,15 @@
 // ============================================
-// SaveHatke — Gmail Storage (Supabase-backed)
+// SaveHatke — Gmail Storage (Supabase-backed) — DEPRECATED / UNUSED
 // ============================================
-// Replaces the previous Mongoose-based GmailConnection / GmailAuditLog
-// models. Stores OAuth refresh tokens (AES-256-GCM encrypted), Gmail
-// sync metadata, and the admin audit log in Supabase so the support
-// mailbox no longer requires MongoDB.
+// The Support Mailbox no longer uses a database at all. It is a single shared
+// mailbox, so the only thing that must persist is ONE OAuth refresh token,
+// which now lives in GMAIL_REFRESH_TOKEN (or the local encrypted token file).
+// See services/gmailTokenStore.js.
 //
-// Required Supabase tables (run server/sql/gmail_store.sql to create):
-//   - gmail_connections
-//   - gmail_audit_logs
+// Nothing imports this file anymore. It is kept only as a reference for the
+// old per-admin gmail_connections / gmail_audit_logs schema, and the matching
+// Mongoose models (models/GmailConnection.js, models/GmailAuditLog.js) are
+// likewise unused. All three can be deleted.
 
 const { getClient } = require('./supabase');
 
