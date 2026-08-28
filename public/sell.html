@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Sell your unused reward coupons on SaveHatke and earn ₹10 instant cash per coupon. PhonePe, Paytm, Nykaa — we buy them all.">
   <title>Sell Your Coupons — SaveHatke</title>
-  <link rel="icon" type="image/png" href="logo.png">
-  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -75,9 +74,8 @@
     .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
     .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
     .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
-    .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
-    .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
-.bhl { color:#00e676; }
+    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .bhl { color:#00e676; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
     .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
@@ -113,194 +111,104 @@
     /* ── Section ── */
     .section { padding:60px 0 80px; }
 
-    /* ── How It Works — BIG / VISUAL ── */
-    .how-mini {
-      position:relative; border-radius:26px; padding:44px 36px 40px; margin-bottom:48px;
-      background:
-        radial-gradient(ellipse 60% 80% at 12% 0%, rgba(0,230,118,.10) 0%, transparent 60%),
-        radial-gradient(ellipse 60% 80% at 88% 100%, rgba(79,195,247,.09) 0%, transparent 60%),
-        linear-gradient(135deg, rgba(0,230,118,.05) 0%, rgba(79,195,247,.035) 100%);
-      border:1px solid rgba(0,230,118,.2); overflow:hidden;
-    }
-    /* faint grid so the panel reads as a poster, not a plain box */
-    .how-mini::before {
-      content:''; position:absolute; inset:0; pointer-events:none;
-      background-image:linear-gradient(rgba(79,195,247,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.045) 1px,transparent 1px);
-      background-size:46px 46px;
-      -webkit-mask-image:radial-gradient(ellipse 70% 70% at 50% 40%,#000 20%,transparent 78%);
-      mask-image:radial-gradient(ellipse 70% 70% at 50% 40%,#000 20%,transparent 78%);
-    }
-    .how-mini-inner { position:relative; z-index:1; }
-    .how-mini-label {
-      display:inline-flex; align-items:center; gap:8px;
-      font-size:.7rem; font-weight:800; letter-spacing:.2em; text-transform:uppercase;
-      color:#00e676; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.28);
-      border-radius:9999px; padding:6px 14px; margin-bottom:14px;
-    }
-    .how-mini-label .hm-dot { width:7px; height:7px; border-radius:50%; background:#00e676; animation:hmPulse 1.8s ease-in-out infinite; }
-    @keyframes hmPulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(0,230,118,.5)} 50%{opacity:.55;box-shadow:0 0 0 7px rgba(0,230,118,0)} }
-    .how-mini-heading { font-family:'DM Serif Display',serif; font-size:clamp(1.6rem,3.4vw,2.35rem); line-height:1.15; color:#e2ecff; margin-bottom:10px; }
-    .how-mini-intro { font-size:1rem; color:#a8c0dc; line-height:1.7; max-width:560px; margin-bottom:34px; }
-
-    .how-mini-grid { display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:16px; align-items:stretch; }
+    /* ── How It Works Mini — REDESIGNED ── */
+    .how-mini { border-radius:20px; padding:32px 28px; background:linear-gradient(135deg,rgba(0,230,118,.06) 0%,rgba(79,195,247,.04) 100%); border:1px solid rgba(0,230,118,.15); margin-bottom:40px; }
+    .how-mini-label { font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:20px; display:block; }
+    .how-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
     .how-mini-item {
-      position:relative; display:flex; flex-direction:column; align-items:center; text-align:center;
-      background:rgba(6,13,31,.6); border:1px solid rgba(79,195,247,.13);
-      border-radius:20px; padding:38px 22px 26px;
-      transition:border-color .25s, transform .25s, box-shadow .25s;
+      position:relative;
+      background:rgba(6,13,31,.55);
+      border:1px solid rgba(79,195,247,.1);
+      border-radius:14px;
+      padding:20px 16px;
+      text-align:left;
+      transition:border-color .22s, transform .22s;
     }
-    .how-mini-item:hover { border-color:rgba(0,230,118,.42); transform:translateY(-5px); box-shadow:0 18px 44px rgba(0,230,118,.14); }
-    /* step number floats on the card's top edge */
+    .how-mini-item:hover { border-color:rgba(0,230,118,.3); transform:translateY(-2px); }
     .how-mini-step-num {
-      position:absolute; top:-16px; left:50%; transform:translateX(-50%);
       display:inline-flex; align-items:center; justify-content:center;
-      width:34px; height:34px; border-radius:50%;
+      width:26px; height:26px; border-radius:50%;
       background:linear-gradient(135deg,#00e676,#00c853);
       color:#060d1f; font-family:'JetBrains Mono',monospace;
-      font-size:.86rem; font-weight:800;
-      box-shadow:0 6px 18px rgba(0,230,118,.4), 0 0 0 5px rgba(6,13,31,.95);
+      font-size:.72rem; font-weight:700;
+      margin-bottom:12px;
     }
-    /* big gradient icon tile */
-    .how-mini-icon {
-      width:78px; height:78px; border-radius:22px; margin-bottom:20px;
-      display:flex; align-items:center; justify-content:center; font-size:2.5rem; line-height:1;
-      background:linear-gradient(145deg, rgba(0,230,118,.16), rgba(79,195,247,.10));
-      border:1px solid rgba(0,230,118,.22);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
-      transition:transform .25s;
-    }
-    .how-mini-item:hover .how-mini-icon { transform:scale(1.07) rotate(-3deg); }
-    .how-mini-title { font-weight:800; color:#e2ecff; font-size:1.12rem; margin-bottom:7px; line-height:1.3; }
-    .how-mini-sub { font-size:.86rem; color:#a8c0dc; line-height:1.6; }
-    .how-mini-sub b { color:#00e676; font-weight:800; }
-    /* animated arrow linking the three steps */
+    .how-mini-icon { font-size:1.5rem; margin-bottom:8px; display:block; }
+    .how-mini-title { font-weight:700; color:#e2ecff; font-size:.88rem; margin-bottom:4px; line-height:1.3; }
+    .how-mini-sub { font-size:.72rem; color:#6b88aa; line-height:1.5; }
     .how-mini-connector {
-      display:flex; align-items:center; justify-content:center;
-      color:#00e676; font-size:1.6rem; font-weight:700; user-select:none;
-      animation:hmSlide 1.9s ease-in-out infinite;
+      display:none;
     }
-    @keyframes hmSlide { 0%,100%{opacity:.3;transform:translateX(-3px)} 50%{opacity:.85;transform:translateX(3px)} }
-    @media(max-width:820px){
-      .how-mini { padding:34px 22px 30px; }
-      .how-mini-grid { grid-template-columns:1fr; gap:26px; }
-      .how-mini-connector { transform:rotate(90deg); animation:none; opacity:.4; }
-      .how-mini-item { padding:34px 20px 24px; }
-      .how-mini-icon { width:66px; height:66px; font-size:2.1rem; border-radius:19px; }
+    @media(max-width:600px){
+      .how-mini-grid { grid-template-columns:1fr; gap:10px; }
     }
 
-    /* ── Stepper — BIG / VISUAL ── */
-    .stepper { display:flex; align-items:center; margin-bottom:34px; }
-    .stepper-step { display:flex; align-items:center; gap:13px; flex-shrink:0; }
-    .stepper-circle {
-      width:50px; height:50px; border-radius:50%;
-      border:2px solid rgba(79,195,247,.2); background:rgba(6,13,31,.5);
-      display:flex; align-items:center; justify-content:center;
-      font-size:1.25rem; color:#6b88aa; transition:all .3s; flex-shrink:0;
-    }
-    .stepper-step.active .stepper-circle {
-      background:linear-gradient(135deg,#00e676,#00c853); border-color:transparent; color:#060d1f;
-      animation:stepPulse 2.2s ease-in-out infinite;
-    }
-    @keyframes stepPulse { 0%,100%{box-shadow:0 0 0 6px rgba(0,230,118,.14),0 8px 22px rgba(0,230,118,.3)} 50%{box-shadow:0 0 0 11px rgba(0,230,118,0),0 8px 22px rgba(0,230,118,.34)} }
-    .stepper-step.done .stepper-circle { background:rgba(0,230,118,.15); border-color:rgba(0,230,118,.45); color:#00e676; }
-    .stepper-text { display:flex; flex-direction:column; line-height:1.25; }
-    .stepper-kicker { font-size:.62rem; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:#4a6a8f; margin-bottom:2px; }
-    .stepper-step.active .stepper-kicker { color:#00e676; }
-    .stepper-label { font-size:.95rem; font-weight:700; color:#6b88aa; transition:color .3s; }
+    /* ── Stepper ── */
+    .stepper { display:flex; align-items:center; margin-bottom:28px; }
+    .stepper-step { display:flex; align-items:center; gap:10px; flex-shrink:0; }
+    .stepper-circle { width:36px; height:36px; border-radius:50%; border:2px solid rgba(79,195,247,.2); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:700; color:#6b88aa; transition:all .3s; flex-shrink:0; }
+    .stepper-step.active .stepper-circle { background:linear-gradient(135deg,#00e676,#00c853); border-color:transparent; color:#060d1f; box-shadow:0 0 0 4px rgba(0,230,118,.15); }
+    .stepper-step.done .stepper-circle { background:rgba(0,230,118,.15); border-color:rgba(0,230,118,.4); color:#00e676; }
+    .stepper-label { font-size:.82rem; font-weight:600; color:#6b88aa; transition:color .3s; }
     .stepper-step.active .stepper-label { color:#e2ecff; }
     .stepper-step.done .stepper-label { color:#00e676; }
-    .stepper-line { flex:1; height:3px; background:rgba(79,195,247,.1); margin:0 16px; border-radius:2px; position:relative; overflow:hidden; }
-    .stepper-line::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transform-origin:left; transition:transform .45s ease; border-radius:2px; }
+    .stepper-line { flex:1; height:2px; background:rgba(79,195,247,.1); margin:0 12px; border-radius:1px; position:relative; overflow:hidden; }
+    .stepper-line::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,#00e676,#4fc3f7); transform:scaleX(0); transform-origin:left; transition:transform .4s ease; border-radius:1px; }
     .stepper-line.done::after { transform:scaleX(1); }
-    /* Completed steps are clickable shortcuts back to that step. */
-    .stepper-step.done { cursor:pointer; }
-    .stepper-step.done:hover .stepper-circle { border-color:#00e676; background:rgba(0,230,118,.25); transform:scale(1.05); }
-    .stepper-step.done:hover .stepper-label { color:#e2ecff; }
-    @media(max-width:640px){
-      .stepper-kicker { display:none; }
-      .stepper-step { gap:9px; }
-      .stepper-circle { width:40px; height:40px; font-size:1rem; }
-      .stepper-label { font-size:.8rem; }
-      .stepper-line { margin:0 9px; }
-    }
 
     /* ── Form Card ── */
     .form-card { border-radius:20px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); overflow:hidden; }
     .step-content { display:none; padding:36px; }
     .step-content.active { display:block; }
-    .step-title { font-family:'DM Serif Display',serif; font-size:1.75rem; color:#e2ecff; margin-bottom:10px; }
+    .step-title { font-family:'DM Serif Display',serif; font-size:1.5rem; color:#e2ecff; margin-bottom:28px; }
 
-    /* ── Category Select ── */
-    .cat-select {
-      width:100%; padding:16px 18px; border-radius:12px;
-      background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15);
-      color:#e2ecff; font-family:'Outfit',sans-serif; font-size:1rem;
-      cursor:pointer; outline:none; appearance:none;
-      background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b88aa' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-      background-repeat:no-repeat; background-position:right 16px center; background-size:18px;
-      transition:border-color .2s, box-shadow .2s;
+    /* ── Auto-detected category chip (replaces the old category step) ── */
+    .cat-auto {
+      display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+      margin:-6px 0 20px; padding:9px 13px; border-radius:10px;
+      background:rgba(0,230,118,.06); border:1px solid rgba(0,230,118,.16);
+      font-size:.78rem; color:#8fa8c8;
     }
-    .cat-select:focus { border-color:rgba(0,230,118,.45); box-shadow:0 0 0 3px rgba(0,230,118,.1); }
-    .cat-select option { background:#0c1835; color:#e2ecff; }
+    .cat-auto-val { font-weight:700; color:#00e676; }
+    .cat-auto.unknown { background:rgba(255,193,7,.06); border-color:rgba(255,193,7,.18); }
+    .cat-auto.unknown .cat-auto-val { color:#ffd97a; }
 
-    /* ── Category Cards — BIG / VISUAL (the <select> stays the source of truth) ── */
-    .step-hint { font-size:.92rem; color:#a8c0dc; margin:0 0 26px; line-height:1.6; }
-    .cat-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; }
-    .cat-card {
-      position:relative; display:flex; align-items:flex-start; gap:16px; text-align:left;
-      padding:22px 20px; border-radius:18px; cursor:pointer;
-      background:rgba(255,255,255,.04); border:1.5px solid rgba(79,195,247,.14);
-      font-family:'Outfit',sans-serif; color:#e2ecff; overflow:hidden;
-      transition:border-color .2s, background .2s, transform .2s, box-shadow .2s;
-    }
-    .cat-card:hover { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.06); transform:translateY(-4px); box-shadow:0 14px 34px rgba(0,230,118,.12); }
-    .cat-card.selected { border-color:#00e676; background:rgba(0,230,118,.1); box-shadow:0 0 0 3px rgba(0,230,118,.13), 0 12px 30px rgba(0,230,118,.14); }
-    .cat-card-icon {
-      flex-shrink:0; width:58px; height:58px; border-radius:16px;
-      display:flex; align-items:center; justify-content:center; font-size:1.85rem; line-height:1;
-      background:linear-gradient(145deg, rgba(0,230,118,.15), rgba(79,195,247,.09));
-      border:1px solid rgba(0,230,118,.2);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,.07);
-      transition:transform .2s;
-    }
-    .cat-card:hover .cat-card-icon { transform:scale(1.06) rotate(-3deg); }
-    .cat-card-name { display:block; font-size:1.1rem; font-weight:800; margin-bottom:5px; }
-    .cat-card-brands { display:block; font-size:.82rem; color:#a8c0dc; line-height:1.5; }
-    .cat-card-check {
-      position:absolute; top:14px; right:14px;
-      width:24px; height:24px; border-radius:50%;
-      background:#00e676; color:#060d1f;
-      display:flex; align-items:center; justify-content:center;
-      font-size:.78rem; font-weight:900;
-      opacity:0; transform:scale(.5); transition:opacity .2s, transform .2s;
-    }
-    .cat-card.selected .cat-card-check { opacity:1; transform:scale(1); }
-    @media(max-width:600px){
-      .cat-grid { grid-template-columns:1fr; gap:12px; }
-      .cat-card { padding:18px 16px; gap:13px; }
-      .cat-card-icon { width:50px; height:50px; font-size:1.6rem; border-radius:14px; }
-      .cat-card-name { font-size:1rem; }
-    }
+    /* ── Live brand logo under the brand field ──
+       Logo only, no brand text: the seller types "zepto" and sees the Zepto
+       mark, which is the confirmation that we matched the right brand. Stays
+       hidden until a logo actually resolves and loads, so an unrecognised or
+       mistyped brand shows nothing rather than a broken image. The [hidden]
+       rule has to be spelled out because display:flex overrides the UA sheet. */
+    .brand-logo-preview { display:flex; align-items:center; height:40px; margin:-2px 0 12px; }
+    .brand-logo-preview[hidden] { display:none; }
+    .brand-logo-preview img { max-width:124px; width:auto; height:100%; object-fit:contain; }
 
-    /* ── Screenshot Dropzone ── */
+    /* ── Screenshot dropzone (one per coupon card) ── */
     .drop-zone {
-      display:flex; flex-direction:column; align-items:center; gap:6px;
-      padding:26px 18px; border-radius:14px; cursor:pointer; text-align:center;
-      background:rgba(255,255,255,.03); border:1.5px dashed rgba(79,195,247,.28);
-      transition:border-color .2s, background .2s;
+      border:1.6px dashed rgba(79,195,247,.28); border-radius:12px;
+      padding:22px 16px; text-align:center; cursor:pointer;
+      background:rgba(255,255,255,.02); transition:border-color .2s, background .2s;
     }
-    .drop-zone:hover, .drop-zone.dragover { border-color:#00e676; background:rgba(0,230,118,.06); }
-    .drop-zone-icon { font-size:1.7rem; }
-    .drop-zone-title { font-size:.9rem; font-weight:700; color:#e2ecff; }
-    .drop-zone-sub { font-size:.75rem; color:#6b88aa; }
-    .proof-preview { display:none; align-items:center; gap:14px; margin-top:12px; padding:12px; border-radius:12px; background:rgba(9,18,40,.75); border:1px solid rgba(0,230,118,.22); }
+    .drop-zone:hover, .drop-zone:focus-visible { border-color:rgba(0,230,118,.5); background:rgba(0,230,118,.04); outline:none; }
+    .drop-zone.dragover { border-color:rgba(0,230,118,.7); background:rgba(0,230,118,.08); }
+    .drop-zone.filled { border-style:solid; border-color:rgba(0,230,118,.35); }
+    .drop-icon { font-size:1.6rem; display:block; margin-bottom:6px; }
+    .drop-text { font-size:.86rem; color:#a8c0dc; font-weight:600; }
+    .drop-hint { font-size:.72rem; color:#6b88aa; margin-top:4px; }
+    .proof-preview { display:none; align-items:center; gap:14px; margin-top:12px; padding:12px; border-radius:12px; background:rgba(0,230,118,.05); border:1px solid rgba(0,230,118,.18); }
     .proof-preview.show { display:flex; }
-    .proof-thumb { width:56px; height:56px; border-radius:9px; object-fit:cover; flex-shrink:0; border:1px solid rgba(79,195,247,.15); }
+    .proof-thumb { width:56px; height:56px; border-radius:9px; object-fit:cover; flex-shrink:0; border:1px solid rgba(79,195,247,.2); }
     .proof-meta { flex:1; min-width:0; }
     .proof-name { font-size:.85rem; font-weight:600; color:#e2ecff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .proof-size { font-size:.74rem; color:#00e676; font-family:'JetBrains Mono',monospace; margin-top:2px; }
-    .proof-remove { background:none; border:none; color:#f87171; cursor:pointer; font-size:.8rem; font-weight:700; font-family:'Outfit',sans-serif; padding:6px 10px; border-radius:8px; transition:background .2s; }
+    .proof-remove { background:none; border:none; color:#f87171; cursor:pointer; font-size:.8rem; font-weight:700; font-family:'Outfit',sans-serif; padding:6px 10px; border-radius:8px; }
     .proof-remove:hover { background:rgba(239,68,68,.12); }
+    .frequired { color:#f87171; font-size:.72rem; font-weight:700; margin-left:4px; }
+
+    /* ── Add another coupon ── */
+    .coupon-add-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:4px 0 24px; }
+    .coupon-add-hint { font-size:.76rem; color:#6b88aa; }
+    .coupon-add-hint.limit { color:#ffd97a; }
 
     /* ── Form Inputs ── */
     .fgroup { margin-bottom:20px; }
@@ -314,35 +222,7 @@
     .finput:focus { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.03); }
     .finput::placeholder { color:#6b88aa; }
     .finput.code { text-transform:uppercase; letter-spacing:2px; font-family:'JetBrains Mono',monospace; font-weight:600; font-size:.9rem; }
-    textarea.finput { resize:vertical; min-height:84px; }
     .fhint { font-size:.75rem; color:#6b88aa; margin-top:6px; }
-    .frequired { color:#ff5252; font-weight:700; }
-
-    /* ── Custom Brand Select (matches admin panel) ── */
-    .custom-brand-select { position:relative; width:100%; }
-    .brand-select-btn {
-      width:100%; display:flex; align-items:center; justify-content:space-between;
-      background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15);
-      color:#e2ecff; border-radius:10px; padding:11px 16px; font-size:.92rem;
-      font-family:'Outfit',sans-serif; cursor:pointer; text-align:left; transition:all .2s;
-    }
-    .brand-select-btn:hover { border-color:rgba(0,230,118,.35); }
-    .brand-selected-val { display:flex; align-items:center; gap:10px; font-weight:600; flex:1; overflow:hidden; }
-    .brand-logo-img { width:40px; height:40px; object-fit:contain; flex-shrink:0; }
-    .brand-logo-fallback { width:40px; height:40px; border-radius:4px; background:linear-gradient(135deg,#00e676,#4fc3f7); color:#060d1f; display:inline-flex; align-items:center; justify-content:center; font-size:1.15rem; flex-shrink:0; }
-    .brand-arrow { font-size:.75rem; color:#6b88aa; transition:transform .2s; }
-    .custom-brand-select.open .brand-arrow { transform:rotate(180deg); }
-    .brand-select-dropdown {
-      position:absolute; top:calc(100% + 6px); left:0; right:0; z-index:100;
-      background:#0c1835; border:1.5px solid rgba(79,195,247,.2); border-radius:12px;
-      box-shadow:0 20px 60px rgba(0,0,0,.8); padding:8px; display:none; max-height:280px; overflow-y:auto;
-    }
-    .custom-brand-select.open .brand-select-dropdown { display:block; }
-    .brand-search-box { width:100%; background:rgba(255,255,255,.06); border:1px solid rgba(79,195,247,.15); border-radius:8px; padding:8px 12px; color:#e2ecff; font-size:.83rem; margin-bottom:8px; outline:none; font-family:'Outfit',sans-serif; }
-    .brand-opt-group { font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:#00e676; padding:8px 10px 4px; }
-    .brand-opt { display:flex; align-items:center; gap:10px; padding:8px 12px; border-radius:8px; font-size:.86rem; color:#a8c0dc; cursor:pointer; transition:all .15s; }
-    .brand-opt:hover { background:rgba(0,230,118,.1); color:#e2ecff; }
-    .brand-opt.selected { background:rgba(0,230,118,.18); color:#00e676; font-weight:700; }
     .step-actions { display:flex; gap:12px; margin-top:28px; flex-wrap:wrap; }
 
     /* ── Multi Coupon Cards ── */
@@ -392,15 +272,15 @@
     .toast-warning { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
 
     /* ── Footer ── */
-    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:36px 0 0; margin-top:48px; }
-    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; padding-bottom:28px; }
-    .fbrand p { font-size:.84rem; color:#6b88aa; line-height:1.6; margin-top:12px; max-width:320px; }
-    .fcol h4 { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; color:#a8c0dc; }
-    .fcol a { display:block; font-size:.84rem; color:#6b88aa; margin-bottom:8px; transition:color .2s; }
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; margin-top:80px; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; padding-bottom:52px; }
+    .fbrand p { font-size:.88rem; color:#6b88aa; line-height:1.7; margin-top:16px; max-width:280px; }
+    .fcol h4 { font-size:.8rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:20px; color:#a8c0dc; }
+    .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
     .fcol a:hover { color:#00e676; }
-    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:14px 0; display:flex; justify-content:space-between; font-size:.78rem; color:#6b88aa; }
-    @media(max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;gap:24px} }
-    @media(max-width:600px){ .footer-grid{grid-template-columns:1fr} .fbot{flex-direction:column;gap:6px;text-align:center} }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
+    @media(max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;gap:32px} }
+    @media(max-width:600px){ .footer-grid{grid-template-columns:1fr} .fbot{flex-direction:column;gap:8px;text-align:center} }
 
     /* ── Modal ── */
     .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
@@ -447,15 +327,13 @@
 <nav class="navbar" id="nav">
   <div class="container">
     <a href="index" class="nav-brand">
-      <img src="logo.png" alt="SaveHatke" class="brand-icon">
+      <div class="brand-icon">💰</div>
       <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
     <div class="nav-links" id="navLinks">
       <a href="index">Home</a>
-      <a href="marketplace">Buy Coupons</a>
+      <a href="marketplace">Coupons</a>
       <a href="sell" class="active">Sell Coupons</a>
-      <a href="how-it-works">How it Works</a>
-      <a href="about">About</a>
       <a href="support">Support</a>
     </div>
     <div class="nav-actions" id="navActions"></div>
@@ -472,7 +350,7 @@
   <div class="particles" id="pageParticles"></div>
   <div class="container">
     <div class="page-hero-inner fu in">
-      <div class="page-hero-badge">🔥 Buy & Sell Coupons — All in One Place!</div>
+      <div class="page-hero-badge">💸 Earn instant cash from unused coupons</div>
       <h1 class="page-hero-title">Sell Your <span class="gtext">Unused Coupons</span></h1>
       <p class="page-hero-sub">Turn those dusty reward codes into instant cash. We pay <strong>₹10 per coupon</strong> — verified and paid within 24 hours. Submit up to 5 coupons at once!</p>
     </div>
@@ -505,155 +383,67 @@
 <main class="section">
   <div class="container-sm">
 
-    <!-- How It Works — BIG / VISUAL -->
+    <!-- How It Works Mini — REDESIGNED -->
     <div class="how-mini fu in">
-      <div class="how-mini-inner">
-        <span class="how-mini-label"><span class="hm-dot"></span> How it works</span>
-        <h2 class="how-mini-heading">Three steps. <span class="gtext">Cash in your UPI.</span></h2>
-        <p class="how-mini-intro">Drop in the coupon codes you're never going to use, we check they're real, and you get paid ₹10 for every one that passes.</p>
-        <div class="how-mini-grid">
-          <div class="how-mini-item">
-            <div class="how-mini-step-num">1</div>
-            <div class="how-mini-icon">📝</div>
-            <div class="how-mini-title">Submit Codes</div>
-            <div class="how-mini-sub">Enter <b>1–5 coupons</b> at once</div>
-          </div>
-          <div class="how-mini-connector" aria-hidden="true">→</div>
-          <div class="how-mini-item">
-            <div class="how-mini-step-num">2</div>
-            <div class="how-mini-icon">✅</div>
-            <div class="how-mini-title">We Verify</div>
-            <div class="how-mini-sub">Quick validation check</div>
-          </div>
-          <div class="how-mini-connector" aria-hidden="true">→</div>
-          <div class="how-mini-item">
-            <div class="how-mini-step-num">3</div>
-            <div class="how-mini-icon">💸</div>
-            <div class="how-mini-title">Get Paid <b>₹10</b> Each</div>
-            <div class="how-mini-sub">Instant to your UPI</div>
-          </div>
+      <span class="how-mini-label">How it works</span>
+      <div class="how-mini-grid">
+        <div class="how-mini-item">
+          <div class="how-mini-step-num">1</div>
+          <span class="how-mini-icon">📝</span>
+          <div class="how-mini-title">Submit Codes</div>
+          <div class="how-mini-sub">Enter 1–5 coupons at once</div>
+        </div>
+        <div class="how-mini-item">
+          <div class="how-mini-step-num">2</div>
+          <span class="how-mini-icon">✅</span>
+          <div class="how-mini-title">We Verify</div>
+          <div class="how-mini-sub">Quick validation check</div>
+        </div>
+        <div class="how-mini-item">
+          <div class="how-mini-step-num">3</div>
+          <span class="how-mini-icon">💸</span>
+          <div class="how-mini-title">Get Paid ₹10 Each</div>
+          <div class="how-mini-sub">Instant to your UPI</div>
         </div>
       </div>
     </div>
 
-    <!-- Stepper — BIG / VISUAL -->
+    <!-- Stepper — the old "Category" step is gone; the form opens straight away -->
     <div class="stepper fu in" id="stepper">
-      <div class="stepper-step active" data-step="1" data-icon="🗂️">
-        <div class="stepper-circle">🗂️</div>
-        <div class="stepper-text">
-          <span class="stepper-kicker">Step 1</span>
-          <span class="stepper-label">Category</span>
-        </div>
+      <div class="stepper-step active" data-step="1">
+        <div class="stepper-circle">1</div>
+        <span class="stepper-label">Details</span>
       </div>
       <div class="stepper-line" id="line-1-2"></div>
-      <div class="stepper-step" data-step="2" data-icon="✍️">
-        <div class="stepper-circle">✍️</div>
-        <div class="stepper-text">
-          <span class="stepper-kicker">Step 2</span>
-          <span class="stepper-label">Details</span>
-        </div>
-      </div>
-      <div class="stepper-line" id="line-2-3"></div>
-      <div class="stepper-step" data-step="3" data-icon="🚀">
-        <div class="stepper-circle">🚀</div>
-        <div class="stepper-text">
-          <span class="stepper-kicker">Step 3</span>
-          <span class="stepper-label">Confirm</span>
-        </div>
+      <div class="stepper-step" data-step="2">
+        <div class="stepper-circle">2</div>
+        <span class="stepper-label">Confirm</span>
       </div>
     </div>
 
     <!-- Form Card -->
     <div class="form-card fu in">
 
-      <!-- ── Step 1: Category — REDESIGNED ── -->
+      <!-- ── Step 1: Coupon details (opens immediately on load) ── -->
       <div class="step-content active" id="step-1">
-        <h2 class="step-title">Select Coupon Category</h2>
-        <p class="step-hint">Pick the category your coupons belong to — this decides the brand list in the next step.</p>
-
-        <!-- Visual picker. The <select> below is kept as the single source of truth
-             (validation, review summary and resetForm all read #categorySelect). -->
-        <div class="cat-grid" id="catGrid">
-          <button type="button" class="cat-card" data-value="Makeup" onclick="pickCategory(this)">
-            <span class="cat-card-icon">💄</span>
-            <span>
-              <span class="cat-card-name">Makeup &amp; Beauty</span>
-              <span class="cat-card-brands">Nykaa, Lakme, Mamaearth</span>
-            </span>
-            <span class="cat-card-check">✓</span>
-          </button>
-          <button type="button" class="cat-card" data-value="Electronics" onclick="pickCategory(this)">
-            <span class="cat-card-icon">⚡</span>
-            <span>
-              <span class="cat-card-name">Electronics</span>
-              <span class="cat-card-brands">boAt, Croma, Samsung</span>
-            </span>
-            <span class="cat-card-check">✓</span>
-          </button>
-          <button type="button" class="cat-card" data-value="Fashion" onclick="pickCategory(this)">
-            <span class="cat-card-icon">👟</span>
-            <span>
-              <span class="cat-card-name">Fashion &amp; Shoes</span>
-              <span class="cat-card-brands">Puma, Myntra, AJIO</span>
-            </span>
-            <span class="cat-card-check">✓</span>
-          </button>
-          <button type="button" class="cat-card" data-value="Food" onclick="pickCategory(this)">
-            <span class="cat-card-icon">🍔</span>
-            <span>
-              <span class="cat-card-name">Food &amp; Delivery</span>
-              <span class="cat-card-brands">Swiggy, Zomato, Dominos</span>
-            </span>
-            <span class="cat-card-check">✓</span>
-          </button>
-        </div>
-
-        <select class="cat-select" id="categorySelect" onchange="selectCategory(this)" hidden aria-hidden="true" tabindex="-1">
-          <option value="">— Choose a category —</option>
-          <option value="Makeup">💄 Makeup &amp; Beauty — Nykaa, Lakme, Mamaearth</option>
-          <option value="Electronics">⚡ Electronics — boAt, Croma, Samsung</option>
-          <option value="Fashion">👟 Fashion &amp; Shoes — Puma, Myntra, AJIO</option>
-          <option value="Food">🍔 Food &amp; Delivery — Swiggy, Zomato, Dominos</option>
-        </select>
-      </div>
-
-      <!-- ── Step 2: Multiple Coupon Details ── -->
-      <div class="step-content" id="step-2">
         <h2 class="step-title">Enter Coupon Details</h2>
 
         <!-- Dynamic coupon cards will be injected here -->
         <div class="coupon-cards-container" id="couponCardsContainer"></div>
 
-        <!-- Screenshot / proof upload (mandatory, validated client + server side).
-             The file input stays the source of truth; the dropzone only drives it. -->
-        <div class="fgroup" style="margin-top:18px">
-          <label class="flabel" for="proofFile">📸 Coupon Screenshot / Proof <span class="frequired">*mandatory*</span></label>
-          <input type="file" id="proofFile" accept="image/png,image/jpeg,image/webp" hidden onchange="onProofPicked(this.files)">
-          <div class="drop-zone" id="proofDropZone" role="button" tabindex="0"
-               onclick="document.getElementById('proofFile').click()"
-               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();document.getElementById('proofFile').click();}">
-            <span class="drop-zone-icon">🖼️</span>
-            <span class="drop-zone-title">Click to upload or drag &amp; drop</span>
-            <span class="drop-zone-sub">PNG, JPG or WEBP · max 3MB · admins use it to verify your coupon</span>
-          </div>
-          <div class="proof-preview" id="proofPreview">
-            <img class="proof-thumb" id="proofThumb" alt="Screenshot preview">
-            <div class="proof-meta">
-              <div class="proof-name" id="proofName"></div>
-              <div class="proof-size" id="proofSize"></div>
-            </div>
-            <button type="button" class="proof-remove" onclick="clearProof()">Remove</button>
-          </div>
+        <div class="coupon-add-row">
+          <button type="button" class="btn btn-secondary" id="addCouponBtn" onclick="addCoupon()">＋ Add another coupon</button>
+          <span class="coupon-add-hint" id="couponCountHint">You can submit up to 5 coupons at once</span>
+          <span class="coupon-add-hint limit" id="couponLimitMsg" style="display:none">Maximum of 5 coupons per submission</span>
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-secondary" onclick="goToStep(1)">← Back</button>
-          <button type="button" class="btn btn-primary w-full" onclick="goToStep(3)">Review Submission →</button>
+          <button type="button" class="btn btn-primary w-full" onclick="goToStep(2)">Review Submission →</button>
         </div>
       </div>
 
-      <!-- ── Step 3: Review & Submit ── -->
-      <div class="step-content" id="step-3">
+      <!-- ── Step 2: Review & Submit ── -->
+      <div class="step-content" id="step-2">
         <h2 class="step-title">Review &amp; Submit</h2>
 
         <div id="reviewTotalRow" class="review-total-row">
@@ -670,7 +460,7 @@
         </div>
 
         <div class="step-actions">
-          <button type="button" class="btn btn-secondary" onclick="goToStep(2)">← Edit</button>
+          <button type="button" class="btn btn-secondary" onclick="goToStep(1)">← Edit</button>
           <button type="button" class="btn btn-success btn-lg w-full" id="submitSellBtn" onclick="submitCoupons()">
             ✅ Submit &amp; Earn
           </button>
@@ -701,15 +491,16 @@
     <div class="footer-grid">
       <div class="fbrand">
         <a href="index" class="nav-brand" style="font-size:1.2rem">
-          <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+          <div class="brand-icon">💰</div><span class="brand-name">Save<span class="bhl">Hatke</span></span>
         </a>
-        <p>India’s coupon marketplace for buying and selling eligible unused coupons. Buy great deals, save more, and turn unused coupons into extra value.</p>
+        <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
       </div>
       <div class="fcol">
         <h4>Platform</h4>
         <a href="marketplace">Coupon Marketplace</a>
         <a href="sell">Sell Coupons</a>
-        <a href="how-it-works">How it Works</a>
+        <a href="dashboard">Price Tracker</a>
+        <a href="index#extension">Browser Extension</a>
       </div>
       <div class="fcol">
         <h4>Company</h4>
@@ -775,6 +566,10 @@
   </div>
 </div>
 
+<!-- Shared brand-logo helpers (getBrandLogo / getBrandInitial). Loaded before
+     the page script so the brand field can show a brand's real logo as the
+     seller types, using the same local /logos/* files as the marketplace. -->
+<script src="js/coupon-meta.js"></script>
 <script>
 /* ══════════════════════════════════════
    TOAST
@@ -805,10 +600,188 @@ function showToast(message, type = 'success') {
    MULTI-COUPON SELL FORM STATE
 ══════════════════════════════════════ */
 const MAX_COUPONS = 5;
-let selectedCategory = '';
 let currentStep = 1;
 let couponIdCounter = 0;
 let couponIds = []; // ordered list of active coupon IDs
+
+/* Picked screenshot per coupon card: { [couponId]: File } */
+const proofFiles = {};
+
+/* Screenshot rules — mirrored server-side in POST /api/coupons/proof */
+const PROOF_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const PROOF_MAX_BYTES = 3 * 1024 * 1024;
+
+/* ══════════════════════════════════════
+   CATEGORY — auto-detected from the brand
+   ──────────────────────────────────────
+   The seller never picks a category. Values below match the marketplace
+   filter pills exactly (public/marketplace.html), so a submitted coupon is
+   always reachable from a pill. Unknown brands fall back to "General".
+══════════════════════════════════════ */
+const BRAND_CATEGORY = {
+  // 🛒 E-Commerce
+  'amazon': 'E-Commerce', 'flipkart': 'E-Commerce', 'meesho': 'E-Commerce',
+  'tata cliq': 'E-Commerce', 'snapdeal': 'E-Commerce', 'shopsy': 'E-Commerce',
+  // 👗 Fashion
+  'myntra': 'Fashion', 'ajio': 'Fashion', 'h&m': 'Fashion', 'hm': 'Fashion',
+  'nykaa fashion': 'Fashion', 'puma': 'Fashion', 'adidas': 'Fashion',
+  'nike': 'Fashion', 'bewakoof': 'Fashion', 'levis': 'Fashion',
+  "levi's": 'Fashion', 'zara': 'Fashion', 'uniqlo': 'Fashion',
+  // 💄 Beauty & Personal Care
+  'nykaa': 'Beauty & Personal Care', 'purplle': 'Beauty & Personal Care',
+  'mamaearth': 'Beauty & Personal Care', 'minimalist': 'Beauty & Personal Care',
+  'lakme': 'Beauty & Personal Care', 'lakmé': 'Beauty & Personal Care',
+  'sugar': 'Beauty & Personal Care', 'plum': 'Beauty & Personal Care',
+  'the body shop': 'Beauty & Personal Care',
+  // 🍔 Food & Delivery (incl. quick-commerce grocery)
+  'swiggy': 'Food & Delivery', 'zomato': 'Food & Delivery',
+  'pizza hut': 'Food & Delivery', 'dominos': 'Food & Delivery',
+  "domino's": 'Food & Delivery', 'eatsure': 'Food & Delivery',
+  'kfc': 'Food & Delivery', 'mcdonalds': 'Food & Delivery',
+  "mcdonald's": 'Food & Delivery', 'burger king': 'Food & Delivery',
+  'starbucks': 'Food & Delivery', 'blinkit': 'Food & Delivery',
+  'zepto': 'Food & Delivery', 'swiggy instamart': 'Food & Delivery',
+  'instamart': 'Food & Delivery', 'bigbasket': 'Food & Delivery',
+  'jiomart': 'Food & Delivery', 'dunzo': 'Food & Delivery',
+  // ✈️ Travel & Transport
+  'makemytrip': 'Travel & Transport', 'cleartrip': 'Travel & Transport',
+  'easemytrip': 'Travel & Transport', 'uber': 'Travel & Transport',
+  'rapido': 'Travel & Transport', 'ola': 'Travel & Transport',
+  'ixigo': 'Travel & Transport', 'redbus': 'Travel & Transport',
+  'irctc': 'Travel & Transport', 'indigo': 'Travel & Transport',
+  // 🏨 Hotels & Stays
+  'booking.com': 'Hotels & Stays', 'booking': 'Hotels & Stays',
+  'agoda': 'Hotels & Stays', 'goibibo': 'Hotels & Stays',
+  'oyo': 'Hotels & Stays', 'airbnb': 'Hotels & Stays', 'treebo': 'Hotels & Stays',
+  // 📱 Electronics & Gadgets
+  'croma': 'Electronics & Gadgets', 'reliance digital': 'Electronics & Gadgets',
+  'vijay sales': 'Electronics & Gadgets', 'samsung': 'Electronics & Gadgets',
+  'oneplus': 'Electronics & Gadgets', 'boat': 'Electronics & Gadgets',
+  'boat lifestyle': 'Electronics & Gadgets', 'noise': 'Electronics & Gadgets',
+  'mi': 'Electronics & Gadgets', 'xiaomi': 'Electronics & Gadgets',
+  'realme': 'Electronics & Gadgets', 'apple': 'Electronics & Gadgets',
+  // 🎮 Gaming & Entertainment (incl. OTT)
+  'playstation': 'Gaming & Entertainment', 'xbox': 'Gaming & Entertainment',
+  'steam': 'Gaming & Entertainment', 'google play': 'Gaming & Entertainment',
+  'apple app store': 'Gaming & Entertainment', 'app store': 'Gaming & Entertainment',
+  'netflix': 'Gaming & Entertainment', 'amazon prime': 'Gaming & Entertainment',
+  'prime video': 'Gaming & Entertainment', 'disney+ hotstar': 'Gaming & Entertainment',
+  'hotstar': 'Gaming & Entertainment', 'sonyliv': 'Gaming & Entertainment',
+  'zee5': 'Gaming & Entertainment', 'bookmyshow': 'Gaming & Entertainment',
+  'spotify': 'Gaming & Entertainment', 'youtube premium': 'Gaming & Entertainment',
+  'jiocinema': 'Gaming & Entertainment', 'jiohotstar': 'Gaming & Entertainment',
+  // 🏋️ Fitness & Sports
+  'cult.fit': 'Fitness & Sports', 'cultfit': 'Fitness & Sports',
+  'cult': 'Fitness & Sports', 'decathlon': 'Fitness & Sports',
+  'healthifyme': 'Fitness & Sports',
+  // 📚 Education
+  'udemy': 'Education', 'coursera': 'Education', 'unacademy': 'Education',
+  'byjus': 'Education', "byju's": 'Education', 'vedantu': 'Education',
+  'physicswallah': 'Education', 'upgrad': 'Education', 'skillshare': 'Education',
+  // 💊 Health & Pharmacy
+  '1mg': 'Health & Pharmacy', 'tata 1mg': 'Health & Pharmacy',
+  'pharmeasy': 'Health & Pharmacy', 'netmeds': 'Health & Pharmacy',
+  'apollo pharmacy': 'Health & Pharmacy', 'apollo': 'Health & Pharmacy',
+  'practo': 'Health & Pharmacy',
+  // 💰 Finance & Payments
+  'phonepe': 'Finance & Payments', 'paytm': 'Finance & Payments',
+  'google pay': 'Finance & Payments', 'gpay': 'Finance & Payments',
+  'cred': 'Finance & Payments', 'mobikwik': 'Finance & Payments',
+  'freecharge': 'Finance & Payments', 'amazon pay': 'Finance & Payments',
+  'bhim': 'Finance & Payments', 'slice': 'Finance & Payments',
+  // 🏠 General / home & lifestyle
+  'ikea': 'General', 'pepperfry': 'General', 'urban ladder': 'General',
+  'home centre': 'General', 'urban company': 'General', 'nobroker': 'General',
+};
+
+const FALLBACK_CATEGORY = 'General';
+
+/**
+ * Map a free-typed brand name to a marketplace category.
+ * Exact match first, then a contains-match so "Amazon India" or
+ * "Swiggy Instamart" still resolve. Unknown brands → "General".
+ */
+function deriveCategory(brandRaw) {
+  const brand = String(brandRaw || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  if (!brand) return '';
+  if (BRAND_CATEGORY[brand]) return BRAND_CATEGORY[brand];
+
+  // Longest key first so "swiggy instamart" beats "swiggy".
+  const keys = Object.keys(BRAND_CATEGORY).sort((a, b) => b.length - a.length);
+  for (const key of keys) {
+    if (brand.includes(key)) return BRAND_CATEGORY[key];
+  }
+  return FALLBACK_CATEGORY;
+}
+
+/** Live category chip under the brand field. */
+function updateCategoryChip(id) {
+  const chip = document.getElementById('cat-chip-' + id);
+  if (!chip) return;
+  const brand = (document.getElementById('brand-' + id)?.value || '').trim();
+  const valEl = document.getElementById('cat-chip-val-' + id);
+
+  if (!brand) {
+    chip.classList.remove('unknown');
+    if (valEl) valEl.textContent = 'type a brand above';
+    return;
+  }
+  const cat = deriveCategory(brand);
+  const isFallback = cat === FALLBACK_CATEGORY && !BRAND_CATEGORY[brand.toLowerCase()];
+  chip.classList.toggle('unknown', isFallback);
+  if (valEl) valEl.textContent = isFallback ? cat + ' (brand not recognised)' : cat;
+}
+
+/**
+ * Empty logo slot for one coupon card. Built once and reused by
+ * updateBrandLogo, so the <img> element survives every keystroke and the
+ * browser can serve a repeat brand from cache instead of re-fetching it.
+ * The image hides its own row on error, which covers both a mistyped brand and
+ * the clearbit fallback failing to resolve.
+ */
+function createBrandLogoPreview(id) {
+  const box = document.createElement('div');
+  box.className = 'brand-logo-preview';
+  box.id = 'brand-logo-' + id;
+  box.hidden = true;
+
+  const img = document.createElement('img');
+  img.alt = '';
+  // Not lazy-loaded on purpose: this sits right under the field the seller is
+  // typing into, so it has to appear the moment the brand matches.
+  img.addEventListener('error', () => { box.hidden = true; });
+  box.appendChild(img);
+
+  return box;
+}
+
+/**
+ * Live logo under the brand field — the logo alone, no brand text, matching how
+ * the marketplace cards and the admin inventory table now show brands.
+ * getBrandLogo (js/coupon-meta.js) matches on a squashed key, so free-typed
+ * "zepto", "Zepto" and "ZEPTO" all resolve to the same file.
+ */
+function updateBrandLogo(id) {
+  const box = document.getElementById('brand-logo-' + id);
+  const img = box && box.querySelector('img');
+  if (!img) return;
+
+  const brand = (document.getElementById('brand-' + id)?.value || '').trim();
+  const url = brand && typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+
+  if (!url) {
+    box.hidden = true;
+    img.removeAttribute('src');
+    return;
+  }
+  // Only touch src when it actually changes, otherwise every keystroke restarts
+  // the download and the logo flickers.
+  if (img.getAttribute('src') !== url) {
+    img.alt = brand;
+    img.setAttribute('src', url);
+  }
+  box.hidden = false;
+}
 
 /* ── Render a single coupon card ── */
 function renderCouponCard(id, index) {
@@ -839,254 +812,144 @@ function renderCouponCard(id, index) {
   card.appendChild(header);
 
   // Fields
-  card.appendChild(createBrandSelect(id));
-  card.appendChild(createField('title-' + id, 'Coupon Title *', 'text', 'e.g. 30% Off on Skincare', true));
-  card.appendChild(createField('code-' + id, 'Coupon Code *', 'text', 'e.g. SAVE30', true, 'code', 'Enter the exact code as shown on your reward/voucher'));
-  card.appendChild(createField('discount-' + id, 'Discount Value *', 'text', 'e.g. 20% OFF or ₹500 OFF', true));
-  card.appendChild(createField('minorder-' + id, 'Minimum Order Value (₹)', 'number', 'e.g. 999'));
-  card.appendChild(createField('value-' + id, 'Original Value / Max Discount (₹)', 'number', 'e.g. 500'));
-  card.appendChild(createField('validfrom-' + id, 'Valid From', 'date', ''));
-  card.appendChild(createField('expiry-' + id, 'Expiry Date', 'date', ''));
-  card.appendChild(createField('link-' + id, 'Affiliate Link (optional)', 'url', 'https://...'));
-  card.appendChild(createTextarea('terms-' + id, 'Terms & Conditions', 'Enter terms and conditions...'));
+  card.appendChild(createField('code-' + id, 'Coupon Code *', 'text', 'e.g. NYKAA200OFF', true, 'code', 'Enter the exact code as shown on your reward/voucher'));
+
+  const brandField = createField('brand-' + id, 'Brand / Platform *', 'text', 'e.g. Nykaa, PhonePe, Paytm', true);
+  card.appendChild(brandField);
+
+  // Logo-only confirmation of what the seller typed (see updateBrandLogo).
+  card.appendChild(createBrandLogoPreview(id));
+
+  // Category is derived from the brand — shown read-only so the seller can
+  // see where the coupon will be listed without having to choose anything.
+  const chip = document.createElement('div');
+  chip.className = 'cat-auto';
+  chip.id = 'cat-chip-' + id;
+  chip.innerHTML = '<span>🏷️ Category:</span> <span class="cat-auto-val" id="cat-chip-val-' + id + '">type a brand above</span>';
+  card.appendChild(chip);
+
+  const brandInput = brandField.querySelector('input');
+  if (brandInput) {
+    brandInput.addEventListener('input', () => { updateCategoryChip(id); updateBrandLogo(id); });
+    brandInput.addEventListener('blur', () => { updateCategoryChip(id); updateBrandLogo(id); });
+  }
+
+  card.appendChild(createField('desc-' + id, 'What does the coupon offer?', 'text', 'e.g. ₹200 off on orders above ₹999'));
+  card.appendChild(createField('value-' + id, 'Coupon Face Value (₹)', 'number', 'e.g. 200'));
+
+  // Screenshot / proof — one per coupon, last field in the card.
+  card.appendChild(createProofField(id));
 
   return card;
 }
 
-/* ── Brand catalogue (same list as the admin panel) ── */
-const BRANDS_DATA = [
-  // 🛒 E-Commerce
-  { name: 'Amazon', category: '🛒 E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' },
-  { name: 'Flipkart', category: '🛒 E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Flipkart_logo_%282026%29.svg' },
-  { name: 'Meesho', category: '🛒 E-Commerce', icon: '📦' },
-  { name: 'Tata CLiQ', category: '🛒 E-Commerce', icon: '💎' },
-  { name: 'Croma', category: '🛒 E-Commerce', icon: '⚡' },
-  // 👗 Fashion
-  { name: 'Myntra', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Myntra_Logo.png' },
-  { name: 'AJIO', category: '👗 Fashion', icon: '👟' },
-  { name: 'H&M', category: '👗 Fashion', icon: '🧥' },
-  { name: 'Nykaa Fashion', category: '👗 Fashion', icon: '👗' },
-  { name: 'Puma', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/ae/Puma-logo-%28text%29.svg' },
-  { name: 'Adidas', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
-  // 💄 Beauty & Personal Care
-  { name: 'Nykaa', category: '💄 Beauty & Personal Care', logo: 'https://upload.wikimedia.org/wikipedia/commons/0/00/Nykaa_New_Logo.svg' },
-  { name: 'Purplle', category: '💄 Beauty & Personal Care', icon: '💜' },
-  { name: 'Mamaearth', category: '💄 Beauty & Personal Care', icon: '🌿' },
-  { name: 'Minimalist', category: '💄 Beauty & Personal Care', icon: '🧴' },
-  { name: 'Lakmé', category: '💄 Beauty & Personal Care', icon: '💄' },
-  // 🍔 Food & Delivery
-  { name: 'Swiggy', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/13/Swiggy_logo.png' },
-  { name: 'Zomato', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Zomato_logo.png' },
-  { name: 'Domino\'s', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Domino%27s_pizza_logo.svg' },
-  { name: 'Pizza Hut', category: '🍔 Food & Delivery', icon: '🍕' },
-  { name: 'EatSure', category: '🍔 Food & Delivery', icon: '🍱' },
-  // 🚕 Travel & Transport
-  { name: 'MakeMyTrip', category: '🚕 Travel & Transport', logo: 'https://upload.wikimedia.org/wikipedia/commons/6/61/Makemytrip_logo.svg' },
-  { name: 'Cleartrip', category: '🚕 Travel & Transport', icon: '✈️' },
-  { name: 'EaseMyTrip', category: '🚕 Travel & Transport', icon: '🧳' },
-  { name: 'Uber', category: '🚕 Travel & Transport', icon: '🚗' },
-  { name: 'Rapido', category: '🚕 Travel & Transport', icon: '🛵' },
-  // 🏨 Hotels & Stays
-  { name: 'MakeMyTrip', category: '🏨 Hotels & Stays', logo: 'https://upload.wikimedia.org/wikipedia/commons/6/61/Makemytrip_logo.svg' },
-  { name: 'Booking.com', category: '🏨 Hotels & Stays', icon: '🏨' },
-  { name: 'Agoda', category: '🏨 Hotels & Stays', icon: '🌏' },
-  { name: 'Goibibo', category: '🏨 Hotels & Stays', icon: '🛏️' },
-  // 📱 Electronics & Gadgets
-  { name: 'Croma', category: '📱 Electronics & Gadgets', icon: '⚡' },
-  { name: 'Reliance Digital', category: '📱 Electronics & Gadgets', icon: '🔌' },
-  { name: 'Vijay Sales', category: '📱 Electronics & Gadgets', icon: '🏬' },
-  { name: 'Samsung', category: '📱 Electronics & Gadgets', icon: '📱' },
-  { name: 'OnePlus', category: '📱 Electronics & Gadgets', icon: '📲' },
-  // 🎮 Gaming & Entertainment
-  { name: 'PlayStation', category: '🎮 Gaming & Entertainment', icon: '🎮' },
-  { name: 'Xbox', category: '🎮 Gaming & Entertainment', icon: '🕹️' },
-  { name: 'Steam', category: '🎮 Gaming & Entertainment', icon: '💠' },
-  { name: 'Google Play', category: '🎮 Gaming & Entertainment', icon: '▶️' },
-  { name: 'Apple App Store', category: '🎮 Gaming & Entertainment', icon: '🍎' },
-  // 🎬 Entertainment & OTT
-  { name: 'Netflix', category: '🎬 Entertainment & OTT', icon: '🎬' },
-  { name: 'Amazon Prime', category: '🎬 Entertainment & OTT', icon: '📺' },
-  { name: 'Disney+ Hotstar', category: '🎬 Entertainment & OTT', icon: '⭐' },
-  { name: 'SonyLIV', category: '🎬 Entertainment & OTT', icon: '📡' },
-  { name: 'ZEE5', category: '🎬 Entertainment & OTT', icon: '🎥' },
-  { name: 'BookMyShow', category: '🎬 Entertainment & OTT', icon: '🎟️' },
-  // 🏋️ Fitness & Sports
-  { name: 'Cult.fit', category: '🏋️ Fitness & Sports', icon: '🏋️' },
-  { name: 'Decathlon', category: '🏋️ Fitness & Sports', icon: '🏃' },
-  { name: 'Adidas', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
-  { name: 'Puma', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/ae/Puma-logo-%28text%29.svg' },
-  { name: 'Nike', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg' },
-  // 🏠 Home & Lifestyle
-  { name: 'IKEA', category: '🏠 Home & Lifestyle', icon: '🛋️' },
-  { name: 'Pepperfry', category: '🏠 Home & Lifestyle', icon: '🪑' },
-  { name: 'Urban Ladder', category: '🏠 Home & Lifestyle', icon: '🏠' },
-  { name: 'Home Centre', category: '🏠 Home & Lifestyle', icon: '🛏️' },
-  // 🛍️ Grocery & Daily Needs
-  { name: 'Blinkit', category: '🛍️ Grocery & Daily Needs', icon: '🛒' },
-  { name: 'Zepto', category: '🛍️ Grocery & Daily Needs', icon: '🚀' },
-  { name: 'Swiggy Instamart', category: '🛍️ Grocery & Daily Needs', icon: '🛒' },
-  { name: 'BigBasket', category: '🛍️ Grocery & Daily Needs', icon: '🧺' },
-  { name: 'JioMart', category: '🛍️ Grocery & Daily Needs', icon: '🛍️' }
-];
-
-/* ── Store / Brand custom dropdown (per coupon card) ── */
-function createBrandSelect(id) {
+/* ── Screenshot upload field (one per coupon card) ── */
+function createProofField(id) {
   const group = document.createElement('div');
   group.className = 'fgroup';
+  group.innerHTML = `
+    <label class="flabel" for="proof-${id}">📸 Coupon Screenshot / Proof <span class="frequired">*required*</span></label>
+    <input type="file" id="proof-${id}" accept="image/png,image/jpeg,image/webp" hidden>
+    <div class="drop-zone" id="dropzone-${id}" role="button" tabindex="0" aria-label="Upload screenshot for this coupon">
+      <span class="drop-icon">🖼️</span>
+      <span class="drop-text">Tap to upload or drag an image here</span>
+      <div class="drop-hint">PNG, JPG or WEBP · up to 3MB · shows the code in your rewards page</div>
+    </div>
+    <div class="proof-preview" id="preview-${id}">
+      <img class="proof-thumb" id="thumb-${id}" alt="Screenshot preview">
+      <div class="proof-meta">
+        <div class="proof-name" id="pname-${id}"></div>
+        <div class="proof-size" id="psize-${id}"></div>
+      </div>
+      <button type="button" class="proof-remove" onclick="clearProof(${id})">Remove</button>
+    </div>`;
 
-  const label = document.createElement('label');
-  label.className = 'flabel';
-  label.textContent = 'Store / Brand *';
-  group.appendChild(label);
+  // Wire the picker + drag & drop once the nodes exist.
+  const input = group.querySelector('#proof-' + id);
+  const zone = group.querySelector('#dropzone-' + id);
 
-  const wrap = document.createElement('div');
-  wrap.className = 'custom-brand-select';
+  zone.addEventListener('click', () => input.click());
+  zone.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); input.click(); }
+  });
+  input.addEventListener('change', () => onProofPicked(id, input.files));
 
-  const hidden = document.createElement('input');
-  hidden.type = 'hidden';
-  hidden.id = 'brand-' + id;
-  hidden.required = true;
-
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'brand-select-btn';
-  btn.innerHTML = '<span class="brand-selected-val"><span class="brand-logo-fallback">🏬</span><span>— Select Brand —</span></span><span class="brand-arrow">▼</span>';
-
-  const drop = document.createElement('div');
-  drop.className = 'brand-select-dropdown';
-
-  const search = document.createElement('input');
-  search.type = 'text';
-  search.className = 'brand-search-box';
-  search.placeholder = '🔍 Search brand...';
-  search.addEventListener('click', (e) => e.stopPropagation());
-  search.addEventListener('input', () => renderBrandOptions(wrap, search.value));
-
-  const list = document.createElement('div');
-  drop.appendChild(search);
-  drop.appendChild(list);
-
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const wasOpen = wrap.classList.contains('open');
-    document.querySelectorAll('.custom-brand-select.open').forEach((w) => w.classList.remove('open'));
-    if (!wasOpen) {
-      wrap.classList.add('open');
-      renderBrandOptions(wrap);
-      search.focus();
-    }
+  ['dragenter', 'dragover'].forEach((ev) =>
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.add('dragover'); })
+  );
+  ['dragleave', 'drop'].forEach((ev) =>
+    zone.addEventListener(ev, (e) => { e.preventDefault(); zone.classList.remove('dragover'); })
+  );
+  zone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer && e.dataTransfer.files;
+    if (files && files.length) onProofPicked(id, files);
   });
 
-  wrap.appendChild(hidden);
-  wrap.appendChild(btn);
-  wrap.appendChild(drop);
-  group.appendChild(wrap);
-
-  renderBrandOptions(wrap);
   return group;
 }
 
-function brandLogoHtml(b) {
-  return b.logo
-    ? '<img src="' + b.logo + '" class="brand-logo-img" alt="' + b.name + '" onerror="this.outerHTML=\'<span class=\\\'brand-logo-fallback\\\'>' + (b.icon || '🏬') + '</span>\'">'
-    : '<span class="brand-logo-fallback">' + (b.icon || '🏬') + '</span>';
-}
+/* ── Validate + preview a picked screenshot ── */
+function onProofPicked(id, files) {
+  if (!files || !files.length) return;
+  const file = files[0];
 
-function renderBrandOptions(wrap, filter = '') {
-  const hidden = wrap.querySelector('input[type="hidden"]');
-  const list = wrap.querySelector('.brand-select-dropdown > div:last-child');
-  const selectedVal = wrap.querySelector('.brand-selected-val');
-  if (!list || !hidden) return;
-
-  const q = String(filter || '').toLowerCase().trim();
-  const filtered = BRANDS_DATA.filter((b) => b.name.toLowerCase().includes(q) || b.category.toLowerCase().includes(q));
-
-  list.innerHTML = '';
-  if (!filtered.length) {
-    list.innerHTML = '<div style="padding:12px;text-align:center;color:#6b88aa;font-size:.82rem">No matching brand found</div>';
+  if (!PROOF_TYPES.includes(file.type)) {
+    showToast('Screenshot must be a PNG, JPG or WEBP image.', 'error');
+    clearProof(id);
+    return;
+  }
+  if (file.size > PROOF_MAX_BYTES) {
+    showToast('Screenshot is too large. Maximum size is 3MB.', 'error');
+    clearProof(id);
     return;
   }
 
-  let currentCategory = '';
-  filtered.forEach((b) => {
-    if (b.category !== currentCategory) {
-      currentCategory = b.category;
-      const groupLabel = document.createElement('div');
-      groupLabel.className = 'brand-opt-group';
-      groupLabel.textContent = currentCategory;
-      list.appendChild(groupLabel);
-    }
-    const opt = document.createElement('div');
-    opt.className = 'brand-opt' + (hidden.value === b.name ? ' selected' : '');
-    opt.innerHTML = brandLogoHtml(b) + '<span></span>';
-    opt.querySelector('span').textContent = b.name;
-    opt.addEventListener('click', (e) => {
-      e.stopPropagation();
-      hidden.value = b.name;
-      selectedVal.innerHTML = brandLogoHtml(b) + '<span></span>';
-      selectedVal.querySelector('span').textContent = b.name;
-      wrap.classList.remove('open');
-    });
-    list.appendChild(opt);
-  });
-}
+  proofFiles[id] = file;
 
-// Close any open brand dropdown when clicking outside
-document.addEventListener('click', (e) => {
-  document.querySelectorAll('.custom-brand-select.open').forEach((w) => {
-    if (!w.contains(e.target)) w.classList.remove('open');
-  });
-});
-
-function createTextarea(id, labelText, placeholder) {
-  const group = document.createElement('div');
-  group.className = 'fgroup';
-
-  const label = document.createElement('label');
-  label.className = 'flabel';
-  label.setAttribute('for', id);
-  label.textContent = labelText;
-  group.appendChild(label);
-
-  const ta = document.createElement('textarea');
-  ta.className = 'finput';
-  ta.id = id;
-  ta.rows = 3;
-  ta.placeholder = placeholder;
-  group.appendChild(ta);
-
-  return group;
-}
-
-function createSelect(id, labelText, options, hint = '') {
-  const group = document.createElement('div');
-  group.className = 'fgroup';
-
-  const label = document.createElement('label');
-  label.className = 'flabel';
-  label.setAttribute('for', id);
-  label.textContent = labelText;
-  group.appendChild(label);
-
-  const select = document.createElement('select');
-  select.className = 'finput';
-  select.id = id;
-  options.forEach((opt) => {
-    const o = document.createElement('option');
-    o.value = opt;
-    o.textContent = opt;
-    select.appendChild(o);
-  });
-  group.appendChild(select);
-
-  if (hint) {
-    const hintEl = document.createElement('span');
-    hintEl.className = 'fhint';
-    hintEl.textContent = hint;
-    group.appendChild(hintEl);
+  const thumb = document.getElementById('thumb-' + id);
+  if (thumb) {
+    if (thumb.dataset.url) URL.revokeObjectURL(thumb.dataset.url);
+    const url = URL.createObjectURL(file);
+    thumb.dataset.url = url;
+    thumb.src = url;
   }
+  const nameEl = document.getElementById('pname-' + id);
+  const sizeEl = document.getElementById('psize-' + id);
+  if (nameEl) nameEl.textContent = file.name;
+  if (sizeEl) sizeEl.textContent = (file.size / 1024).toFixed(0) + ' KB';
 
-  return group;
+  document.getElementById('preview-' + id)?.classList.add('show');
+  document.getElementById('dropzone-' + id)?.classList.add('filled');
+}
+
+/* ── Remove a picked screenshot ── */
+function clearProof(id) {
+  delete proofFiles[id];
+
+  const input = document.getElementById('proof-' + id);
+  if (input) input.value = '';
+
+  const thumb = document.getElementById('thumb-' + id);
+  if (thumb) {
+    if (thumb.dataset.url) URL.revokeObjectURL(thumb.dataset.url);
+    delete thumb.dataset.url;
+    thumb.removeAttribute('src');
+  }
+  document.getElementById('preview-' + id)?.classList.remove('show');
+  document.getElementById('dropzone-' + id)?.classList.remove('filled');
+}
+
+/* ── Read a File as base64 (payload for POST /coupons/proof) ── */
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.includes(',') ? result.split(',')[1] : result);
+    };
+    reader.onerror = () => reject(new Error('Could not read the selected file.'));
+    reader.readAsDataURL(file);
+  });
 }
 
 function createField(id, labelText, type, placeholder, required = false, extraClass = '', hint = '') {
@@ -1178,18 +1041,18 @@ function updateAddButton() {
 
 /* ── Collect all coupon data ── */
 function collectCoupons() {
-  return couponIds.map(id => ({
-    brand: (document.getElementById('brand-' + id)?.value || '').trim(),
-    title: (document.getElementById('title-' + id)?.value || '').trim(),
-    code: (document.getElementById('code-' + id)?.value || '').trim().toUpperCase(),
-    discount: (document.getElementById('discount-' + id)?.value || '').trim(),
-    minOrderValue: (document.getElementById('minorder-' + id)?.value || '').trim(),
-    faceValue: (document.getElementById('value-' + id)?.value || '').trim(),
-    validFrom: (document.getElementById('validfrom-' + id)?.value || '').trim(),
-    expiryDate: (document.getElementById('expiry-' + id)?.value || '').trim(),
-    affiliateLink: (document.getElementById('link-' + id)?.value || '').trim(),
-    terms: (document.getElementById('terms-' + id)?.value || '').trim()
-  }));
+  return couponIds.map(id => {
+    const brand = (document.getElementById('brand-' + id)?.value || '').trim();
+    return {
+      id,
+      code: (document.getElementById('code-' + id)?.value || '').trim().toUpperCase(),
+      brand,
+      category: deriveCategory(brand),
+      description: (document.getElementById('desc-' + id)?.value || '').trim(),
+      faceValue: (document.getElementById('value-' + id)?.value || '').trim(),
+      proofFile: proofFiles[id] || null
+    };
+  });
 }
 
 /* ── Validate all coupons ── */
@@ -1201,25 +1064,33 @@ function validateCoupons() {
   }
   for (let i = 0; i < coupons.length; i++) {
     const c = coupons[i];
-    if (!c.brand) {
-      showToast('Coupon ' + (i + 1) + ': please select a Store / Brand.', 'warning');
-      return false;
-    }
-    if (!c.title) {
-      showToast('Coupon ' + (i + 1) + ': Coupon Title is required.', 'warning');
-      document.getElementById('title-' + couponIds[i])?.focus();
-      return false;
-    }
     if (!c.code) {
       showToast('Coupon ' + (i + 1) + ': Coupon Code is required.', 'warning');
-      document.getElementById('code-' + couponIds[i])?.focus();
+      document.getElementById('code-' + c.id)?.focus();
       return false;
     }
-    if (!c.discount) {
-      showToast('Coupon ' + (i + 1) + ': Discount Value is required.', 'warning');
-      document.getElementById('discount-' + couponIds[i])?.focus();
+    if (!c.brand) {
+      showToast('Coupon ' + (i + 1) + ': Brand / Platform is required.', 'warning');
+      document.getElementById('brand-' + c.id)?.focus();
       return false;
     }
+    if (!c.proofFile) {
+      showToast('Coupon ' + (i + 1) + ': please attach a screenshot of the coupon.', 'warning');
+      document.getElementById('dropzone-' + c.id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return false;
+    }
+  }
+
+  // Duplicate codes inside this submission — the server rejects them one by one,
+  // catching it here saves the seller a round trip.
+  const seen = {};
+  for (let i = 0; i < coupons.length; i++) {
+    const code = coupons[i].code;
+    if (seen[code]) {
+      showToast('Coupon ' + (i + 1) + ': the code ' + code + ' is already used in coupon ' + seen[code] + '.', 'warning');
+      return false;
+    }
+    seen[code] = i + 1;
   }
   return true;
 }
@@ -1240,17 +1111,12 @@ function buildReviewSummary() {
     block.appendChild(title);
 
     const rows = [
-      ['Category', selectedCategory],
-      ['Store / Brand', c.brand],
-      ['Coupon Title', c.title],
+      ['Brand / Platform', c.brand],
+      ['Category (auto)', c.category || '—'],
       ['Coupon Code', c.code],
-      ['Discount Value', c.discount],
-      ['Min Order Value', c.minOrderValue ? '₹' + c.minOrderValue : '—'],
-      ['Original Value / Max Discount', c.faceValue ? '₹' + c.faceValue : '—'],
-      ['Valid From', c.validFrom || '—'],
-      ['Expiry Date', c.expiryDate || '—'],
-      ['Affiliate Link', c.affiliateLink || '—'],
-      ['Terms & Conditions', c.terms || '—']
+      ['Description', c.description || '—'],
+      ['Face Value', c.faceValue ? '₹' + c.faceValue : '—'],
+      ['Screenshot', c.proofFile ? c.proofFile.name : '— missing —']
     ];
 
     rows.forEach(([key, val]) => {
@@ -1283,36 +1149,9 @@ function buildReviewSummary() {
   if (submitBtn) submitBtn.innerHTML = '✅ Submit &amp; Earn ₹' + (count * 10);
 }
 
-/* ── Category select ── */
-function selectCategory(sel) {
-  selectedCategory = sel.value;
-  // Keep the visual cards in sync when the value changes programmatically.
-  document.querySelectorAll('.cat-card').forEach(c => {
-    c.classList.toggle('selected', !!selectedCategory && c.dataset.value === selectedCategory);
-  });
-  if (selectedCategory) {
-    setTimeout(() => goToStep(2), 300);
-  }
-}
-
-/* Category card click → drive the hidden <select>, which stays the source of truth. */
-function pickCategory(card) {
-  const sel = document.getElementById('categorySelect');
-  if (!sel || !card) return;
-  sel.value = card.dataset.value || '';
-  selectCategory(sel);
-}
-
-/* ── Step navigation ── */
+/* ── Step navigation (2 steps: 1 = details, 2 = review) ── */
 function goToStep(step) {
   if (step === 2 && currentStep === 1) {
-    if (!selectedCategory) {
-      showToast('Please select a category first.', 'warning');
-      return;
-    }
-  }
-
-  if (step === 3 && currentStep === 2) {
     if (!validateCoupons()) return;
     buildReviewSummary();
   }
@@ -1338,166 +1177,81 @@ function updateStepper(active) {
     s.classList.remove('active', 'done');
     if (n === active) s.classList.add('active');
     else if (n < active) s.classList.add('done');
-    // Completed steps show a tick; upcoming/current show the step's icon,
-    // and completed steps become a shortcut back to that step.
-    const circle = s.querySelector('.stepper-circle');
-    if (circle) circle.textContent = n < active ? '✓' : (s.dataset.icon || String(n));
-    s.setAttribute('role', n < active ? 'button' : 'presentation');
-    s.onclick = n < active ? () => goToStep(n) : null;
   });
   const line12 = document.getElementById('line-1-2');
-  const line23 = document.getElementById('line-2-3');
   if (line12) line12.classList.toggle('done', active > 1);
-  if (line23) line23.classList.toggle('done', active > 2);
-}
-
-/* ── Screenshot proof: validate, preview, clear ── */
-function onProofPicked(files) {
-  const input = document.getElementById('proofFile');
-  const file = files && files[0];
-  const preview = document.getElementById('proofPreview');
-  if (!file) { if (preview) preview.classList.remove('show'); return; }
-
-  // Same rules the submit handler and the server enforce — fail fast here so the
-  // seller finds out before they reach the review step.
-  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
-    showToast('Screenshot must be PNG, JPG or WEBP.', 'error');
-    clearProof();
-    return;
-  }
-  if (file.size > 3 * 1024 * 1024) {
-    showToast('Screenshot is too large. Maximum size is 3MB.', 'error');
-    clearProof();
-    return;
-  }
-
-  const thumb = document.getElementById('proofThumb');
-  if (thumb) {
-    if (thumb.dataset.url) URL.revokeObjectURL(thumb.dataset.url);
-    const url = URL.createObjectURL(file);
-    thumb.dataset.url = url;
-    thumb.src = url;
-  }
-  document.getElementById('proofName').textContent = file.name;
-  document.getElementById('proofSize').textContent =
-    (file.size < 1024 ? file.size + ' B' : (file.size / 1024).toFixed(0) + ' KB') + ' · ready to upload';
-  if (preview) preview.classList.add('show');
-  if (input) input.title = file.name;
-}
-
-function clearProof() {
-  const input = document.getElementById('proofFile');
-  if (input) input.value = '';
-  const thumb = document.getElementById('proofThumb');
-  if (thumb && thumb.dataset.url) {
-    URL.revokeObjectURL(thumb.dataset.url);
-    delete thumb.dataset.url;
-    thumb.removeAttribute('src');
-  }
-  const preview = document.getElementById('proofPreview');
-  if (preview) preview.classList.remove('show');
-}
-
-/* Drag & drop onto the screenshot dropzone. */
-(function initProofDropZone() {
-  const zone = document.getElementById('proofDropZone');
-  const input = document.getElementById('proofFile');
-  if (!zone || !input) return;
-  ['dragenter', 'dragover'].forEach(evt => zone.addEventListener(evt, (e) => {
-    e.preventDefault();
-    zone.classList.add('dragover');
-  }));
-  ['dragleave', 'drop'].forEach(evt => zone.addEventListener(evt, () => zone.classList.remove('dragover')));
-  zone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    const dropped = e.dataTransfer && e.dataTransfer.files;
-    if (!dropped || !dropped.length) return;
-    // DataTransfer.files is assignable to a file input in all modern browsers.
-    try { input.files = dropped; } catch { return; }
-    onProofPicked(dropped);
-  });
-})();
-
-/* ── Read a file as base64 (no data: URL prefix) ── */
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result).split(',')[1] || '');
-    reader.onerror = () => reject(new Error('File could not be read.'));
-    reader.readAsDataURL(file);
-  });
 }
 
 /* ── Submit all coupons ── */
 async function submitCoupons() {
   const btn = document.getElementById('submitSellBtn');
-  btn.disabled = true;
-  btn.textContent = '⏳ Submitting...';
-
   const coupons = collectCoupons();
   const count = coupons.length;
 
-  // Reset button helper (proof upload and submit can both fail)
   const restoreBtn = () => {
     btn.disabled = false;
     btn.innerHTML = '✅ Submit &amp; Earn ₹' + (collectCoupons().length * 10);
   };
 
-  // 1. Upload the proof screenshot (mandatory, client-side pre-validation)
-  let proofUrl = '';
-  const proofInput = document.getElementById('proofFile');
-  const proofFile = proofInput && proofInput.files && proofInput.files[0];
-  if (!proofFile) {
-    showToast('Please upload a coupon screenshot — it is mandatory.', 'error');
+  btn.disabled = true;
+
+  // Sellers must be signed in — checked before uploading anything, so nobody
+  // sits through several screenshot uploads only to hit a 401 at the end.
+  if (typeof Auth !== 'undefined' && !Auth.isLoggedIn()) {
+    showToast('Please log in to submit your coupons.', 'warning');
     restoreBtn();
-    return;
-  }
-  const allowedProofTypes = ['image/png', 'image/jpeg', 'image/webp'];
-  if (!allowedProofTypes.includes(proofFile.type)) {
-    showToast('Screenshot must be PNG, JPG or WEBP.', 'error');
-    restoreBtn();
-    return;
-  }
-  if (proofFile.size > 3 * 1024 * 1024) {
-    showToast('Screenshot is too large. Maximum size is 3MB.', 'error');
-    restoreBtn();
-    return;
-  }
-  try {
-    btn.textContent = '⏳ Uploading screenshot...';
-    const dataBase64 = await fileToBase64(proofFile);
-    const upload = await api('/coupons/proof', {
-      method: 'POST',
-      body: { filename: proofFile.name, contentType: proofFile.type, dataBase64 }
-    });
-    proofUrl = (upload && upload.url) || '';
-  } catch (err) {
-    showToast('Screenshot upload failed: ' + (err.message || 'Please try again.'), 'error');
-    restoreBtn();
+    setTimeout(() => { window.location.href = 'login.html?next=sell.html'; }, 1200);
     return;
   }
 
-  // 2. Submit the coupons with the proof URL (WhatsApp alert is sent server-side)
+  // 1. Upload each coupon's screenshot to Drive and collect its drive:<id> token.
+  //    Uploaded one at a time so a 3MB × 5 batch cannot blow up the request.
+  const proofUrls = [];
+  for (let i = 0; i < coupons.length; i++) {
+    const c = coupons[i];
+    if (!c.proofFile) {
+      showToast('Coupon ' + (i + 1) + ': screenshot is missing.', 'error');
+      restoreBtn();
+      return;
+    }
+    btn.textContent = count > 1
+      ? `⏳ Uploading screenshot ${i + 1}/${count}...`
+      : '⏳ Uploading screenshot...';
+    try {
+      const dataBase64 = await fileToBase64(c.proofFile);
+      const upload = await api('/coupons/proof', {
+        method: 'POST',
+        body: { filename: c.proofFile.name, contentType: c.proofFile.type, dataBase64 }
+      });
+      const url = (upload && upload.url) || '';
+      if (!url) throw new Error('Upload did not return a file reference.');
+      proofUrls.push(url);
+    } catch (err) {
+      showToast(
+        'Coupon ' + (i + 1) + ': screenshot upload failed — ' + (err.message || 'please try again.'),
+        'error'
+      );
+      restoreBtn();
+      return;
+    }
+  }
+
+  // 2. Submit the coupons. The shared `category` keeps older server builds
+  //    happy; each coupon also carries its own derived category + proof.
   btn.textContent = '⏳ Submitting...';
-
   try {
     const data = await api('/coupons/submit', {
       method: 'POST',
       body: {
-        category: selectedCategory,
-        proofUrl: proofUrl || undefined,
-        coupons: coupons.map(c => ({
+        category: coupons[0].category || FALLBACK_CATEGORY,
+        proofUrl: proofUrls[0],
+        coupons: coupons.map((c, i) => ({
           code: c.code,
           brand: c.brand,
-          title: c.title || undefined,
-          description: c.title || undefined,
-          discount: c.discount || undefined,
-          minOrderValue: c.minOrderValue || undefined,
+          category: c.category || FALLBACK_CATEGORY,
+          description: c.description || undefined,
           faceValue: c.faceValue ? Number(c.faceValue) : undefined,
-          validFrom: c.validFrom || undefined,
-          expiryDate: c.expiryDate || undefined,
-          affiliateLink: c.affiliateLink || undefined,
-          terms: c.terms || undefined
+          proofUrl: proofUrls[i]
         }))
       }
     });
@@ -1530,21 +1284,13 @@ async function submitCoupons() {
 
 /* ── Reset form ── */
 function resetForm() {
-  selectedCategory = '';
   currentStep = 1;
+  couponIds.forEach((id) => clearProof(id));
   couponIds = [];
 
   // Clear coupon cards and re-add first one
   document.getElementById('couponCardsContainer').innerHTML = '';
   addCoupon();
-
-  // Reset category
-  const catSelect = document.getElementById('categorySelect');
-  if (catSelect) catSelect.value = '';
-  document.querySelectorAll('.cat-card').forEach(c => c.classList.remove('selected'));
-
-  // Reset proof screenshot input
-  clearProof();
 
   // Reset steps
   document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
@@ -1688,6 +1434,5 @@ document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 addCoupon();
 </script>
 <script src="js/app.js"></script>
-<script src="js/chatbot.js"></script>
 </body>
 </html>

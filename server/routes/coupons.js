@@ -243,23 +243,25 @@ const handleCouponSubmission = async (req, res) => {
     // is the `drive:<fileId>` token minted by our own /proof endpoint (served
     // back through /api/proxy/drive/<fileId>). Anything else is dropped — a
     // client cannot talk us into persisting an arbitrary external URL.
-    let safeProofUrl = '';
-    if (proofUrl) {
-      const raw = String(proofUrl).trim();
-      if (/^drive:[a-zA-Z0-9_-]{10,80}$/.test(raw)) {
-        safeProofUrl = raw.slice(0, 80);
-      }
-    }
+    const sanitizeProofUrl = (v) => {
+      if (!v) return '';
+      const raw = String(v).trim();
+      return /^drive:[a-zA-Z0-9_-]{10,80}$/.test(raw) ? raw.slice(0, 80) : '';
+    };
+    const safeProofUrl = sanitizeProofUrl(proofUrl);
 
     // Normalize both formats into a list
     let list;
     if (Array.isArray(coupons) && coupons.length > 0) {
-      if (!cleanCategory) {
+      // The sell form derives a category per coupon (from the brand), so a
+      // shared top-level category is only required when a coupon omits its own.
+      const missingCategory = coupons.some((c) => !cleanStr(c && c.category, 60));
+      if (!cleanCategory && missingCategory) {
         return res.status(400).json({ error: 'Category is required.' });
       }
       list = coupons.map((c) => ({
         code: c && c.code,
-        category: cleanCategory,
+        category: cleanStr(c && c.category, 60) || cleanCategory,
         brand: c && c.brand,
         description: (c && c.description) || '',
         faceValue: (c && (c.faceValue || c.originalValue)) || faceValue || originalValue || '0',
@@ -272,9 +274,11 @@ const handleCouponSubmission = async (req, res) => {
         validFrom: (c && c.validFrom) || validFrom,
         affiliateLink: (c && c.affiliateLink) || affiliateLink,
         terms: (c && c.terms) || terms,
+        // Each coupon can carry its own screenshot; falls back to the shared one.
+        proofUrl: sanitizeProofUrl(c && c.proofUrl) || safeProofUrl,
       }));
     } else {
-      list = [{ code, category: cleanCategory, brand, description, faceValue: faceValue || originalValue, type, sellingPrice, expiryDate, title, discount, minOrderValue, validFrom, affiliateLink, terms }];
+      list = [{ code, category: cleanCategory, brand, description, faceValue: faceValue || originalValue, type, sellingPrice, expiryDate, title, discount, minOrderValue, validFrom, affiliateLink, terms, proofUrl: safeProofUrl }];
     }
 
     const sellerEmail = req.user.email;
@@ -357,7 +361,7 @@ const handleCouponSubmission = async (req, res) => {
         terms: itemTerms,
         sellingPrice: itemPrice,
         expiryDate: itemExpiry,
-        proofUrl: safeProofUrl,
+        proofUrl: sanitizeProofUrl(c.proofUrl) || safeProofUrl,
         sellerEmail: sellerEmail,
         sellerUserId: sellerUserId,
         status: 'pending', // Needs admin approval
