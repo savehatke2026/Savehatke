@@ -447,19 +447,35 @@
   .pc-stats{grid-template-columns:1fr}
 }
 
-/* ── Wallet view: one column, content-height, no duplicated stats panel ── */
-.wallet-wrap{display:flex;flex-direction:column;gap:16px;max-width:560px;margin-bottom:20px}
-.wallet-section{margin-bottom:20px}
-.wallet-section-lbl{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px}
-.wallet-payouts{border-top:1px solid rgba(79,195,247,.08);padding-top:16px}
-.wallet-payout-empty{font-size:.8rem;color:#6b88aa;line-height:1.55;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;padding:11px 13px;margin-bottom:10px}
-.wallet-info{background:rgba(0,230,118,.04);border-color:rgba(0,230,118,.14)}
-.wallet-info-title{font-size:.88rem;font-weight:700;color:#e2ecff;margin-bottom:7px}
-.wallet-info-text{font-size:.83rem;color:#a8c0dc;line-height:1.7;margin:0}
-@media(max-width:640px){
-  .wallet-wrap{max-width:none}
-  .wallet-btns{flex-direction:column}
-  .wallet-btns .btn{width:100%}
+/* ── Transactions view: one full-width ledger card ── */
+.tx-filter-tag{font-size:.72rem;font-weight:700;letter-spacing:.04em;color:#00e676;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.22);border-radius:9999px;padding:3px 11px}
+.tx-table-wrap{overflow-x:auto}
+.tx-table{width:100%;border-collapse:collapse}
+.tx-table th{text-align:left;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:0 12px 10px;border-bottom:1px solid rgba(79,195,247,.1);white-space:nowrap}
+.tx-table td{padding:12px;border-bottom:1px solid rgba(79,195,247,.06);font-size:.85rem;color:#a8c0dc;vertical-align:middle}
+.tx-table tbody tr:last-child td{border-bottom:none}
+.tx-table tbody tr:hover{background:rgba(255,255,255,.02)}
+.tx-type{display:inline-flex;align-items:center;gap:7px;font-weight:600;color:#e2ecff;white-space:nowrap}
+.tx-detail{color:#a8c0dc;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tx-amt{font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap}
+.tx-amt.pos{color:#00e676}
+.tx-amt.neg{color:#ff8585}
+.tx-amt.zero{color:#6b88aa}
+.tx-date{color:#6b88aa;font-size:.8rem;white-space:nowrap}
+.ta-right{text-align:right}
+.tx-empty{text-align:center;padding:38px 20px 34px;color:#6b88aa}
+.tx-empty-ico{font-size:2.6rem;line-height:1;margin-bottom:12px}
+.tx-empty-title{font-size:1rem;font-weight:700;color:#e2ecff;margin-bottom:7px}
+.tx-empty-sub{font-size:.85rem;line-height:1.6;max-width:330px;margin:0 auto}
+/* Mobile: rows become compact cards, table hidden */
+.tx-mobile{display:none;flex-direction:column;gap:8px}
+.tx-mob-card{background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;padding:11px 12px}
+.tx-mob-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:5px}
+.tx-mob-detail{font-size:.8rem;color:#a8c0dc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:6px}
+.tx-mob-foot{display:flex;justify-content:space-between;align-items:center;gap:10px}
+@media(max-width:720px){
+  .tx-table-wrap{display:none}
+  .tx-mobile{display:flex}
 }
     .sb-sep{height:1px;background:rgba(79,195,247,.08);margin:8px 10px}
     .sb-item-logout{color:#ef9a9a}
@@ -847,46 +863,48 @@
 
       <div class="view-hdr">
         <div>
-          <div class="view-title">My <span class="gtext">Wallet</span></div>
-          <div class="view-subtitle">Your earnings, balance, and withdrawal history.</div>
-        </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" onclick="openModal('withdrawModal')">💸 Withdraw</button>
+          <div class="view-title">Transactions</div>
+          <div class="view-subtitle">View your purchase, sale and withdrawal history.</div>
         </div>
       </div>
 
-      <!-- One wallet card: balance, quick actions, payout history -->
-      <div class="wallet-wrap">
-        <div class="card" id="wallet">
-          <div class="card-hdr">
-            <div class="card-title"><span class="ico">💰</span> Wallet</div>
-          </div>
+      <!-- Ledger filters -->
+      <div id="txFilterTabs" class="pc-tabs">
+        <button class="mc-chip active" data-filter="all" onclick="setTxFilter('all')">All</button>
+        <button class="mc-chip" data-filter="purchases" onclick="setTxFilter('purchases')">Purchases</button>
+        <button class="mc-chip" data-filter="sales" onclick="setTxFilter('sales')">Sales</button>
+        <button class="mc-chip" data-filter="withdrawals" onclick="setTxFilter('withdrawals')">Withdrawals</button>
+      </div>
 
-          <div class="wallet-bal" id="walletBalance">₹0</div>
-          <div class="wallet-sub">Available balance</div>
-
-          <div class="wallet-section">
-            <div class="wallet-section-lbl">Quick Actions</div>
-            <div class="wallet-btns">
-              <button class="btn btn-ghost btn-sm" style="flex:1" onclick="showView('payouts')">View Transactions</button>
-              <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('withdrawModal')">💸 Withdraw</button>
-            </div>
-          </div>
-
-          <div class="wallet-payouts">
-            <div class="wallet-section-lbl">Payout History</div>
-            <div id="walletPayoutPreview" class="wallet-payout-empty">No payouts yet — your earnings will appear here once a coupon sells.</div>
-            <button class="btn btn-ghost btn-sm btn-full" onclick="showView('payouts')">View All Payouts →</button>
-          </div>
+      <!-- One full-width history card -->
+      <div class="card" id="transactions">
+        <div class="card-hdr">
+          <div class="card-title"><span class="ico">💳</span> Transaction History</div>
+          <span class="tx-filter-tag" id="txFilterLabel">All</span>
         </div>
 
-        <!-- Earnings explainer. Deliberately amount-free: payouts vary per coupon. -->
-        <div class="card wallet-info">
-          <div class="wallet-info-title">💡 How your earnings work</div>
-          <p class="wallet-info-text">
-            Earn money when your submitted coupons are successfully sold on the SaveHatke marketplace.
-            Your payout amount may vary depending on the coupon and applicable terms.
-          </p>
+        <div class="tx-table-wrap" id="txTableWrap">
+          <table class="tx-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Details</th>
+                <th class="ta-right">Amount</th>
+                <th>Date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="txTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Mobile: each row collapses into a compact card -->
+        <div class="tx-mobile" id="txMobile"></div>
+
+        <div class="tx-empty" id="txEmpty" style="display:none">
+          <div class="tx-empty-ico">💳</div>
+          <div class="tx-empty-title">No transactions yet</div>
+          <div class="tx-empty-sub">Your coupon purchases, sales and withdrawals will appear here.</div>
         </div>
       </div>
 
@@ -1538,12 +1556,9 @@
     setText('statSold', soldCount);
     setText('statBalance', inr(availableBalance));
 
-    // Wallet
-    setText('walletBalance', inr(availableBalance));
-    setText('walletPending', inr(pendingEarnings));
-    setText('walletEarned', inr(totalEarnings));
-    setText('walletWithdrawn', inr(0)); // no withdrawal flow exists yet
-    setText('walletThisMonth', inr(monthEarnings));
+    // Kept on STATE (not scraped back out of the DOM) so the withdraw modal
+    // still validates correctly now that the wallet card is gone.
+    STATE.availableBalance = availableBalance;
   }
 
   function renderMyCoupons() {
@@ -1850,6 +1865,148 @@
   }
 
   // ─── Render payouts (seller-facing) ───────────────────────────
+  // ─── Transactions ledger ─────────────────────────────────────────────
+  // A single chronological history built from three real sources: coupons the
+  // user bought, coupons of theirs that sold, and payout/withdrawal records.
+  // Amounts always come from the record itself — nothing is assumed, because
+  // payouts and selling prices differ per coupon.
+  window.TX_FILTER = 'all';
+
+  function setTxFilter(filter) {
+    window.TX_FILTER = filter;
+    const tabs = document.querySelectorAll('#txFilterTabs .mc-chip');
+    tabs.forEach((t) => t.classList.toggle('active', t.dataset.filter === filter));
+    renderTransactions();
+  }
+
+  function txDate(v) {
+    const d = v ? new Date(v) : null;
+    if (!d || isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  function buildTransactions() {
+    const rows = [];
+
+    (STATE.purchases || []).forEach((c) => {
+      const paid = c.pricePaid != null ? c.pricePaid : c.sellingPrice;
+      rows.push({
+        group: 'purchases',
+        type: 'Purchase',
+        icon: '🛒',
+        detail: `${c.brand || 'Coupon'} Coupon${c.originalValue ? ' · ' + inr(c.originalValue) + ' OFF' : ''}`,
+        amount: paid != null && paid !== '' ? `-${inr(paid)}` : '—',
+        sign: paid != null && paid !== '' ? 'neg' : 'zero',
+        date: c.purchasedAt || c.soldAt || c.addedAt,
+        status: 'Completed',
+        statusCls: 'badge-green',
+      });
+    });
+
+    (STATE.sales || []).filter(isSold).forEach((c) => {
+      // The seller's earning is whatever the record carries; never a flat rate.
+      const earned = c.sellerEarning != null ? c.sellerEarning
+        : (c.payoutAmount != null ? c.payoutAmount
+          : (c.sellingPrice != null ? c.sellingPrice : null));
+      rows.push({
+        group: 'sales',
+        type: 'Sale',
+        icon: '💰',
+        detail: `${c.brand || 'Coupon'} Coupon${c.originalValue ? ' · ' + inr(c.originalValue) + ' Voucher' : ''}`,
+        amount: earned != null && earned !== '' ? `+${inr(earned)}` : '—',
+        sign: earned != null && earned !== '' ? 'pos' : 'zero',
+        date: c.soldAt || c.addedAt,
+        status: 'Completed',
+        statusCls: 'badge-green',
+      });
+    });
+
+    (STATE.payouts || []).forEach((p) => {
+      const s = String(p.status || 'pending').toLowerCase();
+      const statusMap = {
+        paid: ['Completed', 'badge-green'],
+        processing: ['Processing', 'badge-blue'],
+        pending: ['Pending', 'badge-orange'],
+        rejected: ['Rejected', 'badge-red'],
+      };
+      const [statusLabel, statusCls] = statusMap[s] || [p.status || 'Pending', 'badge-gray'];
+      const dest = (p.method === 'UPI' && p.upiId) ? `UPI · ${p.upiId}`
+        : (p.method === 'Bank' && p.bankAccount) ? `Bank · •••• ${String(p.bankAccount).slice(-4)}`
+          : (p.method ? `${p.method} Withdrawal` : 'Withdrawal');
+      rows.push({
+        group: 'withdrawals',
+        type: 'Withdrawal',
+        icon: '💸',
+        detail: dest,
+        amount: p.amount != null ? `-${inr(p.amount)}` : '—',
+        sign: p.amount != null ? 'neg' : 'zero',
+        date: p.requestedAt || p.processedAt,
+        status: statusLabel,
+        statusCls,
+      });
+    });
+
+    return rows.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+  }
+
+  function renderTransactions() {
+    const tbody = document.getElementById('txTableBody');
+    const mob = document.getElementById('txMobile');
+    const emptyBox = document.getElementById('txEmpty');
+    const wrap = document.getElementById('txTableWrap');
+    if (!tbody || !mob) return;
+
+    const filter = window.TX_FILTER || 'all';
+    const label = { all: 'All', purchases: 'Purchases', sales: 'Sales', withdrawals: 'Withdrawals' }[filter] || 'All';
+    setText('txFilterLabel', label);
+
+    const all = buildTransactions();
+    const rows = filter === 'all' ? all : all.filter((r) => r.group === filter);
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '';
+      mob.innerHTML = '';
+      if (wrap) wrap.style.display = 'none';
+      mob.style.display = 'none';
+      if (emptyBox) {
+        emptyBox.style.display = '';
+        const sub = emptyBox.querySelector('.tx-empty-sub');
+        if (sub) {
+          sub.textContent = filter === 'all'
+            ? 'Your coupon purchases, sales and withdrawals will appear here.'
+            : `You have no ${label.toLowerCase()} yet.`;
+        }
+      }
+      return;
+    }
+
+    if (emptyBox) emptyBox.style.display = 'none';
+    if (wrap) wrap.style.display = '';
+    mob.style.display = '';
+
+    tbody.innerHTML = rows.map((r) => `
+      <tr>
+        <td><span class="tx-type">${r.icon} ${escapeHtml(r.type)}</span></td>
+        <td><div class="tx-detail" title="${escapeHtml(r.detail)}">${escapeHtml(r.detail)}</div></td>
+        <td class="ta-right"><span class="tx-amt ${r.sign}">${escapeHtml(r.amount)}</span></td>
+        <td><span class="tx-date">${escapeHtml(txDate(r.date))}</span></td>
+        <td><span class="badge ${r.statusCls}">${escapeHtml(r.status)}</span></td>
+      </tr>`).join('');
+
+    mob.innerHTML = rows.map((r) => `
+      <div class="tx-mob-card">
+        <div class="tx-mob-top">
+          <span class="tx-type">${r.icon} ${escapeHtml(r.type)}</span>
+          <span class="tx-amt ${r.sign}">${escapeHtml(r.amount)}</span>
+        </div>
+        <div class="tx-mob-detail">${escapeHtml(r.detail)}</div>
+        <div class="tx-mob-foot">
+          <span class="tx-date">${escapeHtml(txDate(r.date))}</span>
+          <span class="badge ${r.statusCls}">${escapeHtml(r.status)}</span>
+        </div>
+      </div>`).join('');
+  }
+
   function renderPayouts() {
     const summary = STATE.payoutsSummary || { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 };
     const payouts = STATE.payouts || [];
@@ -2024,6 +2181,7 @@
       renderActivity();
       renderSupport();
       renderPayouts();
+      renderTransactions();
       renderNotifications();
       setLastUpdated();
     } catch (err) {
@@ -2228,8 +2386,7 @@
     const amount = Number(document.getElementById('withdrawAmount')?.value);
     const method = document.getElementById('withdrawMethod')?.value;
     const dest = (document.getElementById('withdrawField')?.value || '').trim();
-    const balanceText = (document.getElementById('walletBalance')?.textContent || '₹0').replace(/[^\d]/g, '');
-    const balance = Number(balanceText || 0);
+    const balance = Number(STATE.availableBalance || 0);
 
     if (!amount || amount < 50) {
       showToast('Minimum withdrawal amount is ₹50', 'error');
@@ -2502,6 +2659,9 @@
       window.MC_FILTER = 'all';
       if (typeof renderMyCoupons === 'function') renderMyCoupons();
       if (typeof refreshMcFilterChips === 'function') refreshMcFilterChips();
+    } else if (name === 'wallet') {
+      // Transactions view — repaint the ledger with whatever data is loaded
+      if (typeof renderTransactions === 'function') renderTransactions();
     }
 
     // Section anchor for the security sub-items
@@ -2512,7 +2672,7 @@
       }, 60);
     }
 
-    const titles = { dashboard: 'Dashboard', 'my-coupons': 'My Coupons', wallet: 'Wallet', payouts: 'Payouts', security: 'Security', support: 'Support' };
+    const titles = { dashboard: 'Dashboard', 'my-coupons': 'My Coupons', wallet: 'Transactions', payouts: 'Payouts', security: 'Security', support: 'Support' };
     const titleEl = document.getElementById('mobileViewTitle');
     if (titleEl) titleEl.textContent = titles[name] || name;
 
