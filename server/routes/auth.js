@@ -25,8 +25,63 @@ const otpService = require('../services/otpService');
 const getClientIP = require('../middleware/getClientIP');
 const { verifyTurnstile } = require('../utils/turnstile');
 const sessionCleanup = require('../services/sessionCleanup');
+const twoFactor = require('../services/twoFactorService');
 
 const router = express.Router();
+
+/**
+ * Second-factor gate for every login path.
+ *
+ * Called after the primary factor (email OTP, Google) has already proved the
+ * account. When the account has an authenticator enrolled, this returns a
+ * challenge instead of letting the caller mint a session — so no session, JWT
+ * or cookie is created until routes/twoFactor.js POST /login verifies a code.
+ *
+ * A lookup failure deliberately falls through to a normal login rather than
+ * locking the user out: the sheets store being unreachable is an availability
+ * problem, and every other login path in this file degrades the same way.
+ *
+ * @returns {Promise<{required:boolean, body?:object}>} body is the response to
+ *          send verbatim when required is true.
+ */
+async function twoFactorGate(req, sheetUser, { email, method, role = 'user' }) {
+  const cleanEmail = twoFactor.normEmail(email);
+  const userId = (sheetUser && (sheetUser.user_id || sheetUser.id)) || '';
+
+  let record = null;
+  try {
+    record = await twoFactor.findRecord({ userId, email: cleanEmail });
+  } catch (e) {
+    console.warn('[auth] 2FA lookup failed, continuing without a challenge:', e.message);
+    return { required: false };
+  }
+  if (!record || !twoFactor.truthy(record.enabled)) return { required: false };
+
+  // twoFactorService binds the challenge to the caller's IP + User-Agent, so it
+  // needs the same resolved IP the 2FA route will compute on the way back in.
+  req.clientIpForTwoFactor = getClientIP(req);
+
+  const name = (sheetUser && sheetUser.name) || cleanEmail.split('@')[0];
+  const challengeToken = twoFactor.issueLoginChallengeToken({
+    uid: userId,
+    email: cleanEmail,
+    name,
+    username: (sheetUser && sheetUser.username) || cleanEmail.split('@')[0],
+    status: (sheetUser && sheetUser.status) || 'active',
+    role,
+    method,
+  }, req);
+
+  return {
+    required: true,
+    body: {
+      twoFactorRequired: true,
+      challengeToken,
+      maskedEmail: twoFactor.maskEmail(cleanEmail),
+      message: 'Enter the 6-digit code from your authenticator app.',
+    },
+  };
+}
 
 /**
  * Extract device info from User-Agent and create a server-side 48-hour
@@ -488,6 +543,14 @@ router.post('/verify-otp', async (req, res) => {
       }).catch((e) => console.warn('GSheet update notice:', e.message));
     }
 
+    // Second-factor gate. When an authenticator is enrolled we stop here and
+    // hand back a challenge — no session, JWT or cookie is created yet.
+    const gate = await twoFactorGate(req, sheetUser, {
+      email: cleanEmail,
+      method: 'Email OTP + 2FA',
+    });
+    if (gate.required) return res.json(gate.body);
+
     // Create the server-side 48h session (must be awaited â€” the JWT and
     // cookie carry this session's token)
     const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail, sheetUser.name).catch(() => null);
@@ -744,6 +807,13 @@ router.post('/login', async (req, res) => {
         last_login_at: now,
         updated_at: now,
       }).catch((e) => console.warn('Background timestamp update notice:', e.message));
+
+      // Second-factor gate — stop before any session exists.
+      const gate = await twoFactorGate(req, sheetUser, {
+        email: loginEmail,
+        method: 'Email + 2FA',
+      });
+      if (gate.required) return res.json(gate.body);
 
       // Server-side 48h session
       const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail, sheetUser.name).catch(() => null);
@@ -1046,6 +1116,13 @@ router.post('/google-redirect', async (req, res) => {
 
     const userId = sheetUser.user_id || sheetUser.id;
 
+    // Second-factor gate — stop before any session exists.
+    const gate = await twoFactorGate(req, sheetUser, {
+      email: userEmail,
+      method: 'Google + 2FA',
+    });
+    if (gate.required) return res.json(gate.body);
+
     // Server-side 48h session
     const session = await createLoginSession(req, userId, 'Google', userEmail, sheetUser.name || userName).catch(() => null);
     const token = issueLoginToken({
@@ -1189,6 +1266,13 @@ router.post('/google', async (req, res) => {
         ...googlePictureFields(userPicture),
       }).catch((e) => console.warn('GSheet update notice:', e.message));
     }
+
+    // Second-factor gate — stop before any session exists.
+    const gate = await twoFactorGate(req, sheetUser, {
+      email: userEmail,
+      method: 'Google + 2FA',
+    });
+    if (gate.required) return res.json(gate.body);
 
     // Server-side 48h session
     const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail, sheetUser.name || userName).catch(() => null);
@@ -1580,3 +1664,13 @@ router.put('/notification-preferences', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
+
+// The 2FA login exchange in routes/twoFactor.js has to mint exactly the same
+// session, JWT and cookie that a normal login does — the whole point is that no
+// session exists until the second factor is verified. Publishing the two
+// helpers here keeps a single implementation of "log this user in" instead of a
+// second copy that could drift.
+module.exports.createLoginSession = createLoginSession;
+module.exports.issueLoginToken = issueLoginToken;
+module.exports.setSessionCookie = setSessionCookie;
+

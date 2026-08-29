@@ -1646,8 +1646,201 @@ Team SaveHatke
   }
 }
 
+// ============================================
+// Two-Factor Security Change Notification
+// ============================================
+// Sent whenever the 2FA state of an account changes. It tells the user what
+// happened and from where, and never carries a code, secret or recovery code.
+
+const TWO_FACTOR_CHANGE_COPY = {
+  enabled: {
+    subject: 'SaveHatke Security — Two-factor authentication enabled',
+    heading: 'Two-factor authentication enabled',
+    summary: 'An authenticator app is now required to sign in to your SaveHatke account.',
+  },
+  disabled: {
+    subject: 'SaveHatke Security — Two-factor authentication disabled',
+    heading: 'Two-factor authentication disabled',
+    summary: 'Your SaveHatke account no longer asks for an authenticator code at sign-in.',
+  },
+  authenticator_changed: {
+    subject: 'SaveHatke Security — Authenticator app changed',
+    heading: 'Authenticator app changed',
+    summary: 'A different authenticator app is now connected to your SaveHatke account. Codes from the old app will no longer work.',
+  },
+  recovery_regenerated: {
+    subject: 'SaveHatke Security — New recovery codes generated',
+    heading: 'New recovery codes generated',
+    summary: 'A new set of recovery codes was generated for your SaveHatke account. Every previous recovery code has been invalidated.',
+  },
+  recovery_used: {
+    subject: 'SaveHatke Security — A recovery code was used',
+    heading: 'A recovery code was used to sign in',
+    summary: 'A recovery code was used instead of your authenticator app. That code is now permanently spent and cannot be used again.',
+  },
+};
+
+async function sendTwoFactorSecurityEmail({
+  to, userName, change, ip, device, when, recoveryCodesRemaining,
+}) {
+  const cleanEmail = String(to || '').toLowerCase().trim();
+  if (!cleanEmail) return { success: false, error: 'No recipient address provided.' };
+
+  const copy = TWO_FACTOR_CHANGE_COPY[change];
+  if (!copy) return { success: false, error: `Unknown security change: ${change}` };
+
+  const t = getTransporter();
+  if (!t || !isEmailConfigured()) {
+    console.warn(`⚠️ [EmailService] SMTP not configured. 2FA "${change}" notice for ${cleanEmail} was NOT sent.`);
+    return { success: false, isSimulated: true, error: 'SMTP credentials not configured on server.' };
+  }
+
+  const greetName = userName && String(userName).trim() ? String(userName).trim() : 'there';
+  const stamp = new Date(when || Date.now()).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
+  });
+  const deviceText = String(device || '').trim() || 'Unknown device';
+  const ipText = String(ip || '').trim() || 'Unknown';
+
+  // Only nudge about running low when a real count was supplied.
+  const remaining = Number(recoveryCodesRemaining);
+  const lowCodes = Number.isFinite(remaining) && remaining <= 3 ? remaining : null;
+  const lowCodesText = lowCodes === null
+    ? ''
+    : `\n\nYou have ${lowCodes} recovery code${lowCodes === 1 ? '' : 's'} left. Generate a new set from Dashboard → Security so you do not get locked out.`;
+
+  const fromEmail = resolveMainFromAddress();
+  const fromName = (process.env.SECURITY_FROM_NAME || 'SaveHatke Security').trim();
+  const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const secureUrl = `${siteUrl}/dashboard.html#security`;
+  const year = new Date().getFullYear();
+
+  const textBody =
+`SaveHatke
+
+${copy.heading}
+
+Hello, ${greetName}.
+
+${copy.summary}
+
+Details
+
+  Time: ${stamp} IST
+  IP address: ${ipText}
+  Device: ${deviceText}
+${lowCodesText}
+
+Didn't do this?
+
+If you did not make this change, someone may have access to your account. Review your account security straight away:
+${secureUrl}
+${supportFrom ? `\nContact SaveHatke Support (${supportFrom}) if you need help.` : ''}
+
+Regards,
+Team SaveHatke
+
+© ${year} SaveHatke. All rights reserved.`;
+
+  const safe = {
+    heading: escapeHtml(copy.heading),
+    summary: escapeHtml(copy.summary),
+    name: escapeHtml(greetName),
+    stamp: escapeHtml(stamp),
+    ip: escapeHtml(ipText),
+    device: escapeHtml(deviceText),
+  };
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light">
+<title>${safe.heading} — SaveHatke Security</title></head>
+<body style="margin:0;padding:0;background:#f4f7fb;font-family:'Outfit',Segoe UI,Arial,sans-serif;color:#0f1e3a">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:28px 12px">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e3eaf4;border-radius:16px;overflow:hidden">
+        <tr><td style="background:#0a1024;padding:22px 28px">
+          <span style="font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-.3px">Save<span style="color:#00e676">Hatke</span></span>
+          <span style="display:block;margin-top:4px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8ea6c4">Security notification</span>
+        </td></tr>
+        <tr><td style="padding:28px">
+          <h1 style="margin:0 0 12px;font-size:19px;font-weight:700;color:#0f1e3a">${safe.heading}</h1>
+          <p style="margin:0 0 8px;font-size:14px;line-height:1.65;color:#3c5372">Hello, ${safe.name}.</p>
+          <p style="margin:0 0 22px;font-size:14px;line-height:1.65;color:#3c5372">${safe.summary}</p>
+
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7fafd;border:1px solid #e3eaf4;border-radius:12px;padding:6px 16px;margin-bottom:22px">
+            <tr><td style="padding:9px 0;font-size:13px;color:#6b88aa;border-bottom:1px solid #e9eff7">Time</td><td style="padding:9px 0;font-size:13px;color:#0f1e3a;text-align:right;border-bottom:1px solid #e9eff7">${safe.stamp} IST</td></tr>
+            <tr><td style="padding:9px 0;font-size:13px;color:#6b88aa;border-bottom:1px solid #e9eff7">IP address</td><td style="padding:9px 0;font-size:13px;color:#0f1e3a;text-align:right;border-bottom:1px solid #e9eff7">${safe.ip}</td></tr>
+            <tr><td style="padding:9px 0;font-size:13px;color:#6b88aa">Device</td><td style="padding:9px 0;font-size:13px;color:#0f1e3a;text-align:right">${safe.device}</td></tr>
+          </table>
+${lowCodes === null ? '' : `
+          <p style="margin:0 0 22px;padding:13px 16px;background:#fff8e6;border:1px solid #f5e0a8;border-radius:10px;font-size:13px;line-height:1.6;color:#6b5312">
+            You have <strong>${lowCodes}</strong> recovery code${lowCodes === 1 ? '' : 's'} left. Generate a new set from Dashboard &rarr; Security so you do not get locked out.
+          </p>`}
+          <p style="margin:0 0 20px;font-size:14px;line-height:1.65;color:#3c5372">
+            <strong style="color:#0f1e3a">Didn't do this?</strong><br>
+            If you did not make this change, someone may have access to your account. Review your account security straight away.
+          </p>
+          <a href="${secureUrl}" style="display:inline-block;background:#00c853;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:10px">Review account security</a>
+        </td></tr>
+        <tr><td style="padding:18px 28px;background:#f7fafd;border-top:1px solid #e3eaf4;font-size:11.5px;line-height:1.6;color:#7d93ad">
+          ${supportFrom ? `Need help? Contact <a href="mailto:${escapeHtml(supportFrom)}" style="color:#0f8f47">${escapeHtml(supportFrom)}</a>.<br>` : ''}
+          &copy; ${year} SaveHatke. All rights reserved.
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>`;
+
+  const fqdn = (() => {
+    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
+    catch { return 'savehatke.com'; }
+  })();
+  const emailHash = crypto.createHash('sha256').update(cleanEmail).digest('hex').slice(0, 16);
+  const ref = `2fa-${change}-${emailHash}-${Date.now()}`;
+
+  const mailOptions = {
+    from: `"${fromName}" <${fromEmail}>`,
+    to: cleanEmail,
+    replyTo: supportFrom || undefined,
+    subject: copy.subject,
+    text: textBody,
+    html: htmlContent,
+    envelope: { from: fromEmail, to: cleanEmail },
+    messageId: `<${ref}@${(String(fromEmail).split('@')[1] || fqdn).toLowerCase()}>`,
+    headers: {
+      'X-Entity-Ref-ID': ref,
+      'Auto-Submitted': 'auto-generated',
+      'X-Mailer': 'SaveHatke Security',
+      'X-Priority': '1',
+      Importance: 'High',
+    },
+  };
+
+  if (process.env.DKIM_DOMAIN && process.env.DKIM_SELECTOR && process.env.DKIM_PRIVATE_KEY) {
+    mailOptions.dkim = {
+      domainName: process.env.DKIM_DOMAIN.trim(),
+      keySelector: process.env.DKIM_SELECTOR.trim(),
+      privateKey: process.env.DKIM_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    };
+  }
+
+  try {
+    const info = await t.sendMail(mailOptions);
+    console.log(`✅ [EmailService] 2FA "${change}" notice sent to ${cleanEmail} (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send 2FA "${change}" notice to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendOTPEmail,
+  sendTwoFactorSecurityEmail,
   sendWelcomeEmail,
   sendSupportAckEmail,
   sendSupportResolvedEmail,

@@ -573,6 +573,24 @@ async function authenticateGoogleCredential(response, { closeModalOnSuccess = fa
       body: { credential: response.credential }
     });
 
+    // The account has an authenticator enrolled, so the server withheld the
+    // session and returned a short-lived challenge instead of a token. Nothing
+    // goes into Auth until the second factor has been verified.
+    if (data.twoFactorRequired) {
+      // The login page owns the 2FA UI; everywhere else (the navbar sign-in
+      // modal) hands off to it. The challenge travels through sessionStorage
+      // rather than the URL so it never lands in history, logs or a referrer.
+      if (typeof window.onTwoFactorRequired === 'function') {
+        window.onTwoFactorRequired(data);
+        return;
+      }
+      try {
+        sessionStorage.setItem('sh_2fa_challenge', data.challengeToken || '');
+      } catch (e) { /* storage blocked — the user can simply sign in again */ }
+      window.location.replace('login.html?step=2fa');
+      return;
+    }
+
     Auth.setAuth(data.token, data.user);
 
     if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {

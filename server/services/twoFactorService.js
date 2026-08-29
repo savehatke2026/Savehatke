@@ -103,7 +103,15 @@ function bindingHash(req) {
 
 function signPurposeToken(purpose, claims, ttlSeconds, req) {
   return jwt.sign(
-    { ...claims, purpose, bind: bindingHash(req) },
+    {
+      ...claims,
+      purpose,
+      bind: bindingHash(req),
+      // A random id per token. Without it, two tokens minted in the same second
+      // with the same claims are byte-identical, which would silently merge
+      // their per-challenge attempt counters.
+      jti: crypto.randomBytes(9).toString('base64url'),
+    },
     purposeSecret(),
     { expiresIn: ttlSeconds },
   );

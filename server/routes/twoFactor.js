@@ -28,14 +28,18 @@ const db = require('../services/googleSheets');
 const otpService = require('../services/otpService');
 const emailService = require('../services/emailService');
 const twoFactor = require('../services/twoFactorService');
+// Session minting lives in routes/auth.js and is published on its router
+// object, so a 2FA login produces exactly the same session as a normal one.
+const authRoutes = require('./auth');
 
 const router = express.Router();
 
 // ── Rate limits ────────────────────────────────────────────────────────────
-// Anything that checks a secret gets its own tight per-IP budget, well below
-// the generic /api/auth limit.
+// Everything that checks a secret gets a budget well below the generic
+// /api/auth limit. The key differs by endpoint on purpose.
 
-const verifyLimiter = rateLimit({
+// Unauthenticated and directly brute-forceable, so this one is keyed to the IP.
+const loginVerifyLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
   standardHeaders: true,
@@ -43,11 +47,32 @@ const verifyLimiter = rateLimit({
   message: { error: 'Too many verification attempts. Please try again in a few minutes.' },
 });
 
+// Authenticated verification, keyed to the account rather than the IP. Keying
+// these to the IP would let one user on a shared office or carrier-NAT address
+// exhaust the budget for everyone else behind it. Every route using this runs
+// authenticateToken first, so req.user is populated by the time it is called.
+function accountKey(req) {
+  const who = (req.user && (req.user.id || req.user.email)) || '';
+  return who ? `2fa:${String(who).toLowerCase()}` : `2fa-ip:${req.ip}`;
+}
+
+const accountVerifyLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 15,
+  keyGenerator: accountKey,
+  standardHeaders: true,
+  legacyHeaders: false,
+  validate: false,
+  message: { error: 'Too many verification attempts. Please try again in a few minutes.' },
+});
+
 const setupLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20,
+  keyGenerator: accountKey,
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false,
   message: { error: 'Too many requests. Please try again in a few minutes.' },
 });
 
@@ -112,6 +137,33 @@ function actor(req) {
   return { id: req.user.id || '', email: twoFactor.normEmail(req.user.email) };
 }
 
+/** Look up the display name for an email so notices can greet the user. */
+async function displayNameFor(email) {
+  try {
+    const row = await db.findRow(db.SHEETS.USERS, 'email', twoFactor.normEmail(email));
+    return (row && row.name) || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * Fire-and-forget account-security notice. Never awaited on a request path: a
+ * mail outage must not fail or delay the security change itself.
+ */
+function notifySecurityChange({ email, ip, device, change, recoveryCodesRemaining }) {
+  displayNameFor(email)
+    .then((userName) => emailService.sendTwoFactorSecurityEmail({
+      to: email, userName, change, ip, device, when: Date.now(), recoveryCodesRemaining,
+    }))
+    .then((r) => {
+      if (!r || r.success) return;
+      if (r.isSimulated) console.warn(`[2fa] "${change}" notice not sent (SMTP unconfigured) for ${email}`);
+      else console.warn(`[2fa] "${change}" notice failed for ${email}: ${r.error}`);
+    })
+    .catch((e) => console.warn('[2fa] security notice error:', e.message));
+}
+
 // ── GET /status ────────────────────────────────────────────────────────────
 // Authenticated only, so it reveals nothing to an unauthenticated attacker.
 router.get('/status', authenticateToken, async (req, res) => {
@@ -170,7 +222,7 @@ router.post('/setup/start', authenticateToken, setupLimiter, async (req, res) =>
 // ── POST /setup/verify-email ───────────────────────────────────────────────
 // Consumes the email OTP and hands back a short-lived step-up token. That token
 // is the "recent verification" every sensitive operation below insists on.
-router.post('/setup/verify-email', authenticateToken, verifyLimiter, async (req, res) => {
+router.post('/setup/verify-email', authenticateToken, accountVerifyLimiter, async (req, res) => {
   try {
     if (!ensureConfigured(res)) return;
 
@@ -254,7 +306,7 @@ router.post('/setup/secret', authenticateToken, setupLimiter, async (req, res) =
 // Step 3 + 4: a live code from the app proves the secret actually reached it.
 // Only then is 2FA switched on, and only then are recovery codes minted. They
 // are returned exactly once, here.
-router.post('/setup/enable', authenticateToken, verifyLimiter, async (req, res) => {
+router.post('/setup/enable', authenticateToken, accountVerifyLimiter, async (req, res) => {
   try {
     if (!ensureConfigured(res)) return;
 
@@ -319,6 +371,260 @@ router.post('/setup/enable', authenticateToken, verifyLimiter, async (req, res) 
   } catch (err) {
     console.error('[2fa] setup/enable failed:', err.message);
     res.status(500).json({ error: 'Unable to enable two-factor authentication.' });
+  }
+});
+
+/**
+ * Verify a second factor against an enabled enrolment and spend it.
+ *
+ * Accepts a live authenticator code or, when `allowRecovery`, one unused
+ * recovery code. Both are single-use: an accepted TOTP time-step is recorded in
+ * lastCounter and an accepted recovery code is stamped used before this returns,
+ * so neither can be replayed.
+ *
+ * @returns {Promise<{ok:true, method:string, counter?:number}|{ok:false, status:number, error:string}>}
+ */
+async function consumeSecondFactor({ record, body, me, ip, device, allowRecovery = true }) {
+  const code = String(body.code || '').replace(/\D/g, '');
+  const recoveryCode = String(body.recoveryCode || '').trim();
+
+  // ── Authenticator code ──
+  if (code) {
+    const secret = twoFactor.decryptSecret(record.secretEncrypted);
+    if (!secret) {
+      console.error('[2fa] stored secret could not be decrypted — TWOFA_ENCRYPTION_KEY rotated?');
+      return { ok: false, status: 409, error: 'Your authenticator could not be verified. Use a recovery code instead.' };
+    }
+
+    const check = twoFactor.verifyTotp(secret, code, record.lastCounter);
+    if (!check.ok) {
+      await twoFactor.logSecurityEvent({
+        userId: me.id, email: me.email, event: twoFactor.EVENTS.VERIFY_FAILED,
+        outcome: 'failure', ip, device, detail: 'Authenticator code rejected',
+      });
+      return { ok: false, status: 400, error: check.error };
+    }
+
+    await twoFactor.saveRecord({ userId: me.id, email: me.email }, {
+      lastCounter: String(check.counter),
+      lastUsedAt: twoFactor.nowIso(),
+    });
+    return { ok: true, method: 'authenticator', counter: check.counter };
+  }
+
+  // ── Recovery code ──
+  if (recoveryCode) {
+    if (!allowRecovery) {
+      return { ok: false, status: 400, error: 'Enter the 6-digit code from your authenticator app.' };
+    }
+
+    const codes = twoFactor.parseRecoveryCodes(record.recoveryCodes);
+    const match = await twoFactor.matchRecoveryCode(codes, recoveryCode);
+    if (!match.ok) {
+      await twoFactor.logSecurityEvent({
+        userId: me.id, email: me.email, event: twoFactor.EVENTS.VERIFY_FAILED,
+        outcome: 'failure', ip, device, detail: 'Recovery code rejected',
+      });
+      return { ok: false, status: 400, error: 'That recovery code is not valid or has already been used.' };
+    }
+
+    // Spend it before returning, so a concurrent request cannot reuse it.
+    codes[match.index] = { ...codes[match.index], usedAt: twoFactor.nowIso(), usedIp: ip || '' };
+    await twoFactor.saveRecord({ userId: me.id, email: me.email }, {
+      recoveryCodes: JSON.stringify(codes),
+      lastUsedAt: twoFactor.nowIso(),
+    });
+
+    const remaining = codes.filter((c) => !c.usedAt).length;
+    await twoFactor.logSecurityEvent({
+      userId: me.id, email: me.email, event: twoFactor.EVENTS.RECOVERY_USED, ip, device,
+      detail: `Recovery code spent; ${remaining} of ${codes.length} remaining`,
+    });
+    notifySecurityChange({
+      email: me.email, ip, device, change: 'recovery_used', recoveryCodesRemaining: remaining,
+    });
+
+    return { ok: true, method: 'recovery code', remaining };
+  }
+
+  return { ok: false, status: 400, error: 'Enter the 6-digit code from your authenticator app.' };
+}
+
+// ── POST /disable ─────────────────────────────────────────────────────────
+// Never one-click. Needs a fresh email-OTP step-up token AND a live
+// authenticator code (or an unused recovery code, for someone who has lost the
+// app but still wants to turn 2FA off).
+router.post('/disable', authenticateToken, accountVerifyLimiter, async (req, res) => {
+  try {
+    const me = actor(req);
+    const { ip, device } = requestContext(req);
+    const body = (req.body && typeof req.body === 'object') ? req.body : {};
+
+    const stepUp = twoFactor.verifyStepUpToken(body.stepUpToken || '', me, req);
+    if (!stepUp.ok) return res.status(401).json({ error: stepUp.error });
+
+    const record = await twoFactor.findRecord({ userId: me.id, email: me.email });
+    if (!record || !twoFactor.truthy(record.enabled)) {
+      return res.status(409).json({ error: 'Two-factor authentication is not enabled on this account.' });
+    }
+
+    const proof = await consumeSecondFactor({ record, body, me, ip, device });
+    if (!proof.ok) return res.status(proof.status).json({ error: proof.error });
+
+    await twoFactor.saveRecord({ userId: me.id, email: me.email }, {
+      enabled: 'false',
+      secretEncrypted: '',
+      pendingSecretEncrypted: '',
+      pendingCreatedAt: '',
+      // Recovery codes are worthless without an enrolment, and keeping spent
+      // ones around would let a later re-enrol inherit a used set.
+      recoveryCodes: '[]',
+      lastCounter: '',
+      disabledAt: twoFactor.nowIso(),
+    });
+
+    await twoFactor.logSecurityEvent({
+      userId: me.id, email: me.email, event: twoFactor.EVENTS.DISABLED, ip, device,
+      detail: `Disabled after ${proof.method} verification`,
+    });
+    notifySecurityChange({ email: me.email, ip, device, change: 'disabled' });
+
+    res.json({ message: 'Two-factor authentication disabled.' });
+  } catch (err) {
+    console.error('[2fa] disable failed:', err.message);
+    res.status(500).json({ error: 'Unable to disable two-factor authentication.' });
+  }
+});
+
+// ── POST /recovery-codes/regenerate ───────────────────────────────────────
+// Replaces the whole set, which is what invalidates every previous code. The
+// new codes are returned once and never retrievable again.
+router.post('/recovery-codes/regenerate', authenticateToken, accountVerifyLimiter, async (req, res) => {
+  try {
+    const me = actor(req);
+    const { ip, device } = requestContext(req);
+    const body = (req.body && typeof req.body === 'object') ? req.body : {};
+
+    const stepUp = twoFactor.verifyStepUpToken(body.stepUpToken || '', me, req);
+    if (!stepUp.ok) return res.status(401).json({ error: stepUp.error });
+
+    const record = await twoFactor.findRecord({ userId: me.id, email: me.email });
+    if (!record || !twoFactor.truthy(record.enabled)) {
+      return res.status(409).json({ error: 'Two-factor authentication is not enabled on this account.' });
+    }
+
+    // Deliberately authenticator-only: letting a recovery code mint a fresh set
+    // would make a single leaked code self-renewing.
+    const proof = await consumeSecondFactor({ record, body, me, ip, device, allowRecovery: false });
+    if (!proof.ok) return res.status(proof.status).json({ error: proof.error });
+
+    const codes = await twoFactor.generateRecoveryCodes();
+    await twoFactor.saveRecord({ userId: me.id, email: me.email }, {
+      recoveryCodes: JSON.stringify(codes.stored),
+      lastCounter: String(proof.counter || record.lastCounter || ''),
+    });
+
+    await twoFactor.logSecurityEvent({
+      userId: me.id, email: me.email, event: twoFactor.EVENTS.RECOVERY_REGENERATED, ip, device,
+      detail: `${codes.plain.length} new recovery codes issued; all previous codes invalidated`,
+    });
+    notifySecurityChange({ email: me.email, ip, device, change: 'recovery_regenerated' });
+
+    res.json({ message: 'New recovery codes generated.', recoveryCodes: codes.plain });
+  } catch (err) {
+    console.error('[2fa] regenerate failed:', err.message);
+    res.status(500).json({ error: 'Unable to generate new recovery codes.' });
+  }
+});
+
+// ── POST /login ───────────────────────────────────────────────────────────
+// The second half of a 2FA login. The first half (email OTP or Google) already
+// proved the account, and handed back a challenge token instead of a session.
+// This exchanges that challenge plus a live authenticator code — or one unused
+// recovery code — for the real session.
+//
+// Session fixation is prevented structurally: the challenge token is not a
+// session, carries no `sid`, is signed with a different key than session JWTs,
+// and the session is created fresh here only after the code verifies.
+router.post('/login', loginVerifyLimiter, async (req, res) => {
+  try {
+    const { ip, device } = requestContext(req);
+    const body = (req.body && typeof req.body === 'object') ? req.body : {};
+    const challengeToken = String(body.challengeToken || '');
+
+    const challenge = twoFactor.verifyLoginChallengeToken(challengeToken, req);
+    if (!challenge.ok) return res.status(401).json({ error: challenge.error });
+
+    if (challengeAttemptsExhausted(challengeToken)) {
+      return res.status(429).json({
+        error: 'Too many incorrect codes. Please sign in again to get a new verification prompt.',
+      });
+    }
+
+    const me = {
+      id: challenge.claims.uid || '',
+      email: twoFactor.normEmail(challenge.claims.email),
+    };
+
+    const record = await twoFactor.findRecord({ userId: me.id, email: me.email });
+    if (!record || !twoFactor.truthy(record.enabled)) {
+      // The challenge was minted because 2FA was on; if it is off now the user
+      // should simply sign in again and be let straight through.
+      return res.status(409).json({ error: 'Please sign in again.' });
+    }
+
+    const proof = await consumeSecondFactor({ record, body, me, ip, device });
+    if (!proof.ok) {
+      const used = bumpChallengeAttempts(challengeToken);
+      await twoFactor.logSecurityEvent({
+        userId: me.id, email: me.email, event: twoFactor.EVENTS.LOGIN_FAILED,
+        outcome: 'failure', ip, device,
+        detail: `Second factor rejected at sign-in (attempt ${used} of ${MAX_CHALLENGE_ATTEMPTS})`,
+      });
+      return res.status(proof.status).json({
+        error: proof.error,
+        attemptsRemaining: Math.max(0, MAX_CHALLENGE_ATTEMPTS - used),
+      });
+    }
+
+    clearChallengeAttempts(challengeToken);
+
+    // Only now does a session exist.
+    const name = challenge.claims.name || me.email.split('@')[0];
+    const session = await authRoutes.createLoginSession(
+      req, me.id, challenge.claims.method || 'Email OTP + 2FA', me.email, name,
+    ).catch(() => null);
+
+    const token = authRoutes.issueLoginToken({
+      id: me.id, email: me.email, name, role: challenge.claims.role || 'user',
+    }, session);
+    if (session) authRoutes.setSessionCookie(res, session.token, session.ttlMs);
+
+    await twoFactor.logSecurityEvent({
+      userId: me.id, email: me.email, event: twoFactor.EVENTS.LOGIN_SUCCESS, ip, device,
+      detail: `Signed in with ${proof.method}`,
+    });
+
+    res.json({
+      message: 'Two-factor verification successful.',
+      token,
+      session_id: session ? session.sessionId : undefined,
+      session_expires_at: session ? session.expiresAt : undefined,
+      usedRecoveryCode: proof.method === 'recovery code',
+      recoveryCodesRemaining: proof.remaining,
+      user: {
+        id: me.id,
+        user_id: me.id,
+        email: me.email,
+        name,
+        username: challenge.claims.username || me.email.split('@')[0],
+        status: challenge.claims.status || 'active',
+        role: challenge.claims.role || 'user',
+      },
+    });
+  } catch (err) {
+    console.error('[2fa] login exchange failed:', err.message);
+    res.status(500).json({ error: 'Unable to complete two-factor verification.' });
   }
 });
 

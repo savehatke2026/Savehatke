@@ -539,6 +539,73 @@
       </button>
     </div>
 
+    <!-- ═══════════════════════════════════════════════
+         Two-Factor State
+         Reached only when the account has an authenticator enrolled. The
+         primary factor has already been verified here, but NO session exists
+         yet — the server returned a short-lived challenge instead of a token,
+         and only POST /api/auth/2fa/login can turn it into a real session.
+    ═══════════════════════════════════════════════ -->
+    <div id="twofaState" style="display:none;">
+      <div class="auth-hdr">
+        <div class="auth-icon">
+          <!-- Shield icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <polyline points="9 12 11 14 15 10"/>
+          </svg>
+        </div>
+        <h1 class="auth-title">Two-factor <span class="gtext">authentication</span></h1>
+        <p class="auth-sub" id="tfaSub">Enter the 6-digit code from your authenticator app.</p>
+      </div>
+
+      <!-- Authenticator code -->
+      <div id="tfaCodeArea">
+        <div class="otp-group" id="tfaGroup" role="group" aria-label="Enter your 6-digit authenticator code">
+          <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="tfa0" autocomplete="one-time-code" aria-label="Digit 1">
+          <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="tfa1" aria-label="Digit 2">
+          <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="tfa2" aria-label="Digit 3">
+          <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="tfa3" aria-label="Digit 4">
+          <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="tfa4" aria-label="Digit 5">
+          <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="tfa5" aria-label="Digit 6">
+        </div>
+
+        <button class="btn btn-primary" id="tfaVerifyBtn" onclick="handleTwoFactorVerify()" disabled>
+          Verify &amp; Continue &rarr;
+        </button>
+
+        <div class="resend-area">
+          <button class="resend-btn" id="tfaUseRecoveryBtn" style="text-decoration:underline" onclick="showRecoveryCodeEntry()">Use a recovery code</button>
+        </div>
+      </div>
+
+      <!-- Recovery code -->
+      <div id="tfaRecoveryArea" style="display:none">
+        <div class="fgroup">
+          <label class="flabel" for="tfaRecoveryInput">Recovery code</label>
+          <input class="finput" type="text" id="tfaRecoveryInput" placeholder="XXXX-XXXX" maxlength="9"
+                 autocomplete="one-time-code" spellcheck="false"
+                 style="text-align:center;font-family:'JetBrains Mono',monospace;letter-spacing:.1em;text-transform:uppercase">
+        </div>
+
+        <button class="btn btn-primary" id="tfaRecoveryBtn" onclick="handleTwoFactorVerify(true)" disabled>
+          Verify &amp; Continue &rarr;
+        </button>
+
+        <div class="resend-area">
+          <button class="resend-btn" style="text-decoration:underline" onclick="showAuthenticatorCodeEntry()">Use your authenticator app instead</button>
+        </div>
+      </div>
+
+      <button class="back-link" onclick="cancelTwoFactor()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/>
+          <path d="m12 19-7-7 7-7"/>
+        </svg>
+        Back to login
+      </button>
+    </div>
+
     <!-- Success State -->
     <div class="success-state" id="successState">
       <div class="success-icon-wrap">
@@ -1103,7 +1170,10 @@
   }
 
   /* ── OTP Inputs ── */
-  const otpInputs = Array.from(document.querySelectorAll('.otp-input'));
+  // Scoped to #otpGroup on purpose: the two-factor state below reuses the same
+  // .otp-input styling, and an unscoped selector would make the email-OTP
+  // handlers drive both sets of boxes.
+  const otpInputs = Array.from(document.querySelectorAll('#otpGroup .otp-input'));
   const verifyBtn = document.getElementById('verifyBtn');
 
   function getOTP() { return otpInputs.map(i => i.value).join(''); }
@@ -1222,6 +1292,17 @@
     const email = sessionStorage.getItem('otp_email') || document.getElementById('displayEmail').textContent;
     try {
       const data = await api('/auth/verify-otp', { method: 'POST', body: { email, otp } });
+
+      // The account has an authenticator enrolled: the server withheld the
+      // session and returned a challenge instead. Nothing is stored in Auth
+      // until the second factor is verified.
+      if (data.twoFactorRequired) {
+        enterTwoFactorState(data);
+        btn.disabled = false;
+        btn.innerHTML = 'Verify Code \u2192';
+        return;
+      }
+
       Auth.setAuth(data.token, data.user);
       if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
         Auth.setAdminAuth(data.token, data.user);
@@ -1245,9 +1326,201 @@
     }
   }
 
+  /* ══════════════════════════════════════════
+     TWO-FACTOR CHALLENGE
+     The challenge token is not a session: it is signed with a different key
+     than session JWTs, carries no session id, expires in 5 minutes and is
+     bound to this device. It is held in memory only — never in localStorage —
+     so closing the tab abandons the half-finished login.
+     ══════════════════════════════════════════ */
+  let tfaChallengeToken = '';
+
+  const tfaInputs = Array.from(document.querySelectorAll('#tfaGroup .otp-input'));
+  const tfaVerifyBtn = document.getElementById('tfaVerifyBtn');
+  const tfaRecoveryInput = document.getElementById('tfaRecoveryInput');
+  const tfaRecoveryBtn = document.getElementById('tfaRecoveryBtn');
+
+  function getTfaCode() { return tfaInputs.map((i) => i.value).join(''); }
+
+  function updateTfaState() {
+    tfaInputs.forEach((inp) => inp.classList.toggle('filled', Boolean(inp.value)));
+    if (tfaVerifyBtn) tfaVerifyBtn.disabled = getTfaCode().length < 6;
+  }
+
+  tfaInputs.forEach((inp, idx) => {
+    inp.addEventListener('input', () => {
+      inp.value = inp.value.replace(/\D/g, '').slice(0, 1);
+      inp.classList.remove('error');
+      if (inp.value && idx < tfaInputs.length - 1) tfaInputs[idx + 1].focus();
+      updateTfaState();
+      if (getTfaCode().length === 6) handleTwoFactorVerify();
+    });
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !inp.value && idx > 0) tfaInputs[idx - 1].focus();
+    });
+    inp.addEventListener('paste', (e) => {
+      const digits = String((e.clipboardData && e.clipboardData.getData('text')) || '')
+        .replace(/\D/g, '').slice(0, 6);
+      if (!digits) return;
+      e.preventDefault();
+      tfaInputs.forEach((b, j) => { b.value = digits[j] || ''; });
+      updateTfaState();
+      tfaInputs[Math.min(digits.length, tfaInputs.length - 1)].focus();
+      if (digits.length === 6) handleTwoFactorVerify();
+    });
+  });
+
+  if (tfaRecoveryInput) {
+    tfaRecoveryInput.addEventListener('input', () => {
+      tfaRecoveryInput.classList.remove('error');
+      // Enough characters for XXXX-XXXX in any of the accepted spellings.
+      const bare = tfaRecoveryInput.value.replace(/[^A-Za-z0-9]/g, '');
+      if (tfaRecoveryBtn) tfaRecoveryBtn.disabled = bare.length < 8;
+    });
+    tfaRecoveryInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && tfaRecoveryBtn && !tfaRecoveryBtn.disabled) handleTwoFactorVerify(true);
+    });
+  }
+
+  /** Swap the email-OTP screen for the authenticator prompt. */
+  function enterTwoFactorState(data) {
+    tfaChallengeToken = data.challengeToken || '';
+    document.getElementById('loginState').style.display = 'none';
+    document.getElementById('verifyState').style.display = 'none';
+    document.getElementById('twofaState').style.display = 'block';
+    showAuthenticatorCodeEntry();
+  }
+
+  // Google sign-in can start from any page. app.js calls this hook when it is
+  // defined, and otherwise stashes the challenge and redirects here.
+  window.onTwoFactorRequired = enterTwoFactorState;
+
+  // Pick up a challenge handed over from another page.
+  (function resumeTwoFactorHandoff() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('step') !== '2fa') return;
+      const token = sessionStorage.getItem('sh_2fa_challenge');
+      // Single use: remove it before doing anything with it, so a reload cannot
+      // resurrect a challenge the user abandoned.
+      sessionStorage.removeItem('sh_2fa_challenge');
+      if (token) enterTwoFactorState({ challengeToken: token });
+    } catch (e) { /* nothing to resume */ }
+  })();
+
+  function showAuthenticatorCodeEntry() {
+    document.getElementById('tfaCodeArea').style.display = 'block';
+    document.getElementById('tfaRecoveryArea').style.display = 'none';
+    document.getElementById('tfaSub').textContent = 'Enter the 6-digit code from your authenticator app.';
+    tfaInputs.forEach((i) => { i.value = ''; i.classList.remove('error', 'filled'); });
+    updateTfaState();
+    if (tfaInputs[0]) setTimeout(() => tfaInputs[0].focus(), 80);
+  }
+
+  function showRecoveryCodeEntry() {
+    document.getElementById('tfaCodeArea').style.display = 'none';
+    document.getElementById('tfaRecoveryArea').style.display = 'block';
+    document.getElementById('tfaSub').textContent = 'Enter one of the recovery codes you saved when you set up 2FA.';
+    if (tfaRecoveryInput) {
+      tfaRecoveryInput.value = '';
+      tfaRecoveryInput.classList.remove('error');
+      setTimeout(() => tfaRecoveryInput.focus(), 80);
+    }
+    if (tfaRecoveryBtn) tfaRecoveryBtn.disabled = true;
+  }
+
+  function cancelTwoFactor() {
+    tfaChallengeToken = '';
+    document.getElementById('twofaState').style.display = 'none';
+    document.getElementById('verifyState').style.display = 'none';
+    document.getElementById('loginState').style.display = 'block';
+    resetLoginTurnstile();
+    const submit = document.getElementById('submitBtn');
+    if (submit) { submit.disabled = false; submit.textContent = 'Continue \u2192'; }
+  }
+
+  async function handleTwoFactorVerify(useRecovery) {
+    if (!tfaChallengeToken) {
+      showToast('This sign-in attempt expired. Please start again.', 'error');
+      cancelTwoFactor();
+      return;
+    }
+
+    const body = { challengeToken: tfaChallengeToken };
+    let btn;
+    if (useRecovery) {
+      const value = tfaRecoveryInput ? tfaRecoveryInput.value.trim() : '';
+      if (value.replace(/[^A-Za-z0-9]/g, '').length < 8) return;
+      body.recoveryCode = value;
+      btn = tfaRecoveryBtn;
+    } else {
+      const code = getTfaCode();
+      if (code.length < 6) return;
+      body.code = code;
+      btn = tfaVerifyBtn;
+    }
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Verifying\u2026'; }
+
+    try {
+      const data = await api('/auth/2fa/login', { method: 'POST', body });
+      Auth.setAuth(data.token, data.user);
+
+      if (data.usedRecoveryCode) {
+        // Persist the nudge across the redirect; the dashboard is where the
+        // user can actually act on it.
+        try {
+          sessionStorage.setItem('sh_recovery_notice', String(data.recoveryCodesRemaining ?? ''));
+        } catch (e) { /* storage unavailable — the emailed notice still covers it */ }
+      }
+
+      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+        Auth.setAdminAuth(data.token, data.user);
+        window.location.replace('vault');
+      } else {
+        window.location.replace('index');
+      }
+    } catch (err) {
+      showToast(err.message || 'That code is not valid. Please try again.', 'error');
+
+      if (useRecovery) {
+        if (tfaRecoveryInput) {
+          tfaRecoveryInput.classList.add('error');
+          tfaRecoveryInput.select();
+        }
+      } else {
+        tfaInputs.forEach((i) => i.classList.add('error'));
+        const group = document.getElementById('tfaGroup');
+        if (group) {
+          group.classList.add('shake');
+          setTimeout(() => group.classList.remove('shake'), 500);
+        }
+        setTimeout(() => {
+          tfaInputs.forEach((i) => { i.value = ''; i.classList.remove('error', 'filled'); });
+          if (tfaInputs[0]) tfaInputs[0].focus();
+          updateTfaState();
+        }, 900);
+      }
+
+      // A spent challenge cannot be retried — send the user back to the start.
+      if (err.status === 429 || err.status === 401 || err.status === 409) {
+        tfaChallengeToken = '';
+        setTimeout(cancelTwoFactor, 1600);
+      }
+    } finally {
+      if (btn) {
+        btn.innerHTML = 'Verify &amp; Continue \u2192';
+        btn.disabled = useRecovery
+          ? (!tfaRecoveryInput || tfaRecoveryInput.value.replace(/[^A-Za-z0-9]/g, '').length < 8)
+          : getTfaCode().length < 6;
+      }
+    }
+  }
+
   function goBack() {
     document.getElementById('verifyState').style.display = 'none';
     document.getElementById('successState').style.display = 'none';
+    document.getElementById('twofaState').style.display = 'none';
     document.getElementById('loginState').style.display = 'block';
     const email = sessionStorage.getItem('otp_email') || '';
     if (email) document.getElementById('inputEmail').value = email;
