@@ -23,6 +23,9 @@ const SHEETS = {
   CHATBOT_AUDIT: 'ChatbotAudit',
   COUPON_AUDIT: 'CouponAudit',
   PAYOUTS: 'Payouts',
+  REVIEWS: 'Reviews',
+  USER_TWO_FACTOR: 'UserTwoFactor',
+  SECURITY_AUDIT: 'SecurityAudit',
   BACKUP_CODE_AUDIT: 'BackupCodeAudit',
 };
 
@@ -39,6 +42,10 @@ const HEADERS = {
     // from a third-party service. ensureSheets() adds this column to tabs
     // created before it existed, so old sheets fill in on the next login.
     'profile_picture',
+    // JSON blob of the user's notification opt-ins, e.g.
+    // {"coupon_activity":true,"marketing":false}. Absent/blank means
+    // "defaults" — the server fills in the defaults on read.
+    'notification_prefs',
     'created_at',
     'updated_at',
     'last_login_at',
@@ -109,6 +116,55 @@ const HEADERS = {
   [SHEETS.PRICE_TRACKING]: [
     'id', 'userEmail', 'productUrl', 'platform', 'productName',
     'currentPrice', 'targetPrice', 'lowestPrice', 'lastChecked', 'alertSent',
+  ],
+  // Buyer reviews of coupons they purchased. brand/couponTitle/pricePaid are
+  // copied in at write time so a review still reads correctly after the coupon
+  // row is edited or removed.
+  [SHEETS.REVIEWS]: [
+    'id',
+    'couponId',
+    'buyerEmail',
+    'buyerUserId',
+    'brand',
+    'couponTitle',
+    'pricePaid',
+    'rating',
+    'reviewText',
+    'createdAt',
+    'updatedAt',
+  ],
+  // One row per user holding their authenticator-app enrolment.
+  //
+  // secretEncrypted / pendingSecretEncrypted are AES-256-GCM blobs, never the
+  // raw base32 secret. recoveryCodes is a JSON array of
+  // { hash, usedAt, usedIp } — bcrypt hashes only, so a leaked sheet yields no
+  // usable code. pendingSecretEncrypted holds the not-yet-confirmed secret
+  // during enrolment and is cleared the moment 2FA is enabled or abandoned.
+  [SHEETS.USER_TWO_FACTOR]: [
+    'userId',
+    'email',
+    'enabled',
+    'secretEncrypted',
+    'pendingSecretEncrypted',
+    'pendingCreatedAt',
+    'recoveryCodes',
+    'lastCounter',
+    'enabledAt',
+    'disabledAt',
+    'lastUsedAt',
+    'updatedAt',
+  ],
+  // Append-only security event log. Never holds codes, secrets or hashes.
+  [SHEETS.SECURITY_AUDIT]: [
+    'id',
+    'userId',
+    'email',
+    'event',
+    'outcome',
+    'ipAddress',
+    'device',
+    'detail',
+    'createdAt',
   ],
   [SHEETS.SUPPORT_TICKETS]: [
     'id', 'name', 'userEmail', 'subject', 'message',
@@ -327,6 +383,7 @@ async function ensureSheets() {
             spreadsheetId,
             range: `${sheetName}!1:1`,
           });
+          const current = (hdrRes.data.values && hdrRes.data.values[0]) || [];
           const currentNorm = current.map((c) => normKey(c));
           const missing = headers.filter((h) => !currentNorm.includes(normKey(h)));
           if (missing.length) {
@@ -360,6 +417,9 @@ const memoryDB = {
   [SHEETS.OTP_REQUESTS]: [],
   [SHEETS.COUPON_AUDIT]: [],
   [SHEETS.PAYOUTS]: [],
+  [SHEETS.REVIEWS]: [],
+  [SHEETS.USER_TWO_FACTOR]: [],
+  [SHEETS.SECURITY_AUDIT]: [],
   [SHEETS.BACKUP_CODE_AUDIT]: [],
 };
 
