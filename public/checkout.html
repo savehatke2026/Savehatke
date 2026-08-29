@@ -108,7 +108,16 @@
     .coupon-compact { border-radius:12px; background:linear-gradient(135deg,rgba(0,230,118,.07),rgba(79,195,247,.04)); border:1px solid rgba(0,230,118,.18); padding:16px 20px; margin-bottom:14px; }
     .cc-top { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .cc-brand { display:flex; align-items:center; gap:12px; }
-    .cc-brand-ico { width:42px; height:42px; border-radius:11px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:800; color:#ff3f6c; font-family:'Outfit',sans-serif; flex-shrink:0; }
+    /* The logo sits straight on the dark card, exactly like the marketplace
+       card's .cbrand-logo-wrap. It must NOT carry a white plate: the shared
+       logo set in js/coupon-meta.js is tuned for dark surfaces, and the
+       single-colour dark marks (Uber, Croma, Lakmé) get repainted white by
+       .blogo-lift — on a white plate those would be invisible. The box grows
+       sideways so wordmark logos aren't squeezed into a square. */
+    .cc-brand-ico { height:42px; min-width:42px; max-width:120px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .cc-brand-ico img { max-width:100%; width:auto; height:100%; object-fit:contain; display:block; }
+    /* Fallback when no logo is known: the gradient chip IS the mark, so it keeps a fill. */
+    .cc-brand-ico .brand-initial { width:42px; height:42px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); flex-shrink:0; }
     .cc-brand-name { font-weight:800; font-size:1rem; }
     .cc-brand-cat { font-size:.7rem; color:#6b88aa; margin-top:2px; font-weight:500; }
     .cc-discount { font-family:'JetBrains Mono',monospace; font-size:1.4rem; font-weight:700; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; white-space:nowrap; }
@@ -118,7 +127,38 @@
     .cc-info-item span { font-size:.85rem; font-weight:600; color:#e2ecff; }
     .cc-code-row { display:flex; align-items:center; gap:8px; background:rgba(0,0,0,.2); border:1px dashed rgba(79,195,247,.15); border-radius:9px; padding:9px 13px; }
     .cc-code-text { font-size:.82rem; color:#a8c0dc; }
-    .cc-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:9999px; font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; margin-top:12px; }
+    .cc-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:9999px; font-size:.68rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; }
+
+    /* BADGE ROW — "✓ Verified Coupon" + the admin-controlled "🔥 Sale" tag.
+       Same gradient and weight as the marketplace card's .csale-badge so the
+       tag the buyer clicked on is the tag they land on. */
+    .cc-badges { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:12px; }
+    .cc-sale-badge { display:inline-flex; align-items:center; gap:4px; font-size:.68rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:4px 10px; border-radius:9999px; background:linear-gradient(135deg,#ff6b35,#ff3d00); color:#fff; box-shadow:0 2px 10px rgba(255,61,0,.32); }
+
+    /* EXPIRY COUNTDOWN — the same live clock as the marketplace card, driven by
+       the shared parseExpiry/expiryParts/expiryBand in js/coupon-meta.js, so
+       both pages count down to the identical deadline and change colour band on
+       the identical thresholds (green >2wks / yellow ≤2wks / red ≤1wk). The
+       ticker only rewrites the digit spans, so the icon's breathe never restarts. */
+    .cc-expiry { display:flex; align-items:center; gap:10px; margin:14px 0 0; padding:8px 12px; border-radius:9px; border:1px solid transparent; }
+    .cc-exp-head { display:flex; align-items:center; gap:6px; min-width:0; }
+    .cc-exp-icon { width:14px; height:14px; flex-shrink:0; animation:ccExpBreathe 2.4s ease-in-out infinite; }
+    @keyframes ccExpBreathe { 0%,100% { opacity:.95; } 50% { opacity:.42; } }
+    .cc-exp-label { font-size:.63rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.75; white-space:nowrap; }
+    .cc-exp-clock { margin-left:auto; display:flex; align-items:baseline; gap:7px; }
+    .cc-exp-tile { display:inline-flex; align-items:baseline; }
+    .cc-exp-tile b { font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; font-size:.9rem; font-weight:700; line-height:1; min-width:2ch; text-align:right; }
+    .cc-exp-tile i { font-style:normal; font-size:.6rem; font-weight:700; text-transform:lowercase; opacity:.55; line-height:1; margin-left:1px; }
+    .cc-exp-no-days .cc-exp-tile-d { display:none; }
+    .cc-exp-over { display:none; font-size:.72rem; font-weight:700; margin-left:auto; }
+    .cc-expiry-expired .cc-exp-label, .cc-expiry-expired .cc-exp-clock { display:none; }
+    .cc-expiry-expired .cc-exp-over { display:block; }
+    .cc-expiry-expired .cc-exp-icon { opacity:.55; animation:none; }
+    .cc-expiry-green   { color:#00e676; background:rgba(0,230,118,.08);   border-color:rgba(0,230,118,.22); }
+    .cc-expiry-yellow  { color:#ffd740; background:rgba(255,215,64,.09);  border-color:rgba(255,215,64,.30); }
+    .cc-expiry-red     { color:#ff5252; background:rgba(255,82,82,.11);   border-color:rgba(255,82,82,.40); }
+    .cc-expiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.20); }
+    @media (prefers-reduced-motion: reduce) { .cc-exp-icon { animation:none; opacity:.9; } }
 
     /* COMPACT NOTE */
     .compact-note { font-size:.78rem; color:#6b88aa; display:flex; align-items:flex-start; gap:7px; padding:10px 14px; border-radius:9px; background:rgba(79,195,247,.04); border:1px solid rgba(79,195,247,.08); line-height:1.55; }
@@ -142,7 +182,9 @@
     .summary-card { border-radius:16px; background:rgba(10,22,48,.92); border:1px solid rgba(79,195,247,.14); padding:24px; }
     .sum-title { font-weight:800; font-size:1.1rem; margin-bottom:18px; color:#e2ecff; }
     .sum-coupon-preview { border-radius:10px; background:rgba(0,230,118,.05); border:1px solid rgba(0,230,118,.14); padding:12px 16px; margin-bottom:18px; display:flex; align-items:center; gap:12px; }
-    .scp-ico { width:38px; height:38px; border-radius:9px; background:#fff; display:flex; align-items:center; justify-content:center; font-size:1.1rem; font-weight:800; color:#ff3f6c; flex-shrink:0; }
+    .scp-ico { height:38px; min-width:38px; max-width:104px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .scp-ico img { max-width:100%; width:auto; height:100%; object-fit:contain; display:block; }
+    .scp-ico .brand-initial { width:38px; height:38px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:1.05rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); flex-shrink:0; }
     .scp-brand { font-weight:700; font-size:.9rem; }
     .scp-off { font-family:'JetBrains Mono',monospace; font-size:.8rem; color:#00e676; font-weight:600; margin-top:2px; }
     .sum-rows { margin-bottom:16px; }
@@ -312,13 +354,13 @@
           <div class="coupon-compact">
             <div class="cc-top">
               <div class="cc-brand">
-                <div class="cc-brand-ico" id="csBrandIco">M</div>
+                <div class="cc-brand-ico" id="csBrandIco"></div>
                 <div>
-                  <div class="cc-brand-name" id="csBrandName">Myntra</div>
-                  <div class="cc-brand-cat" id="csBrandCat">Fashion &amp; Accessories</div>
+                  <div class="cc-brand-name" id="csBrandName">—</div>
+                  <div class="cc-brand-cat" id="csBrandCat">—</div>
                 </div>
               </div>
-              <div class="cc-discount" id="csOff">₹500 OFF</div>
+              <div class="cc-discount" id="csOff">—</div>
             </div>
 
             <div class="cc-divider"></div>
@@ -326,24 +368,49 @@
             <div class="cc-info-row">
               <div class="cc-info-item">
                 <label>Valid Till</label>
-                <span id="csExpiry">30 Aug 2026</span>
+                <span id="csExpiry">—</span>
               </div>
-              <div class="cc-info-item">
+              <div class="cc-info-item" id="csMinOrderItem">
                 <label>Min. Order</label>
-                <span id="csMinOrder">₹999</span>
+                <span id="csMinOrder">—</span>
               </div>
               <div class="cc-info-item">
                 <label>Status</label>
-                <span style="color:#00e676">Available</span>
+                <span id="csStatus" style="color:#00e676">Available</span>
               </div>
             </div>
 
-            <div class="cc-code-row">
+            <!-- Live countdown. Hidden until we know the coupon's real expiry,
+                 and stays hidden when the admin turned this coupon's timer off
+                 (timerOn=false) — same rule as the marketplace card. -->
+            <div class="cc-expiry" id="csExpiryTimer" style="display:none">
+              <span class="cc-exp-head">
+                <svg class="cc-exp-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                  <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="cc-exp-label">Offer ends in</span>
+              </span>
+              <span class="cc-exp-clock">
+                <span class="cc-exp-tile cc-exp-tile-d"><b class="cc-exp-d"></b><i>d</i></span>
+                <span class="cc-exp-tile"><b class="cc-exp-h">00</b><i>h</i></span>
+                <span class="cc-exp-tile"><b class="cc-exp-m">00</b><i>m</i></span>
+                <span class="cc-exp-tile"><b class="cc-exp-s">00</b><i>s</i></span>
+              </span>
+              <span class="cc-exp-over">Offer ended</span>
+            </div>
+
+            <div class="cc-code-row" style="margin-top:14px">
               <span>🔒</span>
               <span class="cc-code-text">Code revealed after payment</span>
             </div>
 
-            <div class="cc-badge">✓ Verified Coupon</div>
+            <div class="cc-badges">
+              <span class="cc-badge">✓ Verified Coupon</span>
+              <!-- Admin-controlled per-coupon sale switch, carried over from the
+                   marketplace card and re-confirmed by /api/coupons/:id. -->
+              <span class="cc-sale-badge" id="csSaleBadge" style="display:none">🔥 Sale</span>
+            </div>
           </div>
 
           <div class="compact-note">
@@ -394,21 +461,22 @@
           <div class="sum-title">Order Summary</div>
 
           <div class="sum-coupon-preview">
-            <div class="scp-ico" id="sumBrandIco">M</div>
-            <div>
-              <div class="scp-brand" id="sumBrandName">Myntra Coupon</div>
-              <div class="scp-off" id="sumOff">₹500 OFF on Fashion</div>
+            <div class="scp-ico" id="sumBrandIco"></div>
+            <div style="min-width:0">
+              <div class="scp-brand" id="sumBrandName">—</div>
+              <div class="scp-off" id="sumOff">—</div>
             </div>
+            <span class="cc-sale-badge" id="sumSaleBadge" style="display:none;margin-left:auto">🔥 Sale</span>
           </div>
 
           <div class="sum-rows">
             <div class="sum-row">
               <span class="sum-row-label">Coupon Value</span>
-              <span class="sum-row-val green" id="sumValue">₹500</span>
+              <span class="sum-row-val green" id="sumValue">—</span>
             </div>
             <div class="sum-row">
               <span class="sum-row-label">Coupon Price</span>
-              <span class="sum-row-val" id="sumPrice">₹15</span>
+              <span class="sum-row-val" id="sumPrice">—</span>
             </div>
           </div>
 
@@ -416,7 +484,7 @@
 
           <div class="sum-total-row">
             <span class="sum-total-label">Total Payable</span>
-            <span class="sum-total-val" id="sumTotal">₹19</span>
+            <span class="sum-total-val" id="sumTotal">—</span>
           </div>
 
           <div class="sum-saving-note" id="sumSavings">🎉 Great deal — you're saving vs retail!</div>
@@ -429,7 +497,7 @@
           </div>
 
           <button class="btn-pay" id="payBtn" onclick="initiatePayment()">
-            <span id="payBtnText">Pay ₹19</span>
+            <span id="payBtnText">🔒 Pay Securely</span>
           </button>
 
           <div class="pay-secure-note">🔒 Secure payment powered by Razorpay</div>
@@ -487,7 +555,9 @@
 
     <div class="success-code-reveal">
       <div class="scr-label">Your Unlocked Coupon Code</div>
-      <div class="scr-code" id="revealedCode">MYNTRA500X</div>
+      <!-- Masked until /api/payments/verify hands back the real code. It is
+           never in the page (or the URL) before a verified payment. -->
+      <div class="scr-code" id="revealedCode">••••••••</div>
       <button class="scr-copy" onclick="copyCode()">
         <span id="copyIcon">📋</span> <span id="copyText">Copy Code</span>
       </button>
@@ -496,23 +566,23 @@
     <div class="success-meta">
       <div class="sm-item">
         <div class="sm-label">Brand</div>
-        <div class="sm-val" id="succBrand">Myntra</div>
+        <div class="sm-val" id="succBrand">—</div>
       </div>
       <div class="sm-item">
         <div class="sm-label">Discount</div>
-        <div class="sm-val" style="color:#00e676;font-family:'JetBrains Mono',monospace" id="succDiscount">₹500 OFF</div>
+        <div class="sm-val" style="color:#00e676;font-family:'JetBrains Mono',monospace" id="succDiscount">—</div>
       </div>
       <div class="sm-item">
         <div class="sm-label">Amount Paid</div>
-        <div class="sm-val" style="font-family:'JetBrains Mono',monospace" id="succAmount">₹19</div>
+        <div class="sm-val" style="font-family:'JetBrains Mono',monospace" id="succAmount">—</div>
       </div>
       <div class="sm-item">
         <div class="sm-label">Valid Till</div>
-        <div class="sm-val" id="succExpiry">30 Aug 2026</div>
+        <div class="sm-val" id="succExpiry">—</div>
       </div>
     </div>
 
-    <p style="font-size:.78rem;color:#6b88aa;margin-bottom:22px">📧 A confirmation email has been sent to <strong style="color:#a8c0dc" id="confirmEmail">buyer@example.com</strong></p>
+    <p style="font-size:.78rem;color:#6b88aa;margin-bottom:22px">📧 A confirmation email has been sent to <strong style="color:#a8c0dc" id="confirmEmail">your email</strong></p>
 
     <div class="success-actions">
       <a href="marketplace" class="btn btn-primary">🏷️ Browse More Coupons</a>
@@ -522,6 +592,10 @@
 </div>
 
 <script src="js/app.js"></script>
+<!-- Shared brand-logo map + expiry maths. The marketplace card and this page
+     must resolve the same logo and count down to the same deadline, so both
+     load this one file instead of keeping private copies. -->
+<script src="js/coupon-meta.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
   // Dynamic Razorpay Configuration (filled in by /api/payments/config)
@@ -543,114 +617,238 @@
     }
   }
 
-  // Read URL parameters
+  // Read URL parameters. These are only a first paint so the page never flashes
+  // sample data — everything here is re-read from /api/coupons/:id below and
+  // corrected, because a bookmarked or hand-edited link must not decide what the
+  // buyer is told they are paying for.
   const urlParams = new URLSearchParams(window.location.search);
   const currentCoupon = {
-    id: urlParams.get('id') || 'c001',
-    code: urlParams.get('code') || 'NYKAA-SAVE200',
-    brand: urlParams.get('brand') || 'Nykaa',
-    category: urlParams.get('category') || 'Makeup',
-    title: urlParams.get('title') || '₹200 Off on Skincare',
-    price: parseFloat(urlParams.get('price')) || 15,
-    value: urlParams.get('value') || '200',
-    expiry: urlParams.get('expiry') || '30 Aug 2026',
-    minOrder: urlParams.get('minOrder') || '999',
+    id: urlParams.get('id') || '',
+    // Never arrives over the URL: /api/coupons never sends a code to a browser.
+    // It is filled in by /api/payments/verify after a verified payment.
+    code: '',
+    brand: urlParams.get('brand') || '',
+    category: urlParams.get('category') || '',
+    title: urlParams.get('title') || '',
+    price: parseFloat(urlParams.get('price')) || 0,
+    value: urlParams.get('value') || '',
+    expiry: urlParams.get('expiry') || '',
+    minOrder: '',
+    onSale: urlParams.get('onSale') !== '0',
+    timerOn: urlParams.get('timerOn') !== '0',
   };
 
-  // Total is the coupon's price as listed (no platform fee).
-  const totalPrice = currentCoupon.price;
-  const amountInPaise = Math.round(totalPrice * 100);
+  // Total is the coupon's price as listed (no platform fee). Display only —
+  // /api/payments/create-order recomputes the amount from the coupon's stored
+  // sellingPrice, so editing ?price= in the URL changes nothing that is charged.
+  let totalPrice = currentCoupon.price;
 
-  // ── Brand logos ────────────────────────────────────────────────────────
-  // Map brand name -> website domain, used to fetch a real favicon via
-  // Google's favicon service (works for almost every brand, no API key).
-  // For unknown brands we fall back to a colored first-letter avatar.
-  const BRAND_DOMAINS = {
-    'amazon': 'amazon.in',
-    'flipkart': 'flipkart.com',
-    'meesho': 'meesho.com',
-    'tata cliq': 'tatacliq.com',
-    'croma': 'croma.com',
-    'myntra': 'myntra.com',
-    'ajio': 'ajio.com',
-    'h&m': 'hm.com',
-    'nykaa fashion': 'nykaafashion.com',
-    'puma': 'puma.com',
-    'adidas': 'adidas.co.in',
-    'nykaa': 'nykaa.com',
-    'purplle': 'purplle.com',
-    'mamaearth': 'mamaearth.in',
-    'minimalist': 'beminimalist.co',
-    'lakm\u00e9': 'lakmeindia.com',
-    'lakme': 'lakmeindia.com',
-    'swiggy': 'swiggy.com',
-    'zomato': 'zomato.com',
-    "domino's": 'dominos.co.in',
-    'pizza hut': 'pizzahut.co.in',
-    'eatsure': 'eatsure.com',
-    'makemytrip': 'makemytrip.com',
-    'cleartrip': 'cleartrip.com',
-    'easemytrip': 'easemytrip.com',
-    'uber': 'uber.com',
-    'rapido': 'rapido.bike',
-    'booking.com': 'booking.com',
-    'agoda': 'agoda.com',
-    'goibibo': 'goibibo.com',
-    'cult.fit': 'cult.fit',
-    'decathlon': 'decathlon.in',
-    'nike': 'nike.com',
-    'ikea': 'ikea.in',
-    'pepperfry': 'pepperfry.com',
-  };
-
-  function getBrandLogoUrl(brandName) {
-    const key = String(brandName || '').toLowerCase().trim();
-    const domain = BRAND_DOMAINS[key];
-    if (domain) return 'https://www.google.com/s2/favicons?domain=' + encodeURIComponent(domain) + '&sz=128';
-    return null;
-  }
-
+  // ── Brand logo ─────────────────────────────────────────────────────────
+  // getBrandLogo / getBrandLogoClass / getBrandInitial come from
+  // js/coupon-meta.js — the same resolution the marketplace card uses, so the
+  // logo the buyer clicked is the logo they land on. getBrandLogoClass matters
+  // on this dark card: single-colour dark marks are repainted white and
+  // Booking.com / Pizza Hut get a light chip, which is also why the icon slot
+  // has no white plate of its own.
   function renderBrandIcon(el, brandName) {
     if (!el) return;
-    const safeName = String(brandName || '').replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
-    const letter = safeName.charAt(0).toUpperCase() || '?';
-    const logoUrl = getBrandLogoUrl(brandName);
+    const esc = (s) => String(s == null ? '' : s).replace(/[<>&"]/g, (c) => (
+      { '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]
+    ));
+    const safeName = esc(brandName);
+    const initial = (typeof getBrandInitial === 'function')
+      ? getBrandInitial(brandName)
+      : (String(brandName || '?').charAt(0).toUpperCase() || '?');
+    const logoUrl = (typeof getBrandLogo === 'function') ? getBrandLogo(brandName) : '';
+    const extraClass = (logoUrl && typeof getBrandLogoClass === 'function')
+      ? getBrandLogoClass(logoUrl)
+      : '';
+
     if (logoUrl) {
-      // Image first, graceful fallback to the letter if the favicon 404s
+      // Image first, falling back to the gradient initial chip if the file or
+      // the Clearbit lookup 404s.
       el.innerHTML =
-        '<img src="' + logoUrl + '" alt="' + safeName + '" ' +
-        'style="width:100%;height:100%;object-fit:contain;border-radius:inherit;display:block" ' +
-        'onerror="this.replaceWith(document.createTextNode(this.alt.charAt(0).toUpperCase()))">';
+        '<img src="' + esc(logoUrl) + '"' + (extraClass ? ' class="' + extraClass + '"' : '') +
+        ' alt="' + safeName + '"' +
+        ' onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'">' +
+        '<span class="brand-initial" style="display:none">' + esc(initial) + '</span>';
     } else {
-      el.textContent = letter;
+      el.innerHTML = '<span class="brand-initial">' + esc(initial) + '</span>';
+    }
+  }
+
+  // ── Countdown ──────────────────────────────────────────────────────────
+  // parseExpiry / expiryBand / expiryParts also come from js/coupon-meta.js, so
+  // this clock and the marketplace card's clock agree on the deadline and on
+  // the colour thresholds. The ticker writes digits only: replacing innerHTML
+  // every second would restart the icon's breathe animation.
+  let expiryTickerId = null;
+
+  function paintExpiryTimer() {
+    const box = document.getElementById('csExpiryTimer');
+    if (!box) return;
+
+    const at = (typeof parseExpiry === 'function') ? parseExpiry(currentCoupon.expiry) : null;
+    // No expiry known, or the admin switched this coupon's timer off.
+    if (at === null || !currentCoupon.timerOn) {
+      box.style.display = 'none';
+      if (expiryTickerId !== null) { clearInterval(expiryTickerId); expiryTickerId = null; }
+      return;
+    }
+
+    box.style.display = 'flex';
+    box.title = 'Expires ' + new Date(at).toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+
+    const setText = (sel, value) => {
+      const el = box.querySelector(sel);
+      if (el && el.textContent !== value) el.textContent = value;
+    };
+    const dayDigits = (dd) => (dd ? String(dd).replace(/d$/i, '') : '');
+
+    const tick = () => {
+      const msLeft = at - Date.now();
+      const p = expiryParts(msLeft);
+      setText('.cc-exp-d', dayDigits(p.dd));
+      setText('.cc-exp-h', p.hh);
+      setText('.cc-exp-m', p.mm);
+      setText('.cc-exp-s', p.ss);
+      const cls = 'cc-expiry cc-expiry-' + expiryBand(msLeft) + (p.dd ? '' : ' cc-exp-no-days');
+      if (box.className !== cls) box.className = cls;
+      // An expired coupon can't be honoured, so stop the sale rather than take
+      // the money. The server is the real gate; this is the honest UI.
+      if (msLeft <= 0) blockPurchase('This offer has ended.');
+    };
+
+    tick();
+    if (expiryTickerId === null) expiryTickerId = setInterval(tick, 1000);
+  }
+
+  /** Disable paying, with a reason shown in the Status cell and on the button. */
+  function blockPurchase(reason) {
+    const payBtn = document.getElementById('payBtn');
+    const payBtnText = document.getElementById('payBtnText');
+    const statusEl = document.getElementById('csStatus');
+    if (payBtn) payBtn.disabled = true;
+    if (payBtnText) payBtnText.textContent = reason;
+    if (statusEl) { statusEl.textContent = reason.replace(/\.$/, ''); statusEl.style.color = '#ff5252'; }
+  }
+
+  // ── Paint ──────────────────────────────────────────────────────────────
+  /** Render everything that depends on the coupon. Safe to call repeatedly. */
+  function paintCoupon() {
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = value;
+    };
+    const show = (id, visible, display) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = visible ? (display || 'inline-flex') : 'none';
+    };
+    const dash = (v) => (v === '' || v == null ? '—' : v);
+
+    renderBrandIcon(document.getElementById('csBrandIco'), currentCoupon.brand);
+    renderBrandIcon(document.getElementById('sumBrandIco'), currentCoupon.brand);
+
+    set('csBrandName', dash(currentCoupon.brand));
+    set('csBrandCat', dash(currentCoupon.category));
+    set('sumBrandName', currentCoupon.brand ? currentCoupon.brand + ' Coupon' : '—');
+    set('csOff', dash(currentCoupon.title));
+    set('sumOff', dash(currentCoupon.title));
+
+    // "Valid Till" is a real formatted date now, not a hardcoded sample string.
+    const at = (typeof parseExpiry === 'function') ? parseExpiry(currentCoupon.expiry) : null;
+    const validTill = at === null ? '—' : new Date(at).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric',
+    });
+    set('csExpiry', validTill);
+    set('succExpiry', validTill);
+
+    // No minimum order on the coupon means there is no minimum to advertise —
+    // the old page invented "₹999" for every coupon.
+    const minOrderItem = document.getElementById('csMinOrderItem');
+    if (currentCoupon.minOrder) {
+      if (minOrderItem) minOrderItem.style.display = '';
+      set('csMinOrder', '₹' + currentCoupon.minOrder);
+    } else if (minOrderItem) {
+      minOrderItem.style.display = 'none';
+    }
+
+    show('csSaleBadge', currentCoupon.onSale);
+    show('sumSaleBadge', currentCoupon.onSale);
+
+    set('sumValue', currentCoupon.value ? '₹' + currentCoupon.value : '—');
+    set('sumPrice', totalPrice ? '₹' + totalPrice : '—');
+    set('sumTotal', totalPrice ? '₹' + totalPrice : '—');
+    const payBtn = document.getElementById('payBtn');
+    if (payBtn && !payBtn.disabled) {
+      set('payBtnText', totalPrice ? '🔒 Pay ₹' + totalPrice + ' Securely' : '🔒 Pay Securely');
+    }
+
+    set('succBrand', dash(currentCoupon.brand));
+    set('succDiscount', dash(currentCoupon.title));
+    set('succAmount', totalPrice ? '₹' + totalPrice : '—');
+
+    paintExpiryTimer();
+  }
+
+  /**
+   * Correct the page from the server. The URL only pre-paints; brand, category,
+   * title, price, coupon value, minimum order, expiry, the sale tag and the
+   * timer switch all come from here, which is why a stale marketplace tab can
+   * no longer send someone to a checkout showing the wrong numbers.
+   */
+  async function loadCouponFromServer() {
+    if (!currentCoupon.id) return;
+    try {
+      const res = await fetch('/api/coupons/' + encodeURIComponent(currentCoupon.id), {
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        if (res.status === 404) blockPurchase('This coupon is no longer available.');
+        return;
+      }
+      const data = await res.json().catch(() => ({}));
+      const c = data && data.coupon;
+      if (!c) return;
+
+      currentCoupon.brand = c.brand || currentCoupon.brand;
+      currentCoupon.category = c.category || currentCoupon.category;
+      currentCoupon.title = c.title || c.discount || c.description || currentCoupon.title;
+      currentCoupon.value = c.originalValue || c.discount || currentCoupon.value;
+      currentCoupon.minOrder = c.minOrderValue || '';
+      currentCoupon.expiry = c.expiryDate || currentCoupon.expiry;
+      currentCoupon.onSale = c.onSale !== false;
+      currentCoupon.timerOn = c.timerOn !== false;
+
+      const price = Number(c.sellingPrice);
+      if (Number.isFinite(price) && price > 0) {
+        currentCoupon.price = price;
+        totalPrice = price;
+      }
+
+      paintCoupon();
+
+      if (c.status && c.status !== 'available') {
+        blockPurchase('This coupon is already sold.');
+      }
+    } catch (e) {
+      // Offline or a transient failure: keep the pre-painted URL values rather
+      // than blanking the page.
+      console.warn('Could not refresh coupon details:', e);
     }
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    // Paint immediately from the URL, then correct from the server, so the page
+    // is never blank and never lies for long.
+    paintCoupon();
+    loadCouponFromServer();
+
     // Pull the public Razorpay key + config flag from the server before doing
     // anything else that depends on it.
     await loadRazorpayConfig();
-    // Fill Coupon Details in UI
-    renderBrandIcon(document.getElementById('csBrandIco'), currentCoupon.brand);
-    renderBrandIcon(document.getElementById('sumBrandIco'), currentCoupon.brand);
-    if (document.getElementById('csBrandName')) document.getElementById('csBrandName').textContent = currentCoupon.brand;
-    if (document.getElementById('sumBrandName')) document.getElementById('sumBrandName').textContent = currentCoupon.brand + ' Coupon';
-    if (document.getElementById('csBrandCat')) document.getElementById('csBrandCat').textContent = currentCoupon.category;
-    if (document.getElementById('csOff')) document.getElementById('csOff').textContent = currentCoupon.title;
-    if (document.getElementById('sumOff')) document.getElementById('sumOff').textContent = currentCoupon.title;
-    if (document.getElementById('csExpiry')) document.getElementById('csExpiry').textContent = currentCoupon.expiry;
-    if (document.getElementById('csMinOrder')) document.getElementById('csMinOrder').textContent = '₹' + currentCoupon.minOrder;
-
-    if (document.getElementById('sumValue')) document.getElementById('sumValue').textContent = '₹' + currentCoupon.value;
-    if (document.getElementById('sumPrice')) document.getElementById('sumPrice').textContent = '₹' + currentCoupon.price;
-    if (document.getElementById('sumTotal')) document.getElementById('sumTotal').textContent = '₹' + totalPrice;
-    if (document.getElementById('payBtnText')) document.getElementById('payBtnText').textContent = '🔒 Pay ₹' + totalPrice + ' Securely';
-
-    if (document.getElementById('revealedCode')) document.getElementById('revealedCode').textContent = currentCoupon.code;
-    if (document.getElementById('succBrand')) document.getElementById('succBrand').textContent = currentCoupon.brand;
-    if (document.getElementById('succDiscount')) document.getElementById('succDiscount').textContent = currentCoupon.title;
-    if (document.getElementById('succAmount')) document.getElementById('succAmount').textContent = '₹' + totalPrice;
-    if (document.getElementById('succExpiry')) document.getElementById('succExpiry').textContent = currentCoupon.expiry;
 
     // ── Auto-fill buyer details from the logged-in user ────────────────
     // Try several common field names so this works for Google login,
@@ -818,7 +1016,8 @@
       },
       notes: {
         coupon_id: currentCoupon.id,
-        coupon_code: currentCoupon.code,
+        // No coupon_code here: the browser does not have it before payment, and
+        // the code must not be copied into a third party's order notes.
         brand: currentCoupon.brand,
         selling_price: currentCoupon.price,
       },

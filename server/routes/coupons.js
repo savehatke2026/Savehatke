@@ -717,4 +717,67 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/coupons/:id — One coupon's public detail, for the checkout page.
+//
+// Registered last on purpose: '/categories', '/my-sales' and '/my-purchases'
+// are literal GET paths and would otherwise be swallowed by ':id'.
+//
+// The checkout page used to paint itself entirely from URL query parameters,
+// which meant a stale link showed stale prices and the "Valid Till" / "Min.
+// Order" rows fell back to hardcoded sample values. This is the authoritative
+// read, so checkout can correct itself on load.
+//
+// SECURITY: sanitized exactly like the list route — the coupon `code` is never
+// included. The code is only released by /api/payments/verify after a verified
+// payment.
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    let coupon = null;
+    if (supabase.isConfigured()) {
+      try {
+        coupon = await supabase.findCouponById(id);
+      } catch (e) {
+        console.warn('Supabase coupon read notice:', e.message);
+      }
+    }
+    if (!coupon) {
+      coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
+    }
+    if (!coupon) {
+      return res.status(404).json({ error: 'Coupon not found.' });
+    }
+
+    res.json({
+      coupon: {
+        id: coupon.id,
+        category: coupon.category,
+        brand: coupon.brand,
+        title: coupon.title || '',
+        description: coupon.description || '',
+        discount: coupon.discount || '',
+        originalValue: coupon.originalValue,
+        sellingPrice: coupon.sellingPrice,
+        // Checkout shows these two and had no way to learn them before.
+        minOrderValue: coupon.minOrderValue || '',
+        terms: coupon.terms || '',
+        source: coupon.source,
+        addedAt: coupon.addedAt,
+        // Same 2-week default as the list route, so the card countdown and the
+        // checkout countdown always agree.
+        expiryDate: defaultExpiry(coupon.expiryDate, coupon.addedAt),
+        onSale: coupon.onSale !== false,
+        timerOn: coupon.timerOn !== false,
+        // Lets checkout say "Sold out" instead of quietly taking a payment for
+        // a coupon that is no longer available.
+        status: coupon.status,
+      },
+    });
+  } catch (err) {
+    console.error('Get coupon error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 module.exports = router;

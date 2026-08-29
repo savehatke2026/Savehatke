@@ -303,6 +303,10 @@ function goToPage(page) {
 function buyCoupon(id, isFree) {
   const coupon = allCoupons.find(c => String(c.id) === String(id));
   if (coupon) {
+    // These params only pre-paint the checkout page so it never flashes sample
+    // data; checkout re-reads /api/coupons/:id and corrects itself. The coupon
+    // `code` is deliberately NOT passed — /api/coupons never sends it to a
+    // browser, and it is only released after a verified payment.
     const params = new URLSearchParams({
       id: coupon.id,
       brand: coupon.brand || '',
@@ -310,8 +314,11 @@ function buyCoupon(id, isFree) {
       title: coupon.title || coupon.description || 'Verified Discount Offer',
       price: coupon.sellingPrice || 15,
       value: coupon.originalValue || coupon.discount || 200,
-      code: coupon.code || '',
-      minOrder: coupon.minOrderValue || '999'
+      // Carry the countdown + sale state across so the checkout timer starts on
+      // the same deadline the card was showing, rather than a default.
+      expiry: coupon.expiryDate || '',
+      onSale: coupon.onSale === false ? '0' : '1',
+      timerOn: coupon.timerOn === false ? '0' : '1',
     });
     window.location.href = `checkout?${params.toString()}`;
   } else {
