@@ -143,6 +143,90 @@
       .how-mini-grid { grid-template-columns:1fr; gap:10px; }
     }
 
+    /* ── AI Screenshot Scanner (Fill with AI) ──
+       Sits above the existing form and never replaces it: the seller can scan a
+       screenshot, or ignore this card entirely and type the coupon by hand. */
+    .ai-card {
+      border-radius:20px; padding:26px 24px; margin-bottom:28px;
+      background:linear-gradient(135deg,rgba(0,230,118,.07) 0%,rgba(79,195,247,.05) 100%);
+      border:1px solid rgba(0,230,118,.22);
+    }
+    .ai-badge {
+      display:inline-flex; align-items:center; gap:7px; margin-bottom:14px;
+      background:rgba(0,230,118,.12); border:1px solid rgba(0,230,118,.28);
+      color:#00e676; border-radius:9999px; font-size:.75rem; font-weight:700;
+      letter-spacing:.04em; padding:5px 13px;
+    }
+    .ai-title { font-family:'DM Serif Display',serif; font-size:1.35rem; color:#e2ecff; margin-bottom:6px; }
+    .ai-sub { font-size:.88rem; color:#a8c0dc; line-height:1.65; max-width:460px; }
+    .ai-actions { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:20px; }
+    .ai-hint { font-size:.74rem; color:#6b88aa; margin-top:12px; }
+    .ai-manual {
+      background:none; border:none; color:#8fa8c8; font-family:'Outfit',sans-serif;
+      font-size:.85rem; font-weight:600; cursor:pointer; padding:6px 2px;
+      border-bottom:1px solid transparent; transition:color .2s, border-color .2s;
+    }
+    .ai-manual:hover { color:#00e676; border-bottom-color:rgba(0,230,118,.4); }
+
+    /* One state visible at a time: idle / working / error / done */
+    .ai-state { display:none; }
+    .ai-state.on { display:block; }
+
+    .ai-working { display:flex; align-items:center; gap:14px; }
+    .ai-spinner {
+      width:26px; height:26px; flex-shrink:0; border-radius:50%;
+      border:2.5px solid rgba(0,230,118,.2); border-top-color:#00e676;
+      animation:ai-spin .8s linear infinite;
+    }
+    @keyframes ai-spin { to { transform:rotate(360deg); } }
+    .ai-working-title { font-size:.95rem; font-weight:700; color:#e2ecff; }
+    .ai-working-sub { font-size:.8rem; color:#6b88aa; margin-top:3px; }
+
+    .ai-alert { border-radius:14px; padding:18px; border:1px solid; }
+    .ai-alert.warn { background:rgba(251,191,36,.07); border-color:rgba(251,191,36,.28); }
+    .ai-alert.err  { background:rgba(239,68,68,.07);  border-color:rgba(239,68,68,.26); }
+    .ai-alert.good { background:rgba(0,230,118,.07);  border-color:rgba(0,230,118,.28); }
+    .ai-alert-title { font-size:.95rem; font-weight:700; color:#e2ecff; margin-bottom:6px; }
+    .ai-alert-sub { font-size:.84rem; color:#a8c0dc; line-height:1.6; }
+    .ai-alert-actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+
+    /* Attached screenshot row — the proof that travels with the submission */
+    .ai-shot {
+      display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+      margin-top:16px; padding:12px; border-radius:12px;
+      background:rgba(6,13,31,.45); border:1px solid rgba(79,195,247,.14);
+    }
+    .ai-shot-thumb {
+      width:46px; height:46px; border-radius:9px; object-fit:cover; flex-shrink:0;
+      border:1px solid rgba(79,195,247,.2); background:rgba(255,255,255,.03);
+    }
+    .ai-shot-meta { flex:1; min-width:0; }
+    .ai-shot-title { font-size:.82rem; font-weight:600; color:#e2ecff; }
+    .ai-shot-sub { font-size:.72rem; color:#6b88aa; margin-top:2px; word-break:break-word; }
+    .ai-link {
+      background:none; border:none; padding:0; color:#4fc3f7; font-family:'Outfit',sans-serif;
+      font-size:.78rem; font-weight:600; cursor:pointer; text-decoration:underline;
+    }
+    .ai-link:hover { color:#00e676; }
+    .ai-shot-actions { display:flex; gap:8px; flex-wrap:wrap; }
+
+    /* What the AI actually read, shown before the seller scrolls into the form */
+    .ai-found { margin-top:16px; }
+    .ai-found-label { font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#6b88aa; margin-bottom:8px; }
+    .ai-found-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 18px; }
+    @media(max-width:600px){ .ai-found-grid { grid-template-columns:1fr; } }
+    .ai-found-row { display:flex; justify-content:space-between; gap:10px; padding:6px 0; border-bottom:1px solid rgba(79,195,247,.07); font-size:.8rem; }
+    .ai-found-key { color:#6b88aa; }
+    .ai-found-val { color:#e2ecff; font-weight:600; text-align:right; word-break:break-word; }
+    .ai-found-val.low { color:#fbbf24; }
+    .ai-review-note { font-size:.78rem; color:#fbbf24; margin-top:14px; line-height:1.55; }
+
+    /* Per-field markers inside the coupon card */
+    .finput.ai-filled, .fselect.ai-filled, .ftextarea.ai-filled { border-color:rgba(0,230,118,.4); background:rgba(0,230,118,.04); }
+    .finput.ai-verify, .fselect.ai-verify, .ftextarea.ai-verify { border-color:rgba(251,191,36,.5); background:rgba(251,191,36,.05); }
+    .ai-note { display:flex; align-items:center; gap:6px; font-size:.72rem; font-weight:600; color:#00e676; margin-top:6px; }
+    .ai-note.verify { color:#fbbf24; }
+
     /* ── Stepper ── */
     .stepper { display:flex; align-items:center; margin-bottom:28px; }
     .stepper-step { display:flex; align-items:center; gap:10px; flex-shrink:0; }
@@ -471,6 +555,81 @@
           <span class="how-mini-icon">💸</span>
           <div class="how-mini-title">Get Paid ₹10 Each</div>
           <div class="how-mini-sub">Instant to your UPI</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── AI Screenshot Scanner ──
+         Optional first step: upload a coupon screenshot and let Gemini Vision
+         (server-side) fill Coupon 1 below. The existing form stays exactly as it
+         was and works on its own, so this card can be ignored entirely. -->
+    <div class="ai-card fu in" id="aiCard">
+      <input type="file" id="aiFileInput" accept="image/png,image/jpeg,image/webp" hidden>
+
+      <!-- Idle -->
+      <div class="ai-state on" id="aiStateIdle">
+        <span class="ai-badge">✨ Fill with AI</span>
+        <div class="ai-title">Upload Coupon Screenshot</div>
+        <p class="ai-sub">Upload a clear coupon screenshot and let AI fill in the details for you. Nothing is submitted until you review it.</p>
+        <div class="ai-actions">
+          <button type="button" class="btn btn-primary" onclick="pickAiScreenshot()">📷 Upload Screenshot</button>
+          <button type="button" class="ai-manual" onclick="skipAiAndFillManually()">Enter Details Manually →</button>
+        </div>
+        <div class="ai-hint">JPG, PNG or WEBP • Max 10 MB</div>
+      </div>
+
+      <!-- Checking the image / calling the model -->
+      <div class="ai-state" id="aiStateWorking">
+        <div class="ai-working">
+          <div class="ai-spinner" role="status" aria-live="polite"></div>
+          <div>
+            <div class="ai-working-title" id="aiWorkingTitle">🔍 Analyzing Coupon...</div>
+            <div class="ai-working-sub" id="aiWorkingSub">Reading coupon details...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rejected: blurry, dark, low-res, not a coupon, unreadable -->
+      <div class="ai-state" id="aiStateError">
+        <div class="ai-alert" id="aiErrorBox">
+          <div class="ai-alert-title" id="aiErrorTitle">⚠️ Image is too blurry</div>
+          <div class="ai-alert-sub" id="aiErrorSub">We couldn't clearly read the coupon details. Please upload a clearer screenshot or photo.</div>
+          <div class="ai-alert-actions">
+            <button type="button" class="btn btn-primary btn-sm" id="aiErrorRetry" onclick="pickAiScreenshot()">Upload Another Image</button>
+            <button type="button" class="ai-manual" onclick="skipAiAndFillManually()">Enter Details Manually →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Extracted -->
+      <div class="ai-state" id="aiStateDone">
+        <div class="ai-alert good">
+          <div class="ai-alert-title">✅ Coupon detected</div>
+          <div class="ai-alert-sub">Details extracted successfully. Please review everything before submitting.</div>
+
+          <div class="ai-found" id="aiFound">
+            <div class="ai-found-label">What the AI read</div>
+            <div class="ai-found-grid" id="aiFoundGrid"></div>
+          </div>
+
+          <div class="ai-review-note" id="aiReviewNote" style="display:none"></div>
+
+          <div class="ai-alert-actions">
+            <button type="button" class="btn btn-primary btn-sm" onclick="jumpToCouponForm()">Review Coupon Details ↓</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="aiConfirmAllBtn" onclick="confirmAiFields()" style="display:none">✓ I've checked these values</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="rescanAiScreenshot()">↻ Re-scan Screenshot</button>
+          </div>
+        </div>
+
+        <div class="ai-shot" id="aiShotRow" style="display:none">
+          <img class="ai-shot-thumb" id="aiShotThumb" alt="Uploaded coupon screenshot">
+          <div class="ai-shot-meta">
+            <div class="ai-shot-title" id="aiShotTitle">📎 Coupon Screenshot attached ✓</div>
+            <div class="ai-shot-sub" id="aiShotSub"></div>
+          </div>
+          <div class="ai-shot-actions">
+            <button type="button" class="ai-link" onclick="viewAiScreenshot()">View Screenshot</button>
+          </div>
         </div>
       </div>
     </div>
@@ -1356,6 +1515,645 @@ function fileToBase64(file) {
   });
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   AI SCREENSHOT SCANNER
+   ──────────────────────────────────────────────────────────────────────────
+   Optional path into the same form: the seller uploads a coupon screenshot,
+   the SERVER (POST /api/coupons/scan) asks Gemini Vision to read it, and the
+   fields it could actually see are written into Coupon 1 for review.
+
+   Rules this implements:
+   • No Gemini key in the browser. The image goes to our own endpoint, which
+     holds the key and validates the model's JSON before replying.
+   • The image is checked before anything is filled — resolution, brightness and
+     sharpness here, "is this even a coupon" on the server via the model.
+   • Nothing is guessed. A field the model could not read stays empty.
+   • Selling Price, Coupon Source and Status are never AI-controlled: source and
+     status are locked by the form/server, and the price stays the seller's.
+   • Low-confidence values are marked "Please verify", and the four critical
+     fields must be acknowledged before the seller can reach the review step.
+   • Nothing is submitted automatically. The existing Review → Submit flow runs
+     unchanged.
+══════════════════════════════════════════════════════════════════════════ */
+
+const AI_MAX_BYTES = 10 * 1024 * 1024;                                  // 10 MB
+const AI_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+const AI_MIN_EDGE = 300;          // below this, text is unreadable
+const AI_DARK_LUMA = 30;          // mean luma 0–255 under this is "too dark"
+const AI_BLUR_VARIANCE = 45;      // Laplacian variance under this is "too blurry"
+const AI_SCAN_MAX_EDGE = 1600;    // what we send to the model (cheaper, faster)
+const AI_PROOF_MAX_EDGE = 2000;   // what we keep as proof when the original is huge
+const AI_PROOF_MAX_BYTES = 2.8 * 1024 * 1024;   // server /proof cap is 3 MB
+
+/* Fields the seller must consciously look at before submitting. */
+const AI_CRITICAL_FIELDS = ['code', 'expiry', 'discount', 'minorder'];
+
+/* Human labels for the "what the AI read" summary. */
+const AI_FIELD_LABELS = {
+  brand: 'Store / Brand',
+  category: 'Category',
+  coupon_title: 'Coupon Title',
+  coupon_code: 'Coupon Code',
+  coupon_type: 'Coupon Type',
+  discount_value: 'Discount Value',
+  minimum_order_value: 'Minimum Order',
+  original_value_or_max_discount: 'Original / Max Discount',
+  valid_from: 'Valid From',
+  expiry_date: 'Expiry Date',
+  expiry_time: 'Expiry Time',
+  terms_and_conditions: 'Terms & Conditions',
+  how_to_use: 'How to Use',
+};
+
+/* Live scanner state. `driveUrl` is the drive:<id> token that travels with the
+   submission so an admin can open the original screenshot during review. */
+const aiScan = {
+  file: null,          // the File the seller picked
+  previewUrl: '',      // object URL for "View Screenshot"
+  driveUrl: '',        // drive:<fileId> once uploaded, '' if the upload failed
+  couponId: null,      // which coupon card was filled
+  fields: null,        // validated fields from the server
+  pending: new Set(),  // critical field ids still awaiting review
+};
+
+function aiEl(id) { return document.getElementById(id); }
+
+function setAiState(name) {
+  ['aiStateIdle', 'aiStateWorking', 'aiStateError', 'aiStateDone']
+    .forEach((id) => aiEl(id)?.classList.remove('on'));
+  aiEl('ai' + name)?.classList.add('on');
+}
+
+function setAiWorking(title, sub) {
+  const t = aiEl('aiWorkingTitle');
+  const s = aiEl('aiWorkingSub');
+  if (t) t.textContent = title;
+  if (s) s.textContent = sub;
+  setAiState('StateWorking');
+}
+
+/**
+ * Rejection screen. `kind` picks the styling and the retry button's wording so a
+ * "not a coupon" rejection doesn't read like a quality problem.
+ */
+function showAiError(kind, title, sub) {
+  const box = aiEl('aiErrorBox');
+  if (box) box.className = 'ai-alert ' + (kind === 'invalid' ? 'err' : 'warn');
+  const t = aiEl('aiErrorTitle');
+  const s = aiEl('aiErrorSub');
+  const retry = aiEl('aiErrorRetry');
+  if (t) t.textContent = title;
+  if (s) s.textContent = sub;
+  if (retry) retry.textContent = kind === 'invalid' ? 'Upload Coupon Screenshot' : 'Upload Another Image';
+  setAiState('StateError');
+}
+
+function pickAiScreenshot() {
+  const input = aiEl('aiFileInput');
+  if (!input) return;
+  input.value = '';   // re-picking the same file must still fire `change`
+  input.click();
+}
+
+/** "Enter Details Manually" — collapse the AI card and drop into the form. */
+function skipAiAndFillManually() {
+  const card = aiEl('aiCard');
+  if (card) card.style.display = 'none';
+  jumpToCouponForm();
+}
+
+function jumpToCouponForm() {
+  const first = couponIds[0];
+  const target = document.getElementById('coupon-card-' + first) || document.getElementById('step-1');
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/** Re-run the analysis on the screenshot already picked (spec: "↻ Re-scan"). */
+function rescanAiScreenshot() {
+  if (!aiScan.file) { pickAiScreenshot(); return; }
+  runAiScan(aiScan.file, { keepProof: true });
+}
+
+function viewAiScreenshot() {
+  if (!aiScan.previewUrl) return;
+  window.open(aiScan.previewUrl, '_blank', 'noopener');
+}
+
+/* ── Image loading + local quality checks ──
+   Cheap client-side gate so an obviously unusable photo never costs an API
+   call. The authoritative "is this a readable coupon" answer still comes from
+   the server. */
+
+function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => resolve({ img, url });
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode_failed')); };
+    img.src = url;
+  });
+}
+
+/**
+ * Mean brightness and a Laplacian-variance sharpness score, measured on a small
+ * grayscale copy so it stays fast even for a 12MP photo.
+ * @returns {{luma:number, variance:number}}
+ */
+function measureImageQuality(img) {
+  const maxEdge = 480;
+  const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.max(8, Math.round(img.naturalWidth * scale));
+  const h = Math.max(8, Math.round(img.naturalHeight * scale));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(img, 0, 0, w, h);
+
+  let data;
+  try {
+    data = ctx.getImageData(0, 0, w, h).data;
+  } catch (e) {
+    return { luma: 128, variance: 999 };   // can't measure — don't block the seller
+  }
+
+  const gray = new Float32Array(w * h);
+  let sum = 0;
+  for (let i = 0, p = 0; i < data.length; i += 4, p++) {
+    const g = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    gray[p] = g;
+    sum += g;
+  }
+  const luma = sum / (w * h);
+
+  // 4-neighbour Laplacian; its variance is the standard "is this in focus" proxy.
+  let lapSum = 0;
+  let lapSqSum = 0;
+  let count = 0;
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const i = y * w + x;
+      const lap = gray[i - 1] + gray[i + 1] + gray[i - w] + gray[i + w] - 4 * gray[i];
+      lapSum += lap;
+      lapSqSum += lap * lap;
+      count++;
+    }
+  }
+  if (!count) return { luma, variance: 999 };
+  const mean = lapSum / count;
+  return { luma, variance: (lapSqSum / count) - (mean * mean) };
+}
+
+/** Downscale to a JPEG blob no larger than `maxEdge` on its long side. */
+function imageToJpegBlob(img, maxEdge, quality) {
+  return new Promise((resolve, reject) => {
+    const scale = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+    const ctx = canvas.getContext('2d');
+    // Screenshots are usually flat colour; a white base avoids black fringing
+    // when a transparent PNG is flattened into JPEG.
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(
+      (blob) => (blob ? resolve(blob) : reject(new Error('encode_failed'))),
+      'image/jpeg',
+      quality
+    );
+  });
+}
+
+/* ── The flow ── */
+
+/** File input handler. */
+async function onAiFilePicked(files) {
+  if (!files || !files.length) return;
+  await runAiScan(files[0], { keepProof: false });
+}
+
+/**
+ * Validate → analyse → autofill. Never submits anything.
+ * @param {File} file
+ * @param {{keepProof:boolean}} opts  keepProof: re-scan of an already-uploaded
+ *        screenshot, so the Drive upload is not repeated.
+ */
+async function runAiScan(file, opts = {}) {
+  // ── 0. Scanning is an authenticated action (it costs an API call) ──
+  if (typeof Auth !== 'undefined' && !Auth.isLoggedIn()) {
+    showAiError('quality', '⚠️ Please log in first',
+      'You need to be logged in before we can scan a coupon screenshot for you. Taking you to the login page…');
+    setTimeout(() => { window.location.href = 'login.html?next=sell.html'; }, 1600);
+    return;
+  }
+
+  // ── 1. Basic file checks ──
+  if (!AI_TYPES.includes(file.type)) {
+    showAiError('invalid', '❌ Invalid Image',
+      'That file type is not supported. Please upload a JPG, PNG or WEBP coupon screenshot.');
+    return;
+  }
+  if (file.size > AI_MAX_BYTES) {
+    showAiError('quality', '⚠️ Image is too large',
+      'The screenshot is larger than 10 MB. Please upload a smaller image.');
+    return;
+  }
+
+  setAiWorking('🔍 Checking image...', 'Making sure the screenshot is readable...');
+
+  // ── 2. Decode + local quality gate ──
+  let loaded;
+  try {
+    loaded = await loadImageFile(file);
+  } catch (e) {
+    showAiError('invalid', '❌ Invalid Image',
+      "That file couldn't be opened as an image. It may be corrupted — please upload the screenshot again.");
+    return;
+  }
+
+  const { img, url } = loaded;
+  if (Math.min(img.naturalWidth, img.naturalHeight) < AI_MIN_EDGE) {
+    URL.revokeObjectURL(url);
+    showAiError('quality', '⚠️ Image resolution is too low',
+      `The image is only ${img.naturalWidth}×${img.naturalHeight}px, which is too small to read reliably. Please upload a full-size screenshot.`);
+    return;
+  }
+
+  const quality = measureImageQuality(img);
+  if (quality.luma < AI_DARK_LUMA) {
+    URL.revokeObjectURL(url);
+    showAiError('quality', '⚠️ Image is too dark',
+      "We couldn't clearly read the coupon details. Please upload a brighter screenshot or photo.");
+    return;
+  }
+  if (quality.variance < AI_BLUR_VARIANCE) {
+    URL.revokeObjectURL(url);
+    showAiError('quality', '⚠️ Image is too blurry',
+      "We couldn't clearly read the coupon details. Please upload a clearer screenshot or photo.");
+    return;
+  }
+
+  // ── 3. Ask the server (which holds the Gemini key) to read it ──
+  setAiWorking('🔍 Analyzing Coupon...', 'Reading coupon details...');
+
+  let scanBlob;
+  try {
+    scanBlob = await imageToJpegBlob(img, AI_SCAN_MAX_EDGE, 0.85);
+  } catch (e) {
+    URL.revokeObjectURL(url);
+    showAiError('quality', '⚠️ Could not process the image',
+      'Something went wrong preparing that screenshot. Please try another image, or enter the details manually.');
+    return;
+  }
+
+  let result;
+  try {
+    const dataBase64 = await fileToBase64(scanBlob);
+    result = await api('/coupons/scan', {
+      method: 'POST',
+      body: { filename: file.name, contentType: 'image/jpeg', dataBase64 },
+    });
+  } catch (err) {
+    URL.revokeObjectURL(url);
+    if (err && err.status === 401) {
+      showAiError('quality', '⚠️ Please log in first',
+        'You need to be logged in before we can scan a coupon screenshot for you.');
+      setTimeout(() => { window.location.href = 'login.html?next=sell.html'; }, 1400);
+      return;
+    }
+    const msg = (err && err.message) || 'Please try again.';
+    // A 422 from the server is a verdict about the image, not a failure.
+    if (/coupon or voucher/i.test(msg)) {
+      showAiError('invalid', '❌ Invalid Image', msg);
+    } else if (/blurr|dark|resolution|cut off|corrupt/i.test(msg)) {
+      showAiError('quality', '⚠️ Image is too blurry', msg);
+    } else if (/enough coupon information/i.test(msg)) {
+      showAiError('quality', '⚠️ Not enough detail', msg);
+    } else {
+      showAiError('quality', '⚠️ Could not read the coupon', msg);
+    }
+    return;
+  }
+
+  if (!result || !result.fields) {
+    URL.revokeObjectURL(url);
+    showAiError('quality', '⚠️ Could not read the coupon',
+      "We couldn't extract the coupon details from that image. Please try another screenshot or enter the details manually.");
+    return;
+  }
+
+  // ── 4. Keep the screenshot as proof (Google Drive, same as the manual flow) ──
+  if (aiScan.previewUrl && aiScan.previewUrl !== url) URL.revokeObjectURL(aiScan.previewUrl);
+  aiScan.file = file;
+  aiScan.previewUrl = url;
+  aiScan.fields = result.fields;
+  if (!opts.keepProof) aiScan.driveUrl = '';
+
+  if (!aiScan.driveUrl) {
+    setAiWorking('📎 Attaching screenshot...', 'Saving your screenshot with the submission...');
+    aiScan.driveUrl = await uploadAiProof(file, img);
+  }
+
+  // ── 5. Fill the form, flag what needs checking ──
+  applyAiFields(result.fields);
+  renderAiSummary(result.fields);
+  renderAiShotRow(file, aiScan.driveUrl);
+  setAiState('StateDone');
+  showToast('Coupon details extracted — please review them below.', 'success');
+}
+
+/**
+ * Upload the screenshot through the existing proof endpoint and return its
+ * drive:<fileId> token, or '' when storage is unavailable. A failure here is not
+ * fatal: the seller can still submit, just without an attached screenshot.
+ */
+async function uploadAiProof(file, img) {
+  try {
+    let blob = file;
+    let contentType = file.type;
+    let filename = file.name || 'coupon-screenshot.png';
+
+    // The proof endpoint accepts up to 3 MB — shrink only when we have to, so a
+    // normal screenshot is stored exactly as the seller sent it.
+    if (file.size > AI_PROOF_MAX_BYTES) {
+      blob = await imageToJpegBlob(img, AI_PROOF_MAX_EDGE, 0.9);
+      if (blob.size > AI_PROOF_MAX_BYTES) blob = await imageToJpegBlob(img, AI_SCAN_MAX_EDGE, 0.8);
+      contentType = 'image/jpeg';
+      filename = filename.replace(/\.[^.]+$/, '') + '.jpg';
+    }
+
+    const dataBase64 = await fileToBase64(blob);
+    const upload = await api('/coupons/proof', {
+      method: 'POST',
+      body: { filename, contentType, dataBase64 },
+    });
+    return (upload && upload.url) || '';
+  } catch (err) {
+    console.warn('Screenshot could not be attached:', err && err.message);
+    return '';
+  }
+}
+
+/* ── Autofill ── */
+
+/** Combine the extracted date + time into a datetime-local value. */
+function aiExpiryValue(dateStr, timeStr) {
+  if (!dateStr) return '';
+  const time = /^\d{2}:\d{2}$/.test(String(timeStr || '')) ? timeStr : '23:59';
+  return `${dateStr}T${time}`;
+}
+
+/**
+ * Write the extracted values into the first coupon card. Every field stays
+ * editable; nothing the model could not read is touched.
+ */
+function applyAiFields(fields) {
+  if (!couponIds.length) addCoupon();
+  const id = couponIds[0];
+  aiScan.couponId = id;
+  aiScan.pending = new Set();
+  clearAiMarks(id);
+
+  const val = (key) => (fields[key] && fields[key].value) || '';
+  const conf = (key) => (fields[key] && typeof fields[key].confidence === 'number' ? fields[key].confidence : 0);
+  const needsVerify = (key) => !!(fields[key] && fields[key].verify);
+
+  // Brand goes through the picker so the logo and the derived category chip
+  // update exactly as they do when a seller chooses it by hand.
+  if (val('brand')) {
+    pickBrand(id, val('brand'));
+    markAiField('bsel-btn-' + id, 'brand', conf('brand'), needsVerify('brand'), { control: false });
+  }
+
+  const setField = (elId, key, fieldKey, transform) => {
+    const raw = val(key);
+    if (!raw) return;
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.value = transform ? transform(raw) : raw;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    markAiField(elId, key, conf(key), needsVerify(key), { critical: AI_CRITICAL_FIELDS.includes(fieldKey), fieldKey });
+  };
+
+  setField('title-' + id, 'coupon_title', 'title');
+  setField('code-' + id, 'coupon_code', 'code');
+  setField('type-' + id, 'coupon_type', 'type');
+  setField('discount-' + id, 'discount_value', 'discount');
+  setField('minorder-' + id, 'minimum_order_value', 'minorder');
+  setField('value-' + id, 'original_value_or_max_discount', 'value');
+  setField('validfrom-' + id, 'valid_from', 'validfrom');
+
+  // Expiry needs the date and the time together.
+  if (val('expiry_date')) {
+    const el = document.getElementById('expiry-' + id);
+    if (el) {
+      el.value = aiExpiryValue(val('expiry_date'), val('expiry_time'));
+      // Either half being uncertain makes the whole expiry worth a second look,
+      // and a missing time means we defaulted it to 23:59 rather than read it.
+      const verifyExpiry = needsVerify('expiry_date') || needsVerify('expiry_time') || !val('expiry_time');
+      markAiField('expiry-' + id, 'expiry_date', conf('expiry_date'), verifyExpiry, { critical: true, fieldKey: 'expiry' });
+    }
+  }
+
+  // The form has no separate "How to Use" box, so the instructions are appended
+  // to Terms & Conditions with a clear heading instead of inventing a field.
+  const termsParts = [];
+  if (val('terms_and_conditions')) termsParts.push(val('terms_and_conditions'));
+  if (val('how_to_use')) termsParts.push('How to use: ' + val('how_to_use'));
+  if (termsParts.length) {
+    const el = document.getElementById('terms-' + id);
+    if (el) {
+      el.value = termsParts.join('\n\n');
+      const key = val('terms_and_conditions') ? 'terms_and_conditions' : 'how_to_use';
+      markAiField('terms-' + id, key, conf(key), needsVerify(key), {});
+    }
+  }
+
+  // Selling Price is deliberately left as the form's own default — the AI never
+  // sets it, and the seller confirms or changes it.
+  updateCategoryChip(id);
+}
+
+/**
+ * Mark one control as AI-filled: a coloured border, a small note under it, and
+ * (for a critical field) a review flag that blocks the review step until the
+ * seller edits or acknowledges the value.
+ */
+function markAiField(elId, key, confidence, verify, opts = {}) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+
+  el.classList.add('ai-filled');
+  el.classList.toggle('ai-verify', !!verify);
+  el.dataset.aiField = key;
+
+  const pct = Math.round((Number(confidence) || 0) * 100);
+  const note = document.createElement('div');
+  note.className = 'ai-note' + (verify ? ' verify' : '');
+  note.dataset.aiNote = elId;
+  note.textContent = verify
+    ? `⚠️ Please verify — AI confidence ${pct}%`
+    : `✨ Filled by AI — ${pct}% confidence`;
+
+  const host = el.closest('.fgroup') || el.parentElement;
+  host?.querySelectorAll('[data-ai-note]').forEach((n) => n.remove());
+  host?.appendChild(note);
+
+  if (opts.critical && opts.fieldKey) {
+    el.dataset.aiReview = '1';
+    aiScan.pending.add(opts.fieldKey);
+    const clear = () => clearAiReview(el, opts.fieldKey);
+    el.addEventListener('input', clear, { once: true });
+    el.addEventListener('change', clear, { once: true });
+  }
+}
+
+/** A critical field has been looked at (edited or acknowledged). */
+function clearAiReview(el, fieldKey) {
+  if (!el) return;
+  delete el.dataset.aiReview;
+  el.classList.remove('ai-verify');
+  const host = el.closest('.fgroup') || el.parentElement;
+  const note = host?.querySelector('[data-ai-note]');
+  if (note) {
+    note.className = 'ai-note';
+    note.textContent = '✓ Checked by you';
+  }
+  aiScan.pending.delete(fieldKey);
+  refreshAiReviewNote();
+}
+
+/** "I've checked these values" — acknowledge every outstanding critical field. */
+function confirmAiFields() {
+  const id = aiScan.couponId;
+  if (id == null) return;
+  const map = { code: 'code-', expiry: 'expiry-', discount: 'discount-', minorder: 'minorder-' };
+  Array.from(aiScan.pending).forEach((fieldKey) => {
+    const el = document.getElementById((map[fieldKey] || fieldKey + '-') + id);
+    clearAiReview(el, fieldKey);
+  });
+  aiScan.pending.clear();
+  refreshAiReviewNote();
+  showToast('Thanks — AI values marked as checked.', 'success');
+}
+
+function clearAiMarks(id) {
+  ['title', 'code', 'type', 'discount', 'minorder', 'value', 'validfrom', 'expiry', 'terms']
+    .forEach((prefix) => {
+      const el = document.getElementById(prefix + '-' + id);
+      if (!el) return;
+      el.classList.remove('ai-filled', 'ai-verify');
+      delete el.dataset.aiReview;
+      delete el.dataset.aiField;
+    });
+  const btn = document.getElementById('bsel-btn-' + id);
+  btn?.classList.remove('ai-filled', 'ai-verify');
+  document.querySelectorAll('[data-ai-note]').forEach((n) => n.remove());
+}
+
+/* ── AI card: summary, screenshot row, review reminder ── */
+
+function renderAiSummary(fields) {
+  const grid = aiEl('aiFoundGrid');
+  if (!grid) return;
+  grid.textContent = '';
+
+  Object.keys(AI_FIELD_LABELS).forEach((key) => {
+    const entry = fields[key];
+    if (!entry || entry.value == null || entry.value === '') return;
+
+    const row = document.createElement('div');
+    row.className = 'ai-found-row';
+
+    const k = document.createElement('span');
+    k.className = 'ai-found-key';
+    k.textContent = AI_FIELD_LABELS[key];
+
+    const v = document.createElement('span');
+    v.className = 'ai-found-val' + (entry.verify ? ' low' : '');
+    const text = String(entry.value);
+    v.textContent = text.length > 60 ? text.slice(0, 57) + '…' : text;
+    v.title = text;
+
+    row.appendChild(k);
+    row.appendChild(v);
+    grid.appendChild(row);
+  });
+
+  refreshAiReviewNote();
+}
+
+function refreshAiReviewNote() {
+  const note = aiEl('aiReviewNote');
+  const btn = aiEl('aiConfirmAllBtn');
+  const count = aiScan.pending.size;
+  if (note) {
+    note.style.display = count ? 'block' : 'none';
+    note.textContent = count
+      ? `⚠️ ${count} important ${count === 1 ? 'value needs' : 'values need'} your review (coupon code, expiry, discount, minimum order). Check them in the form below, or confirm they are correct.`
+      : '';
+  }
+  if (btn) btn.style.display = count ? 'inline-flex' : 'none';
+}
+
+function renderAiShotRow(file, driveUrl) {
+  const row = aiEl('aiShotRow');
+  if (!row) return;
+  row.style.display = 'flex';
+
+  const thumb = aiEl('aiShotThumb');
+  if (thumb && aiScan.previewUrl) thumb.src = aiScan.previewUrl;
+
+  const title = aiEl('aiShotTitle');
+  const sub = aiEl('aiShotSub');
+  if (title) {
+    title.textContent = driveUrl
+      ? '📎 Coupon Screenshot attached ✓'
+      : '📎 Screenshot could not be attached';
+  }
+  if (sub) {
+    const kb = (file.size / 1024).toFixed(0);
+    sub.textContent = driveUrl
+      ? `${file.name} · ${kb} KB · our review team can open the original.`
+      : `${file.name} · ${kb} KB · the details were read, but the file could not be saved for review. You can still submit.`;
+  }
+}
+
+/** Blocks Review Submission while an AI-filled critical field is unreviewed. */
+function aiReviewBlocker() {
+  if (!aiScan.pending.size) return null;
+  const id = aiScan.couponId;
+  const first = Array.from(aiScan.pending)[0];
+  const map = { code: 'code-', expiry: 'expiry-', discount: 'discount-', minorder: 'minorder-' };
+  const labels = { code: 'Coupon Code', expiry: 'Expiry Date & Time', discount: 'Discount Value', minorder: 'Minimum Order Value' };
+  return { fieldId: (map[first] || first + '-') + id, label: labels[first] || first };
+}
+
+function resetAiScanner() {
+  if (aiScan.previewUrl) URL.revokeObjectURL(aiScan.previewUrl);
+  if (aiScan.couponId != null) clearAiMarks(aiScan.couponId);
+  aiScan.file = null;
+  aiScan.previewUrl = '';
+  aiScan.driveUrl = '';
+  aiScan.couponId = null;
+  aiScan.fields = null;
+  aiScan.pending = new Set();
+
+  const card = aiEl('aiCard');
+  if (card) card.style.display = '';
+  const row = aiEl('aiShotRow');
+  if (row) row.style.display = 'none';
+  const input = aiEl('aiFileInput');
+  if (input) input.value = '';
+  refreshAiReviewNote();
+  setAiState('StateIdle');
+}
+
+aiEl('aiFileInput')?.addEventListener('change', (e) => onAiFilePicked(e.target.files));
+
+
 /**
  * One labelled form control. Takes a config object rather than positional
  * arguments because the card now has fourteen fields across three control
@@ -1578,6 +2376,19 @@ function validateCoupons() {
     }
   }
 
+  // AI-filled critical values must be looked at before the review step. The
+  // seller either edits the field or presses "I've checked these values".
+  const blocker = aiReviewBlocker();
+  if (blocker) {
+    showToast(`Please check the AI-filled ${blocker.label} before continuing.`, 'warning');
+    const el = document.getElementById(blocker.fieldId);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      el.focus?.();
+    }
+    return false;
+  }
+
   // Duplicate codes inside this submission — the server rejects them one by one,
   // catching it here saves the seller a round trip.
   const seen = {};
@@ -1634,6 +2445,10 @@ function buildReviewSummary() {
       ['Terms & Conditions', c.terms || '—'],
     ];
     if (PROOF_ENABLED) rows.push(['Screenshot', c.proofFile ? c.proofFile.name : '— missing —']);
+    // AI-scanned coupon: show that the original screenshot is attached for review.
+    if (!PROOF_ENABLED && aiScan.driveUrl && c.id === aiScan.couponId) {
+      rows.push(['Screenshot', 'Attached ✓']);
+    }
 
     rows.forEach(([key, val]) => {
       const row = document.createElement('div');
@@ -1759,14 +2574,17 @@ async function submitCoupons() {
   //    happy; each coupon also carries its own derived category + proof.
   //    Blank optional fields are sent as undefined so JSON.stringify drops them
   //    and the server keeps its own defaults instead of writing empty strings.
+  //    A screenshot scanned by the AI card travels with its own coupon as
+  //    proofUrl, so the review team can open the original image.
   btn.textContent = '⏳ Submitting...';
   try {
     const orNone = (v) => (v ? v : undefined);
+    const proofFor = (c, i) => proofUrls[i] || (aiScan.driveUrl && c.id === aiScan.couponId ? aiScan.driveUrl : undefined);
     const data = await api('/coupons/submit', {
       method: 'POST',
       body: {
         category: coupons[0].category || FALLBACK_CATEGORY,
-        proofUrl: proofUrls[0],
+        proofUrl: proofUrls[0] || aiScan.driveUrl || undefined,
         coupons: coupons.map((c, i) => ({
           code: c.code,
           brand: c.brand,
@@ -1784,7 +2602,7 @@ async function submitCoupons() {
           expiryDate: orNone(c.expiryDate),
           affiliateLink: orNone(c.affiliateLink),
           terms: orNone(c.terms),
-          proofUrl: proofUrls[i]
+          proofUrl: proofFor(c, i)
         }))
       }
     });
@@ -1820,6 +2638,10 @@ function resetForm() {
   currentStep = 1;
   couponIds.forEach((id) => clearProof(id));
   couponIds = [];
+
+  // Drop the scanned screenshot, its Drive reference and every AI marker too,
+  // so "Sell Another Coupon" starts from a genuinely clean form.
+  resetAiScanner();
 
   // Clear coupon cards and re-add first one
   document.getElementById('couponCardsContainer').innerHTML = '';

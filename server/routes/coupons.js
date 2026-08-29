@@ -9,6 +9,7 @@ const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const googleDrive = require('../services/googleDrive');
+const couponVision = require('../services/couponVision');
 
 const router = express.Router();
 
@@ -143,6 +144,74 @@ router.get('/categories', async (req, res) => {
   } catch (err) {
     console.error('Categories error:', err);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/coupons/scan — Read a coupon screenshot with Gemini Vision and
+// return the fields it could actually see, each with a confidence score.
+//
+// SECURITY: the Gemini key never leaves the server; the image is forwarded to
+// Google from here, not from the browser. The model's JSON is whitelisted and
+// type-checked in services/couponVision.js before any of it is returned.
+//
+// This endpoint only reads. It never creates a coupon, and it deliberately
+// returns no selling price, source or status — those stay with the seller and
+// the submit route.
+router.post('/scan', authenticateToken, async (req, res) => {
+  try {
+    const { contentType, dataBase64 } = req.body || {};
+
+    if (!dataBase64) {
+      return res.status(400).json({ error: 'dataBase64 is required.' });
+    }
+    if (!couponVision.isConfigured()) {
+      return res.status(503).json({
+        error: 'AI scanning is not available right now. Please enter the coupon details manually.',
+        reason: 'not_configured',
+      });
+    }
+
+    let buffer;
+    try {
+      buffer = Buffer.from(String(dataBase64), 'base64');
+    } catch (e) {
+      buffer = null;
+    }
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ error: 'The image could not be read.', reason: 'corrupted' });
+    }
+
+    const result = await couponVision.analyzeCouponImage({
+      buffer,
+      mimeType: contentType,
+    });
+
+    if (!result.ok) {
+      // 422: the request was fine, the image was not usable.
+      const status = result.reason === 'not_configured' ? 503
+        : result.reason === 'rate_limited' ? 429
+        : result.reason === 'ai_unavailable' ? 502
+        : 422;
+      return res.status(status).json({
+        error: result.message,
+        reason: result.reason,
+        quality: result.quality || undefined,
+      });
+    }
+
+    return res.json({
+      ok: true,
+      fields: result.fields,
+      quality: result.quality,
+      filledCount: result.filledCount,
+      // Forced server-side, echoed so the form can show them as locked.
+      locked: { source: 'user-submitted', status: 'pending' },
+      verifyBelow: couponVision.VERIFY_BELOW_CONFIDENCE,
+      image: result.image,
+    });
+  } catch (err) {
+    console.error('Coupon scan error:', err);
+    res.status(500).json({ error: 'Could not analyse the screenshot. Please try again.' });
   }
 });
 

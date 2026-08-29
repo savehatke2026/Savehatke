@@ -29,6 +29,7 @@ const chatRoutes = require('./routes/chat');
 const gmailRoutes = require('./routes/gmail');
 const payoutRoutes = require('./routes/payouts');
 const reviewRoutes = require('./routes/reviews');
+const twoFactorRoutes = require('./routes/twoFactor');
 const paymentRoutes = require('./routes/payments');
 const driveProxyRoutes = require('./routes/driveProxy');
 const backupCodeRoutes = require('./routes/backupCode');
@@ -87,6 +88,17 @@ const couponSubmissionLimiter = rateLimit({
   message: { error: 'Too many submissions. Please try again in an hour.' },
 });
 
+// AI screenshot scanning calls a paid vision API, so it gets its own cap. It is
+// looser than the submission limiter (a seller may legitimately re-scan after a
+// blurry photo) but far tighter than the general API limiter.
+const couponScanLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 30, // 30 screenshot scans per hour per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many screenshot scans. Please try again later, or enter the details manually.' },
+});
+
 // Serverless async initializer middleware for Vercel
 app.use(async (req, res, next) => {
   try {
@@ -121,10 +133,16 @@ app.get('/admin/coupons/:couponId', (req, res) => {
 });
 
 // ── API Routes ──────────────────────────────────────────────────────────────
+// 2FA is mounted ahead of /api/auth on purpose. It carries its own, tighter
+// per-endpoint limiters (10 verification attempts / 15 min), and the generic
+// 20-per-15-min authLimiter would otherwise exhaust itself part-way through the
+// four-step enrolment flow.
+app.use('/api/auth/2fa', twoFactorRoutes);
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/coupons/sell', couponSubmissionLimiter);
 app.use('/api/coupons/submit', couponSubmissionLimiter);
 app.use('/api/coupons/proof', couponSubmissionLimiter);
+app.use('/api/coupons/scan', couponScanLimiter);
 app.use('/api/coupons', apiLimiter, couponRoutes);
 app.use('/api/tracker', apiLimiter, trackerRoutes);
 app.use('/api/admin/gmail', gmailRoutes); // own rate limits; must precede /api/admin to avoid the generic limiter
