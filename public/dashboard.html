@@ -4532,28 +4532,24 @@
       if (subEl) subEl.classList.add('active');
     }
 
-    // Apply the sub-filter to the my-coupons view
-    if (name === 'my-coupons' && sub) {
-      window.MC_FILTER = sub;
-      const titleEl = document.querySelector('#view-my-coupons .view-subtitle');
-      if (titleEl) {
-        const labels = {
-          'active-purchases': 'Active coupons you have purchased',
-          'used-expired':     'Used and expired purchases',
-          'purchase-history': 'Full purchase history',
-          'active-listings':  'Coupons you have listed for sale',
-          'sold':             'Coupons you have sold',
-        };
-        titleEl.textContent = labels[sub] || 'All your purchased and submitted coupons';
+    // My Coupons is one view with two panes. `sub` selects the pane — either
+    // directly ('purchased' / 'sales') or via a legacy sidebar filter value
+    // still arriving from a bookmark or the URL hash. The page-level subtitle is
+    // fixed now; each pane carries its own heading and description, which is
+    // what stops the Purchased pane from ever claiming "listed for sale".
+    if (name === 'my-coupons') {
+      const key = String(sub || '');
+      const SELLER_SUBS = new Set(['sales', 'for-sale', 'active-listings', 'sold', 'payout-status']);
+
+      if (SELLER_SUBS.has(key)) {
+        window.ML_FILTER = key === 'sold' ? 'sold' : (key === 'active-listings' ? 'active' : 'all');
+        if (typeof refreshMlFilterChips === 'function') refreshMlFilterChips();
+        setMcSide('sales');
+      } else {
+        window.MC_FILTER = (key && key !== 'purchased') ? key : 'all';
+        if (typeof refreshMcFilterChips === 'function') refreshMcFilterChips();
+        setMcSide('purchased');
       }
-      // Re-render the list with the new filter
-      if (typeof renderMyCoupons === 'function') renderMyCoupons();
-      // Refresh filter-chip selection if the chip UI is on screen
-      if (typeof refreshMcFilterChips === 'function') refreshMcFilterChips();
-    } else if (name === 'my-coupons' && !sub) {
-      window.MC_FILTER = 'all';
-      if (typeof renderMyCoupons === 'function') renderMyCoupons();
-      if (typeof refreshMcFilterChips === 'function') refreshMcFilterChips();
     } else if (name === 'wallet') {
       // Transactions view — repaint the ledger with whatever data is loaded
       if (typeof renderTransactions === 'function') renderTransactions();
