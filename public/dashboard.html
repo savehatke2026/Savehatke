@@ -606,12 +606,6 @@
     =================================================== */
     #sidebar{position:fixed;top:68px;left:0;width:244px;height:calc(100vh - 68px);background:rgba(8,16,42,.98);border-right:1px solid rgba(79,195,247,.1);z-index:150;overflow-y:auto;overflow-x:hidden;display:flex;flex-direction:column;transition:transform .3s cubic-bezier(.4,0,.2,1)}
     .sb-inner{display:flex;flex-direction:column;min-height:100%;padding:16px 0 20px}
-    .sb-user{display:flex;align-items:center;gap:11px;padding:2px 14px 16px;border-bottom:1px solid rgba(79,195,247,.08);margin-bottom:4px}
-    .sb-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;border:2px solid rgba(0,230,118,.35)}
-    .sb-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
-    .sb-user-info{min-width:0}
-    .sb-user-name{font-size:.86rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .sb-user-email{font-size:.68rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
     .sb-nav{flex:1;padding:4px 10px 8px}
     .sb-footer-nav{padding:0 10px 6px}
     .sb-section-label{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:rgba(107,136,170,.55);padding:14px 10px 6px}
@@ -792,13 +786,8 @@
 ===================================================== -->
 <aside id="sidebar">
   <div class="sb-inner">
-    <div class="sb-user">
-      <div class="sb-avatar" id="sbAvatar">U</div>
-      <div class="sb-user-info">
-        <div class="sb-user-name" id="sbName">User</div>
-        <div class="sb-user-email" id="sbEmail">user@email.com</div>
-      </div>
-    </div>
+    <!-- The signed-in identity is already in the navbar profile menu, so the
+         sidebar starts straight at the navigation. -->
     <nav class="sb-nav">
 
       <div class="sb-section-label">Main</div>
@@ -1033,12 +1022,16 @@
       </div>
 
       <div class="mc-tabs" id="mcSideTabs" role="tablist" aria-label="Purchased or for sale">
-        <button class="mc-tab active" type="button" role="tab" aria-selected="true" data-side="purchased" onclick="setMcSide('purchased')">Purchased</button>
-        <button class="mc-tab" type="button" role="tab" aria-selected="false" data-side="sales" onclick="setMcSide('sales')">For Sale</button>
+        <button class="mc-tab active" type="button" role="tab" id="mcTabPurchased"
+                aria-selected="true" aria-controls="mcPanePurchased"
+                data-side="purchased" onclick="setMcSide('purchased')">Purchased</button>
+        <button class="mc-tab" type="button" role="tab" id="mcTabSales"
+                aria-selected="false" aria-controls="mcPaneSales"
+                data-side="sales" onclick="setMcSide('sales')">For Sale</button>
       </div>
 
       <!-- ── PURCHASED ── buyer state only, never seller information -->
-      <section id="mcPanePurchased">
+      <section id="mcPanePurchased" role="tabpanel" aria-labelledby="mcTabPurchased" tabindex="0">
         <div class="mc-sec-hdr">
           <div class="mc-sec-title">Purchased Coupons</div>
           <div class="mc-sec-sub">Coupons you have purchased.</div>
@@ -1077,7 +1070,7 @@
       </section>
 
       <!-- ── FOR SALE ── seller state only, never purchase counts -->
-      <section id="mcPaneSales" style="display:none">
+      <section id="mcPaneSales" role="tabpanel" aria-labelledby="mcTabSales" tabindex="0" style="display:none">
         <div class="mc-sec-hdr">
           <div class="mc-sec-title">My Listings</div>
           <div class="mc-sec-sub">Coupons you've submitted for sale.</div>
@@ -2179,6 +2172,24 @@
     }
   }
 
+  /**
+   * First name only, for the dashboard greeting.
+   *
+   * Accounts are passwordless, so `name` is often derived from the email local
+   * part rather than typed by the user. Splitting on spaces alone leaves
+   * "rupayan.das99" intact, so dots, underscores and hyphens count as
+   * separators too, trailing digits are dropped, and the result is title-cased.
+   */
+  function firstNameOf(fullName) {
+    const first = String(fullName || '')
+      .trim()
+      .split(/[\s._-]+/)
+      .filter(Boolean)[0] || '';
+    const clean = first.replace(/\d+$/, '');
+    if (!clean) return 'Friend';
+    return clean.charAt(0).toUpperCase() + clean.slice(1);
+  }
+
   // ─── Renderers ──────────────────────────────────────────────────
   function applyUserToUI(user) {
     if (!user) return;
@@ -2191,7 +2202,7 @@
     // lookup has to be optional — a hard dereference here used to throw and
     // abort the whole DOMContentLoaded init chain.
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('welcomeFirstName', name.split(' ')[0] || 'Friend');
+    set('welcomeFirstName', firstNameOf(name));
     set('profileNameNav', name);
     set('pdName', name);
     set('pdEmail', email);
@@ -2206,12 +2217,6 @@
     const setHtml = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
     setHtml('profileAvatar', avatarContent);
     setHtml('pdAvatar', avatarContent);
-
-    // Sidebar avatar, name, email
-    const sbAv = document.getElementById('sbAvatar');
-    if (sbAv) sbAv.innerHTML = avatarContent;
-    if (document.getElementById('sbName')) document.getElementById('sbName').textContent = name.split(' ')[0] || name;
-    if (document.getElementById('sbEmail')) document.getElementById('sbEmail').textContent = email;
 
     // Security Overview — email row (verified: every login path is either an
     // email OTP or Google, so a signed-in email is always a verified one).
@@ -3054,7 +3059,10 @@
 
       applyUserToUI(STATE.user);
       renderStats();
+      // Both My Coupons panes are repainted so their stat tiles stay current
+      // even while the other pane is the one on screen.
       renderMyCoupons();
+      renderMyListings();
       renderActivity();
       renderSupport();
       renderPayouts();
@@ -4507,14 +4515,11 @@
 
   // ─── View switching ────────────────────────────────────────────
   //   showView(name)            — top-level sidebar item
-  //   showView(name, sub)       — sidebar sub-item:
-  //                                * switches to the parent view
-  //                                * marks the matching .sb-subitem as active
-  //                                * applies the sub-filter to the my-coupons
-  //                                  list (active-purchases, used-expired,
-  //                                  purchase-history, active-listings, sold)
-  //                                * or scrolls to a section anchor inside
-  //                                  the security view (active-sessions)
+  //   showView(name, sub)       — optional second argument:
+  //                                * for my-coupons, selects the Purchased or
+  //                                  For Sale pane (and a chip within it)
+  //                                * for security, scrolls to a section anchor
+  //                                  (active-sessions)
   function showView(name, sub) {
     document.querySelectorAll('.db-view').forEach(v => v.classList.remove('active'));
     const view = document.getElementById('view-' + name);
