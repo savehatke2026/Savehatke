@@ -490,22 +490,64 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
 router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { status, source, category } = req.query;
-    let coupons = [];
 
+    // Coupons live in two stores. A user submission writes to Supabase first and
+    // then mirrors into the Coupons sheet, but the Supabase insert is
+    // best-effort — when it fails, the submission exists only in the sheet.
+    //
+    // This list used to read Supabase and fall back to the sheet only when
+    // Supabase returned nothing, so a sheet-only submission was invisible in
+    // Coupon Management as soon as Supabase held even one row. Both stores are
+    // merged now, so a pending coupon shows up wherever it managed to land.
+    let supaCoupons = [];
     if (supabase.isConfigured()) {
       try {
-        coupons = await supabase.getCoupons({ status, source, category });
-      } catch (e) {}
+        supaCoupons = await supabase.getCoupons({ status, source, category });
+      } catch (e) {
+        console.warn('[admin/coupons] Supabase read failed:', e.message);
+      }
     }
 
-    if (coupons.length === 0) {
-      coupons = await db.getRows(db.SHEETS.COUPONS);
-      if (status) coupons = coupons.filter((c) => c.status === status);
-      if (source) coupons = coupons.filter((c) => c.source === source);
-      if (category) coupons = coupons.filter((c) => c.category.toLowerCase() === category.toLowerCase());
+    let sheetCoupons = [];
+    try {
+      sheetCoupons = await db.getRows(db.SHEETS.COUPONS);
+    } catch (e) {
+      console.warn('[admin/coupons] Sheets read failed:', e.message);
+    }
+    if (status) sheetCoupons = sheetCoupons.filter((c) => String(c.status || '') === status);
+    if (source) sheetCoupons = sheetCoupons.filter((c) => String(c.source || '') === source);
+    if (category) {
+      sheetCoupons = sheetCoupons.filter(
+        (c) => String(c.category || '').toLowerCase() === String(category).toLowerCase(),
+      );
     }
 
-    res.json({ coupons, total: coupons.length });
+    // Supabase wins on a conflict: it is the store the marketplace reads, so its
+    // row is the one an admin action should act on. Matching is by id and then by
+    // coupon code — when the Supabase insert failed, the sheet row carries a
+    // locally minted uuid and the code is the only shared identity.
+    const merged = [];
+    const seenIds = new Set();
+    const seenCodes = new Set();
+    const codeKey = (c) => String(c.code || '').toUpperCase().trim();
+
+    const take = (c) => {
+      merged.push(c);
+      if (c.id) seenIds.add(String(c.id));
+      if (codeKey(c)) seenCodes.add(codeKey(c));
+    };
+
+    supaCoupons.forEach(take);
+    for (const c of sheetCoupons) {
+      if (c.id && seenIds.has(String(c.id))) continue;
+      if (codeKey(c) && seenCodes.has(codeKey(c))) continue;
+      take(c);
+    }
+
+    // Newest first, so a fresh submission sits at the top of the pending queue.
+    merged.sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
+
+    res.json({ coupons: merged, total: merged.length });
   } catch (err) {
     console.error('Admin list coupons error:', err);
     res.status(500).json({ error: 'Internal server error.' });
