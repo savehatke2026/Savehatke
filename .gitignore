@@ -34,3 +34,7 @@ build/
 # Sensitive scratch files and local notes
 *api key*
 *task*.txt
+
+# Local scratch scripts and their captured output. Push-script logs can contain
+# credentials, so these must never be committed.
+.tmp_*
