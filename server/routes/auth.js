@@ -1384,6 +1384,28 @@ router.post('/sessions/revoke-all', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/auth/sessions/revoke-others - "Log out of all other devices".
+// Every other Active session for this user is revoked; the session this
+// request came from stays Active, so the current device is NOT signed out.
+router.post('/sessions/revoke-others', authenticateToken, async (req, res) => {
+  try {
+    // Without a known current session id we cannot promise "your current
+    // session will remain active" - refuse rather than silently sign the user
+    // out of the device they are using.
+    if (!req.sessionId) {
+      return res.status(409).json({
+        error: 'This device\u2019s session could not be identified. Please sign in again and retry.',
+      });
+    }
+
+    await supabase.endAllUserSessions(req.user.id, { exceptSessionId: req.sessionId });
+    res.json({ message: 'All other devices have been logged out.' });
+  } catch (err) {
+    console.error('Revoke other sessions error:', err);
+    res.status(500).json({ error: 'Could not log out the other devices.' });
+  }
+});
+
 // GET|POST /api/auth/session-cleanup â€” 10-minute expiry sweep endpoint for
 // external/Vercel cron. Guarded by SESSION_CLEANUP_SECRET (query param
 // `secret` or `x-cleanup-secret` header) when configured; otherwise only
@@ -1451,6 +1473,109 @@ router.get('/me', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Profile error:', err);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// ── Notification preferences ───────────────────────────────────────────────
+// Every category the user can actually switch, with its default. Account and
+// security notices are deliberately not in this map: they are mandatory, so
+// there is nothing to store and nothing to switch off. Marketing is the only
+// category that starts off.
+const NOTIFICATION_DEFAULTS = Object.freeze({
+  coupon_activity: true,
+  purchases: true,
+  sales: true,
+  payments: true,
+  reviews: true,
+  support: true,
+  marketing: false,
+});
+
+// Reads the stored JSON blob and fills every known key, so a preference added
+// after the row was written still comes back with its default instead of
+// undefined. A corrupt cell degrades to the defaults rather than a 500.
+function parseNotificationPrefs(raw) {
+  let stored = {};
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') stored = parsed;
+    } catch (e) {
+      console.warn('[notification-preferences] unparseable value, using defaults');
+    }
+  } else if (raw && typeof raw === 'object') {
+    stored = raw;
+  }
+
+  const out = {};
+  for (const [key, dflt] of Object.entries(NOTIFICATION_DEFAULTS)) {
+    out[key] = typeof stored[key] === 'boolean' ? stored[key] : dflt;
+  }
+  return out;
+}
+
+// The Users sheet is keyed on user_ID, but older rows were written before the
+// id existed, so email is the fallback lookup — same order as /me.
+async function findUserRowForRequest(user) {
+  if (!user) return null;
+  if (user.id) {
+    const byId = await db.findRow(db.SHEETS.USERS, 'user_id', user.id)
+      || await db.findRow(db.SHEETS.USERS, 'id', user.id);
+    if (byId) return byId;
+  }
+  if (user.email) {
+    return db.findRow(db.SHEETS.USERS, 'email', String(user.email).toLowerCase().trim());
+  }
+  return null;
+}
+
+router.get('/notification-preferences', authenticateToken, async (req, res) => {
+  try {
+    const row = await findUserRowForRequest(req.user);
+    if (!row) return res.status(404).json({ error: 'Account not found.' });
+
+    res.json({
+      preferences: parseNotificationPrefs(row.notification_prefs),
+      defaults: { ...NOTIFICATION_DEFAULTS },
+    });
+  } catch (err) {
+    console.error('[notification-preferences] read failed:', err.message);
+    res.status(500).json({ error: 'Unable to load notification settings.' });
+  }
+});
+
+router.put('/notification-preferences', authenticateToken, async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const incoming = body.preferences && typeof body.preferences === 'object' ? body.preferences : body;
+
+    const unknown = Object.keys(incoming).filter((k) => !(k in NOTIFICATION_DEFAULTS));
+    if (unknown.length) {
+      return res.status(400).json({ error: `Unknown notification setting: ${unknown.join(', ')}` });
+    }
+
+    const row = await findUserRowForRequest(req.user);
+    if (!row) return res.status(404).json({ error: 'Account not found.' });
+
+    // Merge onto what is already stored so a single-toggle PATCH-style save
+    // never silently resets the other categories.
+    const merged = parseNotificationPrefs(row.notification_prefs);
+    for (const [key, value] of Object.entries(incoming)) {
+      if (typeof value === 'boolean') merged[key] = value;
+    }
+
+    const idField = row.user_ID !== undefined ? 'user_ID' : (row.user_id !== undefined ? 'user_id' : 'email');
+    const idValue = idField === 'email' ? String(row.email || '').toLowerCase().trim() : row[idField];
+
+    await db.updateRow(db.SHEETS.USERS, idField, idValue, {
+      notification_prefs: JSON.stringify(merged),
+      updated_at: new Date().toISOString(),
+    });
+
+    res.json({ preferences: merged });
+  } catch (err) {
+    console.error('[notification-preferences] save failed:', err.message);
+    res.status(500).json({ error: 'Unable to save notification settings.' });
   }
 });
 

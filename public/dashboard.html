@@ -300,16 +300,166 @@
     .support-btns{display:flex;gap:8px}
 
     /* ===================================================
-       SECURITY CARD
+       ACCOUNT SECURITY PAGE
+       Two compact cards: Security Overview + Active Sessions.
+       Scoped to #view-security so no other view is affected.
     =================================================== */
-    .sec-row-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(79,195,247,.06);font-size:.83rem}
-    .sec-row-item:last-child{border-bottom:none}
-    .sec-lbl{color:#6b88aa}
-    .sec-val{color:#e2ecff;font-weight:600;display:flex;align-items:center;gap:6px}
-    .sec-dot{width:7px;height:7px;border-radius:50%}
-    .dot-green{background:#00e676}
-    .dot-blue{background:#4fc3f7}
-    .dot-orange{background:#ffb74d}
+    #view-security .container{max-width:780px}
+    .sec-stack{display:flex;flex-direction:column;gap:18px}
+
+    /* Overview rows: label + value on the left, status on the right */
+    .sec-item{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:14px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+    .card-hdr+.sec-item{padding-top:0}
+    .sec-item:last-child{border-bottom:none;padding-bottom:0}
+    .sec-item-lbl{font-size:.7rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b88aa}
+    .sec-item-val{font-size:.9rem;font-weight:600;color:#e2ecff;margin-top:5px;overflow-wrap:anywhere}
+    .sec-item-val.muted{color:#8ea6c4;font-weight:500}
+    .sec-item-txt{min-width:0}
+    .sec-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;letter-spacing:.03em;color:#00e676;background:rgba(0,230,118,.09);border:1px solid rgba(0,230,118,.2);border-radius:999px;padding:4px 10px;white-space:nowrap}
+
+    /* Active session rows */
+    .sess-row{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+    .sess-row:first-child{padding-top:0}
+    .sess-row:last-child{border-bottom:none}
+    .sess-ico{width:34px;height:34px;flex:0 0 auto;border-radius:9px;background:rgba(79,195,247,.07);border:1px solid rgba(79,195,247,.12);display:flex;align-items:center;justify-content:center;font-size:.95rem}
+    .sess-body{min-width:0;flex:1}
+    .sess-name{font-size:.88rem;font-weight:600;color:#e2ecff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .sess-tag{font-size:.63rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#00e676;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.22);border-radius:999px;padding:2px 8px}
+    .sess-meta{font-size:.76rem;color:#6b88aa;margin-top:4px;line-height:1.5}
+
+    /* States: loading, none, error */
+    @keyframes secSkeleton{0%,100%{opacity:.3}50%{opacity:.65}}
+    .sess-sk-row{display:flex;align-items:center;gap:12px;padding:13px 0}
+    .sess-sk-row:first-child{padding-top:0}
+    .sess-sk{background:rgba(79,195,247,.16);border-radius:6px;animation:secSkeleton 1.15s ease-in-out infinite}
+    .sess-sk-ico{width:34px;height:34px;border-radius:9px;flex:0 0 auto}
+    .sess-none{display:flex;align-items:flex-start;gap:10px}
+    .sess-none-ico{color:#00e676;font-size:.9rem;line-height:1.5;flex:0 0 auto}
+    .sess-none-title{font-size:.86rem;font-weight:600;color:#e2ecff}
+    .sess-none-sub{font-size:.78rem;color:#6b88aa;margin-top:3px;line-height:1.5}
+    .sess-error{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .sess-error-txt{font-size:.84rem;color:#a8c0dc}
+
+    /* Card footer action */
+    .sess-foot{margin-top:18px;padding-top:16px;border-top:1px solid rgba(79,195,247,.08)}
+    .sess-foot-note{font-size:.74rem;color:#6b88aa;margin-top:9px;line-height:1.5}
+
+    @media(max-width:560px){
+      .sec-item{flex-direction:column;gap:8px}
+      .sess-foot .btn{width:100%;justify-content:center}
+    }
+
+    /* ===================================================
+       NOTIFICATION SETTINGS
+    =================================================== */
+    .ns-card{max-width:720px}
+    .ns-group-label{font-size:.68rem;font-weight:700;color:#6b88aa;text-transform:uppercase;letter-spacing:.09em;margin:0 0 4px}
+    .ns-divider{height:1px;background:rgba(79,195,247,.1);margin:20px 0 18px}
+    .ns-row{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:14px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+    .ns-row:last-child{border-bottom:none}
+    .ns-row-text{min-width:0}
+    .ns-row-name{font-size:.86rem;font-weight:600;color:#e2ecff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .ns-row-desc{font-size:.78rem;color:#6b88aa;margin-top:4px;line-height:1.5}
+    .ns-row-ctl{flex:0 0 auto;padding-top:2px}
+
+    /* Toggle switch */
+    .ns-switch{position:relative;display:inline-block;width:44px;height:24px;flex:0 0 auto}
+    .ns-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
+    .ns-track{position:absolute;inset:0;border-radius:999px;background:rgba(107,136,170,.28);border:1px solid rgba(79,195,247,.14);transition:background .2s,border-color .2s;pointer-events:none}
+    .ns-track::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#8ea6c4;transition:transform .2s,background .2s}
+    .ns-switch input:checked+.ns-track{background:rgba(0,230,118,.28);border-color:rgba(0,230,118,.5)}
+    .ns-switch input:checked+.ns-track::after{transform:translateX(20px);background:#00e676}
+    .ns-switch input:focus-visible+.ns-track{outline:2px solid rgba(0,230,118,.6);outline-offset:2px}
+    .ns-switch input:disabled{cursor:not-allowed}
+    .ns-switch input:disabled+.ns-track{opacity:.55}
+
+    .ns-required{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#4fc3f7;background:rgba(79,195,247,.12);border:1px solid rgba(79,195,247,.22);border-radius:999px;padding:3px 9px}
+    .ns-foot{margin-top:22px;padding-top:16px;border-top:1px solid rgba(79,195,247,.08)}
+    .ns-reset{background:none;border:none;padding:0;font:inherit;font-size:.78rem;color:#6b88aa;cursor:pointer;text-decoration:underline;text-underline-offset:3px;transition:color .2s}
+    .ns-reset:hover{color:#ef9a9a}
+    .ns-error{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:rgba(239,154,154,.07);border:1px solid rgba(239,154,154,.2);border-radius:12px;padding:16px 18px;font-size:.84rem;color:#e2ecff;max-width:720px}
+
+    @media(max-width:480px){
+      .ns-row{gap:12px;padding:16px 0}
+      .ns-row-ctl{padding-top:0;align-self:center}
+    }
+
+    /* ===================================================
+       REVIEWS
+    =================================================== */
+    .rv-wrap{max-width:820px}
+    .rv-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:30px}
+    .rv-stat{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:14px;padding:18px 20px}
+    .rv-stat-lbl{font-size:.7rem;font-weight:600;color:#6b88aa;text-transform:uppercase;letter-spacing:.08em}
+    .rv-stat-val{font-size:1.6rem;font-weight:700;color:#e2ecff;margin-top:6px;line-height:1}
+    .rv-stat-val.gtext{color:#00e676}
+
+    .rv-section{margin-bottom:32px}
+    .rv-section:last-child{margin-bottom:0}
+    .rv-section-hdr{font-size:.95rem;font-weight:700;color:#e2ecff;margin-bottom:14px}
+
+    .rv-list{display:flex;flex-direction:column;gap:14px}
+    .rv-card{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:14px;padding:18px 20px}
+
+    /* Brand block, shared by pending and submitted cards */
+    .rv-brand{display:flex;align-items:center;gap:12px;min-width:0}
+    .rv-logo{width:38px;height:38px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;overflow:hidden}
+    .rv-logo img{max-width:100%;max-height:100%;object-fit:contain}
+    .rv-logo-fallback{width:38px;height:38px;border-radius:10px;background:rgba(79,195,247,.1);border:1px solid rgba(79,195,247,.16);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.95rem;color:#4fc3f7}
+    .rv-brand-name{font-size:.9rem;font-weight:700;color:#e2ecff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .rv-coupon-name{font-size:.78rem;color:#6b88aa;margin-top:2px}
+    .rv-date{font-size:.74rem;color:#6b88aa;font-family:'JetBrains Mono',monospace}
+
+    /* Pending card */
+    .rv-pending-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap}
+    .rv-prompt{font-size:.8rem;color:#a8c0dc;margin:16px 0 8px}
+    .rv-pending-actions{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-top:4px}
+
+    /* Star rating — buttons so keyboard and screen readers work */
+    .rv-stars{display:inline-flex;gap:2px}
+    .rv-star{background:none;border:none;padding:4px;margin:0;line-height:1;cursor:pointer;font-size:1.4rem;color:#3d5878;transition:color .15s,transform .1s;border-radius:6px}
+    .rv-star:hover{transform:scale(1.12)}
+    .rv-star.on{color:#00e676}
+    .rv-star:focus-visible{outline:2px solid rgba(0,230,118,.6);outline-offset:1px}
+    .rv-stars-lg .rv-star{font-size:1.75rem;padding:5px}
+
+    /* Static stars on a submitted review */
+    .rv-stars-static{font-size:.95rem;color:#00e676;letter-spacing:2px}
+    .rv-stars-static .off{color:#3d5878}
+
+    /* Submitted review card */
+    .rv-review-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+    .rv-text{font-size:.86rem;color:#e2ecff;line-height:1.6;margin:12px 0 0;overflow-wrap:break-word}
+    .rv-text-empty{font-size:.82rem;color:#6b88aa;font-style:italic;margin:12px 0 0}
+    .rv-review-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid rgba(79,195,247,.07)}
+    .rv-review-acts{display:flex;gap:8px}
+    .rv-edited{font-size:.7rem;color:#6b88aa}
+
+    /* Compact empty states */
+    .rv-empty{background:rgba(15,30,58,.5);border:1px dashed rgba(79,195,247,.16);border-radius:14px;padding:26px 20px;text-align:center}
+    .rv-empty-ico{font-size:1.5rem;color:#3d5878;line-height:1}
+    .rv-empty-title{font-size:.88rem;font-weight:600;color:#e2ecff;margin-top:10px}
+    .rv-empty-sub{font-size:.79rem;color:#6b88aa;margin-top:5px;line-height:1.55;max-width:380px;margin-left:auto;margin-right:auto}
+
+    /* Write/Edit review modal */
+    .rv-modal-target{display:flex;align-items:center;gap:12px;background:rgba(79,195,247,.05);border:1px solid rgba(79,195,247,.12);border-radius:12px;padding:12px 14px;margin-bottom:18px}
+    .rv-field{margin-bottom:18px}
+    .rv-field-lbl{font-size:.75rem;font-weight:600;color:#a8c0dc;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;display:block}
+    .rv-textarea{width:100%;min-height:110px;resize:vertical;background:rgba(8,16,42,.7);border:1px solid rgba(79,195,247,.16);border-radius:11px;padding:12px 14px;color:#e2ecff;font:inherit;font-size:.86rem;line-height:1.6}
+    .rv-textarea:focus{outline:none;border-color:rgba(0,230,118,.45)}
+    .rv-textarea::placeholder{color:#546e8f}
+    .rv-counter{font-size:.72rem;color:#6b88aa;text-align:right;margin-top:6px;font-family:'JetBrains Mono',monospace}
+    .rv-counter.over{color:#ef9a9a}
+
+    @media(max-width:600px){
+      .rv-summary{grid-template-columns:minmax(0,1fr);gap:12px}
+      .rv-pending-actions{align-items:stretch;flex-direction:column}
+      .rv-pending-actions .btn{width:100%;justify-content:center;min-height:44px}
+      .rv-star{font-size:1.6rem;padding:7px}
+      .rv-stars-lg .rv-star{font-size:1.9rem;padding:8px}
+      .rv-review-acts{width:100%}
+      .rv-review-acts .btn{flex:1;justify-content:center;min-height:40px}
+    }
 
     /* ===================================================
        FOOTER — matches index.html footer exactly
@@ -602,8 +752,8 @@
 
       <div class="sb-section-label">Account</div>
 
-      <button class="sb-item" onclick="showToast('🔔 Notifications — coming soon!','info')"><span class="sb-item-ico">🔔</span> Notifications</button>
-      <button class="sb-item" onclick="showToast('⭐ Reviews — coming soon!','info')"><span class="sb-item-ico">⭐</span> Reviews</button>
+      <button class="sb-item" data-view="notifications" onclick="showView('notifications')"><span class="sb-item-ico">🔔</span> Notifications</button>
+      <button class="sb-item" data-view="reviews" onclick="showView('reviews')"><span class="sb-item-ico">⭐</span> Reviews</button>
 
       <!-- Security -->
       <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🔐</span> Security</button>
@@ -973,46 +1123,262 @@
       <div class="view-hdr">
         <div>
           <div class="view-title">Account <span class="gtext">Security</span></div>
-          <div class="view-subtitle">Manage your account security and active sessions</div>
+          <div class="view-subtitle">Manage your account security and active sessions.</div>
         </div>
-        <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
       </div>
 
-      <div class="card" id="security">
-        <div class="card-hdr">
-          <div class="card-title"><span class="ico">🔒</span> Security</div>
-          <span class="badge badge-green" id="securityStatusBadge">Secure</span>
-        </div>
+      <div class="sec-stack">
 
-        <div class="sec-row-item">
-          <span class="sec-lbl">Email</span>
-          <span class="sec-val" id="securityEmail"><span class="sec-dot dot-green"></span>Verified</span>
-        </div>
-        <div class="sec-row-item">
-          <span class="sec-lbl">Account Status</span>
-          <span class="sec-val" id="securityAccountStatus"><span class="sec-dot dot-green"></span>Active</span>
-        </div>
-        <div class="sec-row-item" id="secActiveSessions" style="display:block">
-          <span class="sec-lbl">Active Sessions <span style="color:#6b88aa;font-weight:400;text-transform:none;letter-spacing:0">(expire 48h after login)</span></span>
-          <div id="mySessionsList" style="margin-top:8px;font-size:.8rem">
-            <div style="color:#6b88aa">Loading sessions…</div>
+        <!-- CARD 1 — Security overview -->
+        <div class="card" id="security">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">🔒</span> Security Overview</div>
           </div>
-          <button class="btn btn-danger btn-sm btn-full" style="margin-top:12px" onclick="revokeAllMySessions()">🚪 Log Out All Devices</button>
-        </div>
-        <div class="sec-row-item">
-          <span class="sec-lbl">2FA</span>
-          <span class="sec-val"><span class="sec-dot dot-orange"></span>Not enabled</span>
-        </div>
-        <div class="sec-row-item">
-          <span class="sec-lbl">Last Login</span>
-          <span class="sec-val" id="securityLastLogin" style="font-family:'JetBrains Mono',monospace;font-size:.78rem">Just now</span>
+
+          <div class="sec-item">
+            <div class="sec-item-txt">
+              <div class="sec-item-lbl">Email</div>
+              <div class="sec-item-val" id="securityEmail">—</div>
+            </div>
+            <span class="sec-status" id="securityEmailStatus">✓ Verified</span>
+          </div>
+
+          <div class="sec-item">
+            <div class="sec-item-txt">
+              <div class="sec-item-lbl">Account Status</div>
+              <div class="sec-item-val" id="securityAccountStatus">Active</div>
+            </div>
+            <span class="sec-status" id="securityAccountStatusTag">✓</span>
+          </div>
+
+          <!-- Two-factor authentication is not implemented yet, so this is a
+               plain status line — no Enable button that would do nothing. -->
+          <div class="sec-item">
+            <div class="sec-item-txt">
+              <div class="sec-item-lbl">Two-Factor Authentication</div>
+              <div class="sec-item-val muted">Not enabled</div>
+            </div>
+          </div>
+
+          <div class="sec-item">
+            <div class="sec-item-txt">
+              <div class="sec-item-lbl">Last Login</div>
+              <div class="sec-item-val" id="securityLastLogin">—</div>
+            </div>
+          </div>
         </div>
 
-        <button class="btn btn-ghost btn-sm btn-full" style="margin-top:16px" onclick="showToast('Security settings coming soon!','warn')">🛡️ Security Settings</button>
-      </div>
+        <!-- CARD 2 — Active sessions -->
+        <div class="card" id="secActiveSessions">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">🖥️</span> Active Sessions</div>
+          </div>
+
+          <div id="mySessionsList">
+            <div class="sess-sk-row">
+              <div class="sess-sk sess-sk-ico"></div>
+              <div style="flex:1">
+                <div class="sess-sk" style="height:11px;width:42%"></div>
+                <div class="sess-sk" style="height:9px;width:62%;margin-top:8px"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sess-foot" id="sessFoot" style="display:none">
+            <button class="btn btn-danger" onclick="openModal('logoutOthersModal')">Log out of all other devices</button>
+            <div class="sess-foot-note">Your current session on this device stays signed in.</div>
+          </div>
+        </div>
+
+      </div><!-- /sec-stack -->
 
     </div><!-- /container -->
     </div><!-- /view-security -->
+
+    <!-- ═══════════════════════════════════════════════
+         VIEW: NOTIFICATION SETTINGS
+         Preferences only — the notification history lives
+         in the navbar bell panel, not here.
+    ═══════════════════════════════════════════════ -->
+    <div id="view-notifications" class="db-view">
+    <div class="container">
+
+      <div class="view-hdr">
+        <div>
+          <div class="view-title">Notification <span class="gtext">Settings</span></div>
+          <div class="view-subtitle">Choose which notifications you want to receive.</div>
+        </div>
+      </div>
+
+      <!-- Load failure — replaces the card rather than sitting beside it -->
+      <div class="ns-error" id="nsError" style="display:none">
+        <span>Unable to load notification settings.</span>
+        <button class="btn btn-ghost btn-sm" onclick="loadNotificationPrefs()">Try Again</button>
+      </div>
+
+      <div class="card ns-card" id="nsCard">
+        <div class="card-hdr">
+          <div class="card-title"><span class="ico">🔔</span> Notification Preferences</div>
+        </div>
+
+        <div class="ns-row">
+          <div class="ns-row-text">
+            <div class="ns-row-name">Account &amp; Security <span class="ns-required">Required</span></div>
+            <div class="ns-row-desc">Receive important account, login, security and verification notifications. These cannot be disabled.</div>
+          </div>
+          <div class="ns-row-ctl">
+            <label class="ns-switch">
+              <input type="checkbox" checked disabled aria-label="Account and security notifications are always on">
+              <span class="ns-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ns-row">
+          <div class="ns-row-text">
+            <div class="ns-row-name">Coupon Activity</div>
+            <div class="ns-row-desc">Get notified about coupon submissions, approvals, rejections, expiry and other coupon updates.</div>
+          </div>
+          <div class="ns-row-ctl">
+            <label class="ns-switch">
+              <input type="checkbox" checked data-pref="coupon_activity" aria-label="Coupon activity notifications">
+              <span class="ns-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ns-row">
+          <div class="ns-row-text">
+            <div class="ns-row-name">Purchases</div>
+            <div class="ns-row-desc">Get notified when a coupon purchase is completed or there is an important update regarding a purchase.</div>
+          </div>
+          <div class="ns-row-ctl">
+            <label class="ns-switch">
+              <input type="checkbox" checked data-pref="purchases" aria-label="Purchase notifications">
+              <span class="ns-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ns-row">
+          <div class="ns-row-text">
+            <div class="ns-row-name">Sales</div>
+            <div class="ns-row-desc">Get notified when your coupon is sold or when there is an important update regarding a sale.</div>
+          </div>
+          <div class="ns-row-ctl">
+            <label class="ns-switch">
+              <input type="checkbox" checked data-pref="sales" aria-label="Sale notifications">
+              <span class="ns-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ns-row">
+          <div class="ns-row-text">
+            <div class="ns-row-name">Payments &amp; Withdrawals</div>
+            <div class="ns-row-desc">Get notified about payment, payout and withdrawal updates.</div>
+          </div>
+          <div class="ns-row-ctl">
+            <label class="ns-switch">
+              <input type="checkbox" checked data-pref="payments" aria-label="Payment and withdrawal notifications">
+              <span class="ns-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ns-row">
+          <div class="ns-row-text">
+            <div class="ns-row-name">Reviews</div>
+            <div class="ns-row-desc">Get notified when you receive or need to provide a review.</div>
+          </div>
+          <div class="ns-row-ctl">
+            <label class="ns-switch">
+              <input type="checkbox" checked data-pref="reviews" aria-label="Review notifications">
+              <span class="ns-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ns-row">
+          <div class="ns-row-text">
+            <div class="ns-row-name">Support</div>
+            <div class="ns-row-desc">Get notified about updates to your support cases and replies from SaveHatke.</div>
+          </div>
+          <div class="ns-row-ctl">
+            <label class="ns-switch">
+              <input type="checkbox" checked data-pref="support" aria-label="Support notifications">
+              <span class="ns-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ns-divider"></div>
+        <p class="ns-group-label">Marketing &amp; Offers</p>
+
+        <div class="ns-row">
+          <div class="ns-row-text">
+            <div class="ns-row-name">Special Offers &amp; Promotions</div>
+            <div class="ns-row-desc">Receive optional updates about special offers, deals and SaveHatke promotions.</div>
+          </div>
+          <div class="ns-row-ctl">
+            <label class="ns-switch">
+              <input type="checkbox" data-pref="marketing" aria-label="Special offers and promotions">
+              <span class="ns-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="ns-foot">
+          <button type="button" class="ns-reset" onclick="openModal('resetNotifModal')">Reset notification preferences</button>
+        </div>
+      </div>
+
+    </div><!-- /container -->
+    </div><!-- /view-notifications -->
+
+    <!-- ═══════════════════════════════════════════════
+         VIEW: REVIEWS
+         Buyer-side only. Every card here comes from a
+         completed purchase; seller listings never appear.
+    ═══════════════════════════════════════════════ -->
+    <div id="view-reviews" class="db-view">
+    <div class="container">
+
+      <div class="view-hdr">
+        <div>
+          <div class="view-title">Reviews</div>
+          <div class="view-subtitle">Share your experience and see your previous reviews.</div>
+        </div>
+      </div>
+
+      <div class="rv-wrap">
+
+        <div class="rv-summary">
+          <div class="rv-stat">
+            <div class="rv-stat-lbl">Reviews Given</div>
+            <div class="rv-stat-val gtext" id="rvGivenCount">0</div>
+          </div>
+          <div class="rv-stat">
+            <div class="rv-stat-lbl">Pending Reviews</div>
+            <div class="rv-stat-val" id="rvPendingCount">0</div>
+          </div>
+        </div>
+
+        <!-- Hidden entirely when nothing is eligible, per the review-eligibility rules -->
+        <section class="rv-section" id="rvPendingSection">
+          <h2 class="rv-section-hdr">Pending Reviews</h2>
+          <div class="rv-list" id="rvPendingList"></div>
+        </section>
+
+        <section class="rv-section">
+          <h2 class="rv-section-hdr">Your Reviews</h2>
+          <div class="rv-list" id="rvGivenList"></div>
+        </section>
+
+      </div>
+
+    </div><!-- /container -->
+    </div><!-- /view-reviews -->
 
     <!-- ═══════════════════════════════════════════════
          VIEW: SUPPORT
@@ -1115,6 +1481,88 @@
 <!-- =====================================================
      MODALS
 ===================================================== -->
+
+<!-- WRITE / EDIT REVIEW MODAL -->
+<div class="modal-overlay" id="reviewModal" onclick="handleOverlayClick(event,'reviewModal')">
+  <div class="modal modal-lg">
+    <button class="modal-close-btn" onclick="closeModal('reviewModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title" id="rvModalTitle">Write a <span class="gtext">Review</span></div>
+      <div class="modal-sub" id="rvModalSub">Tell other buyers how this coupon worked out.</div>
+    </div>
+
+    <div class="rv-modal-target">
+      <div class="rv-brand">
+        <div id="rvModalLogoSlot"></div>
+        <div style="min-width:0">
+          <div class="rv-brand-name" id="rvModalBrand">Coupon</div>
+          <div class="rv-coupon-name" id="rvModalCoupon"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rv-field">
+      <span class="rv-field-lbl" id="rvModalRatingLabel">Your Rating</span>
+      <div class="rv-stars rv-stars-lg" id="rvModalStars" role="radiogroup" aria-labelledby="rvModalRatingLabel"></div>
+    </div>
+
+    <div class="rv-field">
+      <label class="rv-field-lbl" for="rvModalText">Your Review</label>
+      <textarea class="rv-textarea" id="rvModalText" maxlength="500" placeholder="Write your experience..." oninput="updateReviewCounter()"></textarea>
+      <div class="rv-counter" id="rvModalCounter">0 / 500</div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('reviewModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="rvModalSubmit" onclick="submitReview()">Submit Review</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE REVIEW CONFIRMATION -->
+<div class="modal-overlay" id="deleteReviewModal" onclick="handleOverlayClick(event,'deleteReviewModal')">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('deleteReviewModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Delete this <span class="gtext">review</span>?</div>
+      <div class="modal-sub">Your rating and review text will be removed. The purchase will move back to Pending Reviews.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('deleteReviewModal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" onclick="confirmDeleteReview()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOG OUT OF ALL OTHER DEVICES CONFIRMATION -->
+<div class="modal-overlay" id="logoutOthersModal" onclick="handleOverlayClick(event,'logoutOthersModal')">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('logoutOthersModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Log out of all other <span class="gtext">devices</span>?</div>
+      <div class="modal-sub">This will sign out your account from all other active sessions. Your current session will remain active.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('logoutOthersModal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" id="logoutOthersBtn" onclick="confirmLogoutOtherDevices()">Log Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- RESET NOTIFICATION PREFERENCES MODAL -->
+<div class="modal-overlay" id="resetNotifModal" onclick="handleOverlayClick(event,'resetNotifModal')">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('resetNotifModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Reset notification <span class="gtext">preferences</span>?</div>
+      <div class="modal-sub">Your notification settings will be restored to the default preferences.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('resetNotifModal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" onclick="resetNotificationPrefs()">Reset</button>
+    </div>
+  </div>
+</div>
 
 <!-- LOGOUT MODAL -->
 <div class="modal-overlay" id="logoutModal" onclick="handleOverlayClick(event,'logoutModal')">
@@ -1311,6 +1759,8 @@
      JAVASCRIPT
 ===================================================== -->
 <script src="js/app.js"></script>
+<!-- Brand-logo resolution shared with the marketplace, used by the review cards -->
+<script src="js/coupon-meta.js"></script>
 <script>
   /* ═══════════════════════════════════════════════════════════════
      SaveHatke — Dashboard Controller (real-time, API-driven)
@@ -1324,6 +1774,7 @@
     tickets: [],            // /api/support/tickets
     payouts: [],            // /api/payouts/my → seller's payouts
     payoutsSummary: { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 },
+    reviews: [],            // /api/reviews/my → this buyer's own reviews
     notifications: [],
     lastUpdated: null,
     refreshTimer: null,
@@ -1417,6 +1868,16 @@
     }
   }
 
+  async function loadMyReviews() {
+    try {
+      const data = await api('/reviews/my');
+      return Array.isArray(data.reviews) ? data.reviews : [];
+    } catch (err) {
+      console.warn('reviews failed:', err.message);
+      return [];
+    }
+  }
+
   async function loadMyTickets() {
     try {
       const data = await api('/support/tickets');
@@ -1474,8 +1935,12 @@
     if (document.getElementById('sbName')) document.getElementById('sbName').textContent = name.split(' ')[0] || name;
     if (document.getElementById('sbEmail')) document.getElementById('sbEmail').textContent = email;
 
+    // Security Overview — email row (verified: every login path is either an
+    // email OTP or Google, so a signed-in email is always a verified one).
     const secEmail = document.getElementById('securityEmail');
-    if (secEmail) secEmail.innerHTML = `<span class="sec-dot dot-green"></span>${escapeHtml(email || 'Verified')}`;
+    if (secEmail) secEmail.textContent = email || '—';
+    const secEmailStatus = document.getElementById('securityEmailStatus');
+    if (secEmailStatus) secEmailStatus.style.display = email ? '' : 'none';
 
     // Account status drives the profile-dropdown tag and the suspension screen.
     const status = (user.status || local.status || 'active').toLowerCase();
@@ -1492,22 +1957,16 @@
       }
     }
 
-    // Security card
+    // Security Overview — account status row. Green tick only while the
+    // account is actually active; anything else is shown as-is, unstyled.
     const accStatus = document.getElementById('securityAccountStatus');
+    const accStatusTag = document.getElementById('securityAccountStatusTag');
+    const isActive = status === 'active';
     if (accStatus) {
-      const dotCls = status === 'active' ? 'dot-green' : 'dot-orange';
-      accStatus.innerHTML = `<span class="sec-dot ${dotCls}"></span>${status === 'active' ? 'Active' : escapeHtml(status)}`;
+      accStatus.textContent = isActive ? 'Active' : (status.charAt(0).toUpperCase() + status.slice(1));
+      accStatus.classList.toggle('muted', !isActive);
     }
-    const secBadge = document.getElementById('securityStatusBadge');
-    if (secBadge) {
-      if (status === 'active') {
-        secBadge.textContent = 'Secure';
-        secBadge.className = 'badge badge-green';
-      } else {
-        secBadge.textContent = status;
-        secBadge.className = 'badge badge-orange';
-      }
-    }
+    if (accStatusTag) accStatusTag.style.display = isActive ? '' : 'none';
 
     // Toggle the dashboard vs suspension view based on account status
     applySuspensionState(status);
@@ -2161,12 +2620,13 @@
     STATE.isFetching = true;
 
     try {
-      const [user, sales, purchases, tickets, payoutsData] = await Promise.all([
+      const [user, sales, purchases, tickets, payoutsData, reviews] = await Promise.all([
         loadMe(),
         loadMySales(),
         loadMyPurchases(),
         loadMyTickets(),
         loadMyPayouts(),
+        loadMyReviews(),
       ]);
       STATE.user = user || STATE.user || Auth.getUser() || null;
       STATE.sales = sales;
@@ -2174,6 +2634,7 @@
       STATE.tickets = tickets;
       STATE.payouts = payoutsData.payouts;
       STATE.payoutsSummary = payoutsData.summary;
+      STATE.reviews = reviews;
 
       applyUserToUI(STATE.user);
       renderStats();
@@ -2183,6 +2644,7 @@
       renderPayouts();
       renderTransactions();
       renderNotifications();
+      renderReviews();
       setLastUpdated();
     } catch (err) {
       console.error('Dashboard refresh failed:', err);
@@ -2228,6 +2690,12 @@
     // Collapsible sidebar sub-sections (open on parent click)
     initSidebarAccordion();
 
+    // Notification toggles auto-save on change
+    initNotificationPrefs();
+
+    // Review stars / buttons are delegated, so this only runs once
+    initReviews();
+
     await refreshDashboard();
     startAutoRefresh();
 
@@ -2238,7 +2706,7 @@
 
     // Handle URL hash on load
     const hash = window.location.hash.replace('#', '');
-    const validViews = ['my-coupons', 'wallet', 'payouts', 'security', 'support'];
+    const validViews = ['my-coupons', 'wallet', 'payouts', 'security', 'notifications', 'reviews', 'support'];
     if (validViews.includes(hash)) showView(hash);
   });
 
@@ -2250,64 +2718,133 @@
     return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
   }
 
+  // "Just now" / "2 hours ago" / "Yesterday" — falls back to the absolute
+  // timestamp once a session is older than a week.
+  function relSessionTime(v) {
+    if (!v) return '';
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return '';
+    const diffMs = Date.now() - d.getTime();
+    if (diffMs < 0) return 'Just now';
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return mins === 1 ? '1 minute ago' : `${mins} minutes ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return hours === 1 ? '1 hour ago' : `${hours} hours ago`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'Yesterday';
+    if (days < 7) return `${days} days ago`;
+    return fmtSessionDT(v);
+  }
+
+  function sessionIcon(s) {
+    const hint = `${s.device || ''} ${s.os || ''}`.toLowerCase();
+    if (/android|iphone|ios|mobile|phone/.test(hint)) return '📱';
+    if (/ipad|tablet/.test(hint)) return '📲';
+    return '🖥️';
+  }
+
+  const SESSIONS_SKELETON = `
+    <div class="sess-sk-row">
+      <div class="sess-sk sess-sk-ico"></div>
+      <div style="flex:1">
+        <div class="sess-sk" style="height:11px;width:42%"></div>
+        <div class="sess-sk" style="height:9px;width:62%;margin-top:8px"></div>
+      </div>
+    </div>
+    <div class="sess-sk-row">
+      <div class="sess-sk sess-sk-ico"></div>
+      <div style="flex:1">
+        <div class="sess-sk" style="height:11px;width:34%"></div>
+        <div class="sess-sk" style="height:9px;width:52%;margin-top:8px"></div>
+      </div>
+    </div>`;
+
+  function sessionRow(s, isCurrent) {
+    const name = `${escapeHtml(s.browser || 'Browser')} • ${escapeHtml(s.os || s.device || 'Unknown device')}`;
+    const rel = relSessionTime(s.last_active || s.login_time);
+    const relLower = rel ? rel.charAt(0).toLowerCase() + rel.slice(1) : 'unknown';
+    const meta = isCurrent
+      ? `Active now · signed in ${fmtSessionDT(s.login_time)}`
+      : `Last active ${relLower} · signed in ${fmtSessionDT(s.login_time)}`;
+    return `
+      <div class="sess-row">
+        <div class="sess-ico" aria-hidden="true">${sessionIcon(s)}</div>
+        <div class="sess-body">
+          <div class="sess-name">${name}${isCurrent ? '<span class="sess-tag">Current session</span>' : ''}</div>
+          <div class="sess-meta">${meta}</div>
+        </div>
+      </div>`;
+  }
+
+  // Renders the Active Sessions card: a temporary skeleton while loading, then
+  // the real sessions, an empty state, or a compact error state with a retry.
+  // The "log out of all other devices" action is only shown when there really
+  // are other sessions AND the server could identify this device's session.
   async function loadMySessions() {
     const list = document.getElementById('mySessionsList');
     if (!list) return;
+    const foot = document.getElementById('sessFoot');
+
+    if (foot) foot.style.display = 'none';
+    list.innerHTML = SESSIONS_SKELETON;
+
     try {
       const data = await api('/auth/sessions');
-      const sessions = (data.sessions || []).slice(0, 8);
-      if (!sessions.length) {
-        list.innerHTML = '<div style="font-size:.78rem;color:#6b88aa">No sessions found.</div>';
-        return;
+      const active = (data.sessions || []).filter((s) => String(s.status) === 'Active');
+      const current = active.find((s) => s.is_current) || null;
+      const others = active
+        .filter((s) => !s.is_current)
+        .sort((a, b) => new Date(b.last_active || b.login_time || 0) - new Date(a.last_active || a.login_time || 0))
+        .slice(0, 8);
+
+      // Last Login in the overview card comes from this device's session.
+      const lastLogin = document.getElementById('securityLastLogin');
+      if (lastLogin && current && current.login_time) {
+        lastLogin.textContent = relSessionTime(current.login_time) || fmtSessionDT(current.login_time);
       }
-      list.innerHTML = sessions.map((s) => {
-        const active = String(s.status) === 'Active';
-        const dot = active ? (s.is_current ? 'dot-green' : 'dot-blue') : 'dot-red';
-        const statusTxt = active ? (s.is_current ? 'This device' : 'Active') : String(s.status);
-        return `
-          <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid rgba(79,195,247,.07);font-size:.8rem">
-            <span class="sec-dot ${dot}"></span>
-            <div style="flex:1;min-width:0">
-              <div style="color:#e2ecff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${s.browser || 'Browser'} · ${s.os || s.device || 'Device'}</div>
-              <div style="color:#6b88aa;font-size:.7rem;margin-top:2px">
-                ${s.login_method ? s.login_method + ' · ' : ''}Login ${fmtSessionDT(s.login_time)} · Expires ${fmtSessionDT(s.expires_at)}
+
+      let html = current ? sessionRow(current, true) : '';
+      if (others.length) {
+        html += others.map((s) => sessionRow(s, false)).join('');
+      } else {
+        html += `
+          <div class="sess-row">
+            <div class="sess-none">
+              <span class="sess-none-ico" aria-hidden="true">✓</span>
+              <div>
+                <div class="sess-none-title">No other active sessions</div>
+                <div class="sess-none-sub">You're currently signed in only on this device.</div>
               </div>
             </div>
-            <span style="font-size:.68rem;color:${active ? '#00e676' : '#6b88aa'};white-space:nowrap">${statusTxt}</span>
-            ${active ? `<button class="btn btn-ghost btn-sm" style="height:26px;padding:0 10px;font-size:.7rem" onclick="revokeMySession('${s.session_id}', ${s.is_current ? 'true' : 'false'})">Log out</button>` : ''}
           </div>`;
-      }).join('');
+      }
+      list.innerHTML = html;
+
+      if (foot) foot.style.display = (others.length && data.current_session_id) ? '' : 'none';
     } catch (err) {
-      list.innerHTML = '<div style="font-size:.78rem;color:#6b88aa">Session info unavailable.</div>';
+      list.innerHTML = `
+        <div class="sess-error">
+          <span class="sess-error-txt">Unable to load active sessions.</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadMySessions()">Try Again</button>
+        </div>`;
+      if (foot) foot.style.display = 'none';
     }
   }
 
-  async function revokeMySession(sessionId, isCurrent) {
-    if (!confirm('Log out this device?')) return;
+  // Ends every other Active session server-side; this device stays signed in.
+  async function confirmLogoutOtherDevices() {
+    const btn = document.getElementById('logoutOthersBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Logging out…'; }
     try {
-      await api('/auth/sessions/revoke', { method: 'POST', body: { session_id: sessionId } });
-      if (isCurrent) {
-        showToast('This device has been logged out.', 'success');
-        Auth.clear();
-        setTimeout(() => { window.location.href = 'index'; }, 800);
-        return;
-      }
-      showToast('Device logged out.', 'success');
+      await api('/auth/sessions/revoke-others', { method: 'POST' });
+      closeModal('logoutOthersModal');
+      showToast('Logged out of all other devices.', 'success');
       loadMySessions();
     } catch (err) {
-      showToast(err.message || 'Could not log out this device.', 'error');
-    }
-  }
-
-  async function revokeAllMySessions() {
-    if (!confirm('Log out ALL devices? You will need to log in again everywhere.')) return;
-    try {
-      await api('/auth/sessions/revoke-all', { method: 'POST' });
-      showToast('All devices have been logged out.', 'success');
-      Auth.clear();
-      setTimeout(() => { window.location.href = 'index'; }, 800);
-    } catch (err) {
-      showToast(err.message || 'Could not log out all devices.', 'error');
+      showToast(err.message || 'Could not log out the other devices.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Log Out'; }
     }
   }
 
@@ -2602,6 +3139,455 @@
     }, duration);
   }
 
+  // ─── Reviews ───────────────────────────────────────────────────
+  //   Buyer-side only. A purchase becomes reviewable when it is a completed
+  //   purchase made by this user, is not their own listing, and has no review
+  //   yet. The same rules are enforced in server/routes/reviews.js — this copy
+  //   only decides what to draw.
+  const REVIEW_MAX_LENGTH = 500;
+
+  const REVIEW_NON_COMPLETED = new Set([
+    'pending', 'review', 'awaiting', 'submitted', 'available',
+    'rejected', 'cancelled', 'canceled', 'refunded', 'failed', 'expired',
+  ]);
+
+  // In-flight modal state: which purchase is being reviewed, the rating picked
+  // so far, and the review id when editing rather than creating.
+  let rvDraft = null;
+  let rvPendingDeleteId = null;
+
+  // Ratings picked on a pending card but not yet submitted. Kept outside STATE
+  // so a background refresh does not wipe a rating mid-selection.
+  const rvPendingRatings = {};
+
+  function isCompletedPurchase(c) {
+    if (REVIEW_NON_COMPLETED.has(String(c.status || '').toLowerCase())) return false;
+    return Boolean(c.purchasedAt || c.soldAt);
+  }
+
+  function reviewableCouponLabel(c) {
+    if (c.title) return c.title;
+    if (c.description) return c.description;
+    const price = c.pricePaid != null ? c.pricePaid : c.sellingPrice;
+    return price ? `${inr(price)} Coupon` : 'Coupon';
+  }
+
+  // Purchases with no review yet. Own listings are excluded even if the sheet
+  // somehow records the user on both sides of the sale.
+  function pendingReviewPurchases() {
+    const me = String((STATE.user && STATE.user.email) || '').toLowerCase().trim();
+    const reviewed = new Set((STATE.reviews || []).map((r) => r.couponId));
+    return (STATE.purchases || [])
+      .filter((c) => c.id && !reviewed.has(c.id))
+      .filter(isCompletedPurchase)
+      .filter((c) => !me || String(c.sellerEmail || '').toLowerCase().trim() !== me)
+      .sort((a, b) => new Date(b.purchasedAt || b.soldAt || 0) - new Date(a.purchasedAt || a.soldAt || 0));
+  }
+
+  function brandLogoHtml(brand) {
+    const url = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+    if (!url) {
+      const initial = typeof getBrandInitial === 'function' ? getBrandInitial(brand) : String(brand || '?').charAt(0).toUpperCase();
+      return `<div class="rv-logo-fallback">${escapeHtml(initial)}</div>`;
+    }
+    const cls = typeof getBrandLogoClass === 'function' ? getBrandLogoClass(url) : '';
+    return `<div class="rv-logo"><img src="${escapeHtml(url)}" alt="" ${cls ? `class="${cls}"` : ''}></div>`;
+  }
+
+  function starButtonsHtml(rating, scope) {
+    let out = '';
+    for (let i = 1; i <= 5; i++) {
+      out += `<button type="button" class="rv-star ${i <= rating ? 'on' : ''}" data-star="${i}" data-scope="${escapeHtml(scope)}"`
+        + ` role="radio" aria-checked="${i === rating}" aria-label="${i} star${i === 1 ? '' : 's'}">`
+        + `${i <= rating ? '★' : '☆'}</button>`;
+    }
+    return out;
+  }
+
+  function starsStaticHtml(rating) {
+    const n = Math.max(0, Math.min(5, Number(rating) || 0));
+    return `<div class="rv-stars-static" aria-label="${n} out of 5 stars">`
+      + '★'.repeat(n) + `<span class="off">${'☆'.repeat(5 - n)}</span></div>`;
+  }
+
+  function renderReviews() {
+    const given = STATE.reviews || [];
+    const pending = pendingReviewPurchases();
+
+    setText('rvGivenCount', given.length);
+    setText('rvPendingCount', pending.length);
+
+    // ── Pending Reviews ──
+    // The whole section is hidden when nothing is eligible, so the page does
+    // not carry a heading for a list that can never populate.
+    const pendingSection = document.getElementById('rvPendingSection');
+    const pendingList = document.getElementById('rvPendingList');
+    if (pendingSection && pendingList) {
+      const hasPurchases = (STATE.purchases || []).length > 0;
+      pendingSection.style.display = (pending.length || hasPurchases) ? 'block' : 'none';
+
+      pendingList.innerHTML = pending.length
+        ? pending.map((c) => {
+            const brand = c.brand || 'Coupon';
+            const label = reviewableCouponLabel(c);
+            const rating = Number(rvPendingRatings[c.id] || 0);
+            return `
+              <div class="rv-card" data-coupon="${escapeHtml(c.id)}">
+                <div class="rv-pending-top">
+                  <div class="rv-brand">
+                    ${brandLogoHtml(brand)}
+                    <div style="min-width:0">
+                      <div class="rv-brand-name">${escapeHtml(brand)}</div>
+                      <div class="rv-coupon-name">${escapeHtml(label)}</div>
+                    </div>
+                  </div>
+                  <div class="rv-date">Purchased: ${escapeHtml(txDate(c.purchasedAt || c.soldAt))}</div>
+                </div>
+                <div class="rv-prompt">How was your experience?</div>
+                <div class="rv-pending-actions">
+                  <div class="rv-stars" role="radiogroup" aria-label="Rate ${escapeHtml(brand)}">
+                    ${starButtonsHtml(rating, 'pending:' + c.id)}
+                  </div>
+                  <button class="btn btn-primary btn-sm" data-review-open="${escapeHtml(c.id)}">Write a Review</button>
+                </div>
+              </div>`;
+          }).join('')
+        : `<div class="rv-empty">
+             <div class="rv-empty-ico">⭐</div>
+             <div class="rv-empty-title">No pending reviews</div>
+             <div class="rv-empty-sub">Your completed purchases will appear here when they become eligible for a review.</div>
+           </div>`;
+    }
+
+    // ── Your Reviews ──
+    const givenList = document.getElementById('rvGivenList');
+    if (givenList) {
+      givenList.innerHTML = given.length
+        ? given.map((r) => {
+            const brand = r.brand || 'Coupon';
+            const label = r.couponTitle || (r.pricePaid ? `${inr(r.pricePaid)} Coupon` : 'Coupon');
+            return `
+              <div class="rv-card">
+                <div class="rv-review-top">
+                  <div class="rv-brand">
+                    ${brandLogoHtml(brand)}
+                    <div style="min-width:0">
+                      <div class="rv-brand-name">${escapeHtml(brand)}</div>
+                      <div class="rv-coupon-name">${escapeHtml(label)}</div>
+                    </div>
+                  </div>
+                  ${starsStaticHtml(r.rating)}
+                </div>
+                ${r.reviewText
+                  ? `<p class="rv-text">${escapeHtml(r.reviewText)}</p>`
+                  : '<p class="rv-text-empty">Rated without a written review.</p>'}
+                <div class="rv-review-foot">
+                  <span class="rv-date">${escapeHtml(txDate(r.createdAt))}${r.updatedAt ? ' <span class="rv-edited">(edited)</span>' : ''}</span>
+                  <div class="rv-review-acts">
+                    <button class="btn btn-ghost btn-sm" data-review-edit="${escapeHtml(r.id)}">Edit</button>
+                    <button class="btn btn-danger btn-sm" data-review-delete="${escapeHtml(r.id)}">Delete</button>
+                  </div>
+                </div>
+              </div>`;
+          }).join('')
+        : `<div class="rv-empty">
+             <div class="rv-empty-title">You haven't written any reviews yet.</div>
+           </div>`;
+    }
+  }
+
+  // ── Star clicks, and the buttons that open the modal ──
+  //   Delegated from the view root, because both lists are re-rendered
+  //   wholesale on every refresh and per-element listeners would not survive.
+  function initReviews() {
+    const root = document.getElementById('view-reviews');
+    if (!root) return;
+
+    root.addEventListener('click', (e) => {
+      const star = e.target.closest('.rv-star');
+      if (star) {
+        const [scope, id] = String(star.dataset.scope || '').split(':');
+        const rating = Number(star.dataset.star);
+        if (scope === 'pending' && id) {
+          rvPendingRatings[id] = rating;
+          renderReviews();
+        }
+        return;
+      }
+
+      const openBtn = e.target.closest('[data-review-open]');
+      if (openBtn) { openReviewModal(openBtn.dataset.reviewOpen); return; }
+
+      const editBtn = e.target.closest('[data-review-edit]');
+      if (editBtn) { openEditReviewModal(editBtn.dataset.reviewEdit); return; }
+
+      const delBtn = e.target.closest('[data-review-delete]');
+      if (delBtn) { askDeleteReview(delBtn.dataset.reviewDelete); return; }
+    });
+
+    // Stars inside the modal live outside the view root
+    const modalStars = document.getElementById('rvModalStars');
+    if (modalStars) {
+      modalStars.addEventListener('click', (e) => {
+        const star = e.target.closest('.rv-star');
+        if (!star || !rvDraft) return;
+        rvDraft.rating = Number(star.dataset.star);
+        paintModalStars();
+      });
+    }
+  }
+
+  function paintModalStars() {
+    const host = document.getElementById('rvModalStars');
+    if (host) host.innerHTML = starButtonsHtml(rvDraft ? rvDraft.rating : 0, 'modal');
+  }
+
+  function updateReviewCounter() {
+    const ta = document.getElementById('rvModalText');
+    const counter = document.getElementById('rvModalCounter');
+    if (!ta || !counter) return;
+    const len = ta.value.length;
+    counter.textContent = `${len} / ${REVIEW_MAX_LENGTH}`;
+    counter.classList.toggle('over', len > REVIEW_MAX_LENGTH);
+  }
+
+  function fillReviewModal({ brand, couponLabel }) {
+    const slot = document.getElementById('rvModalLogoSlot');
+    if (slot) slot.innerHTML = brandLogoHtml(brand);
+    setText('rvModalBrand', brand);
+    setText('rvModalCoupon', couponLabel);
+    paintModalStars();
+
+    const ta = document.getElementById('rvModalText');
+    if (ta) ta.value = rvDraft.reviewText || '';
+    updateReviewCounter();
+  }
+
+  function openReviewModal(couponId) {
+    const c = (STATE.purchases || []).find((p) => p.id === couponId);
+    if (!c) { showToast('That purchase is no longer available.', 'error'); return; }
+
+    rvDraft = {
+      mode: 'create',
+      couponId,
+      brand: c.brand || 'Coupon',
+      couponLabel: reviewableCouponLabel(c),
+      rating: Number(rvPendingRatings[couponId] || 0),
+      reviewText: '',
+    };
+    setText('rvModalTitle', 'Write a Review');
+    setText('rvModalSub', 'Tell other buyers how this coupon worked out.');
+    const submit = document.getElementById('rvModalSubmit');
+    if (submit) submit.textContent = 'Submit Review';
+
+    fillReviewModal(rvDraft);
+    openModal('reviewModal');
+  }
+
+  function openEditReviewModal(reviewId) {
+    const r = (STATE.reviews || []).find((x) => x.id === reviewId);
+    if (!r) { showToast('That review is no longer available.', 'error'); return; }
+
+    rvDraft = {
+      mode: 'edit',
+      reviewId,
+      couponId: r.couponId,
+      brand: r.brand || 'Coupon',
+      couponLabel: r.couponTitle || (r.pricePaid ? `${inr(r.pricePaid)} Coupon` : 'Coupon'),
+      rating: Number(r.rating || 0),
+      reviewText: r.reviewText || '',
+    };
+    setText('rvModalTitle', 'Edit Review');
+    setText('rvModalSub', 'Update your rating or what you wrote.');
+    const submit = document.getElementById('rvModalSubmit');
+    if (submit) submit.textContent = 'Save Review';
+
+    fillReviewModal(rvDraft);
+    openModal('reviewModal');
+  }
+
+  async function submitReview() {
+    if (!rvDraft) return;
+
+    // Rating is mandatory; the review text is not.
+    if (!rvDraft.rating) {
+      showToast('Please select a rating before submitting.', 'warning');
+      return;
+    }
+
+    const ta = document.getElementById('rvModalText');
+    const reviewText = ta ? ta.value.trim() : '';
+    if (reviewText.length > REVIEW_MAX_LENGTH) {
+      showToast(`Your review must be ${REVIEW_MAX_LENGTH} characters or fewer.`, 'warning');
+      return;
+    }
+
+    const submit = document.getElementById('rvModalSubmit');
+    const label = submit ? submit.textContent : '';
+    if (submit) { submit.disabled = true; submit.textContent = 'Saving…'; }
+
+    try {
+      if (rvDraft.mode === 'edit') {
+        await api(`/reviews/${encodeURIComponent(rvDraft.reviewId)}`, {
+          method: 'PUT',
+          body: { rating: rvDraft.rating, reviewText },
+        });
+        showToast('Review updated', 'success');
+      } else {
+        await api('/reviews', {
+          method: 'POST',
+          body: { couponId: rvDraft.couponId, rating: rvDraft.rating, reviewText },
+        });
+        delete rvPendingRatings[rvDraft.couponId];
+        showToast('Thanks for your review', 'success');
+      }
+
+      closeModal('reviewModal');
+      rvDraft = null;
+      STATE.reviews = await loadMyReviews();
+      renderReviews();
+    } catch (err) {
+      if (!err.sessionExpired) showToast(err.message || 'Could not save your review. Please try again.', 'error');
+    } finally {
+      if (submit) { submit.disabled = false; submit.textContent = label; }
+    }
+  }
+
+  function askDeleteReview(reviewId) {
+    rvPendingDeleteId = reviewId;
+    openModal('deleteReviewModal');
+  }
+
+  async function confirmDeleteReview() {
+    if (!rvPendingDeleteId) return;
+    const id = rvPendingDeleteId;
+    rvPendingDeleteId = null;
+    closeModal('deleteReviewModal');
+
+    try {
+      await api(`/reviews/${encodeURIComponent(id)}`, { method: 'DELETE' });
+      showToast('Review deleted', 'success');
+      STATE.reviews = await loadMyReviews();
+      renderReviews();
+    } catch (err) {
+      if (!err.sessionExpired) showToast(err.message || 'Could not delete your review. Please try again.', 'error');
+    }
+  }
+
+  // ─── Notification preferences ──────────────────────────────────
+  //   Saved automatically on every toggle — there is no Save button.
+  //   Account & Security is not in this map: it is mandatory, rendered as a
+  //   disabled "Required" row, and never sent to the server.
+  const NOTIF_PREF_DEFAULTS = {
+    coupon_activity: true,
+    purchases: true,
+    sales: true,
+    payments: true,
+    reviews: true,
+    support: true,
+    marketing: false,
+  };
+
+  let notifPrefs = null;      // last state confirmed by the server
+  let notifPrefsLoading = false;
+
+  function notifPrefInputs() {
+    return Array.from(document.querySelectorAll('#view-notifications input[data-pref]'));
+  }
+
+  function paintNotifPrefs(prefs) {
+    notifPrefInputs().forEach((input) => {
+      const key = input.dataset.pref;
+      if (key in prefs) input.checked = !!prefs[key];
+    });
+  }
+
+  function setNotifPrefsDisabled(disabled) {
+    notifPrefInputs().forEach((input) => { input.disabled = disabled; });
+  }
+
+  // Swaps the card for the compact error box. The card is never left half-
+  // painted: stale toggle positions would misrepresent the saved settings.
+  function showNotifPrefsError(show) {
+    const card = document.getElementById('nsCard');
+    const err = document.getElementById('nsError');
+    if (card) card.style.display = show ? 'none' : '';
+    if (err) err.style.display = show ? 'flex' : 'none';
+  }
+
+  async function loadNotificationPrefs(force = false) {
+    if (notifPrefsLoading) return;
+    if (notifPrefs && !force) return;   // already loaded this session
+
+    notifPrefsLoading = true;
+    setNotifPrefsDisabled(true);
+    try {
+      const data = await api('/auth/notification-preferences');
+      notifPrefs = { ...NOTIF_PREF_DEFAULTS, ...(data.preferences || {}) };
+      paintNotifPrefs(notifPrefs);
+      showNotifPrefsError(false);
+      setNotifPrefsDisabled(false);
+    } catch (err) {
+      if (!err.sessionExpired) showNotifPrefsError(true);
+    } finally {
+      notifPrefsLoading = false;
+    }
+  }
+
+  // One toggle changed. The checkbox is already in its new position, so a
+  // failed save has to put it back — otherwise the UI claims a preference
+  // the server never stored.
+  async function saveNotificationPref(input) {
+    const key = input.dataset.pref;
+    if (!key) return;
+    const desired = input.checked;
+    const previous = notifPrefs ? !!notifPrefs[key] : !desired;
+
+    input.disabled = true;
+    try {
+      const data = await api('/auth/notification-preferences', {
+        method: 'PUT',
+        body: { preferences: { [key]: desired } },
+      });
+      notifPrefs = { ...NOTIF_PREF_DEFAULTS, ...(data.preferences || {}) };
+      paintNotifPrefs(notifPrefs);
+      showToast('✓ Preferences updated', 'success', 2000);
+    } catch (err) {
+      input.checked = previous;
+      if (!err.sessionExpired) {
+        showToast(err.message || 'Could not save your preference. Please try again.', 'error');
+      }
+    } finally {
+      input.disabled = false;
+    }
+  }
+
+  async function resetNotificationPrefs() {
+    closeModal('resetNotifModal');
+    setNotifPrefsDisabled(true);
+    try {
+      const data = await api('/auth/notification-preferences', {
+        method: 'PUT',
+        body: { preferences: { ...NOTIF_PREF_DEFAULTS } },
+      });
+      notifPrefs = { ...NOTIF_PREF_DEFAULTS, ...(data.preferences || {}) };
+      paintNotifPrefs(notifPrefs);
+      showToast('✓ Preferences updated', 'success', 2000);
+    } catch (err) {
+      if (!err.sessionExpired) {
+        showToast(err.message || 'Could not reset your preferences. Please try again.', 'error');
+      }
+    } finally {
+      setNotifPrefsDisabled(false);
+    }
+  }
+
+  function initNotificationPrefs() {
+    notifPrefInputs().forEach((input) => {
+      input.addEventListener('change', () => saveNotificationPref(input));
+    });
+  }
+
   // ─── Smooth scroll / View navigation ───────────────────────────
   function scrollToSec(id) {
     const viewMap = { security: 'security', 'my-coupons': 'my-coupons', wallet: 'wallet', payouts: 'payouts' };
@@ -2662,6 +3648,16 @@
     } else if (name === 'wallet') {
       // Transactions view — repaint the ledger with whatever data is loaded
       if (typeof renderTransactions === 'function') renderTransactions();
+    } else if (name === 'notifications') {
+      // Fetched on first open; a previous load failure retries on re-entry.
+      loadNotificationPrefs();
+    } else if (name === 'reviews') {
+      // Repaint from whatever the last refresh loaded
+      if (typeof renderReviews === 'function') renderReviews();
+    } else if (name === 'security') {
+      // Re-read the sessions each time the page opens, so the list (and the
+      // loading state) is never stale from an earlier visit.
+      if (typeof loadMySessions === 'function') loadMySessions();
     }
 
     // Section anchor for the security sub-items
@@ -2672,7 +3668,7 @@
       }, 60);
     }
 
-    const titles = { dashboard: 'Dashboard', 'my-coupons': 'My Coupons', wallet: 'Transactions', payouts: 'Payouts', security: 'Security', support: 'Support' };
+    const titles = { dashboard: 'Dashboard', 'my-coupons': 'My Coupons', wallet: 'Transactions', payouts: 'Payouts', security: 'Security', notifications: 'Notification Settings', reviews: 'Reviews', support: 'Support' };
     const titleEl = document.getElementById('mobileViewTitle');
     if (titleEl) titleEl.textContent = titles[name] || name;
 

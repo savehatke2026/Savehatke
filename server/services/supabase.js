@@ -720,11 +720,17 @@ async function endSession(sessionId, reason = 'Logged out') {
 
 /**
  * End all active sessions for a user ("log out all devices").
+ *
+ * @param {string} userId
+ * @param {{ exceptSessionId?: string }} [options] — pass exceptSessionId to keep
+ *        one session alive ("log out of all other devices"): that row is left
+ *        Active so the device making the request stays signed in.
  */
-async function endAllUserSessions(userId) {
+async function endAllUserSessions(userId, options = {}) {
   const client = getClient();
   if (!client) return;
 
+  const exceptSessionId = options.exceptSessionId || null;
   const now = new Date().toISOString();
   const updates = {
     status: 'Logged out',
@@ -734,23 +740,27 @@ async function endAllUserSessions(userId) {
 
   for (const table of SESSION_TABLES) {
     try {
-      let { error } = await client
-        .from(table)
-        .update({ ...updates, revoked_at: now })
-        .eq('user_id', userId)
-        .eq('status', 'Active');
-      if (error && isMissingColumnError(error)) {
-        ({ error } = await client
+      const build = (payload) => {
+        let q = client
           .from(table)
-          .update(updates)
+          .update(payload)
           .eq('user_id', userId)
-          .eq('status', 'Active'));
+          .eq('status', 'Active');
+        if (exceptSessionId) q = q.neq('session_id', exceptSessionId);
+        return q;
+      };
+
+      let { error } = await build({ ...updates, revoked_at: now });
+      if (error && isMissingColumnError(error)) {
+        ({ error } = await build(updates));
       }
       if (error) console.warn('End all user sessions warning:', error.message);
     } catch (err) {
       console.warn('End all user sessions exception:', err.message);
     }
   }
+  // Drops every cached validation for this user, including the kept session —
+  // that one simply re-reads its still-Active row on the next request.
   sessionCache.invalidateByUserId(userId);
 }
 
