@@ -639,6 +639,22 @@
    own content instead of stretching into a tall empty container. */
 .pc-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}
 .pc-card{padding-bottom:18px}
+
+/* Purchased / For Sale — the two sides of My Coupons. Exactly one is ever
+   rendered; there is no state where both panes are visible. */
+.mc-tabs{display:flex;gap:6px;margin:0 0 24px;padding:4px;background:rgba(8,16,42,.6);border:1px solid rgba(79,195,247,.1);border-radius:12px}
+.mc-tab{flex:1;padding:10px 14px;border-radius:9px;font-size:.84rem;font-weight:600;font-family:'Outfit',sans-serif;color:#6b88aa;background:none;border:none;cursor:pointer;transition:background .18s,color .18s;white-space:nowrap}
+.mc-tab:hover{color:#a8c0dc}
+.mc-tab.active{background:rgba(0,230,118,.12);color:#00e676}
+.mc-tab:focus-visible{outline:2px solid rgba(0,230,118,.55);outline-offset:1px}
+
+.mc-sec-hdr{margin-bottom:18px}
+.mc-sec-title{font-size:1.02rem;font-weight:700;color:#e2ecff}
+.mc-sec-sub{font-size:.83rem;color:#6b88aa;margin-top:4px}
+
+@media(max-width:480px){
+  .mc-tab{padding:11px 8px;font-size:.8rem;min-height:44px}
+}
 .pc-tabs{display:flex;gap:6px;margin:0 0 16px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
 .pc-tabs::-webkit-scrollbar{display:none}
 .pc-tabs .mc-chip{flex:0 0 auto;white-space:nowrap}
@@ -1006,46 +1022,98 @@
 
       <div class="view-hdr">
         <div>
-          <div class="view-title">Purchased <span class="gtext">Coupons</span></div>
-          <div class="view-subtitle">Manage and access your purchased coupon codes.</div>
+          <div class="view-title">My <span class="gtext">Coupons</span></div>
+          <div class="view-subtitle">Manage your purchased coupons and coupons you've listed for sale.</div>
         </div>
+        <!-- One action at a time, matching the selected tab -->
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <a href="marketplace" class="btn btn-primary btn-sm">＋ Browse Coupons</a>
+          <a href="marketplace" class="btn btn-primary btn-sm" id="mcActionBrowse">＋ Browse Coupons</a>
+          <button type="button" class="btn btn-primary btn-sm" id="mcActionSubmit" style="display:none" onclick="openModal('submitCouponModal')">＋ Submit Coupon</button>
         </div>
       </div>
 
-      <!-- Buyer-only stats: three equal tiles, no Pending/Sold (those are seller state) -->
-      <div class="pc-stats">
-        <div class="cs-item">
-          <div class="cs-num" style="color:#00e676" id="csAvailableCount">0</div>
-          <div class="cs-lbl">Available</div>
-        </div>
-        <div class="cs-item">
-          <div class="cs-num" style="color:#80cbc4" id="csUsedCount">0</div>
-          <div class="cs-lbl">Used</div>
-        </div>
-        <div class="cs-item">
-          <div class="cs-num" style="color:#6b88aa" id="csExpiredCount">0</div>
-          <div class="cs-lbl">Expired</div>
-        </div>
+      <div class="mc-tabs" id="mcSideTabs" role="tablist" aria-label="Purchased or for sale">
+        <button class="mc-tab active" type="button" role="tab" aria-selected="true" data-side="purchased" onclick="setMcSide('purchased')">Purchased</button>
+        <button class="mc-tab" type="button" role="tab" aria-selected="false" data-side="sales" onclick="setMcSide('sales')">For Sale</button>
       </div>
 
-      <div class="card pc-card" id="my-coupons">
-        <div class="card-hdr">
-          <div class="card-title"><span class="ico">🎟️</span> Coupon Overview</div>
+      <!-- ── PURCHASED ── buyer state only, never seller information -->
+      <section id="mcPanePurchased">
+        <div class="mc-sec-hdr">
+          <div class="mc-sec-title">Purchased Coupons</div>
+          <div class="mc-sec-sub">Coupons you have purchased.</div>
         </div>
 
-        <!-- Buyer filters only — seller views live under My Sales -->
-        <div id="mcFilterChips" class="pc-tabs">
-          <button class="mc-chip active" data-filter="all" onclick="setMcFilter('all')">All</button>
-          <button class="mc-chip" data-filter="available" onclick="setMcFilter('available')">Available</button>
-          <button class="mc-chip" data-filter="used" onclick="setMcFilter('used')">Used</button>
-          <button class="mc-chip" data-filter="expired" onclick="setMcFilter('expired')">Expired</button>
-          <button class="mc-chip" data-filter="purchase-history" onclick="setMcFilter('purchase-history')">Purchase History</button>
+        <div class="pc-stats">
+          <div class="cs-item">
+            <div class="cs-num" style="color:#00e676" id="csAvailableCount">0</div>
+            <div class="cs-lbl">Available</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#80cbc4" id="csUsedCount">0</div>
+            <div class="cs-lbl">Used</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#6b88aa" id="csExpiredCount">0</div>
+            <div class="cs-lbl">Expired</div>
+          </div>
         </div>
 
-        <div id="myCouponsList"></div>
-      </div>
+        <div class="card pc-card" id="my-coupons">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">🎟️</span> Coupon Overview</div>
+          </div>
+
+          <div id="mcFilterChips" class="pc-tabs">
+            <button class="mc-chip active" data-filter="all" onclick="setMcFilter('all')">All</button>
+            <button class="mc-chip" data-filter="available" onclick="setMcFilter('available')">Available</button>
+            <button class="mc-chip" data-filter="used" onclick="setMcFilter('used')">Used</button>
+            <button class="mc-chip" data-filter="expired" onclick="setMcFilter('expired')">Expired</button>
+            <button class="mc-chip" data-filter="purchase-history" onclick="setMcFilter('purchase-history')">Purchase History</button>
+          </div>
+
+          <div id="myCouponsList"></div>
+        </div>
+      </section>
+
+      <!-- ── FOR SALE ── seller state only, never purchase counts -->
+      <section id="mcPaneSales" style="display:none">
+        <div class="mc-sec-hdr">
+          <div class="mc-sec-title">My Listings</div>
+          <div class="mc-sec-sub">Coupons you've submitted for sale.</div>
+        </div>
+
+        <div class="pc-stats">
+          <div class="cs-item">
+            <div class="cs-num" style="color:#4fc3f7" id="mlActiveCount">0</div>
+            <div class="cs-lbl">Active Listings</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#ffb74d" id="mlPendingCount">0</div>
+            <div class="cs-lbl">Pending</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#00e676" id="mlSoldCount">0</div>
+            <div class="cs-lbl">Sold</div>
+          </div>
+        </div>
+
+        <div class="card pc-card">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">🏷️</span> Listing Overview</div>
+          </div>
+
+          <div id="mlFilterChips" class="pc-tabs">
+            <button class="mc-chip active" data-filter="all" onclick="setMlFilter('all')">All</button>
+            <button class="mc-chip" data-filter="active" onclick="setMlFilter('active')">Active</button>
+            <button class="mc-chip" data-filter="pending" onclick="setMlFilter('pending')">Pending</button>
+            <button class="mc-chip" data-filter="sold" onclick="setMlFilter('sold')">Sold</button>
+            <button class="mc-chip" data-filter="history" onclick="setMlFilter('history')">History</button>
+          </div>
+
+          <div id="myListingsList"></div>
+        </div>
+      </section>
 
     </div><!-- /container -->
     </div><!-- /view-my-coupons -->
@@ -2343,18 +2411,47 @@
     }).join('');
   }
 
+  // ─── My-Coupons tabs ────────────────────────────────────────────────
+  //   Purchased and For Sale are two panes of one view. Exactly one is
+  //   rendered at any time — there is no state where both are visible — and the
+  //   top-right action follows the selected pane.
+  window.MC_SIDE = 'purchased';
+
+  function setMcSide(side) {
+    const next = side === 'sales' ? 'sales' : 'purchased';
+    window.MC_SIDE = next;
+
+    document.querySelectorAll('#mcSideTabs .mc-tab').forEach((tab) => {
+      const on = tab.dataset.side === next;
+      tab.classList.toggle('active', on);
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+
+    const purchased = document.getElementById('mcPanePurchased');
+    const sales = document.getElementById('mcPaneSales');
+    if (purchased) purchased.style.display = next === 'purchased' ? 'block' : 'none';
+    if (sales) sales.style.display = next === 'sales' ? 'block' : 'none';
+
+    const browse = document.getElementById('mcActionBrowse');
+    const submit = document.getElementById('mcActionSubmit');
+    if (browse) browse.style.display = next === 'purchased' ? 'inline-flex' : 'none';
+    if (submit) submit.style.display = next === 'sales' ? 'inline-flex' : 'none';
+
+    if (next === 'sales') renderMyListings();
+    else renderMyCoupons();
+  }
+
   // ─── My-Coupons filter chip helpers ──────────────────────────────────
   window.MC_FILTER = 'all';
 
   /**
-   * Map any incoming sub-filter onto the five buyer tabs. The sidebar still
-   * carries its original values (and two seller ones we were asked to leave
-   * alone), so they are translated here rather than editing the sidebar.
+   * Map any incoming sub-filter onto the five buyer chips. Older sidebar values
+   * still arrive from bookmarks and the hash, so they are translated here.
    */
   function normalizeMcFilter(raw) {
     const f = String(raw || 'all');
     if (f === 'active-purchases') return 'available';
-    if (f === 'active-listings' || f === 'sold') return 'all'; // seller views live in My Sales
+    if (f === 'active-listings' || f === 'sold') return 'all'; // seller values belong to the For Sale tab
     return f;
   }
 
@@ -2373,9 +2470,118 @@
       if (on) matched = true;
       c.classList.toggle('active', on);
     });
-    // A sidebar-only value (e.g. used-expired) has no chip — fall back to All
-    // so the tab row never looks like nothing is selected.
+    // A legacy value (e.g. used-expired) has no chip — fall back to All so the
+    // chip row never looks like nothing is selected.
     if (!matched && chips.length) chips[0].classList.add('active');
+  }
+
+  // ─── For Sale: the seller side of My Coupons ─────────────────────────
+  //   Reads STATE.sales only. Purchase counts deliberately never appear here,
+  //   just as seller state never appears under Purchased.
+  window.ML_FILTER = 'all';
+
+  function setMlFilter(filter) {
+    window.ML_FILTER = filter;
+    refreshMlFilterChips();
+    renderMyListings();
+  }
+
+  function refreshMlFilterChips() {
+    const active = String(window.ML_FILTER || 'all');
+    const chips = document.querySelectorAll('#mlFilterChips .mc-chip');
+    let matched = false;
+    chips.forEach((c) => {
+      const on = c.dataset.filter === active;
+      if (on) matched = true;
+      c.classList.toggle('active', on);
+    });
+    if (!matched && chips.length) chips[0].classList.add('active');
+  }
+
+  function renderMyListings() {
+    const sales = STATE.sales || [];
+
+    const listed = sales.map((c) => {
+      const kind = isSold(c) ? 'sold' : (isPending(c) ? 'pending' : (isAvailable(c) ? 'active' : 'other'));
+      return {
+        kind,
+        brand: c.brand || 'Coupon',
+        code: c.code || '',
+        value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.discount || c.title || ''),
+        status: c.status || '',
+        at: c.soldAt || c.addedAt || '',
+      };
+    });
+
+    const activeList = listed.filter((c) => c.kind === 'active');
+    const pendingList = listed.filter((c) => c.kind === 'pending');
+    const soldList = listed.filter((c) => c.kind === 'sold');
+
+    setText('mlActiveCount', activeList.length);
+    setText('mlPendingCount', pendingList.length);
+    setText('mlSoldCount', soldList.length);
+
+    const filter = String(window.ML_FILTER || 'all');
+    let list = listed;
+    let emptyTitle = 'No listings yet';
+    let emptyHint = "Coupons you submit for sale will appear here.";
+    let showSubmit = true;
+
+    if (filter === 'active') {
+      list = activeList;
+      emptyTitle = 'No active listings';
+      emptyHint = 'Approved coupons waiting for a buyer appear here.';
+    } else if (filter === 'pending') {
+      list = pendingList;
+      emptyTitle = 'Nothing pending';
+      emptyHint = 'Coupons still being reviewed by our team appear here.';
+      showSubmit = false;
+    } else if (filter === 'sold') {
+      list = soldList;
+      emptyTitle = 'No coupons sold yet';
+      emptyHint = 'Once one of your coupons sells, it will show up here.';
+      showSubmit = false;
+    } else if (filter === 'history') {
+      emptyTitle = 'No listing history';
+      emptyHint = 'Every coupon you have submitted will appear here.';
+    }
+
+    list = list
+      .slice()
+      .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
+      .slice(0, 20);
+
+    const container = document.getElementById('myListingsList');
+    if (!container) return;
+
+    if (list.length === 0) {
+      container.innerHTML = `
+        <div class="pc-empty">
+          <div class="pc-empty-ico">🏷️</div>
+          <div class="pc-empty-title">${emptyTitle}</div>
+          <div class="pc-empty-sub">${emptyHint}</div>
+          ${showSubmit ? '<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><button type="button" class="btn btn-primary btn-sm" onclick="openModal(\'submitCouponModal\')">Submit Coupon</button></div>' : ''}
+        </div>
+      `;
+      return;
+    }
+
+    container.innerHTML = list.map((c) => {
+      const badge = statusBadge(c.status);
+      const when = c.kind === 'sold' ? `Sold: ${timeAgo(c.at)}` : `Listed: ${timeAgo(c.at)}`;
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px">
+          <div style="min-width:0;flex:1">
+            <div style="font-size:.85rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.brand)}${c.value ? ` — ${escapeHtml(c.value)}` : ''}</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#4fc3f7;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.code || '—')}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0;margin-left:10px">
+            ${badge}
+            <div style="font-size:.7rem;color:#6b88aa;margin-top:4px">${escapeHtml(when)}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   function renderActivity() {
