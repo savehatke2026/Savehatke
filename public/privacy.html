@@ -613,15 +613,30 @@
 
       <div class="legal-section fu" id="s8">
         <h2><span class="section-num">08</span> Cookies &amp; Local Storage</h2>
-        <p>SaveHatke may use essential cookies and browser local storage for necessary functions such as:</p>
+        <p>We group cookies into three categories. Essential cookies are always on because the Platform cannot function without them. Analytics and Marketing cookies stay switched off until you choose to allow them, and the scripts behind them are not downloaded before that.</p>
+        <p>You can review or change your choice at any time using <strong>Cookie Settings</strong> in the footer of any page. Your choice is stored in a cookie on your device, so it is remembered when you come back, and it applies to that browser only — a different browser, a different device, or a private window will ask again.</p>
+
+        <h3 style="font-size:1rem;font-weight:700;color:#e2ecff;margin:22px 0 10px">Essential cookies — always active</h3>
+        <p>Used for signing in, keeping your session secure, protecting our forms against automated abuse, and remembering your cookie choice.</p>
         <ul>
-          <li>Login sessions</li>
-          <li>Authentication</li>
-          <li>Security</li>
-          <li>User preferences</li>
-          <li>Website functionality</li>
+          <li><strong><code>sh_session</code></strong> — SaveHatke · 48 hours · your signed-in session. Contains a random session identifier only.</li>
+          <li><strong><code>sh_consent</code></strong> — SaveHatke · 180 days · the cookie choice you make on this site.</li>
+          <li><strong><code>__cf_bm</code>, <code>cf_chl_*</code></strong> — Cloudflare Turnstile · up to 30 minutes · bot and abuse protection on the login and support forms.</li>
+          <li><strong>Razorpay checkout cookies</strong> — Razorpay · session · set only while a payment is in progress, so that payment can complete securely.</li>
         </ul>
-        <p>These technologies are primarily used to make the Platform function properly.</p>
+
+        <h3 style="font-size:1rem;font-weight:700;color:#e2ecff;margin:22px 0 10px">Analytics cookies — off until you allow them</h3>
+        <p>Aggregated, statistical measurement: how many people visited a page, which coupons get viewed, where people stop. We do not use it to identify you personally.</p>
+
+        <h3 style="font-size:1rem;font-weight:700;color:#e2ecff;margin:22px 0 10px">Marketing cookies — off until you allow them</h3>
+        <p>Used to make the coupon offers you see more relevant and to measure whether our campaigns worked.</p>
+
+        <div class="highlight-card">
+          <strong>🍪 No analytics or marketing cookies are in use today.</strong> SaveHatke currently runs no analytics, advertising or retargeting provider at all, so those two categories are empty in practice. The consent controls are live and enforced regardless: if we ever add one, it cannot load or set a cookie until you have agreed, and this section will name it, its provider and how long it lasts.
+        </div>
+
+        <p>We never store passwords, payment card details, or other sensitive personal data in a cookie.</p>
+
         <div class="highlight-card">
           <strong>🚫 No Unnecessary Tracking.</strong> SaveHatke does not intentionally use third-party advertising trackers, retargeting pixels, or unrelated browsing-history tracking. We do not use your SaveHatke activity to build an advertising profile for sale to third parties.
         </div>
@@ -840,6 +855,7 @@
     });
   });
 </script>
+<script src="js/cookie-consent.js"></script>
 <script src="js/app.js"></script>
 <script src="js/chatbot.js"></script>
 </body>

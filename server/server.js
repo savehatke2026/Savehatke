@@ -33,6 +33,7 @@ const twoFactorRoutes = require('./routes/twoFactor');
 const paymentRoutes = require('./routes/payments');
 const driveProxyRoutes = require('./routes/driveProxy');
 const backupCodeRoutes = require('./routes/backupCode');
+const consentRoutes = require('./routes/consent');
 
 const app = express();
 
@@ -175,6 +176,12 @@ app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
 app.use('/api/chat', chatRoutes); // /api/chat applies its own service-level rate limits
 app.use('/api/payments', apiLimiter, paymentRoutes); // Razorpay: /api/payments/{config,create-order,verify}
 app.use('/api/proxy/drive', apiLimiter, driveProxyRoutes); // Auth-protected Google Drive file streaming
+// Read-only view of the visitor's cookie consent. Mounted before the generic
+// '/api' router below so it is not shadowed by it, and left off the rate limiter
+// on purpose: it is a cheap cookie read that any page may call on load, and
+// throttling it would make the consent state unreadable exactly when a visitor
+// is browsing quickly.
+app.use('/api/consent', consentRoutes);
 app.use('/api', apiLimiter, payoutRoutes); // /api/payouts/* (seller)
 
 // Public Turnstile site key for CAPTCHA widgets (secret stays in .env)

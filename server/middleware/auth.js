@@ -136,18 +136,27 @@ function parseSessionCookie(req) {
  * stored in the browser — no secrets, no user data.
  * Secure flag is enabled outside development; SameSite=Lax mitigates CSRF
  * while keeping normal top-level navigation working.
+ *
+ * res.append, not res.setHeader: setHeader REPLACES the whole Set-Cookie header,
+ * so it would silently drop any other cookie set earlier in the same response.
+ * Nothing did that when this was written, which is why it went unnoticed —
+ * append keeps it correct now that the site also has a consent cookie.
  */
 function setSessionCookie(res, rawToken, ttlMs) {
   if (!rawToken) return;
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
   const maxAge = Math.floor((ttlMs || SESSION_TTL_MS) / 1000);
-  res.setHeader('Set-Cookie',
+  res.append('Set-Cookie',
     `${SESSION_COOKIE_NAME}=${encodeURIComponent(rawToken)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure}`);
 }
 
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie',
-    `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+  // Max-Age=0 expires it immediately. The attributes must match the ones used
+  // when setting it, or the browser treats it as a different cookie and the old
+  // one survives logout.
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.append('Set-Cookie',
+    `${SESSION_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
 }
 
 // ── Middleware ─────────────────────────────────────────────────────────────
