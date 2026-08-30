@@ -1864,6 +1864,153 @@ ${lowCodes === null ? '' : `
   }
 }
 
+/**
+ * SOS backup-access alert.
+ *
+ * Sent to EVERY administrator immediately after a successful SOS recovery, not
+ * just the one whose questions were answered — the point is that break-glass
+ * access cannot happen quietly.
+ *
+ * Carries no secrets: no backup code, no security answers, no session token, no
+ * CAPTCHA secret. Only what an administrator needs to recognise or dispute the
+ * access, plus the audit reference to look it up.
+ *
+ * @param {object} p
+ * @param {string} p.to               recipient address
+ * @param {string} [p.recipientName]  recipient display name
+ * @param {string} p.selectedAdminName which administrator's questions were used
+ * @param {string} p.reason           operator-supplied reason (already sanitised)
+ * @param {string} p.ip
+ * @param {{country,region,city,timezone,isp}} p.location approximate, from IP
+ * @param {string} p.browser
+ * @param {string} p.os
+ * @param {string} p.device
+ * @param {string} p.captchaStatus
+ * @param {string} p.securityStatus
+ * @param {string} p.accessStatus
+ * @param {string} p.auditRef
+ * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
+ */
+async function sendSosAccessAlertEmail(p) {
+  const cleanEmail = String((p && p.to) || '').toLowerCase().trim();
+  if (!cleanEmail) return { success: false, error: 'No recipient address.' };
+
+  const t = getTransporter();
+  if (!t) {
+    console.warn(`⚠️ [EmailService] SMTP not configured. SOS alert for ${cleanEmail} was NOT sent.`);
+    return { success: false, isSimulated: true, error: 'SMTP not configured' };
+  }
+
+  const fromEmail = resolveMainFromAddress();
+  const fromName = process.env.EMAIL_FROM_NAME || 'SaveHatke Security';
+
+  const when = new Date().toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+  const loc = p.location || {};
+  const place = [loc.city, loc.region, loc.country]
+    .map((x) => String(x || '').trim())
+    .filter((x) => x && !/^unknown$/i.test(x))
+    .join(', ') || 'Unknown';
+  const network = [loc.timezone, loc.isp].map((x) => String(x || '').trim()).filter(Boolean).join(' · ');
+  const deviceLine = [p.browser, p.os, p.device].map((x) => String(x || '').trim()).filter(Boolean).join(' · ') || 'Unknown';
+
+  const rows = [
+    ['Date & Time', `${when} IST`],
+    ['Approximate Location', place],
+    ['Network', network || '—'],
+    ['IP Address', p.ip || 'Unknown'],
+    ['Device / Browser', deviceLine],
+    ['Selected Administrator', p.selectedAdminName || 'Unknown'],
+    ['Reason', p.reason || '—'],
+    ['CAPTCHA', p.captchaStatus || 'Unknown'],
+    ['Security Verification', p.securityStatus || 'Unknown'],
+    ['Admin Panel Access', p.accessStatus || 'Unknown'],
+    ['Audit Reference', p.auditRef || 'unavailable'],
+  ];
+
+  const subject = '🚨 SaveHatke — SOS Backup Access Detected';
+
+  const textBody = `An SOS backup-code login was successfully completed for the SaveHatke admin panel.
+
+ACCESS DETAILS
+${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}
+
+IMPORTANT
+This location is approximate and based on IP geolocation. VPNs, proxies, mobile networks, and similar services may affect accuracy.
+
+If you did not authorize this activity, immediately review the security logs and revoke the affected SOS session and backup credential.
+
+— SaveHatke Security`;
+
+  const rowsHtml = rows.map(([k, v]) => `
+    <tr>
+      <td style="padding:9px 0;font-size:0.78rem;color:#6b7280;white-space:nowrap;vertical-align:top;width:180px;">${escapeHtml(k)}</td>
+      <td style="padding:9px 0;font-size:0.84rem;color:#111827;font-weight:600;word-break:break-word;">${escapeHtml(String(v))}</td>
+    </tr>`).join('');
+
+  const htmlContent = `<!DOCTYPE html>
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
+          <tr>
+            <td style="padding:22px 32px;background:linear-gradient(135deg,#7f1d1d,#b91c1c);">
+              <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#fecaca;font-weight:700;">SaveHatke Security</p>
+              <h1 style="margin:6px 0 0;font-size:1.24rem;color:#ffffff;font-weight:800;">🚨 SOS Backup Access Detected</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:26px 32px 8px;">
+              <p style="margin:0 0 18px;font-size:0.9rem;color:#374151;line-height:1.65;">An SOS backup-code login was successfully completed for the SaveHatke admin panel.${p.recipientName ? ` You are receiving this because you are a SaveHatke administrator, ${escapeHtml(p.recipientName)}.` : ''}</p>
+              <p style="margin:0 0 8px;font-size:0.72rem;letter-spacing:.1em;text-transform:uppercase;color:#9ca3af;font-weight:700;">Access details</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;">${rowsHtml}</table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:6px 32px 22px;">
+              <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:10px;padding:13px 15px;margin-bottom:14px;">
+                <p style="margin:0;font-size:0.78rem;color:#92400e;line-height:1.6;"><strong>Important:</strong> This location is approximate and based on IP geolocation. VPNs, proxies, mobile networks, and similar services may affect accuracy.</p>
+              </div>
+              <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:13px 15px;">
+                <p style="margin:0;font-size:0.78rem;color:#991b1b;line-height:1.6;">If you did not authorize this activity, immediately review the security logs and revoke the affected SOS session and backup credential.</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:18px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">This is an automated security notification sent to every SaveHatke administrator. It contains no credentials.</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body></html>`;
+
+  try {
+    const info = await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: cleanEmail,
+      subject,
+      text: textBody,
+      html: htmlContent,
+      envelope: { from: fromEmail, to: cleanEmail },
+      headers: {
+        'X-Entity-Ref-ID': `sos-${p.auditRef || Date.now()}`,
+        'Auto-Submitted': 'auto-generated',
+        Importance: 'high',
+      },
+    });
+    console.log(`✅ [EmailService] SOS alert sent to ${cleanEmail} (audit ${p.auditRef}, Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send SOS alert to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendOTPEmail,
   sendTwoFactorSecurityEmail,
@@ -1871,6 +2018,7 @@ module.exports = {
   sendSupportAckEmail,
   sendSupportResolvedEmail,
   sendSignInAlertEmail,
+  sendSosAccessAlertEmail,
   isEmailConfigured,
   isSupportEmailConfigured,
 };

@@ -101,4 +101,73 @@ async function verifyTurnstile(req, label = 'request') {
   return { ok: false, reason: codes.join(',') || 'failed', error: 'Security check failed. Please try again.' };
 }
 
-module.exports = { verifyTurnstile, isLoopbackOrPrivate };
+/**
+ * Strict verification for break-glass paths (SOS backup access).
+ *
+ * verifyTurnstile() above deliberately fails OPEN in five situations so an
+ * ordinary login is never blocked by our own outage. That trade is wrong for
+ * admin recovery: there, a CAPTCHA that can be skipped by being on a private
+ * network is not a control at all. This variant only passes when Cloudflare
+ * itself confirms the token.
+ *
+ * The single escape hatch is explicit and auditable: SOS_CAPTCHA_REQUIRED=false
+ * lets an operator accept the risk (e.g. Turnstile is not configured for this
+ * deployment at all). The returned `result` is recorded in the SOS audit trail
+ * and shown in the administrator alert email either way.
+ *
+ * @returns {Promise<{ok: boolean, result: 'passed'|'failed'|'skipped', reason?: string, error?: string}>}
+ */
+async function verifyTurnstileStrict(req, label = 'sos') {
+  const relaxed = String(process.env.SOS_CAPTCHA_REQUIRED || '').toLowerCase() === 'false';
+  const secret = (process.env.TURNSTILE_SECRET_KEY || '').trim();
+
+  if (!secret) {
+    if (relaxed) {
+      console.warn(`[turnstile] ${label}: no secret configured and SOS_CAPTCHA_REQUIRED=false — proceeding without CAPTCHA.`);
+      return { ok: true, result: 'skipped', reason: 'not-configured' };
+    }
+    console.error(`[turnstile] ${label}: refused — TURNSTILE_SECRET_KEY is not configured and this path requires a real CAPTCHA.`);
+    return { ok: false, result: 'failed', reason: 'not-configured', error: 'CAPTCHA verification failed.' };
+  }
+
+  const token = String((req.body && req.body.cfTurnstileToken) || '').trim();
+  if (!token) {
+    if (relaxed) {
+      console.warn(`[turnstile] ${label}: missing token but SOS_CAPTCHA_REQUIRED=false — proceeding.`);
+      return { ok: true, result: 'skipped', reason: 'missing-token' };
+    }
+    return { ok: false, result: 'failed', reason: 'missing-token', error: 'CAPTCHA verification failed.' };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), VERIFY_TIMEOUT_MS);
+  let data = null;
+  try {
+    const res = await fetch(SITEVERIFY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ secret, response: token, remoteip: getClientIP(req) }),
+      signal: controller.signal,
+    });
+    data = await res.json();
+  } catch (err) {
+    // Unlike the ordinary path, an unreachable siteverify is a refusal here.
+    const why = err.name === 'AbortError' ? 'timeout' : err.message;
+    if (relaxed) {
+      console.warn(`[turnstile] ${label}: siteverify unreachable (${why}) but SOS_CAPTCHA_REQUIRED=false — proceeding.`);
+      return { ok: true, result: 'skipped', reason: `siteverify-${why}` };
+    }
+    console.warn(`[turnstile] ${label}: siteverify unreachable (${why}) — refusing.`);
+    return { ok: false, result: 'failed', reason: 'siteverify-unreachable', error: 'CAPTCHA verification failed.' };
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (data && data.success) return { ok: true, result: 'passed' };
+
+  const codes = (data && data['error-codes']) || [];
+  console.warn(`[turnstile] ${label}: verification failed (${codes.join(', ') || 'no error code'}).`);
+  return { ok: false, result: 'failed', reason: codes.join(',') || 'failed', error: 'CAPTCHA verification failed.' };
+}
+
+module.exports = { verifyTurnstile, verifyTurnstileStrict, isLoopbackOrPrivate };

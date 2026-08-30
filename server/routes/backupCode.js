@@ -184,211 +184,37 @@ function isCodeUsable(row) {
   return true;
 }
 
-// ── POST /api/admin/backup-code/init ──────────────────────────────────────
-router.post('/init', async (req, res) => {
-  const ip = getClientIP(req);
-  const ua = String(req.headers['user-agent'] || '').slice(0, 300);
-  const initAt = new Date().toISOString();
+// ── RETIRED: POST /init and POST /complete ────────────────────────────────
+// These two endpoints used to be the whole SOS flow: they took the raw backup
+// code and a reason, and /complete then minted a 12-hour admin JWT with no
+// CAPTCHA, no security questions, no server-side session row and no cookie.
+//
+// They are answered with 410 rather than deleted because leaving a weaker
+// parallel path mounted would defeat the staged flow entirely — a code holder
+// could simply skip the questions. The replacement lives in routes/sos.js:
+//   POST /api/admin/sos/start  →  /select-admin  →  /verify
+//
+// The reply is intentionally uninformative about codes and administrators.
+const RETIRED_MSG = { error: 'Unable to continue with SOS recovery.' };
 
-  if (isRateLimited(ip)) {
-    return res.status(429).json({ error: 'Too many attempts. Please wait a few minutes and try again.' });
-  }
-  noteAttempt(ip);
-
-  const { code, reason } = req.body || {};
-
-  if (!isBackupCodeShape(code)) {
-    return res.status(400).json({ error: 'Invalid backup code format.' });
-  }
-  const reasonText = String(reason || '').trim();
-  if (reasonText.length < 10) {
-    return res.status(400).json({ error: 'Please provide a reason of at least 10 characters explaining why you need SOS access.' });
-  }
-  if (reasonText.length > 500) {
-    return res.status(400).json({ error: 'Reason is too long (max 500 characters).' });
-  }
-
-  if (!await ensureMongoReady(5000)) {
-    await writeAuditRow({
-      codePrefix: '(mongo-down)',
-      reason: reasonText, ip, userAgent: ua, chosenEmail: '',
-      success: false, initAt, completeAt: '',
-      error: 'MONGO_NOT_READY',
-    });
-    return res.status(503).json({ error: 'Backup-code service is offline. Please try again in a moment.' });
-  }
-
-  const matched = await matchBackupCode(code.trim());
-
-  if (!matched) {
-    await writeAuditRow({
-      codePrefix: code.trim().slice(-4),
-      reason: reasonText, ip, userAgent: ua, chosenEmail: '',
-      success: false, initAt, completeAt: '',
-      error: 'CODE_MISMATCH',
-    });
-    return res.status(401).json({ error: 'Backup code is invalid.' });
-  }
-
-  const initToken = crypto.randomBytes(24).toString('hex');
-  initTokenStore.set(initToken, {
-    codeId: matched.id,
-    codePrefix: matched.codePrefix,
-    reason: reasonText,
-    ip,
-    ua,
-    createdAt: Date.now(),
-    used: false,
-    allowedEmails: Array.isArray(matched.allowedAdminEmails) ? matched.allowedAdminEmails.slice() : [],
-  });
-
-  await writeAuditRow({
-    codePrefix: matched.codePrefix,
-    reason: reasonText, ip, userAgent: ua, chosenEmail: '',
-    success: true, initAt, completeAt: '',
-    error: '',
-  });
-
-  // Filter the allowlist to the admins this specific code is restricted to,
-  // or show the full allowlist if the code has no per-code restriction.
-  const allow = Array.isArray(matched.allowedAdminEmails) && matched.allowedAdminEmails.length
-    ? BACKUP_CODE_ALLOWED_ADMINS.filter((a) => matched.allowedAdminEmails.includes(a.email))
-    : BACKUP_CODE_ALLOWED_ADMINS;
-
-  res.json({
-    initToken,
-    expiresInSeconds: Math.floor(INIT_TOKEN_TTL_MS / 1000),
-    codePrefix: matched.codePrefix,
-    admins: allow.map((a) => ({ email: a.email, name: a.name, role: a.role })),
-  });
+router.post('/init', (req, res) => {
+  console.warn(`[backup-code] retired /init called from ${getClientIP(req)} — direct to /api/admin/sos/start`);
+  res.status(410).json(RETIRED_MSG);
 });
 
-// ── POST /api/admin/backup-code/complete ──────────────────────────────────
-router.post('/complete', async (req, res) => {
-  const ip = getClientIP(req);
-  const ua = String(req.headers['user-agent'] || '').slice(0, 300);
-  const completeAt = new Date().toISOString();
-
-  if (isRateLimited(ip)) {
-    return res.status(429).json({ error: 'Too many attempts. Please wait a few minutes and try again.' });
-  }
-  noteAttempt(ip);
-
-  const { code, chosenEmail, initToken } = req.body || {};
-
-  const record = initToken ? initTokenStore.get(initToken) : null;
-  if (!record || record.used || (Date.now() - record.createdAt) > INIT_TOKEN_TTL_MS) {
-    if (record) initTokenStore.delete(initToken);
-    return res.status(401).json({ error: 'Your backup-code session has expired. Please start over.' });
-  }
-  if (record.ip !== ip) {
-    initTokenStore.delete(initToken);
-    return res.status(401).json({ error: 'Network changed during the backup-code flow. Please start over.' });
-  }
-
-  const cleanEmail = String(chosenEmail || '').toLowerCase().trim();
-  const admin = BACKUP_CODE_ALLOWED_ADMINS.find((a) => a.email === cleanEmail);
-  if (!admin) {
-    return res.status(400).json({ error: 'Selected admin account is not allowed.' });
-  }
-  if (record.allowedEmails.length && !record.allowedEmails.includes(cleanEmail)) {
-    return res.status(403).json({ error: 'This backup code is not authorized for that admin account.' });
-  }
-
-  if (!isBackupCodeShape(code)) {
-    initTokenStore.delete(initToken);
-    return res.status(401).json({ error: 'Backup code is invalid.' });
-  }
-
-  // Re-check against MongoDB (defence in depth + cap / expiry freshness).
-  if (!await ensureMongoReady(5000)) {
-    initTokenStore.delete(initToken);
-    return res.status(503).json({ error: 'Backup-code service is offline. Please try again in a moment.' });
-  }
-  const fresh = await BackupCode.findOne({ id: record.codeId }).select('+codeHash');
-  if (!isCodeUsable(fresh) || !(await bcrypt.compare(code.trim(), fresh.codeHash))) {
-    initTokenStore.delete(initToken);
-    await writeAuditRow({
-      codePrefix: record.codePrefix,
-      reason: record.reason, ip, userAgent: ua, chosenEmail: cleanEmail,
-      success: false, initAt: '', completeAt,
-      error: fresh && !isCodeUsable(fresh) ? 'CODE_UNUSABLE' : 'CODE_MISMATCH_AT_COMPLETE',
-    });
-    return res.status(401).json({ error: 'Backup code is invalid or no longer usable.' });
-  }
-
-  // Burn the token and stamp usage on the code row
-  record.used = true;
-  initTokenStore.delete(initToken);
-
-  try {
-    fresh.usageCount = (fresh.usageCount || 0) + 1;
-    fresh.lastUsedAt = new Date();
-    fresh.lastUsedIp = ip;
-    fresh.lastUsedReason = record.reason.slice(0, 500);
-    await fresh.save();
-  } catch (e) {
-    // Non-blocking: if we can't bump the counter, the user still got in
-    console.warn('[backupCode] failed to bump usageCount:', e.message);
-  }
-
-  // Issue admin JWT (same shape as /api/admin/login)
-  const adminId = uuidv4();
-  const adminUser = {
-    id: adminId,
-    full_name: admin.name,
-    name: admin.name,
-    email: admin.email,
-    role: admin.role,
-    is_active: true,
-    email_verified: true,
-    two_factor_enabled: false,
-    login_method: 'Backup Code (SOS)',
-    last_login: new Date().toISOString(),
-  };
-
-  const token = generateToken(
-    { id: adminId, email: admin.email, name: admin.name, role: 'admin' },
-    '12h',
-  );
-
-  await writeAuditRow({
-    codePrefix: record.codePrefix,
-    reason: record.reason, ip, userAgent: ua, chosenEmail: cleanEmail,
-    success: true, initAt: '', completeAt,
-    error: '',
-  });
-
-  console.log(
-    `\n\x1b[32m[SOS] Backup-code admin login: ${admin.email} from IP ${ip} | codePrefix: ${record.codePrefix} | reason: "${record.reason}"\x1b[0m`,
-  );
-
-  res.json({
-    message: 'Admin login successful (backup code).',
-    token,
-    user: adminUser,
-  });
+router.post('/complete', (req, res) => {
+  console.warn(`[backup-code] retired /complete called from ${getClientIP(req)} — direct to /api/admin/sos/verify`);
+  res.status(410).json(RETIRED_MSG);
 });
 
 // ── GET /api/admin/backup-code/status ─────────────────────────────────────
+// This endpoint is unauthenticated, so it now says only whether the flow can
+// run. It used to publish both administrators' email addresses, how many backup
+// codes exist and the exact rate-limit parameters — a free reconnaissance feed
+// for anyone probing the break-glass path. The counts and identities moved to
+// GET /admin/list, which requires an authenticated admin.
 router.get('/status', async (_req, res) => {
-  let codeCount = 0;
-  let activeCount = 0;
-  if (isMongoReady()) {
-    try {
-      codeCount = await BackupCode.countDocuments({});
-      activeCount = await BackupCode.countDocuments({ isActive: true });
-    } catch (e) { /* ignore */ }
-  }
-  res.json({
-    ok: true,
-    mongoReady: isMongoReady(),
-    codeCount,
-    activeCount,
-    admins: BACKUP_CODE_ALLOWED_ADMINS.map((a) => ({ email: a.email, name: a.name, role: a.role })),
-    initTokenTtlSeconds: Math.floor(INIT_TOKEN_TTL_MS / 1000),
-    rateLimit: { max: RATE_MAX, windowSeconds: Math.floor(RATE_WINDOW_MS / 1000) },
-  });
+  res.json({ ok: true, available: isMongoReady() });
 });
 
 // ════════════════════════════════════════════════════════════════════════════

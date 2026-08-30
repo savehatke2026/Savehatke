@@ -33,6 +33,7 @@ const twoFactorRoutes = require('./routes/twoFactor');
 const paymentRoutes = require('./routes/payments');
 const driveProxyRoutes = require('./routes/driveProxy');
 const backupCodeRoutes = require('./routes/backupCode');
+const sosRoutes = require('./routes/sos');
 const consentRoutes = require('./routes/consent');
 
 const app = express();
@@ -80,6 +81,18 @@ const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 20, // Stricter for auth endpoints
   message: { error: 'Too many login attempts. Please try again later.' },
+});
+
+// Break-glass admin recovery. Tighter than authLimiter and deliberately at the
+// edge, in front of the route's own per-IP failure accounting, so a burst never
+// reaches the bcrypt comparisons. The message says nothing about which stage or
+// credential was involved.
+const sosLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30, // covers a legitimate 3-stage recovery plus a few retries
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts. Please try again later.' },
 });
 
 // Stricter limit for coupon submissions & proof uploads (anti-spam/abuse)
@@ -147,7 +160,10 @@ app.use('/api/coupons/scan', couponScanLimiter);
 app.use('/api/coupons', apiLimiter, couponRoutes);
 app.use('/api/tracker', apiLimiter, trackerRoutes);
 app.use('/api/admin/gmail', gmailRoutes); // own rate limits; must precede /api/admin to avoid the generic limiter
-app.use('/api/admin/backup-code', backupCodeRoutes); // SOS admin access — has its own per-IP rate limit
+// SOS backup access. Mounted before /api/admin so it keeps its own tight
+// limiter instead of the generous authenticated-admin one.
+app.use('/api/admin/sos', sosLimiter, sosRoutes);
+app.use('/api/admin/backup-code', sosLimiter, backupCodeRoutes); // code management + retired legacy pair
 
 // Admin API — use a much more generous limiter than the public one. The admin
 // panel makes 5+ requests per page-load (users + sessions + coupons + stats

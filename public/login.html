@@ -318,6 +318,23 @@
       background:rgba(0,230,118,.18);
       color:#00e676;
     }
+    /* ── MOBILE TOUCH TARGETS ──
+       Usability only, no redesign. Each control keeps its exact size, colour,
+       border and position; an absolutely-positioned (therefore layout-neutral,
+       and not a flex item) invisible ::after widens the tappable region to
+       ~44px. Stacked text links get mobile-only vertical padding instead of an
+       overlay, so neighbouring hit areas can't overlap and steal each other's
+       taps. Nothing here applies above 768px. */
+    @media(max-width:768px){
+      .nav-toggle{position:relative}
+      .nav-toggle::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      .nav-brand{position:relative}
+      .nav-brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .fcol a{padding:9px 0;margin-bottom:0}
+      .foot-col a{padding:9px 0;margin-bottom:0}
+      .mclose{position:relative}
+      .mclose::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+    }
   </style>
 </head>
 <body>
@@ -453,7 +470,11 @@
           <strong>⚠️ This action is audited.</strong> Your reason, IP, and the admin account you pick will be recorded.
         </div>
 
-        <button type="submit" class="btn btn-primary" id="backupReasonBtn" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f00">
+        <!-- CAPTCHA for the SOS path. Its own widget, because a Turnstile token
+             is single-use and the login widget's token may already be spent. -->
+        <div class="fgroup" id="backupTurnstileGroup" style="display:none"></div>
+
+        <button type="submit" class="btn btn-primary" id="backupReasonBtn" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f00" disabled>
           Continue &rarr;
         </button>
       </form>
@@ -491,6 +512,44 @@
           <path d="m12 19-7-7 7-7"/>
         </svg>
         Back to reason
+      </button>
+    </div>
+
+    <!-- Backup-Code Security-Question State -->
+    <div id="backupQuestionState" style="display:none;">
+      <div class="auth-hdr">
+        <div class="auth-icon" style="background:linear-gradient(135deg,rgba(79,195,247,.2),rgba(0,230,118,.18));border-color:rgba(79,195,247,.4);">
+          <!-- Lock / key icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="#4fc3f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="4" y="10" width="16" height="11" rx="2"/>
+            <path d="M8 10V7a4 4 0 0 1 8 0v3"/>
+            <path d="M12 15v2"/>
+          </svg>
+        </div>
+        <h1 class="auth-title">Security <span class="gtext">Verification</span></h1>
+        <p class="auth-sub">Answer the security questions to continue SOS recovery.</p>
+      </div>
+
+      <div id="backupQuestionAdmin" style="display:flex;align-items:center;gap:10px;background:rgba(79,195,247,.06);border:1px solid rgba(79,195,247,.18);border-radius:10px;padding:10px 13px;margin-bottom:16px;font-size:.8rem;color:#a8c0dc"></div>
+
+      <form id="backupQuestionForm" onsubmit="handleBackupAnswersSubmit(event)">
+        <!-- Questions are rendered from the server response; the set differs per
+             attempt and never includes the expected answers. -->
+        <div id="backupQuestionList" style="display:flex;flex-direction:column;gap:14px;margin-bottom:16px"></div>
+
+        <div id="backupQuestionError" style="display:none;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:.82rem;color:#f87171;line-height:1.5"></div>
+
+        <button type="submit" class="btn btn-primary" id="backupVerifyBtn" disabled>
+          Verify Answers &rarr;
+        </button>
+      </form>
+
+      <button class="back-link" onclick="backupGoBackToPick()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5"/>
+          <path d="m12 19-7-7 7-7"/>
+        </svg>
+        Choose a different admin
       </button>
     </div>
 
@@ -944,11 +1003,13 @@
     const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw);
     const looksLikeBackupCode = !looksLikeEmail && raw.length >= 8;
 
-    // ── Backup-code path (SOS access). Skips Turnstile on purpose — the
-    //    server already rate-limits + bcrypt-checks the code. We route to
-    //    the reason-prompt state without revealing any admin email list.
+    // ── Backup-code path (SOS access). The login CAPTCHA is not shown here:
+    //    the SOS step has its own, and the code itself is never validated in
+    //    the browser. The value is held in memory only — writing it to
+    //    sessionStorage would leave an admin credential readable by any later
+    //    script on the page.
     if (looksLikeBackupCode) {
-      sessionStorage.setItem('sh_backup_code', raw);
+      backupCodeOnce = raw;
       showBackupReasonState();
       return;
     }
@@ -992,7 +1053,13 @@
   /* ══════════════════════════════════════════
      BACKUP-CODE (SOS) FLOW
   ══════════════════════════════════════════ */
-  let backupInitToken = null;
+  // The raw backup code lives in this closure for the duration of the attempt
+  // and nowhere else: not sessionStorage, not localStorage, not the URL. It is
+  // sent exactly once, to /sos/start, and cleared as soon as the server answers.
+  let backupCodeOnce = null;
+  let sosToken = null;
+  let sosQuestions = [];
+  let sosAdminName = '';
 
   function isBackupCodeShapeClient(s) {
     if (!s || typeof s !== 'string') return false;
@@ -1002,11 +1069,77 @@
     return true;
   }
 
+  function forgetBackupCode() {
+    backupCodeOnce = null;
+  }
+
+  /* ── SOS CAPTCHA (its own widget: Turnstile tokens are single-use) ── */
+  let sosTurnstileWidgetId = null;
+  let sosCaptchaUnavailable = false;
+
+  function mountSosTurnstile() {
+    const group = document.getElementById('backupTurnstileGroup');
+    if (!group) return;
+    const siteKey = getTurnstileSiteKey();
+    if (!siteKey || !window.turnstile) {
+      // No CAPTCHA available in this browser/deployment. The server decides
+      // whether that is acceptable; the button is not held hostage by it.
+      sosCaptchaUnavailable = true;
+      group.style.display = 'none';
+      refreshBackupReasonButton();
+      return;
+    }
+    group.style.display = 'block';
+    group.innerHTML = '';
+    try {
+      sosTurnstileWidgetId = window.turnstile.render(group, {
+        sitekey: siteKey,
+        theme: 'dark',
+        callback: () => refreshBackupReasonButton(),
+        'expired-callback': () => refreshBackupReasonButton(),
+        'error-callback': () => { sosCaptchaUnavailable = true; refreshBackupReasonButton(); },
+      });
+    } catch (e) {
+      sosCaptchaUnavailable = true;
+      group.style.display = 'none';
+    }
+    refreshBackupReasonButton();
+  }
+
+  function getSosCaptchaToken() {
+    if (!window.turnstile || sosTurnstileWidgetId === null) return '';
+    try { return window.turnstile.getResponse(sosTurnstileWidgetId) || ''; } catch (e) { return ''; }
+  }
+
+  function resetSosCaptcha() {
+    if (!window.turnstile || sosTurnstileWidgetId === null) return;
+    try { window.turnstile.reset(sosTurnstileWidgetId); } catch (e) {}
+  }
+
+  // Continue stays disabled until the reason is long enough and the CAPTCHA has
+  // produced a token. The server re-checks both — this is purely so the button
+  // does not invite a request that cannot succeed.
+  function refreshBackupReasonButton() {
+    const btn = document.getElementById('backupReasonBtn');
+    const ta = document.getElementById('inputBackupReason');
+    if (!btn || !ta) return;
+    const reasonOk = ta.value.trim().length >= 10 && ta.value.trim().length <= 500;
+    const captchaOk = sosCaptchaUnavailable || Boolean(getSosCaptchaToken());
+    btn.disabled = !(reasonOk && captchaOk);
+  }
+
+  function hideAllBackupStates() {
+    ['backupReasonState', 'backupPickState', 'backupQuestionState'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+
   function showBackupReasonState() {
     document.getElementById('loginState').style.display = 'none';
     document.getElementById('verifyState').style.display = 'none';
     document.getElementById('successState').style.display = 'none';
-    document.getElementById('backupPickState').style.display = 'none';
+    hideAllBackupStates();
     document.getElementById('backupReasonState').style.display = 'block';
     const ta = document.getElementById('inputBackupReason');
     if (ta) {
@@ -1015,46 +1148,68 @@
       if (counter) counter.textContent = '0';
       setTimeout(() => ta.focus(), 60);
     }
+    mountSosTurnstile();
+    refreshBackupReasonButton();
   }
 
+  // Admin cards carry only what the server chose to publish: display name, role,
+  // avatar and availability. No email address, no identifier the client could
+  // act on beyond the opaque ref.
   function showBackupPickState(admins) {
     const list = document.getElementById('backupAdminList');
     const err = document.getElementById('backupPickError');
     if (err) { err.style.display = 'none'; err.textContent = ''; }
     if (list) {
       list.innerHTML = '';
-      admins.forEach((a) => {
-        const initial = (a.name || a.email).trim().slice(0, 1).toUpperCase();
+      (admins || []).forEach((a) => {
+        const name = a.name || 'Administrator';
+        const initial = name.trim().slice(0, 1).toUpperCase();
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'backup-admin-btn';
-        btn.dataset.email = a.email;
-        btn.innerHTML = `
-          <span class="bab-avatar">${initial}</span>
-          <span class="bab-body">
-            <span class="bab-name">${a.name || a.email}</span>
-            <span class="bab-email">${a.email}</span>
-            <span class="bab-role">${a.role || 'Admin'}</span>
-          </span>
-          <span class="bab-arrow" aria-hidden="true">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
-          </span>
-        `;
-        btn.addEventListener('click', () => handleBackupPick(a.email, btn));
+        btn.dataset.ref = a.ref;
+        const avatar = a.avatar
+          ? '<img src="' + escapeAttr(a.avatar) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">'
+          : initial;
+        const status = a.online
+          ? '<span style="color:#00e676">&#9679; Online</span>'
+          : '<span style="color:#6b88aa">&#9679; Unavailable</span>';
+        btn.innerHTML =
+          '<span class="bab-avatar">' + avatar + '</span>' +
+          '<span class="bab-body">' +
+            '<span class="bab-name">' + escapeText(name) + '</span>' +
+            '<span class="bab-email">' + status + '</span>' +
+            '<span class="bab-role">' + escapeText(a.role || 'Admin') + '</span>' +
+          '</span>' +
+          '<span class="bab-arrow" aria-hidden="true">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>' +
+          '</span>';
+        if (a.online === false) btn.disabled = true;
+        else btn.addEventListener('click', () => handleBackupPick(a.ref, btn, name));
         list.appendChild(btn);
       });
     }
-    document.getElementById('backupReasonState').style.display = 'none';
+    hideAllBackupStates();
     document.getElementById('backupPickState').style.display = 'block';
   }
 
+  function escapeText(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function escapeAttr(v) {
+    return escapeText(v).replace(/"/g, '&quot;');
+  }
+
+  /* ── Stage 1: reason + CAPTCHA ── */
   async function handleBackupReasonSubmit(e) {
     e.preventDefault();
-    const code = sessionStorage.getItem('sh_backup_code') || '';
+    const code = backupCodeOnce || '';
     const reason = (document.getElementById('inputBackupReason')?.value || '').trim();
     const btn = document.getElementById('backupReasonBtn');
+
     if (!isBackupCodeShapeClient(code)) {
-      showToast('Backup code is missing or invalid. Please go back and try again.', 'error');
+      showToast('Please start again from the login screen.', 'error');
       backupGoBackToLogin();
       return;
     }
@@ -1062,28 +1217,33 @@
       showToast('Please provide a reason of at least 10 characters.', 'error');
       return;
     }
-    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-top-color:#1a0f00"></span> Verifying backup code…'; }
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner" style="border-top-color:#1a0f00"></span> Checking&hellip;'; }
     try {
-      const data = await api('/admin/backup-code/init', { method: 'POST', body: { code, reason } });
-      backupInitToken = data.initToken;
-      if (!backupInitToken || !Array.isArray(data.admins) || data.admins.length === 0) {
-        throw new Error('Server did not return a valid admin list.');
+      const data = await api('/admin/sos/start', {
+        method: 'POST',
+        body: { code, reason, cfTurnstileToken: getSosCaptchaToken() },
+      });
+      // The code has done its job; drop it before anything else can read it.
+      forgetBackupCode();
+      sosToken = data.sosToken || null;
+      if (!sosToken || !Array.isArray(data.admins) || !data.admins.length) {
+        throw new Error('Unable to continue with SOS recovery.');
       }
-      sessionStorage.setItem('sh_backup_reason', reason);
       showBackupPickState(data.admins);
     } catch (err) {
-      showToast(err.message || 'Backup code is invalid.', 'error');
-      if (btn) { btn.disabled = false; btn.textContent = 'Continue \u2192'; }
+      resetSosCaptcha();
+      showToast(err.message || 'Unable to continue with SOS recovery.', 'error');
+      if (btn) { btn.innerHTML = 'Continue &rarr;'; }
+      refreshBackupReasonButton();
     }
   }
 
-  async function handleBackupPick(chosenEmail, btnEl) {
-    const code = sessionStorage.getItem('sh_backup_code') || '';
-    const reason = sessionStorage.getItem('sh_backup_reason') || '';
-    const initToken = backupInitToken;
-    if (!initToken) {
-      showToast('Your backup session expired. Please start over.', 'error');
-      backupGoBackToReason();
+  /* ── Stage 2: pick an administrator, receive this attempt's questions ── */
+  async function handleBackupPick(adminRef, btnEl, adminName) {
+    if (!sosToken) {
+      showToast('Your SOS session expired. Please start over.', 'error');
+      backupGoBackToLogin();
       return;
     }
     const err = document.getElementById('backupPickError');
@@ -1093,74 +1253,159 @@
       b.classList.toggle('is-picked', b === btnEl);
     });
     const original = btnEl.innerHTML;
-    btnEl.innerHTML = `<span class="bab-body" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px"><span class="spinner" style="border-top-color:#060d1f;width:16px;height:16px"></span><span>Signing you in…</span></span>`;
+    btnEl.innerHTML = '<span class="bab-body" style="width:100%;display:flex;align-items:center;justify-content:center;gap:10px"><span class="spinner" style="border-top-color:#060d1f;width:16px;height:16px"></span><span>Loading security questions&hellip;</span></span>';
+
     try {
-      const data = await api('/admin/backup-code/complete', {
+      const data = await api('/admin/sos/select-admin', {
         method: 'POST',
-        body: { code, reason, chosenEmail, initToken },
+        body: { sosToken, adminRef },
       });
-      if (data && data.token && data.user) {
-        // Mirror the regular admin login: store both keys so the dashboard
-        // sees the right user, and the success state shows the right text.
-        Auth.setAdminAuth(data.token, data.user);
-        Auth.setAuth(data.token, data.user);
-        try {
-          sessionStorage.removeItem('sh_backup_code');
-          sessionStorage.removeItem('sh_backup_reason');
-        } catch (e) {}
-        backupInitToken = null;
-        // Show the same success state the regular flow uses
-        document.getElementById('backupPickState').style.display = 'none';
-        document.getElementById('successState').style.display = 'block';
-        setTimeout(() => { window.location.replace('vault'); }, 900);
-      } else {
-        throw new Error('Server response was missing a session token.');
-      }
+      sosAdminName = (data.admin && data.admin.name) || adminName || 'Administrator';
+      sosQuestions = Array.isArray(data.questions) ? data.questions : [];
+      if (!sosQuestions.length) throw new Error('Unable to continue with SOS recovery.');
+      showBackupQuestionState();
     } catch (e2) {
       btnEl.innerHTML = original;
       document.querySelectorAll('.backup-admin-btn').forEach((b) => {
         b.disabled = false;
         b.classList.remove('is-picked');
       });
+      // The server sends a refreshed list when an administrator has become
+      // unavailable, so the picker is never left showing a stale roster.
+      if (e2 && e2.data && Array.isArray(e2.data.admins)) showBackupPickState(e2.data.admins);
       if (err) {
-        err.textContent = e2.message || 'Could not complete backup-code login. Please try again.';
+        err.textContent = e2.message || 'Unable to continue with SOS recovery.';
         err.style.display = 'block';
-      }
-      // Server may have burned the init token; reset to reason state
-      if (/expired|invalid|start over|network changed/i.test(e2.message || '')) {
-        backupInitToken = null;
-        setTimeout(() => backupGoBackToReason(), 1200);
       }
     }
   }
 
-  function backupGoBackToLogin() {
-    backupInitToken = null;
+  /* ── Stage 3: answer the questions ── */
+  function showBackupQuestionState() {
+    const host = document.getElementById('backupQuestionList');
+    const who = document.getElementById('backupQuestionAdmin');
+    const err = document.getElementById('backupQuestionError');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+    if (who) {
+      who.innerHTML = '<span aria-hidden="true">&#128100;</span><span>Verifying as <strong style="color:#e2ecff">' +
+        escapeText(sosAdminName) + '</strong> &middot; ' + sosQuestions.length + ' questions</span>';
+    }
+    if (host) {
+      host.innerHTML = '';
+      sosQuestions.forEach((q, i) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'fgroup';
+        wrap.style.marginBottom = '0';
+        const id = 'sosAnswer' + i;
+        const isDate = q.kind === 'date';
+        wrap.innerHTML =
+          '<label class="flabel" for="' + id + '">' + escapeText(q.question) + ' <span style="color:#fbbf24">*</span></label>' +
+          '<input class="finput" id="' + id + '" data-key="' + escapeAttr(q.key) + '" type="' + (isDate ? 'date' : 'text') + '"' +
+          ' autocomplete="off" spellcheck="false" required' +
+          (isDate ? '' : ' placeholder="Your answer"') + '>';
+        host.appendChild(wrap);
+      });
+      host.querySelectorAll('input').forEach((input) => {
+        input.addEventListener('input', refreshBackupVerifyButton);
+      });
+    }
+    hideAllBackupStates();
+    document.getElementById('backupQuestionState').style.display = 'block';
+    refreshBackupVerifyButton();
+    const first = document.getElementById('sosAnswer0');
+    if (first) setTimeout(() => first.focus(), 80);
+  }
+
+  function refreshBackupVerifyButton() {
+    const btn = document.getElementById('backupVerifyBtn');
+    if (!btn) return;
+    const inputs = Array.from(document.querySelectorAll('#backupQuestionList input'));
+    btn.disabled = !inputs.length || inputs.some((i) => !i.value.trim());
+  }
+
+  async function handleBackupAnswersSubmit(e) {
+    e.preventDefault();
+    if (!sosToken) {
+      showToast('Your SOS session expired. Please start over.', 'error');
+      backupGoBackToLogin();
+      return;
+    }
+    const btn = document.getElementById('backupVerifyBtn');
+    const err = document.getElementById('backupQuestionError');
+    if (err) { err.style.display = 'none'; err.textContent = ''; }
+
+    const answers = {};
+    document.querySelectorAll('#backupQuestionList input').forEach((input) => {
+      answers[input.dataset.key] = input.value;
+    });
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Verifying&hellip;'; }
     try {
-      sessionStorage.removeItem('sh_backup_code');
-      sessionStorage.removeItem('sh_backup_reason');
-    } catch (e) {}
-    document.getElementById('backupReasonState').style.display = 'none';
-    document.getElementById('backupPickState').style.display = 'none';
+      const data = await api('/admin/sos/verify', { method: 'POST', body: { sosToken, answers } });
+      if (!data || !data.token || !data.user) throw new Error('Unable to continue with SOS recovery.');
+
+      Auth.setAdminAuth(data.token, data.user);
+      Auth.setAuth(data.token, data.user);
+      sosToken = null;
+      sosQuestions = [];
+      hideAllBackupStates();
+      document.getElementById('successState').style.display = 'block';
+      setTimeout(() => { window.location.replace('vault'); }, 900);
+    } catch (e2) {
+      if (btn) { btn.innerHTML = 'Verify Answers &rarr;'; }
+      const payload = (e2 && e2.data) || {};
+      if (err) {
+        err.textContent = e2.message || 'Security verification failed. Please check your answers and try again.';
+        err.style.display = 'block';
+      }
+      // The server destroys the session after too many failures — there is
+      // nothing left to retry against, so return to the start.
+      if (payload.restart) {
+        sosToken = null;
+        setTimeout(() => backupGoBackToLogin(), 1600);
+        return;
+      }
+      document.querySelectorAll('#backupQuestionList input').forEach((i) => { i.value = ''; });
+      refreshBackupVerifyButton();
+      const first = document.getElementById('sosAnswer0');
+      if (first) first.focus();
+    }
+  }
+
+  function backupGoBackToLogin() {
+    forgetBackupCode();
+    sosToken = null;
+    sosQuestions = [];
+    hideAllBackupStates();
     document.getElementById('loginState').style.display = 'block';
     const submit = document.getElementById('submitBtn');
     if (submit) { submit.disabled = false; submit.textContent = 'Continue \u2192'; }
   }
 
   function backupGoBackToReason() {
-    backupInitToken = null;
-    document.getElementById('backupPickState').style.display = 'none';
-    document.getElementById('backupReasonState').style.display = 'block';
+    // The code is gone by this point, so going back means starting over.
+    backupGoBackToLogin();
   }
 
-  // Live character counter for the reason textarea
+  function backupGoBackToPick() {
+    sosQuestions = [];
+    hideAllBackupStates();
+    document.getElementById('backupPickState').style.display = 'block';
+    document.querySelectorAll('.backup-admin-btn').forEach((b) => {
+      b.disabled = false;
+      b.classList.remove('is-picked');
+    });
+  }
+
+  // Live character counter + Continue gating for the reason textarea
   document.addEventListener('DOMContentLoaded', () => {
     const ta = document.getElementById('inputBackupReason');
     const counter = document.getElementById('backupReasonCount');
-    if (ta && counter) {
+    if (ta) {
       ta.addEventListener('input', () => {
-        counter.textContent = String(ta.value.length);
         if (ta.value.length > 500) ta.value = ta.value.slice(0, 500);
+        if (counter) counter.textContent = String(ta.value.length);
+        refreshBackupReasonButton();
       });
     }
   });
@@ -1530,15 +1775,19 @@
     document.getElementById('submitBtn').textContent = 'Continue \u2192';
   }
 
-  // Ensure any stale backup-code state is wiped when the regular login flow
-  // succeeds, so a later "back" doesn't leak the secret into the email field.
+  // Belt and braces: drop the in-memory backup code (and clear the keys older
+  // builds used to write) as soon as any login succeeds, so a later "back" can
+  // never put an admin credential back into the email field.
   (function clearBackupOnRegularLogin() {
     try {
       const _setAuth = window.Auth && window.Auth.setAuth;
       if (_setAuth) {
         window.Auth.setAuth = function (token, user) {
-          sessionStorage.removeItem('sh_backup_code');
-          sessionStorage.removeItem('sh_backup_reason');
+          try {
+            forgetBackupCode();
+            sessionStorage.removeItem('sh_backup_code');
+            sessionStorage.removeItem('sh_backup_reason');
+          } catch (e) { /* non-fatal */ }
           return _setAuth.call(this, token, user);
         };
       }

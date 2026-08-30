@@ -49,14 +49,19 @@ async function connectDB() {
     { serverSelectionTimeoutMS: 15000, label: 'second (after backoff)' },
   ];
   let lastErr = null;
-  for (const [i, opts] of attempts.entries()) {
+  for (const [i, attempt] of attempts.entries()) {
+    // `label` is ours, for the log line only. Mongoose 9 validates connect
+    // options strictly and throws "option label is not supported" if it is
+    // passed through, which used to fail both attempts before the driver ever
+    // dialled the server.
+    const { label, ...opts } = attempt;
     try {
       const conn = await mongoose.connect(mongoUri, {
         ...opts,
         bufferCommands: false,
       });
       isConnected = true;
-      console.log(`🍃 MongoDB Connected (${opts.label} attempt): ${conn.connection.host}/${conn.connection.name}`);
+      console.log(`🍃 MongoDB Connected (${label} attempt): ${conn.connection.host}/${conn.connection.name}`);
 
       // Seed initial admin users into MongoDB
       await seedAdminUsers();
@@ -64,7 +69,7 @@ async function connectDB() {
       return;
     } catch (err) {
       lastErr = err;
-      console.warn(`⚠️ MongoDB ${opts.label} attempt failed: ${err.message}`);
+      console.warn(`⚠️ MongoDB ${label} attempt failed: ${err.message}`);
       if (i < attempts.length - 1) {
         await new Promise((r) => setTimeout(r, 1500));
       }

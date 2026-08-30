@@ -261,10 +261,15 @@ async function api(endpoint, options = {}) {
         const err = new Error(data.error || 'Too many requests. Please wait a few seconds and try again.');
         err.status = 429;
         err.isRateLimited = true;
+        err.data = data;
         throw err;
       }
       const err = new Error(data.error || `HTTP ${res.status}`);
       err.status = res.status;
+      // Some endpoints send actionable detail beside the message — a refreshed
+      // list, a "start over" flag — so a caller can react rather than only
+      // print. Additive: callers that read .message are unaffected.
+      err.data = data;
       throw err;
     }
 
