@@ -59,8 +59,9 @@ const DEFAULT_SETTINGS = {
   fallbackBehavior: 'static_message', // static_message | knowledge_only
   fallbackMessage: prompts.DEFAULT_FALLBACK,
   unknownQuestionMessage: prompts.DEFAULT_UNKNOWN,
-  // Rate limits (messages per window). The Ultra-Security doc gives a
-  // baseline (10/40/60 per 15 min) which we honour by default.
+  // Rate limits (messages per window). SH-SEC-CHATBOT-4.0 mandates layered,
+  // documented ceilings without fixing values; these are the v3.2 baseline
+  // numbers (10/40/60 per 15 min) it carries forward as configuration.
   guestRateLimit: 10,          // per guest per 15 min
   userRateLimit: 40,           // per logged-in user per 15 min
   ipRateLimit: 60,             // per IP per 15 min
@@ -74,7 +75,8 @@ const DEFAULT_SETTINGS = {
   toolCheckSubmissions: true,
 };
 
-// Security block is non-overridable — built from the Ultra-Security doc.
+// Security block is non-overridable — built from the SH-SEC-CHATBOT-4.0
+// Highest-Practical-Security Baseline (supersedes Ultra-Security v3.2).
 const PROMPT_SECURITY_FIXED = prompts.buildSecurityBlock();
 
 const TOOL_DEFS = [

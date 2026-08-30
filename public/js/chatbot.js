@@ -168,6 +168,23 @@
       justify-content: center;
       font-size: 1.05rem;
       flex-shrink: 0;
+      overflow: hidden;
+    }
+    /* The SaveHatke mark sits on the green tile. If the asset ever fails to
+       load, onerror swaps in the lettermark beside it so the header never
+       shows a broken image. */
+    .chatbot-avatar-logo {
+      width: 26px;
+      height: 26px;
+      object-fit: contain;
+      display: block;
+    }
+    .chatbot-avatar-fallback {
+      font-family: 'Outfit', system-ui, sans-serif;
+      font-weight: 800;
+      font-size: .95rem;
+      color: #04210f;
+      letter-spacing: -.02em;
     }
     .chatbot-header-name {
       font-weight: 700;
@@ -446,7 +463,14 @@
 >
   <div class="chatbot-header">
     <div class="chatbot-header-left">
-      <div class="chatbot-avatar" aria-hidden="true">🤖</div>
+      <div class="chatbot-avatar" aria-hidden="true">
+        <img
+          class="chatbot-avatar-logo"
+          src="/logo.png"
+          alt=""
+          onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
+        ><span class="chatbot-avatar-fallback" style="display:none">SH</span>
+      </div>
       <div>
         <div class="chatbot-header-name">SaveHatke AI Assistant</div>
         <div class="chatbot-header-status" id="cbStatus">
