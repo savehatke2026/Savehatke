@@ -583,13 +583,13 @@
     /* ===================================================
        FOOTER — matches index.html footer exactly
     =================================================== */
-    .footer{background:rgba(9,16,34,.95);border-top:1px solid rgba(79,195,247,.1);padding:52px 0 0;margin-top:52px;position:relative;z-index:1}
-    .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:44px;padding-bottom:44px}
-    .fbrand p{font-size:.86rem;color:#6b88aa;line-height:1.7;margin-top:14px;max-width:268px}
-    .fcol h4{font-size:.75rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px;color:#a8c0dc}
-    .fcol a{display:block;font-size:.85rem;color:#6b88aa;margin-bottom:10px;transition:color .2s}
+    .footer{background:rgba(9,16,34,.95);border-top:1px solid rgba(79,195,247,.1);padding:36px 0 0}
+    .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px;padding-bottom:28px}
+    .fbrand p{font-size:.84rem;color:#6b88aa;line-height:1.6;margin-top:12px;max-width:320px}
+    .fcol h4{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
+    .fcol a{display:block;font-size:.84rem;color:#6b88aa;margin-bottom:8px;transition:color .2s}
     .fcol a:hover{color:#00e676}
-    .fbot{border-top:1px solid rgba(79,195,247,.1);padding:18px 0;display:flex;justify-content:space-between;font-size:.8rem;color:#6b88aa}
+    .fbot{border-top:1px solid rgba(79,195,247,.1);padding:14px 0;display:flex;justify-content:space-between;font-size:.78rem;color:#6b88aa}
 
     /* ===================================================
        MODALS
@@ -646,18 +646,22 @@
       .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
       .qa-grid{grid-template-columns:minmax(0,1fr)}
     }
+    @media(max-width:900px){
+      .footer-grid{grid-template-columns:1fr 1fr;gap:24px}
+    }
     @media(max-width:720px){
       .three-col{grid-template-columns:1fr}
-      .footer-grid{grid-template-columns:1fr 1fr;gap:28px}
       .activity-desktop{display:none}
       .activity-mobile{display:block}
+    }
+    @media(max-width:600px){
+      .footer-grid{grid-template-columns:1fr}
+      .fbot{flex-direction:column;gap:6px;text-align:center}
     }
     @media(max-width:480px){
       .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
       .qa-grid{grid-template-columns:minmax(0,1fr)}
       .stat-val{font-size:1.45rem}
-      .footer-grid{grid-template-columns:1fr}
-      .fbot{flex-direction:column;gap:8px;text-align:center}
       .notif-panel{width:300px}
       .welcome-actions{width:100%}
       .welcome-actions .btn{flex:1;justify-content:center;min-height:42px}
@@ -881,6 +885,32 @@
       .mobile-sb-bar{display:flex}
     }
 
+    /* ── MOBILE TOUCH TARGETS ──
+       Usability only, no redesign. Each control keeps its exact size, colour,
+       border and position; an absolutely-positioned (therefore layout-neutral,
+       and not a flex item) invisible ::after widens the tappable region. Densely
+       stacked items get mobile-only vertical padding instead of an overlay, so
+       neighbouring hit areas can't overlap and steal each other's taps. Nothing
+       here applies above 768px. */
+    @media(max-width:768px){
+      .nav-toggle{position:relative}
+      .nav-toggle::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      .nav-brand{position:relative}
+      .nav-brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .fcol a{padding:9px 0;margin-bottom:0}
+      .foot-col a{padding:9px 0;margin-bottom:0}
+      .mclose{position:relative}
+      .mclose::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      /* Sub-nav rows sit 1px apart, so they grow rather than overlay. */
+      .sb-subitem{padding-top:11px;padding-bottom:11px}
+      /* Vertical-only overlays: these controls have close horizontal
+         neighbours, so widening sideways would steal their taps. */
+      .mobile-sb-btn{position:relative}
+      .mobile-sb-btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .modal-close-btn::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      .tf-linkbtn{position:relative}
+      .tf-linkbtn::after{content:'';position:absolute;left:0;right:0;top:50%;height:36px;transform:translateY(-50%)}
+    }
   </style>
 </head>
 <body>
