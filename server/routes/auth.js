@@ -268,6 +268,29 @@ async function enrichSessionGeo(sessionId, ip, geo) {
   } catch (e) { /* enrichment is best-effort */ }
 }
 
+/**
+ * Record a rejected sign-in attempt in the append-only security audit log.
+ *
+ * This is what makes the Login History page able to show a "Failed" row at
+ * all — a rejected attempt never creates a session, so there is nothing in
+ * user_sessions to read. Best-effort: a logging outage must never turn into a
+ * login error, so failures here are swallowed.
+ */
+function logLoginFailure(req, { email, userId = '', detail = '' }) {
+  try {
+    const { deviceStr, osStr, browserStr } = parseUserAgent(req);
+    twoFactor.logSecurityEvent({
+      userId,
+      email,
+      event: 'login_failed',
+      outcome: 'failure',
+      ip: getClientIP(req),
+      device: [browserStr, osStr || deviceStr].filter(Boolean).join(' \u2022 '),
+      detail,
+    }).catch(() => {});
+  } catch (e) { /* audit logging is best-effort */ }
+}
+
 async function createLoginSession(req, userId, loginMethod, email, userName) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
@@ -797,6 +820,11 @@ router.post('/login', async (req, res) => {
       if (password && sheetUser.passwordHash) {
         const validPassword = await bcrypt.compare(password, sheetUser.passwordHash);
         if (!validPassword) {
+          logLoginFailure(req, {
+            email: loginEmail,
+            userId: sheetUser.user_id || sheetUser.id || '',
+            detail: 'Incorrect password',
+          });
           return res.status(401).json({ error: 'Invalid password.' });
         }
       }
@@ -1487,6 +1515,89 @@ router.post('/sessions/revoke-others', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Revoke other sessions error:', err);
     res.status(500).json({ error: 'Could not log out the other devices.' });
+  }
+});
+
+// GET /api/auth/login-history â€” Read-only sign-in log for the security page.
+//
+// Two sources, merged newest-first:
+//   â€¢ user_sessions        â†’ every successful sign-in (a session only exists
+//                            because the login succeeded), including ones that
+//                            have since expired or been logged out.
+//   â€¢ SecurityAudit rows   â†’ rejected attempts (wrong password, failed 2FA
+//                            code), which never produce a session row.
+//
+// Never exposes session tokens or IP addresses â€” only what the user needs to
+// recognise their own activity: when, from what, roughly where, and whether it
+// worked. If the audit log is unreachable the successful history is still
+// returned, with failures_available:false so the UI can say so honestly.
+router.get('/login-history', authenticateToken, async (req, res) => {
+  const LIMIT = 50;
+
+  // Session rows carry a flag emoji beside the country for the admin view. Some
+  // older rows hold it mis-decoded (the UTF-8 bytes read back as Latin-1 or
+  // CP1252), so strip the real emoji and both mangled forms — the user-facing
+  // location line is plain text either way.
+  const stripFlag = (v) => String(v || '')
+    .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '')
+    .replace(/\u00f0[\u009f\u0178][\u0087\u2021][\u0080-\u00bf]/g, '')
+    .trim();
+
+  const placeOf = (r) => [r.city, r.state, stripFlag(r.country)]
+    .map((p) => String(p || '').trim())
+    .filter((p) => p && !/^unknown$/i.test(p))
+    .filter((p, i, arr) => arr.indexOf(p) === i)
+    .join(', ');
+
+  try {
+    const rows = await supabase.getUserSessions(req.user.id);
+
+    const entries = rows.map((r) => ({
+      at: r.login_time,
+      browser: r.browser || '',
+      os: r.os || '',
+      device: r.device || '',
+      location: placeOf(r),
+      method: r.login_method || '',
+      status: 'Successful',
+      detail: '',
+      is_current: Boolean(req.sessionId) && r.session_id === req.sessionId,
+      session_status: r.status || '',
+    }));
+
+    // Failed attempts are keyed by email in the audit log â€” a rejected login
+    // may not have resolved a user id at all.
+    let failuresAvailable = true;
+    try {
+      const audit = await db.findRows(db.SHEETS.SECURITY_AUDIT, 'email', String(req.user.email || '').toLowerCase().trim());
+      audit
+        .filter((r) => String(r.outcome || '').toLowerCase() === 'failure'
+          && /login_failed$/.test(String(r.event || '')))
+        .forEach((r) => {
+          const [browser = '', os = ''] = String(r.device || '').split('\u2022').map((s) => s.trim());
+          entries.push({
+            at: r.createdAt,
+            browser,
+            os,
+            device: r.device || '',
+            location: '',
+            method: String(r.event) === '2fa_login_failed' ? 'Two-factor code' : 'Email',
+            status: 'Failed',
+            detail: r.detail || '',
+            is_current: false,
+            session_status: '',
+          });
+        });
+    } catch (e) {
+      failuresAvailable = false;
+    }
+
+    entries.sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0));
+
+    res.json({ entries: entries.slice(0, LIMIT), failures_available: failuresAvailable });
+  } catch (err) {
+    console.error('Login history error:', err);
+    res.status(500).json({ error: 'Could not load your login history.' });
   }
 });
 

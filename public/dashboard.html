@@ -167,6 +167,15 @@
        MAIN LAYOUT
     =================================================== */
     .db-wrap{padding-top:68px;min-height:100vh}
+    /* The security, support and reviews pages are short by design: hold the
+       viewport open with the fixed background instead of the content wrapper, so
+       the footer follows the last card instead of a screen of empty space. */
+    body.view-security-active .db-wrap,
+    body.view-support-active .db-wrap,
+    body.view-reviews-active .db-wrap{min-height:0}
+    body.view-security-active .db-content,
+    body.view-support-active .db-content,
+    body.view-reviews-active .db-content{padding-bottom:24px}
     .db-bg{position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 10% 10%,rgba(0,230,118,.05) 0%,transparent 60%),radial-gradient(ellipse 60% 70% at 90% 90%,rgba(79,195,247,.04) 0%,transparent 60%),linear-gradient(180deg,#060d1f 0%,#070f24 100%);pointer-events:none;z-index:0}
     .db-content{position:relative;z-index:1;padding:32px 0 72px;animation:fadeIn .45s ease}
 
@@ -292,12 +301,11 @@
 
     /* ===================================================
        SUPPORT CARD
+       The old single-case box (.support-case-box / .sc-case-*) and the paired
+       footer buttons (.support-btns) are gone: the support view now lists every
+       case, so nothing rendered them any more. The list styles live with the
+       rest of the Help & Support rules further down.
     =================================================== */
-    .support-case-box{background:rgba(255,183,77,.04);border:1px solid rgba(255,183,77,.18);border-radius:12px;padding:14px;margin-bottom:16px}
-    .sc-case-id{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#6b88aa;margin-bottom:5px}
-    .sc-case-sub{font-size:.88rem;font-weight:700;color:#e2ecff;margin-bottom:10px}
-    .sc-case-meta{font-size:.75rem;color:#6b88aa;display:flex;gap:12px;flex-wrap:wrap}
-    .support-btns{display:flex;gap:8px}
 
     /* ===================================================
        ACCOUNT SECURITY PAGE
@@ -316,6 +324,9 @@
     .sec-item-val.muted{color:#8ea6c4;font-weight:500}
     .sec-item-txt{min-width:0}
     .sec-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;letter-spacing:.03em;color:#00e676;background:rgba(0,230,118,.09);border:1px solid rgba(0,230,118,.2);border-radius:999px;padding:4px 10px;white-space:nowrap}
+    /* Neutral badge — a true "off" state, never styled as an error */
+    .sec-status.off{color:#8ea6c4;background:rgba(107,136,170,.12);border-color:rgba(107,136,170,.24)}
+    .sec-status.pending{color:#ffd08a;background:rgba(255,183,77,.08);border-color:rgba(255,183,77,.22)}
 
     /* Active session rows */
     .sess-row{display:flex;align-items:flex-start;gap:12px;padding:13px 0;border-bottom:1px solid rgba(79,195,247,.06)}
@@ -326,6 +337,12 @@
     .sess-name{font-size:.88rem;font-weight:600;color:#e2ecff;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .sess-tag{font-size:.63rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#00e676;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.22);border-radius:999px;padding:2px 8px}
     .sess-meta{font-size:.76rem;color:#6b88aa;margin-top:4px;line-height:1.5}
+    /* Per-session sign-out, shown only on rows that are not this device */
+    .sess-act{flex:0 0 auto;padding-top:1px}
+    .sess-logout{font-size:.75rem;font-weight:600;font-family:'Outfit',sans-serif;color:#ef9a9a;background:rgba(239,154,154,.07);border:1px solid rgba(239,154,154,.22);border-radius:8px;padding:6px 11px;cursor:pointer;white-space:nowrap;transition:background .17s,color .17s,border-color .17s}
+    .sess-logout:hover{background:rgba(239,154,154,.14);color:#ff8585;border-color:rgba(239,154,154,.4)}
+    .sess-logout:disabled{opacity:.55;cursor:default}
+    .sess-logout:focus-visible{outline:2px solid rgba(239,154,154,.5);outline-offset:1px}
 
     /* States: loading, none, error */
     @keyframes secSkeleton{0%,100%{opacity:.3}50%{opacity:.65}}
@@ -347,6 +364,11 @@
     @media(max-width:560px){
       .sec-item{flex-direction:column;gap:8px}
       .sess-foot .btn{width:100%;justify-content:center}
+      /* Stack the row so a long browser/OS string can never push the
+         sign-out button off the card. */
+      .sess-row{flex-wrap:wrap}
+      .sess-act{width:100%;padding-top:2px;padding-left:46px}
+      .sess-logout{width:100%;min-height:38px}
     }
 
     /* ===================================================
@@ -363,7 +385,11 @@
     .tf-meta-lbl{color:#6b88aa}
     .tf-meta-val{color:#e2ecff;font-weight:600;text-align:right}
     .tf-actions{display:flex;gap:9px;flex-wrap:wrap}
-    .tf-unavailable{font-size:.82rem;color:#ef9a9a;background:rgba(239,154,154,.07);border:1px solid rgba(239,154,154,.2);border-radius:11px;padding:13px 15px;line-height:1.55}
+    .tf-unavailable{font-size:.82rem;color:#ef9a9a;background:rgba(239,154,154,.07);border:1px solid rgba(239,154,154,.2);border-radius:11px;padding:13px 15px;line-height:1.55;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .tf-unavailable-txt{min-width:0}
+    @media(max-width:480px){
+      .tf-unavailable .btn{width:100%;justify-content:center}
+    }
 
     /* Step indicator */
     .tf-steps{display:flex;align-items:center;gap:7px;margin-bottom:20px}
@@ -404,6 +430,39 @@
       .tf-codes-grid{grid-template-columns:minmax(0,1fr)}
       .tf-actions .btn{width:100%;justify-content:center;min-height:44px}
       .tf-copyrow .btn{min-width:0}
+    }
+
+    /* ===================================================
+       LOGIN HISTORY
+       One row per sign-in attempt. Desktop reads as a table;
+       below 720px the same rows become stacked mini-cards so
+       nothing overflows the card on a phone.
+    =================================================== */
+    .lh-hdr-note{font-size:.78rem;color:#6b88aa;line-height:1.55;margin:0 0 16px}
+    .lh-table-wrap{overflow-x:auto}
+    .lh-table{width:100%;border-collapse:collapse}
+    .lh-table th{text-align:left;font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:0 12px 10px;border-bottom:1px solid rgba(79,195,247,.1);white-space:nowrap}
+    .lh-table th:first-child,.lh-table td:first-child{padding-left:0}
+    .lh-table th:last-child,.lh-table td:last-child{padding-right:0;text-align:right}
+    .lh-table td{padding:12px;border-bottom:1px solid rgba(79,195,247,.06);font-size:.84rem;color:#a8c0dc;vertical-align:middle}
+    .lh-table tbody tr:last-child td{border-bottom:none}
+    .lh-when{color:#e2ecff;font-weight:600;white-space:nowrap}
+    .lh-when-sub{color:#6b88aa;font-size:.75rem;margin-top:3px;white-space:nowrap}
+    .lh-device{min-width:0}
+    .lh-device-sub{color:#6b88aa;font-size:.75rem;margin-top:3px}
+    .lh-loc{color:#a8c0dc;overflow-wrap:anywhere}
+    .lh-loc.unknown{color:#546e8f}
+    .lh-badge{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:700;letter-spacing:.03em;border-radius:999px;padding:4px 10px;white-space:nowrap;color:#00e676;background:rgba(0,230,118,.09);border:1px solid rgba(0,230,118,.2)}
+    .lh-badge.fail{color:#ef9a9a;background:rgba(239,154,154,.08);border-color:rgba(239,154,154,.22)}
+    .lh-mobile{display:none;flex-direction:column;gap:9px}
+    .lh-mob-card{background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:11px;padding:12px 13px}
+    .lh-mob-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px}
+    .lh-mob-when{font-size:.83rem;font-weight:600;color:#e2ecff;min-width:0;overflow-wrap:anywhere}
+    .lh-mob-meta{font-size:.76rem;color:#6b88aa;line-height:1.55;overflow-wrap:anywhere}
+    .lh-foot{margin-top:16px;padding-top:14px;border-top:1px solid rgba(79,195,247,.08);font-size:.74rem;color:#6b88aa;line-height:1.55}
+    @media(max-width:720px){
+      .lh-table-wrap{display:none}
+      .lh-mobile{display:flex}
     }
 
     /* ===================================================
@@ -486,6 +545,9 @@
 
     /* Submitted review card */
     .rv-review-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+    /* Which side of the sale the review came from, plus what was paid */
+    .rv-context{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.76rem;color:#6b88aa;margin-top:12px}
+    .rv-role-tag{font-size:.63rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#4fc3f7;background:rgba(79,195,247,.09);border:1px solid rgba(79,195,247,.2);border-radius:999px;padding:2px 8px;flex:0 0 auto}
     .rv-text{font-size:.86rem;color:#e2ecff;line-height:1.6;margin:12px 0 0;overflow-wrap:break-word}
     .rv-text-empty{font-size:.82rem;color:#6b88aa;font-style:italic;margin:12px 0 0}
     .rv-review-foot{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid rgba(79,195,247,.07)}
@@ -694,6 +756,91 @@
   .tx-table-wrap{display:none}
   .tx-mobile{display:flex}
 }
+
+/* ── Help & Support view ──────────────────────────────────────────────────
+   Deliberately built from the vocabulary already on this page: .pc-stats for
+   the summary tiles, .mc-chip for the Open|Resolved|All filter, the .tx-table
+   / mobile-card pair for the case list, and the shared .badge colours for
+   status. Nothing here introduces a new visual language. */
+.sup-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.sup-stat{background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:12px;padding:14px 16px}
+.sup-stat-lbl{font-size:.68rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b88aa;margin-bottom:6px}
+.sup-stat-val{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:800;line-height:1}
+.sup-stat-val.open{color:#ffb74d}
+.sup-stat-val.resolved{color:#00e676}
+.sup-stat-val.total{color:#e2ecff}
+
+.sup-filters{display:flex;gap:6px;margin:0 0 16px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.sup-filters::-webkit-scrollbar{display:none}
+.sup-filters .mc-chip{flex:0 0 auto}
+
+/* Case list — desktop table. The wrapper does NOT scroll horizontally: the
+   layout drops to stacked cards below 760px instead, so a case list never
+   becomes a sideways-scrolling table on a phone. */
+.sup-table-wrap{width:100%}
+.sup-table{width:100%;border-collapse:collapse;table-layout:fixed}
+.sup-table th{text-align:left;font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:0 12px 10px;border-bottom:1px solid rgba(79,195,247,.1);white-space:nowrap}
+.sup-table td{padding:12px;border-bottom:1px solid rgba(79,195,247,.06);font-size:.85rem;color:#a8c0dc;vertical-align:middle}
+.sup-table tbody tr:last-child td{border-bottom:none}
+.sup-table tbody tr:hover{background:rgba(255,255,255,.02)}
+.sup-col-id{width:20%}
+.sup-col-sub{width:36%}
+.sup-col-status{width:16%}
+.sup-col-upd{width:16%}
+.sup-col-act{width:12%;text-align:right}
+.sup-case-id{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sup-case-sub{color:#e2ecff;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sup-case-upd{color:#6b88aa;font-size:.8rem;white-space:nowrap}
+.sup-view-btn{background:rgba(79,195,247,.08);border:1px solid rgba(79,195,247,.2);color:#a8c0dc;border-radius:8px;padding:5px 13px;font-size:.76rem;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;transition:all .16s;white-space:nowrap}
+.sup-view-btn:hover{background:rgba(0,230,118,.12);border-color:rgba(0,230,118,.35);color:#00e676}
+.sup-view-btn:focus-visible{outline:2px solid rgba(0,230,118,.55);outline-offset:1px}
+
+/* Case list — stacked cards for tablet/mobile */
+.sup-mobile{display:none;flex-direction:column;gap:9px}
+.sup-mob-card{background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:11px;padding:13px 14px}
+.sup-mob-top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:7px}
+.sup-mob-sub{font-size:.88rem;font-weight:600;color:#e2ecff;line-height:1.4;margin-bottom:9px;overflow-wrap:anywhere}
+.sup-mob-foot{display:flex;justify-content:space-between;align-items:center;gap:10px}
+
+.sup-empty{text-align:center;padding:38px 20px 34px;color:#6b88aa}
+.sup-empty-ico{font-size:2.6rem;line-height:1;margin-bottom:12px}
+.sup-empty-title{font-size:1rem;font-weight:700;color:#e2ecff;margin-bottom:7px}
+.sup-empty-sub{font-size:.85rem;line-height:1.6;max-width:330px;margin:0 auto}
+.sup-empty .btn{margin-top:18px}
+
+/* View Case — landscape panel: details rail on the left, conversation on the
+   right, so a case reads in one screen instead of a tall scroll. */
+.modal-xl{max-width:860px}
+.sup-detail{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;align-items:start}
+.sup-detail-meta{display:flex;flex-direction:column;gap:12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:12px;padding:14px}
+.sup-meta-row{min-width:0}
+.sup-meta-lbl{display:block;font-size:.64rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px}
+.sup-meta-val{font-size:.82rem;color:#e2ecff;font-weight:600;overflow-wrap:anywhere}
+.sup-meta-val.mono{font-family:'JetBrains Mono',monospace;font-size:.78rem}
+.sup-thread{min-width:0;display:flex;flex-direction:column;gap:10px;max-height:46vh;overflow-y:auto;padding-right:4px}
+.sup-msg{border-radius:11px;padding:11px 13px;border:1px solid transparent}
+.sup-msg-user{background:rgba(79,195,247,.06);border-color:rgba(79,195,247,.14)}
+.sup-msg-support{background:rgba(0,230,118,.06);border-color:rgba(0,230,118,.18)}
+.sup-msg-hdr{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:6px}
+.sup-msg-who{font-size:.7rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6b88aa}
+.sup-msg-support .sup-msg-who{color:#00e676}
+.sup-msg-when{font-size:.7rem;color:#6b88aa;white-space:nowrap}
+.sup-msg-body{font-size:.85rem;line-height:1.62;color:#a8c0dc;white-space:pre-wrap;overflow-wrap:anywhere}
+.sup-attach{display:inline-flex;align-items:center;gap:6px;margin-top:9px;font-size:.78rem;color:#4fc3f7;text-decoration:underline;text-underline-offset:2px}
+.sup-reply{margin-top:14px}
+.sup-reply-closed{margin-top:14px;font-size:.8rem;color:#6b88aa;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;padding:11px 13px;line-height:1.55}
+
+@media(max-width:760px){
+  .sup-table-wrap{display:none}
+  .sup-mobile{display:flex}
+  .sup-detail{grid-template-columns:1fr;gap:14px}
+  .sup-detail-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .sup-thread{max-height:none}
+}
+@media(max-width:600px){
+  .sup-stats{grid-template-columns:1fr}
+  .sup-empty{padding:30px 14px 28px}
+}
     .sb-sep{height:1px;background:rgba(79,195,247,.08);margin:8px 10px}
     .sb-item-logout{color:#ef9a9a}
     .sb-item-logout:hover{background:rgba(239,154,154,.08);color:#ff8585}
@@ -808,8 +955,8 @@
       <!-- Security -->
       <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🔐</span> Security</button>
       <div class="sb-subgroup">
-        <button class="sb-subitem" onclick="showToast('📜 Full login history — coming soon!','info'); showView('security');"><span class="sb-subitem-line">├─</span> Login History</button>
-        <button class="sb-subitem" onclick="showView('security','active-sessions')"><span class="sb-subitem-line">└─</span> Active Sessions</button>
+        <button class="sb-subitem" data-sub="login-history" onclick="showView('security','login-history')"><span class="sb-subitem-line">├─</span> Login History</button>
+        <button class="sb-subitem" data-sub="active-sessions" onclick="showView('security','active-sessions')"><span class="sb-subitem-line">└─</span> Active Sessions</button>
       </div>
 
       <button class="sb-item" onclick="showToast('⚙️ Account Settings — coming soon!','info')"><span class="sb-item-ico">⚙️</span> Account Settings</button>
@@ -1263,6 +1410,16 @@
               <div class="sec-item-val" id="securityLastLogin">—</div>
             </div>
           </div>
+
+          <!-- Mirrors the 2FA card below; both are painted from the same
+               /api/auth/2fa/status response so they can never disagree. -->
+          <div class="sec-item">
+            <div class="sec-item-txt">
+              <div class="sec-item-lbl">Two-Factor Authentication</div>
+              <div class="sec-item-val" id="securityTwoFactor">Authenticator app</div>
+            </div>
+            <span class="sec-status off" id="securityTwoFactorTag">Checking…</span>
+          </div>
         </div>
 
         <!-- CARD 1b — Two-factor authentication.
@@ -1295,7 +1452,7 @@
           </div>
 
           <div class="tf-actions" id="tfActionsDisabled">
-            <button class="btn btn-primary btn-sm" onclick="startTwoFactor('enable')">Set up 2FA</button>
+            <button class="btn btn-primary btn-sm" onclick="startTwoFactor('enable')">Enable 2FA</button>
           </div>
 
           <div class="tf-actions" id="tfActionsEnabled" style="display:none">
@@ -1303,8 +1460,11 @@
             <button class="btn btn-danger btn-sm" onclick="startTwoFactor('disable')">Disable 2FA</button>
           </div>
 
+          <!-- Shown only for a real backend/service failure — never as a
+               resting state. renderTwoFactorStatus() owns the copy. -->
           <div class="tf-unavailable" id="tfUnavailable" style="display:none">
-            Two-factor authentication is temporarily unavailable. Please try again later.
+            <span class="tf-unavailable-txt" id="tfUnavailableTxt"></span>
+            <button class="btn btn-ghost btn-sm" onclick="loadTwoFactorStatus()">Try Again</button>
           </div>
         </div>
 
@@ -1327,6 +1487,29 @@
           <div class="sess-foot" id="sessFoot" style="display:none">
             <button class="btn btn-danger" onclick="openModal('logoutOthersModal')">Log out of all other devices</button>
             <div class="sess-foot-note">Your current session on this device stays signed in.</div>
+          </div>
+        </div>
+
+        <!-- CARD 3 — Login history.
+             Read-only. Successful sign-ins come from the session log; rejected
+             attempts come from the server-side security audit log. Both are
+             served by GET /api/auth/login-history. -->
+        <div class="card" id="secLoginHistory">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">📜</span> Login History</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadLoginHistory()" id="lhRefreshBtn">Refresh</button>
+          </div>
+
+          <p class="lh-hdr-note">Recent sign-in activity on your account. If you see something you don't recognise, change your password and log out of the other devices.</p>
+
+          <div id="loginHistoryBody">
+            <div class="sess-sk-row">
+              <div class="sess-sk sess-sk-ico"></div>
+              <div style="flex:1">
+                <div class="sess-sk" style="height:11px;width:38%"></div>
+                <div class="sess-sk" style="height:9px;width:58%;margin-top:8px"></div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1504,7 +1687,8 @@
           </div>
         </div>
 
-        <!-- Hidden entirely when nothing is eligible, per the review-eligibility rules -->
+        <!-- Only purchases the server would accept a review for are listed here;
+             eligibility itself is enforced in server/routes/reviews.js -->
         <section class="rv-section" id="rvPendingSection">
           <h2 class="rv-section-hdr">Pending Reviews</h2>
           <div class="rv-list" id="rvPendingList"></div>
@@ -1533,40 +1717,61 @@
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
-          <button class="btn btn-primary btn-sm" onclick="openModal('newCaseModal')">+ New Case</button>
+          <button class="btn btn-primary btn-sm" onclick="openNewCaseModal()">+ New Case</button>
+        </div>
+      </div>
+
+      <!-- Summary tiles: counts come from STATE.tickets, never hardcoded. -->
+      <div class="sup-stats">
+        <div class="sup-stat">
+          <div class="sup-stat-lbl">Open Cases</div>
+          <div class="sup-stat-val open" id="supportOpenCount">0</div>
+        </div>
+        <div class="sup-stat">
+          <div class="sup-stat-lbl">Resolved Cases</div>
+          <div class="sup-stat-val resolved" id="supportResolvedCount">0</div>
+        </div>
+        <div class="sup-stat">
+          <div class="sup-stat-lbl">Total Cases</div>
+          <div class="sup-stat-val total" id="supportTotalCount">0</div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-hdr">
           <div class="card-title"><span class="ico">🎧</span> Support</div>
+          <!-- Kept as a distinct action: this is the general contact page, not a
+               trackable case. Creating a case is the + New Case button above. -->
           <a href="support" class="btn btn-ghost btn-sm">Contact Support</a>
         </div>
 
-        <div class="support-case-box" id="supportLatestCase">
-          <div class="sc-case-id">No open cases</div>
-          <div class="sc-case-sub">You haven't raised any support tickets yet.</div>
-          <div class="sc-case-meta">
-            <span><span class="badge badge-gray">None</span></span>
-          </div>
+        <div class="sup-filters" id="supportFilterTabs" role="tablist" aria-label="Filter support cases">
+          <button class="mc-chip active" type="button" role="tab" aria-selected="true"
+                  data-filter="open" onclick="setSupportFilter('open')">Open</button>
+          <button class="mc-chip" type="button" role="tab" aria-selected="false"
+                  data-filter="resolved" onclick="setSupportFilter('resolved')">Resolved</button>
+          <button class="mc-chip" type="button" role="tab" aria-selected="false"
+                  data-filter="all" onclick="setSupportFilter('all')">All</button>
         </div>
 
-        <div style="margin-bottom:16px">
-          <div style="font-size:.72rem;color:#6b88aa;margin-bottom:6px;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Summary</div>
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0;border-bottom:1px solid rgba(79,195,247,.06)">
-            <span style="color:#6b88aa">Open cases</span>
-            <span style="color:#ffb74d;font-weight:700" id="supportOpenCount">0</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:.82rem;padding:6px 0">
-            <span style="color:#6b88aa">Total resolved</span>
-            <span style="color:#00e676;font-weight:700" id="supportResolvedCount">0</span>
-          </div>
+        <!-- Desktop: table. Below 760px .sup-table-wrap hides and the same rows
+             render as stacked cards, so nothing scrolls sideways. -->
+        <div class="sup-table-wrap" id="supportTableWrap">
+          <table class="sup-table">
+            <thead>
+              <tr>
+                <th class="sup-col-id">Case ID</th>
+                <th class="sup-col-sub">Subject</th>
+                <th class="sup-col-status">Status</th>
+                <th class="sup-col-upd">Updated</th>
+                <th class="sup-col-act">Action</th>
+              </tr>
+            </thead>
+            <tbody id="supportTableBody"></tbody>
+          </table>
         </div>
-
-        <div class="support-btns">
-          <a href="support" class="btn btn-ghost btn-sm" style="flex:1">Contact Support</a>
-          <button class="btn btn-primary btn-sm" style="flex:1" onclick="openModal('newCaseModal')">+ New Case</button>
-        </div>
+        <div class="sup-mobile" id="supportMobile"></div>
+        <div id="supportEmpty"></div>
       </div>
 
     </div><!-- /container -->
@@ -1811,11 +2016,28 @@
     <button class="modal-close-btn" onclick="closeModal('logoutOthersModal')">✕</button>
     <div class="modal-hdr">
       <div class="modal-title">Log out of all other <span class="gtext">devices</span>?</div>
-      <div class="modal-sub">This will sign out your account from all other active sessions. Your current session will remain active.</div>
+      <div class="modal-sub">You will be signed out from every other active session. Your current session on this device stays signed in.</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('logoutOthersModal')">Cancel</button>
       <button class="btn btn-danger" style="flex:1" id="logoutOthersBtn" onclick="confirmLogoutOtherDevices()">Log Out</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOG OUT A SINGLE DEVICE CONFIRMATION
+     Opened from a session row's "Log out" action. The row's session id is held
+     on the button that opened this modal, never in the markup below. -->
+<div class="modal-overlay" id="logoutDeviceModal" onclick="handleOverlayClick(event,'logoutDeviceModal')">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('logoutDeviceModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Log out this <span class="gtext">device</span>?</div>
+      <div class="modal-sub" id="logoutDeviceSub">This session will be signed out immediately.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('logoutDeviceModal')">Cancel</button>
+      <button class="btn btn-danger" style="flex:1" id="logoutDeviceBtn" onclick="confirmLogoutDevice()">Log Out</button>
     </div>
   </div>
 </div>
@@ -1950,11 +2172,11 @@
       <div class="modal-sub">Our support team typically responds within 2 hours.</div>
     </div>
     <div class="form-grp">
-      <label class="form-lbl">Subject *</label>
+      <label class="form-lbl" for="caseSubject">Subject *</label>
       <input type="text" class="form-inp" id="caseSubject" placeholder="Briefly describe your issue">
     </div>
     <div class="form-grp">
-      <label class="form-lbl">Category</label>
+      <label class="form-lbl" for="caseCategory">Category</label>
       <select class="form-inp" id="caseCategory">
         <option>💳 Billing / Payment</option>
         <option>🎟️ Coupon Issue</option>
@@ -1964,12 +2186,59 @@
       </select>
     </div>
     <div class="form-grp">
-      <label class="form-lbl">Description</label>
+      <label class="form-lbl" for="caseDesc">Message *</label>
       <textarea class="form-inp" id="caseDesc" rows="4" placeholder="Provide more details about your issue..." style="resize:vertical"></textarea>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl" for="caseAttachment">Attachment <span style="color:#6b88aa;font-weight:500">(optional)</span></label>
+      <input type="file" class="form-inp" id="caseAttachment"
+             accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain"
+             style="padding:9px 12px;font-size:.82rem;cursor:pointer">
+      <!-- Limits mirror the server's own checks in routes/support.js, so the
+           user is told before a 3MB upload is rejected. -->
+      <div style="font-size:.72rem;color:#6b88aa;margin-top:6px">PNG, JPG, WEBP, GIF, PDF or TXT — up to 3MB.</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('newCaseModal')">Cancel</button>
-      <button class="btn btn-primary" style="flex:1" onclick="createCase()">🎧 Create Case</button>
+      <button class="btn btn-primary" style="flex:1" id="caseSubmitBtn" onclick="createCase()">Submit Case</button>
+    </div>
+  </div>
+</div>
+
+<!-- VIEW SUPPORT CASE MODAL — compact landscape panel, filled by viewSupportCase().
+     Details rail on the left, conversation and reply box on the right. -->
+<div class="modal-overlay" id="viewCaseModal" onclick="handleOverlayClick(event,'viewCaseModal')">
+  <div class="modal modal-xl">
+    <button class="modal-close-btn" onclick="closeModal('viewCaseModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title" id="vcSubject">Support Case</div>
+      <div class="modal-sub" id="vcCaseIdLine">—</div>
+    </div>
+
+    <div class="sup-detail">
+      <div class="sup-detail-meta">
+        <div class="sup-meta-row">
+          <span class="sup-meta-lbl">Case ID</span>
+          <span class="sup-meta-val mono" id="vcCaseId">—</span>
+        </div>
+        <div class="sup-meta-row">
+          <span class="sup-meta-lbl">Status</span>
+          <span class="sup-meta-val" id="vcStatus">—</span>
+        </div>
+        <div class="sup-meta-row">
+          <span class="sup-meta-lbl">Created</span>
+          <span class="sup-meta-val" id="vcCreated">—</span>
+        </div>
+        <div class="sup-meta-row">
+          <span class="sup-meta-lbl">Last Updated</span>
+          <span class="sup-meta-val" id="vcUpdated">—</span>
+        </div>
+      </div>
+
+      <div>
+        <div class="sup-thread" id="vcThread"></div>
+        <div id="vcReplyZone"></div>
+      </div>
     </div>
   </div>
 </div>
@@ -2695,53 +2964,253 @@
     `).join('');
   }
 
-  function renderSupport() {
-    const tickets = STATE.tickets;
-    const open = tickets.filter((t) => String(t.status || '').toLowerCase() === 'open');
-    const resolved = tickets.filter((t) => String(t.status || '').toLowerCase() === 'resolved');
-    const inProgress = tickets.filter((t) => {
-      const s = String(t.status || '').toLowerCase();
-      return s === 'in_progress' || s === 'in progress' || s === 'investigating';
+  // ─── Help & Support ───────────────────────────────────────────
+  // One page, three filters, every case reachable. The list used to render only
+  // the single newest ticket, so a user with two open cases could see just one.
+  //
+  // Buckets: 'closed' is grouped with 'resolved' because both are finished from
+  // the user's side (the badge still reads CLOSED), which keeps
+  // Open + Resolved === Total true for every possible mix of statuses.
+  window.SUPPORT_FILTER = 'open';
+
+  const SUPPORT_STATUS = {
+    open:       ['Open', 'badge-orange'],
+    inprogress: ['In Progress', 'badge-blue'],
+    resolved:   ['Resolved', 'badge-green'],
+    closed:     ['Closed', 'badge-gray'],
+  };
+
+  /** Canonical status key. Mirrors normStatus() in server/routes/support.js. */
+  function supportStatusKey(ticket) {
+    const v = String((ticket && ticket.status) || 'open').toLowerCase().trim().replace(/[\s_-]+/g, '');
+    if (v === 'investigating') return 'inprogress';
+    return SUPPORT_STATUS[v] ? v : 'open';
+  }
+
+  function supportStatusBadge(ticket) {
+    const [label, cls] = SUPPORT_STATUS[supportStatusKey(ticket)];
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  /** A case still being worked on — the only state a user may reply to. */
+  function isSupportCaseOpen(ticket) {
+    const key = supportStatusKey(ticket);
+    return key === 'open' || key === 'inprogress';
+  }
+
+  /** Short display id. The full uuid stays the real key, passed to viewSupportCase. */
+  function supportCaseLabel(ticket) {
+    return '#SH-' + (String((ticket && ticket.id) || '').slice(0, 8).toUpperCase() || 'CASE');
+  }
+
+  function supportUpdatedAt(ticket) {
+    return (ticket && (ticket.updatedAt || ticket.resolvedAt || ticket.createdAt)) || '';
+  }
+
+  /** Absolute date+time, for the detail panel where "2h ago" is too vague. */
+  function supportDateTime(input) {
+    if (!input) return '—';
+    const d = new Date(input);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
+  }
 
-    setText('supportOpenCount', open.length + inProgress.length);
-    setText('supportResolvedCount', resolved.length);
+  function setSupportFilter(filter) {
+    window.SUPPORT_FILTER = filter;
+    document.querySelectorAll('#supportFilterTabs .mc-chip').forEach((chip) => {
+      const on = chip.dataset.filter === filter;
+      chip.classList.toggle('active', on);
+      chip.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    renderSupport();
+  }
 
-    const box = document.getElementById('supportLatestCase');
-    if (!box) return;
+  function renderSupport() {
+    const tickets = Array.isArray(STATE.tickets) ? STATE.tickets : [];
+    const openCases = tickets.filter(isSupportCaseOpen);
+    const doneCases = tickets.filter((t) => !isSupportCaseOpen(t));
 
-    if (tickets.length === 0) {
-      box.innerHTML = `
-        <div class="sc-case-id">No support cases</div>
-        <div class="sc-case-sub">You haven't raised any support tickets yet.</div>
-        <div class="sc-case-meta">
-          <span><span class="badge badge-gray">All clear</span></span>
-        </div>
-      `;
+    setText('supportOpenCount', openCases.length);
+    setText('supportResolvedCount', doneCases.length);
+    setText('supportTotalCount', tickets.length);
+
+    const filter = window.SUPPORT_FILTER || 'open';
+    const rows = (filter === 'open' ? openCases : filter === 'resolved' ? doneCases : tickets)
+      .slice()
+      .sort((a, b) => new Date(supportUpdatedAt(b) || 0) - new Date(supportUpdatedAt(a) || 0));
+
+    const tbody = document.getElementById('supportTableBody');
+    const mob = document.getElementById('supportMobile');
+    const wrap = document.getElementById('supportTableWrap');
+    const empty = document.getElementById('supportEmpty');
+    if (!tbody || !mob || !empty) return;
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '';
+      mob.innerHTML = '';
+      // Hide both layouts so neither an empty table head nor an empty card stack
+      // sits above the message. Display is cleared (not set) when rows return,
+      // so the media query stays in charge of which layout shows.
+      if (wrap) wrap.style.display = 'none';
+      mob.style.display = 'none';
+      empty.innerHTML = supportEmptyState(filter);
       return;
     }
 
-    const sorted = [...tickets].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
-    const latest = sorted[0];
-    const status = String(latest.status || 'open').toLowerCase();
-    const statusMap = {
-      open: ['Open', 'badge-orange'],
-      in_progress: ['In Progress', 'badge-blue'],
-      investigating: ['Investigating', 'badge-blue'],
-      resolved: ['Resolved', 'badge-green'],
-      closed: ['Closed', 'badge-gray'],
-    };
-    const [statusLabel, statusCls] = statusMap[status] || [status, 'badge-gray'];
-    const caseId = (latest.id || '').slice(0, 8).toUpperCase() || 'CASE';
+    if (wrap) wrap.style.display = '';
+    mob.style.display = '';
+    empty.innerHTML = '';
 
-    box.innerHTML = `
-      <div class="sc-case-id">Case #SH-${escapeHtml(caseId)}</div>
-      <div class="sc-case-sub">${escapeHtml(latest.subject || 'Support ticket')}</div>
-      <div class="sc-case-meta">
-        <span><span class="badge ${statusCls}">${escapeHtml(statusLabel)}</span></span>
-        <span>Updated: ${escapeHtml(timeAgo(latest.createdAt))}</span>
-      </div>
-    `;
+    tbody.innerHTML = rows.map((t) => `
+      <tr>
+        <td><span class="sup-case-id" title="${escapeHtml(t.id || '')}">${escapeHtml(supportCaseLabel(t))}</span></td>
+        <td><div class="sup-case-sub" title="${escapeHtml(t.subject || '')}">${escapeHtml(t.subject || 'Support case')}</div></td>
+        <td>${supportStatusBadge(t)}</td>
+        <td><span class="sup-case-upd">${escapeHtml(timeAgo(supportUpdatedAt(t)))}</span></td>
+        <td class="sup-col-act">
+          <button class="sup-view-btn" type="button" onclick="viewSupportCase('${escapeHtml(t.id || '')}')"
+                  aria-label="View case ${escapeHtml(supportCaseLabel(t))}">View</button>
+        </td>
+      </tr>`).join('');
+
+    mob.innerHTML = rows.map((t) => `
+      <div class="sup-mob-card">
+        <div class="sup-mob-top">
+          <span class="sup-case-id">${escapeHtml(supportCaseLabel(t))}</span>
+          ${supportStatusBadge(t)}
+        </div>
+        <div class="sup-mob-sub">${escapeHtml(t.subject || 'Support case')}</div>
+        <div class="sup-mob-foot">
+          <span class="sup-case-upd">${escapeHtml(timeAgo(supportUpdatedAt(t)))}</span>
+          <button class="sup-view-btn" type="button" onclick="viewSupportCase('${escapeHtml(t.id || '')}')"
+                  aria-label="View case ${escapeHtml(supportCaseLabel(t))}">View</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function supportEmptyState(filter) {
+    if (filter === 'resolved') {
+      return `
+        <div class="sup-empty">
+          <div class="sup-empty-ico">📁</div>
+          <div class="sup-empty-title">No resolved cases yet</div>
+          <div class="sup-empty-sub">Cases you and our team have finished will be archived here.</div>
+        </div>`;
+    }
+    if (filter === 'all') {
+      return `
+        <div class="sup-empty">
+          <div class="sup-empty-ico">🎧</div>
+          <div class="sup-empty-title">No support cases</div>
+          <div class="sup-empty-sub">You haven't raised any support cases yet. Create one and we'll pick it up.</div>
+          <button class="btn btn-primary btn-sm" onclick="openNewCaseModal()">+ New Case</button>
+        </div>`;
+    }
+    return `
+      <div class="sup-empty">
+        <div class="sup-empty-ico">✅</div>
+        <div class="sup-empty-title">No open cases</div>
+        <div class="sup-empty-sub">You're all caught up. Create a new case if you need help.</div>
+        <button class="btn btn-primary btn-sm" onclick="openNewCaseModal()">+ New Case</button>
+      </div>`;
+  }
+
+  // ─── View one case — in-page panel, never a redirect ──────────
+  window.VIEW_CASE_ID = '';
+
+  function viewSupportCase(id) {
+    const ticket = (STATE.tickets || []).find((t) => String(t.id) === String(id));
+    if (!ticket) {
+      showToast('That case could not be found. Try refreshing.', 'error');
+      return;
+    }
+    window.VIEW_CASE_ID = ticket.id;
+
+    setText('vcSubject', ticket.subject || 'Support case');
+    setText('vcCaseIdLine', `${supportCaseLabel(ticket)} · opened ${timeAgo(ticket.createdAt)}`);
+    setText('vcCaseId', supportCaseLabel(ticket));
+    setText('vcCreated', supportDateTime(ticket.createdAt));
+    setText('vcUpdated', supportDateTime(supportUpdatedAt(ticket)));
+
+    const statusEl = document.getElementById('vcStatus');
+    if (statusEl) statusEl.innerHTML = supportStatusBadge(ticket);
+
+    // The opening report first, then every reply in order. An attachment hangs
+    // off the original message because that is where it was uploaded.
+    const attach = ticket.attachmentUrl
+      ? `<a class="sup-attach" href="${escapeHtml(ticket.attachmentUrl)}" target="_blank" rel="noopener noreferrer">📎 ${escapeHtml(ticket.attachmentName || 'Attachment')}</a>`
+      : '';
+
+    const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
+    const thread = document.getElementById('vcThread');
+    if (thread) {
+      thread.innerHTML = `
+        <div class="sup-msg sup-msg-user">
+          <div class="sup-msg-hdr">
+            <span class="sup-msg-who">You · original message</span>
+            <span class="sup-msg-when">${escapeHtml(supportDateTime(ticket.createdAt))}</span>
+          </div>
+          <div class="sup-msg-body">${escapeHtml(ticket.message || '—')}</div>
+          ${attach}
+        </div>
+        ${messages.map((m) => `
+          <div class="sup-msg sup-msg-${m.from === 'support' ? 'support' : 'user'}">
+            <div class="sup-msg-hdr">
+              <span class="sup-msg-who">${m.from === 'support' ? 'SaveHatke Support' : 'You'}</span>
+              <span class="sup-msg-when">${escapeHtml(supportDateTime(m.at))}</span>
+            </div>
+            <div class="sup-msg-body">${escapeHtml(m.body || '')}</div>
+          </div>`).join('')}
+      `;
+    }
+
+    const zone = document.getElementById('vcReplyZone');
+    if (zone) {
+      zone.innerHTML = isSupportCaseOpen(ticket)
+        ? `<div class="sup-reply">
+             <label class="form-lbl" for="vcReplyInput">Add a reply</label>
+             <textarea class="form-inp" id="vcReplyInput" rows="3"
+                       placeholder="Share any extra detail that helps us resolve this…"
+                       style="resize:vertical"></textarea>
+             <button class="btn btn-primary btn-sm" id="vcReplyBtn" style="margin-top:10px"
+                     onclick="sendSupportReply()">Send Reply</button>
+           </div>`
+        : `<div class="sup-reply-closed">
+             This case is ${SUPPORT_STATUS[supportStatusKey(ticket)][0].toLowerCase()} and can no longer be
+             replied to. Create a new case if you still need help.
+           </div>`;
+    }
+
+    openModal('viewCaseModal');
+  }
+
+  async function sendSupportReply() {
+    if (typeof requireAuth === 'function' && !requireAuth()) return;
+    const input = document.getElementById('vcReplyInput');
+    const btn = document.getElementById('vcReplyBtn');
+    const body = (input?.value || '').trim();
+    if (!body) { showToast('Please type a reply before sending.', 'error'); return; }
+
+    const origText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    try {
+      await api(`/support/tickets/${encodeURIComponent(window.VIEW_CASE_ID)}/reply`, {
+        method: 'POST',
+        body: { message: body },
+      });
+      if (input) input.value = '';
+      showToast('Reply sent. Our support team will get back to you.', 'success');
+      // Reload so the thread, the Updated column and the ordering all reflect the
+      // reply, then repaint the still-open panel from the fresh data.
+      await refreshDashboard({ silent: true });
+      viewSupportCase(window.VIEW_CASE_ID);
+    } catch (err) {
+      showToast(err.message || 'Could not send your reply. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = origText || 'Send Reply'; }
+    }
   }
 
   // ─── Render payouts (seller-facing) ───────────────────────────
@@ -3191,6 +3660,15 @@
     const meta = isCurrent
       ? `Active now · signed in ${fmtSessionDT(s.login_time)}`
       : `Last active ${relLower} · signed in ${fmtSessionDT(s.login_time)}`;
+    // Only other devices get a sign-out control — the current session is
+    // signed out through the sidebar's Log Out, never from this list.
+    const action = (!isCurrent && s.session_id)
+      ? `<div class="sess-act">
+           <button class="sess-logout" data-session-id="${escapeHtml(s.session_id)}"
+                   data-session-name="${escapeHtml(`${s.browser || 'Browser'} on ${s.os || s.device || 'an unknown device'}`)}"
+                   onclick="askLogoutDevice(this)">Log out</button>
+         </div>`
+      : '';
     return `
       <div class="sess-row">
         <div class="sess-ico" aria-hidden="true">${sessionIcon(s)}</div>
@@ -3198,6 +3676,7 @@
           <div class="sess-name">${name}${isCurrent ? '<span class="sess-tag">Current session</span>' : ''}</div>
           <div class="sess-meta">${meta}</div>
         </div>
+        ${action}
       </div>`;
   }
 
@@ -3222,10 +3701,18 @@
         .sort((a, b) => new Date(b.last_active || b.login_time || 0) - new Date(a.last_active || a.login_time || 0))
         .slice(0, 8);
 
-      // Last Login in the overview card comes from this device's session.
+      // Last Login in the overview card is this device's sign-in when the
+      // server could identify it, otherwise the most recent sign-in on the
+      // account — so the row is never left blank while sessions exist.
       const lastLogin = document.getElementById('securityLastLogin');
-      if (lastLogin && current && current.login_time) {
-        lastLogin.textContent = relSessionTime(current.login_time) || fmtSessionDT(current.login_time);
+      const lastLoginAt = (current && current.login_time)
+        || (data.sessions || [])
+          .map((s) => s.login_time)
+          .filter(Boolean)
+          .sort((a, b) => new Date(b) - new Date(a))[0]
+        || '';
+      if (lastLogin && lastLoginAt) {
+        lastLogin.textContent = relSessionTime(lastLoginAt) || fmtSessionDT(lastLoginAt);
       }
 
       let html = current ? sessionRow(current, true) : '';
@@ -3269,6 +3756,148 @@
       showToast(err.message || 'Could not log out the other devices.', 'error');
     } finally {
       if (btn) { btn.disabled = false; btn.textContent = 'Log Out'; }
+    }
+  }
+
+  // ── Log out one other device ──
+  // The session id lives only in this closure while the confirmation is open,
+  // and the server independently checks the session belongs to this user.
+  let PENDING_SESSION_LOGOUT = null;
+
+  function askLogoutDevice(btn) {
+    if (!btn) return;
+    PENDING_SESSION_LOGOUT = btn.dataset.sessionId || null;
+    if (!PENDING_SESSION_LOGOUT) return;
+    const name = btn.dataset.sessionName || 'this device';
+    setText('logoutDeviceSub', `${name} will be signed out immediately. Your current session on this device is not affected.`);
+    openModal('logoutDeviceModal');
+  }
+
+  async function confirmLogoutDevice() {
+    if (!PENDING_SESSION_LOGOUT) return closeModal('logoutDeviceModal');
+    const btn = document.getElementById('logoutDeviceBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Logging out…'; }
+    try {
+      await api('/auth/sessions/revoke', { method: 'POST', body: { session_id: PENDING_SESSION_LOGOUT } });
+      closeModal('logoutDeviceModal');
+      showToast('Device logged out.', 'success');
+      PENDING_SESSION_LOGOUT = null;
+      loadMySessions();
+    } catch (err) {
+      showToast(err.message || 'Could not log out this device.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Log Out'; }
+    }
+  }
+
+  // ─── Login history ─────────────────────────────────────────────
+  //   Read-only view of GET /api/auth/login-history. Successful sign-ins come
+  //   from the session log; rejected attempts come from the server's security
+  //   audit log. Nothing here is computed client-side.
+  const LH_SKELETON = SESSIONS_SKELETON;
+
+  function lhDeviceLine(e) {
+    const browser = String(e.browser || '').trim();
+    const os = String(e.os || e.device || '').trim();
+    if (browser && os) return `${escapeHtml(browser)} • ${escapeHtml(os)}`;
+    return escapeHtml(browser || os || 'Unknown device');
+  }
+
+  function lhStatusBadge(e) {
+    const failed = String(e.status) === 'Failed';
+    return `<span class="lh-badge${failed ? ' fail' : ''}">${failed ? '✕ Failed' : '✓ Successful'}</span>`;
+  }
+
+  function renderLoginHistory(data) {
+    const box = document.getElementById('loginHistoryBody');
+    if (!box) return;
+    const entries = (data && data.entries) || [];
+
+    if (!entries.length) {
+      box.innerHTML = `
+        <div class="sess-none">
+          <span class="sess-none-ico" aria-hidden="true">✓</span>
+          <div>
+            <div class="sess-none-title">No sign-in activity yet</div>
+            <div class="sess-none-sub">Your recent sign-ins will be listed here.</div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    const rows = entries.map((e) => {
+      const loc = String(e.location || '').trim();
+      const locCell = loc
+        ? `<span class="lh-loc">${escapeHtml(loc)}</span>`
+        : '<span class="lh-loc unknown">Not available</span>';
+      const sub = [e.method, e.detail].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
+      return `
+        <tr>
+          <td>
+            <div class="lh-when">${fmtSessionDT(e.at) || '—'}</div>
+            <div class="lh-when-sub">${escapeHtml(relSessionTime(e.at) || '')}</div>
+          </td>
+          <td class="lh-device">
+            <div>${lhDeviceLine(e)}${e.is_current ? ' <span class="sess-tag">Current session</span>' : ''}</div>
+            ${sub ? `<div class="lh-device-sub">${escapeHtml(sub)}</div>` : ''}
+          </td>
+          <td>${locCell}</td>
+          <td>${lhStatusBadge(e)}</td>
+        </tr>`;
+    }).join('');
+
+    const cards = entries.map((e) => {
+      const loc = String(e.location || '').trim();
+      const sub = [e.method, e.detail].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
+      return `
+        <div class="lh-mob-card">
+          <div class="lh-mob-top">
+            <div class="lh-mob-when">${fmtSessionDT(e.at) || '—'}</div>
+            ${lhStatusBadge(e)}
+          </div>
+          <div class="lh-mob-meta">
+            ${lhDeviceLine(e)}${e.is_current ? ' <span class="sess-tag">Current session</span>' : ''}<br>
+            ${loc ? escapeHtml(loc) : 'Location not available'}${sub ? ` · ${escapeHtml(sub)}` : ''}
+          </div>
+        </div>`;
+    }).join('');
+
+    const note = (data && data.failures_available === false)
+      ? '<div class="lh-foot">Failed sign-in attempts could not be loaded right now, so only successful sign-ins are listed.</div>'
+      : '';
+
+    box.innerHTML = `
+      <div class="lh-table-wrap">
+        <table class="lh-table">
+          <thead>
+            <tr><th scope="col">Date &amp; time</th><th scope="col">Device</th><th scope="col">Location</th><th scope="col">Status</th></tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+      <div class="lh-mobile">${cards}</div>
+      ${note}`;
+  }
+
+  async function loadLoginHistory() {
+    const box = document.getElementById('loginHistoryBody');
+    if (!box) return;
+    const btn = document.getElementById('lhRefreshBtn');
+    if (btn) btn.disabled = true;
+    box.innerHTML = LH_SKELETON;
+
+    try {
+      renderLoginHistory(await api('/auth/login-history'));
+    } catch (err) {
+      if (!err.sessionExpired) {
+        box.innerHTML = `
+          <div class="sess-error">
+            <span class="sess-error-txt">Unable to load your login history.</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadLoginHistory()">Try Again</button>
+          </div>`;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -3440,17 +4069,75 @@
     }
   }
 
+  /** Open the New Case form with a clean slate (the modal is reused). */
+  function openNewCaseModal() {
+    if (typeof requireAuth === 'function' && !requireAuth()) return;
+    ['caseSubject', 'caseDesc', 'caseAttachment'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    const cat = document.getElementById('caseCategory');
+    if (cat) cat.selectedIndex = 0;
+    openModal('newCaseModal');
+    setTimeout(() => document.getElementById('caseSubject')?.focus(), 200);
+  }
+
+  /** Read a File into the base64 payload /api/support/attachment expects. */
+  function readFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('That file could not be read.'));
+      reader.onload = () => {
+        // "data:<type>;base64,AAAA" → keep only the payload.
+        const result = String(reader.result || '');
+        const comma = result.indexOf(',');
+        resolve(comma === -1 ? '' : result.slice(comma + 1));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  const CASE_ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // matches routes/support.js
+
   async function createCase() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
     const subject = (document.getElementById('caseSubject')?.value || '').trim();
     const desc = (document.getElementById('caseDesc')?.value || '').trim();
     const categorySel = document.getElementById('caseCategory');
     const categoryLabel = categorySel?.options[categorySel.selectedIndex]?.text || 'General';
+    const fileInput = document.getElementById('caseAttachment');
+    const file = fileInput?.files?.[0] || null;
 
-    if (!subject) { showToast('Please enter a subject for your ticket.', 'error'); return; }
+    if (!subject) { showToast('Please enter a subject for your case.', 'error'); return; }
     if (!desc) { showToast('Please describe your issue.', 'error'); return; }
+    // Checked here as well as on the server so a 3MB upload isn't wasted first.
+    if (file && file.size > CASE_ATTACHMENT_MAX_BYTES) {
+      showToast('That attachment is larger than 3MB. Please attach a smaller file.', 'error');
+      return;
+    }
+
+    const btn = document.getElementById('caseSubmitBtn');
+    const origText = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
 
     try {
+      // Upload the attachment first — the ticket then carries its URL. If the
+      // upload fails the case is NOT created silently without it; the user is
+      // told, so they can retry or submit without the file.
+      let attachmentUrl = '';
+      let attachmentName = '';
+      if (file) {
+        if (btn) btn.textContent = 'Uploading attachment…';
+        const dataBase64 = await readFileAsBase64(file);
+        const up = await api('/support/attachment', {
+          method: 'POST',
+          body: { filename: file.name, contentType: file.type, dataBase64 },
+        });
+        attachmentUrl = up.url || '';
+        attachmentName = up.name || file.name;
+        if (btn) btn.textContent = 'Submitting…';
+      }
+
       const u = Auth.getUser() || {};
       const data = await api('/support/ticket', {
         method: 'POST',
@@ -3459,14 +4146,26 @@
           email: u.email,
           subject: `[${categoryLabel}] ${subject}`,
           message: desc,
+          ...(attachmentUrl ? { attachmentUrl, attachmentName } : {}),
         },
       });
+
       closeModal('newCaseModal');
-      ['caseSubject','caseDesc'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
-      showToast(data.message || 'Support ticket created! Our team will respond within 24 hours.', 'success', 5000);
+      ['caseSubject', 'caseDesc', 'caseAttachment'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+      });
+      showToast(data.message || 'Support case created! Our team will respond within 24 hours.', 'success', 5000);
+
+      // Reload, then make sure the new case is actually on screen: it is open, so
+      // snap the filter back to Open rather than leaving the user on a Resolved
+      // tab that cannot show what they just created.
       await refreshDashboard({ silent: true });
+      setSupportFilter('open');
     } catch (err) {
-      showToast(err.message || 'Could not create ticket. Please try again.', 'error');
+      showToast(err.message || 'Could not create your case. Please try again.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = origText || 'Submit Case'; }
     }
   }
 
@@ -3637,20 +4336,23 @@
   }
 
   // ── Status card ──
-  function renderTwoFactorStatus(status) {
+  // `serviceError` is only ever true when a request actually failed — the
+  // resting state of a 2FA-less account is "Not Enabled", never an error.
+  function renderTwoFactorStatus(status, serviceError) {
     TF.status = status || null;
     const on = Boolean(status && status.enabled);
-    const available = !status || status.available !== false;
+    const configured = !status || status.available !== false;
+    const broken = Boolean(serviceError) || (!on && !configured);
 
     const pill = document.getElementById('tfStatusPill');
     if (pill) pill.classList.toggle('on', on);
-    setText('tfStatusText', on ? 'Enabled' : 'Not enabled');
+    setText('tfStatusText', on ? 'Enabled' : 'Not Enabled');
 
     const blurb = document.getElementById('tfBlurb');
     if (blurb) {
       blurb.textContent = on
-        ? 'An authenticator code is required every time you sign in.'
-        : 'Add an extra layer of security to protect your SaveHatke account.';
+        ? 'A code from your authenticator app is required every time you sign in.'
+        : 'Use an authenticator app such as Google Authenticator or Authy to protect your SaveHatke account with a 6-digit code at sign-in.';
     }
 
     const meta = document.getElementById('tfMeta');
@@ -3663,22 +4365,37 @@
     const offActions = document.getElementById('tfActionsDisabled');
     const onActions = document.getElementById('tfActionsEnabled');
     const unavailable = document.getElementById('tfUnavailable');
-    if (offActions) offActions.style.display = (!on && available) ? 'flex' : 'none';
+    if (offActions) offActions.style.display = (!on && !broken) ? 'flex' : 'none';
     if (onActions) onActions.style.display = on ? 'flex' : 'none';
-    if (unavailable) unavailable.style.display = (!on && !available) ? 'block' : 'none';
+    if (unavailable) {
+      unavailable.style.display = broken ? 'flex' : 'none';
+      if (broken) {
+        setText('tfUnavailableTxt', serviceError
+          ? 'We could not reach the two-factor service. Your account is unchanged — please try again.'
+          : 'Two-factor setup is temporarily unavailable. Please try again shortly.');
+      }
+    }
+
+    // Keep the Security Overview badge in step with this card.
+    const ovVal = document.getElementById('securityTwoFactor');
+    const ovTag = document.getElementById('securityTwoFactorTag');
+    if (ovVal) {
+      ovVal.textContent = on ? 'Authenticator app' : (broken ? 'Status unavailable' : 'Not set up');
+      ovVal.classList.toggle('muted', !on);
+    }
+    if (ovTag) {
+      ovTag.textContent = on ? '✓ Enabled' : (broken ? 'Unavailable' : 'Not Enabled');
+      ovTag.classList.toggle('off', !on);
+      ovTag.classList.toggle('pending', Boolean(broken));
+    }
   }
 
   async function loadTwoFactorStatus() {
     try {
       renderTwoFactorStatus(await api('/auth/2fa/status'));
     } catch (err) {
-      if (!err.sessionExpired) {
-        setText('tfStatusText', 'Unavailable');
-        const unavailable = document.getElementById('tfUnavailable');
-        if (unavailable) unavailable.style.display = 'block';
-        const offActions = document.getElementById('tfActionsDisabled');
-        if (offActions) offActions.style.display = 'none';
-      }
+      // A dropped session is handled globally — don't paint it as a 2FA fault.
+      if (!err.sessionExpired) renderTwoFactorStatus(null, true);
     }
   }
 
@@ -4135,13 +4852,13 @@
     setText('rvPendingCount', pending.length);
 
     // ── Pending Reviews ──
-    // The whole section is hidden when nothing is eligible, so the page does
-    // not carry a heading for a list that can never populate.
+    // Always present, so the section that carries the count in the summary
+    // above always has a matching list — an empty state when nothing is
+    // eligible, the eligible purchases otherwise.
     const pendingSection = document.getElementById('rvPendingSection');
     const pendingList = document.getElementById('rvPendingList');
     if (pendingSection && pendingList) {
-      const hasPurchases = (STATE.purchases || []).length > 0;
-      pendingSection.style.display = (pending.length || hasPurchases) ? 'block' : 'none';
+      pendingSection.style.display = 'block';
 
       pendingList.innerHTML = pending.length
         ? pending.map((c) => {
@@ -4165,7 +4882,7 @@
                   <div class="rv-stars" role="radiogroup" aria-label="Rate ${escapeHtml(brand)}">
                     ${starButtonsHtml(rating, 'pending:' + c.id)}
                   </div>
-                  <button class="btn btn-primary btn-sm" data-review-open="${escapeHtml(c.id)}">Write a Review</button>
+                  <button class="btn btn-primary btn-sm" data-review-open="${escapeHtml(c.id)}">Write Review</button>
                 </div>
               </div>`;
           }).join('')
@@ -4183,6 +4900,10 @@
         ? given.map((r) => {
             const brand = r.brand || 'Coupon';
             const label = r.couponTitle || (r.pricePaid ? `${inr(r.pricePaid)} Coupon` : 'Coupon');
+            // Reviews are buyer-side only, so the context that matters is which
+            // side of the sale the user was on and what they paid.
+            const context = ['You bought this coupon', r.pricePaid ? `paid ${inr(r.pricePaid)}` : '']
+              .filter(Boolean).join(' · ');
             return `
               <div class="rv-card">
                 <div class="rv-review-top">
@@ -4195,6 +4916,7 @@
                   </div>
                   ${starsStaticHtml(r.rating)}
                 </div>
+                <div class="rv-context"><span class="rv-role-tag">Buyer</span>${escapeHtml(context)}</div>
                 ${r.reviewText
                   ? `<p class="rv-text">${escapeHtml(r.reviewText)}</p>`
                   : '<p class="rv-text-empty">Rated without a written review.</p>'}
@@ -4209,6 +4931,7 @@
           }).join('')
         : `<div class="rv-empty">
              <div class="rv-empty-title">You haven't written any reviews yet.</div>
+             <div class="rv-empty-sub">Your submitted reviews will appear here.</div>
            </div>`;
     }
   }
@@ -4292,7 +5015,9 @@
       rating: Number(rvPendingRatings[couponId] || 0),
       reviewText: '',
     };
-    setText('rvModalTitle', 'Write a Review');
+    // innerHTML, not textContent — the gradient word is part of the modal's look.
+    const title = document.getElementById('rvModalTitle');
+    if (title) title.innerHTML = 'Write a <span class="gtext">Review</span>';
     setText('rvModalSub', 'Tell other buyers how this coupon worked out.');
     const submit = document.getElementById('rvModalSubmit');
     if (submit) submit.textContent = 'Submit Review';
@@ -4314,7 +5039,8 @@
       rating: Number(r.rating || 0),
       reviewText: r.reviewText || '',
     };
-    setText('rvModalTitle', 'Edit Review');
+    const editTitle = document.getElementById('rvModalTitle');
+    if (editTitle) editTitle.innerHTML = 'Edit <span class="gtext">Review</span>';
     setText('rvModalSub', 'Update your rating or what you wrote.');
     const submit = document.getElementById('rvModalSubmit');
     if (submit) submit.textContent = 'Save Review';
@@ -4356,7 +5082,7 @@
           body: { couponId: rvDraft.couponId, rating: rvDraft.rating, reviewText },
         });
         delete rvPendingRatings[rvDraft.couponId];
-        showToast('Thanks for your review', 'success');
+        showToast('Review submitted successfully.', 'success');
       }
 
       closeModal('reviewModal');
@@ -4569,12 +5295,21 @@
       // loading state) is never stale from an earlier visit.
       if (typeof loadMySessions === 'function') loadMySessions();
       if (typeof loadTwoFactorStatus === 'function') loadTwoFactorStatus();
+      if (typeof loadLoginHistory === 'function') loadLoginHistory();
     }
 
-    // Section anchor for the security sub-items
-    if (name === 'security' && sub === 'active-sessions') {
+    // The security and support pages are short — let the footer follow the
+    // content instead of a viewport-height gap. Scoped to those views only.
+    document.body.classList.toggle('view-security-active', name === 'security');
+    document.body.classList.toggle('view-support-active', name === 'support');
+    document.body.classList.toggle('view-reviews-active', name === 'reviews');
+
+    // Section anchors for the security sub-items. The scroll happens after the
+    // view is visible, and it overrides the scroll-to-top below.
+    const SEC_ANCHORS = { 'active-sessions': 'secActiveSessions', 'login-history': 'secLoginHistory' };
+    if (name === 'security' && SEC_ANCHORS[sub]) {
       setTimeout(() => {
-        const el = document.getElementById('secActiveSessions');
+        const el = document.getElementById(SEC_ANCHORS[sub]);
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 60);
     }
