@@ -444,6 +444,21 @@ function ensureNavProfileStyles() {
   document.head.appendChild(style);
 }
 
+/**
+ * First name only, for compact UI labels (navbar profile box, greetings).
+ * Splits on whitespace plus . _ - and strips trailing digits, then title-cases.
+ * Falls back to 'User' when the input is empty.
+ */
+function firstNameOf(fullName) {
+  const first = String(fullName || '')
+    .trim()
+    .split(/[\s._-]+/)
+    .filter(Boolean)[0] || '';
+  const clean = first.replace(/\d+$/, '');
+  if (!clean) return 'User';
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
 function updateNavAuth() {
   ensureNavProfileStyles();
   const navActions = document.querySelector('.nav-actions');
@@ -459,6 +474,7 @@ function updateNavAuth() {
   if (Auth.isLoggedIn()) {
     const user = Auth.getUser() || {};
     const name = user.name || 'User';
+    const displayName = firstNameOf(name);
     const email = user.email || '';
     const initials = name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
 
@@ -487,7 +503,7 @@ function updateNavAuth() {
           <div class="npd-header">
             <div class="npd-avatar">${avatarHtmlDropdown}</div>
             <div class="npd-info">
-              <div class="npd-name">${name}${statusTagHtml}</div>
+              <div class="npd-name">${displayName}${statusTagHtml}</div>
               <div class="npd-email">${email}</div>
             </div>
           </div>

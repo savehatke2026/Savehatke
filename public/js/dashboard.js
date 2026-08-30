@@ -8,7 +8,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const user = Auth.getUser();
   const greeting = document.getElementById('dashGreeting');
   if (greeting && user) {
-    greeting.textContent = `Welcome back, ${user.name}! Here's your savings overview.`;
+    const first = String(user.name || 'Friend').trim().split(/[\s._-]+/).filter(Boolean)[0] || 'Friend';
+    const clean = first.replace(/\d+$/, '');
+    const display = clean ? clean.charAt(0).toUpperCase() + clean.slice(1) : 'Friend';
+    greeting.textContent = `Welcome back, ${display}! Here's your savings overview.`;
   }
 
   initDashTabs();
