@@ -139,16 +139,39 @@ async function sendWelcomeEmail(to, userName) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
 
-  // No-reply "from" — separate config if the user has set it up,
-  // otherwise fall back to the main SMTP_USER.
-  const noreplyEmail = (process.env.NOREPLY_EMAIL
-    || (process.env.NOREPLY_SMTP_USER && `${process.env.NOREPLY_SMTP_USER}`)
+  // No-reply "from". A dedicated no-reply SMTP account is the clean case: we are
+  // authenticated as that mailbox, so it can be the From.
+  //
+  // CRITICAL when we fall back to the main SMTP account: the From has to be an
+  // address that account is allowed to send as, or Gmail and strict SMTP servers
+  // reject the message as a forgery (or silently rewrite the sender, which is
+  // how a "no-reply" welcome mail ends up arriving from the security mailbox).
+  // So NOREPLY_EMAIL is used on the shared transport only when it is on the
+  // authenticated login's own domain, or when it has been declared a verified
+  // "Send mail as" alias with NOREPLY_VERIFIED_ALIAS=true.
+  const noreplyAuthUser = (process.env.NOREPLY_SMTP_USER
     || process.env.SMTP_USER
     || process.env.EMAIL_USER
+    || '').trim();
+  const desiredNoreply = (process.env.NOREPLY_EMAIL
+    || process.env.NOREPLY_SMTP_USER
     || 'noreply@savehatke.com').trim();
-  const noreplyName = (process.env.NOREPLY_NAME
-    || process.env.EMAIL_FROM_NAME
-    || 'SaveHatke').trim();
+  const hasDedicatedNoreply = Boolean(
+    (process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim()
+  );
+  const domainOf = (addr) => (String(addr).split('@')[1] || '').toLowerCase();
+  const canSendAsNoreply = hasDedicatedNoreply
+    || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+    || Boolean(desiredNoreply && noreplyAuthUser && domainOf(desiredNoreply) === domainOf(noreplyAuthUser));
+
+  const noreplyEmail = canSendAsNoreply ? desiredNoreply : (noreplyAuthUser || desiredNoreply);
+  if (!canSendAsNoreply && noreplyEmail !== desiredNoreply) {
+    console.warn(`⚠️ [EmailService] Welcome email cannot send as ${desiredNoreply}: the SMTP login (${noreplyAuthUser || 'unknown'}) is not that mailbox and it is not marked as a verified alias, so it would be rejected or rewritten. Sending as ${noreplyEmail} instead.`);
+    console.warn('ℹ️ To send welcome mail from the no-reply address, either set NOREPLY_SMTP_USER + NOREPLY_SMTP_PASS for a dedicated account, or add it as a verified "Send mail as" alias on the SMTP account and set NOREPLY_VERIFIED_ALIAS=true.');
+  }
+  // Welcome mail is account comms, not a security notice — keep the plain
+  // SaveHatke display name rather than inheriting "SaveHatke Security".
+  const noreplyName = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
   // Replies go to support (not the no-reply inbox)
   const replyTo = process.env.SUPPORT_EMAIL || 'support@savehatke.com';
 
@@ -318,6 +341,9 @@ This email was sent to ${cleanEmail} because you created an account with SaveHat
       subject,
       text: textBody,
       html: htmlContent,
+      // Pin the envelope sender to the same address as the header From, so the
+      // return-path cannot drift to the authenticated login and break alignment.
+      envelope: { from: noreplyEmail, to: cleanEmail },
       headers: {
         'X-Entity-Ref-ID': `welcome-${Date.now()}`,
         'Auto-Submitted': 'auto-generated',
