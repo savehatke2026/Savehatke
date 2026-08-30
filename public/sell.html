@@ -74,7 +74,7 @@
     .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
     .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
     .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
-    .brand-icon { width:34px; height:34px; border-radius:9px; background:linear-gradient(135deg,#00e676,#4fc3f7); display:flex; align-items:center; justify-content:center; font-size:1rem; }
+    .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
     .bhl { color:#00e676; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
@@ -88,6 +88,11 @@
       .nav-toggle{display:flex}
       .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
       .nav-actions.open{display:flex;position:absolute;top:240px;right:24px;flex-direction:column;gap:10px;z-index:99}
+      .nav-toggle{position:relative}
+      .nav-toggle::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      .nav-brand{position:relative}
+      .nav-brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .fcol a{padding:9px 0;margin-bottom:0}
     }
 
     /* ── Page Hero ── */
@@ -423,15 +428,15 @@
     .toast-warning { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
 
     /* ── Footer ── */
-    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:64px 0 0; margin-top:80px; }
-    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; padding-bottom:52px; }
-    .fbrand p { font-size:.88rem; color:#6b88aa; line-height:1.7; margin-top:16px; max-width:280px; }
-    .fcol h4 { font-size:.8rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:20px; color:#a8c0dc; }
-    .fcol a { display:block; font-size:.88rem; color:#6b88aa; margin-bottom:12px; transition:color .2s; }
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:36px 0 0; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; padding-bottom:28px; }
+    .fbrand p { font-size:.84rem; color:#6b88aa; line-height:1.6; margin-top:12px; max-width:320px; }
+    .fcol h4 { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; }
+    .fcol a { display:block; font-size:.84rem; color:#6b88aa; margin-bottom:8px; transition:color .2s; }
     .fcol a:hover { color:#00e676; }
-    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:20px 0; display:flex; justify-content:space-between; font-size:.82rem; color:#6b88aa; }
-    @media(max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;gap:32px} }
-    @media(max-width:600px){ .footer-grid{grid-template-columns:1fr} .fbot{flex-direction:column;gap:8px;text-align:center} }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:14px 0; display:flex; justify-content:space-between; font-size:.78rem; color:#6b88aa; }
+    @media(max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;gap:24px} }
+    @media(max-width:600px){ .footer-grid{grid-template-columns:1fr} .fbot{flex-direction:column;gap:6px;text-align:center} }
 
     /* ── Modal ── */
     .modal-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,.7); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
@@ -478,17 +483,19 @@
 <nav class="navbar" id="nav">
   <div class="container">
     <a href="index" class="nav-brand">
-      <div class="brand-icon">💰</div>
+      <img src="logo.png" alt="SaveHatke" class="brand-icon">
       <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
     <div class="nav-links" id="navLinks">
       <a href="index">Home</a>
-      <a href="marketplace">Coupons</a>
+      <a href="marketplace">Buy Coupons</a>
       <a href="sell" class="active">Sell Coupons</a>
+      <a href="how-it-works">How it Works</a>
+      <a href="about">About</a>
       <a href="support">Support</a>
     </div>
     <div class="nav-actions" id="navActions"></div>
-    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle menu">
       <span></span><span></span><span></span>
     </button>
   </div>
@@ -717,16 +724,15 @@
     <div class="footer-grid">
       <div class="fbrand">
         <a href="index" class="nav-brand" style="font-size:1.2rem">
-          <div class="brand-icon">💰</div><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+          <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
         </a>
-        <p>India's smartest price tracker and peer-to-peer coupon marketplace. Track prices, compare deals, and trade coupons — all in one place.</p>
+        <p>India’s coupon marketplace for buying and selling eligible unused coupons. Buy great deals, save more, and turn unused coupons into extra value.</p>
       </div>
       <div class="fcol">
         <h4>Platform</h4>
         <a href="marketplace">Coupon Marketplace</a>
         <a href="sell">Sell Coupons</a>
-        <a href="dashboard">Price Tracker</a>
-        <a href="index#extension">Browser Extension</a>
+        <a href="how-it-works">How it Works</a>
       </div>
       <div class="fcol">
         <h4>Company</h4>
