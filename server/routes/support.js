@@ -4,7 +4,7 @@
 
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { optionalAuth } = require('../middleware/auth');
+const { optionalAuth, authenticateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const emailService = require('../services/emailService');
 const { verifyTurnstile } = require('../utils/turnstile');
@@ -14,6 +14,81 @@ const router = express.Router();
 const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB
 const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
 const ATTACHMENT_BUCKET = 'support-attachments';
+
+const REPLY_MAX_CHARS = 4000;
+// A user may only add to a case support is still working on. A resolved or
+// closed case is read-only; reopening it is an admin action.
+const REPLYABLE_STATUSES = ['open', 'inprogress'];
+
+/** Canonical status key: 'in_progress' / 'In Progress' / 'investigating' → 'inprogress'. */
+function normStatus(s) {
+  const v = String(s || 'open').toLowerCase().trim().replace(/[\s_-]+/g, '');
+  if (v === 'investigating') return 'inprogress';
+  return ['open', 'inprogress', 'resolved', 'closed'].includes(v) ? v : 'open';
+}
+
+/**
+ * Read a ticket's reply thread.
+ *
+ * The `messages` column was added after the sheet already held tickets, so an
+ * older row has no value there. Those cases still have one real support reply —
+ * the admin's `resolution` note — so it is folded into the thread here instead
+ * of being surfaced as a separate orphan field in the UI.
+ */
+function parseThread(ticket) {
+  let thread = [];
+  const raw = ticket.messages;
+  if (raw) {
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if (Array.isArray(parsed)) {
+        thread = parsed
+          .filter((m) => m && m.body)
+          .map((m) => ({
+            from: m.from === 'support' ? 'support' : 'user',
+            body: String(m.body).slice(0, REPLY_MAX_CHARS),
+            at: m.at || '',
+          }));
+      }
+    } catch (e) {
+      // A hand-edited cell must not break the whole case list.
+      console.warn(`[support] Could not parse messages for ticket ${ticket.id}:`, e.message);
+    }
+  }
+
+  const resolution = String(ticket.resolution || '').trim();
+  if (resolution && !thread.some((m) => m.from === 'support' && m.body === resolution)) {
+    thread.push({
+      from: 'support',
+      body: resolution,
+      at: ticket.resolvedAt || ticket.updatedAt || ticket.createdAt || '',
+    });
+  }
+
+  return thread.sort((a, b) => new Date(a.at || 0) - new Date(b.at || 0));
+}
+
+/** Shape one ticket for its owner's dashboard. */
+function toClientTicket(t) {
+  const thread = parseThread(t);
+  const lastReplyAt = thread.length ? thread[thread.length - 1].at : '';
+  return {
+    id: t.id,
+    subject: t.subject,
+    message: t.message,
+    status: normStatus(t.status),
+    createdAt: t.createdAt,
+    // Newest real signal wins, so a case replied to today does not still read
+    // "updated 3 weeks ago" from its created date.
+    updatedAt: [t.updatedAt, t.resolvedAt, lastReplyAt, t.createdAt]
+      .filter(Boolean)
+      .sort((a, b) => new Date(b) - new Date(a))[0] || t.createdAt,
+    resolvedAt: t.resolvedAt,
+    messages: thread,
+    attachmentUrl: t.attachmentUrl || '',
+    attachmentName: t.attachmentName || '',
+  };
+}
 
 // POST /api/support/attachment — Upload a support ticket attachment to Supabase Storage
 router.post('/attachment', optionalAuth, async (req, res) => {
@@ -111,6 +186,11 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       resolution: '',
       attachmentUrl: safeAttachmentUrl,
       attachmentName: attachmentName ? String(attachmentName).slice(0, 120) : '',
+      // A new case starts with no replies. The opening message stays in
+      // `message` so it keeps rendering as the original report, separate from
+      // the thread that grows underneath it.
+      updatedAt: new Date().toISOString(),
+      messages: '[]',
     };
 
     await db.appendRow(db.SHEETS.SUPPORT_TICKETS, ticket);
@@ -169,20 +249,73 @@ router.get('/tickets', optionalAuth, async (req, res) => {
       tickets = await db.findRows(db.SHEETS.SUPPORT_TICKETS, 'userEmail', req.user.email);
     }
 
-    res.json({
-      tickets: tickets.map((t) => ({
-        id: t.id,
-        subject: t.subject,
-        message: t.message,
-        status: t.status,
-        createdAt: t.createdAt,
-        resolvedAt: t.resolvedAt,
-        attachmentUrl: t.attachmentUrl || '',
-        attachmentName: t.attachmentName || '',
-      })),
-    });
+    // Newest first — the dashboard shows the most recent case at the top.
+    const list = tickets
+      .map(toClientTicket)
+      .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+
+    res.json({ tickets: list });
   } catch (err) {
     console.error('List tickets error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/support/tickets/:id/reply — Add the user's own reply to their case.
+//
+// authenticateToken, not optionalAuth: writing into someone's support thread
+// requires a real session. Ownership is then checked against the ticket's
+// userEmail, so a logged-in user cannot post into another user's case.
+router.post('/tickets/:id/reply', authenticateToken, async (req, res) => {
+  try {
+    const { message } = req.body || {};
+    const body = String(message == null ? '' : message).trim();
+    if (!body) {
+      return res.status(400).json({ error: 'Please type a reply before sending.' });
+    }
+
+    const storageError = db.getWriteAvailabilityError(
+      'Replying is temporarily unavailable because Google Sheets is not connected.'
+    );
+    if (storageError) {
+      return res.status(503).json(storageError);
+    }
+
+    const ticket = await db.findRow(db.SHEETS.SUPPORT_TICKETS, 'id', req.params.id);
+    if (!ticket) {
+      return res.status(404).json({ error: 'Support case not found.' });
+    }
+
+    // Ownership. An admin replies through the admin panel, not here.
+    const owner = String(ticket.userEmail || '').toLowerCase().trim();
+    if (owner !== String(req.user.email || '').toLowerCase().trim()) {
+      return res.status(403).json({ error: 'This support case belongs to another account.' });
+    }
+
+    const status = normStatus(ticket.status);
+    if (!REPLYABLE_STATUSES.includes(status)) {
+      return res.status(409).json({
+        error: 'This case is closed. Please create a new case if you still need help.',
+      });
+    }
+
+    const now = new Date().toISOString();
+    // Rebuild from parseThread so a legacy row's `resolution` is preserved into
+    // the stored thread on its first write instead of being dropped.
+    const thread = parseThread(ticket);
+    thread.push({ from: 'user', body: body.slice(0, REPLY_MAX_CHARS), at: now });
+
+    await db.updateRow(db.SHEETS.SUPPORT_TICKETS, 'id', ticket.id, {
+      messages: JSON.stringify(thread),
+      updatedAt: now,
+    });
+
+    res.status(201).json({
+      message: 'Reply sent. Our support team will get back to you.',
+      ticket: toClientTicket({ ...ticket, messages: JSON.stringify(thread), updatedAt: now }),
+    });
+  } catch (err) {
+    console.error('Support reply error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });

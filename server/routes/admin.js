@@ -1105,8 +1105,29 @@ router.put('/support-cases/:id/status', authenticateToken, requireAdmin, async (
     const cleanResolution = resolution && String(resolution).trim()
       ? String(resolution).trim().slice(0, 4000)
       : (existing.resolution || '');
-    const update = { status, resolvedAt };
+    // updatedAt is what the user's Help & Support list shows as "Updated", so it
+    // has to move whenever the case does — otherwise a case resolved today still
+    // reads as last touched on the day it was opened.
+    const update = { status, resolvedAt, updatedAt: now };
     if (status === 'resolved' && cleanResolution) update.resolution = cleanResolution;
+
+    // Record the resolution in the case thread as well, so the user sees it as a
+    // support reply in context rather than as a detached "resolution" field.
+    // Appended once: a later status flip finds it already there and skips.
+    if (cleanResolution) {
+      let thread = [];
+      try {
+        const parsed = existing.messages ? JSON.parse(existing.messages) : [];
+        if (Array.isArray(parsed)) thread = parsed;
+      } catch (e) {
+        console.warn(`[admin/support-cases] Could not parse messages for ${id}:`, e.message);
+      }
+      const already = thread.some((m) => m && m.from === 'support' && m.body === cleanResolution);
+      if (!already) {
+        thread.push({ from: 'support', body: cleanResolution, at: now });
+        update.messages = JSON.stringify(thread);
+      }
+    }
 
     await db.updateRow(db.SHEETS.SUPPORT_TICKETS, 'id', id, update);
 

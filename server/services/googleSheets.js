@@ -169,6 +169,14 @@ const HEADERS = {
   [SHEETS.SUPPORT_TICKETS]: [
     'id', 'name', 'userEmail', 'subject', 'message',
     'status', 'createdAt', 'resolvedAt', 'resolution', 'attachmentUrl', 'attachmentName',
+    // Added after the columns above. ensureSheets() appends missing headers to
+    // the right of an existing tab without moving data, so pre-existing rows
+    // simply read back empty here and the readers below fall back.
+    //   updatedAt — bumped on every reply and status change, so the support list
+    //               can show a real "last updated" instead of the created date.
+    //   messages  — JSON array holding the reply thread:
+    //               [{ from: 'user' | 'support', body, at }]
+    'updatedAt', 'messages',
   ],
   [SHEETS.SETTINGS]: [
     'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'heroBadge', 'showHeroBadge', 'updatedAt',
