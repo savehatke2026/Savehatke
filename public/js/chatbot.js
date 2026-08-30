@@ -170,21 +170,14 @@
       flex-shrink: 0;
       overflow: hidden;
     }
-    /* The SaveHatke mark sits on the green tile. If the asset ever fails to
-       load, onerror swaps in the lettermark beside it so the header never
-       shows a broken image. */
-    .chatbot-avatar-logo {
-      width: 26px;
-      height: 26px;
-      object-fit: contain;
+    /* The same coupon-ticket chat mark the launcher uses, so the icon the user
+       clicked is the icon that greets them inside the window. Dark on the green
+       tile for contrast. */
+    .chatbot-avatar-mark {
+      width: 22px;
+      height: 22px;
       display: block;
-    }
-    .chatbot-avatar-fallback {
-      font-family: 'Outfit', system-ui, sans-serif;
-      font-weight: 800;
-      font-size: .95rem;
       color: #04210f;
-      letter-spacing: -.02em;
     }
     .chatbot-header-name {
       font-weight: 700;
@@ -464,12 +457,16 @@
   <div class="chatbot-header">
     <div class="chatbot-header-left">
       <div class="chatbot-avatar" aria-hidden="true">
-        <img
-          class="chatbot-avatar-logo"
-          src="/logo.png"
-          alt=""
-          onerror="this.style.display='none';this.nextElementSibling.style.display='block'"
-        ><span class="chatbot-avatar-fallback" style="display:none">SH</span>
+        <svg class="chatbot-avatar-mark" viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+          <path fill="currentColor" fill-rule="evenodd" d="
+            M6 4 H22 A3.5 3.5 0 0 1 25.5 7.5 V8.9 A2.6 2.6 0 0 0 25.5 14.1 V15.5
+            A3.5 3.5 0 0 1 22 19 H14.5 L7 23.9 L10.2 19 H6
+            A3.5 3.5 0 0 1 2.5 15.5 V14.1 A2.6 2.6 0 0 0 2.5 8.9 V7.5 A3.5 3.5 0 0 1 6 4 Z
+            M8.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+            M12.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+            M16.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+          "/>
+        </svg>
       </div>
       <div>
         <div class="chatbot-header-name">SaveHatke AI Assistant</div>
