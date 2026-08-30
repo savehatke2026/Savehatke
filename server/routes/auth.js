@@ -1774,6 +1774,89 @@ router.put('/notification-preferences', authenticateToken, async (req, res) => {
   }
 });
 
+// â”€â”€ One-time onboarding flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+//
+// Small booleans that record which product tours the account has already
+// seen, so a tutorial auto-opens exactly once per user rather than once per
+// browser. Stored as a JSON blob in Users.onboarding_state alongside the
+// notification blob above, and read with the same defaults-on-missing rule.
+// Signed-out visitors have nowhere to persist this, so the client falls back
+// to local storage for them.
+const ONBOARDING_DEFAULTS = Object.freeze({
+  marketplaceTutorialCompleted: false,
+  marketplaceTutorialSkipped: false,
+});
+
+function parseOnboardingState(raw) {
+  let stored = {};
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') stored = parsed;
+    } catch (e) {
+      console.warn('[onboarding] unparseable value, using defaults');
+    }
+  } else if (raw && typeof raw === 'object') {
+    stored = raw;
+  }
+
+  const out = {};
+  for (const [key, dflt] of Object.entries(ONBOARDING_DEFAULTS)) {
+    out[key] = typeof stored[key] === 'boolean' ? stored[key] : dflt;
+  }
+  return out;
+}
+
+router.get('/onboarding', authenticateToken, async (req, res) => {
+  try {
+    const row = await findUserRowForRequest(req.user);
+    if (!row) return res.status(404).json({ error: 'Account not found.' });
+
+    res.json({
+      onboarding: parseOnboardingState(row.onboarding_state),
+      defaults: { ...ONBOARDING_DEFAULTS },
+    });
+  } catch (err) {
+    console.error('[onboarding] read failed:', err.message);
+    res.status(500).json({ error: 'Unable to load your onboarding state.' });
+  }
+});
+
+router.put('/onboarding', authenticateToken, async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const incoming = body.onboarding && typeof body.onboarding === 'object' ? body.onboarding : body;
+
+    const unknown = Object.keys(incoming).filter((k) => !(k in ONBOARDING_DEFAULTS));
+    if (unknown.length) {
+      return res.status(400).json({ error: `Unknown onboarding flag: ${unknown.join(', ')}` });
+    }
+    const nonBoolean = Object.entries(incoming).filter(([, v]) => typeof v !== 'boolean');
+    if (nonBoolean.length) {
+      return res.status(400).json({ error: 'Onboarding flags must be true or false.' });
+    }
+
+    const row = await findUserRowForRequest(req.user);
+    if (!row) return res.status(404).json({ error: 'Account not found.' });
+
+    // Merge, so marking one tour seen never clears another.
+    const merged = { ...parseOnboardingState(row.onboarding_state), ...incoming };
+
+    const idField = row.user_ID !== undefined ? 'user_ID' : (row.user_id !== undefined ? 'user_id' : 'email');
+    const idValue = idField === 'email' ? String(row.email || '').toLowerCase().trim() : row[idField];
+
+    await db.updateRow(db.SHEETS.USERS, idField, idValue, {
+      onboarding_state: JSON.stringify(merged),
+      updated_at: new Date().toISOString(),
+    });
+
+    res.json({ onboarding: merged });
+  } catch (err) {
+    console.error('[onboarding] save failed:', err.message);
+    res.status(500).json({ error: 'Unable to save your onboarding state.' });
+  }
+});
+
 module.exports = router;
 
 // The 2FA login exchange in routes/twoFactor.js has to mint exactly the same

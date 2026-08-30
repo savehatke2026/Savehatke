@@ -164,6 +164,53 @@
     .cbadges .cverified { margin-bottom:0; }
     .csale-badge { display:inline-flex; align-items:center; gap:4px; font-size:.65rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:5px; background:linear-gradient(135deg,#ff6b35,#ff3d00); color:#fff; box-shadow:0 2px 10px rgba(255,61,0,.32); }
 
+    /* "HOW TO USE" TAG — every card carries one; it opens the redemption-steps
+       modal below. Deliberately a quiet dashed chip and not a second button: the
+       green Buy control stays the only loud action on the card, and the dashed
+       border reads as "more info" rather than "checkout". */
+    .chow-tag { display:inline-flex; align-items:center; gap:4px; font-family:'Outfit',sans-serif; font-size:.65rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; padding:3px 8px; border-radius:5px; border:1px dashed rgba(79,195,247,.38); background:rgba(79,195,247,.07); color:#4fc3f7; cursor:pointer; transition:background .2s,border-color .2s,color .2s; }
+    .chow-tag:hover { background:rgba(79,195,247,.18); border-color:rgba(79,195,247,.7); color:#9ad9ff; }
+    .chow-tag:focus-visible { outline:2px solid rgba(79,195,247,.75); outline-offset:2px; }
+    /* Free cards carry no verified/sale badge, so their row holds only this tag.
+       The FREE badge is absolutely positioned in that same top-right corner, so
+       only the free variant reserves room for it — reserving it on every card
+       would push the paid cards' three tags onto a second line. */
+    .cbadges-free { padding-right:60px; }
+
+    /* HOW-TO-USE MODAL — built by js/marketplace.js on this page's own modal
+       vocabulary (.modal-overlay.open / .modal / .mhdr), because marketplace.html
+       carries its own stylesheet and does not load css/styles.css, so the shared
+       modal classes from js/app.js have no styling here.
+       Size and padding are qualified with .modal because the base .modal rule is
+       declared further down this stylesheet and would otherwise win the tie. */
+    /* Seller instructions can be long, so this modal — unlike the short auth one
+       — can outgrow a phone screen: cap it and let the body scroll. */
+    .modal.howto-modal { max-width:520px; padding:30px 30px 26px; text-align:left; max-height:88vh; overflow-y:auto; }
+    .howto-sub { font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:#4fc3f7; margin-top:6px; }
+    .howto-offer { border:1px solid rgba(79,195,247,.14); background:rgba(255,255,255,.03); border-radius:12px; padding:12px 14px; margin-bottom:18px; }
+    .howto-offer-title { font-size:.9rem; font-weight:700; color:#e2ecff; line-height:1.45; }
+    .howto-offer-meta { font-size:.76rem; color:#8ba2c4; margin-top:4px; }
+    .howto-offer-meta b { color:#00e676; }
+
+    /* Seller-written instructions — only rendered when this coupon actually has
+       them, so the generic steps never masquerade as the seller's own. */
+    .chow-seller { border:1px solid rgba(79,195,247,.22); background:rgba(79,195,247,.07); border-radius:12px; padding:12px 14px; margin-bottom:16px; }
+    .chow-seller-head { font-size:.68rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:#4fc3f7; margin-bottom:6px; }
+    .chow-seller-body { font-size:.84rem; line-height:1.6; color:#cfe0f5; margin:0; white-space:pre-line; }
+
+    .howto-steps { list-style:none; margin:0 0 18px; padding:0; display:flex; flex-direction:column; gap:13px; counter-reset:howto; }
+    .howto-steps li { display:flex; gap:11px; align-items:flex-start; font-size:.85rem; line-height:1.55; color:#a8c0dc; counter-increment:howto; }
+    .howto-steps li::before { content:counter(howto); flex-shrink:0; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.74rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); }
+    /* The number is one flex item and the whole sentence the other, so the bold
+       lead-in stays inline with its text instead of becoming a third column. */
+    .howto-steps li > span { min-width:0; }
+    .howto-steps b { color:#e2ecff; font-weight:700; }
+    .howto-steps em { color:#4fc3f7; font-style:normal; }
+    .howto-steps a { color:#00e676; }
+    .howto-foot { font-size:.76rem; line-height:1.55; color:#6b88aa; border-top:1px solid rgba(79,195,247,.1); padding-top:13px; }
+    .howto-foot a { color:#4fc3f7; }
+    @media(max-width:560px){ .modal.howto-modal { padding:24px 20px 20px; } }
+
     /* EXPIRY COUNTDOWN — a live countdown, green >2wks / yellow ≤2wks / red ≤1wk.
        Timer starts at 2 weeks. ≥7 days shows the days unit, <7 days drops it and
        the hours run past 24 for urgency. Deliberately one slim line: each value
@@ -497,9 +544,13 @@
   </div>
 </div>
 
+<script src="js/cookie-consent.js"></script>
 <script src="js/app.js"></script>
 <script src="js/coupon-meta.js"></script>
 <script src="js/marketplace.js"></script>
+<!-- First-run spotlight tutorial. Self-contained overlay: it injects its own
+     styles and markup, so the marketplace above is unchanged. -->
+<script src="js/marketplaceTour.js"></script>
 <script>
   // ─── NAV TOGGLE & MODAL HELPERS ─────────────────────────────────────────────
   window.addEventListener('scroll', () => {

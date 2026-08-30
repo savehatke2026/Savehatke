@@ -50,6 +50,11 @@ const HEADERS = {
     'updated_at',
     'last_login_at',
     'last_logout_at',
+    // JSON blob of one-time onboarding flags, e.g.
+    // {"marketplaceTutorialCompleted":true,"marketplaceTutorialSkipped":false}.
+    // Appended by ensureSheets() on sheets created before it existed, so an
+    // older row simply reads back as "nothing seen yet".
+    'onboarding_state',
   ],
   [SHEETS.COUPONS]: [
     'id',
