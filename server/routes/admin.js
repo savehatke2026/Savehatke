@@ -1372,12 +1372,11 @@ async function handleMonthlyRun(req, res) {
   try {
     const actor = (req.user && req.user.email) || 'cron';
     const result = await monthlyReports.ensurePreviousMonthReport({ actor });
-    res.json({
-      message: result.generated
-        ? `Generated and sent the ${result.month} report.`
-        : `Nothing to do — the ${result.month} report already exists.`,
-      ...result,
-    });
+    let message;
+    if (result.generated) message = `Generated and sent the ${result.month} report.`;
+    else if (result.skipped === 'storage-unavailable') message = 'Report storage is unavailable, so nothing was generated.';
+    else message = `Nothing to do — the ${result.month} report already exists.`;
+    res.json({ message, ...result });
   } catch (err) {
     console.error('Admin monthly report run error:', err);
     res.status(500).json({ error: err.message || 'Failed to generate the report.' });
