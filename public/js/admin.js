@@ -16,6 +16,7 @@ function initAdminApp() {
   initUsersTableControls();
   initSessionsTableControls();
   initInventoryTableControls();
+  initActiveTableControls();
   loadSystemSettings();
 }
 
@@ -262,6 +263,14 @@ async function loadInventory() {
     const data = await api(`/admin/coupons${status ? `?status=${status}` : ''}`, { useAdmin: true });
     // If a newer request started while we were awaiting, drop this response
     if (seq !== inventoryRequestSeq) return;
+
+    // Unfiltered fetch already holds every coupon — use it to keep the ⏳ Pending
+    // tab badge honest, since opening the section only loads this table.
+    if (!status) {
+      cmSetPendingBadge(
+        (data.coupons || []).filter((c) => c.status === 'pending' || c.status === 'proof_requested').length,
+      );
+    }
 
     if (data.coupons.length === 0) {
       INVENTORY_CACHE = [];
@@ -601,6 +610,353 @@ function initInventoryTableControls() {
   });
 }
 
+// ── Coupon Management: ⏳ Pending + ✅ Active tables ──────────────────────
+/*
+ * These two tabs of Coupon Management show the same sets the Coupon Reviews
+ * section works with: submissions still awaiting a decision, and the ones
+ * review has approved (status 'available' — live in the marketplace).
+ *
+ * Both loaders were called from three places — showCouponTab() in vault.html,
+ * and approveCoupon()/deleteCoupon() below — but neither was ever defined. So
+ * the tabs rendered nothing, and the two unguarded calls threw a ReferenceError
+ * immediately after a successful API call: approving or deleting a coupon
+ * reported failure in a toast and left every table stale. Same class of bug as
+ * initInventoryTableControls() above.
+ */
+
+const CM_PAGE_SIZE = 20;
+// Fetched rows are cached so the search box and the source filter re-render
+// without another round trip.
+let activeCoupons = { rows: [], page: 1, search: '', source: 'all', loading: false, seq: 0 };
+let pendingCoupons = { loading: false, seq: 0 };
+
+async function loadActiveCoupons() {
+  const container = document.getElementById('activeList');
+  if (!container) return;
+  if (activeCoupons.loading) return; // single-flight, like loadInventory()
+  activeCoupons.loading = true;
+  const seq = ++activeCoupons.seq;
+
+  if (activeCoupons.rows.length === 0) {
+    container.innerHTML = '<div class="cm-loading">Loading approved coupons…</div>';
+  }
+
+  try {
+    // status=available is exactly the Coupon Reviews → ✅ Approved set.
+    const data = await api('/admin/coupons?status=available', { useAdmin: true });
+    if (seq !== activeCoupons.seq) return; // a newer load started while awaiting
+    activeCoupons.rows = data.coupons || [];
+    renderActiveCoupons();
+  } catch (err) {
+    if (seq === activeCoupons.seq) {
+      container.innerHTML = cmStateHtml('⚠️', 'Failed to load approved coupons', escHtml(err.message || 'Unknown error'));
+    }
+  } finally {
+    activeCoupons.loading = false;
+  }
+}
+
+/** Re-render the approved table from cache (search / filter / paging). */
+function renderActiveCoupons() {
+  const container = document.getElementById('activeList');
+  if (!container) return;
+
+  const all = activeCoupons.rows;
+  if (all.length === 0) {
+    container.innerHTML = cmStateHtml(
+      '✅',
+      'No approved coupons yet',
+      'Approve a submission in Coupon Reviews and it lands here, live in the marketplace.',
+    );
+    return;
+  }
+
+  const rows = all.filter(matchesActiveFilters);
+  if (rows.length === 0) {
+    container.innerHTML = cmStateHtml('🔍', 'Nothing matches this filter', 'Clear the search box or pick a different source.');
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(rows.length / CM_PAGE_SIZE));
+  if (activeCoupons.page > totalPages) activeCoupons.page = totalPages;
+  if (activeCoupons.page < 1) activeCoupons.page = 1;
+  const start = (activeCoupons.page - 1) * CM_PAGE_SIZE;
+  const pageRows = rows.slice(start, start + CM_PAGE_SIZE);
+  const fromReviews = all.filter(isSellerSubmission).length;
+
+  container.innerHTML = `
+    <div class="cm-summary">
+      <span><b>${all.length}</b> live in the marketplace</span>
+      <span><b>${fromReviews}</b> approved from seller submissions</span>
+      <span><b>${all.length - fromReviews}</b> added by admin</span>
+    </div>
+    <div class="table-card" style="margin-bottom:0">
+      <div class="overflow-x">
+        <table class="appr-table">
+          <colgroup>
+            <col style="width:200px"><col style="width:196px"><col style="width:118px">
+            <col style="width:84px"><col style="width:84px"><col style="width:180px">
+            <col style="width:132px"><col style="width:180px"><col style="width:148px">
+            <col style="width:112px">
+          </colgroup>
+          <thead>
+            <tr>
+              <th>Brand</th>
+              <th>Code</th>
+              <th>Category</th>
+              <th>Value</th>
+              <th>Price</th>
+              <th>Seller</th>
+              <th title="When review approved this coupon">Approved</th>
+              <th title="When this coupon expires — drives the countdown on the marketplace card">Expires</th>
+              <th>Source</th>
+              <th class="ta-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>${pageRows.map(activeRowHtml).join('')}</tbody>
+        </table>
+      </div>
+      <div class="inv-tfoot">
+        <span>Showing ${start + 1}–${start + pageRows.length} of ${rows.length} approved coupon${rows.length !== 1 ? 's' : ''}</span>
+        ${cmPagerHtml(activeCoupons.page, totalPages, 'activeGoToPage')}
+      </div>
+    </div>
+  `;
+
+  if (typeof startInventoryExpiryTicker === 'function') startInventoryExpiryTicker();
+}
+
+/** One approved-coupon row. */
+function activeRowHtml(c) {
+  const id = escHtml(c.id || '');
+  const seller = c.sellerEmail || 'Admin';
+  const src = String(c.source || '').toLowerCase();
+  const srcBadge = src === 'admin' ? 'purple' : src === 'auto-scraped' ? 'teal' : src === 'partner' ? 'blue' : 'green';
+  // review-action stamps verifiedAt on approve; older rows only carry addedAt.
+  const approvedAt = c.verifiedAt || c.reviewedAt || c.approvedAt || '';
+  const fallbackAt = c.addedAt || c.createdAt || '';
+
+  return `
+    <tr data-coupon-id="${id}">
+      <td>${cmBrandCellHtml(c.brand || '')}</td>
+      <td><code class="inv-code">${escHtml(c.code || '')}</code></td>
+      <td>${escHtml(c.category || '—')}</td>
+      <td>₹${escHtml(c.originalValue || '—')}</td>
+      <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
+      <td><span class="cm-seller" title="${escHtml(seller)}">${escHtml(seller)}</span></td>
+      <td>${cmWhenHtml(approvedAt, fallbackAt)}</td>
+      <td>${typeof invExpiryChip === 'function' ? invExpiryChip(c.expiryDate, c.timerOn !== false) : escHtml(c.expiryDate || '—')}</td>
+      <td><span class="badge badge-${srcBadge}">${escHtml(c.source || '—')}</span></td>
+      <td>
+        <div class="admin-actions ta-right">
+          <button class="btn btn-ghost btn-xs" title="Open the full review record" onclick="openReviewModal('${id}')">🔍</button>
+          <button class="btn btn-danger btn-xs" title="Delete this coupon" onclick="deleteCoupon('${id}')">🗑</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+/** Anything not admin-entered came in through a seller submission → review. */
+function isSellerSubmission(c) {
+  const src = String(c.source || '').toLowerCase();
+  return src === 'user-submitted' || src === 'user';
+}
+
+function matchesActiveFilters(c) {
+  if (activeCoupons.source === 'review' && !isSellerSubmission(c)) return false;
+  if (activeCoupons.source === 'admin' && isSellerSubmission(c)) return false;
+  const q = activeCoupons.search;
+  if (!q) return true;
+  return `${c.code || ''} ${c.brand || ''} ${c.sellerEmail || ''} ${c.category || ''}`.toLowerCase().includes(q);
+}
+
+function setActiveSourceFilter(source, btnEl) {
+  activeCoupons.source = source;
+  activeCoupons.page = 1;
+  document.querySelectorAll('#ctab-active .cm-filters .btn').forEach((b) => b.classList.remove('active'));
+  if (btnEl) btnEl.classList.add('active');
+  renderActiveCoupons();
+}
+
+function activeGoToPage(page) {
+  activeCoupons.page = page < 1 ? 1 : page;
+  renderActiveCoupons();
+}
+
+// Search box for the ✅ Active tab. It filters the cached rows, so there is no
+// refetch and no need to debounce for the API's sake — the delay is only to
+// avoid re-rendering the table on every keystroke.
+function initActiveTableControls() {
+  const search = document.getElementById('activeSearch');
+  if (!search) return;
+  search.addEventListener('input', debounce(() => {
+    activeCoupons.search = search.value.trim().toLowerCase();
+    activeCoupons.page = 1;
+    renderActiveCoupons();
+  }, 160));
+}
+
+async function loadPending() {
+  const container = document.getElementById('pendingList');
+  if (!container) return;
+  if (pendingCoupons.loading) return;
+  pendingCoupons.loading = true;
+  const seq = ++pendingCoupons.seq;
+  container.innerHTML = '<div class="cm-loading">Loading pending submissions…</div>';
+
+  try {
+    // 'pending' and 'proof_requested' are both still awaiting a decision, and
+    // the API filters one status at a time — so fetch all and split here.
+    const data = await api('/admin/coupons', { useAdmin: true });
+    if (seq !== pendingCoupons.seq) return;
+    const rows = (data.coupons || []).filter(
+      (c) => c.status === 'pending' || c.status === 'proof_requested',
+    );
+    cmSetPendingBadge(rows.length);
+
+    if (rows.length === 0) {
+      container.innerHTML = cmStateHtml('⏳', 'No coupons awaiting approval', 'All caught up — new seller submissions land here.');
+      return;
+    }
+
+    container.innerHTML = `
+      <div class="table-card" style="margin-bottom:0">
+        <div class="overflow-x">
+          <table class="appr-table" style="min-width:1274px">
+            <colgroup>
+              <col style="width:200px"><col style="width:196px"><col style="width:118px">
+              <col style="width:84px"><col style="width:84px"><col style="width:180px">
+              <col style="width:132px"><col style="width:130px"><col style="width:150px">
+            </colgroup>
+            <thead>
+              <tr>
+                <th>Brand</th>
+                <th>Code</th>
+                <th>Category</th>
+                <th>Value</th>
+                <th>Price</th>
+                <th>Seller</th>
+                <th>Submitted</th>
+                <th>Status</th>
+                <th class="ta-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>${rows.map(pendingRowHtml).join('')}</tbody>
+          </table>
+        </div>
+        <div class="inv-tfoot">
+          <span>${rows.length} submission${rows.length !== 1 ? 's' : ''} awaiting a decision</span>
+          <button class="btn btn-ghost btn-sm" onclick="showSection('reviews')">Open Coupon Reviews →</button>
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    if (seq === pendingCoupons.seq) {
+      container.innerHTML = cmStateHtml('⚠️', 'Failed to load pending submissions', escHtml(err.message || 'Unknown error'));
+    }
+  } finally {
+    pendingCoupons.loading = false;
+  }
+}
+
+/** One pending-submission row — approve/reject go through the review API. */
+function pendingRowHtml(c) {
+  const id = escHtml(c.id || '');
+  const seller = c.sellerEmail || 'Admin';
+  const proof = c.status === 'proof_requested';
+
+  return `
+    <tr data-coupon-id="${id}">
+      <td>${cmBrandCellHtml(c.brand || '')}</td>
+      <td><code class="inv-code">${escHtml(c.code || '')}</code></td>
+      <td>${escHtml(c.category || '—')}</td>
+      <td>₹${escHtml(c.originalValue || '—')}</td>
+      <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
+      <td><span class="cm-seller" title="${escHtml(seller)}">${escHtml(seller)}</span></td>
+      <td>${cmWhenHtml(c.addedAt || c.createdAt || '', '')}</td>
+      <td><span class="badge badge-${proof ? 'blue' : 'orange'}">${escHtml(c.status || 'pending')}</span></td>
+      <td>
+        <div class="admin-actions ta-right">
+          <button class="btn btn-ghost btn-xs" title="Open the full review record" onclick="openReviewModal('${id}')">🔍</button>
+          <button class="btn btn-success btn-xs" title="Approve — publishes it to the marketplace" onclick="quickReviewAction('${id}','approve')">✓</button>
+          <button class="btn btn-danger btn-xs" title="Reject this submission" onclick="quickReviewAction('${id}','reject')">✗</button>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+// ── Shared bits for the two Coupon Management tables ────────────────────
+function cmSetPendingBadge(count) {
+  const badge = document.getElementById('pendingTabBadge');
+  if (!badge) return;
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'inline-block' : 'none';
+}
+
+function cmStateHtml(icon, title, sub) {
+  return `
+    <div class="empty-state">
+      <div class="es-icon">${icon}</div>
+      <div class="es-title">${title}</div>
+      <div class="es-sub">${sub}</div>
+    </div>
+  `;
+}
+
+function cmPagerHtml(page, totalPages, fnName) {
+  if (totalPages <= 1) return '<span></span>';
+  const off = 'disabled style="opacity:.4;pointer-events:none"';
+  return `
+    <div style="display:flex;align-items:center;gap:8px">
+      <button class="btn btn-ghost btn-sm" onclick="${fnName}(${page - 1})" ${page <= 1 ? off : ''}>‹ Prev</button>
+      <span style="font-weight:700;color:#e2ecff">Page ${page} / ${totalPages}</span>
+      <button class="btn btn-ghost btn-sm" onclick="${fnName}(${page + 1})" ${page >= totalPages ? off : ''}>Next ›</button>
+    </div>
+  `;
+}
+
+/** Brand logo + name, falling back to the initial tile when there's no logo. */
+function cmBrandCellHtml(brand) {
+  const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+  const logoClass = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
+  const initial = escHtml(
+    typeof getBrandInitial === 'function' ? getBrandInitial(brand) : (brand || '?').slice(0, 1).toUpperCase(),
+  );
+  const logo = logoUrl
+    ? `<img class="inv-brand-logo${logoClass ? ' ' + logoClass : ''}" src="${escHtml(logoUrl)}" alt="${escHtml(brand)}" loading="lazy"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+       ><span class="inv-brand-initial" style="display:none">${initial}</span>`
+    : `<span class="inv-brand-initial">${initial}</span>`;
+  return `
+    <div class="inv-brand" title="${escHtml(brand)}">
+      ${logo}<span class="appr-brand-name">${escHtml(brand || '—')}</span>
+    </div>
+  `;
+}
+
+/**
+ * Date cell: absolute date on top, relative below. `fallback` is used when the
+ * primary timestamp is missing (legacy rows approved before verifiedAt existed),
+ * and is labelled as such so it is not read as an approval time.
+ */
+function cmWhenHtml(when, fallback) {
+  const value = when || fallback;
+  if (!value) return '<span class="admin-muted">—</span>';
+  const rel = typeof timeAgo === 'function' ? timeAgo(value) : '';
+  const title = new Date(value).toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+  const note = when ? title : `Approval time not recorded — showing when it was submitted (${title})`;
+  return `
+    <div class="admin-dt" title="${escHtml(note)}">
+      <div class="admin-dt-time">${escHtml(fmtDate(value))}${when ? '' : ' *'}</div>
+      <div class="admin-dt-rel">${escHtml(rel)}</div>
+    </div>
+  `;
+}
+
 // ── Coupon Reviews (In-Panel) ──────────────────────────────────────────
 let reviewsCache = { pending: [], available: [], rejected: [] };
 let reviewsLoading = false;
@@ -633,6 +989,9 @@ async function loadReviews() {
     renderReviewTable('pending', reviewsCache.pending);
     renderReviewTable('approved', reviewsCache.available);
     renderReviewTable('rejected', reviewsCache.rejected);
+    // Coupon Management's ⏳ Pending tab badge, so the count is right before
+    // that tab has ever been opened.
+    cmSetPendingBadge(reviewsCache.pending.length);
   } catch (err) {
     const el = document.getElementById('reviewsPendingTable');
     if (el) el.innerHTML = `<p class="text-danger">Failed to load reviews: ${err.message}</p>`;
@@ -719,9 +1078,8 @@ async function quickReviewAction(couponId, action) {
       body: { action },
     });
     if (typeof showToast === 'function') showToast(data.message || `Coupon ${action}d successfully!`, 'success');
-    loadReviews();
-    if (typeof loadAdminStats === 'function') loadAdminStats();
-    if (typeof loadInventory === 'function') loadInventory();
+    // Coupon Management shows the same two sets, so keep its tables in step.
+    refreshCouponViews();
   } catch (err) {
     if (typeof showToast === 'function') showToast(`Failed to ${action} coupon: ${err.message}`, 'error');
   }
@@ -983,6 +1341,73 @@ function userInitials(name) {
   return String(name || '?').split(/[\s._-]+/).filter(Boolean).map((p) => p[0]).join('').toUpperCase().slice(0, 2) || '?';
 }
 
+/* ── User avatars ──────────────────────────────────────────────────────
+   These render the account's OWN Google profile photo, captured at Google
+   login and served as `profilePicture` by GET /api/admin/users.
+
+   This used to point every avatar at https://unavatar.io/<email>, a third-party
+   service that guesses a photo from an email address. That was wrong twice
+   over: the photo it returned was not necessarily the user's real Gmail one,
+   and it disclosed every user's email address to an outside service on every
+   load of the admin panel. Nothing here leaves our own origin now, apart from
+   Google's own image host.
+
+   An account with no photo on file — never logged in with Google, or a Google
+   account without a picture — falls back to the initials tile. */
+
+/** Only Google's own image hosts are ever loaded as a user photo. */
+function safeProfilePictureUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:') return '';
+    // googleusercontent.com serves the avatars; www.google.com is used by a few
+    // older accounts. Anything else (including a hand-edited sheet cell) is
+    // ignored rather than injected into the page.
+    const okHost = /(^|\.)googleusercontent\.com$/.test(u.hostname)
+      || /(^|\.)google\.com$/.test(u.hostname);
+    return okHost ? u.href : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * Avatar markup for one user row or panel.
+ * @param {object} user  needs { profilePicture, name }
+ * @param {number} size  px; drives the box and the fallback's font size
+ * @param {string} extra optional extra CSS on both the img and the fallback
+ */
+function userAvatarHtml(user, size = 28, extra = '') {
+  const initials = escapeHtml(userInitials(user && user.name));
+  const box = `width:${size}px;height:${size}px;min-width:${size}px;border-radius:50%;flex-shrink:0`;
+  const tile = `${box};display:flex;align-items:center;justify-content:center;font-size:${Math.round(size * 0.38)}px;${extra}`;
+  const src = safeProfilePictureUrl(user && user.profilePicture);
+
+  if (!src) {
+    return `<div class="u-avatar" style="${tile}">${initials}</div>`;
+  }
+
+  // The photo and the initials tile are siblings and `onerror` only flips their
+  // `display` — the same pattern the marketplace brand logos use. Building the
+  // fallback as an HTML string inside the `onerror` attribute instead breaks as
+  // soon as that string contains a quote, which is exactly what happened on the
+  // first cut of this function: the `class="u-avatar"` in the fallback closed
+  // the attribute early and leaked raw markup into the cell as visible text.
+  //
+  // referrerpolicy="no-referrer" is required: Google's avatar host rejects
+  // requests carrying a referrer from an unregistered origin, which would leave
+  // every photo broken. The hidden tile takes over if the URL has expired —
+  // Google rotates them and we only refresh on the account's next login.
+  return `<span style="display:inline-flex;align-items:center;flex-shrink:0">`
+    + `<img src="${escapeHtml(src)}" alt="" loading="lazy" referrerpolicy="no-referrer"`
+    + ` style="${box};object-fit:cover;${extra}"`
+    + ` onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    + `<div class="u-avatar" style="${tile};display:none">${initials}</div>`
+    + `</span>`;
+}
+
 function userStatusBadge(status) {
   const s = String(status || 'active').toLowerCase();
   if (s === 'suspended' || s === 'banned') return statusTag('suspended');
@@ -1033,16 +1458,6 @@ function userSessionStatusBadge(sessionStatus, accountStatus) {
   if (ss === 'active') return statusTag('active');
   if (ss === 'logged out' || ss === 'expired') return statusTag('logged out');
   return statusTag('offline');
-}
-
-function emailAvatarHtml(email, name) {
-  const initials = userInitials(name);
-  const emailStr = escapeHtml(email || '');
-  const fixedSize = 'width:28px;height:28px;min-width:28px;border-radius:50%;object-fit:cover;flex-shrink:0';
-  if (emailStr) {
-    return `<img src="https://unavatar.io/${emailStr}?fallback=false" alt="" style="${fixedSize}" onerror="this.outerHTML='<div class=\\'u-avatar\\' style=\\'${fixedSize};display:flex;align-items:center;justify-content:center;font-size:.65rem\\'>${escapeHtml(initials)}</div>'">`;
-  }
-  return `<div class="u-avatar" style="${fixedSize};display:flex;align-items:center;justify-content:center;font-size:.65rem">${escapeHtml(initials)}</div>`;
 }
 
 async function loadUsers() {
@@ -1102,7 +1517,7 @@ function renderUsers() {
       : `<span class="user-action-suspend" onclick="openSuspendModal('${idAttr}','${nameAttr}','${emailAttr}')">🚫 Suspend</span>`;
     return `<tr>
       <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
-      <td><div style="display:flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
+      <td><div style="display:flex;align-items:center;gap:8px">${userAvatarHtml(u, 28)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
       <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDate(u.createdAt)}</td>
       <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
       <td style="text-align:center">${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
@@ -1130,7 +1545,7 @@ function renderLoginHistory() {
 
   body.innerHTML = rows.map((u) => `<tr>
     <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
-    <td><div style="display:flex;align-items:center;gap:8px">${emailAvatarHtml(u.email, u.name)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
+    <td><div style="display:flex;align-items:center;gap:8px">${userAvatarHtml(u, 28)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
     <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
     <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
     <td style="text-align:center">${loginMethodBadge(u.loginMethod)}</td>
@@ -1211,10 +1626,9 @@ function viewUserDetail(userId) {
 
   const suspended = user.status === 'suspended' || user.status === 'banned';
   const emailStr = escapeHtml(user.email || '');
-  const avatarUrl = emailStr ? `https://unavatar.io/${emailStr}?fallback=false` : '';
-  const avatarHtml = avatarUrl
-    ? `<img src="${avatarUrl}" alt="" style="width:52px;height:52px;border-radius:50%;object-fit:cover;flex-shrink:0;border:2px solid rgba(0,230,118,.3)" onerror="this.outerHTML='<div class=\\'u-avatar\\' style=\\'width:52px;height:52px;font-size:1.1rem\\'>${escapeHtml(userInitials(user.name))}</div>'">`
-    : `<div class="u-avatar" style="width:52px;height:52px;font-size:1.1rem">${escapeHtml(userInitials(user.name))}</div>`;
+  // The account's real Google photo, at panel size, keeping the green ring the
+  // header already had. Falls back to the initials tile when none is on file.
+  const avatarHtml = userAvatarHtml(user, 52, 'border:2px solid rgba(0,230,118,.3)');
 
   // Build modal HTML
   const html = `
@@ -1402,9 +1816,7 @@ async function approveCoupon(id) {
       body: { status: 'available' },
     });
     showToast('Coupon approved and now live! ✅', 'success');
-    loadAdminStats();
-    loadPending();
-    loadInventory();
+    refreshCouponViews();
   } catch (err) {
     showToast(err.message, 'error');
   }
@@ -1418,14 +1830,25 @@ async function deleteCoupon(id) {
       useAdmin: true,
     });
     showToast('Coupon deleted.', 'info');
-    loadAdminStats();
-    loadPending();
-    loadInventory();
-    loadActiveCoupons();
-    loadExpiredCoupons();
+    refreshCouponViews();
   } catch (err) {
     showToast(err.message, 'error');
   }
+}
+
+/**
+ * Every view that reads the coupon list. Called after an approve or a delete so
+ * Coupon Management and Coupon Reviews agree without the admin having to
+ * refresh. (deleteCoupon() also used to call loadExpiredCoupons() — there has
+ * never been such a function or an expired-coupons container; expired coupons
+ * show up in the inventory table with an "Expired" chip.)
+ */
+function refreshCouponViews() {
+  loadAdminStats();
+  loadInventory();
+  loadPending();
+  loadActiveCoupons();
+  loadReviews();
 }
 
 function debounce(fn, ms) {

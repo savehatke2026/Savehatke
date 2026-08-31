@@ -890,19 +890,23 @@
        border and position; an absolutely-positioned (therefore layout-neutral,
        and not a flex item) invisible ::after widens the tappable region. Densely
        stacked items get mobile-only vertical padding instead of an overlay, so
-       neighbouring hit areas can't overlap and steal each other's taps. Nothing
-       here applies above 768px. */
-    @media(max-width:768px){
+       neighbouring hit areas can't overlap and steal each other's taps. Applies to phones only: a narrow screen, or a short landscape viewport. Tablets and desktops keep the desktop hit areas. */
+    @media(max-width:768px),(max-height:500px) and (orientation:landscape){
       .nav-toggle{position:relative}
       .nav-toggle::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
       .nav-brand{position:relative}
       .nav-brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
-      .fcol a{padding:9px 0;margin-bottom:0}
-      .foot-col a{padding:9px 0;margin-bottom:0}
+      .fcol a{padding:14px 0;margin-bottom:0}
+      .foot-col a{padding:14px 0;margin-bottom:0}
+      .nav-actions .btn{position:relative}
+      .nav-actions .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
       .mclose{position:relative}
       .mclose::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
-      /* Sub-nav rows sit 1px apart, so they grow rather than overlay. */
-      .sb-subitem{padding-top:11px;padding-bottom:11px}
+      /* Sub-nav rows sit 1px apart, so they grow rather than overlay. Measured
+         37px at 11px padding — 15px lands on 44px. */
+      .sb-subitem{padding-top:15px;padding-bottom:15px}
+      /* Sidebar rows sit 3px apart: same reasoning, 9px padding measured 38px. */
+      .sb-item{padding-top:12px;padding-bottom:12px}
       /* Vertical-only overlays: these controls have close horizontal
          neighbours, so widening sideways would steal their taps. */
       .mobile-sb-btn{position:relative}
@@ -910,6 +914,36 @@
       .modal-close-btn::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
       .tf-linkbtn{position:relative}
       .tf-linkbtn::after{content:'';position:absolute;left:0;right:0;top:50%;height:36px;transform:translateY(-50%)}
+      /* Bell and avatar are 38px squares with a 10px gap, so a centred 44px
+         overlay reaches the target without touching its neighbour. */
+      .notif-btn,.nav-profile-btn{position:relative}
+      .notif-btn::after,.nav-profile-btn::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      /* Card-header actions ("View All →") are 34px tall and stand alone on
+         their row. */
+      .card-hdr .btn{position:relative}
+      .card-hdr .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+    }
+
+    /* ── SMALL-PHONE FIT (≤400px) ──
+       Two measured 320px problems, both layout-only:
+       • the navbar's 28px flex gap made its .container min-content wider than
+         the screen, pushing the hamburger 27px past the right edge;
+       • modal footers keep two nowrap buttons on one row, which overflowed the
+         dialog by up to 24px — they stack instead, full width, same chrome.
+       Nothing here applies above 400px. */
+    @media(max-width:400px){
+      .navbar .container{gap:12px;min-width:0}
+      .modal-footer{flex-wrap:wrap}
+      .modal-footer .btn{flex:1 1 100%}
+    }
+  
+    /* Landscape phones show the desktop nav row, whose links are 20px tall.
+       Vertical-only overlay: the row is horizontal here, so neighbours keep
+       their own taps. Portrait phones use the stacked menu instead and are
+       deliberately excluded. */
+    @media (max-height:500px) and (orientation:landscape){
+      .nav-links a{position:relative}
+      .nav-links a::before{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
     }
   </style>
 </head>

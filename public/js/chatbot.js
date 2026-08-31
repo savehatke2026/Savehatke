@@ -221,6 +221,18 @@
     .chatbot-icon-btn:hover { background: rgba(0,230,118,.1); color: #00e676; }
     .chatbot-icon-btn:focus-visible { outline: 2px solid #00e676; outline-offset: 2px; }
 
+    /* Touch targets on phones. The two header buttons keep their exact 32px
+       box, colour and hover state; an absolutely-positioned invisible ::after
+       grows the tappable area to 36x44. It stays 2px inside the 4px gap so the
+       ✕ can never swallow a tap meant for ↺. */
+    @media (max-width: 768px), (max-height:500px) and (orientation:landscape) {
+      .chatbot-icon-btn { position: relative; }
+      .chatbot-icon-btn::after {
+        content: ''; position: absolute; left: -2px; right: -2px;
+        top: 50%; height: 44px; transform: translateY(-50%);
+      }
+    }
+
     /* Messages area */
     .chatbot-messages {
       flex: 1;
@@ -405,6 +417,21 @@
     .chatbot-send-btn:hover { opacity: .85; transform: scale(1.06); }
     .chatbot-send-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
     .chatbot-send-btn:focus-visible { outline: 2px solid #00e676; outline-offset: 2px; }
+
+    /* Composer touch targets, declared after the base rules above so the
+       min-height actually wins. The send button keeps its exact 42px box and
+       gains a centred invisible ::after; nothing sits to its right, so the
+       overlay cannot steal a neighbour's tap. The textarea has to stay a real
+       text box, so it grows to a 44px minimum instead — autoResize() only ever
+       sets an inline height, which min-height still overrides. */
+    @media (max-width: 768px), (max-height:500px) and (orientation:landscape) {
+      .chatbot-send-btn { position: relative; }
+      .chatbot-send-btn::after {
+        content: ''; position: absolute; top: 50%; left: 50%;
+        width: 44px; height: 44px; transform: translate(-50%, -50%);
+      }
+      .chatbot-textarea { min-height: 44px; }
+    }
 
     /* Char counter */
     .chatbot-char-count {

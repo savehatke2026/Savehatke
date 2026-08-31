@@ -191,6 +191,17 @@
     .sh-tour-replay:hover{color:#00e676}
     .sh-tour-replay:focus-visible{outline:2px solid rgba(0,230,118,.6);outline-offset:3px;border-radius:6px}
 
+    /* Touch target on phones. The button keeps its exact size and type; an
+       absolutely-positioned invisible ::after grows only the tappable box, and
+       only vertically, so it cannot reach the search input beside it. */
+    @media (max-width:768px),(max-height:500px) and (orientation:landscape){
+      .sh-tour-replay{position:relative}
+      .sh-tour-replay::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      /* The card's own buttons are 36px on a tablet — the 640px rule below only
+         catches phones. Height only; the row keeps its layout. */
+      .sh-tour-actions .sh-tour-btn{min-height:44px}
+    }
+
     @media (max-width:640px){
       /* Bottom sheet on phones: the tooltip can never leave the viewport, and
          the spotlight above it stays visible. */

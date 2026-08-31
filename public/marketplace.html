@@ -337,6 +337,52 @@
       .search-row { flex-direction:column; }
       .search-input,.filter-select { width:100%; }
     }
+    /* ── MOBILE TOUCH TARGETS ──
+       Usability only, no redesign. Each control keeps its exact size, colour,
+       border and position; an absolutely-positioned (therefore layout-neutral,
+       and not a flex item) invisible ::after widens the tappable region to
+       ~44px. Stacked text links get mobile-only vertical padding instead of an
+       overlay, so neighbouring hit areas can't overlap and steal each other's
+       taps. Applies to phones only: a narrow screen, or a short landscape viewport. Tablets and desktops keep the desktop hit areas. */
+    @media(max-width:768px),(max-height:500px) and (orientation:landscape){
+      .nav-toggle{position:relative}
+      .nav-toggle::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      .nav-brand{position:relative}
+      .nav-brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .fcol a{padding:14px 0;margin-bottom:0}
+      .foot-col a{padding:14px 0;margin-bottom:0}
+      .notif-btn,.nav-profile-btn{position:relative}
+      .notif-btn::after,.nav-profile-btn::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      .nav-actions .btn{position:relative}
+      .nav-actions .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .mclose{position:relative}
+      .mclose::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      /* "How to use" sits inside .coupon-card, which has its own onclick, so it
+         grows with real padding rather than an overlay — an overlay would swallow
+         taps meant for the card's buy action. 4px measured 24px tall, which is
+         hard to hit; 9px lands on ~34px while the chip keeps its dashed border,
+         type and colour. */
+      .chow-tag{padding:9px 10px}
+      /* Category pills and the auth-modal tabs are 37px tall. Both wrap with a
+         10px gap, so a vertical-only overlay reaches 44px while staying clear of
+         the pill above and below. */
+      .cpill{position:relative}
+      .cpill::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .mtab{position:relative}
+      .mtab::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      /* Pagination controls: same 44px reach, no change to the button chrome. */
+      .pg-btn{position:relative}
+      .pg-btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+    }
+  
+    /* Landscape phones show the desktop nav row, whose links are 20px tall.
+       Vertical-only overlay: the row is horizontal here, so neighbours keep
+       their own taps. Portrait phones use the stacked menu instead and are
+       deliberately excluded. */
+    @media (max-height:500px) and (orientation:landscape){
+      .nav-links a{position:relative}
+      .nav-links a::before{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+    }
   </style>
 </head>
 <body>

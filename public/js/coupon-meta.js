@@ -96,6 +96,8 @@ const BRAND_DOMAINS = {
   'Pepperfry': 'pepperfry.com',
   'IKEA': 'ikea.in',
   'Licious': 'licious.in',
+  'BBQ Nation': 'bbqnation.com',
+  'Barbeque Nation': 'bbqnation.com',
   'SonyLIV': 'sonyliv.com',
   'ZEE5': 'zee5.com',
   // ── New brands from 200-coupon batch ──

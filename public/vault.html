@@ -347,6 +347,32 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .inv-price{font-weight:700;color:#00e676;font-family:'JetBrains Mono',monospace;font-size:.8rem}
 .inv-tfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid rgba(79,195,247,.08);font-size:.8rem;color:#6b88aa}
 
+/* ── COUPON MANAGEMENT: ⏳ Pending + ✅ Approved/Active tables ── */
+/* `.main` is a flex item with min-width:auto, so a wide table used to push the
+   whole page wider than the viewport — where body{overflow-x:hidden} clipped the
+   right-hand columns instead of letting the table's own .overflow-x scroll.
+   A single minmax(0,1fr) grid track floors the container's min-content at 0, so
+   the scrolling happens inside the table card where it belongs. */
+.cm-list{display:grid;grid-template-columns:minmax(0,1fr)}
+.cm-card-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.cm-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cm-filters{display:flex;gap:6px;flex-wrap:wrap}
+.cm-filters .btn.active{background:rgba(79,195,247,.16);border-color:rgba(79,195,247,.45);color:#4fc3f7}
+.cm-summary{display:flex;gap:18px;flex-wrap:wrap;font-size:.78rem;color:#6b88aa;margin-bottom:12px}
+.cm-summary b{color:#e2ecff;font-weight:700}
+.cm-loading{padding:36px 20px;text-align:center;color:#6b88aa;font-size:.85rem}
+.cm-seller{display:block;font-size:.78rem;color:#a8c0dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.appr-table{table-layout:fixed;min-width:1434px}
+.appr-table td{overflow:hidden}
+.appr-table .badge{white-space:nowrap}
+/* The table is wider than the content column, so the Actions cell is pinned to
+   the right edge of the scroller — 🔍 / ✓ / ✗ / 🗑 stay reachable without
+   scrolling sideways first. */
+.appr-table th:last-child,.appr-table td:last-child{position:sticky;right:0;background:#0d1a36;box-shadow:-10px 0 12px -10px rgba(0,0,0,.75)}
+.appr-table thead th:last-child{background:#0a1730}
+.appr-table tbody tr:hover td:last-child{background:#111f40}
+.appr-brand-name{margin-left:8px;font-size:.82rem;font-weight:600;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+
 /* ── BADGES ── */
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
 .badge-green{background:rgba(0,230,118,.12);color:#00e676}
@@ -587,7 +613,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 
 /* ── RESPONSIVE ── */
 @media(max-width:1200px){.stats-grid{grid-template-columns:repeat(4,1fr)}}
-@media(max-width:1000px){.stats-grid{grid-template-columns:repeat(2,1fr)}.fin-summary-grid{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.three-col{grid-template-columns:1fr}}
+@media(max-width:1000px){.stats-grid{grid-template-columns:repeat(2,1fr)}.fin-summary-grid{grid-template-columns:minmax(0,1fr)}.two-col{grid-template-columns:minmax(0,1fr)}.three-col{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:900px){
   .sidebar{transform:translateX(-100%)}
   .sidebar.open{transform:translateX(0)}
@@ -598,6 +624,34 @@ tbody td strong{color:#e2ecff;font-weight:600}
   .topbar-btn{display:none}
 }
 @media(max-width:600px){.stats-grid{grid-template-columns:1fr}.qa-grid{grid-template-columns:1fr}}
+
+/* ── MOBILE FIT ──
+   `.main` is a flex item of `body`, so its default `min-width:auto` let the
+   topbar's min-content width (title + search + actions) push the whole page
+   wider than the viewport; `body{overflow-x:hidden}` then cropped the right
+   edge instead of letting it scroll. `min-width:0` lets it shrink, and the
+   rules below hand the freed space to the pieces that need it. Purely
+   layout — no colour, type, or component changes. */
+@media(max-width:900px){
+  .main{min-width:0}
+  .topbar{padding:0 14px;gap:10px}
+  /* Collapse-rail toggle is a no-op here: the ≤900px rules already force
+     .main{margin-left:0} and keep .sidebar.open visible. #mobToggle is the
+     real control, and rendering both was itself the overflow. */
+  .sidebar-collapse-btn{display:none}
+  .topbar-title{flex-shrink:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .profile-name{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mob-toggle{flex-shrink:0}
+  /* Card headings that pair a label with a right-aligned meta chip get to wrap
+     instead of forcing the card wider than the screen. */
+  .card-title{flex-wrap:wrap}
+  .content{padding:18px 14px}
+}
+@media(max-width:600px){
+  /* Avatar + dropdown stay; only the name text yields, so the page title
+     remains readable on small phones. */
+  .profile-name{display:none}
+}
 
 /* ── EMPTY STATE ── */
 .empty-state{text-align:center;padding:50px 20px;color:#6b88aa}
@@ -783,6 +837,62 @@ tbody td strong{color:#e2ecff;font-weight:600}
 #sec-mailbox .btn-danger:hover{background:rgba(255,107,107,.18)}
 #sec-mailbox .btn-sm{padding:6px 11px;font-size:.76rem;border-radius:8px}
 #sec-mailbox .btn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── MOBILE TOUCH TARGETS ──
+   Usability only, no redesign. Every control keeps its exact size, colour,
+   border and position on desktop; below the 900px drawer breakpoint the rows
+   that a finger has to hit grow to ~44px. Densely stacked rows (sidebar nav and
+   its sub-menus) take mobile-only vertical padding rather than an invisible
+   overlay, because overlapping overlays would steal each other's taps; isolated
+   controls get the layout-neutral ::after overlay instead. Measured before the
+   change: .nav-item 36px, .nav-sub-item 30px, .tab-btn 31px. */
+@media(max-width:900px),(max-height:500px) and (orientation:landscape){
+  .nav-item{padding-top:12px;padding-bottom:12px}
+  .nav-sub-item{padding-top:13px;padding-bottom:13px}
+  /* Taller rows need a taller open state, or a six-item sub-menu (Payments)
+     would be cut off by the collapse animation's max-height. */
+  .nav-sub.open{max-height:480px}
+  /* Coupon Management / section tabs: 44px reach, unchanged chrome. Vertical
+     only — tabs sit side by side in a scrolling row. */
+  .tab-btn{position:relative}
+  .tab-btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+  .modal-close{position:relative}
+  .modal-close::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+  /* The drawer opener is a 34px square in the topbar. */
+  .mob-toggle{position:relative}
+  .mob-toggle::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+  /* Topbar bell and profile chip are 34px with an 8px gap, so the centred
+     overlay stops at 42px and cannot cross into its neighbour. */
+  .icon-btn,.profile-wrap{position:relative}
+  .icon-btn::after,.profile-wrap::after{content:'';position:absolute;top:50%;left:50%;width:42px;height:42px;transform:translate(-50%,-50%)}
+  /* Sidebar footer logout sits alone: 33px measured. */
+  .logout-btn{position:relative}
+  .logout-btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+  /* Small and extra-small buttons — table row actions, table footers, card
+     toolbars, modal footers. All of them sit in horizontal groups, so the
+     overlay only grows vertically and stays inside its own table row. */
+  .btn-sm,.btn-xs{position:relative}
+  .btn-sm::after,.btn-xs::after{content:'';position:absolute;left:0;right:0;top:50%;height:40px;transform:translateY(-50%)}
+  .modal-footer .btn{position:relative}
+  .modal-footer .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+  /* The source filters wrap, so their row gap has to clear the 40px overlays
+     above — 6px would let two rows fight over the same 1px. */
+  .cm-filters{gap:12px}
+  /* The search field itself was only 18px tall inside a 34px bar, and tapping
+     the bar's padding does not focus it. The input grows; the bar's own padding
+     shrinks to keep the control close to its desktop height. */
+  .search-bar{padding:4px 14px}
+  .search-bar input{min-height:38px}
+  /* Form controls in the admin modals measured 32–37px. Height only — width,
+     border, radius, colour and font are the desktop ones. */
+  .form-input,.form-select,.form-inp,.form-textarea{min-height:44px}
+  /* Chart period switches are 24px tall in a 6px-gapped row. */
+  /* Toast dismiss is a 20x13 glyph. */
+  .toast-close{position:relative}
+  .toast-close::after{content:'';position:absolute;top:50%;left:50%;width:40px;height:40px;transform:translate(-50%,-50%)}
+  .period-btn{position:relative}
+  .period-btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:40px;transform:translateY(-50%)}
+}
 </style>
 </head>
 <body>
@@ -1392,7 +1502,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <!-- ALL COUPONS -->
       <div class="tab-content active" id="ctab-all">
         <div class="search-bar"><input type="text" id="invSearch" placeholder="Search coupons, brands, codes..."></div>
-        <div style="display:grid;gap:12px" id="inventoryTable"></div>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:12px" id="inventoryTable"></div>
       </div>
 
       <!-- ADD COUPON FORM -->
@@ -1447,16 +1557,32 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <!-- PENDING -->
       <div class="tab-content" id="ctab-pending">
         <div class="card">
-          <div class="card-title"><span class="ct-icon">⏳</span> Pending Approvals</div>
-          <div id="pendingList"></div>
+          <div class="cm-card-head">
+            <div class="card-title" style="margin-bottom:0"><span class="ct-icon">⏳</span> Pending Approvals</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadPending()" title="Refresh">↻ Refresh</button>
+          </div>
+          <div id="pendingList" class="cm-list"></div>
         </div>
       </div>
 
-      <!-- ACTIVE -->
+      <!-- ACTIVE (review-approved coupons — status "available") -->
       <div class="tab-content" id="ctab-active">
         <div class="card">
-          <div class="card-title"><span class="ct-icon">✅</span> Active Coupons</div>
-          <div id="activeList" style="margin-top:16px;"></div>
+          <div class="cm-card-head">
+            <div class="card-title" style="margin-bottom:0"><span class="ct-icon">✅</span> Approved &amp; Active Coupons</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadActiveCoupons()" title="Refresh">↻ Refresh</button>
+          </div>
+          <div class="cm-toolbar">
+            <div class="search-bar" style="margin-bottom:0;flex:1;min-width:220px">
+              <input type="text" id="activeSearch" placeholder="Search by code, brand, seller, or category...">
+            </div>
+            <div class="cm-filters">
+              <button class="btn btn-xs btn-ghost active" onclick="setActiveSourceFilter('all',this)">📋 All</button>
+              <button class="btn btn-xs btn-ghost" onclick="setActiveSourceFilter('review',this)">🧾 From reviews</button>
+              <button class="btn btn-xs btn-ghost" onclick="setActiveSourceFilter('admin',this)">🛡️ Admin added</button>
+            </div>
+          </div>
+          <div id="activeList" class="cm-list" style="margin-top:16px;"></div>
         </div>
       </div>
 

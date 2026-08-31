@@ -114,13 +114,15 @@ function renderCouponGrid(gridId, coupons) {
 
       return `
         <div class="coupon-card" style="cursor:pointer" onclick="buyCoupon('${c.id}', ${isFree})">
-          ${isFree
-            ? '<span class="cfree-badge">FREE</span>'
-            : `<div class="cbadges">
-                 <span class="cverified">✓ VERIFIED DEAL</span>
-                 ${onSale ? '<span class="csale-badge">🔥 Sale</span>' : ''}
-               </div>`
-          }
+          ${isFree ? '<span class="cfree-badge">FREE</span>' : ''}
+          <div class="cbadges${isFree ? ' cbadges-free' : ''}">
+            ${isFree ? '' : '<span class="cverified">✓ VERIFIED DEAL</span>'}
+            ${!isFree && onSale ? '<span class="csale-badge">🔥 Sale</span>' : ''}
+            <button type="button" class="chow-tag" title="How to use this coupon"
+                    onclick="event.stopPropagation(); openCouponHowTo('${c.id}')">
+              📖 How to use
+            </button>
+          </div>
           <div class="ctop">
             <div class="cbrand" title="${c.brand}">
               <span class="cbrand-logo-wrap">
@@ -324,6 +326,134 @@ function buyCoupon(id, isFree) {
   } else {
     window.location.href = `checkout?id=${encodeURIComponent(id)}`;
   }
+}
+
+// ── "How to use" tag ────────────────────────────────────────────────────
+// Every card carries a "📖 How to use" tag that opens the redemption steps for
+// that coupon. The modal is built here rather than reusing openCouponTermsModal()
+// from js/app.js for two reasons: this page ships its own stylesheet and never
+// loads css/styles.css, so that modal's classes would render unstyled here, and
+// it opens by removing the first `.modal-overlay` on the page — which on this
+// page is the static auth modal (#modalOverlay), not a leftover of its own.
+
+/** Open the "How to use" modal for one card's coupon. */
+function openCouponHowTo(id) {
+  const c = allCoupons.find((x) => String(x.id) === String(id)) || { id };
+  const isFree = c.source === 'auto-scraped';
+  const brand = c.brand || 'the store';
+  const offer = c.title || c.description || 'Verified Discount Offer';
+  const priceText = isFree ? 'Free' : `₹${c.sellingPrice || '15'}`;
+  const worth = c.discount || (c.originalValue ? `₹${c.originalValue} OFF` : '');
+
+  // Only ever one of these open at a time. Scoped to .howto-overlay so the
+  // page's own auth modal is left alone.
+  document.querySelectorAll('.modal-overlay.howto-overlay').forEach((el) => el.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay howto-overlay';
+  overlay.dataset.howtoId = String(id);
+  overlay.innerHTML = `
+    <div class="modal howto-modal" role="dialog" aria-modal="true" aria-labelledby="howtoTitle">
+      <div class="mhdr" style="margin-bottom:20px">
+        <div>
+          <div class="mtitle" id="howtoTitle">How to use</div>
+          <div class="howto-sub">${escapeCoupon(brand)}${c.category ? ' · ' + escapeCoupon(c.category) : ''}</div>
+        </div>
+        <button class="mclose" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="howto-offer">
+        <div class="howto-offer-title">${escapeCoupon(offer)}</div>
+        <div class="howto-offer-meta">${worth ? escapeCoupon(worth) + ' · ' : ''}You pay <b>${escapeCoupon(priceText)}</b></div>
+      </div>
+      <ol class="howto-steps">
+        <li><span><b>${isFree ? 'Unlock the code' : 'Buy the coupon'}:</b> ${isFree
+          ? 'Tap <em>Get Free Code</em> — the code is revealed right away, no payment needed.'
+          : `Tap <em>Buy Coupon</em> and pay ${escapeCoupon(priceText)}. The code is revealed the moment the payment is confirmed.`}</span></li>
+        <li><span><b>Copy the code:</b> Copy it from the confirmation screen, or any time later from <a href="dashboard">Dashboard → My Coupons</a>.</span></li>
+        <li><span><b>Shop at ${escapeCoupon(brand)}:</b> Open the official ${escapeCoupon(brand)} app or website and add your items to the cart.</span></li>
+        <li><span><b>Apply at checkout:</b> Paste the code into the <em>Have a coupon / promo code?</em> box and apply it before you pay.</span></li>
+      </ol>
+      <div class="howto-foot">
+        Codes are checked before they are listed. If one does not work,
+        <a href="support">contact support</a> within 48 hours of purchase for a refund or replacement.
+      </div>
+    </div>
+  `;
+
+  overlay.querySelector('.mclose').addEventListener('click', () => closeCouponHowTo(overlay));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeCouponHowTo(overlay);
+  });
+  document.addEventListener('keydown', function onEsc(e) {
+    if (e.key !== 'Escape') return;
+    document.removeEventListener('keydown', onEsc);
+    closeCouponHowTo(overlay);
+  });
+
+  document.body.appendChild(overlay);
+  void overlay.offsetWidth; // flush layout so the fade-in actually transitions
+  overlay.classList.add('open');
+  overlay.querySelector('.mclose').focus();
+
+  loadSellerHowTo(id);
+}
+
+function closeCouponHowTo(overlay) {
+  if (!overlay.isConnected) return;
+  overlay.classList.remove('open');
+  setTimeout(() => overlay.remove(), 250); // matches the .modal-overlay transition
+}
+
+/**
+ * The four steps above are generic to every coupon. Sellers can also submit
+ * their own instructions, which the sell form appends to Terms & Conditions as a
+ * "How to use: …" paragraph (see sell.html) — so when this coupon has them, show
+ * them above the generic steps.
+ *
+ * The list endpoint deliberately omits `terms`, hence the one-coupon read here.
+ * It runs after the modal is already open, so the tag never feels slow, and a
+ * failed request simply leaves the generic steps standing.
+ */
+async function loadSellerHowTo(id) {
+  let note = '';
+  try {
+    const res = await api(`/coupons/${encodeURIComponent(id)}`);
+    note = sellerHowToText(res && res.coupon && res.coupon.terms);
+  } catch (err) {
+    return;
+  }
+  if (!note) return;
+
+  // The modal may have been closed, or replaced by another coupon's, while the
+  // request was in flight.
+  const overlay = document.querySelector('.modal-overlay.howto-overlay');
+  if (!overlay || overlay.dataset.howtoId !== String(id)) return;
+  if (overlay.querySelector('.chow-seller')) return;
+
+  // Seller-supplied text: built with textContent, never innerHTML.
+  const box = document.createElement('div');
+  box.className = 'chow-seller';
+  const head = document.createElement('div');
+  head.className = 'chow-seller-head';
+  head.textContent = '📝 Instructions from the seller';
+  const body = document.createElement('p');
+  body.className = 'chow-seller-body';
+  body.textContent = note;
+  box.append(head, body);
+  overlay.querySelector('.howto-steps').before(box);
+}
+
+/** Pull the "How to use: …" paragraph back out of a coupon's stored terms. */
+function sellerHowToText(terms) {
+  const match = String(terms || '').match(/how\s*to\s*use\s*:\s*([\s\S]+)/i);
+  return match ? match[1].trim().slice(0, 600) : '';
+}
+
+/** Coupon fields are seller-supplied, so escape them before interpolating. */
+function escapeCoupon(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
+  ));
 }
 
 function showCouponModal(coupon) {

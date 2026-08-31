@@ -71,6 +71,19 @@ input,select,textarea,button{font-family:'Outfit',sans-serif}
 .toast.warning{border-color:rgba(255,193,7,.4)}
 @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 @media(max-width:600px){.kv{grid-template-columns:1fr}}
+
+/* ── MOBILE TOUCH TARGETS ──
+   Usability only, no redesign. The buttons and the back link keep their exact
+   size, colour and border; an absolutely-positioned (layout-neutral) invisible
+   ::after grows the tappable region to 44px. Approve/Reject/Request-proof sit in
+   a 10px-gapped wrapping row, so the overlay only grows vertically — it can
+   never reach into the neighbouring button. Applies to phones only: a narrow screen, or a short landscape viewport. Tablets and desktops keep the desktop hit areas. */
+@media(max-width:768px),(max-height:500px) and (orientation:landscape){
+  .topbar-link{position:relative}
+  .topbar-link::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+  .actions .btn{position:relative}
+  .actions .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+}
 </style>
 </head>
 <body>
