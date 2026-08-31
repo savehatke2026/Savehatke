@@ -466,6 +466,28 @@
     }
 
     /* ===================================================
+       SECURITY ALERTS
+       Compact feed of the server-side security audit log. Tone comes from
+       the server (good / warn / bad) so the colours can't drift from the
+       meaning of the event.
+    =================================================== */
+    .sa-row{display:flex;align-items:flex-start;gap:11px;padding:12px 0;border-bottom:1px solid rgba(79,195,247,.06)}
+    .sa-row:first-child{padding-top:0}
+    .sa-row:last-child{border-bottom:none;padding-bottom:0}
+    .sa-ico{width:28px;height:28px;flex:0 0 auto;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.8rem;background:rgba(107,136,170,.12);border:1px solid rgba(107,136,170,.22)}
+    .sa-ico.good{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.22)}
+    .sa-ico.warn{background:rgba(255,183,77,.08);border-color:rgba(255,183,77,.22)}
+    .sa-ico.bad{background:rgba(239,154,154,.08);border-color:rgba(239,154,154,.22)}
+    .sa-body{min-width:0;flex:1}
+    .sa-title{font-size:.86rem;font-weight:600;color:#e2ecff;overflow-wrap:anywhere}
+    .sa-meta{font-size:.76rem;color:#6b88aa;margin-top:3px;line-height:1.55;overflow-wrap:anywhere}
+    .sa-when{flex:0 0 auto;font-size:.73rem;color:#6b88aa;white-space:nowrap;padding-top:2px}
+    @media(max-width:560px){
+      .sa-row{flex-wrap:wrap}
+      .sa-when{width:100%;padding-left:39px;padding-top:0;margin-top:4px}
+    }
+
+    /* ===================================================
        NOTIFICATION SETTINGS
     =================================================== */
     .ns-card{max-width:720px}
@@ -1557,7 +1579,8 @@
         </div>
 
         <!-- CARD 3 — Login history.
-             Read-only. Successful sign-ins come from the session log; rejected
+             Read-only, capped at the 10 most recent records so the page stays
+             short. Successful sign-ins come from the session log; rejected
              attempts come from the server-side security audit log. Both are
              served by GET /api/auth/login-history. -->
         <div class="card" id="secLoginHistory">
@@ -1566,7 +1589,7 @@
             <button class="btn btn-ghost btn-sm" onclick="loadLoginHistory()" id="lhRefreshBtn">Refresh</button>
           </div>
 
-          <p class="lh-hdr-note">Recent sign-in activity on your account. If you see something you don't recognise, change your password and log out of the other devices.</p>
+          <p class="lh-hdr-note">Showing your 10 most recent sign-ins. If you see something you don't recognise, log out of the other devices and turn on two-factor authentication.</p>
 
           <div id="loginHistoryBody">
             <div class="sess-sk-row">
@@ -1574,6 +1597,30 @@
               <div style="flex:1">
                 <div class="sess-sk" style="height:11px;width:38%"></div>
                 <div class="sess-sk" style="height:9px;width:58%;margin-top:8px"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD 4 — Security alerts.
+             A curated, read-only feed of the server's security audit log
+             (GET /api/auth/security-events): new device / new location
+             sign-ins, 2FA changes, recovery-code activity and failed
+             attempts. Nothing here is computed client-side. -->
+        <div class="card" id="secAlerts">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">🔔</span> Security Alerts</div>
+            <button class="btn btn-ghost btn-sm" onclick="loadSecurityAlerts()" id="saRefreshBtn">Refresh</button>
+          </div>
+
+          <p class="lh-hdr-note">Recent security activity on your account.</p>
+
+          <div id="securityAlertsBody">
+            <div class="sess-sk-row">
+              <div class="sess-sk sess-sk-ico"></div>
+              <div style="flex:1">
+                <div class="sess-sk" style="height:11px;width:44%"></div>
+                <div class="sess-sk" style="height:9px;width:60%;margin-top:8px"></div>
               </div>
             </div>
           </div>
@@ -2560,7 +2607,12 @@
     const secEmail = document.getElementById('securityEmail');
     if (secEmail) secEmail.textContent = email || '—';
     const secEmailStatus = document.getElementById('securityEmailStatus');
-    if (secEmailStatus) secEmailStatus.style.display = email ? '' : 'none';
+    if (secEmailStatus) {
+      secEmailStatus.textContent = email ? '✓ Verified' : 'Not Verified';
+      secEmailStatus.classList.toggle('off', !email);
+    }
+    SEC_POSTURE.emailVerified = Boolean(email);
+    renderSecurityPosture();
 
     // Account status drives the profile-dropdown tag and the suspension screen.
     const status = (user.status || local.status || 'active').toLowerCase();
@@ -2577,19 +2629,34 @@
       }
     }
 
-    // Security Overview — account status row. Green tick only while the
-    // account is actually active; anything else is shown as-is, unstyled.
-    const accStatus = document.getElementById('securityAccountStatus');
-    const accStatusTag = document.getElementById('securityAccountStatusTag');
-    const isActive = status === 'active';
-    if (accStatus) {
-      accStatus.textContent = isActive ? 'Active' : (status.charAt(0).toUpperCase() + status.slice(1));
-      accStatus.classList.toggle('muted', !isActive);
-    }
-    if (accStatusTag) accStatusTag.style.display = isActive ? '' : 'none';
-
     // Toggle the dashboard vs suspension view based on account status
     applySuspensionState(status);
+  }
+
+  // ─── Security posture ──────────────────────────────────────────
+  // "Account Security Status" is derived, never stored: it is Secure only when
+  // the email is verified AND two-factor authentication is on. Both inputs
+  // arrive asynchronously (profile, then /auth/2fa/status), so each writer
+  // updates its own field and repaints.
+  const SEC_POSTURE = { emailVerified: null, twoFactor: null };
+
+  function renderSecurityPosture() {
+    const val = document.getElementById('securityAccountStatus');
+    const tag = document.getElementById('securityAccountStatusTag');
+    if (!val || !tag) return;
+
+    const { emailVerified, twoFactor } = SEC_POSTURE;
+    if (emailVerified === null || twoFactor === null) return; // still loading
+
+    const secure = emailVerified === true && twoFactor === true;
+    val.textContent = secure
+      ? 'Your account is protected'
+      : (twoFactor === false ? 'Turn on two-factor authentication' : 'Review your security settings');
+    val.classList.toggle('muted', !secure);
+
+    tag.textContent = secure ? '✓ Secure' : 'Action Required';
+    tag.classList.toggle('off', false);
+    tag.classList.toggle('pending', !secure);
   }
 
   // ─── Suspension state ──────────────────────────────────────────
@@ -3730,9 +3797,15 @@
     const name = `${escapeHtml(s.browser || 'Browser')} • ${escapeHtml(s.os || s.device || 'Unknown device')}`;
     const rel = relSessionTime(s.last_active || s.login_time);
     const relLower = rel ? rel.charAt(0).toLowerCase() + rel.slice(1) : 'unknown';
-    const meta = isCurrent
+    const activity = isCurrent
       ? `Active now · signed in ${fmtSessionDT(s.login_time)}`
       : `Last active ${relLower} · signed in ${fmtSessionDT(s.login_time)}`;
+    // Location is always described as approximate: it is derived from the
+    // sign-in IP, which identifies the network and not the person.
+    const loc = String(s.location || '').trim();
+    const place = loc
+      ? `${escapeHtml(loc)} (approximate, based on IP)`
+      : 'Approximate location not available';
     // Only other devices get a sign-out control — the current session is
     // signed out through the sidebar's Log Out, never from this list.
     const action = (!isCurrent && s.session_id)
@@ -3747,7 +3820,7 @@
         <div class="sess-ico" aria-hidden="true">${sessionIcon(s)}</div>
         <div class="sess-body">
           <div class="sess-name">${name}${isCurrent ? '<span class="sess-tag">Current session</span>' : ''}</div>
-          <div class="sess-meta">${meta}</div>
+          <div class="sess-meta">${place}<br>${activity}</div>
         </div>
         ${action}
       </div>`;
@@ -3785,7 +3858,11 @@
           .sort((a, b) => new Date(b) - new Date(a))[0]
         || '';
       if (lastLogin && lastLoginAt) {
-        lastLogin.textContent = relSessionTime(lastLoginAt) || fmtSessionDT(lastLoginAt);
+        // Spec asks for the date and time; the relative form is kept as a
+        // secondary hint only when it is genuinely useful.
+        const abs = fmtSessionDT(lastLoginAt);
+        const rel = relSessionTime(lastLoginAt);
+        lastLogin.textContent = (rel && rel !== abs) ? `${abs} · ${rel}` : abs;
       }
 
       let html = current ? sessionRow(current, true) : '';
@@ -3876,6 +3953,16 @@
     return escapeHtml(browser || os || 'Unknown device');
   }
 
+  // Device type ("Desktop" / "Mobile" / "Tablet") is inferred from the same
+  // user-agent hints the session list uses, so the two cards agree.
+  function lhDeviceKind(e) {
+    const hint = `${e.device || ''} ${e.os || ''}`.toLowerCase();
+    if (/ipad|tablet/.test(hint)) return 'Tablet';
+    if (/android|iphone|ios|mobile|phone/.test(hint)) return 'Mobile';
+    if (hint.trim()) return 'Desktop';
+    return 'Unknown';
+  }
+
   function lhStatusBadge(e) {
     const failed = String(e.status) === 'Failed';
     return `<span class="lh-badge${failed ? ' fail' : ''}">${failed ? '✕ Failed' : '✓ Successful'}</span>`;
@@ -3884,7 +3971,9 @@
   function renderLoginHistory(data) {
     const box = document.getElementById('loginHistoryBody');
     if (!box) return;
-    const entries = (data && data.entries) || [];
+    // Only the 10 most recent records are ever shown — the server may retain
+    // more, but this card stays compact and there is no full-history page.
+    const entries = ((data && data.entries) || []).slice(0, 10);
 
     if (!entries.length) {
       box.innerHTML = `
@@ -3903,6 +3992,10 @@
       const locCell = loc
         ? `<span class="lh-loc">${escapeHtml(loc)}</span>`
         : '<span class="lh-loc unknown">Not available</span>';
+      const ip = String(e.ip || '').trim();
+      const ipCell = ip
+        ? `<span class="lh-loc">${escapeHtml(ip)}</span>`
+        : '<span class="lh-loc unknown">Not available</span>';
       const sub = [e.method, e.detail].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
       return `
         <tr>
@@ -3910,17 +4003,22 @@
             <div class="lh-when">${fmtSessionDT(e.at) || '—'}</div>
             <div class="lh-when-sub">${escapeHtml(relSessionTime(e.at) || '')}</div>
           </td>
+          <td>
+            <div>${escapeHtml(lhDeviceKind(e))}${e.is_current ? ' <span class="sess-tag">Current session</span>' : ''}</div>
+          </td>
           <td class="lh-device">
-            <div>${lhDeviceLine(e)}${e.is_current ? ' <span class="sess-tag">Current session</span>' : ''}</div>
+            <div>${lhDeviceLine(e)}</div>
             ${sub ? `<div class="lh-device-sub">${escapeHtml(sub)}</div>` : ''}
           </td>
           <td>${locCell}</td>
+          <td>${ipCell}</td>
           <td>${lhStatusBadge(e)}</td>
         </tr>`;
     }).join('');
 
     const cards = entries.map((e) => {
       const loc = String(e.location || '').trim();
+      const ip = String(e.ip || '').trim();
       const sub = [e.method, e.detail].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
       return `
         <div class="lh-mob-card">
@@ -3929,27 +4027,35 @@
             ${lhStatusBadge(e)}
           </div>
           <div class="lh-mob-meta">
-            ${lhDeviceLine(e)}${e.is_current ? ' <span class="sess-tag">Current session</span>' : ''}<br>
-            ${loc ? escapeHtml(loc) : 'Location not available'}${sub ? ` · ${escapeHtml(sub)}` : ''}
+            ${escapeHtml(lhDeviceKind(e))} · ${lhDeviceLine(e)}${e.is_current ? ' <span class="sess-tag">Current session</span>' : ''}<br>
+            ${loc ? escapeHtml(loc) : 'Location not available'} · IP ${ip ? escapeHtml(ip) : 'not available'}${sub ? `<br>${escapeHtml(sub)}` : ''}
           </div>
         </div>`;
     }).join('');
 
-    const note = (data && data.failures_available === false)
-      ? '<div class="lh-foot">Failed sign-in attempts could not be loaded right now, so only successful sign-ins are listed.</div>'
-      : '';
+    const notes = ['Location is approximate and based on the sign-in IP address.'];
+    if (data && data.failures_available === false) {
+      notes.push('Failed sign-in attempts could not be loaded right now, so only successful sign-ins are listed.');
+    }
 
     box.innerHTML = `
       <div class="lh-table-wrap">
         <table class="lh-table">
           <thead>
-            <tr><th scope="col">Date &amp; time</th><th scope="col">Device</th><th scope="col">Location</th><th scope="col">Status</th></tr>
+            <tr>
+              <th scope="col">Date &amp; time</th>
+              <th scope="col">Device</th>
+              <th scope="col">Browser / OS</th>
+              <th scope="col">Approximate location</th>
+              <th scope="col">IP address</th>
+              <th scope="col">Status</th>
+            </tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
       <div class="lh-mobile">${cards}</div>
-      ${note}`;
+      <div class="lh-foot">${notes.join(' ')}</div>`;
   }
 
   async function loadLoginHistory() {
@@ -3967,6 +4073,68 @@
           <div class="sess-error">
             <span class="sess-error-txt">Unable to load your login history.</span>
             <button class="btn btn-ghost btn-sm" onclick="loadLoginHistory()">Try Again</button>
+          </div>`;
+      }
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  // ─── Security alerts ───────────────────────────────────────────
+  //   Read-only projection of GET /api/auth/security-events. The server
+  //   decides which events are shown, their wording and their tone; this only
+  //   paints them, so the UI can never disagree with the audit log.
+  const SA_TONE_ICONS = { good: '✓', warn: '!', bad: '✕' };
+
+  function securityAlertRow(a) {
+    const tone = ['good', 'warn', 'bad'].includes(String(a.tone)) ? String(a.tone) : 'warn';
+    const meta = [a.detail, a.device].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
+    return `
+      <div class="sa-row">
+        <div class="sa-ico ${tone}" aria-hidden="true">${SA_TONE_ICONS[tone]}</div>
+        <div class="sa-body">
+          <div class="sa-title">${escapeHtml(a.title || 'Security activity')}</div>
+          ${meta ? `<div class="sa-meta">${escapeHtml(meta)}</div>` : ''}
+        </div>
+        <div class="sa-when">${escapeHtml(relSessionTime(a.at) || fmtSessionDT(a.at))}</div>
+      </div>`;
+  }
+
+  function renderSecurityAlerts(data) {
+    const box = document.getElementById('securityAlertsBody');
+    if (!box) return;
+    const events = (data && data.events) || [];
+
+    if (!events.length) {
+      box.innerHTML = `
+        <div class="sess-none">
+          <span class="sess-none-ico" aria-hidden="true">✓</span>
+          <div>
+            <div class="sess-none-title">No recent security activity</div>
+            <div class="sess-none-sub">New device sign-ins and security changes will appear here.</div>
+          </div>
+        </div>`;
+      return;
+    }
+
+    box.innerHTML = events.map(securityAlertRow).join('');
+  }
+
+  async function loadSecurityAlerts() {
+    const box = document.getElementById('securityAlertsBody');
+    if (!box) return;
+    const btn = document.getElementById('saRefreshBtn');
+    if (btn) btn.disabled = true;
+    box.innerHTML = SESSIONS_SKELETON;
+
+    try {
+      renderSecurityAlerts(await api('/auth/security-events'));
+    } catch (err) {
+      if (!err.sessionExpired) {
+        box.innerHTML = `
+          <div class="sess-error">
+            <span class="sess-error-txt">Unable to load your recent security activity.</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadSecurityAlerts()">Try Again</button>
           </div>`;
       }
     } finally {
@@ -4470,6 +4638,11 @@
       ovTag.classList.toggle('off', !on);
       ovTag.classList.toggle('pending', Boolean(broken));
     }
+
+    // Feeds the derived "Account Security Status" row. A service failure is
+    // left as unknown rather than reported as insecure.
+    SEC_POSTURE.twoFactor = broken ? null : on;
+    renderSecurityPosture();
   }
 
   async function loadTwoFactorStatus() {
@@ -5378,6 +5551,7 @@
       if (typeof loadMySessions === 'function') loadMySessions();
       if (typeof loadTwoFactorStatus === 'function') loadTwoFactorStatus();
       if (typeof loadLoginHistory === 'function') loadLoginHistory();
+      if (typeof loadSecurityAlerts === 'function') loadSecurityAlerts();
     }
 
     // The security and support pages are short — let the footer follow the

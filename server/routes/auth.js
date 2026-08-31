@@ -291,6 +291,44 @@ function logLoginFailure(req, { email, userId = '', detail = '' }) {
   } catch (e) { /* audit logging is best-effort */ }
 }
 
+/**
+ * After a successful sign-in, compare this session against the account's
+ * earlier ones and record a "new device" / "new location" security event when
+ * the combination has not been seen before. Purely informational — the sign-in
+ * has already happened, and the alert email is sent separately. Best-effort:
+ * this runs after the login response and swallows its own failures.
+ */
+async function flagUnfamiliarSignIn({ userId, email, sessionId, ip, device }) {
+  try {
+    if (!email) return;
+    const rows = await supabase.getUserSessions(userId);
+    const current = rows.find((r) => r.session_id === sessionId);
+    if (!current) return;
+
+    const previous = rows.filter((r) => r.session_id !== sessionId);
+    if (!previous.length) return; // first ever sign-in: nothing to compare against
+
+    const deviceKey = (r) => [r.browser, r.os, r.device]
+      .map((p) => String(p || '').toLowerCase().trim()).join('|');
+    const placeKey = (r) => placeOf(r).toLowerCase();
+
+    if (!previous.some((r) => deviceKey(r) === deviceKey(current))) {
+      await twoFactor.logSecurityEvent({
+        userId, email, event: twoFactor.EVENTS.NEW_DEVICE, ip, device,
+        detail: 'Signed in from a device not used before',
+      });
+    }
+
+    const place = placeKey(current);
+    if (place && !previous.some((r) => placeKey(r) === place)) {
+      await twoFactor.logSecurityEvent({
+        userId, email, event: twoFactor.EVENTS.NEW_LOCATION, ip, device,
+        detail: `Signed in from a new approximate location: ${placeOf(current)}`,
+      });
+    }
+  } catch (e) { /* alerting is best-effort */ }
+}
+
 async function createLoginSession(req, userId, loginMethod, email, userName) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
@@ -372,6 +410,13 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
     // Geo-IP enrichment in the background â€” never blocks the login response
     geoPromise
       .then((geo) => enrichSessionGeo(sessionResult.session_id, ip, geo))
+      .then(() => flagUnfamiliarSignIn({
+        userId: finalUserId,
+        email: cleanEmail,
+        sessionId: sessionResult.session_id,
+        ip,
+        device: [browserStr, osStr || deviceStr].filter(Boolean).join(' \u2022 '),
+      }))
       .catch(() => {});
 
     return {
@@ -458,10 +503,14 @@ router.post('/send-otp', async (req, res) => {
     const result = await otpService.requestOTP(userId, cleanEmail, ipAddress);
 
     if (!result.success) {
-      // Return rate-limit errors with 429 status
+      // Every ceiling (cooldown, hourly, daily, per-IP) surfaces as 429 with
+      // the service's own wording, plus the seconds the client should wait.
+      const retryAfter = result.retryAfterSeconds || result.retryAfter;
+      if (retryAfter) res.set('Retry-After', String(retryAfter));
       return res.status(429).json({
         error: result.error,
-        retryAfter: result.retryAfter || undefined,
+        retryAfter: retryAfter || undefined,
+        retryAfterSeconds: retryAfter || undefined,
       });
     }
 
@@ -510,9 +559,14 @@ router.post('/verify-otp', async (req, res) => {
       if (existingUser) userId = existingUser.user_id || existingUser.id || '';
     } catch (e) { /* lookup failed — empty userId is fine, the email fallback still applies */ }
 
-    // Verify OTP through the security service (handles hash comparison, expiry, attempts)
-    const verification = await otpService.verifyOTP(userId, cleanEmail, otp);
+    // Verify OTP through the security service (handles hash comparison, expiry,
+    // per-code attempts and the per-IP brute-force ceiling). The IP is derived
+    // server-side; the client cannot influence which bucket it is charged to.
+    const ipAddress = getClientIP(req);
+    const verification = await otpService.verifyOTP(userId, cleanEmail, otp, ipAddress);
     if (!verification.valid) {
+      // One generic message for every failure mode — a wrong code, an expired
+      // code and an address with no account must be indistinguishable.
       return res.status(400).json({ error: verification.error });
     }
 
@@ -1423,6 +1477,23 @@ router.post('/refresh', async (req, res) => {
 
 // â”€â”€ Device / session management (user-facing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+// Session rows carry a flag emoji beside the country for the admin view. Some
+// older rows hold it mis-decoded (the UTF-8 bytes read back as Latin-1 or
+// CP1252), so strip the real emoji and both mangled forms — the user-facing
+// location line is plain text either way.
+const stripFlag = (v) => String(v || '')
+  .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '')
+  .replace(/\u00f0[\u009f\u0178][\u0087\u2021][\u0080-\u00bf]/g, '')
+  .trim();
+
+// "City, State, Country" from whatever the IP lookup managed to resolve.
+// Always approximate: it describes the network, not the person.
+const placeOf = (r) => [r.city, r.state, stripFlag(r.country)]
+  .map((p) => String(p || '').trim())
+  .filter((p) => p && !/^unknown$/i.test(p))
+  .filter((p, i, arr) => arr.indexOf(p) === i)
+  .join(', ');
+
 // GET /api/auth/sessions â€” List the current user's sessions (device page).
 // Never exposes raw session tokens â€” only metadata plus an is_current flag.
 router.get('/sessions', authenticateToken, async (req, res) => {
@@ -1437,6 +1508,8 @@ router.get('/sessions', authenticateToken, async (req, res) => {
       os: r.os || '',
       browser: r.browser || '',
       ip_address: r.ip_address || '',
+      // Approximate, derived from the sign-in IP at the time of login.
+      location: placeOf(r),
       login_method: r.login_method || '',
       login_time: r.login_time,
       last_active: r.last_active,
@@ -1527,27 +1600,13 @@ router.post('/sessions/revoke-others', authenticateToken, async (req, res) => {
 //   â€¢ SecurityAudit rows   â†’ rejected attempts (wrong password, failed 2FA
 //                            code), which never produce a session row.
 //
-// Never exposes session tokens or IP addresses â€” only what the user needs to
-// recognise their own activity: when, from what, roughly where, and whether it
-// worked. If the audit log is unreachable the successful history is still
-// returned, with failures_available:false so the UI can say so honestly.
+// Never exposes session tokens. It does return the sign-in IP: the account
+// owner needs it to recognise their own activity, and the route is behind
+// authenticateToken so only that owner can read it.
+// If the audit log is unreachable the successful history is still returned,
+// with failures_available:false so the UI can say so honestly.
 router.get('/login-history', authenticateToken, async (req, res) => {
   const LIMIT = 50;
-
-  // Session rows carry a flag emoji beside the country for the admin view. Some
-  // older rows hold it mis-decoded (the UTF-8 bytes read back as Latin-1 or
-  // CP1252), so strip the real emoji and both mangled forms — the user-facing
-  // location line is plain text either way.
-  const stripFlag = (v) => String(v || '')
-    .replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '')
-    .replace(/\u00f0[\u009f\u0178][\u0087\u2021][\u0080-\u00bf]/g, '')
-    .trim();
-
-  const placeOf = (r) => [r.city, r.state, stripFlag(r.country)]
-    .map((p) => String(p || '').trim())
-    .filter((p) => p && !/^unknown$/i.test(p))
-    .filter((p, i, arr) => arr.indexOf(p) === i)
-    .join(', ');
 
   try {
     const rows = await supabase.getUserSessions(req.user.id);
@@ -1558,6 +1617,7 @@ router.get('/login-history', authenticateToken, async (req, res) => {
       os: r.os || '',
       device: r.device || '',
       location: placeOf(r),
+      ip: r.ip_address || '',
       method: r.login_method || '',
       status: 'Successful',
       detail: '',
@@ -1581,6 +1641,7 @@ router.get('/login-history', authenticateToken, async (req, res) => {
             os,
             device: r.device || '',
             location: '',
+            ip: r.ipAddress || '',
             method: String(r.event) === '2fa_login_failed' ? 'Two-factor code' : 'Email',
             status: 'Failed',
             detail: r.detail || '',
@@ -1598,6 +1659,57 @@ router.get('/login-history', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Login history error:', err);
     res.status(500).json({ error: 'Could not load your login history.' });
+  }
+});
+
+// GET /api/auth/security-events â€” Recent security activity for the Security
+// page's "Security Alerts" card.
+//
+// Read-only projection of the append-only SecurityAudit log, scoped to the
+// authenticated account's own email. Only the events a user can act on are
+// surfaced (new device / new location sign-ins, 2FA changes, recovery-code
+// regeneration, rejected sign-ins) â€” internal setup steps are noise. Never
+// exposes secrets, codes or hashes: the sheet does not store them.
+const ALERT_EVENTS = {
+  new_device_signin: { title: 'New device sign-in', tone: 'warn' },
+  new_location_signin: { title: 'New location sign-in', tone: 'warn' },
+  '2fa_enabled': { title: 'Two-factor authentication enabled', tone: 'good' },
+  '2fa_disabled': { title: 'Two-factor authentication disabled', tone: 'warn' },
+  '2fa_recovery_codes_regenerated': { title: 'Recovery codes regenerated', tone: 'good' },
+  '2fa_recovery_code_used': { title: 'Recovery code used to sign in', tone: 'warn' },
+  '2fa_authenticator_changed': { title: 'Authenticator app replaced', tone: 'good' },
+  login_failed: { title: 'Failed sign-in attempt', tone: 'bad' },
+  '2fa_login_failed': { title: 'Failed two-factor code', tone: 'bad' },
+};
+
+router.get('/security-events', authenticateToken, async (req, res) => {
+  const LIMIT = 8;
+  try {
+    const email = String(req.user.email || '').toLowerCase().trim();
+    if (!email) return res.json({ events: [] });
+
+    const rows = await db.findRows(db.SHEETS.SECURITY_AUDIT, 'email', email);
+    const events = rows
+      .filter((r) => ALERT_EVENTS[String(r.event || '')])
+      .map((r) => {
+        const meta = ALERT_EVENTS[String(r.event)];
+        return {
+          at: r.createdAt,
+          event: String(r.event),
+          title: meta.title,
+          tone: meta.tone,
+          device: r.device || '',
+          detail: r.detail || '',
+          outcome: String(r.outcome || ''),
+        };
+      })
+      .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
+      .slice(0, LIMIT);
+
+    res.json({ events });
+  } catch (err) {
+    console.error('Security events error:', err);
+    res.status(500).json({ error: 'Could not load your recent security activity.' });
   }
 });
 

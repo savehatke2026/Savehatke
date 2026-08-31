@@ -193,8 +193,10 @@ router.post('/setup/start', authenticateToken, setupLimiter, async (req, res) =>
 
     const result = await otpService.requestOTP(me.id, me.email, ip);
     if (!result.success) {
-      // Cooldown / hourly / daily ceilings all surface as the service's own copy.
-      return res.status(429).json({ error: result.error, retryAfterSeconds: result.retryAfterSeconds });
+      // Cooldown / hourly / daily / per-IP ceilings all surface as the service's own copy.
+      const retryAfter = result.retryAfterSeconds || result.retryAfter;
+      if (retryAfter) res.set('Retry-After', String(retryAfter));
+      return res.status(429).json({ error: result.error, retryAfterSeconds: retryAfter, retryAfter });
     }
 
     const sent = await emailService.sendOTPEmail(me.email, result.otp);
@@ -234,7 +236,7 @@ router.post('/setup/verify-email', authenticateToken, accountVerifyLimiter, asyn
       return res.status(400).json({ error: 'Enter the 6-digit code we emailed you.' });
     }
 
-    const check = await otpService.verifyOTP(me.id, me.email, otp);
+    const check = await otpService.verifyOTP(me.id, me.email, otp, ip);
     if (!check.valid) {
       await twoFactor.logSecurityEvent({
         userId: me.id, email: me.email, event: twoFactor.EVENTS.VERIFY_FAILED,

@@ -402,6 +402,9 @@ const EVENTS = Object.freeze({
   RECOVERY_REGENERATED: '2fa_recovery_codes_regenerated',
   AUTHENTICATOR_CHANGED: '2fa_authenticator_changed',
   VERIFY_FAILED: '2fa_verification_failed',
+  // Written by the login path, not by 2FA — they share this one audit log.
+  NEW_DEVICE: 'new_device_signin',
+  NEW_LOCATION: 'new_location_signin',
 });
 
 async function logSecurityEvent({ userId, email, event, outcome = 'success', ip = '', device = '', detail = '' }) {
