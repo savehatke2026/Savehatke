@@ -296,6 +296,12 @@ router.delete('/delete-admin/:id', authenticateToken, requireAdmin, async (req, 
 // GET /api/admin/stats — Dashboard statistics
 router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    // Last month's report is due on the 1st. This deployment is serverless, so
+    // there is no always-on scheduler: the check rides along with the first
+    // dashboard load of the day instead (throttled inside the service, never
+    // awaited, and it cannot fail this response).
+    monthlyReports.maybeEnsure({ actor: 'admin-dashboard' });
+
     let totalUsers = 0;
     try {
       totalUsers = await db.countRows(db.SHEETS.USERS);

@@ -373,6 +373,30 @@ async function ensurePreviousMonthReport({ actor = 'auto' } = {}) {
   return { generated: true, month: key, report };
 }
 
+/**
+ * Fire-and-forget version of the check above, for request paths that should not
+ * wait on it or fail because of it — the admin dashboard's own stats call uses
+ * this, so a report that is due is produced as soon as any admin opens the
+ * panel, not only when someone visits Reports → Monthly Reports.
+ *
+ * Throttled to once every six hours per process so a busy panel does not read
+ * the sheet on every request, and deliberately quiet: the Monthly Reports page
+ * is where the outcome is shown.
+ */
+let lastAutoCheckAt = 0;
+const AUTO_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
+
+function maybeEnsure({ actor = 'auto' } = {}) {
+  const now = Date.now();
+  if (now - lastAutoCheckAt < AUTO_CHECK_INTERVAL_MS) return false;
+  lastAutoCheckAt = now;
+
+  Promise.resolve()
+    .then(() => ensurePreviousMonthReport({ actor }))
+    .catch((err) => console.warn('[monthlyReports] background check failed:', err.message));
+  return true;
+}
+
 module.exports = {
   STATUS,
   configuredAdminEmails,
@@ -388,4 +412,5 @@ module.exports = {
   pdfFilename,
   sendReport,
   ensurePreviousMonthReport,
+  maybeEnsure,
 };
