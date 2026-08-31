@@ -1454,25 +1454,10 @@
 
           <div class="sec-item">
             <div class="sec-item-txt">
-              <div class="sec-item-lbl">Email</div>
+              <div class="sec-item-lbl">Email Verification</div>
               <div class="sec-item-val" id="securityEmail">—</div>
             </div>
             <span class="sec-status" id="securityEmailStatus">✓ Verified</span>
-          </div>
-
-          <div class="sec-item">
-            <div class="sec-item-txt">
-              <div class="sec-item-lbl">Account Status</div>
-              <div class="sec-item-val" id="securityAccountStatus">Active</div>
-            </div>
-            <span class="sec-status" id="securityAccountStatusTag">✓</span>
-          </div>
-
-          <div class="sec-item">
-            <div class="sec-item-txt">
-              <div class="sec-item-lbl">Last Login</div>
-              <div class="sec-item-val" id="securityLastLogin">—</div>
-            </div>
           </div>
 
           <!-- Mirrors the 2FA card below; both are painted from the same
@@ -1483,6 +1468,23 @@
               <div class="sec-item-val" id="securityTwoFactor">Authenticator app</div>
             </div>
             <span class="sec-status off" id="securityTwoFactorTag">Checking…</span>
+          </div>
+
+          <!-- Derived, never stored: "Secure" only when the email is verified
+               and 2FA is on. Painted by renderSecurityPosture(). -->
+          <div class="sec-item">
+            <div class="sec-item-txt">
+              <div class="sec-item-lbl">Account Security Status</div>
+              <div class="sec-item-val muted" id="securityAccountStatus">Checking…</div>
+            </div>
+            <span class="sec-status off" id="securityAccountStatusTag">Checking…</span>
+          </div>
+
+          <div class="sec-item">
+            <div class="sec-item-txt">
+              <div class="sec-item-lbl">Last Successful Login</div>
+              <div class="sec-item-val" id="securityLastLogin">—</div>
+            </div>
           </div>
         </div>
 
@@ -2254,13 +2256,14 @@
       <textarea class="form-inp" id="caseDesc" rows="4" placeholder="Provide more details about your issue..." style="resize:vertical"></textarea>
     </div>
     <div class="form-grp">
-      <label class="form-lbl" for="caseAttachment">Attachment <span style="color:#6b88aa;font-weight:500">(optional)</span></label>
+      <label class="form-lbl" for="caseAttachment">Screenshot <span style="color:#6b88aa;font-weight:500">(optional)</span></label>
       <input type="file" class="form-inp" id="caseAttachment"
-             accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/plain"
+             accept="image/png,image/jpeg,image/webp,.png,.jpg,.jpeg,.webp"
              style="padding:9px 12px;font-size:.82rem;cursor:pointer">
-      <!-- Limits mirror the server's own checks in routes/support.js, so the
-           user is told before a 3MB upload is rejected. -->
-      <div style="font-size:.72rem;color:#6b88aa;margin-top:6px">PNG, JPG, WEBP, GIF, PDF or TXT — up to 3MB.</div>
+      <!-- Limits mirror the server's own checks in routes/support.js, which also
+           sniffs the file's bytes, so the user hears about a bad file before a
+           5MB upload starts. -->
+      <div style="font-size:.72rem;color:#6b88aa;margin-top:6px">PNG, JPG or WebP — up to 5MB. Stored privately; only you and our support team can open it.</div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('newCaseModal')">Cancel</button>
@@ -3203,9 +3206,14 @@
     if (statusEl) statusEl.innerHTML = supportStatusBadge(ticket);
 
     // The opening report first, then every reply in order. An attachment hangs
-    // off the original message because that is where it was uploaded.
+    // off the original message because that is where it was uploaded. A
+    // screenshot is stored as 'drive:<fileId>' in a private folder, so it opens
+    // through the authenticated proxy; older tickets keep their direct URL.
+    const attachHref = ticket.attachmentUrl && String(ticket.attachmentUrl).startsWith('drive:')
+      ? '/api/proxy/drive/' + encodeURIComponent(String(ticket.attachmentUrl).slice('drive:'.length))
+      : ticket.attachmentUrl;
     const attach = ticket.attachmentUrl
-      ? `<a class="sup-attach" href="${escapeHtml(ticket.attachmentUrl)}" target="_blank" rel="noopener noreferrer">📎 ${escapeHtml(ticket.attachmentName || 'Attachment')}</a>`
+      ? `<a class="sup-attach" href="${escapeHtml(attachHref)}" target="_blank" rel="noopener noreferrer">📎 ${escapeHtml(ticket.attachmentName || 'Attachment')}</a>`
       : '';
 
     const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
@@ -4162,7 +4170,7 @@
     });
   }
 
-  const CASE_ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // matches routes/support.js
+  const CASE_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // matches routes/support.js
 
   async function createCase() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
@@ -4175,9 +4183,14 @@
 
     if (!subject) { showToast('Please enter a subject for your case.', 'error'); return; }
     if (!desc) { showToast('Please describe your issue.', 'error'); return; }
-    // Checked here as well as on the server so a 3MB upload isn't wasted first.
+    // Checked here as well as on the server so a 5MB upload isn't wasted first.
+    // The server also sniffs the bytes, so a renamed non-image fails there.
     if (file && file.size > CASE_ATTACHMENT_MAX_BYTES) {
-      showToast('That attachment is larger than 3MB. Please attach a smaller file.', 'error');
+      showToast('That screenshot is larger than 5MB. Please attach a smaller one.', 'error');
+      return;
+    }
+    if (file && !['image/png', 'image/jpeg', 'image/webp'].includes(String(file.type).toLowerCase())) {
+      showToast('Please attach a PNG, JPG or WebP screenshot.', 'error');
       return;
     }
 
@@ -4191,6 +4204,8 @@
       // told, so they can retry or submit without the file.
       let attachmentUrl = '';
       let attachmentName = '';
+      let attachmentMime = '';
+      let attachmentSize = '';
       if (file) {
         if (btn) btn.textContent = 'Uploading attachment…';
         const dataBase64 = await readFileAsBase64(file);
@@ -4200,6 +4215,8 @@
         });
         attachmentUrl = up.url || '';
         attachmentName = up.name || file.name;
+        attachmentMime = up.mimeType || '';
+        attachmentSize = up.size || '';
         if (btn) btn.textContent = 'Submitting…';
       }
 
@@ -4211,7 +4228,7 @@
           email: u.email,
           subject: `[${categoryLabel}] ${subject}`,
           message: desc,
-          ...(attachmentUrl ? { attachmentUrl, attachmentName } : {}),
+          ...(attachmentUrl ? { attachmentUrl, attachmentName, attachmentMime, attachmentSize } : {}),
         },
       });
 

@@ -3743,6 +3743,15 @@ function viewCase(id) {
     </div>`).join('');
 
   // ── RIGHT: the user's message, resolution reply and attachments ────────
+  // A screenshot is stored as 'drive:<fileId>' in a private Drive folder, so it
+  // opens through the authenticated proxy rather than as a direct link. Older
+  // tickets carry a plain storage URL and still work unchanged.
+  const attachHref = (url) => {
+    const raw = String(url || '');
+    return raw.startsWith('drive:')
+      ? '/api/proxy/drive/' + encodeURIComponent(raw.slice('drive:'.length))
+      : raw;
+  };
   const attachments = Array.isArray(c.attachments) && c.attachments.length
     ? c.attachments
     : (c.attachmentUrl ? [{ url: c.attachmentUrl, name: c.attachmentName || 'Attachment' }] : []);
@@ -3759,7 +3768,7 @@ function viewCase(id) {
         <div class="case-col-label" style="margin-bottom:9px">📎 Attachments</div>
         <div style="display:flex;flex-wrap:wrap;gap:8px">
           ${attachments.map(a => `
-            <a class="case-att-item" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" title="${esc(a.name || 'Attachment')}">
+            <a class="case-att-item" href="${esc(attachHref(a.url))}" target="_blank" rel="noopener noreferrer" title="${esc(a.name || 'Attachment')}">
               📄 <span class="case-att-name">${esc(a.name || 'Attachment')}</span>
             </a>`).join('')}
         </div>

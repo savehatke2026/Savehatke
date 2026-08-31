@@ -7,13 +7,21 @@ const { v4: uuidv4 } = require('uuid');
 const { optionalAuth, authenticateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const emailService = require('../services/emailService');
+const googleDrive = require('../services/googleDrive');
+const { sniffImage, looksComplete } = require('../utils/imageSniff');
 const { verifyTurnstile } = require('../utils/turnstile');
 
 const router = express.Router();
 
-const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB
-const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
-const ATTACHMENT_BUCKET = 'support-attachments';
+// Screenshots live in a private Google Drive folder and are served back only
+// through the authenticated proxy (routes/driveProxy.js). Nothing about them is
+// publicly linkable, and the browser's claimed MIME type is not trusted: the
+// bytes are sniffed server-side and anything that is not a real PNG, JPEG or
+// WebP is refused.
+const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5MB per screenshot
+const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+// Drive reference stored on the ticket: 'drive:<fileId>'.
+const DRIVE_REF_RE = /^drive:[a-zA-Z0-9_-]{10,80}$/;
 
 const REPLY_MAX_CHARS = 4000;
 // A user may only add to a case support is still working on. A resolved or
@@ -87,64 +95,110 @@ function toClientTicket(t) {
     messages: thread,
     attachmentUrl: t.attachmentUrl || '',
     attachmentName: t.attachmentName || '',
+    // Screenshot metadata. The file id is safe to expose to an authorised
+    // viewer: the proxy re-checks who is asking before it streams anything.
+    attachmentMime: t.attachmentMime || '',
+    attachmentSize: t.attachmentSize ? Number(t.attachmentSize) || 0 : 0,
+    attachmentFileId: t.attachmentFileId || '',
+    attachmentUploadedAt: t.attachmentUploadedAt || '',
   };
 }
 
-// POST /api/support/attachment — Upload a support ticket attachment to Supabase Storage
+// POST /api/support/attachment — Upload a support screenshot to private Drive
+//
+// The browser sends base64 plus a claimed filename and content type. None of
+// that is trusted:
+//   - the bytes are sniffed for a real PNG / JPEG / WebP signature, and checked
+//     for a complete trailer, so a renamed executable, an SVG carrying script,
+//     or a truncated upload is refused;
+//   - the size limit is enforced here, not just in the browser;
+//   - the Drive filename is generated server-side, so a crafted name (traversal
+//     sequences, control characters, overlong strings) never reaches storage.
+//
+// Success returns a reference, never a public URL. The file is only ever served
+// back through GET /api/proxy/drive/:fileId, which authorises the viewer.
 router.post('/attachment', optionalAuth, async (req, res) => {
+  const { filename, dataBase64 } = req.body || {};
+
   try {
-    const { filename, contentType, dataBase64 } = req.body;
-
-    if (!dataBase64 || !filename) {
-      return res.status(400).json({ error: 'filename and dataBase64 are required.' });
-    }
-    const type = String(contentType || '').toLowerCase().split(';')[0].trim();
-    if (!ATTACHMENT_ALLOWED_TYPES.includes(type)) {
-      return res.status(400).json({ error: 'Unsupported file type. Allowed: PNG, JPG, WEBP, GIF, PDF, TXT.' });
+    if (!dataBase64) {
+      return res.status(400).json({ error: 'No screenshot was received. Please try again.' });
     }
 
-    const buffer = Buffer.from(dataBase64, 'base64');
+    let buffer;
+    try {
+      buffer = Buffer.from(String(dataBase64), 'base64');
+    } catch (e) {
+      buffer = null;
+    }
     if (!buffer || buffer.length === 0) {
-      return res.status(400).json({ error: 'File could not be read.' });
+      return res.status(400).json({ error: 'That screenshot could not be read. Please try another file.' });
     }
     if (buffer.length > ATTACHMENT_MAX_BYTES) {
-      return res.status(400).json({ error: 'File is too large. Maximum size is 3MB.' });
+      return res.status(413).json({ error: 'That screenshot is too large. The maximum size is 5MB.' });
     }
 
-    const supabase = require('../services/supabase').getClient();
-    if (!supabase) {
-      return res.status(503).json({ error: 'Attachment uploads are temporarily unavailable.' });
+    // Content decides the type, not the upload's claim about itself.
+    const sniffed = sniffImage(buffer);
+    if (!sniffed || !ATTACHMENT_ALLOWED_TYPES.includes(sniffed.mime)) {
+      return res.status(400).json({ error: 'Please attach a PNG, JPG or WebP screenshot.' });
+    }
+    if (!looksComplete(buffer, sniffed.mime)) {
+      return res.status(400).json({ error: 'That screenshot looks incomplete. Please re-save it and try again.' });
     }
 
-    // Ensure the bucket exists (created once, then reused)
-    const buckets = await supabase.storage.listBuckets();
-    const exists = (buckets.data || []).some((b) => b.name === ATTACHMENT_BUCKET);
-    if (!exists) {
-      const created = await supabase.storage.createBucket(ATTACHMENT_BUCKET, { public: true });
-      if (created.error) throw new Error(created.error.message);
+    if (!googleDrive.isConfigured()) {
+      // Deliberately loud on the server, deliberately vague to the caller.
+      console.error(
+        '[support/attachment] Google Drive is not configured — refusing the upload. ' +
+        'Set GOOGLE_DRIVE_FOLDER_ID (and GOOGLE_DRIVE_SUPPORT_FOLDER_ID) plus ' +
+        'GOOGLE_DRIVE_REFRESH_TOKEN in .env.'
+      );
+      return res.status(503).json({
+        error: 'Screenshot uploads are temporarily unavailable. Please submit your request without one, or try again later.',
+      });
     }
 
-    const ext = (String(filename).match(/\.[a-z0-9]+$/i) || [''])[0].toLowerCase();
-    const safeName = String(filename).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
-    const path = `tickets/${uuidv4()}-${safeName || 'attachment' + ext}`;
+    const uploaded = await googleDrive.uploadSupportScreenshot({
+      buffer,
+      ext: sniffed.ext,
+      mimeType: sniffed.mime,
+      uploaderEmail: req.user && req.user.email ? req.user.email : '',
+    });
 
-    const upload = await supabase.storage
-      .from(ATTACHMENT_BUCKET)
-      .upload(path, buffer, { contentType: type, upsert: false });
-    if (upload.error) throw new Error(upload.error.message);
+    // The original filename travels back for display only; it is recorded as
+    // ticket metadata and never used as a path or a Drive name.
+    const displayName = String(filename || 'screenshot')
+      .replace(/[\\/]/g, '_')
+      .replace(/[^a-zA-Z0-9._ -]/g, '_')
+      .slice(0, 120) || 'screenshot';
 
-    const { data: urlData } = supabase.storage.from(ATTACHMENT_BUCKET).getPublicUrl(path);
-    res.status(201).json({ url: urlData.publicUrl, path, name: filename });
+    return res.status(201).json({
+      url: uploaded.url,               // 'drive:<fileId>' — the stored reference
+      fileId: uploaded.fileId,
+      storage: 'google-drive',
+      name: displayName,
+      mimeType: sniffed.mime,
+      size: buffer.length,
+      uploadedAt: new Date().toISOString(),
+    });
   } catch (err) {
-    console.error('Support attachment error:', err);
-    res.status(500).json({ error: 'Failed to upload attachment.' });
+    // Google's own error text can name folders, accounts and internal reasons,
+    // so it stays in the server log. The caller gets one neutral sentence.
+    console.error(`[support/attachment] upload failed (${err.code || 'error'}): ${err.message}`);
+    return res.status(502).json({
+      error: 'We could not attach that screenshot right now. Please try again in a moment.',
+    });
   }
 });
 
 // POST /api/support/ticket — Submit a support ticket
 router.post('/ticket', optionalAuth, async (req, res) => {
   try {
-    const { name, email, subject, message, attachmentUrl, attachmentName } = req.body;
+    const {
+      name, email, subject, message,
+      attachmentUrl, attachmentName, attachmentMime, attachmentSize,
+    } = req.body;
 
     if (!name || !email || !subject || !message) {
       return res.status(400).json({ error: 'All fields are required: name, email, subject, message.' });
@@ -158,12 +212,24 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: captcha.error });
     }
 
-    // Only accept attachment URLs that point at our own storage
+    // Accept only a reference this server issued. A screenshot lives in the
+    // private Drive folder and is quoted as 'drive:<fileId>'; anything else —
+    // including a public URL a caller invented — is dropped rather than stored,
+    // so a ticket can never carry a link we do not control.
+    //
+    // Historic tickets hold Supabase storage URLs. Those are still accepted so a
+    // resubmission from an older client does not lose its attachment, and the
+    // renderers understand both shapes.
     let safeAttachmentUrl = '';
     if (attachmentUrl) {
+      const candidate = String(attachmentUrl).slice(0, 500);
       const supabaseUrl = process.env.SUPABASE_URL || '';
-      if (supabaseUrl && String(attachmentUrl).startsWith(supabaseUrl + '/storage/')) {
-        safeAttachmentUrl = String(attachmentUrl).slice(0, 500);
+      if (DRIVE_REF_RE.test(candidate)) {
+        safeAttachmentUrl = candidate;
+      } else if (supabaseUrl && candidate.startsWith(supabaseUrl + '/storage/')) {
+        safeAttachmentUrl = candidate;
+      } else {
+        console.warn('[support/ticket] rejected an attachment reference that is not ours.');
       }
     }
 
@@ -186,6 +252,15 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       resolution: '',
       attachmentUrl: safeAttachmentUrl,
       attachmentName: attachmentName ? String(attachmentName).slice(0, 120) : '',
+      // Screenshot metadata, recorded only when the reference is one of ours.
+      // Values are re-derived from the upload response rather than trusted
+      // wholesale: the type and size are what the server measured.
+      attachmentMime: safeAttachmentUrl && ATTACHMENT_ALLOWED_TYPES.includes(String(attachmentMime))
+        ? String(attachmentMime) : '',
+      attachmentSize: safeAttachmentUrl && Number.isFinite(Number(attachmentSize))
+        ? String(Math.max(0, Math.min(ATTACHMENT_MAX_BYTES, Number(attachmentSize)))) : '',
+      attachmentFileId: DRIVE_REF_RE.test(safeAttachmentUrl) ? safeAttachmentUrl.slice('drive:'.length) : '',
+      attachmentUploadedAt: safeAttachmentUrl ? new Date().toISOString() : '',
       // A new case starts with no replies. The opening message stays in
       // `message` so it keeps rendering as the original report, separate from
       // the thread that grows underneath it.

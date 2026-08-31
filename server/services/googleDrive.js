@@ -35,6 +35,7 @@
 
 const { google } = require('googleapis');
 const { Readable } = require('stream');
+const crypto = require('crypto');
 
 const DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive'];
 
@@ -117,19 +118,31 @@ function getDriveClient() {
 }
 
 /**
- * Upload a binary buffer to the configured Drive folder.
- * @param {{ buffer: Buffer, filename: string, mimeType: string, sellerEmail?: string }} input
+ * Upload a binary buffer to a Drive folder.
+ *
+ * @param {{ buffer: Buffer, filename: string, mimeType: string, sellerEmail?: string,
+ *           folderId?: string, description?: string, forcePrivate?: boolean }} input
+ *        folderId     — overrides GOOGLE_DRIVE_FOLDER_ID for this upload.
+ *        description  — replaces the default "coupon proof" description.
+ *        forcePrivate — never publish the file, even when
+ *                       GOOGLE_DRIVE_VISIBILITY=public. Support screenshots use
+ *                       this: they are personal data and must only ever be
+ *                       reachable through the authenticated proxy.
  * @returns {Promise<{ fileId: string, url: string, webViewLink: string, name: string }>}
  */
 async function uploadProofScreenshot(input) {
-  const { buffer, filename, mimeType, sellerEmail } = input || {};
+  const {
+    buffer, filename, mimeType, sellerEmail,
+    folderId: folderOverride, description: descriptionOverride, forcePrivate,
+  } = input || {};
   if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) {
     throw new Error('Empty file buffer.');
   }
   if (!filename) throw new Error('Missing filename.');
 
   const drive = getDriveClient();
-  const { configured, folderId, visibility } = getCreds();
+  const { configured, folderId: defaultFolderId, visibility } = getCreds();
+  const folderId = clean(folderOverride) || defaultFolderId;
   if (!configured || !drive) {
     const err = new Error('Google Drive is not configured on the server.');
     err.code = 'DRIVE_NOT_CONFIGURED';
@@ -147,9 +160,9 @@ async function uploadProofScreenshot(input) {
   const metadata = {
     name: safeName,
     parents: [folderId],
-    description: sellerEmail
+    description: descriptionOverride || (sellerEmail
       ? `SaveHatke coupon proof uploaded by ${sellerEmail} on ${new Date().toISOString()}`
-      : `SaveHatke coupon proof uploaded on ${new Date().toISOString()}`,
+      : `SaveHatke coupon proof uploaded on ${new Date().toISOString()}`),
   };
 
   let createRes;
@@ -196,8 +209,9 @@ async function uploadProofScreenshot(input) {
   }
 
   // Visibility: keep the file private by default (service-account-owned). For
-  // 'public' mode we also publish it so anyone with the link can view.
-  if (visibility === 'public') {
+  // 'public' mode we also publish it so anyone with the link can view — unless
+  // the caller forced private, which support screenshots always do.
+  if (visibility === 'public' && !forcePrivate) {
     try {
       await drive.permissions.create({
         fileId: file.id,
@@ -262,9 +276,38 @@ async function getFileMeta(fileId) {
   return res.data;
 }
 
+/**
+ * Upload a support-ticket screenshot.
+ *
+ * Always private, always into the support folder when one is configured, and
+ * always named by the server: the browser's filename is recorded as metadata on
+ * the ticket but never used as the Drive name, so a crafted name cannot travel
+ * anywhere. The extension comes from the sniffed content type, not the upload.
+ *
+ * @param {{ buffer: Buffer, ext: string, mimeType: string, ticketRef?: string,
+ *           uploaderEmail?: string }} input
+ */
+async function uploadSupportScreenshot(input) {
+  const { buffer, ext, mimeType, ticketRef, uploaderEmail } = input || {};
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const unique = crypto.randomUUID();
+  const safeExt = /^\.(png|jpg|jpeg|webp)$/i.test(String(ext || '')) ? String(ext).toLowerCase() : '.png';
+  const ref = String(ticketRef || 'unlinked').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+
+  return uploadProofScreenshot({
+    buffer,
+    filename: `support-${ref}-${stamp}-${unique}${safeExt}`,
+    mimeType,
+    folderId: clean(process.env.GOOGLE_DRIVE_SUPPORT_FOLDER_ID) || undefined,
+    description: `SaveHatke support screenshot${uploaderEmail ? ` from ${uploaderEmail}` : ''} on ${new Date().toISOString()}`,
+    forcePrivate: true,
+  });
+}
+
 module.exports = {
   isConfigured,
   uploadProofScreenshot,
+  uploadSupportScreenshot,
   downloadFile,
   getFileMeta,
   // Exposed for diagnostics

@@ -27,6 +27,7 @@ const SHEETS = {
   USER_TWO_FACTOR: 'UserTwoFactor',
   SECURITY_AUDIT: 'SecurityAudit',
   BACKUP_CODE_AUDIT: 'BackupCodeAudit',
+  MONTHLY_REPORTS: 'MonthlyReports',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -122,6 +123,36 @@ const HEADERS = {
     'id', 'userEmail', 'productUrl', 'platform', 'productName',
     'currentPrice', 'targetPrice', 'lowestPrice', 'lastChecked', 'alertSent',
   ],
+  // One row per calendar month, written when that month's report is generated
+  // (automatically on the 1st, or on demand from Reports → Monthly Reports).
+  //
+  // The figures are stored, not recomputed on read, so a report always shows the
+  // numbers that were actually mailed out. Delivery is tracked per configured
+  // admin address — status is one of sent | pending | not_sent | failed — so the
+  // panel can show at a glance whether both admins received the PDF. The PDF
+  // itself is not stored: it is rebuilt from this row on demand.
+  [SHEETS.MONTHLY_REPORTS]: [
+    'id',
+    'month',            // YYYY-MM, the key used by every route
+    'monthLabel',       // "August 2026"
+    'periodLabel',      // "Aug 1-31, 2026"
+    'periodStart',
+    'periodEnd',
+    'revenue',
+    'couponsBought',
+    'couponsSold',
+    'generatedAt',
+    'generatedBy',      // 'auto' or the admin email that triggered it
+    'admin1Email',
+    'admin1Status',
+    'admin1At',
+    'admin1Error',
+    'admin2Email',
+    'admin2Status',
+    'admin2At',
+    'admin2Error',
+    'lastSentAt',
+  ],
   // Buyer reviews of coupons they purchased. brand/couponTitle/pricePaid are
   // copied in at write time so a review still reads correctly after the coupon
   // row is edited or removed.
@@ -182,6 +213,10 @@ const HEADERS = {
     //   messages  — JSON array holding the reply thread:
     //               [{ from: 'user' | 'support', body, at }]
     'updatedAt', 'messages',
+    // Screenshot metadata for the Drive-backed attachment. attachmentUrl holds
+    // the reference ('drive:<fileId>'), these describe the file itself so the
+    // ticket view can label it without fetching from Drive first.
+    'attachmentMime', 'attachmentSize', 'attachmentFileId', 'attachmentUploadedAt',
   ],
   [SHEETS.SETTINGS]: [
     'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'heroBadge', 'showHeroBadge', 'updatedAt',
@@ -191,6 +226,11 @@ const HEADERS = {
     'requestedAt', 'expiresAt', 'verifiedAt',
     'status', 'requestNumber', 'dailyRequestCount',
     'hourlyRequestCount', 'verifyAttempts',
+    // Appended by ensureSheets() on existing tabs (data is never moved):
+    //   limitKey    — canonical email the rate limit is counted on (+tags and
+    //                 gmail dots folded), so alias tricks share one bucket.
+    //   blockReason — why a request was refused / voided, for the audit trail.
+    'limitKey', 'blockReason',
   ],
   [SHEETS.BACKUP_CODE_AUDIT]: [
     'id', 'codeSuffix', 'reason', 'ip', 'userAgent', 'chosenEmail',
@@ -661,6 +701,25 @@ async function findRows(sheetName, field, value) {
 }
 
 /**
+ * Get all rows from a sheet, bypassing (and clearing) the 3-second read
+ * cache. Security counters must never be computed from a stale snapshot:
+ * two OTP requests a second apart would otherwise both read the same
+ * cached rows and both pass a limit that only one should.
+ */
+async function getRowsFresh(sheetName) {
+  invalidateCache(sheetName);
+  return getRows(sheetName);
+}
+
+/**
+ * findRows against a guaranteed-fresh read.
+ */
+async function findRowsFresh(sheetName, field, value) {
+  await getRowsFresh(sheetName);
+  return findRows(sheetName, field, value);
+}
+
+/**
  * Update a row by finding it via a field match and replacing values.
  */
 async function updateRow(sheetName, field, value, updatedData) {
@@ -935,9 +994,11 @@ module.exports = {
   getWriteAvailabilityError,
   seedDemoData,
   getRows,
+  getRowsFresh,
   appendRow,
   findRow,
   findRows,
+  findRowsFresh,
   updateRow,
   deleteRow,
   countRows,

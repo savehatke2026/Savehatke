@@ -15,8 +15,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initSupportForm();
 });
 
-const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB
-const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'application/pdf', 'text/plain'];
+// Screenshots only, 5MB each. These checks are a courtesy so the user hears
+// about a bad file before a multi-MB upload starts; the server sniffs the actual
+// bytes and enforces the same limits again, and its answer is the one that counts.
+const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 // Read a File as base64 (without the data: prefix)
 function fileToBase64(file) {
@@ -30,18 +33,19 @@ function fileToBase64(file) {
 
 async function uploadAttachment(file) {
   if (file.size > ATTACHMENT_MAX_BYTES) {
-    throw new Error('Attachment is too large. Maximum size is 3MB.');
+    throw new Error('That screenshot is too large. The maximum size is 5MB.');
   }
   const type = (file.type || '').toLowerCase();
   if (!ATTACHMENT_ALLOWED_TYPES.includes(type)) {
-    throw new Error('Unsupported file type. Allowed: PNG, JPG, WEBP, GIF, PDF, TXT.');
+    throw new Error('Please attach a PNG, JPG or WebP screenshot.');
   }
   const dataBase64 = await fileToBase64(file);
   const data = await api('/support/attachment', {
     method: 'POST',
     body: { filename: file.name, contentType: file.type, dataBase64 },
   });
-  return data; // { url, path, name }
+  // { url: 'drive:<fileId>', fileId, name, mimeType, size, uploadedAt }
+  return data;
 }
 
 function initSupportForm() {
@@ -87,6 +91,8 @@ function initSupportForm() {
           message: document.getElementById('supportMessage').value.trim(),
           attachmentUrl: attachment ? attachment.url : '',
           attachmentName: attachment ? attachment.name : '',
+          attachmentMime: attachment ? attachment.mimeType : '',
+          attachmentSize: attachment ? attachment.size : '',
           cfTurnstileToken: turnstileToken,
         },
       });

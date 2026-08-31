@@ -102,6 +102,16 @@ const couponSubmissionLimiter = rateLimit({
   message: { error: 'Too many submissions. Please try again in an hour.' },
 });
 
+// Support screenshot uploads: each one is a multi-MB body and a Google Drive
+// round-trip, so they are capped well below the general API limit.
+const supportUploadLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 12, // enough for a few tickets with retries, not for a flood
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many screenshot uploads. Please try again later.' },
+});
+
 // AI screenshot scanning calls a paid vision API, so it gets its own cap. It is
 // looser than the submission limiter (a seller may legitimately re-scan after a
 // blurry photo) but far tighter than the general API limiter.
@@ -186,6 +196,10 @@ app.use('/api/admin', (req, res, next) => {
   return next();
 });
 
+// Screenshot uploads cost a Drive round-trip and a few MB of body each, so they
+// get a tighter cap than the rest of the support API. Mounted first so it
+// applies before the generic apiLimiter on the line below.
+app.use('/api/support/attachment', supportUploadLimiter);
 app.use('/api/support', apiLimiter, supportRoutes);
 app.use('/api/reviews', apiLimiter, reviewRoutes); // buyer reviews of purchased coupons
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);

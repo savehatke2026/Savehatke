@@ -52,6 +52,24 @@ router.get('/config', (req, res) => {
   });
 });
 
+/**
+ * A support screenshot's only owner is the person whose ticket it is attached
+ * to. Looked up by the stored 'drive:<fileId>' reference, so a caller cannot
+ * reach someone else's screenshot by swapping a ticket id — the file id is what
+ * gets matched, and the ticket's own email is the answer.
+ */
+async function findTicketByAttachmentFileId(fileId) {
+  try {
+    const rows = await db.getRows(db.SHEETS.SUPPORT_TICKETS);
+    const ref = 'drive:' + fileId;
+    return (rows || []).find(
+      (t) => t && (t.attachmentUrl === ref || t.attachmentFileId === fileId)
+    ) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
 // GET /api/proxy/drive/:fileId — auth + ownership check, then stream
 router.get('/:fileId', authenticateToken, async (req, res) => {
   const fileId = String(req.params.fileId || '');
@@ -62,7 +80,8 @@ router.get('/:fileId', authenticateToken, async (req, res) => {
     return res.status(503).json({ error: 'Google Drive is not configured on the server.' });
   }
 
-  // Access control: admins OR the original seller can view.
+  // Access control: staff, or the one user the file belongs to — the seller of
+  // the coupon it proves, or the author of the support ticket it is attached to.
   let authorized = isAdmin(req);
   if (!authorized) {
     try {
@@ -73,6 +92,17 @@ router.get('/:fileId', authenticateToken, async (req, res) => {
       }
     } catch (e) {
       // If the lookup itself fails, fall through to 403 — don't leak the file.
+    }
+  }
+  if (!authorized) {
+    try {
+      const ticket = await findTicketByAttachmentFileId(fileId);
+      if (ticket && ticket.userEmail && req.user?.email) {
+        authorized =
+          String(ticket.userEmail).toLowerCase() === String(req.user.email).toLowerCase();
+      }
+    } catch (e) {
+      // Same rule: an unresolvable lookup is a denial, never a pass.
     }
   }
   if (!authorized) {
