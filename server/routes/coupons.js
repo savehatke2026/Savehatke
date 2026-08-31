@@ -8,6 +8,7 @@ const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
+const emailService = require('../services/emailService');
 const googleDrive = require('../services/googleDrive');
 const couponVision = require('../services/couponVision');
 
@@ -531,6 +532,27 @@ const handleCouponSubmission = async (req, res) => {
           try { await supabase.updateCoupon(coupon.id, notifyUpdate); } catch (e) {}
         }
         try { await db.updateRow(db.SHEETS.COUPONS, 'id', coupon.id, notifyUpdate); } catch (e) {}
+      }
+
+      // ── Email both administrators, from the no-reply mailbox ──
+      // Awaited rather than fire-and-forget: on Vercel the function is frozen as
+      // soon as the response is sent, which would drop an unawaited send. A
+      // failure here never fails the submission — the coupons are already saved.
+      try {
+        const mailed = await emailService.sendCouponSubmissionAdminEmail({
+          sellerName: req.user.name || '',
+          sellerEmail,
+          count: submitted.length,
+          submittedAt: new Date(),
+          reviewUrl: `${APP_BASE_URL}/vault`,
+        });
+        if (!mailed.success) {
+          console.warn('[coupons/submit] admin submission alert reached nobody:', JSON.stringify(mailed.failed));
+        } else if (mailed.failed.length) {
+          console.warn(`[coupons/submit] admin submission alert partially delivered — failed: ${mailed.failed.map((f) => f.to).join(', ')}`);
+        }
+      } catch (e) {
+        console.warn('[coupons/submit] admin submission alert threw:', e.message);
       }
     }
 

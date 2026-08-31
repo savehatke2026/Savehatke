@@ -341,6 +341,29 @@
     .coupon-add-hint { font-size:.76rem; color:#6b88aa; }
     .coupon-add-hint.limit { color:#ffd97a; }
 
+    /* ── Coupon pager ──
+       One coupon per page. The other pages are still in the DOM, just hidden, so
+       moving between them never costs the seller what they already typed. */
+    .coupon-pager { display:flex; align-items:center; justify-content:space-between; gap:14px;
+      flex-wrap:wrap; margin:0 0 18px; padding:12px 14px; border-radius:12px;
+      background:rgba(15,30,58,.5); border:1px solid rgba(79,195,247,.1); }
+    .coupon-pager-dots { display:flex; align-items:center; gap:7px; flex-wrap:wrap; }
+    .coupon-dot { min-width:30px; height:30px; padding:0 8px; border-radius:8px; cursor:pointer;
+      font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:700;
+      color:#6b88aa; background:rgba(255,255,255,.04); border:1px solid rgba(79,195,247,.14);
+      transition:color .18s, background .18s, border-color .18s; }
+    .coupon-dot:hover { color:#e2ecff; background:rgba(79,195,247,.12); }
+    .coupon-dot.is-active { color:#060d1f; background:linear-gradient(135deg,#00e676,#00c853);
+      border-color:rgba(0,230,118,.5); }
+    .coupon-dot.is-done { color:#00e676; border-color:rgba(0,230,118,.3); }
+    .coupon-dot:focus-visible { outline:2px solid rgba(0,230,118,.6); outline-offset:2px; }
+    .coupon-pager .btn:disabled { opacity:.45; cursor:not-allowed; }
+    @media(max-width:560px){
+      .coupon-pager { justify-content:center; }
+      .coupon-pager .btn { flex:1 1 42%; justify-content:center; }
+      .coupon-pager-dots { order:-1; width:100%; justify-content:center; }
+    }
+
     /* ── Form Inputs ── */
     .fgroup { margin-bottom:20px; }
     .flabel { display:block; font-size:.82rem; font-weight:600; color:#a8c0dc; margin-bottom:8px; }
@@ -615,7 +638,7 @@
       <div class="ai-state on" id="aiStateIdle">
         <span class="ai-badge">✨ Fill with AI</span>
         <div class="ai-title">Upload Coupon Screenshot</div>
-        <p class="ai-sub">Upload a clear coupon screenshot and let AI fill in the details for you. Nothing is submitted until you review it.</p>
+        <p class="ai-sub">Upload a clear coupon screenshot and let AI fill in the details for <strong id="aiTargetLabel">Coupon 1</strong>. Nothing is submitted until you review it, and the screenshot is attached to that coupon.</p>
         <div class="ai-actions">
           <button type="button" class="btn btn-primary" onclick="pickAiScreenshot()">📷 Upload Screenshot</button>
           <button type="button" class="ai-manual" onclick="skipAiAndFillManually()">Enter Details Manually →</button>
@@ -699,8 +722,17 @@
       <div class="step-content active" id="step-1">
         <h2 class="step-title">Enter Coupon Details</h2>
 
-        <!-- Dynamic coupon cards will be injected here -->
+        <!-- Dynamic coupon cards will be injected here. Exactly one is visible
+             at a time; the pager below moves between them, and every earlier
+             page keeps whatever was typed into it. -->
         <div class="coupon-cards-container" id="couponCardsContainer"></div>
+
+        <!-- Pager. Hidden while there is only one coupon. -->
+        <div class="coupon-pager" id="couponPager" style="display:none">
+          <button type="button" class="btn btn-secondary btn-sm" id="couponPrevBtn" onclick="gotoCouponPage(activeCouponIndex - 1)">← Previous</button>
+          <div class="coupon-pager-dots" id="couponPagerDots" role="tablist" aria-label="Coupon pages"></div>
+          <button type="button" class="btn btn-secondary btn-sm" id="couponNextBtn" onclick="gotoCouponPage(activeCouponIndex + 1)">Next →</button>
+        </div>
 
         <div class="coupon-add-row">
           <button type="button" class="btn btn-secondary" id="addCouponBtn" onclick="addCoupon()">＋ Add another coupon</button>
@@ -873,6 +905,10 @@ const MAX_COUPONS = 5;
 let currentStep = 1;
 let couponIdCounter = 0;
 let couponIds = []; // ordered list of active coupon IDs
+
+/* Which coupon page is on screen (index into couponIds). Every other page stays
+   in the DOM with its values intact, so paging back and forth loses nothing. */
+let activeCouponIndex = 0;
 
 /* Picked screenshot per coupon card: { [couponId]: File } */
 const proofFiles = {};
@@ -1955,7 +1991,9 @@ function aiExpiryValue(dateStr, timeStr) {
  */
 function applyAiFields(fields) {
   if (!couponIds.length) addCoupon();
-  const id = couponIds[0];
+  // Fills the coupon page the seller is looking at, not always the first one, so
+  // a scan on Coupon 3 lands on Coupon 3.
+  const id = couponIds[Math.max(0, Math.min(activeCouponIndex, couponIds.length - 1))];
   aiScan.couponId = id;
   aiScan.pending = new Set();
   clearAiMarks(id);
@@ -2165,14 +2203,26 @@ function renderAiShotRow(file, driveUrl) {
   }
 }
 
-/** Blocks Review Submission while an AI-filled critical field is unreviewed. */
+/** Blocks Review Submission while an AI-filled critical field is unreviewed.
+ *  Checks every coupon page, not just the visible one, and reports which page
+ *  the outstanding field is on so the caller can navigate there. */
 function aiReviewBlocker() {
-  if (!aiScan.pending.size) return null;
-  const id = aiScan.couponId;
-  const first = Array.from(aiScan.pending)[0];
+  stashActiveAiScan();
   const map = { code: 'code-', expiry: 'expiry-', discount: 'discount-', minorder: 'minorder-' };
   const labels = { code: 'Coupon Code', expiry: 'Expiry Date & Time', discount: 'Discount Value', minorder: 'Minimum Order Value' };
-  return { fieldId: (map[first] || first + '-') + id, label: labels[first] || first };
+
+  for (let i = 0; i < couponIds.length; i++) {
+    const id = couponIds[i];
+    const saved = aiScansByCoupon[id];
+    if (!saved || !saved.pending || !saved.pending.size) continue;
+    const first = Array.from(saved.pending)[0];
+    return {
+      fieldId: (map[first] || first + '-') + id,
+      label: labels[first] || first,
+      couponIndex: i,
+    };
+  }
+  return null;
 }
 
 function resetAiScanner() {
@@ -2196,6 +2246,111 @@ function resetAiScanner() {
 }
 
 aiEl('aiFileInput')?.addEventListener('change', (e) => onAiFilePicked(e.target.files));
+
+/* ══════════════════════════════════════
+   PER-COUPON SCAN STATE
+   ──────────────────────────────────────
+   The scanner card is one card, but every coupon page gets its own scan: its own
+   screenshot, its own Drive reference, its own "please verify" list. Paging away
+   parks the live state under that coupon's id; paging back restores it, so
+   Coupon 1's screenshot cannot end up attached to Coupon 3.
+══════════════════════════════════════ */
+const aiScansByCoupon = {};   // { [couponId]: {file, previewUrl, driveUrl, fields, pending} }
+
+/** Park whatever the scanner currently holds under the coupon it belongs to. */
+function stashActiveAiScan() {
+  const id = aiScan.couponId;
+  if (id == null) return;
+  aiScansByCoupon[id] = {
+    file: aiScan.file,
+    previewUrl: aiScan.previewUrl,
+    driveUrl: aiScan.driveUrl,
+    fields: aiScan.fields,
+    pending: new Set(aiScan.pending),
+  };
+}
+
+/** Forget a coupon's scan — used when its page is removed. */
+function clearAiScanFor(id) {
+  const saved = aiScansByCoupon[id];
+  if (saved && saved.previewUrl) {
+    try { URL.revokeObjectURL(saved.previewUrl); } catch (e) { /* already released */ }
+  }
+  delete aiScansByCoupon[id];
+  if (aiScan.couponId === id) {
+    aiScan.file = null;
+    aiScan.previewUrl = '';
+    aiScan.driveUrl = '';
+    aiScan.couponId = null;
+    aiScan.fields = null;
+    aiScan.pending = new Set();
+  }
+}
+
+/**
+ * Point the scanner card at whichever coupon page is on screen, restoring that
+ * page's own scan if it has one. Called on every page change, so the card always
+ * describes — and fills — the coupon the seller is looking at.
+ */
+function syncAiCardToActiveCoupon() {
+  if (!couponIds.length) return;
+  stashActiveAiScan();
+
+  const id = couponIds[activeCouponIndex];
+  const saved = aiScansByCoupon[id];
+
+  // Tell the seller which coupon this card is about to fill.
+  const target = aiEl('aiTargetLabel');
+  if (target) target.textContent = 'Coupon ' + (activeCouponIndex + 1);
+
+  if (saved) {
+    aiScan.file = saved.file;
+    aiScan.previewUrl = saved.previewUrl;
+    aiScan.driveUrl = saved.driveUrl;
+    aiScan.couponId = id;
+    aiScan.fields = saved.fields;
+    aiScan.pending = new Set(saved.pending);
+
+    renderAiShotRow(saved.file, saved.driveUrl);
+    if (saved.fields) {
+      renderAiSummary(saved.fields);
+      setAiState('StateDone');
+    } else {
+      setAiState('StateIdle');
+    }
+  } else {
+    // A page that has never been scanned starts the card clean, without
+    // touching any other page's marks or Drive reference.
+    aiScan.file = null;
+    aiScan.previewUrl = '';
+    aiScan.driveUrl = '';
+    aiScan.couponId = null;
+    aiScan.fields = null;
+    aiScan.pending = new Set();
+    const row = aiEl('aiShotRow');
+    if (row) row.style.display = 'none';
+    const input = aiEl('aiFileInput');
+    if (input) input.value = '';
+    setAiState('StateIdle');
+  }
+  refreshAiReviewNote();
+}
+
+/** Every coupon's Drive reference, keyed by coupon id. */
+function aiDriveUrlFor(couponId) {
+  if (aiScan.couponId === couponId && aiScan.driveUrl) return aiScan.driveUrl;
+  const saved = aiScansByCoupon[couponId];
+  return (saved && saved.driveUrl) || '';
+}
+
+/** True when any coupon page still has fields awaiting acknowledgement. */
+function anyAiPendingAcrossCoupons() {
+  stashActiveAiScan();
+  return couponIds.some((id) => {
+    const saved = aiScansByCoupon[id];
+    return saved && saved.pending && saved.pending.size > 0;
+  });
+}
 
 
 /**
@@ -2274,7 +2429,10 @@ function makeField(cfg) {
   return group;
 }
 
-/* ── Add a coupon card ── */
+/* ── Add a coupon card ──
+   Appends a fresh page and moves to it. The page just left keeps everything
+   typed into it, including whatever the AI filled in and the screenshot it
+   attached, so "add another" never means "start over". */
 function addCoupon() {
   if (couponIds.length >= MAX_COUPONS) return;
 
@@ -2288,9 +2446,7 @@ function addCoupon() {
 
   updateCouponNumbers();
   updateAddButton();
-
-  // Scroll to newly added card
-  card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  gotoCouponPage(couponIds.length - 1);
 }
 
 /* ── Remove a coupon card ── */
@@ -2304,9 +2460,78 @@ function removeCoupon(id) {
 
   const card = document.getElementById('coupon-card-' + id);
   if (card) card.remove();
+  // Its scan state goes with it, so a later coupon cannot inherit a screenshot.
+  clearAiScanFor(id);
 
   updateCouponNumbers();
   updateAddButton();
+  // Land on the page that took its place, or the last one if it was the tail.
+  gotoCouponPage(Math.min(idx, couponIds.length - 1));
+}
+
+/* ══════════════════════════════════════
+   COUPON PAGER
+   ──────────────────────────────────────
+   One coupon per page. Pages are shown and hidden rather than created and
+   destroyed: the fields, their values, the AI summary and the attached
+   screenshot all survive navigation, and collectCoupons() still reads every
+   page at review time regardless of which one is visible.
+══════════════════════════════════════ */
+
+/** Show one coupon page and sync the pager, the AI card and the page heading. */
+function gotoCouponPage(index) {
+  if (!couponIds.length) return;
+  const next = Math.max(0, Math.min(Number(index) || 0, couponIds.length - 1));
+  activeCouponIndex = next;
+
+  couponIds.forEach((id, i) => {
+    const card = document.getElementById('coupon-card-' + id);
+    if (card) card.style.display = i === next ? '' : 'none';
+  });
+
+  renderCouponPager();
+  syncAiCardToActiveCoupon();
+
+  const card = document.getElementById('coupon-card-' + couponIds[next]);
+  if (card && typeof card.scrollIntoView === 'function') {
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+}
+
+/** Numbered dots plus Previous/Next, hidden while there is only one coupon. */
+function renderCouponPager() {
+  const pager = document.getElementById('couponPager');
+  const dots = document.getElementById('couponPagerDots');
+  const prev = document.getElementById('couponPrevBtn');
+  const nextBtn = document.getElementById('couponNextBtn');
+  if (!pager) return;
+
+  pager.style.display = couponIds.length > 1 ? 'flex' : 'none';
+  if (prev) prev.disabled = activeCouponIndex <= 0;
+  if (nextBtn) nextBtn.disabled = activeCouponIndex >= couponIds.length - 1;
+
+  if (dots) {
+    dots.innerHTML = '';
+    couponIds.forEach((id, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'coupon-dot'
+        + (i === activeCouponIndex ? ' is-active' : '')
+        + (i !== activeCouponIndex && couponPageHasContent(id) ? ' is-done' : '');
+      b.textContent = String(i + 1);
+      b.setAttribute('role', 'tab');
+      b.setAttribute('aria-selected', i === activeCouponIndex ? 'true' : 'false');
+      b.setAttribute('aria-label', 'Coupon ' + (i + 1));
+      b.addEventListener('click', () => gotoCouponPage(i));
+      dots.appendChild(b);
+    });
+  }
+}
+
+/** Rough "has the seller put anything here yet" check, for the dot styling. */
+function couponPageHasContent(id) {
+  const v = (prefix) => (document.getElementById(prefix + '-' + id)?.value || '').trim();
+  return Boolean(v('brand') || v('code') || v('discount'));
 }
 
 /* ── Renumber visible coupon labels ── */
@@ -2317,6 +2542,7 @@ function updateCouponNumbers() {
     const removeBtn = document.getElementById('remove-btn-' + id);
     if (removeBtn) removeBtn.setAttribute('aria-label', 'Remove Coupon ' + (i + 1));
   });
+  renderCouponPager();
 }
 
 /* ── Toggle add button state ── */
@@ -2376,6 +2602,11 @@ function validateCoupons() {
     const n = i + 1;
     const fail = (msg, fieldId) => {
       showToast('Coupon ' + n + ': ' + msg, 'warning');
+      // The offending coupon may be on a page that is not on screen, so move
+      // there before pointing at the field — otherwise the seller reads
+      // "Coupon 3: ..." while looking at Coupon 1.
+      const idx = couponIds.indexOf(c.id);
+      if (idx !== -1 && idx !== activeCouponIndex) gotoCouponPage(idx);
       const el = fieldId && document.getElementById(fieldId);
       if (el) {
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2424,7 +2655,12 @@ function validateCoupons() {
   // seller either edits the field or presses "I've checked these values".
   const blocker = aiReviewBlocker();
   if (blocker) {
-    showToast(`Please check the AI-filled ${blocker.label} before continuing.`, 'warning');
+    const on = typeof blocker.couponIndex === 'number' ? ' on Coupon ' + (blocker.couponIndex + 1) : '';
+    showToast(`Please check the AI-filled ${blocker.label}${on} before continuing.`, 'warning');
+    // Navigate to that coupon's page first; the field is hidden otherwise.
+    if (typeof blocker.couponIndex === 'number' && blocker.couponIndex !== activeCouponIndex) {
+      gotoCouponPage(blocker.couponIndex);
+    }
     const el = document.getElementById(blocker.fieldId);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -2489,8 +2725,8 @@ function buildReviewSummary() {
       ['Terms & Conditions', c.terms || '—'],
     ];
     if (PROOF_ENABLED) rows.push(['Screenshot', c.proofFile ? c.proofFile.name : '— missing —']);
-    // AI-scanned coupon: show that the original screenshot is attached for review.
-    if (!PROOF_ENABLED && aiScan.driveUrl && c.id === aiScan.couponId) {
+    // AI-scanned coupon: show that this coupon's own screenshot is attached.
+    if (!PROOF_ENABLED && aiDriveUrlFor(c.id)) {
       rows.push(['Screenshot', 'Attached ✓']);
     }
 
@@ -2623,12 +2859,14 @@ async function submitCoupons() {
   btn.textContent = '⏳ Submitting...';
   try {
     const orNone = (v) => (v ? v : undefined);
-    const proofFor = (c, i) => proofUrls[i] || (aiScan.driveUrl && c.id === aiScan.couponId ? aiScan.driveUrl : undefined);
+    // Every coupon carries the screenshot scanned on its own page, so a batch of
+    // five reaches the review team with five distinct proofs rather than one.
+    const proofFor = (c, i) => proofUrls[i] || aiDriveUrlFor(c.id) || undefined;
     const data = await api('/coupons/submit', {
       method: 'POST',
       body: {
         category: coupons[0].category || FALLBACK_CATEGORY,
-        proofUrl: proofUrls[0] || aiScan.driveUrl || undefined,
+        proofUrl: proofUrls[0] || aiDriveUrlFor(coupons[0].id) || undefined,
         coupons: coupons.map((c, i) => ({
           code: c.code,
           brand: c.brand,
@@ -2681,7 +2919,11 @@ async function submitCoupons() {
 function resetForm() {
   currentStep = 1;
   couponIds.forEach((id) => clearProof(id));
+  // Every page's parked scan goes too, including its object URLs.
+  couponIds.forEach((id) => clearAiScanFor(id));
+  Object.keys(aiScansByCoupon).forEach((id) => delete aiScansByCoupon[id]);
   couponIds = [];
+  activeCouponIndex = 0;
 
   // Drop the scanned screenshot, its Drive reference and every AI marker too,
   // so "Sell Another Coupon" starts from a genuinely clean form.

@@ -2128,6 +2128,143 @@ async function sendMonthlyReportEmail(p) {
   }
 }
 
+/**
+ * Tell the administrators that a seller has submitted coupons.
+ *
+ * Sent from the no-reply mailbox — this is system mail, not a security notice —
+ * to every address in ADMIN_ALERT_EMAILS, defaulting to the two platform
+ * administrators. It deliberately carries no coupon codes: the point is "go
+ * look", and a code sitting in an inbox is a code outside the review flow.
+ *
+ * @param {{sellerName?: string, sellerEmail: string, count: number,
+ *          submittedAt?: Date|string, reviewUrl?: string}} p
+ * @returns {Promise<{success: boolean, delivered: string[], failed: Array<{to: string, error: string}>}>}
+ */
+async function sendCouponSubmissionAdminEmail(p) {
+  const recipients = String(process.env.ADMIN_ALERT_EMAILS || 'rupayandas2024@gmail.com,jaggik8888@gmail.com')
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!recipients.length) return { success: false, delivered: [], failed: [] };
+
+  const t = getNoreplyTransporter();
+  if (!t) {
+    console.warn('[EmailService] SMTP not configured. Coupon-submission alert NOT sent.');
+    return { success: false, delivered: [], failed: recipients.map((to) => ({ to, error: 'SMTP not configured' })) };
+  }
+
+  // Same alignment rule the welcome mail uses: only claim the no-reply address
+  // when this transport is genuinely authenticated as it, otherwise Gmail
+  // rejects or rewrites the sender.
+  const authUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const desired = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || '').trim();
+  const dedicated = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
+  const domainOf = (a) => (String(a).split('@')[1] || '').toLowerCase();
+  const canSendAsNoreply = dedicated
+    || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+    || Boolean(desired && authUser && domainOf(desired) === domainOf(authUser));
+  const fromEmail = canSendAsNoreply ? desired : (authUser || desired);
+  const fromName = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
+
+  const sellerName = String(p.sellerName || '').trim() || '(not provided)';
+  const sellerEmail = String(p.sellerEmail || '').trim() || '(not provided)';
+  const count = Number(p.count) || 0;
+  const when = new Date(p.submittedAt || Date.now()).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+  const reviewUrl = String(p.reviewUrl || `${(process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '')}/vault`);
+
+  const subject = 'New Coupon Submission \u2013 SaveHatke';
+
+  const textBody = `A new coupon submission has been received.
+
+Seller Name: ${sellerName}
+Seller Email ID: ${sellerEmail}
+Total Coupons Submitted: ${count}
+Submitted At: ${when} IST
+
+Please open the Admin Panel \u2192 Coupon Submissions to review the submission.
+
+${reviewUrl}`;
+
+  const rows = [
+    ['Seller Name', sellerName],
+    ['Seller Email ID', sellerEmail],
+    ['Total Coupons Submitted', String(count)],
+    ['Submitted At', `${when} IST`],
+  ].map(([k, v]) => `
+    <tr>
+      <td style="padding:9px 0;font-size:0.78rem;color:#6b7280;white-space:nowrap;width:210px;vertical-align:top;">${escapeHtml(k)}</td>
+      <td style="padding:9px 0;font-size:0.86rem;color:#111827;font-weight:600;word-break:break-word;">${escapeHtml(v)}</td>
+    </tr>`).join('');
+
+  const htmlContent = `<!DOCTYPE html>
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
+          <tr>
+            <td style="padding:22px 32px;background:linear-gradient(135deg,#065f46,#00a152);">
+              <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#a7f3d0;font-weight:700;">SaveHatke Admin</p>
+              <h1 style="margin:6px 0 0;font-size:1.2rem;color:#ffffff;font-weight:800;">New Coupon Submission</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:26px 32px 10px;">
+              <p style="margin:0 0 18px;font-size:0.92rem;color:#374151;line-height:1.65;">A new coupon submission has been received.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;">${rows}</table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 26px;">
+              <p style="margin:0 0 16px;font-size:0.88rem;color:#374151;line-height:1.65;">Please open the Admin Panel \u2192 Coupon Submissions to review the submission.</p>
+              <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;background:#00a152;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Coupon Submissions</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">Automated notification for SaveHatke administrators. No coupon codes are included in this email.</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body></html>`;
+
+  const delivered = [];
+  const failed = [];
+
+  // One message per administrator rather than a shared To line, so neither
+  // address is disclosed to the other's mail provider.
+  for (const to of recipients) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const info = await t.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to,
+        subject,
+        text: textBody,
+        html: htmlContent,
+        envelope: { from: fromEmail, to },
+        headers: {
+          'X-Entity-Ref-ID': `coupon-submission-${Date.now()}`,
+          'Auto-Submitted': 'auto-generated',
+        },
+      });
+      delivered.push(to);
+      console.log(`\u2705 [EmailService] Coupon-submission alert sent to ${to} from ${fromEmail} (Message ID: ${info.messageId})`);
+    } catch (err) {
+      failed.push({ to, error: err.message });
+      console.error(`\u274c [EmailService] Coupon-submission alert failed for ${to}:`, err.message);
+    }
+  }
+
+  return { success: delivered.length > 0, delivered, failed };
+}
+
 module.exports = {
   sendOTPEmail,
   sendTwoFactorSecurityEmail,
@@ -2136,6 +2273,7 @@ module.exports = {
   sendSupportResolvedEmail,
   sendSignInAlertEmail,
   sendSosAccessAlertEmail,
+  sendCouponSubmissionAdminEmail,
   sendMonthlyReportEmail,
   isEmailConfigured,
   isSupportEmailConfigured,
