@@ -2011,6 +2011,123 @@ If you did not authorize this activity, immediately review the security logs and
   }
 }
 
+/**
+ * Send one month's report to a configured admin address, with the PDF attached.
+ *
+ * Uses the main (authenticated) transport and its aligned From, the same as the
+ * OTP and sign-in alerts — this is internal admin mail, so it must not go out as
+ * a no-reply alias the SMTP account cannot claim.
+ *
+ * @param {object} p
+ * @param {string} p.to
+ * @param {string} p.monthLabel      "August 2026"
+ * @param {string} p.periodLabel     "Aug 1-31, 2026"
+ * @param {number} p.revenue
+ * @param {number} p.couponsBought
+ * @param {number} p.couponsSold
+ * @param {boolean} [p.isResend]
+ * @param {{filename: string, content: Buffer}} p.pdf
+ * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
+ */
+async function sendMonthlyReportEmail(p) {
+  const cleanEmail = String((p && p.to) || '').toLowerCase().trim();
+  if (!cleanEmail) return { success: false, error: 'No recipient address.' };
+
+  const t = getTransporter();
+  if (!t) {
+    console.warn(`⚠️ [EmailService] SMTP not configured. Monthly report for ${cleanEmail} was NOT sent.`);
+    return { success: false, isSimulated: true, error: 'SMTP not configured' };
+  }
+
+  const fromEmail = resolveMainFromAddress();
+  const fromName = process.env.EMAIL_FROM_NAME || 'SaveHatke';
+  const monthLabel = escapeHtml(p.monthLabel || '');
+  const periodLabel = escapeHtml(p.periodLabel || '');
+  const money = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
+
+  const rows = [
+    ['Revenue this month', money(p.revenue)],
+    ['Coupons bought this month', String(Number(p.couponsBought || 0))],
+    ['Coupons sold this month', String(Number(p.couponsSold || 0))],
+  ].map(([label, value]) => `
+    <tr>
+      <td style="padding:11px 0;border-bottom:1px solid #e5e7eb;font-size:0.86rem;color:#4b5563;">${escapeHtml(label)}</td>
+      <td style="padding:11px 0;border-bottom:1px solid #e5e7eb;font-size:0.95rem;color:#111827;font-weight:700;text-align:right;">${escapeHtml(value)}</td>
+    </tr>`).join('');
+
+  const subject = `${p.isResend ? '[Resent] ' : ''}SaveHatke monthly report — ${p.monthLabel || ''}`;
+  const textBody = [
+    `SaveHatke monthly report — ${p.monthLabel || ''}`,
+    `Period: ${p.periodLabel || ''}`,
+    '',
+    `Revenue this month: ${money(p.revenue)}`,
+    `Coupons bought this month: ${Number(p.couponsBought || 0)}`,
+    `Coupons sold this month: ${Number(p.couponsSold || 0)}`,
+    '',
+    'The full report is attached as a PDF.',
+  ].join('\n');
+
+  const htmlContent = `<!DOCTYPE html>
+  <html><body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:26px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08);">
+          <tr>
+            <td style="padding:22px 32px;background:linear-gradient(135deg,#065f46,#00b25a);">
+              <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#bbf7d0;font-weight:700;">SaveHatke Admin</p>
+              <h1 style="margin:6px 0 0;font-size:1.24rem;color:#ffffff;font-weight:800;">📑 Monthly report — ${monthLabel}</h1>
+              <p style="margin:6px 0 0;font-size:0.8rem;color:#d1fae5;">${periodLabel}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 8px;">
+              <p style="margin:0 0 16px;font-size:0.9rem;color:#374151;line-height:1.65;">
+                ${p.isResend
+    ? 'This is a re-send of the monthly marketplace report, requested from the admin panel.'
+    : 'Here is the automatic monthly report for the SaveHatke coupon marketplace.'}
+              </p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;">${rows}</table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 32px 24px;">
+              <p style="margin:0;font-size:0.8rem;color:#6b7280;line-height:1.6;">The same figures are attached as <strong>${escapeHtml(p.pdf && p.pdf.filename ? p.pdf.filename : 'report.pdf')}</strong>. Delivery status for both admin addresses is shown in Reports → Monthly Reports.</p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">Automated monthly report from the SaveHatke admin panel. No credentials or buyer details are included.</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body></html>`;
+
+  try {
+    const info = await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: cleanEmail,
+      subject,
+      text: textBody,
+      html: htmlContent,
+      envelope: { from: fromEmail, to: cleanEmail },
+      attachments: p.pdf && p.pdf.content
+        ? [{ filename: p.pdf.filename || 'monthly-report.pdf', content: p.pdf.content, contentType: 'application/pdf' }]
+        : [],
+      headers: {
+        'X-Entity-Ref-ID': `monthly-report-${p.monthLabel || ''}`.replace(/\s+/g, '-').toLowerCase(),
+        'Auto-Submitted': 'auto-generated',
+      },
+    });
+    console.log(`✅ [EmailService] Monthly report (${p.monthLabel}) sent to ${cleanEmail} (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send monthly report to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendOTPEmail,
   sendTwoFactorSecurityEmail,
@@ -2019,6 +2136,7 @@ module.exports = {
   sendSupportResolvedEmail,
   sendSignInAlertEmail,
   sendSosAccessAlertEmail,
+  sendMonthlyReportEmail,
   isEmailConfigured,
   isSupportEmailConfigured,
 };

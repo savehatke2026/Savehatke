@@ -373,6 +373,24 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .appr-table tbody tr:hover td:last-child{background:#111f40}
 .appr-brand-name{margin-left:8px;font-size:.82rem;font-weight:600;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
+/* ── REPORTS → MONTHLY REPORTS ── */
+/* Three cards, not the four the grid defaults to. Written as .stats-grid.mr-kpis
+   so it outranks the shared .stats-grid rule wherever it sits in the sheet, and
+   the two narrow steps are repeated here for the same reason. */
+.stats-grid.mr-kpis{grid-template-columns:repeat(3,1fr)}
+@media(max-width:1000px){.stats-grid.mr-kpis{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:600px){.stats-grid.mr-kpis{grid-template-columns:1fr}}
+.mr-note{font-size:.78rem;color:#6b88aa;margin-top:5px}
+.mr-table{min-width:1000px}
+.mr-month{font-weight:700;color:#e2ecff;white-space:nowrap}
+.mr-period{font-size:.78rem;color:#6b88aa;white-space:nowrap}
+.mr-amount{font-family:'JetBrains Mono',monospace;font-weight:700;color:#00e676;white-space:nowrap}
+.mr-count{font-family:'JetBrains Mono',monospace;color:#e2ecff}
+/* One line per admin: masked address above, delivery state below. */
+.mr-admin{display:flex;flex-direction:column;gap:4px;min-width:0}
+.mr-admin-mail{font-size:.72rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mr-when{font-size:.68rem;color:#6b88aa;white-space:nowrap}
+
 /* ── BADGES ── */
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
 .badge-green{background:rgba(0,230,118,.12);color:#00e676}
@@ -969,7 +987,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <span class="ni">📢</span> Content
     </div>
     <div class="nav-item" onclick="showSection('reports',this)">
-      <span class="ni">📑</span> Reports <span class="nbadge">3</span>
+      <span class="ni">📑</span> Reports <span class="nbadge" id="reportsNavBadge" style="display:none">0</span>
     </div>
 
     <span class="nav-group-label">Admin</span>
@@ -1937,10 +1955,48 @@ tbody td strong{color:#e2ecff;font-weight:600}
       </div>
     </div>
 
-    <!-- ════════════════ REPORTS ════════════════ -->
+    <!-- ════════════════ REPORTS → MONTHLY REPORTS ════════════════ -->
+    <!-- Deliberately narrow: the month's three figures, then the delivery
+         history for each configured admin. Analytics, users, support, security
+         and reviews all have their own sections and stay out of this one. -->
     <div class="section-view" id="sec-reports">
       <div class="page-title-row">
-        <div><div class="page-title">User <span class="gtext">Reports</span></div><div class="page-subtitle">Flagged coupons and fraud reports</div></div>
+        <div>
+          <div class="page-title">Monthly <span class="gtext">Reports</span></div>
+          <div class="page-subtitle">Monthly coupon marketplace revenue and report delivery status.</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadMonthlyReports()" title="Refresh">↻ Refresh</button>
+      </div>
+
+      <div class="stats-grid mr-kpis">
+        <div class="stat-card sc-green">
+          <div class="stat-card-top"><div class="stat-icon si-green">💰</div></div>
+          <div class="stat-val gtext" id="mrRevenue">—</div>
+          <div class="stat-lbl">Revenue This Month</div>
+          <div class="stat-sub" id="mrRevenueSub">Current month</div>
+        </div>
+        <div class="stat-card sc-blue">
+          <div class="stat-card-top"><div class="stat-icon si-blue">🛒</div></div>
+          <div class="stat-val" style="color:#4fc3f7" id="mrBought">—</div>
+          <div class="stat-lbl">Coupons Bought This Month</div>
+          <div class="stat-sub">Completed buyer purchases</div>
+        </div>
+        <div class="stat-card sc-purple">
+          <div class="stat-card-top"><div class="stat-icon si-purple">🏷️</div></div>
+          <div class="stat-val" style="color:#ce93d8" id="mrSold">—</div>
+          <div class="stat-lbl">Coupons Sold This Month</div>
+          <div class="stat-sub">Seller listings sold</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cm-card-head">
+          <div>
+            <div class="card-title" style="margin-bottom:0"><span class="ct-icon">📬</span> Monthly Report Delivery</div>
+            <div class="mr-note" id="mrRecipients">Sent automatically on the 1st of each month.</div>
+          </div>
+        </div>
+        <div id="mrTable" class="cm-list"></div>
       </div>
     </div>
 
@@ -2888,7 +2944,7 @@ const sectionTitles = {
   tracker:       ['Price Tracker', '/ Monitoring'],
   analytics:     ['Analytics', '/ Dashboard'],
   content:       ['Content', '/ Management'],
-  reports:       ['Reports', '/ Overview'],
+  reports:       ['Monthly Reports', '/ Revenue & Delivery'],
   admins:        ['Admins & Roles', '/ Management'],
   security:      ['Security', '/ Settings'],
   settings:      ['Settings', '/ Configuration'],
@@ -2932,6 +2988,9 @@ function showSection(id, navEl) {
   }
   if (id === 'reviews' && typeof loadReviews === 'function') {
     loadReviews();
+  }
+  if (id === 'reports' && typeof loadMonthlyReports === 'function') {
+    loadMonthlyReports();
   }
   if (id === 'users' && typeof loadUsers === 'function') {
     loadUsers();
