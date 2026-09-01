@@ -3798,6 +3798,9 @@
 
   function sessionRow(s, isCurrent) {
     const name = `${escapeHtml(s.browser || 'Browser')} • ${escapeHtml(s.os || s.device || 'Unknown device')}`;
+    // Device type is spelled out as well as drawn: the icon alone is not
+    // readable by a screen reader and does not survive emoji fallback.
+    const kind = escapeHtml(lhDeviceKind(s));
     const rel = relSessionTime(s.last_active || s.login_time);
     const relLower = rel ? rel.charAt(0).toLowerCase() + rel.slice(1) : 'unknown';
     const activity = isCurrent
@@ -3823,7 +3826,7 @@
         <div class="sess-ico" aria-hidden="true">${sessionIcon(s)}</div>
         <div class="sess-body">
           <div class="sess-name">${name}${isCurrent ? '<span class="sess-tag">Current session</span>' : ''}</div>
-          <div class="sess-meta">${place}<br>${activity}</div>
+          <div class="sess-meta">${kind} · ${place}<br>${activity}</div>
         </div>
         ${action}
       </div>`;
