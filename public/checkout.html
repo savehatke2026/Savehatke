@@ -96,6 +96,11 @@
 
     /* MAIN LAYOUT */
     .checkout-layout { display:grid; grid-template-columns:1fr 380px; gap:24px; padding-bottom:80px; align-items:start; }
+    /* Grid items default to min-width:auto, so a long coupon title — the
+       discount line is nowrap by design — could push a whole column past the
+       viewport and take the page with it. Flooring both columns at 0 keeps the
+       overflow inside the element that owns it. */
+    .checkout-layout > * { min-width:0; }
 
     /* CARDS */
     .co-card { border-radius:16px; background:rgba(13,26,52,.85); border:1px solid rgba(79,195,247,.1); padding:24px; margin-bottom:16px; }
@@ -179,7 +184,11 @@
 
     /* ORDER SUMMARY SIDEBAR */
     .summary-sticky { position:sticky; top:80px; }
-    .summary-card { border-radius:16px; background:rgba(10,22,48,.92); border:1px solid rgba(79,195,247,.14); padding:24px; }
+    /* The summary is the card that has to be found first: a slightly lighter
+       surface, a firmer border and a hairline green top edge lift it above the
+       information cards without any glow. */
+    .summary-card { position:relative; border-radius:16px; background:rgba(12,26,56,.96); border:1px solid rgba(0,230,118,.18); padding:24px; box-shadow:0 18px 44px rgba(0,0,0,.32); overflow:hidden; }
+    .summary-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,#00e676,#4fc3f7); }
     .sum-title { font-weight:800; font-size:1.1rem; margin-bottom:18px; color:#e2ecff; }
     .sum-coupon-preview { border-radius:10px; background:rgba(0,230,118,.05); border:1px solid rgba(0,230,118,.14); padding:12px 16px; margin-bottom:18px; display:flex; align-items:center; gap:12px; }
     .scp-ico { height:38px; min-width:38px; max-width:104px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
@@ -194,10 +203,42 @@
     .sum-row-val { font-family:'JetBrains Mono',monospace; font-weight:600; }
     .sum-row-val.green { color:#00e676; }
     .sum-divider { height:1px; background:rgba(79,195,247,.08); margin:14px 0; }
-    .sum-total-row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; }
-    .sum-total-label { font-weight:700; font-size:1rem; }
-    .sum-total-val { font-family:'JetBrains Mono',monospace; font-size:1.5rem; font-weight:800; color:#00e676; }
+    /* "You Save" sits between two dividers so the eye reads value → price →
+       saving → total as one descending ladder. */
+    .sum-save-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; font-size:.9rem; }
+    .sum-save-label { color:#e2ecff; font-weight:600; }
+    .sum-save-val { font-family:'JetBrains Mono',monospace; font-weight:800; color:#00e676; font-size:1rem; }
+    /* Total is the loudest thing on the page: the amount alone carries the size,
+       so the surrounding chrome stays quiet. */
+    .sum-total-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:4px 0 2px; }
+    .sum-total-label { font-weight:700; font-size:.95rem; color:#a8c0dc; letter-spacing:.01em; }
+    .sum-total-val { font-family:'JetBrains Mono',monospace; font-size:2.15rem; line-height:1; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; }
     .sum-saving-note { margin:12px 0 0; font-size:.78rem; color:#4fc3f7; text-align:center; font-weight:500; }
+
+    /* COUPON TERMS & CONDITIONS — the coupon's own terms, kept separate from
+       SaveHatke's platform Terms & Privacy agreement in the summary card. */
+    .ct-preview { border-radius:11px; background:rgba(0,0,0,.22); border:1px solid rgba(79,195,247,.1); padding:14px 16px; font-size:.82rem; line-height:1.6; color:#a8c0dc; white-space:pre-line; max-height:132px; overflow:hidden; position:relative; }
+    /* Fade rather than a scrollbar: the preview is a taster, the modal is the document. */
+    .ct-preview::after { content:''; position:absolute; left:0; right:0; bottom:0; height:38px; background:linear-gradient(to bottom,transparent,rgba(10,20,42,.96)); pointer-events:none; }
+    .ct-preview.is-short { max-height:none; }
+    .ct-preview.is-short::after { display:none; }
+    .ct-more { display:inline-flex; align-items:center; gap:6px; margin-top:12px; background:none; border:none; padding:0; font-family:'Outfit',sans-serif; font-size:.82rem; font-weight:700; color:#4fc3f7; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+    .ct-more:hover { color:#9ad9ff; }
+    .ct-agree { margin-top:16px; padding-top:14px; border-top:1px solid rgba(79,195,247,.08); }
+
+    /* Coupon terms modal — the full document without leaving checkout. */
+    .ctm-overlay { position:fixed; inset:0; z-index:260; background:rgba(4,9,22,.78); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
+    .ctm-overlay.show { opacity:1; pointer-events:auto; }
+    .ctm-panel { width:100%; max-width:560px; max-height:84vh; display:flex; flex-direction:column; border-radius:16px; background:#0c1835; border:1px solid rgba(79,195,247,.16); box-shadow:0 30px 80px rgba(0,0,0,.6); transform:translateY(14px); transition:transform .25s; }
+    .ctm-overlay.show .ctm-panel { transform:translateY(0); }
+    .ctm-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 22px 14px; border-bottom:1px solid rgba(79,195,247,.1); }
+    .ctm-ttl { font-weight:800; font-size:1.02rem; }
+    .ctm-sub { font-size:.76rem; color:#6b88aa; margin-top:3px; }
+    .ctm-close { background:none; border:none; color:#6b88aa; font-size:1.3rem; line-height:1; padding:2px 6px; cursor:pointer; transition:color .2s; }
+    .ctm-close:hover { color:#e2ecff; }
+    .ctm-body { padding:18px 22px 22px; overflow-y:auto; font-size:.86rem; line-height:1.7; color:#a8c0dc; white-space:pre-line; }
+    .ctm-foot { padding:14px 22px 20px; border-top:1px solid rgba(79,195,247,.1); font-size:.76rem; color:#6b88aa; }
+    .ctm-foot a { color:#4fc3f7; text-decoration:underline; text-underline-offset:2px; }
 
     /* TERMS & PAYMENT */
     .terms-check { display:flex; align-items:flex-start; gap:9px; margin-bottom:16px; }
@@ -271,7 +312,11 @@
 
     @media(max-width:960px){
       .checkout-layout { grid-template-columns:1fr; }
-      .summary-sticky { position:static; order:-1; }
+      /* Stacked order is deliberate: coupon details, buyer information, the
+         coupon's terms, then the summary with the pay button last — the user
+         reads what they are buying before they are asked to pay for it. */
+      .summary-sticky { position:static; order:2; }
+      .sum-total-val { font-size:2rem; }
     }
     @media(max-width:600px){
       .cc-info-row { grid-template-columns:1fr 1fr; }
@@ -282,6 +327,11 @@
       .success-meta { grid-template-columns:1fr; }
       .co-card { padding:18px; }
       .summary-card { padding:18px; }
+      /* A coupon title can be long, and the discount line is nowrap so it reads
+         as one figure on desktop. On a phone the row wraps and the title is
+         allowed to break instead of forcing the card wider than the screen. */
+      .cc-top { flex-wrap:wrap; }
+      .cc-discount { white-space:normal; overflow-wrap:anywhere; font-size:1.15rem; }
     }
     /* ── MOBILE TOUCH TARGETS ──
        Usability only, no redesign. Each control keeps its exact size, colour,
@@ -308,6 +358,13 @@
       .mclose::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
       .scr-copy{position:relative}
       .scr-copy::after{content:'';position:absolute;left:50%;top:50%;width:160px;height:44px;transform:translate(-50%,-50%)}
+      /* "View Full Coupon Terms" and the modal's close button: both stand alone
+         on their row, so a vertical/centred overlay reaches 44px without
+         touching a neighbour. */
+      .ct-more{position:relative}
+      .ct-more::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .ctm-close{position:relative}
+      .ctm-close::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
     }
   
     /* Landscape phones show the desktop nav row, whose links are 20px tall.
@@ -350,8 +407,8 @@
     <!-- PAGE HEADER -->
     <div class="page-header fu in">
       <div class="page-hero-badge" style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);color:#00e676;border-radius:9999px;font-size:.78rem;font-weight:700;padding:6px 16px;margin-bottom:16px">🔥 Buy &amp; Sell Coupons — All in One Place!</div>
-      <h1 class="ph-title">Complete Your <span class="gtext">Purchase</span></h1>
-      <p class="ph-sub">Review your coupon and complete payment</p>
+      <h1 class="ph-title">Review &amp; <span class="gtext">Pay</span></h1>
+      <p class="ph-sub">Review your coupon details and complete your payment securely.</p>
       <div class="progress-steps">
         <div class="ps-step">
           <div class="ps-dot done">✓</div>
@@ -459,7 +516,8 @@
           <div class="co-card-hdr">
             <div class="co-card-ico">👤</div>
             <div>
-              <div class="co-card-ttl">Your Details</div>
+              <div class="co-card-ttl">Buyer Information</div>
+              <div class="co-card-sub">Enter your details for payment and order confirmation.</div>
             </div>
           </div>
 
@@ -485,6 +543,32 @@
           <div class="compact-note" style="margin-top:4px">
             <span>🔒</span>
             <span>Your details are used only for payment and order confirmation.</span>
+          </div>
+        </div>
+
+        <!-- COUPON TERMS & CONDITIONS -->
+        <!-- The coupon's own terms, as published by whoever listed it. This is a
+             separate agreement from SaveHatke's platform Terms & Privacy in the
+             summary card, and both have to be ticked before paying: one covers
+             the marketplace, the other covers this specific coupon. -->
+        <div class="co-card fu in d2">
+          <div class="co-card-hdr">
+            <div class="co-card-ico">📜</div>
+            <div>
+              <div class="co-card-ttl">Coupon Terms &amp; Conditions</div>
+              <div class="co-card-sub">Please read the terms and conditions for using this coupon.</div>
+            </div>
+          </div>
+
+          <div class="ct-preview" id="ctPreview">Loading the terms for this coupon…</div>
+
+          <button type="button" class="ct-more" id="ctMoreBtn" onclick="openCouponTerms()">
+            View Full Coupon Terms &amp; Conditions →
+          </button>
+
+          <div class="terms-check ct-agree" style="margin-bottom:0">
+            <input type="checkbox" id="couponTermsCheck">
+            <label for="couponTermsCheck">I have read and agree to the coupon's Terms &amp; Conditions.</label>
           </div>
         </div>
 
@@ -516,6 +600,15 @@
           </div>
 
           <div class="sum-divider"></div>
+
+          <!-- Shown only when the coupon's face value and its price are both real
+               numbers, so no saving is ever implied from a value we don't have. -->
+          <div class="sum-save-row" id="sumSaveRow" style="display:none">
+            <span class="sum-save-label">You Save</span>
+            <span class="sum-save-val" id="sumSave">—</span>
+          </div>
+
+          <div class="sum-divider" id="sumSaveDivider" style="display:none"></div>
 
           <div class="sum-total-row">
             <span class="sum-total-label">Total Payable</span>
@@ -580,6 +673,26 @@
     </div>
   </div>
 </footer>
+
+<!-- COUPON TERMS MODAL -->
+<!-- The full coupon terms open here rather than on another page: leaving
+     checkout to read them means coming back to a re-fetched cart. -->
+<div class="ctm-overlay" id="couponTermsOverlay" role="dialog" aria-modal="true" aria-labelledby="ctmTitle">
+  <div class="ctm-panel">
+    <div class="ctm-head">
+      <div>
+        <div class="ctm-ttl" id="ctmTitle">Coupon Terms &amp; Conditions</div>
+        <div class="ctm-sub" id="ctmSub">For this coupon</div>
+      </div>
+      <button class="ctm-close" type="button" aria-label="Close coupon terms" onclick="closeCouponTerms()">✕</button>
+    </div>
+    <div class="ctm-body" id="ctmBody"></div>
+    <div class="ctm-foot">
+      These terms cover this coupon only. SaveHatke's platform
+      <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy.html">Privacy Policy</a> apply as well.
+    </div>
+  </div>
+</div>
 
 <!-- SUCCESS OVERLAY -->
 <div class="success-overlay" id="successOverlay">
@@ -817,6 +930,23 @@
     set('sumValue', currentCoupon.value ? '₹' + currentCoupon.value : '—');
     set('sumPrice', totalPrice ? '₹' + totalPrice : '—');
     set('sumTotal', totalPrice ? '₹' + totalPrice : '—');
+
+    // "You Save" is the gap between the coupon's face value and its price. It is
+    // only shown when both are real numbers — a value like "₹500 OFF" or a
+    // missing price would otherwise produce a made-up saving.
+    const faceValue = Number(String(currentCoupon.value == null ? '' : currentCoupon.value).replace(/[^\d.]/g, ''));
+    const saving = (Number.isFinite(faceValue) && faceValue > 0 && totalPrice > 0)
+      ? Math.round(faceValue - totalPrice) : 0;
+    const saveRow = document.getElementById('sumSaveRow');
+    const saveDiv = document.getElementById('sumSaveDivider');
+    if (saving > 0) {
+      set('sumSave', '₹' + saving.toLocaleString('en-IN'));
+      if (saveRow) saveRow.style.display = 'flex';
+      if (saveDiv) saveDiv.style.display = 'block';
+    } else {
+      if (saveRow) saveRow.style.display = 'none';
+      if (saveDiv) saveDiv.style.display = 'none';
+    }
     const payBtn = document.getElementById('payBtn');
     if (payBtn && !payBtn.disabled) {
       set('payBtnText', totalPrice ? '🔒 Pay ₹' + totalPrice + ' Securely' : '🔒 Pay Securely');
@@ -826,8 +956,58 @@
     set('succDiscount', dash(currentCoupon.title));
     set('succAmount', totalPrice ? '₹' + totalPrice : '—');
 
+    renderCouponTerms();
     paintExpiryTimer();
   }
+
+  /**
+   * Fill the coupon-terms card and its modal.
+   *
+   * The text is whatever the seller or admin published on the coupon, inserted
+   * with textContent so a listing can never inject markup into checkout. When a
+   * coupon carries no terms of its own, the card says so plainly instead of
+   * inventing conditions the buyer would then be asked to agree to.
+   */
+  function renderCouponTerms() {
+    const preview = document.getElementById('ctPreview');
+    const body = document.getElementById('ctmBody');
+    const sub = document.getElementById('ctmSub');
+    const raw = String(currentCoupon.terms || '').trim();
+    const fallback = 'This coupon carries no seller-specific conditions.\n\n'
+      + 'It is used as published on the listing: apply the code at the store\'s checkout before the expiry date shown above, '
+      + 'on the store and account the coupon was issued for. Any minimum order value is shown in the coupon details.\n\n'
+      + 'SaveHatke\'s platform Terms & Conditions and Privacy Policy apply to the purchase itself.';
+    const text = raw || fallback;
+
+    if (preview) {
+      preview.textContent = text;
+      // A short set of terms needs no fade or "read more" affordance.
+      preview.classList.toggle('is-short', text.length < 220);
+    }
+    if (body) body.textContent = text;
+    if (sub) sub.textContent = currentCoupon.brand ? `For your ${currentCoupon.brand} coupon` : 'For this coupon';
+  }
+
+  function openCouponTerms() {
+    const overlay = document.getElementById('couponTermsOverlay');
+    if (!overlay) return;
+    overlay.classList.add('show');
+    const close = overlay.querySelector('.ctm-close');
+    if (close) close.focus();
+  }
+
+  function closeCouponTerms() {
+    const overlay = document.getElementById('couponTermsOverlay');
+    if (overlay) overlay.classList.remove('show');
+  }
+
+  // Backdrop click and Escape close the panel, so it never traps the buyer.
+  document.addEventListener('click', (e) => {
+    if (e.target && e.target.id === 'couponTermsOverlay') closeCouponTerms();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeCouponTerms();
+  });
 
   /**
    * Correct the page from the server. The URL only pre-paints; brand, category,
@@ -855,6 +1035,7 @@
       currentCoupon.value = c.originalValue || c.discount || currentCoupon.value;
       currentCoupon.minOrder = c.minOrderValue || '';
       currentCoupon.expiry = c.expiryDate || currentCoupon.expiry;
+      currentCoupon.terms = c.terms || '';
       currentCoupon.onSale = c.onSale !== false;
       currentCoupon.timerOn = c.timerOn !== false;
 
@@ -961,9 +1142,19 @@
       return;
     }
 
+    // Two separate agreements, checked separately: the platform's Terms &
+    // Privacy in the summary card, and this coupon's own conditions. Ticking one
+    // must never be read as consent to the other.
     const termsCheck = document.getElementById('termsCheck');
     if (termsCheck && !termsCheck.checked) {
       showToastLocal('Please accept the Terms & Conditions to proceed.', 'warning');
+      return;
+    }
+
+    const couponTermsCheck = document.getElementById('couponTermsCheck');
+    if (couponTermsCheck && !couponTermsCheck.checked) {
+      showToastLocal("Please confirm you have read the coupon's Terms & Conditions.", 'warning');
+      couponTermsCheck.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
