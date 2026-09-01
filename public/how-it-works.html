@@ -92,17 +92,7 @@
     .hero-pill .dot { width:8px; height:8px; border-radius:50%; background:#00e676; }
 
     /* 3-step horizontal flow */
-    .flow-wrap { position:relative; margin:90px auto 0; max-width:980px; padding:0 16px; }
-    .flow-line { position:absolute; left:8%; right:8%; top:46px; height:2px; background:linear-gradient(90deg, transparent, #00e676 20%, #4fc3f7 50%, #00e676 80%, transparent); opacity:.5; z-index:0; }
-    .flow-grid { position:relative; z-index:1; display:grid; grid-template-columns:repeat(3, 1fr); gap:24px; }
-    .flow-step { text-align:center; padding:0 8px; }
-    .flow-num { width:84px; height:84px; border-radius:50%; margin:0 auto 22px; display:flex; align-items:center; justify-content:center; font-family:'DM Serif Display',serif; font-size:1.8rem; color:#060d1f; background:linear-gradient(135deg,#00e676,#00c853); box-shadow:0 16px 40px rgba(0,230,118,.4), inset 0 2px 0 rgba(255,255,255,.3); position:relative; }
-    .flow-num::after { content:''; position:absolute; inset:-8px; border-radius:50%; border:2px dashed rgba(0,230,118,.35); animation:orbit 18s linear infinite; }
-    .flow-title { font-size:1.25rem; font-weight:700; margin-bottom:8px; }
-    .flow-desc { font-size:.92rem; color:#a8c0dc; line-height:1.65; max-width:260px; margin:0 auto; }
     @media(max-width:760px){
-      .flow-line{display:none}
-      .flow-grid{grid-template-columns:1fr;gap:36px}
     }
 
     /* SECTION SHELL */
@@ -112,70 +102,18 @@
     .block-hdr .ssub { margin:0 auto; }
 
     /* TWO-COLUMN (BUYER / SELLER) */
-    .duo { display:grid; grid-template-columns:1fr 1fr; gap:28px; }
-    .duo-card { position:relative; padding:36px 32px; background:rgba(13,26,55,.6); border:1px solid rgba(79,195,247,.12); border-radius:22px; overflow:hidden; transition:all .3s; }
-    .duo-card:hover { transform:translateY(-4px); border-color:rgba(0,230,118,.35); box-shadow:0 24px 64px rgba(0,230,118,.15); }
-    .duo-card.buyer { background:linear-gradient(160deg, rgba(0,230,118,.06), rgba(13,26,55,.6)); }
-    .duo-card.seller { background:linear-gradient(160deg, rgba(79,195,247,.06), rgba(13,26,55,.6)); }
-    .duo-icon { width:64px; height:64px; border-radius:18px; display:flex; align-items:center; justify-content:center; font-size:1.8rem; margin-bottom:22px; }
-    .duo-card.buyer .duo-icon { background:linear-gradient(135deg,#00e676,#00c853); }
-    .duo-card.seller .duo-icon { background:linear-gradient(135deg,#4fc3f7,#0288d1); }
-    .duo-title { font-size:1.4rem; font-weight:700; margin-bottom:6px; }
-    .duo-tag { font-size:.72rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#00e676; margin-bottom:14px; }
-    .duo-card.seller .duo-tag { color:#4fc3f7; }
-    .duo-desc { font-size:.95rem; color:#a8c0dc; line-height:1.7; margin-bottom:24px; }
-    .duo-steps { list-style:none; padding:0; counter-reset:bs; }
-    .duo-steps li { position:relative; padding:14px 0 14px 44px; font-size:.92rem; color:#c4d3eb; line-height:1.6; border-bottom:1px solid rgba(79,195,247,.08); counter-increment:bs; }
-    .duo-steps li:last-child { border-bottom:none; }
-    .duo-steps li::before { content:counter(bs); position:absolute; left:0; top:14px; width:28px; height:28px; border-radius:50%; background:rgba(0,230,118,.15); color:#00e676; font-weight:700; font-size:.78rem; display:flex; align-items:center; justify-content:center; }
-    .duo-card.seller .duo-steps li::before { background:rgba(79,195,247,.15); color:#4fc3f7; }
-    .duo-steps li strong { color:#e2ecff; display:block; font-size:.95rem; margin-bottom:2px; }
-    .duo-cta { display:inline-flex; align-items:center; gap:6px; margin-top:24px; font-size:.88rem; font-weight:700; color:#00e676; }
-    .duo-card.seller .duo-cta { color:#4fc3f7; }
-    .duo-cta:hover { gap:10px; }
     @media(max-width:840px){
-      .duo{grid-template-columns:1fr}
     }
 
     /* TRUST BADGES */
-    .trust-grid { display:grid; grid-template-columns:repeat(4, 1fr); gap:18px; }
-    .trust-card { padding:26px 22px; text-align:center; background:rgba(13,26,55,.4); border:1px solid rgba(79,195,247,.1); border-radius:16px; transition:all .3s; }
-    .trust-card:hover { border-color:rgba(0,230,118,.3); transform:translateY(-3px); }
-    .trust-ico { font-size:2.1rem; margin-bottom:14px; }
-    .trust-title { font-size:1rem; font-weight:700; margin-bottom:6px; }
-    .trust-desc { font-size:.82rem; color:#a8c0dc; line-height:1.55; }
     @media(max-width:880px){.trust-grid{grid-template-columns:repeat(2, 1fr)}}
     @media(max-width:480px){.trust-grid{grid-template-columns:1fr}}
 
     /* TIMELINE (DETAILED FLOW) */
-    .timeline { position:relative; max-width:880px; margin:0 auto; padding-left:36px; }
-    .timeline::before { content:''; position:absolute; left:14px; top:8px; bottom:8px; width:2px; background:linear-gradient(180deg, #00e676, #4fc3f7); opacity:.4; }
-    .tl-item { position:relative; margin-bottom:48px; }
-    .tl-item:last-child { margin-bottom:0; }
-    .tl-dot { position:absolute; left:-30px; top:4px; width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); display:flex; align-items:center; justify-content:center; font-size:.78rem; font-weight:800; color:#060d1f; box-shadow:0 0 0 4px rgba(0,230,118,.15); }
-    .tl-card { padding:24px 28px; background:rgba(13,26,55,.5); border:1px solid rgba(79,195,247,.12); border-radius:16px; }
-    .tl-role { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#00e676; margin-bottom:8px; }
-    .tl-title { font-size:1.15rem; font-weight:700; margin-bottom:10px; }
-    .tl-desc { font-size:.92rem; color:#a8c0dc; line-height:1.7; }
 
     /* FAQ */
-    .faq-list { max-width:820px; margin:0 auto; }
-    .faq-item { background:rgba(13,26,55,.5); border:1px solid rgba(79,195,247,.1); border-radius:14px; margin-bottom:14px; overflow:hidden; transition:border-color .25s; }
-    .faq-item.open { border-color:rgba(0,230,118,.3); }
-    .faq-q { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 24px; cursor:pointer; user-select:none; font-weight:600; font-size:1rem; color:#e2ecff; }
-    .faq-q .qplus { width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:rgba(0,230,118,.12); color:#00e676; font-size:1.1rem; flex-shrink:0; transition:transform .3s; }
-    .faq-item.open .qplus { transform:rotate(45deg); }
-    .faq-a { max-height:0; overflow:hidden; transition:max-height .35s ease; }
-    .faq-item.open .faq-a { max-height:400px; }
-    .faq-a-inner { padding:0 24px 22px; font-size:.92rem; color:#a8c0dc; line-height:1.75; }
 
     /* CTA banner */
-    .cta-banner { position:relative; padding:70px 50px; background:linear-gradient(135deg, rgba(0,230,118,.1), rgba(79,195,247,.08)); border:1px solid rgba(0,230,118,.2); border-radius:24px; text-align:center; overflow:hidden; }
-    .cta-banner::before { content:''; position:absolute; inset:0; background:radial-gradient(ellipse at center, rgba(0,230,118,.12), transparent 70%); }
-    .cta-banner-inner { position:relative; z-index:1; }
-    .cta-banner h2 { font-family:'DM Serif Display',serif; font-size:clamp(1.8rem, 4vw, 2.6rem); margin-bottom:14px; }
-    .cta-banner p { color:#a8c0dc; max-width:520px; margin:0 auto 26px; }
-    .cta-banner .btns { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; }
 
     /* FOOTER */
     footer { padding:36px 0 16px; border-top:1px solid rgba(79,195,247,.08); margin-top:40px; }
@@ -206,8 +144,6 @@
       .foot-col a{padding:14px 0;margin-bottom:0}
       /* Card CTAs sit alone at the foot of their card, so a vertical-only
          overlay has nothing to steal from. */
-      .duo-cta{position:relative}
-      .duo-cta::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
       .notif-btn,.nav-profile-btn{position:relative}
       .notif-btn::after,.nav-profile-btn::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
       .nav-actions .btn{position:relative}
@@ -223,6 +159,82 @@
     @media (max-height:500px) and (orientation:landscape){
       .nav-links a{position:relative}
       .nav-links a::before{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+    }
+
+    /* ── HOW IT WORKS: process-focused layout ──────────────────────────────
+       Numbered steps, timelines and hairline dividers instead of card grids.
+       Colours, fonts and the fu/in/d1..d4 animation classes are the existing
+       ones; nothing here introduces a new visual language. */
+    .hw-hero-lead { font-family:'DM Serif Display',Georgia,serif; font-size:clamp(1.25rem,2.6vw,1.7rem);
+      color:#e2ecff; line-height:1.35; margin:0 auto 14px; max-width:34ch; }
+
+    /* Editorial journey block */
+    .hw-journey { max-width:900px; margin:0 auto; }
+    .hw-journey-hdr { margin-bottom:12px; }
+    .hw-kicker { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.16em;
+      text-transform:uppercase; color:#00e676; margin-bottom:12px; }
+    .hw-journey-title { font-family:'DM Serif Display',Georgia,serif; font-size:clamp(1.5rem,3.4vw,2.1rem);
+      color:#e2ecff; line-height:1.25; margin-bottom:12px; }
+    .hw-journey-lead { font-size:.98rem; color:#a8c0dc; line-height:1.75; max-width:68ch; }
+
+    /* Numbered steps on hairline rules */
+    .hw-steps { list-style:none; margin:26px 0 0; padding:0; }
+    .hw-step { display:flex; gap:24px; padding:20px 0; border-top:1px solid rgba(79,195,247,.08); }
+    .hw-step:first-child { border-top:none; padding-top:4px; }
+    .hw-step-n { flex:0 0 auto; width:46px; font-family:'JetBrains Mono',monospace; font-size:1rem;
+      font-weight:700; color:rgba(0,230,118,.85); padding-top:3px; }
+    .hw-step-body { min-width:0; }
+    .hw-step-body h3 { font-size:1.04rem; font-weight:700; color:#e2ecff; margin-bottom:6px; }
+    .hw-step-body p { font-size:.92rem; color:#a8c0dc; line-height:1.7; max-width:60ch; }
+    .hw-inline-cta { display:inline-block; margin-top:24px; font-size:.92rem; font-weight:700; color:#00e676;
+      border-bottom:1px solid rgba(0,230,118,.35); padding-bottom:2px; transition:color .18s,border-color .18s; }
+    .hw-inline-cta:hover { color:#4fc3f7; border-color:rgba(79,195,247,.5); }
+
+    .hw-divider { max-width:900px; margin:52px auto; height:1px;
+      background:linear-gradient(90deg,transparent,rgba(79,195,247,.18),transparent); }
+
+    /* Timeline — horizontal on desktop, vertical on mobile */
+    .hw-timeline { list-style:none; display:grid; grid-template-columns:repeat(5,1fr); gap:0;
+      margin:8px 0 0; padding:0; position:relative; }
+    .hw-tl-item { position:relative; padding:34px 16px 0 0; }
+    .hw-tl-item::before { content:''; position:absolute; top:7px; left:0; right:0; height:1px;
+      background:rgba(79,195,247,.16); }
+    .hw-tl-item:first-child::before { left:7px; }
+    .hw-tl-item:last-child::before { right:calc(100% - 7px); }
+    .hw-tl-dot { position:absolute; top:2px; left:0; width:11px; height:11px; border-radius:50%;
+      background:#0b1630; border:2px solid rgba(0,230,118,.7); }
+    .hw-tl-body h3 { font-size:.98rem; font-weight:700; color:#e2ecff; margin-bottom:6px; }
+    .hw-tl-body p { font-size:.86rem; color:#a8c0dc; line-height:1.65; max-width:26ch; }
+
+    /* Before you buy or sell */
+    .hw-notes { display:grid; grid-template-columns:1fr 1fr; gap:44px; max-width:900px; margin:0 auto; }
+    .hw-note-title { font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase;
+      color:#00e676; margin-bottom:16px; }
+    .hw-note-list { list-style:none; margin:0; padding:0; }
+    .hw-note-list li { position:relative; padding:11px 0 11px 22px; font-size:.92rem; color:#a8c0dc;
+      line-height:1.7; border-bottom:1px solid rgba(79,195,247,.07); }
+    .hw-note-list li:last-child { border-bottom:none; }
+    .hw-note-list li::before { content:''; position:absolute; left:0; top:19px; width:6px; height:6px;
+      border-radius:50%; background:rgba(0,230,118,.6); }
+
+    .hw-final { max-width:640px; margin:0 auto; text-align:center; }
+    .hw-final .hero-cta { justify-content:center; margin-top:28px; }
+
+    @media(max-width:900px){
+      /* Vertical timeline: the rule runs down the left, dots sit on it. */
+      .hw-timeline { grid-template-columns:1fr; }
+      .hw-tl-item { padding:0 0 26px 26px; }
+      .hw-tl-item::before { top:6px; bottom:-6px; left:5px; right:auto; width:1px; height:auto; }
+      .hw-tl-item:first-child::before { top:6px; left:5px; }
+      .hw-tl-item:last-child::before { right:auto; bottom:auto; height:0; }
+      .hw-tl-dot { top:1px; left:0; }
+      .hw-tl-body p { max-width:52ch; }
+      .hw-notes { grid-template-columns:1fr; gap:34px; }
+    }
+    @media(max-width:560px){
+      .hw-step { gap:14px; padding:16px 0; }
+      .hw-step-n { width:34px; font-size:.92rem; }
+      .hw-divider { margin:38px auto; }
     }
   </style>
 </head>
@@ -251,275 +263,269 @@
 </nav>
 
 <!-- HERO -->
+<!-- HERO -->
 <section class="hero" aria-labelledby="hero-heading">
   <div class="hero-mesh" aria-hidden="true"></div>
   <div class="hero-gridbg" aria-hidden="true"></div>
   <div class="container">
     <div class="hero-inner">
       <div class="hero-pill fu in">
-        <span class="dot"></span> 🔥 Buy & Sell Coupons — All in One Place!
+        <span class="dot"></span> 🔥 Buy &amp; Sell Coupons — All in One Place!
       </div>
       <h1 id="hero-heading" class="stitle fu in d1">
         How <span class="gtext">SaveHatke</span> Works
       </h1>
+      <p class="hw-hero-lead fu in d2">Buy coupons you can use. Sell coupons you don't need.</p>
       <p class="ssub fu in d2">
-        A simple three-step way to <strong style="color:#e2ecff">save</strong> on the coupons you want and
-        <strong style="color:#e2ecff">earn</strong> from the ones you don't. No gimmicks — just a peer-to-peer
-        marketplace built around a fair idea: if you won't use a coupon, someone else might.
+        SaveHatke connects buyers looking for useful discounts with sellers who have eligible coupons
+        they don't need. Browse the marketplace or submit a coupon of your own.
       </p>
       <div class="hero-cta fu in d3">
-        <a href="marketplace.html" class="btn btn-primary btn-lg">🛒 Browse Coupons</a>
-        <a href="sell.html" class="btn btn-outline btn-lg">💰 Sell a Coupon</a>
+        <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons</a>
+        <a href="sell.html" class="btn btn-outline btn-lg">Sell a Coupon</a>
       </div>
+    </div>
+  </div>
+</section>
 
-      <!-- 3-step flow -->
-      <div class="flow-wrap fu in d4" aria-label="Three-step process">
-        <div class="flow-line" aria-hidden="true"></div>
-        <div class="flow-grid">
-          <div class="flow-step">
-            <div class="flow-num">01</div>
-            <h3 class="flow-title">Find a Coupon</h3>
-            <p class="flow-desc">Browse the marketplace for the brand you love. Filter by category, discount, or expiry to find what fits.</p>
+<!-- TWO WAYS TO USE SAVEHATKE -->
+<section class="block" id="two-ways" aria-labelledby="two-ways-heading">
+  <div class="container">
+    <div class="block-hdr">
+      <h2 class="stitle" id="two-ways-heading">Two ways to use <span class="gtext">SaveHatke</span></h2>
+    </div>
+
+    <!-- BUY -->
+    <article class="hw-journey fu in" id="buy" aria-labelledby="buy-heading">
+      <header class="hw-journey-hdr">
+        <span class="hw-kicker">Buy a coupon</span>
+        <h3 class="hw-journey-title" id="buy-heading">Find a discount you can actually use.</h3>
+        <p class="hw-journey-lead">Browse available coupons, check the important details such as brand, discount,
+          price, and validity, then purchase a coupon that suits you.</p>
+      </header>
+      <ol class="hw-steps">
+          <li class="hw-step">
+            <span class="hw-step-n">01</span>
+            <div class="hw-step-body">
+              <h3>Browse</h3>
+              <p>Explore available coupons in the marketplace.</p>
+            </div>
+          </li>
+          <li class="hw-step">
+            <span class="hw-step-n">02</span>
+            <div class="hw-step-body">
+              <h3>Choose</h3>
+              <p>Open a listing and check its details, including discount, validity, and price.</p>
+            </div>
+          </li>
+          <li class="hw-step">
+            <span class="hw-step-n">03</span>
+            <div class="hw-step-body">
+              <h3>Purchase</h3>
+              <p>Complete the purchase using the available payment process.</p>
+            </div>
+          </li>
+          <li class="hw-step">
+            <span class="hw-step-n">04</span>
+            <div class="hw-step-body">
+              <h3>Receive</h3>
+              <p>After the purchase is successfully completed, the coupon information becomes available through the appropriate SaveHatke flow and your dashboard.</p>
+            </div>
+          </li>
+          <li class="hw-step">
+            <span class="hw-step-n">05</span>
+            <div class="hw-step-body">
+              <h3>Use</h3>
+              <p>Use the coupon according to the brand's terms before it expires.</p>
+            </div>
+          </li>
+      </ol>
+      <a href="marketplace.html" class="hw-inline-cta">Browse Coupons →</a>
+    </article>
+
+    <div class="hw-divider" role="presentation"></div>
+
+    <!-- SELL -->
+    <article class="hw-journey fu in" id="sell" aria-labelledby="sell-heading">
+      <header class="hw-journey-hdr">
+        <span class="hw-kicker">Sell a coupon</span>
+        <h3 class="hw-journey-title" id="sell-heading">Turn an eligible unused coupon into value.</h3>
+        <p class="hw-journey-lead">If you have an eligible coupon that you don't need, you can submit it through
+          SaveHatke's seller flow. After the applicable review and approval process, it can be made available
+          to buyers.</p>
+      </header>
+      <ol class="hw-steps">
+          <li class="hw-step">
+            <span class="hw-step-n">01</span>
+            <div class="hw-step-body">
+              <h3>Submit</h3>
+              <p>Provide the required coupon information through the Sell Coupons page.</p>
+            </div>
+          </li>
+          <li class="hw-step">
+            <span class="hw-step-n">02</span>
+            <div class="hw-step-body">
+              <h3>Review</h3>
+              <p>The submitted coupon can be reviewed according to SaveHatke's eligibility requirements.</p>
+            </div>
+          </li>
+          <li class="hw-step">
+            <span class="hw-step-n">03</span>
+            <div class="hw-step-body">
+              <h3>List</h3>
+              <p>If approved, the coupon can become available on the marketplace.</p>
+            </div>
+          </li>
+          <li class="hw-step">
+            <span class="hw-step-n">04</span>
+            <div class="hw-step-body">
+              <h3>Sell</h3>
+              <p>A buyer can purchase the listed coupon.</p>
+            </div>
+          </li>
+          <li class="hw-step">
+            <span class="hw-step-n">05</span>
+            <div class="hw-step-body">
+              <h3>Payout</h3>
+              <p>After the applicable transaction conditions are completed, the seller becomes eligible for the corresponding payout according to SaveHatke's process.</p>
+            </div>
+          </li>
+      </ol>
+      <a href="sell.html" class="hw-inline-cta">Sell a Coupon →</a>
+    </article>
+  </div>
+</section>
+
+<!-- BUYING TIMELINE -->
+<section class="block alt" id="buying-timeline" aria-labelledby="buying-tl-heading">
+  <div class="container">
+    <div class="block-hdr">
+      <h2 class="stitle" id="buying-tl-heading">When you <span class="gtext">buy</span> a coupon</h2>
+    </div>
+    <ol class="hw-timeline fu in">
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Choose</h3>
+            <p>You find a coupon you want.</p>
           </div>
-          <div class="flow-step">
-            <div class="flow-num">02</div>
-            <h3 class="flow-title">Buy &amp; Save</h3>
-            <p class="flow-desc">Pay securely with UPI, cards, or net-banking via Razorpay. The coupon code lands in your dashboard instantly.</p>
+        </li>
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Review</h3>
+            <p>You check the available coupon details.</p>
           </div>
-          <div class="flow-step">
-            <div class="flow-num">03</div>
-            <h3 class="flow-title">Sell Unused Coupons</h3>
-            <p class="flow-desc">Got a coupon you won't use? List it for sale and earn money when someone else snaps it up.</p>
+        </li>
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Pay</h3>
+            <p>You complete the purchase.</p>
           </div>
-        </div>
-      </div>
-    </div>
+        </li>
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Receive</h3>
+            <p>The purchased coupon is made available to you through SaveHatke.</p>
+          </div>
+        </li>
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Use</h3>
+            <p>You redeem it with the applicable brand according to its terms.</p>
+          </div>
+        </li>
+    </ol>
   </div>
 </section>
 
-<!-- FOR BUYERS / FOR SELLERS -->
-<section class="block alt" id="for-everyone">
+<!-- SELLING TIMELINE -->
+<section class="block" id="selling-timeline" aria-labelledby="selling-tl-heading">
   <div class="container">
     <div class="block-hdr">
-      <span class="slabel">For Everyone</span>
-      <h2 class="stitle">Two sides, <span class="gtext">one marketplace</span></h2>
-      <p class="ssub">Whether you want to save money on the brands you love or earn from the coupons sitting in your inbox, SaveHatke has a flow for you.</p>
+      <h2 class="stitle" id="selling-tl-heading">When you <span class="gtext">sell</span> a coupon</h2>
     </div>
-
-    <div class="duo">
-      <div class="duo-card buyer fu in d1">
-        <div class="duo-icon">🛒</div>
-        <span class="duo-tag">For Buyers</span>
-        <h3 class="duo-title">Save on every checkout</h3>
-        <p class="duo-desc">Find a verified coupon code for the brand you want, pay less than the face value, and use it at checkout on the brand's website or app.</p>
-        <ol class="duo-steps">
-          <li><strong>Browse the marketplace</strong>Search by brand, category, or discount — Amazon, Flipkart, Zomato, Swiggy, Myntra and 100+ more.</li>
-          <li><strong>Pick a coupon and pay</strong>Secure checkout via Razorpay. UPI, cards, net-banking, wallets — all supported.</li>
-          <li><strong>Get the code instantly</strong>The coupon code shows up in your dashboard and is also emailed to you for safekeeping.</li>
-          <li><strong>Use before it expires</strong>Copy the code and paste it at the brand's checkout. Each coupon has its own expiry, shown clearly on the card.</li>
-        </ol>
-        <a href="marketplace.html" class="duo-cta">Browse coupons →</a>
-      </div>
-
-      <div class="duo-card seller fu in d2">
-        <div class="duo-icon">💰</div>
-        <span class="duo-tag">For Sellers</span>
-        <h3 class="duo-title">Turn unused coupons into cash</h3>
-        <p class="duo-desc">Got a coupon you'll never use? Don't let it expire worthless — list it on SaveHatke and earn money the moment someone buys it.</p>
-        <ol class="duo-steps">
-          <li><strong>Submit your coupon</strong>Fill in the brand, value, expiry, and your price. Add a screenshot if you'd like — it speeds up review.</li>
-          <li><strong>We review and list it</strong>Our team verifies the code is real and unused, then lists it on the marketplace for buyers to find.</li>
-          <li><strong>A buyer purchases it</strong>The coupon code is delivered to the buyer the moment payment is confirmed — the code is then retired and can't be reused.</li>
-          <li><strong>You get paid</strong>Earnings land in your SaveHatke wallet. Withdraw to your bank account or UPI anytime, no minimum.</li>
-        </ol>
-        <a href="sell.html" class="duo-cta">Start selling →</a>
-      </div>
-    </div>
+    <ol class="hw-timeline fu in">
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Submit</h3>
+            <p>You provide the required coupon details.</p>
+          </div>
+        </li>
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Review</h3>
+            <p>SaveHatke checks the submission against its requirements.</p>
+          </div>
+        </li>
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Approval</h3>
+            <p>Eligible coupons can be approved for marketplace listing.</p>
+          </div>
+        </li>
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Purchase</h3>
+            <p>A buyer purchases the coupon.</p>
+          </div>
+        </li>
+        <li class="hw-tl-item">
+          <span class="hw-tl-dot" aria-hidden="true"></span>
+          <div class="hw-tl-body">
+            <h3>Payout</h3>
+            <p>The seller receives the applicable payout after the required conditions are completed.</p>
+          </div>
+        </li>
+    </ol>
   </div>
 </section>
 
-<!-- TIMELINE — full step-by-step journey -->
-<section class="block" id="journey">
+<!-- BEFORE YOU BUY OR SELL -->
+<section class="block alt" id="before" aria-labelledby="before-heading">
   <div class="container">
     <div class="block-hdr">
-      <span class="slabel">The Journey</span>
-      <h2 class="stitle">From <span class="gtext">discovery</span> to <span class="gtext">delivery</span></h2>
-      <p class="ssub">Here's exactly what happens after you click "buy" — no magic, no surprises.</p>
+      <h2 class="stitle" id="before-heading">Before you <span class="gtext">buy or sell</span></h2>
     </div>
-
-    <div class="timeline">
-      <div class="tl-item fu in d1">
-        <div class="tl-dot">1</div>
-        <div class="tl-card">
-          <span class="tl-role">Discovery</span>
-          <h3 class="tl-title">You find a coupon you want</h3>
-          <p class="tl-desc">You browse the marketplace, see a verified SaveFlat 500 OFF coupon for your favourite brand, and decide you want it. The face value is ₹500, you see it listed at, say, ₹40 — that's the price you pay.</p>
-        </div>
+    <div class="hw-notes fu in">
+      <div class="hw-note-col">
+        <h3 class="hw-note-title">For buyers</h3>
+        <ul class="hw-note-list">
+          <li>Check the coupon's brand and discount.</li>
+          <li>Check the validity and expiry information.</li>
+          <li>Review the listing details before purchasing.</li>
+          <li>Make sure the coupon is suitable for your intended purchase.</li>
+        </ul>
       </div>
-      <div class="tl-item fu in d2">
-        <div class="tl-dot">2</div>
-        <div class="tl-card">
-          <span class="tl-role">Checkout</span>
-          <h3 class="tl-title">Secure payment via Razorpay</h3>
-          <p class="tl-desc">You click Buy and are taken to a Razorpay checkout. Pay with UPI, debit card, credit card, net-banking, or any wallet. SaveHatke never sees your card details — Razorpay is PCI-DSS Level 1 certified.</p>
-        </div>
-      </div>
-      <div class="tl-item fu in d3">
-        <div class="tl-dot">3</div>
-        <div class="tl-card">
-          <span class="tl-role">Delivery</span>
-          <h3 class="tl-title">Code lands in your dashboard &amp; inbox</h3>
-          <p class="tl-desc">The moment payment is confirmed, the coupon code is delivered to your SaveHatke dashboard under "My Coupons" and emailed to you. The code is locked to you — it can't be sold again.</p>
-        </div>
-      </div>
-      <div class="tl-item fu in d4">
-        <div class="tl-dot">4</div>
-        <div class="tl-card">
-          <span class="tl-role">Use</span>
-          <h3 class="tl-title">Paste at the brand's checkout</h3>
-          <p class="tl-desc">Copy the code from your dashboard, head to the brand's site or app, paste it in the promo-code field at checkout, and watch the discount apply. The coupon's expiry date is shown on the card so you know how long you have.</p>
-        </div>
-      </div>
-      <div class="tl-item fu in d5">
-        <div class="tl-dot">5</div>
-        <div class="tl-card">
-          <span class="tl-role">Settlement</span>
-          <h3 class="tl-title">Seller gets paid, marketplace stays alive</h3>
-          <p class="tl-desc">Behind the scenes, the platform fee is deducted from the sale, the seller's share (typically 70–80% of the sale price) is credited to their SaveHatke wallet, and the original coupon code is permanently retired. Everyone wins.</p>
-        </div>
+      <div class="hw-note-col">
+        <h3 class="hw-note-title">For sellers</h3>
+        <ul class="hw-note-list">
+          <li>Only submit coupons that meet SaveHatke's eligibility requirements.</li>
+          <li>Provide accurate coupon information.</li>
+          <li>Make sure the submitted information is correct.</li>
+          <li>Follow the seller flow and review process.</li>
+        </ul>
       </div>
     </div>
   </div>
 </section>
 
-<!-- TRUST & SAFETY -->
-<section class="block alt" id="trust">
+<!-- FINAL CTA -->
+<section class="block" id="ready" aria-labelledby="ready-heading">
   <div class="container">
-    <div class="block-hdr">
-      <span class="slabel">Trust &amp; Safety</span>
-      <h2 class="stitle">Built so you can <span class="gtext">trust</span> it</h2>
-      <p class="ssub">A peer-to-peer marketplace only works if both sides feel safe. Here's how we make that happen.</p>
-    </div>
-
-    <div class="trust-grid">
-      <div class="trust-card fu in d1">
-        <div class="trust-ico">🔍</div>
-        <h3 class="trust-title">Verified codes</h3>
-        <p class="trust-desc">Every coupon submitted by a seller is reviewed by our team before it goes live. We check the brand, the value, and that the code is real and unused.</p>
-      </div>
-      <div class="trust-card fu in d2">
-        <div class="trust-ico">🔒</div>
-        <h3 class="trust-title">Secure payments</h3>
-        <p class="trust-desc">All payments run through Razorpay — PCI-DSS Level 1 certified. Your card details never touch our servers. UPI, cards, net-banking, wallets all supported.</p>
-      </div>
-      <div class="trust-card fu in d3">
-        <div class="trust-ico">⚡</div>
-        <h3 class="trust-title">One-time delivery</h3>
-        <p class="trust-desc">The moment a coupon is bought, the code is delivered and locked. It can't be sold to anyone else, so you don't have to race a stranger for the same code.</p>
-      </div>
-      <div class="trust-card fu in d4">
-        <div class="trust-ico">🎧</div>
-        <h3 class="trust-title">Real support</h3>
-        <p class="trust-desc">Got a problem? Submit a ticket from the support page and a human will get back to you. No chatbots, no ticket black holes, no "we'll get back to you in 3-5 business days".</p>
-      </div>
-      <div class="trust-card fu in d1">
-        <div class="trust-ico">↩️</div>
-        <h3 class="trust-title">Refund on failed codes</h3>
-        <p class="trust-desc">If a code turns out to be invalid (extremely rare thanks to our review), we refund you in full — no questions, no friction.</p>
-      </div>
-      <div class="trust-card fu in d2">
-        <div class="trust-ico">🔐</div>
-        <h3 class="trust-title">Account-level security</h3>
-        <p class="trust-desc">Email-verified sign-up, secure sessions, and an optional backup-code (SOS) login so you're never locked out. Active session list with one-click revoke.</p>
-      </div>
-      <div class="trust-card fu in d3">
-        <div class="trust-ico">🧾</div>
-        <h3 class="trust-title">Full purchase history</h3>
-        <p class="trust-desc">Every coupon you buy, every coupon you sell, and every payout shows up in your dashboard. Download it as a CSV anytime for your records.</p>
-      </div>
-      <div class="trust-card fu in d4">
-        <div class="trust-ico">🤝</div>
-        <h3 class="trust-title">Two-sided reputation</h3>
-        <p class="trust-desc">Buyers and sellers build a track record on the platform. Bad actors get flagged and removed — keeping the marketplace healthy for everyone.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- FAQ -->
-<section class="block" id="faq">
-  <div class="container">
-    <div class="block-hdr">
-      <span class="slabel">FAQ</span>
-      <h2 class="stitle">Questions, <span class="gtext">answered</span></h2>
-      <p class="ssub">The most common things people ask before getting started. Don't see yours? <a href="support.html" style="color:#00e676;text-decoration:underline">Drop us a line</a>.</p>
-    </div>
-
-    <div class="faq-list">
-      <div class="faq-item open">
-        <div class="faq-q" onclick="toggleFaq(this)">
-          <span>Is SaveHatke free to join?</span>
-          <span class="qplus">+</span>
-        </div>
-        <div class="faq-a"><div class="faq-a-inner">Yes — creating an account is completely free. You only pay when you buy a coupon, or earn when you sell one. There are no subscription fees, no listing fees, and no hidden charges.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">
-          <span>How do I get paid when I sell a coupon?</span>
-          <span class="qplus">+</span>
-        </div>
-        <div class="faq-a"><div class="faq-a-inner">Earnings from each sale land in your SaveHatke wallet instantly. You can withdraw to any Indian bank account or UPI ID from your wallet page — no minimum amount, no waiting period. Most withdrawals settle in minutes via UPI.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">
-          <span>What if a coupon code doesn't work?</span>
-          <span class="qplus">+</span>
-        </div>
-        <div class="faq-a"><div class="faq-a-inner">This is extremely rare (every code is reviewed before listing) but if it happens, open a support ticket from the support page and we'll investigate. If the code is invalid, you get a full refund — no questions asked.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">
-          <span>Can I sell coupons that are about to expire?</span>
-          <span class="qplus">+</span>
-        </div>
-        <div class="faq-a"><div class="faq-a-inner">Yes, but buyers will price them accordingly. We show the expiry date clearly on every coupon card, so you know exactly how much time the buyer has to use it. Coupons with very short expiry windows can still sell — often at a steeper discount.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">
-          <span>Is my payment information safe?</span>
-          <span class="qplus">+</span>
-        </div>
-        <div class="faq-a"><div class="faq-a-inner">Yes. All payments run through Razorpay, which is PCI-DSS Level 1 certified (the same security standard used by major banks). SaveHatke never sees or stores your card details — they go directly to Razorpay's secure servers.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">
-          <span>How long does it take for my coupon to be listed?</span>
-          <span class="qplus">+</span>
-        </div>
-        <div class="faq-a"><div class="faq-a-inner">Most submissions are reviewed within 2–6 hours during business hours. If you submit a screenshot, the review is even faster. You'll get an email the moment your coupon goes live on the marketplace.</div></div>
-      </div>
-      <div class="faq-item">
-        <div class="faq-q" onclick="toggleFaq(this)">
-          <span>What if I change my mind about a purchase?</span>
-          <span class="qplus">+</span>
-        </div>
-        <div class="faq-a"><div class="faq-a-inner">Because the coupon code is delivered the moment payment is confirmed, we can't offer change-of-mind refunds once the code has been revealed. If the code itself turns out to be invalid (very rare), you're covered by our refund guarantee.</div></div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- CTA banner -->
-<section class="block">
-  <div class="container">
-    <div class="cta-banner fu in">
-      <div class="cta-banner-inner">
-        <h2>Ready to <span class="gtext">start saving</span>?</h2>
-        <p>Create a free account in under 30 seconds. No credit card needed. Browse the marketplace or list your first coupon — your call.</p>
-        <div class="btns">
-          <a href="login.html" class="btn btn-primary btn-lg">✨ Create Free Account</a>
-          <a href="marketplace.html" class="btn btn-ghost btn-lg">👀 Just Looking</a>
-        </div>
+    <div class="hw-final fu in">
+      <h2 class="stitle" id="ready-heading">Ready to use <span class="gtext">SaveHatke</span>?</h2>
+      <p class="ssub">Find a coupon you need or give an unused eligible coupon a new purpose.</p>
+      <div class="hero-cta">
+        <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons</a>
+        <a href="sell.html" class="btn btn-outline btn-lg">Sell a Coupon</a>
       </div>
     </div>
   </div>
