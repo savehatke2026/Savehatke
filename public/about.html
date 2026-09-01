@@ -84,16 +84,10 @@
     .hero { min-height:100vh; padding-top:68px; display:flex; align-items:center; position:relative; overflow:hidden; }
     .hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 70% 55% at 15% 30%,rgba(0,230,118,.07) 0%,transparent 65%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.07) 0%,transparent 65%); pointer-events:none; }
     .hero-gridbg { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.04) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
-    .hero-inner { position:relative; z-index:1; display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; padding:80px 0 100px; }
     .hero-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); color:#00e676; border-radius:9999px; font-size:.8rem; font-weight:600; padding:6px 16px; margin-bottom:28px; }
-    .hero-title { font-family:'DM Serif Display',serif; font-size:clamp(2.6rem,5.5vw,4.2rem); line-height:1.1; margin-bottom:22px; }
-    .hero-desc { font-size:1.05rem; color:#a8c0dc; line-height:1.75; margin-bottom:36px; max-width:480px; }
     .hero-actions { display:flex; gap:14px; flex-wrap:wrap; }
-    .hero-visual { position:relative; display:flex; justify-content:center; }
-    .hero-glow { position:absolute; width:340px; height:340px; border-radius:50%; background:radial-gradient(circle,rgba(0,230,118,.14) 0%,transparent 70%); top:50%; left:50%; transform:translate(-50%,-50%); pointer-events:none; animation:glow-pulse 3s ease-in-out infinite; }
 
     /* Coupon display card */
-    .coupon-display { width:320px; padding:32px; border-radius:22px; background:rgba(15,30,58,.95); border:1px solid rgba(79,195,247,.2); box-shadow:0 32px 80px rgba(0,0,0,.55); animation:float 4.5s ease-in-out infinite; position:relative; z-index:1; }
     .cd-brand { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
     .cd-logo { font-size:.8rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#6b88aa; }
     .cd-verified { display:inline-flex; align-items:center; gap:4px; font-size:.7rem; font-weight:700; color:#00e676; background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.25); border-radius:5px; padding:3px 8px; }
@@ -103,51 +97,28 @@
     .cd-check { display:flex; align-items:center; gap:8px; font-size:.82rem; color:#a8c0dc; }
     .cd-check-icon { width:18px; height:18px; border-radius:50%; background:rgba(0,230,118,.15); display:flex; align-items:center; justify-content:center; font-size:.65rem; color:#00e676; flex-shrink:0; }
     @media(max-width:900px){
-      .hero-inner{grid-template-columns:1fr;gap:48px;padding:60px 0 80px;text-align:center}
-      .hero-desc{margin:0 auto 36px}
       .hero-actions{justify-content:center}
-      .hero-visual{display:none}
     }
 
     /* SECTIONS */
     .section { padding:96px 0; }
     .section-alt { background:rgba(12,24,53,.55); }
-    .sec-hdr { text-align:center; margin-bottom:60px; }
     .text-center { text-align:center; }
     .mt-10 { margin-top:40px; }
 
     /* THE IDEA */
-    .idea-wrap { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:center; }
-    .idea-content .stitle { text-align:left; }
-    .idea-content .ssub { text-align:left; margin:0 0 24px; max-width:100%; }
-    .idea-highlight { padding:24px 28px; border-radius:16px; background:linear-gradient(135deg,rgba(0,230,118,.08),rgba(79,195,247,.06)); border:1px solid rgba(0,230,118,.2); font-family:'DM Serif Display',serif; font-size:1.35rem; line-height:1.45; color:#e2ecff; position:relative; }
-    .idea-highlight::before { content:'"'; font-size:4rem; color:rgba(0,230,118,.15); position:absolute; top:-16px; left:16px; font-family:'DM Serif Display',serif; line-height:1; }
-    .idea-visual { position:relative; }
     @media(max-width:900px){
-      .idea-wrap{grid-template-columns:1fr;gap:40px}
-      .idea-content .stitle,.idea-content .ssub{text-align:center}
     }
 
     /* HOW IT WORKS */
 
     /* BUYERS */
-    .cat-pills { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:40px; }
-    .cat-pill { padding:8px 20px; border-radius:9999px; font-size:.85rem; font-weight:600; border:1.5px solid rgba(79,195,247,.18); background:rgba(15,30,58,.6); color:#a8c0dc; }
 
     /* SELLERS */
-    .seller-wrap { display:grid; grid-template-columns:1fr 1fr; gap:64px; align-items:start; }
-    .seller-content .stitle { text-align:left; }
-    .seller-content .ssub { text-align:left; margin:0 0 32px; max-width:100%; }
-    .feature-list { display:flex; flex-direction:column; gap:14px; margin-bottom:36px; }
-    .feature-item { display:flex; align-items:flex-start; gap:14px; padding:16px 20px; border-radius:12px; background:rgba(15,30,58,.6); border:1px solid rgba(79,195,247,.08); transition:border-color .25s; }
-    .feature-item:hover { border-color:rgba(0,230,118,.2); }
     .fi-icon { width:36px; height:36px; border-radius:10px; background:rgba(0,230,118,.1); display:flex; align-items:center; justify-content:center; color:#00e676; font-size:1rem; flex-shrink:0; }
     .fi-text h4 { font-size:.92rem; font-weight:700; margin-bottom:3px; }
     .fi-text p { font-size:.82rem; color:#a8c0dc; line-height:1.5; }
-    .seller-visual { border-radius:22px; padding:36px; background:rgba(15,30,58,.75); border:1px solid rgba(79,195,247,.12); box-shadow:0 24px 60px rgba(0,0,0,.4); }
     @media(max-width:900px){
-      .seller-wrap{grid-template-columns:1fr;gap:40px}
-      .seller-content .stitle,.seller-content .ssub{text-align:center}
     }
 
     /* TRUST */
@@ -214,38 +185,9 @@
        and hairline separators. Colours, fonts, radii and the fu/in/d1..d4
        animation classes are the existing ones — no new visual language. */
 
-    /* The Idea — plain vertical flow, no outer container */
-    .flow { display:flex; flex-direction:column; align-items:flex-start; gap:2px; }
-    .flow-step { display:flex; align-items:flex-start; gap:14px; padding:14px 0; }
-    .flow-ico { width:42px; height:42px; flex:0 0 auto; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.15rem; background:rgba(0,230,118,.08); border:1px solid rgba(0,230,118,.18); }
-    .flow-ico.cyan { background:rgba(79,195,247,.08); border-color:rgba(79,195,247,.2); }
-    .flow-label { font-size:.7rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:#6b88aa; }
-    .flow-text { font-size:.92rem; color:#a8c0dc; line-height:1.65; margin-top:5px; max-width:46ch; }
-    .flow-arrow { color:rgba(107,136,170,.55); font-size:1.05rem; line-height:1; margin-left:20px; }
-
-    /* How It Works / How selling works — numbered timeline on hairline rules */
-    .tl { margin-top:8px; }
-    .tl-item { display:flex; gap:22px; padding:22px 0; border-top:1px solid rgba(79,195,247,.08); }
-    .tl-item:first-child { border-top:none; padding-top:6px; }
-    .tl-num { flex:0 0 auto; width:52px; font-family:'JetBrains Mono',monospace; font-size:1.05rem; font-weight:700; color:rgba(0,230,118,.85); padding-top:2px; }
-    .tl-body { min-width:0; }
-    .tl-body h3 { font-size:1.06rem; font-weight:700; color:#e2ecff; margin-bottom:7px; }
-    .tl-body p { font-size:.92rem; color:#a8c0dc; line-height:1.7; max-width:62ch; }
     @media(max-width:560px){
-      .tl-item { gap:14px; }
-      .tl-num { width:38px; font-size:.95rem; }
     }
 
-    /* For Buyers / Trust & Safety — text columns instead of cards */
-    .plain-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:30px 26px; margin-top:6px; }
-    .plain-grid.two { grid-template-columns:repeat(2,1fr); max-width:860px; }
-    .plain-ico { font-size:1.3rem; line-height:1; margin-bottom:11px; }
-    .plain-title { font-size:.98rem; font-weight:700; color:#e2ecff; margin-bottom:7px; }
-    .plain-text { font-size:.88rem; color:#a8c0dc; line-height:1.7; }
-    @media(max-width:900px){ .plain-grid { grid-template-columns:repeat(2,1fr); } }
-    @media(max-width:520px){ .plain-grid, .plain-grid.two { grid-template-columns:1fr; gap:24px; } }
-
-    .about-actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:30px; }
   
     /* Landscape phones show the desktop nav row, whose links are 20px tall.
        Vertical-only overlay: the row is horizontal here, so neighbours keep
@@ -254,6 +196,59 @@
     @media (max-height:500px) and (orientation:landscape){
       .nav-links a{position:relative}
       .nav-links a::before{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+    }
+
+    /* ── ABOUT: editorial brand page ───────────────────────────────────────
+       Typography, whitespace and hairline rules carry this page — no cards, no
+       feature grids. Colours, fonts and the fu/in animation classes are the
+       existing ones. */
+    .ab-hero { max-width:760px; padding:8px 0 4px; }
+    .ab-hero-title { font-family:'DM Serif Display',Georgia,serif; font-size:clamp(2.4rem,6vw,4rem);
+      line-height:1.05; letter-spacing:-.02em; margin-bottom:18px; }
+    .ab-hero-sub { font-family:'DM Serif Display',Georgia,serif; font-size:clamp(1.2rem,2.8vw,1.7rem);
+      color:#e2ecff; line-height:1.35; margin-bottom:20px; max-width:30ch; }
+    .ab-hero-lead { font-size:1.02rem; color:#a8c0dc; line-height:1.8; max-width:62ch; margin-bottom:34px; }
+
+    .ab-kicker { display:inline-block; font-size:.7rem; font-weight:700; letter-spacing:.18em;
+      text-transform:uppercase; color:#00e676; margin-bottom:16px; }
+    .ab-h2 { font-family:'DM Serif Display',Georgia,serif; font-size:clamp(1.7rem,4vw,2.6rem);
+      line-height:1.2; color:#e2ecff; margin-bottom:22px; }
+
+    /* Text-first sections */
+    .ab-prose { max-width:720px; }
+    .ab-prose p { font-size:1.02rem; color:#a8c0dc; line-height:1.85; margin-bottom:18px; max-width:66ch; }
+    .ab-prose p:last-child { margin-bottom:0; }
+
+    /* Asymmetric split: heading on the left, the two sides on the right */
+    .ab-split { display:grid; grid-template-columns:minmax(0,4fr) minmax(0,6fr); gap:56px; align-items:start; }
+    .ab-side { padding:26px 0; border-top:1px solid rgba(79,195,247,.1); }
+    .ab-side:first-child { border-top:none; padding-top:0; }
+    .ab-side-num { display:block; font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:700;
+      letter-spacing:.1em; color:rgba(0,230,118,.75); margin-bottom:10px; }
+    .ab-side h3 { font-family:'DM Serif Display',Georgia,serif; font-size:1.5rem; color:#e2ecff; margin-bottom:10px; }
+    .ab-side p { font-size:.98rem; color:#a8c0dc; line-height:1.8; max-width:52ch; }
+
+    /* Philosophy */
+    .ab-philosophy { max-width:900px; }
+    .ab-statement { font-family:'DM Serif Display',Georgia,serif; font-size:clamp(1.6rem,4.4vw,2.9rem);
+      line-height:1.25; color:#e2ecff; margin:0 0 48px; padding:0 0 0 22px; border:none;
+      border-left:2px solid rgba(0,230,118,.45); max-width:24ch; }
+    .ab-principles { display:grid; grid-template-columns:repeat(4,1fr); gap:34px 30px; }
+    .ab-principle h3 { font-size:.98rem; font-weight:700; color:#e2ecff; margin-bottom:9px;
+      padding-top:14px; border-top:1px solid rgba(79,195,247,.14); }
+    .ab-principle p { font-size:.88rem; color:#a8c0dc; line-height:1.75; }
+
+    .ab-closing { font-family:'DM Serif Display',Georgia,serif; font-size:clamp(1.9rem,5vw,3.2rem);
+      line-height:1.15; color:#e2ecff; margin-bottom:16px; }
+
+    @media(max-width:900px){
+      .ab-split { grid-template-columns:1fr; gap:30px; }
+      .ab-principles { grid-template-columns:repeat(2,1fr); gap:28px 24px; }
+    }
+    @media(max-width:520px){
+      .ab-principles { grid-template-columns:1fr; gap:22px; }
+      .ab-statement { padding-left:16px; margin-bottom:34px; }
+      .ab-hero-lead { font-size:.98rem; }
     }
   </style>
 </head>
@@ -286,295 +281,109 @@
   <div class="hero-mesh" aria-hidden="true"></div>
   <div class="hero-gridbg" aria-hidden="true"></div>
   <div class="container">
-    <div class="hero-inner">
-      <div class="fu in">
-        <div class="hero-badge" aria-label="Page label">🔥 Buy & Sell Coupons — All in One Place!</div>
-        <h1 class="hero-title" id="hero-heading">
-          A marketplace for<br>
-          <span class="shimmer">coupons people don't use.</span>
-        </h1>
-        <p class="hero-desc">SaveHatke is a coupon marketplace where people can buy coupons they want and sell eligible coupons they don't need. Browse what's listed, or put a coupon you will never use in front of someone who will.</p>
-        <div class="hero-actions">
-          <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons →</a>
-          <a href="sell.html" class="btn btn-ghost btn-lg">Sell a Coupon →</a>
-        </div>
-      </div>
-      <div class="hero-visual fu in d2" aria-hidden="true">
-        <div class="hero-glow"></div>
-        <div class="coupon-display">
-          <div class="cd-brand">
-            <span class="cd-logo">SaveHatke Marketplace</span>
-            <span class="cd-verified">✓ Eligible</span>
-          </div>
-          <div class="cd-divider"></div>
-          <div class="cd-off" style="margin-top:2px">What every listing shows</div>
-          <div class="cd-checks">
-            <div class="cd-check"><div class="cd-check-icon">✓</div>Brand and category</div>
-            <div class="cd-check"><div class="cd-check-icon">✓</div>Discount and validity details</div>
-            <div class="cd-check"><div class="cd-check-icon">✓</div>Eligibility information</div>
-            <div class="cd-check"><div class="cd-check-icon">✓</div>Listing price, set by the seller</div>
-          </div>
-        </div>
+    <div class="ab-hero fu in">
+      <div class="hero-badge" aria-label="Page label">🔥 Buy &amp; Sell Coupons — All in One Place!</div>
+      <h1 class="ab-hero-title" id="hero-heading">About <span class="gtext">SaveHatke</span></h1>
+      <p class="ab-hero-sub">A simpler way to give unused coupons a second chance.</p>
+      <p class="ab-hero-lead">SaveHatke connects people who have eligible coupons they don't need with people
+        looking for discounts they can use. One side lists, the other side buys, and a coupon that would have
+        expired quietly gets used instead.</p>
+      <div class="hero-actions">
+        <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons</a>
+        <a href="sell.html" class="btn btn-ghost btn-lg">Sell a Coupon</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- THE IDEA -->
-<section class="section section-alt" id="idea" aria-labelledby="idea-heading">
+<!-- OUR STORY -->
+<section class="section" id="story" aria-labelledby="story-heading">
   <div class="container">
-    <div class="idea-wrap">
-      <div class="idea-content fu">
-        <span class="slabel">The Idea</span>
-        <h2 class="stitle" id="idea-heading">A coupon sitting unused has no value.</h2>
-        <p class="ssub">Every day, people receive promotional codes, reward coupons, vouchers, and limited-time discounts. Some get used. Many don't.</p>
-        <p class="ssub" style="margin-bottom:28px">A coupon sitting unused has no value to its owner once it expires. But that same coupon could be useful to someone looking for a discount. SaveHatke connects those two sides.</p>
-        <div class="idea-highlight">
-          Unused for you. Useful for someone else.
-        </div>
-      </div>
-      <div class="idea-visual fu d2">
-        <div class="flow">
-          <div class="flow-step">
-            <div class="flow-ico" aria-hidden="true">🎟️</div>
-            <div>
-              <div class="flow-label">Seller</div>
-              <div class="flow-text">Has a coupon they will not use, and lists it if it meets SaveHatke's eligibility requirements.</div>
-            </div>
-          </div>
-          <div class="flow-arrow" aria-hidden="true">↓</div>
-          <div class="flow-step">
-            <div class="flow-ico cyan" aria-hidden="true">🏷️</div>
-            <div>
-              <div class="flow-label">SaveHatke Marketplace</div>
-              <div class="flow-text">Brings eligible listings together in one place, so a buyer can actually find them.</div>
-            </div>
-          </div>
-          <div class="flow-arrow" aria-hidden="true">↓</div>
-          <div class="flow-step">
-            <div class="flow-ico" aria-hidden="true">🛍️</div>
-            <div>
-              <div class="flow-label">Buyer</div>
-              <div class="flow-text">Finds a coupon they can use, and buys it at the listed price.</div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <div class="ab-prose fu">
+      <span class="ab-kicker">Our story</span>
+      <h2 class="ab-h2" id="story-heading">Why SaveHatke exists</h2>
+      <p>People receive promotional codes, vouchers and discount coupons that they may never use. Most of them
+        sit in an inbox or an app until the date passes and the value disappears with it.</p>
+      <p>Instead of allowing eligible coupons to remain unused until they expire, SaveHatke creates a marketplace
+        where sellers can offer them to buyers who may actually need them. Nothing about the coupon changes —
+        only whether anyone gets to use it.</p>
     </div>
   </div>
 </section>
 
-<!-- HOW IT WORKS -->
-<section class="section" id="how" aria-labelledby="how-heading">
+<!-- WHAT SAVEHATKE DOES -->
+<section class="section section-alt" id="what" aria-labelledby="what-heading">
   <div class="container">
-    <div class="sec-hdr fu">
-      <span class="slabel">How It Works</span>
-      <h2 class="stitle" id="how-heading">Simple for <span class="gtext">both sides.</span></h2>
-      <p class="ssub">Whether you want to buy a discount or sell a coupon you won't use, SaveHatke makes it straightforward.</p>
-    </div>
-    <div class="tl">
-      <div class="tl-item fu">
-        <div class="tl-num">01</div>
-        <div class="tl-body">
-          <h3>List</h3>
-          <p>Have a coupon you're unlikely to use? Provide the required coupon details through the seller flow.</p>
-        </div>
+    <div class="ab-split fu">
+      <div class="ab-split-lead">
+        <span class="ab-kicker">What SaveHatke does</span>
+        <h2 class="ab-h2" id="what-heading">Two sides of one marketplace</h2>
       </div>
-      <div class="tl-item fu">
-        <div class="tl-num">02</div>
-        <div class="tl-body">
-          <h3>Review</h3>
-          <p>Submitted coupons can be reviewed against SaveHatke's eligibility requirements before being listed.</p>
+      <div class="ab-split-body">
+        <div class="ab-side">
+          <span class="ab-side-num" aria-hidden="true">01</span>
+          <h3>Buy</h3>
+          <p>Find eligible coupons listed on SaveHatke and purchase discounts that are useful to you.</p>
         </div>
-      </div>
-      <div class="tl-item fu">
-        <div class="tl-num">03</div>
-        <div class="tl-body">
-          <h3>Discover</h3>
-          <p>Buyers browse available coupons by category, discount, brand, and other relevant details.</p>
-        </div>
-      </div>
-      <div class="tl-item fu">
-        <div class="tl-num">04</div>
-        <div class="tl-body">
-          <h3>Purchase</h3>
-          <p>When a buyer chooses a coupon, the transaction is processed through the SaveHatke marketplace.</p>
-        </div>
-      </div>
-      <div class="tl-item fu">
-        <div class="tl-num">05</div>
-        <div class="tl-body">
-          <h3>Complete</h3>
-          <p>After the transaction meets the applicable conditions, the seller becomes eligible for the corresponding payout.</p>
+        <div class="ab-side">
+          <span class="ab-side-num" aria-hidden="true">02</span>
+          <h3>Sell</h3>
+          <p>Submit eligible unused coupons and list them for people who can use them.</p>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- FOR BUYERS -->
-<section class="section section-alt" id="buyers" aria-labelledby="buyers-heading">
+<!-- PHILOSOPHY -->
+<section class="section" id="philosophy" aria-labelledby="philosophy-heading">
   <div class="container">
-    <div class="sec-hdr fu">
-      <span class="slabel">For Buyers</span>
-      <h2 class="stitle" id="buyers-heading">Stop searching everywhere <span class="gtext">for discounts.</span></h2>
-      <p class="ssub">SaveHatke brings available coupon deals into one marketplace so you can discover discounts without spending hours looking for codes.</p>
-    </div>
-    <div class="cat-pills fu" role="list" aria-label="Coupon categories">
-      <span class="cat-pill" role="listitem">Fashion</span>
-      <span class="cat-pill" role="listitem">Food &amp; Delivery</span>
-      <span class="cat-pill" role="listitem">Electronics</span>
-      <span class="cat-pill" role="listitem">Beauty</span>
-      <span class="cat-pill" role="listitem">Travel</span>
-      <span class="cat-pill" role="listitem">Shopping</span>
-    </div>
-    <div class="plain-grid two fu">
-      <div class="plain-item">
-        <div class="plain-ico" aria-hidden="true">🔍</div>
-        <div class="plain-title">Everything in one place</div>
-        <div class="plain-text">Available coupons are listed together, so finding a discount does not mean hunting across a dozen sites.</div>
-      </div>
-      <div class="plain-item">
-        <div class="plain-ico" aria-hidden="true">🧾</div>
-        <div class="plain-title">Details before you buy</div>
-        <div class="plain-text">Each listing shows the brand, the discount, validity and eligibility information, and the price the seller set.</div>
-      </div>
-      <div class="plain-item">
-        <div class="plain-ico" aria-hidden="true">🗂️</div>
-        <div class="plain-title">Filter by what you need</div>
-        <div class="plain-text">Search and filter by category, brand or keyword to reach the coupons that apply to your purchase.</div>
-      </div>
-      <div class="plain-item">
-        <div class="plain-ico" aria-hidden="true">📥</div>
-        <div class="plain-title">Kept in your account</div>
-        <div class="plain-text">Coupons you buy stay in your dashboard, so you can find the code again when you need it.</div>
-      </div>
-    </div>
-    <div class="about-actions fu">
-      <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons →</a>
-    </div>
-  </div>
-</section>
-
-<!-- FOR SELLERS -->
-<section class="section" id="sellers" aria-labelledby="sellers-heading">
-  <div class="container">
-    <div class="seller-wrap">
-      <div class="seller-content fu">
-        <span class="slabel">For Sellers</span>
-        <h2 class="stitle" id="sellers-heading">Turn unused coupons <span class="gtext">into an opportunity.</span></h2>
-        <p class="ssub">Got a coupon you're probably never going to use? Instead of letting it sit unused until it expires, you can submit it to SaveHatke if it meets our marketplace requirements.</p>
-        <div class="feature-list" role="list">
-          <div class="feature-item" role="listitem">
-            <div class="fi-icon" aria-hidden="true">📝</div>
-            <div class="fi-text">
-              <h4>Easy Listing</h4>
-              <p>Submit the required coupon information through a guided seller flow.</p>
-            </div>
-          </div>
-          <div class="feature-item" role="listitem">
-            <div class="fi-icon" aria-hidden="true">🔎</div>
-            <div class="fi-text">
-              <h4>Eligibility Review</h4>
-              <p>Coupons may be reviewed according to SaveHatke's listing requirements.</p>
-            </div>
-          </div>
-          <div class="feature-item" role="listitem">
-            <div class="fi-icon" aria-hidden="true">📊</div>
-            <div class="fi-text">
-              <h4>Track Your Listing</h4>
-              <p>See the current status of your submitted coupons from your account dashboard.</p>
-            </div>
-          </div>
-          <div class="feature-item" role="listitem">
-            <div class="fi-icon" aria-hidden="true">💸</div>
-            <div class="fi-text">
-              <h4>Seller Payouts</h4>
-              <p>Eligible sellers can receive their applicable payout after the conditions of the transaction are completed.</p>
-            </div>
-          </div>
+    <div class="ab-philosophy fu">
+      <span class="ab-kicker">Our philosophy</span>
+      <h2 class="ab-h2" id="philosophy-heading">Built around a simple idea.</h2>
+      <blockquote class="ab-statement">Unused for you. Useful for someone else.</blockquote>
+      <div class="ab-principles">
+        <div class="ab-principle">
+          <h3>Clarity</h3>
+          <p>Important coupon information should be easy to understand.</p>
         </div>
-        <a href="sell.html" class="btn btn-success btn-lg">Sell a Coupon →</a>
-      </div>
-      <div class="seller-visual fu d2">
-        <span class="slabel">How selling works</span>
-        <div class="tl" style="margin-top:16px">
-          <div class="tl-item">
-            <div class="tl-num">01</div>
-            <div class="tl-body">
-              <h3>Submit coupon details</h3>
-              <p>Provide the coupon code and required information through the seller form.</p>
-            </div>
-          </div>
-          <div class="tl-item">
-            <div class="tl-num">02</div>
-            <div class="tl-body">
-              <h3>Eligibility review</h3>
-              <p>SaveHatke reviews the coupon for validity and eligibility before listing it on the marketplace.</p>
-            </div>
-          </div>
-          <div class="tl-item">
-            <div class="tl-num">03</div>
-            <div class="tl-body">
-              <h3>Coupon goes live</h3>
-              <p>Once approved, your coupon becomes available for buyers to discover and purchase.</p>
-            </div>
-          </div>
-          <div class="tl-item">
-            <div class="tl-num">04</div>
-            <div class="tl-body">
-              <h3>Receive payout</h3>
-              <p>When your coupon sells and conditions are met, your payout is processed through our secure system.</p>
-            </div>
-          </div>
+        <div class="ab-principle">
+          <h3>Fairness</h3>
+          <p>Buyers and sellers should know what to expect.</p>
+        </div>
+        <div class="ab-principle">
+          <h3>Safety</h3>
+          <p>We work to reduce fraudulent listings and marketplace misuse.</p>
+        </div>
+        <div class="ab-principle">
+          <h3>Simplicity</h3>
+          <p>Buying or selling a coupon should feel straightforward.</p>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- TRUST & SAFETY -->
-<section class="section" id="trust" aria-labelledby="trust-heading">
+<!-- THE MARKETPLACE -->
+<section class="section section-alt" id="marketplace-note" aria-labelledby="marketplace-heading">
   <div class="container">
-    <div class="sec-hdr fu">
-      <span class="slabel">Trust &amp; Safety</span>
-      <h2 class="stitle" id="trust-heading">A marketplace should be <span class="gtext">built on clarity.</span></h2>
-      <p class="ssub">Coupon marketplaces need more than attractive deals. They need sensible rules, transparent information, and systems designed to reduce misuse. SaveHatke is designed with these principles in mind.</p>
-    </div>
-    <div class="plain-grid">
-      <div class="plain-item fu">
-        <div class="plain-ico" aria-hidden="true">🔎</div>
-        <div class="plain-title">Coupon Review</div>
-        <div class="plain-text">Eligible listings may go through checks based on SaveHatke's marketplace requirements.</div>
-      </div>
-      <div class="plain-item fu d1">
-        <div class="plain-ico" aria-hidden="true">🔐</div>
-        <div class="plain-title">Account Protection</div>
-        <div class="plain-text">We use appropriate technical and operational measures to protect accounts and information.</div>
-      </div>
-      <div class="plain-item fu d2">
-        <div class="plain-ico" aria-hidden="true">🚨</div>
-        <div class="plain-title">Abuse Prevention</div>
-        <div class="plain-text">We work to identify suspicious activity, fraudulent listings, and attempts to misuse the marketplace.</div>
-      </div>
-      <div class="plain-item fu d3">
-        <div class="plain-ico" aria-hidden="true">📩</div>
-        <div class="plain-title">Customer Support</div>
-        <div class="plain-text">If something goes wrong with a listing, purchase, account, or transaction, users can contact SaveHatke Support for assistance.</div>
-      </div>
+    <div class="ab-prose fu">
+      <span class="ab-kicker">The SaveHatke marketplace</span>
+      <h2 class="ab-h2" id="marketplace-heading">Both sides, in one place</h2>
+      <p>SaveHatke brings the buying and selling sides together in one marketplace. Buyers can discover available
+        coupons, while sellers can give eligible unused coupons a chance to provide value to someone else.</p>
     </div>
   </div>
 </section>
 
-<!-- FINAL CTA -->
+<!-- CLOSING -->
 <section class="final-cta" aria-labelledby="cta-heading">
   <div class="container fu">
-    <span class="slabel">SaveHatke Marketplace</span>
-    <h2 class="stitle" id="cta-heading">Buy a coupon you can use.<br>Sell a coupon you don't need.</h2>
-    <p class="ssub">Both sides of the marketplace are open. Browse what's listed, or submit a coupon of your own.</p>
+    <h2 class="ab-closing" id="cta-heading">Buy a coupon you can use.<br>Sell a coupon you don't need.</h2>
+    <p class="ssub">SaveHatke brings both sides together in one simple marketplace.</p>
     <div class="cta-actions">
-      <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons →</a>
-      <a href="sell.html" class="btn btn-ghost btn-lg">Sell a Coupon →</a>
+      <a href="marketplace.html" class="btn btn-primary btn-lg">Browse Coupons</a>
+      <a href="sell.html" class="btn btn-ghost btn-lg">Sell a Coupon</a>
     </div>
   </div>
 </section>
