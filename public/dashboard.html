@@ -428,9 +428,12 @@
     .tf-step-pip.done{background:rgba(0,230,118,.45)}
     .tf-step-pip.now{background:#00e676}
 
-    /* Code entry — one box per digit, mirroring the login OTP field */
-    .tf-code-row{display:flex;gap:9px;justify-content:center;margin:4px 0 6px}
-    .tf-code-box{width:46px;height:56px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:#e2ecff;background:rgba(8,16,42,.75);border:1.5px solid rgba(79,195,247,.18);border-radius:12px;transition:border-color .18s,background .18s}
+    /* Code entry — one box per digit, mirroring the login OTP field. The row
+       holds 6 boxes for an authenticator code and 8 for the emailed enrolment
+       code, so the boxes are allowed to shrink rather than overflow the modal on
+       a narrow screen. */
+    .tf-code-row{display:flex;gap:9px;justify-content:center;margin:4px 0 6px;flex-wrap:nowrap}
+    .tf-code-box{flex:0 1 46px;width:46px;min-width:0;height:56px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:#e2ecff;background:rgba(8,16,42,.75);border:1.5px solid rgba(79,195,247,.18);border-radius:12px;transition:border-color .18s,background .18s}
     .tf-code-box:focus{outline:none;border-color:rgba(0,230,118,.6);background:rgba(0,230,118,.05)}
     .tf-code-box.filled{border-color:rgba(79,195,247,.4)}
     .tf-code-box.error{border-color:rgba(239,154,154,.65)}
@@ -457,7 +460,8 @@
     .tf-copyrow .btn{flex:1;justify-content:center;min-width:140px}
 
     @media(max-width:480px){
-      .tf-code-box{width:42px;height:52px;font-size:1.15rem}
+      .tf-code-row{gap:6px}
+      .tf-code-box{flex:0 1 40px;width:40px;height:50px;font-size:1.05rem;border-radius:10px}
       .tf-codes-grid{grid-template-columns:minmax(0,1fr)}
       .tf-actions .btn{width:100%;justify-content:center;min-height:44px}
       .tf-copyrow .btn{min-width:0}
@@ -1997,17 +2001,36 @@
       <span class="tf-step-pip" data-pip="4"></span>
     </div>
 
-    <!-- ── Step 1: email OTP ── -->
-    <div class="tf-panel" id="tfPanelEmail">
-      <p class="tf-apps">We've sent a 6-digit verification code to <strong id="tfMaskedEmail">your email</strong>.</p>
+    <!-- ── Step 0: confirm intent. Nothing is sent and nothing changes until
+         "Confirm & Continue" is pressed, so an accidental click on Enable 2FA
+         costs the user no email and no state. ── -->
+    <div class="tf-panel" id="tfPanelConfirm" style="display:none">
+      <p class="tf-apps">
+        Adding two-factor authentication will make your account more secure.
+        Before continuing, we'll verify your email address.
+      </p>
+      <div class="tf-warn">
+        An 8-digit verification code will be sent to your registered email address
+        <strong id="tfConfirmEmail">your email</strong>.
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Cancel</button>
+        <button class="btn btn-primary" style="flex:1" id="tfConfirmBtn" onclick="confirmTwoFactorStart()">Confirm &amp; Continue</button>
+      </div>
+    </div>
+
+    <!-- ── Step 1: email OTP (8 digits — not the 6-digit authenticator code) ── -->
+    <div class="tf-panel" id="tfPanelEmail" style="display:none">
+      <p class="tf-apps">We've sent an 8-digit verification code to <strong id="tfMaskedEmail">your email</strong>.</p>
       <div class="tf-code-row" id="tfEmailCodeRow"></div>
       <div class="tf-hint">
+        <span id="tfEmailExpiry"></span>
         Didn't get it?
         <button type="button" class="tf-linkbtn" id="tfResendBtn" onclick="resendTwoFactorEmail()">Resend code</button>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Cancel</button>
-        <button class="btn btn-primary" style="flex:1" id="tfVerifyEmailBtn" onclick="submitTwoFactorEmail()">Verify</button>
+        <button class="btn btn-primary" style="flex:1" id="tfVerifyEmailBtn" onclick="submitTwoFactorEmail()">Verify Code</button>
       </div>
     </div>
 
@@ -4569,17 +4592,22 @@
     status: null,
     resendTimer: null,
     resendUntil: 0,
+    expiryTimer: null,
   };
 
   // ── Digit-box helpers ──
-  // Six single-character inputs behave better on mobile keyboards than one
-  // field, and match the OTP entry on the login page.
-  function buildCodeBoxes(rowId, onComplete) {
+  // Single-character inputs behave better on mobile keyboards than one field,
+  // and match the OTP entry on the login page.
+  // count is 6 for an authenticator code and 8 for the emailed enrolment code —
+  // the two are deliberately different lengths so they cannot be confused.
+  function buildCodeBoxes(rowId, onComplete, count = 6) {
     const row = document.getElementById(rowId);
     if (!row) return;
-    row.innerHTML = Array.from({ length: 6 }, (_, i) =>
+    const n = Number(count) > 0 ? Math.floor(Number(count)) : 6;
+    const last = n - 1;
+    row.innerHTML = Array.from({ length: n }, (_, i) =>
       `<input class="tf-code-box" inputmode="numeric" autocomplete="one-time-code" maxlength="1"
-              aria-label="Digit ${i + 1} of 6" data-idx="${i}">`).join('');
+              aria-label="Digit ${i + 1} of ${n}" data-idx="${i}">`).join('');
 
     const boxes = Array.from(row.querySelectorAll('.tf-code-box'));
     const sync = () => boxes.forEach((b) => b.classList.toggle('filled', Boolean(b.value)));
@@ -4589,7 +4617,7 @@
         box.value = box.value.replace(/\D/g, '').slice(0, 1);
         box.classList.remove('error');
         sync();
-        if (box.value && i < 5) boxes[i + 1].focus();
+        if (box.value && i < last) boxes[i + 1].focus();
         if (boxes.every((b) => b.value) && typeof onComplete === 'function') onComplete();
       });
       box.addEventListener('keydown', (e) => {
@@ -4599,12 +4627,12 @@
       // Pasting the whole code into any box should fill the row.
       box.addEventListener('paste', (e) => {
         const digits = String((e.clipboardData || {}).getData ? e.clipboardData.getData('text') : '')
-          .replace(/\D/g, '').slice(0, 6);
+          .replace(/\D/g, '').slice(0, n);
         if (!digits) return;
         e.preventDefault();
         boxes.forEach((b, j) => { b.value = digits[j] || ''; });
         sync();
-        boxes[Math.min(digits.length, 5)].focus();
+        boxes[Math.min(digits.length, last)].focus();
         if (digits.length === 6 && typeof onComplete === 'function') onComplete();
       });
     });
@@ -4646,7 +4674,7 @@
     const blurb = document.getElementById('tfBlurb');
     if (blurb) {
       blurb.textContent = on
-        ? 'A code from your authenticator app is required every time you sign in.'
+        ? 'Your account is protected with an authenticator app. A 6-digit code from it is required every time you sign in.'
         : 'Use an authenticator app such as Google Authenticator or Authy to protect your SaveHatke account with a 6-digit code at sign-in.';
     }
 
@@ -4700,7 +4728,7 @@
   }
 
   // ── Panel routing ──
-  const TF_PANELS = ['tfPanelEmail', 'tfPanelScan', 'tfPanelCode', 'tfPanelCodes',
+  const TF_PANELS = ['tfPanelConfirm', 'tfPanelEmail', 'tfPanelScan', 'tfPanelCode', 'tfPanelCodes',
     'tfPanelManage', 'tfPanelDisable', 'tfPanelRecovery'];
 
   function showTfPanel(id, { title, sub, step = 0, steps = 0 }) {
@@ -4727,6 +4755,36 @@
     if (TF.resendTimer) { clearInterval(TF.resendTimer); TF.resendTimer = null; }
   }
 
+  function stopOtpExpiryTimer() {
+    if (TF.expiryTimer) { clearInterval(TF.expiryTimer); TF.expiryTimer = null; }
+  }
+
+  // "Code expires in 9:41" — the server owns the real deadline; this only shows
+  // the user how long is left so an expired code is not a surprise.
+  function startOtpExpiryCountdown(seconds) {
+    const el = document.getElementById('tfEmailExpiry');
+    if (!el) return;
+    stopOtpExpiryTimer();
+
+    const total = Number(seconds) > 0 ? Number(seconds) : 0;
+    if (!total) { el.textContent = ''; return; }
+    const until = Date.now() + total * 1000;
+
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
+      if (left <= 0) {
+        stopOtpExpiryTimer();
+        el.textContent = 'This verification code has expired. Please request a new code. ';
+        return;
+      }
+      const mins = Math.floor(left / 60);
+      const secs = String(left % 60).padStart(2, '0');
+      el.textContent = `Code expires in ${mins}:${secs}. `;
+    };
+    tick();
+    TF.expiryTimer = setInterval(tick, 1000);
+  }
+
   function startResendCooldown(seconds) {
     const btn = document.getElementById('tfResendBtn');
     if (!btn) return;
@@ -4750,11 +4808,16 @@
 
   function closeTwoFactor() {
     stopResendTimer();
+    stopOtpExpiryTimer();
     closeModal('twofaModal');
-    // Nothing sensitive is left in the page once the modal closes.
+    // Nothing sensitive is left in the page once the modal closes, and an
+    // abandoned setup is left with 2FA still off: the pending secret the server
+    // holds expires on its own and was never marked enabled.
     TF.flow = null;
     TF.stepUpToken = '';
     TF.recoveryCodes = [];
+    const expiry = document.getElementById('tfEmailExpiry');
+    if (expiry) expiry.textContent = '';
     const key = document.getElementById('tfKeyBox');
     if (key) key.style.display = 'none';
     const toggle = document.getElementById('tfKeyToggle');
@@ -4769,35 +4832,72 @@
     loadTwoFactorStatus();
   }
 
-  // Every flow starts by proving control of the registered email, because the
-  // account is passwordless and a live session alone is not recent proof.
+  // The emailed enrolment code. 8 digits, so it can never be mistaken for the
+  // 6-digit code the authenticator app shows. The server is the authority — it
+  // reports otpLength on /setup/start and this is only the pre-response default.
+  const TF_EMAIL_OTP_LENGTH = 8;
+
+  // Every flow proves control of the registered email first, because the account
+  // is passwordless and a live session alone is not recent proof. Turning 2FA on
+  // asks for confirmation before that: clicking "Enable 2FA" must not send an
+  // email or create any setup state on its own.
   async function startTwoFactor(flow) {
     TF.flow = flow;
     TF.stepUpToken = '';
     TF.recoveryCodes = [];
 
+    if (flow === 'enable') {
+      setText('tfConfirmEmail', (TF.status && TF.status.maskedEmail) || 'your email');
+      showTfPanel('tfPanelConfirm', {
+        title: 'Turn on <span class="gtext">Two-Factor Authentication</span>',
+        sub: 'Nothing changes until you confirm.',
+        steps: 0,
+      });
+      openModal('twofaModal');
+      return;
+    }
+
+    openModal('twofaModal');
+    await requestTwoFactorEmailCode(flow);
+  }
+
+  /** "Confirm & Continue" — the first point at which anything is sent. */
+  async function confirmTwoFactorStart() {
+    const btn = document.getElementById('tfConfirmBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    try {
+      await requestTwoFactorEmailCode(TF.flow || 'enable');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Continue'; }
+    }
+  }
+
+  /** Shows the email panel and asks the server for the 8-digit code. */
+  async function requestTwoFactorEmailCode(flow) {
     const numbered = (flow === 'enable' || flow === 'replace') ? 4 : 0;
-    buildCodeBoxes('tfEmailCodeRow', submitTwoFactorEmail);
+    buildCodeBoxes('tfEmailCodeRow', submitTwoFactorEmail, TF_EMAIL_OTP_LENGTH);
     showTfPanel('tfPanelEmail', {
-      title: 'Verify your <span class="gtext">account</span>',
-      sub: "Confirm it's you before changing security settings.",
+      title: 'Verify Your <span class="gtext">Email</span>',
+      sub: "We've sent an 8-digit verification code to your registered email address.",
       step: 1,
       steps: numbered,
     });
     setText('tfMaskedEmail', (TF.status && TF.status.maskedEmail) || 'your email');
-    openModal('twofaModal');
 
     const btn = document.getElementById('tfVerifyEmailBtn');
     if (btn) btn.disabled = true;
     try {
       const data = await api('/auth/2fa/setup/start', { method: 'POST' });
       setText('tfMaskedEmail', data.maskedEmail || 'your email');
+      if (data.otpLength && Number(data.otpLength) !== TF_EMAIL_OTP_LENGTH) {
+        buildCodeBoxes('tfEmailCodeRow', submitTwoFactorEmail, Number(data.otpLength));
+      }
       startResendCooldown(data.cooldownSeconds || 30);
+      startOtpExpiryCountdown(data.expiresInSeconds);
       focusCodeBoxes('tfEmailCodeRow');
     } catch (err) {
       if (!err.sessionExpired) showToast(err.message || 'Could not send a verification code.', 'error');
       closeTwoFactor();
-      return;
     } finally {
       if (btn) btn.disabled = false;
     }
@@ -4809,7 +4909,13 @@
     try {
       const data = await api('/auth/2fa/setup/start', { method: 'POST' });
       setText('tfMaskedEmail', data.maskedEmail || 'your email');
+      // A resend issues a new code and invalidates the previous one server-side,
+      // so the boxes are cleared rather than left holding a dead code.
+      buildCodeBoxes('tfEmailCodeRow', submitTwoFactorEmail,
+        Number(data.otpLength) || TF_EMAIL_OTP_LENGTH);
       startResendCooldown(data.cooldownSeconds || 30);
+      startOtpExpiryCountdown(data.expiresInSeconds);
+      focusCodeBoxes('tfEmailCodeRow');
       showToast('New code sent', 'success', 2200);
     } catch (err) {
       if (!err.sessionExpired) showToast(err.message || 'Could not resend the code.', 'error');
@@ -4819,8 +4925,10 @@
   }
 
   async function submitTwoFactorEmail() {
+    const row = document.getElementById('tfEmailCodeRow');
+    const expected = row ? row.querySelectorAll('.tf-code-box').length : TF_EMAIL_OTP_LENGTH;
     const otp = readCodeBoxes('tfEmailCodeRow');
-    if (otp.length < 6) return;
+    if (otp.length < expected) return;
 
     const btn = document.getElementById('tfVerifyEmailBtn');
     const label = btn ? btn.textContent : '';
@@ -4850,8 +4958,8 @@
   // ── Step 2: QR + manual key ──
   async function requestAuthenticatorSecret() {
     showTfPanel('tfPanelScan', {
-      title: 'Set up your <span class="gtext">authenticator app</span>',
-      sub: 'Scan this code with your authenticator app.',
+      title: 'Set Up Your <span class="gtext">Authenticator</span>',
+      sub: 'Use an authenticator app such as Google Authenticator, Microsoft Authenticator, or Authy.',
       step: 2,
       steps: 4,
     });
@@ -4942,10 +5050,10 @@
     showTfPanel('tfPanelCodes', {
       title: regenerated
         ? 'Your new <span class="gtext">recovery codes</span>'
-        : '🎉 Two-factor authentication <span class="gtext">enabled</span>',
+        : 'Two-Factor Authentication <span class="gtext">Enabled</span>',
       sub: regenerated
         ? 'Every previous recovery code has been invalidated.'
-        : 'Your SaveHatke account is now protected with an authenticator app.',
+        : 'Your SaveHatke account is now protected with two-factor authentication.',
       step: 4,
       steps: TF.flow === 'enable' || TF.flow === 'replace' ? 4 : 0,
     });

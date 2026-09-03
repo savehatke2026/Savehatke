@@ -59,6 +59,32 @@ const db = require('./googleSheets');
 // ── Constants ───────────────────────────────────────────────────────────────
 const OTP_LENGTH = 6;
 const OTP_EXPIRY_MS = 5 * 60 * 1000;            // 5 minutes
+
+// Code shape per purpose. Sign-in keeps the original 6-digit / 5-minute code.
+// The 2FA enrolment check is a deliberately different 8-digit code with a longer
+// window: it is read out of a mail client once, mid-setup, and it must never be
+// confusable with the 6-digit code the authenticator app itself produces.
+//
+// Purpose also partitions the ledger. Without it, starting 2FA setup would
+// retire a pending sign-in code as "superseded", and a verify for one purpose
+// could burn an attempt against the other's row.
+const PURPOSES = {
+  login: { length: OTP_LENGTH, expiryMs: OTP_EXPIRY_MS },
+  '2fa_setup': { length: 8, expiryMs: 10 * 60 * 1000 },
+};
+const DEFAULT_PURPOSE = 'login';
+
+function purposeConfig(purpose) {
+  const key = String(purpose || DEFAULT_PURPOSE).toLowerCase();
+  const cfg = PURPOSES[key] || PURPOSES[DEFAULT_PURPOSE];
+  return { purpose: PURPOSES[key] ? key : DEFAULT_PURPOSE, ...cfg };
+}
+
+/** Rows written before the purpose column existed are sign-in codes. */
+function rowPurpose(row) {
+  return String((row && row.purpose) || DEFAULT_PURPOSE).toLowerCase();
+}
+
 const COOLDOWN_MS = 60 * 1000;                   // 60 seconds
 const HOURLY_WINDOW_MS = 60 * 60 * 1000;
 const DAILY_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -151,12 +177,15 @@ async function withLock(key, fn) {
 // ── OTP generation ──────────────────────────────────────────────────────────
 
 /**
- * Cryptographically secure 6-digit code. crypto.randomInt is uniform and
- * unpredictable; Math.random is neither and must never mint credentials.
+ * Cryptographically secure numeric code of the requested length. The range
+ * starts at 10^(n-1) so the code always has exactly n digits and never loses
+ * one to a leading zero. crypto.randomInt is uniform and unpredictable;
+ * Math.random is neither and must never mint credentials.
  */
-function generateOTP() {
-  const min = 10 ** (OTP_LENGTH - 1);
-  const max = 10 ** OTP_LENGTH;
+function generateOTP(length = OTP_LENGTH) {
+  const n = Number(length) > 0 ? Math.floor(Number(length)) : OTP_LENGTH;
+  const min = 10 ** (n - 1);
+  const max = 10 ** n;
   return String(crypto.randomInt(min, max));
 }
 
@@ -394,7 +423,8 @@ function evaluateLimits(rows, { limitKey, ipAddress, now, claim }) {
  * Returns { success: true, otp, requestId, expiresAt, ... } or a refusal from
  * refuse() carrying `error` + `retryAfterSeconds`/`retryAfter`.
  */
-async function requestOTP(userId, email, ipAddress) {
+async function requestOTP(userId, email, ipAddress, options = {}) {
+  const cfg = purposeConfig(options && options.purpose);
   const cleanEmail = normalizeEmail(email);
   const limitKey = canonicalEmail(cleanEmail);
   const userIdEmail = buildUserIdEmailKey(userId, cleanEmail);
@@ -421,7 +451,7 @@ async function requestOTP(userId, email, ipAddress) {
     }
 
     // ── Phase 2: append the claim (plaintext code never leaves this scope) ─
-    const otp = generateOTP();
+    const otp = generateOTP(cfg.length);
     const otpHash = await bcrypt.hash(otp, BCRYPT_SALT_ROUNDS);
     const now = Date.now();
     const claim = {
@@ -432,8 +462,9 @@ async function requestOTP(userId, email, ipAddress) {
       email: cleanEmail,
       ipAddress: ip,
       otpHash,
+      purpose: cfg.purpose,
       requestedAt: new Date(now).toISOString(),
-      expiresAt: new Date(now + OTP_EXPIRY_MS).toISOString(),
+      expiresAt: new Date(now + cfg.expiryMs).toISOString(),
       verifiedAt: '',
       status: 'pending',
       requestNumber: String(pre.dailyCount),
@@ -476,11 +507,13 @@ async function requestOTP(userId, email, ipAddress) {
     }
 
     // Only the newest code may be used: retire every older pending code bound
-    // to the same account. They still count towards the limits — requesting is
-    // the metered action, not using.
+    // to the same account *for this purpose*. They still count towards the
+    // limits — requesting is the metered action, not using. Scoping by purpose
+    // keeps a pending sign-in code alive while 2FA setup issues its own.
     const stale = rows.filter((r) => (
       r.id !== claim.id
       && String(r.status || '').toLowerCase() === 'pending'
+      && rowPurpose(r) === cfg.purpose
       && (r.userIdEmail ? String(r.userIdEmail).toLowerCase() === userIdEmail : canonicalEmail(r.email) === limitKey)
     ));
     for (const row of stale) {
@@ -498,8 +531,10 @@ async function requestOTP(userId, email, ipAddress) {
       success: true,
       otp,                                  // caller emails it; never persisted
       requestId: claim.id,
+      purpose: cfg.purpose,
+      otpLength: cfg.length,
       expiresAt: claim.expiresAt,
-      expiresInSeconds: Math.round(OTP_EXPIRY_MS / 1000),
+      expiresInSeconds: Math.round(cfg.expiryMs / 1000),
       cooldownSeconds: Math.round(COOLDOWN_MS / 1000),
       hourlyRequestCount: verdict.hourlyCount,
       dailyRequestCount: verdict.dailyCount,
@@ -524,7 +559,8 @@ function ipVerifyFailures(rows, ip, now) {
  *
  * Returns { valid: true, ... } or { valid: false, error: GENERIC_VERIFY_ERROR }.
  */
-async function verifyOTP(userId, email, otpInput, ipAddress) {
+async function verifyOTP(userId, email, otpInput, ipAddress, options = {}) {
+  const cfg = purposeConfig(options && options.purpose);
   const cleanEmail = normalizeEmail(email);
   const limitKey = canonicalEmail(cleanEmail);
   const userIdEmail = buildUserIdEmailKey(userId, cleanEmail);
@@ -536,7 +572,7 @@ async function verifyOTP(userId, email, otpInput, ipAddress) {
     return { valid: false, success: false, error: GENERIC_VERIFY_ERROR, reason };
   };
 
-  if (!limitKey || submitted.length !== OTP_LENGTH) {
+  if (!limitKey || submitted.length !== cfg.length) {
     return reject('malformed_input');
   }
 
@@ -551,12 +587,15 @@ async function verifyOTP(userId, email, otpInput, ipAddress) {
       return reject('ip_verify_blocked');
     }
 
-    // Candidate codes: bound to userId + canonical email. Rows filed with an
-    // empty userId are accepted for the same mailbox because sign-up issues a
-    // code before the account row exists — the account cannot be chosen by the
-    // client, so this does not widen who can consume the code.
+    // Candidate codes: bound to userId + canonical email, and to the purpose
+    // being verified so a sign-in code can never satisfy a 2FA setup check (or
+    // have an attempt burned against it). Rows filed with an empty userId are
+    // accepted for the same mailbox because sign-up issues a code before the
+    // account row exists — the account cannot be chosen by the client, so this
+    // does not widen who can consume the code.
     const candidates = newestFirst(rows.filter((r) => {
       if (String(r.status || '').toLowerCase() !== 'pending') return false;
+      if (rowPurpose(r) !== cfg.purpose) return false;
       if (canonicalEmail(r.email) !== limitKey && String(r.limitKey || '').toLowerCase() !== limitKey) return false;
       const rowUser = String(r.userId || '').toLowerCase().trim();
       return !rowUser || rowUser === String(userId || '').toLowerCase().trim();

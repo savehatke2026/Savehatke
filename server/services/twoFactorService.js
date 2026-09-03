@@ -45,13 +45,31 @@ const CHALLENGE_TTL_SECONDS = 5 * 60; // login half-completed, awaiting the TOTP
 
 // ── Encryption ─────────────────────────────────────────────────────────────
 // The TOTP secret has to be recoverable to verify codes, so it is encrypted
-// rather than hashed. Missing key = fail closed: enrolment is refused rather
-// than silently storing a secret in the clear.
+// rather than hashed.
+//
+// TWOFA_ENCRYPTION_KEY is the key of record. When it is unset the key is
+// derived from JWT_SECRET through a domain-separated HMAC — the same pattern
+// purposeSecret() below already uses — so a deployment that has JWT_SECRET can
+// enrol without a second variable to configure. Before this fallback existed an
+// unset TWOFA_ENCRYPTION_KEY made isConfigured() false, which surfaced in the
+// UI as "Two-factor setup is temporarily unavailable" with nothing an ordinary
+// user could do about it.
+//
+// The trade-off is explicit: with the fallback in play, rotating JWT_SECRET
+// makes every stored TOTP secret undecryptable and every enrolled user has to
+// re-enrol (they can still get in with a recovery code). Set
+// TWOFA_ENCRYPTION_KEY to decouple the two. Only when neither variable exists
+// does this fail closed rather than store a secret in the clear.
 
 function getEncryptionKey() {
-  const raw = process.env.TWOFA_ENCRYPTION_KEY || '';
-  if (!raw) return null;
-  return crypto.createHash('sha256').update(String(raw)).digest();
+  const explicit = String(process.env.TWOFA_ENCRYPTION_KEY || '').trim();
+  if (explicit) return crypto.createHash('sha256').update(explicit).digest();
+
+  const jwtSecret = String(process.env.JWT_SECRET || '').trim();
+  if (jwtSecret) {
+    return crypto.createHmac('sha256', jwtSecret).update('savehatke-2fa-secret-key-v1').digest();
+  }
+  return null;
 }
 
 function isConfigured() {
@@ -60,7 +78,7 @@ function isConfigured() {
 
 function encryptSecret(plaintext) {
   const key = getEncryptionKey();
-  if (!key) throw new Error('TWOFA_ENCRYPTION_KEY is not configured.');
+  if (!key) throw new Error('Neither TWOFA_ENCRYPTION_KEY nor JWT_SECRET is configured.');
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
   const enc = Buffer.concat([cipher.update(String(plaintext), 'utf8'), cipher.final()]);

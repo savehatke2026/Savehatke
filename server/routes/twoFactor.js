@@ -34,6 +34,12 @@ const authRoutes = require('./auth');
 
 const router = express.Router();
 
+// The enrolment email code. Kept distinct from the 6-digit sign-in code and
+// from the 6-digit authenticator code so the three can never be confused —
+// otpService partitions its ledger on this purpose.
+const SETUP_OTP_PURPOSE = '2fa_setup';
+const SETUP_OTP_LENGTH = 8;
+
 // ── Rate limits ────────────────────────────────────────────────────────────
 // Everything that checks a secret gets a budget well below the generic
 // /api/auth limit. The key differs by endpoint on purpose.
@@ -191,7 +197,9 @@ router.post('/setup/start', authenticateToken, setupLimiter, async (req, res) =>
     const me = actor(req);
     const { ip, device } = requestContext(req);
 
-    const result = await otpService.requestOTP(me.id, me.email, ip);
+    // Purpose-scoped: an 8-digit enrolment code, deliberately a different shape
+    // from both the 6-digit sign-in code and the 6-digit authenticator code.
+    const result = await otpService.requestOTP(me.id, me.email, ip, { purpose: SETUP_OTP_PURPOSE });
     if (!result.success) {
       // Cooldown / hourly / daily / per-IP ceilings all surface as the service's own copy.
       const retryAfter = result.retryAfterSeconds || result.retryAfter;
@@ -213,6 +221,8 @@ router.post('/setup/start', authenticateToken, setupLimiter, async (req, res) =>
     res.json({
       message: 'Verification code sent.',
       maskedEmail: twoFactor.maskEmail(me.email),
+      otpLength: SETUP_OTP_LENGTH,
+      expiresInSeconds: result.expiresInSeconds,
       cooldownSeconds: Math.round(otpService.COOLDOWN_MS / 1000),
     });
   } catch (err) {
@@ -232,11 +242,11 @@ router.post('/setup/verify-email', authenticateToken, accountVerifyLimiter, asyn
     const { ip, device } = requestContext(req);
     const otp = String((req.body && req.body.otp) || '').replace(/\D/g, '');
 
-    if (otp.length !== 6) {
-      return res.status(400).json({ error: 'Enter the 6-digit code we emailed you.' });
+    if (otp.length !== SETUP_OTP_LENGTH) {
+      return res.status(400).json({ error: `Enter the ${SETUP_OTP_LENGTH}-digit code we emailed you.` });
     }
 
-    const check = await otpService.verifyOTP(me.id, me.email, otp, ip);
+    const check = await otpService.verifyOTP(me.id, me.email, otp, ip, { purpose: SETUP_OTP_PURPOSE });
     if (!check.valid) {
       await twoFactor.logSecurityEvent({
         userId: me.id, email: me.email, event: twoFactor.EVENTS.VERIFY_FAILED,

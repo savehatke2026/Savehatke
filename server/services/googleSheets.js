@@ -230,7 +230,10 @@ const HEADERS = {
     //   limitKey    — canonical email the rate limit is counted on (+tags and
     //                 gmail dots folded), so alias tricks share one bucket.
     //   blockReason — why a request was refused / voided, for the audit trail.
-    'limitKey', 'blockReason',
+    //   purpose     — 'login' (6-digit sign-in code) or '2fa_setup' (8-digit
+    //                 enrolment code). Blank on pre-existing rows, which
+    //                 otpService reads as 'login'.
+    'limitKey', 'blockReason', 'purpose',
   ],
   [SHEETS.BACKUP_CODE_AUDIT]: [
     'id', 'codeSuffix', 'reason', 'ip', 'userAgent', 'chosenEmail',
