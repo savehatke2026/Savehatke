@@ -311,20 +311,50 @@
 
     /* ===================================================
        ACCOUNT SECURITY PAGE
-       Two compact cards: Security Overview + Active Sessions.
+       Five compact cards: Security Overview, Two-Factor, Active Sessions,
+       Login History and Security Alerts.
        Scoped to #view-security so no other view is affected.
     =================================================== */
     #view-security .container{max-width:780px}
     .sec-stack{display:flex;flex-direction:column;gap:18px}
 
-    /* Overview rows: label + value on the left, status on the right */
-    .sec-item{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;padding:14px 0;border-bottom:1px solid rgba(79,195,247,.06)}
-    .card-hdr+.sec-item{padding-top:0}
-    .sec-item:last-child{border-bottom:none;padding-bottom:0}
-    .sec-item-lbl{font-size:.7rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b88aa}
-    .sec-item-val{font-size:.9rem;font-weight:600;color:#e2ecff;margin-top:5px;overflow-wrap:anywhere}
-    .sec-item-val.muted{color:#8ea6c4;font-weight:500}
-    .sec-item-txt{min-width:0}
+    /* Posture banner — the overall Account Security Status, promoted out of the
+       list so the state is the first thing read. Tone class is set by
+       renderSecurityPosture(); the neutral base is the still-loading state. */
+    .sec-posture{display:flex;align-items:center;gap:14px;padding:15px 17px;border-radius:14px;background:rgba(107,136,170,.08);border:1px solid rgba(107,136,170,.2);margin-bottom:16px}
+    .sec-posture.secure{background:rgba(0,230,118,.06);border-color:rgba(0,230,118,.26)}
+    .sec-posture.action{background:rgba(255,183,77,.05);border-color:rgba(255,183,77,.26)}
+    .sec-posture-ico{width:40px;height:40px;flex:0 0 auto;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;font-weight:700;background:rgba(107,136,170,.14);border:1px solid rgba(107,136,170,.24);color:#8ea6c4}
+    .sec-posture.secure .sec-posture-ico{background:rgba(0,230,118,.1);border-color:rgba(0,230,118,.28);color:#00e676}
+    .sec-posture.action .sec-posture-ico{background:rgba(255,183,77,.09);border-color:rgba(255,183,77,.28);color:#ffd08a}
+    .sec-posture-txt{min-width:0;flex:1}
+    .sec-posture-title{font-size:.95rem;font-weight:700;color:#e2ecff}
+    .sec-posture.secure .sec-posture-title{color:#00e676}
+    .sec-posture.action .sec-posture-title{color:#ffd08a}
+    .sec-posture-sub{font-size:.79rem;color:#8ea6c4;margin-top:3px;line-height:1.5;overflow-wrap:anywhere}
+    .sec-posture-act{flex:0 0 auto}
+
+    /* Status tiles — the three at-a-glance facts, scannable in one pass */
+    .sec-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
+    .sec-tile{display:flex;flex-direction:column;gap:7px;min-width:0;padding:13px 14px;border-radius:12px;background:rgba(8,16,42,.5);border:1px solid rgba(79,195,247,.1)}
+    .sec-tile-lbl{font-size:.65rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b88aa}
+    .sec-tile-val{font-size:.85rem;font-weight:600;color:#e2ecff;line-height:1.45;overflow-wrap:anywhere}
+    .sec-tile-val.muted{color:#8ea6c4;font-weight:500}
+    .sec-tile-foot{margin-top:auto;padding-top:1px}
+
+    /* Three tiles fit a wide card; two on a small tablet; one on a phone, where
+       a single column reads faster than squeezed side-by-side values. */
+    @media(max-width:720px){
+      .sec-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media(max-width:520px){
+      .sec-grid{grid-template-columns:minmax(0,1fr)}
+      /* The fix action drops to its own full-width row rather than shrinking
+         beside the text. */
+      .sec-posture{flex-wrap:wrap;gap:12px}
+      .sec-posture-act{width:100%}
+      .sec-posture-act .btn{width:100%;justify-content:center;min-height:42px}
+    }
     .sec-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;letter-spacing:.03em;color:#00e676;background:rgba(0,230,118,.09);border:1px solid rgba(0,230,118,.2);border-radius:999px;padding:4px 10px;white-space:nowrap}
     /* Neutral badge — a true "off" state, never styled as an error */
     .sec-status.off{color:#8ea6c4;background:rgba(107,136,170,.12);border-color:rgba(107,136,170,.24)}
@@ -364,7 +394,6 @@
     .sess-foot-note{font-size:.74rem;color:#6b88aa;margin-top:9px;line-height:1.5}
 
     @media(max-width:560px){
-      .sec-item{flex-direction:column;gap:8px}
       .sess-foot .btn{width:100%;justify-content:center}
       /* Stack the row so a long browser/OS string can never push the
          sign-out button off the card. */
@@ -1477,38 +1506,42 @@
             <div class="card-title"><span class="ico">🔒</span> Security Overview</div>
           </div>
 
-          <div class="sec-item">
-            <div class="sec-item-txt">
-              <div class="sec-item-lbl">Email Verification</div>
-              <div class="sec-item-val" id="securityEmail">—</div>
+          <!-- Account Security Status, promoted to a banner: the overall posture
+               is what a user opens this page to check. Tone, copy and the inline
+               fix action are all set by renderSecurityPosture(). -->
+          <div class="sec-posture" id="securityPosture">
+            <div class="sec-posture-ico" id="securityPostureIco" aria-hidden="true">⋯</div>
+            <div class="sec-posture-txt">
+              <div class="sec-posture-title" id="securityAccountStatusTag">Checking…</div>
+              <div class="sec-posture-sub" id="securityAccountStatus">Reading your account security settings.</div>
             </div>
-            <span class="sec-status" id="securityEmailStatus">✓ Verified</span>
+            <div class="sec-posture-act" id="securityPostureAct" style="display:none">
+              <button class="btn btn-primary btn-sm" onclick="startTwoFactor('enable')">Enable 2FA</button>
+            </div>
           </div>
 
-          <!-- Mirrors the 2FA card below; both are painted from the same
-               /api/auth/2fa/status response so they can never disagree. -->
-          <div class="sec-item">
-            <div class="sec-item-txt">
-              <div class="sec-item-lbl">Two-Factor Authentication</div>
-              <div class="sec-item-val" id="securityTwoFactor">Authenticator app</div>
+          <div class="sec-grid">
+            <div class="sec-tile">
+              <div class="sec-tile-lbl">Email Verification</div>
+              <div class="sec-tile-val" id="securityEmail">—</div>
+              <div class="sec-tile-foot">
+                <span class="sec-status" id="securityEmailStatus">✓ Verified</span>
+              </div>
             </div>
-            <span class="sec-status off" id="securityTwoFactorTag">Checking…</span>
-          </div>
 
-          <!-- Derived, never stored: "Secure" only when the email is verified
-               and 2FA is on. Painted by renderSecurityPosture(). -->
-          <div class="sec-item">
-            <div class="sec-item-txt">
-              <div class="sec-item-lbl">Account Security Status</div>
-              <div class="sec-item-val muted" id="securityAccountStatus">Checking…</div>
+            <!-- Mirrors the 2FA card below; both are painted from the same
+                 /api/auth/2fa/status response so they can never disagree. -->
+            <div class="sec-tile">
+              <div class="sec-tile-lbl">Two-Factor Authentication</div>
+              <div class="sec-tile-val" id="securityTwoFactor">Authenticator app</div>
+              <div class="sec-tile-foot">
+                <span class="sec-status off" id="securityTwoFactorTag">Checking…</span>
+              </div>
             </div>
-            <span class="sec-status off" id="securityAccountStatusTag">Checking…</span>
-          </div>
 
-          <div class="sec-item">
-            <div class="sec-item-txt">
-              <div class="sec-item-lbl">Last Successful Login</div>
-              <div class="sec-item-val" id="securityLastLogin">—</div>
+            <div class="sec-tile">
+              <div class="sec-tile-lbl">Last Successful Login</div>
+              <div class="sec-tile-val" id="securityLastLogin">—</div>
             </div>
           </div>
         </div>
@@ -2643,22 +2676,31 @@
   const SEC_POSTURE = { emailVerified: null, twoFactor: null };
 
   function renderSecurityPosture() {
-    const val = document.getElementById('securityAccountStatus');
-    const tag = document.getElementById('securityAccountStatusTag');
-    if (!val || !tag) return;
+    const wrap = document.getElementById('securityPosture');
+    const ico = document.getElementById('securityPostureIco');
+    const title = document.getElementById('securityAccountStatusTag');
+    const sub = document.getElementById('securityAccountStatus');
+    const act = document.getElementById('securityPostureAct');
+    if (!wrap || !title || !sub) return;
 
     const { emailVerified, twoFactor } = SEC_POSTURE;
     if (emailVerified === null || twoFactor === null) return; // still loading
 
     const secure = emailVerified === true && twoFactor === true;
-    val.textContent = secure
-      ? 'Your account is protected'
-      : (twoFactor === false ? 'Turn on two-factor authentication' : 'Review your security settings');
-    val.classList.toggle('muted', !secure);
+    wrap.classList.toggle('secure', secure);
+    wrap.classList.toggle('action', !secure);
+    if (ico) ico.textContent = secure ? '✓' : '!';
 
-    tag.textContent = secure ? '✓ Secure' : 'Action Required';
-    tag.classList.toggle('off', false);
-    tag.classList.toggle('pending', !secure);
+    title.textContent = secure ? 'Secure' : 'Action Required';
+    sub.textContent = secure
+      ? 'Your email is verified and two-factor authentication is on.'
+      : (twoFactor === false
+        ? 'Two-factor authentication is off. Turn it on to protect your account if your email is ever compromised.'
+        : 'Your email address is not verified yet.');
+
+    // Only the 2FA gap gets an inline fix, because it is the only one this page
+    // can actually start. Email verification happens on the sign-in path.
+    if (act) act.style.display = (!secure && twoFactor === false) ? '' : 'none';
   }
 
   // ─── Suspension state ──────────────────────────────────────────
@@ -4069,7 +4111,7 @@
     box.innerHTML = LH_SKELETON;
 
     try {
-      renderLoginHistory(await api('/auth/login-history'));
+      renderLoginHistory(await api('/auth/login-history?limit=10'));
     } catch (err) {
       if (!err.sessionExpired) {
         box.innerHTML = `

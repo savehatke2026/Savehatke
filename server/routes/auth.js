@@ -1606,7 +1606,14 @@ router.post('/sessions/revoke-others', authenticateToken, async (req, res) => {
 // If the audit log is unreachable the successful history is still returned,
 // with failures_available:false so the UI can say so honestly.
 router.get('/login-history', authenticateToken, async (req, res) => {
-  const LIMIT = 50;
+  // The Security page shows the 10 most recent records, so that is the default
+  // here too: every entry carries an IP address and an approximate location,
+  // and there is no reason to put more of that on the wire than the caller
+  // actually displays. An explicit ?limit= is honoured up to MAX_LIMIT.
+  const MAX_LIMIT = 50;
+  const DEFAULT_LIMIT = 10;
+  const asked = Number.parseInt(String(req.query.limit || ''), 10);
+  const LIMIT = Number.isFinite(asked) && asked > 0 ? Math.min(asked, MAX_LIMIT) : DEFAULT_LIMIT;
 
   try {
     const rows = await supabase.getUserSessions(req.user.id);
