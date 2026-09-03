@@ -1829,11 +1829,10 @@
       <div class="view-hdr">
         <div>
           <div class="view-title">Help &amp; <span class="gtext">Support</span></div>
-          <div class="view-subtitle">Raise tickets and track your support cases</div>
+          <div class="view-subtitle">Track your support cases and replies</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
-          <button class="btn btn-primary btn-sm" onclick="openNewCaseModal()">+ New Case</button>
         </div>
       </div>
 
@@ -1856,8 +1855,8 @@
       <div class="card">
         <div class="card-hdr">
           <div class="card-title"><span class="ico">🎧</span> Support</div>
-          <!-- Kept as a distinct action: this is the general contact page, not a
-               trackable case. Creating a case is the + New Case button above. -->
+          <!-- The only route for raising a case: the contact page carries the
+               ticket form. This view is tracking only. -->
           <a href="support" class="btn btn-ghost btn-sm">Contact Support</a>
         </div>
 
@@ -3242,16 +3241,14 @@
         <div class="sup-empty">
           <div class="sup-empty-ico">🎧</div>
           <div class="sup-empty-title">No support cases</div>
-          <div class="sup-empty-sub">You haven't raised any support cases yet. Create one and we'll pick it up.</div>
-          <button class="btn btn-primary btn-sm" onclick="openNewCaseModal()">+ New Case</button>
+          <div class="sup-empty-sub">You haven't raised any support cases yet. Use Contact Support to send us one.</div>
         </div>`;
     }
     return `
       <div class="sup-empty">
         <div class="sup-empty-ico">✅</div>
         <div class="sup-empty-title">No open cases</div>
-        <div class="sup-empty-sub">You're all caught up. Create a new case if you need help.</div>
-        <button class="btn btn-primary btn-sm" onclick="openNewCaseModal()">+ New Case</button>
+        <div class="sup-empty-sub">You're all caught up. Use Contact Support if you need help.</div>
       </div>`;
   }
 
@@ -3322,7 +3319,7 @@
            </div>`
         : `<div class="sup-reply-closed">
              This case is ${SUPPORT_STATUS[supportStatusKey(ticket)][0].toLowerCase()} and can no longer be
-             replied to. Create a new case if you still need help.
+             replied to. Contact support if you still need help.
            </div>`;
     }
 
