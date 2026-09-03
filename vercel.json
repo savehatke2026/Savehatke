@@ -21,6 +21,12 @@
       ]
     }
   ],
+  "crons": [
+    {
+      "path": "/api/admin/reports/monthly/run",
+      "schedule": "0 2 1 * *"
+    }
+  ],
   "routes": [
     {
       "src": "/api/(.*)",

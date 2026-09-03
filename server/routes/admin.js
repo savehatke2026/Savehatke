@@ -4,6 +4,7 @@
 
 const express = require('express');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin, generateToken } = require('../middleware/auth');
@@ -1365,12 +1366,36 @@ router.post('/reports/monthly/:month/resend', authenticateToken, requireAdmin, a
   }
 });
 
-// POST /api/admin/reports/monthly/run — generate last month's report if missing.
-// Admin session, or an external scheduler presenting CRON_SECRET.
-router.post('/reports/monthly/run', async (req, res, next) => {
+// GET|POST /api/admin/reports/monthly/run — generate last month's report if
+// missing. This is the scheduled entry point: vercel.json runs it at 02:00 UTC
+// on the 1st (07:30 IST), which is what makes the report actually go out on the
+// 1st rather than whenever an admin next opens the panel.
+//
+// Vercel cron invokes with GET and, when CRON_SECRET is set, presents it as
+// `Authorization: Bearer <secret>`; the older `x-cron-key` contract still works
+// for any other external scheduler. Anything else falls through to a normal
+// admin session. Vercel does not retry a failed run and delivery is best
+// effort, so ensurePreviousMonthReport() stays idempotent per month and the
+// in-request checks remain as a catch-up.
+function cronSecretMatches(req) {
   const secret = String(process.env.CRON_SECRET || '').trim();
-  const presented = String(req.get('x-cron-key') || '').trim();
-  if (secret && presented && presented === secret) return handleMonthlyRun(req, res);
+  if (!secret) return false;
+
+  const bearer = String(req.get('authorization') || '').trim();
+  const presented = bearer.toLowerCase().startsWith('bearer ')
+    ? bearer.slice(7).trim()
+    : String(req.get('x-cron-key') || '').trim();
+  if (!presented) return false;
+
+  // Constant-time compare — this is a shared secret checked on every hit.
+  const a = Buffer.from(presented);
+  const b = Buffer.from(secret);
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+router.all('/reports/monthly/run', async (req, res, next) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
+  if (cronSecretMatches(req)) return handleMonthlyRun(req, res);
   return authenticateToken(req, res, () => requireAdmin(req, res, () => handleMonthlyRun(req, res)));
 });
 
