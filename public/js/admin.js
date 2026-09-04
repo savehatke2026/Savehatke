@@ -2056,7 +2056,7 @@ async function loadUsers() {
     renderUsers();
     renderLoginHistory();
   } catch (err) {
-    if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+    if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
   } finally {
     usersLoading = false;
   }
@@ -2077,7 +2077,7 @@ function renderUsers() {
   });
 
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="8" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
+    body.innerHTML = '<tr><td colspan="9" style="text-align:center;color:#6b88aa;padding:24px;">No users match your filters.</td></tr>';
     return;
   }
 
@@ -2092,8 +2092,9 @@ function renderUsers() {
     return `<tr>
       <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
       <td><div style="display:flex;align-items:center;gap:8px">${userAvatarHtml(u, 28)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
-      <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDate(u.createdAt)}</td>
       <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLoginAt)}</td>
+      <td style="text-align:center;font-size:.82rem;color:#a8c0dc">${fmtDateTime(u.lastLogoutAt)}</td>
+      <td style="text-align:center">${loginMethodBadge(u.loginMethod)}</td>
       <td style="text-align:center">${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
       <td style="text-align:center"><span class="mono" style="font-weight:600;color:#ce93d8">${u.couponsBought || 0}</span></td>
       <td style="text-align:center"><span class="mono" style="font-weight:600;color:#00e676">${u.couponsSold || 0}</span></td>
