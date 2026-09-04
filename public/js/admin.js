@@ -320,10 +320,10 @@ async function loadInventory() {
                 <th>Brand</th>
                 <th>Code</th>
                 <th>Category</th>
-                <th>Value</th>
+                <th class="ta-center">Value</th>
                 <th>Price</th>
-                <th title="Show the 🔥 Sale badge on the marketplace card">Sale</th>
-                <th title="Show the expiry countdown on the marketplace card. Turning it off keeps the date — it just stops counting down.">Timer</th>
+                <th class="ta-center" title="Show the 🔥 Sale badge on the marketplace card">Sale</th>
+                <th class="ta-center" title="Show the expiry countdown on the marketplace card. Turning it off keeps the date — it just stops counting down.">Timer</th>
                 <th title="When this coupon expires — drives the countdown on the marketplace card">Expires</th>
                 <th>Source</th>
                 <th>Status</th>
@@ -391,15 +391,15 @@ function invRowHtml(c) {
       </td>
       <td><code class="inv-code">${escHtml(c.code || '')}</code></td>
       <td>${escHtml(c.category || '—')}</td>
-      <td>₹${escHtml(c.originalValue || '—')}</td>
+      <td class="ta-center">₹${escHtml(c.originalValue || '—')}</td>
       <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
-      <td>
+      <td class="ta-center">
         <label class="toggle" title="${onSale ? 'Sale is ON — turn it off' : 'Sale is OFF — turn it on'}">
           <input type="checkbox" ${onSale ? 'checked' : ''} onchange="setCouponSale('${id}', this.checked, this)">
           <span class="toggle-slider"></span>
         </label>
       </td>
-      <td>
+      <td class="ta-center">
         <label class="toggle" title="${timerOn ? 'Timer is ON — turn it off to hide the countdown (the date is kept)' : 'Timer is OFF — turn it on to show the countdown again'}">
           <input type="checkbox" ${timerOn ? 'checked' : ''} onchange="setCouponTimer('${id}', this.checked, this)">
           <span class="toggle-slider"></span>
@@ -743,7 +743,7 @@ function activeRowHtml(c) {
       <td>${escHtml(c.category || '—')}</td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
       <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
-      <td><span class="cm-seller" title="${escHtml(seller)}">${escHtml(seller)}</span></td>
+      <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<span class="cm-seller" title="${escHtml(seller)}">${escHtml(seller)}</span></div></td>
       <td>${cmWhenHtml(approvedAt, fallbackAt)}</td>
       <td>${typeof invExpiryChip === 'function' ? invExpiryChip(c.expiryDate, c.timerOn !== false) : escHtml(c.expiryDate || '—')}</td>
       <td><span class="badge badge-${srcBadge}">${escHtml(c.source || '—')}</span></td>
@@ -873,7 +873,7 @@ function pendingRowHtml(c) {
       <td>${escHtml(c.category || '—')}</td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
       <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
-      <td><span class="cm-seller" title="${escHtml(seller)}">${escHtml(seller)}</span></td>
+      <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<span class="cm-seller" title="${escHtml(seller)}">${escHtml(seller)}</span></div></td>
       <td>${cmWhenHtml(c.addedAt || c.createdAt || '', '')}</td>
       <td><span class="badge badge-${proof ? 'blue' : 'orange'}">${escHtml(c.status || 'pending')}</span></td>
       <td>
@@ -957,21 +957,54 @@ function cmWhenHtml(when, fallback) {
   `;
 }
 
-// ── Reports → Monthly Reports ──────────────────────────────────────────
-// Deliberately small: the current month's three figures, then one row per month
-// already mailed to the configured admins with each admin's delivery state.
-// Opening the section also lets the server generate last month's report if the
-// 1st has passed and it has not been produced yet, which is why the table can
-// gain a row on a plain refresh.
-
-const MR_STATUS = {
-  sent: { badge: 'badge-green', text: '✅ Sent' },
-  pending: { badge: 'badge-orange', text: '⏳ Pending' },
-  not_sent: { badge: 'badge-gray', text: '❌ Not Sent' },
-  failed: { badge: 'badge-red', text: '⚠️ Failed' },
-};
+// ── Reports → Monthly Report Management ────────────────────────────────
+// The current month's figures and how reporting itself is doing, then one card
+// per completed month with its delivery state and per-recipient outcome. Opening
+// the section also lets the server generate last month's report if the 1st has
+// passed and it has not been produced yet, which is why the list can gain a card
+// on a plain refresh — mrDedupeByMonth() keeps that from ever showing twice.
 
 let monthlyReportsCache = [];
+const mrFilters = { search: '', month: '', status: '', recipient: '' };
+
+/** Keeps the first (newest) entry for each month key, preserving server order. */
+function mrDedupeByMonth(reports) {
+  const seen = new Set();
+  return (reports || []).filter((r) => {
+    const key = String(r && r.month || '');
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Configured recipients only — an unconfigured slot is not a failed delivery. */
+function mrConfigured(report) {
+  return ((report && report.admins) || []).filter((a) => a && a.configured);
+}
+
+/**
+ * One word for how a month's delivery went, and it drives both the card's badge
+ * and its left rail.
+ *   ok   every configured recipient received it
+ *   warn some did, some did not
+ *   bad  none did
+ *   none no recipients are configured at all
+ */
+function mrDeliveryState(report) {
+  const list = mrConfigured(report);
+  if (!list.length) return 'none';
+  const sent = list.filter((a) => String(a.status) === 'sent').length;
+  if (sent === list.length) return 'ok';
+  return sent ? 'warn' : 'bad';
+}
+
+const MR_STATE_LABEL = {
+  ok: ['badge-green', 'Sent'],
+  warn: ['badge-orange', 'Partly delivered'],
+  bad: ['badge-red', 'Failed'],
+  none: ['badge-gray', 'No recipients'],
+};
 
 /** Small local helper: admin.js has no shared text setter. */
 function mrSetText(id, value) {
@@ -986,13 +1019,19 @@ async function loadMonthlyReports() {
 
   try {
     const data = await api('/admin/reports/monthly', { useAdmin: true });
-    monthlyReportsCache = data.reports || [];
+    // One entry per month, newest first. The server already sorts and keys on
+    // month, but a resend replaces a row and an auto-generation appends one, so
+    // this de-dupes defensively: a repeated month key would otherwise render the
+    // same report twice while still looking chronological.
+    monthlyReportsCache = mrDedupeByMonth(data.reports || []);
 
     const cur = data.currentMonth || {};
     mrSetText('mrRevenue', `₹${Number(cur.revenue || 0).toLocaleString('en-IN')}`);
     mrSetText('mrBought', String(Number(cur.couponsBought || 0)));
     mrSetText('mrSold', String(Number(cur.couponsSold || 0)));
     mrSetText('mrRevenueSub', cur.periodLabel ? `${cur.monthLabel} · ${cur.periodLabel}` : 'Current month');
+    mrRenderDeliveryMetrics();
+    mrPopulateFilterOptions();
 
     const recipients = data.recipients || [];
     const note = document.getElementById('mrRecipients');
@@ -1013,12 +1052,91 @@ async function loadMonthlyReports() {
   }
 }
 
+/** Reports Generated + Delivery Success cells in the metric strip. */
+function mrRenderDeliveryMetrics() {
+  mrSetText('mrGenerated', String(monthlyReportsCache.length));
+  const newest = monthlyReportsCache[0];
+  mrSetText('mrGeneratedSub', newest
+    ? `Latest: ${newest.monthLabel || newest.month}`
+    : 'Months on record');
+
+  let total = 0;
+  let sent = 0;
+  monthlyReportsCache.forEach((r) => {
+    mrConfigured(r).forEach((a) => {
+      total += 1;
+      if (String(a.status) === 'sent') sent += 1;
+    });
+  });
+  mrSetText('mrDelivery', total ? `${Math.round((sent / total) * 100)}%` : '—');
+  mrSetText('mrDeliverySub', total
+    ? `${sent} of ${total} deliveries succeeded`
+    : 'Across all recipients');
+}
+
+/** Month and recipient dropdowns are built from the data actually on record. */
+function mrPopulateFilterOptions() {
+  const monthSel = document.getElementById('mrMonthFilter');
+  if (monthSel) {
+    const keep = monthSel.value;
+    monthSel.innerHTML = '<option value="">All months</option>'
+      + monthlyReportsCache.map((r) => `<option value="${escHtml(r.month)}">${escHtml(r.monthLabel || r.month)}</option>`).join('');
+    monthSel.value = monthlyReportsCache.some((r) => r.month === keep) ? keep : '';
+    mrFilters.month = monthSel.value;
+  }
+
+  const rcptSel = document.getElementById('mrRecipientFilter');
+  if (rcptSel) {
+    const keep = rcptSel.value;
+    const seen = [];
+    monthlyReportsCache.forEach((r) => mrConfigured(r).forEach((a) => {
+      if (a.email && !seen.includes(a.email)) seen.push(a.email);
+    }));
+    rcptSel.innerHTML = '<option value="">All recipients</option>'
+      + seen.map((e) => `<option value="${escHtml(e)}">${escHtml(e)}</option>`).join('');
+    rcptSel.value = seen.includes(keep) ? keep : '';
+    mrFilters.recipient = rcptSel.value;
+  }
+}
+
+function mrApplyFilters() {
+  mrFilters.search = String(document.getElementById('mrSearch')?.value || '').trim().toLowerCase();
+  mrFilters.month = document.getElementById('mrMonthFilter')?.value || '';
+  mrFilters.status = document.getElementById('mrStatusFilter')?.value || '';
+  mrFilters.recipient = document.getElementById('mrRecipientFilter')?.value || '';
+  renderMonthlyReports();
+}
+
+function mrClearFilters() {
+  ['mrSearch', 'mrMonthFilter', 'mrStatusFilter', 'mrRecipientFilter'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.value = '';
+  });
+  mrApplyFilters();
+}
+
+/** Filtering never reorders: the server's newest-first order is preserved. */
+function mrVisibleReports() {
+  return monthlyReportsCache.filter((r) => {
+    if (mrFilters.month && String(r.month) !== mrFilters.month) return false;
+    if (mrFilters.status && mrDeliveryState(r) !== mrFilters.status) return false;
+    if (mrFilters.recipient
+      && !mrConfigured(r).some((a) => a.email === mrFilters.recipient)) return false;
+    if (mrFilters.search) {
+      const hay = `${r.month || ''} ${r.monthLabel || ''} ${r.periodLabel || ''} `
+        + mrConfigured(r).map((a) => a.email).join(' ');
+      if (!hay.toLowerCase().includes(mrFilters.search)) return false;
+    }
+    return true;
+  });
+}
+
 function renderMonthlyReports() {
-  const table = document.getElementById('mrTable');
-  if (!table) return;
+  const list = document.getElementById('mrTable');
+  if (!list) return;
 
   if (!monthlyReportsCache.length) {
-    table.innerHTML = cmStateHtml(
+    list.innerHTML = cmStateHtml(
       '🗓️',
       'No monthly report yet',
       'The first report is generated automatically on the 1st of next month and emailed to both admins.',
@@ -1026,68 +1144,111 @@ function renderMonthlyReports() {
     return;
   }
 
-  table.innerHTML = `
-    <div class="table-card">
-      <div class="overflow-x">
-        <table class="mr-table">
-          <thead>
-            <tr>
-              <th>Month</th>
-              <th>Report Period</th>
-              <th>Revenue</th>
-              <th>Coupons Bought</th>
-              <th>Coupons Sold</th>
-              <th>Admin 1</th>
-              <th>Admin 2</th>
-              <th class="ta-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${monthlyReportsCache.map(mrRowHtml).join('')}
-          </tbody>
-        </table>
+  const rows = mrVisibleReports();
+  if (!rows.length) {
+    list.innerHTML = cmStateHtml(
+      '🔍',
+      'No reports match these filters',
+      'Try a different month, delivery state or recipient.',
+    );
+    return;
+  }
+
+  const note = rows.length === monthlyReportsCache.length
+    ? `${rows.length} report${rows.length === 1 ? '' : 's'}, newest first`
+    : `${rows.length} of ${monthlyReportsCache.length} reports`;
+  list.innerHTML = `<div class="mr-count-note">${note}</div>` + rows.map(mrCardHtml).join('');
+}
+
+
+function mrWhen(iso, withTime = true) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleString('en-IN', withTime
+    ? { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }
+    : { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+/** Per-recipient state maps onto the same three tones as the card's rail. */
+function mrRecipientTone(admin) {
+  const s = String(admin && admin.status || '');
+  if (s === 'sent') return 'ok';
+  if (s === 'failed') return 'bad';
+  return 'warn';
+}
+
+function mrCardHtml(r) {
+  const month = escHtml(r.month || '');
+  const state = mrDeliveryState(r);
+  const [badgeClass, badgeText] = MR_STATE_LABEL[state] || MR_STATE_LABEL.none;
+  const list = mrConfigured(r);
+  const sent = list.filter((a) => String(a.status) === 'sent').length;
+
+  const recipients = list.length
+    ? list.map((a) => {
+      const tone = mrRecipientTone(a);
+      const when = mrWhen(a.at);
+      return `
+        <div class="mr-rcpt">
+          <span class="mr-rcpt-dot ${tone}" aria-hidden="true"></span>
+          ${a.email ? emailAvatarHtml(a.email, 20) : ''}
+          <span class="mr-rcpt-mail">${escHtml(a.email || '—')}</span>
+          ${when ? `<span class="mr-rcpt-when">${escHtml(when)}</span>` : ''}
+        </div>
+        ${a.error ? `<div class="mr-rcpt-err">${escHtml(a.email || 'Recipient')}: ${escHtml(a.error)}</div>` : ''}`;
+    }).join('')
+    : '<div class="mr-rcpt"><span class="mr-rcpt-mail">No admin recipients are configured.</span></div>';
+
+  const generated = mrWhen(r.generatedAt);
+  const resent = r.lastSentAt && r.lastSentAt !== r.generatedAt ? mrWhen(r.lastSentAt) : '';
+
+  return `
+    <div class="mr-card ${state}" data-month="${month}" tabindex="0" role="button"
+         aria-label="Open details for ${escHtml(r.monthLabel || r.month || 'this report')}"
+         onclick="mrOpenDrawer('${month}')"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();mrOpenDrawer('${month}');}">
+      <div class="mr-card-top">
+        <div style="min-width:0">
+          <div class="mr-card-month">${escHtml(r.monthLabel || r.month || '—')}</div>
+          <div class="mr-card-period">${escHtml(r.periodLabel || '—')}</div>
+        </div>
+        <span class="badge ${badgeClass}">${badgeText}</span>
+      </div>
+
+      <div class="mr-card-metrics">
+        <div class="mr-metric">
+          <div class="mr-metric-lbl">Revenue</div>
+          <div class="mr-metric-val green">₹${Number(r.revenue || 0).toLocaleString('en-IN')}</div>
+        </div>
+        <div class="mr-metric">
+          <div class="mr-metric-lbl">Bought</div>
+          <div class="mr-metric-val">${Number(r.couponsBought || 0)}</div>
+        </div>
+        <div class="mr-metric">
+          <div class="mr-metric-lbl">Sold</div>
+          <div class="mr-metric-val">${Number(r.couponsSold || 0)}</div>
+        </div>
+        <div class="mr-metric">
+          <div class="mr-metric-lbl">Delivery</div>
+          <div class="mr-metric-val">${list.length ? `${sent}/${list.length} Sent` : '—'}</div>
+        </div>
+      </div>
+
+      <div class="mr-rcpt-lbl">Recipients</div>
+      <div class="mr-rcpts">${recipients}</div>
+
+      <div class="mr-card-foot">
+        <span class="mr-gen">${generated ? `Generated: ${escHtml(generated)}` : 'Generation time not recorded'}${resent ? ` · Last sent: ${escHtml(resent)}` : ''}</span>
+        <div class="mr-card-act" onclick="event.stopPropagation()">
+          <button class="btn btn-ghost btn-xs" onclick="viewMonthlyReportPdf('${month}')" title="Open the report PDF">📄 View Report</button>
+          <button class="btn btn-info btn-xs" onclick="resendMonthlyReport('${month}', this)" title="Email it to the configured admins again">✉️ Resend</button>
+        </div>
       </div>
     </div>
   `;
 }
 
-function mrRowHtml(r) {
-  const month = escHtml(r.month || '');
-  return `
-    <tr data-month="${month}">
-      <td><span class="mr-month">${escHtml(r.monthLabel || r.month || '—')}</span></td>
-      <td><span class="mr-period">${escHtml(r.periodLabel || '—')}</span></td>
-      <td><span class="mr-amount">₹${Number(r.revenue || 0).toLocaleString('en-IN')}</span></td>
-      <td><span class="mr-count">${Number(r.couponsBought || 0)}</span></td>
-      <td><span class="mr-count">${Number(r.couponsSold || 0)}</span></td>
-      <td>${mrAdminCellHtml(r.admins && r.admins[0])}</td>
-      <td>${mrAdminCellHtml(r.admins && r.admins[1])}</td>
-      <td>
-        <div class="admin-actions ta-right">
-          <button class="btn btn-ghost btn-xs" onclick="viewMonthlyReportPdf('${month}')" title="Open the report PDF">📄 View PDF</button>
-          <button class="btn btn-info btn-xs" onclick="resendMonthlyReport('${month}', this)" title="Email it to the configured admins again">✉️ Resend</button>
-        </div>
-      </td>
-    </tr>
-  `;
-}
-
-function mrAdminCellHtml(admin) {
-  if (!admin || !admin.configured) {
-    return '<span class="badge badge-gray">Not configured</span>';
-  }
-  const state = MR_STATUS[String(admin.status || 'pending')] || MR_STATUS.pending;
-  const when = admin.at
-    ? new Date(admin.at).toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
-    : '';
-  return `
-    <div class="mr-admin"${admin.error ? ` title="${escHtml(admin.error)}"` : ''}>
-      <span class="badge ${state.badge}">${state.text}</span>
-      <span class="mr-admin-mail">${escHtml(admin.email || '')}</span>
-      ${when ? `<span class="mr-when">${escHtml(when)}</span>` : ''}
-    </div>
-  `;
-}
 
 /** Months where a configured admin still has not received the report. */
 function mrSetNavBadge(reports) {
@@ -1152,6 +1313,110 @@ async function resendMonthlyReport(month, btn) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = original; }
   }
+}
+
+// ── Report details drawer ──────────────────────────────────────────────
+// Opens over the list rather than navigating: the same cache the cards were
+// rendered from is the only source, so the drawer can never disagree with them.
+let mrDrawerMonth = '';
+
+function mrOpenDrawer(month) {
+  const r = monthlyReportsCache.find((x) => String(x.month) === String(month));
+  if (!r) return;
+  mrDrawerMonth = String(month);
+
+  const list = mrConfigured(r);
+  const sent = list.filter((a) => String(a.status) === 'sent').length;
+  const [badgeClass, badgeText] = MR_STATE_LABEL[mrDeliveryState(r)] || MR_STATE_LABEL.none;
+
+  mrSetText('mrDrawerTitle', r.monthLabel || r.month || 'Report');
+  mrSetText('mrDrawerSub', r.periodLabel || '');
+
+  const facts = [
+    ['Report month', escHtml(r.monthLabel || r.month || '—'), ''],
+    ['Report period', escHtml(r.periodLabel || '—'), ''],
+    ['Revenue', `₹${Number(r.revenue || 0).toLocaleString('en-IN')}`, 'mono green'],
+    ['Coupons bought', String(Number(r.couponsBought || 0)), 'mono'],
+    ['Coupons sold', String(Number(r.couponsSold || 0)), 'mono'],
+    ['Generated', escHtml(mrWhen(r.generatedAt) || 'Not recorded'), ''],
+    ['Generated by', escHtml(r.generatedBy || 'Automatic'), ''],
+    ['Last sent', escHtml(mrWhen(r.lastSentAt) || 'Never'), ''],
+  ].map(([k, v, cls]) => `
+    <div class="mr-dl-row">
+      <span class="mr-dl-k">${k}</span>
+      <span class="mr-dl-v ${cls}">${v}</span>
+    </div>`).join('');
+
+  const recipients = list.length
+    ? list.map((a) => {
+      const tone = mrRecipientTone(a);
+      const label = { ok: 'Delivered', warn: 'Pending', bad: 'Failed' }[tone];
+      const when = mrWhen(a.at);
+      return `
+        <div class="mr-dr-rcpt">
+          <div class="mr-dr-rcpt-top">
+            <span class="mr-rcpt-dot ${tone}" aria-hidden="true"></span>
+            ${a.email ? emailAvatarHtml(a.email, 22) : ''}
+            <span class="mr-dr-rcpt-mail">${escHtml(a.email || '—')}</span>
+          </div>
+          <div class="mr-dr-rcpt-meta">
+            Status: <strong>${label}</strong>${when ? ` · ${escHtml(when)}` : ' · no delivery timestamp'}
+          </div>
+          ${a.error ? `<div class="mr-rcpt-err">${escHtml(a.error)}</div>` : ''}
+        </div>`;
+    }).join('')
+    : '<div class="mr-dr-rcpt"><div class="mr-dr-rcpt-meta">No admin recipients are configured, so this report cannot be delivered.</div></div>';
+
+  const body = document.getElementById('mrDrawerBody');
+  if (body) {
+    body.innerHTML = `
+      <div class="mr-drawer-sec">Delivery</div>
+      <div class="mr-dl">
+        <div class="mr-dl-row">
+          <span class="mr-dl-k">Overall</span>
+          <span class="mr-dl-v"><span class="badge ${badgeClass}">${badgeText}</span></span>
+        </div>
+        <div class="mr-dl-row">
+          <span class="mr-dl-k">Recipients reached</span>
+          <span class="mr-dl-v mono">${list.length ? `${sent} of ${list.length}` : '—'}</span>
+        </div>
+      </div>
+      <div class="mr-drawer-sec">Report</div>
+      <div class="mr-dl">${facts}</div>
+      <div class="mr-drawer-sec">Recipients</div>
+      ${recipients}`;
+  }
+
+  // Rebound each open so the buttons always act on the month on screen.
+  const pdf = document.getElementById('mrDrawerPdf');
+  if (pdf) pdf.onclick = () => viewMonthlyReportPdf(mrDrawerMonth);
+  const resend = document.getElementById('mrDrawerResend');
+  if (resend) resend.onclick = () => resendMonthlyReport(mrDrawerMonth, resend);
+
+  document.getElementById('mrDrawer')?.classList.add('open');
+  document.getElementById('mrDrawerScrim')?.classList.add('open');
+}
+
+function mrCloseDrawer() {
+  document.getElementById('mrDrawer')?.classList.remove('open');
+  document.getElementById('mrDrawerScrim')?.classList.remove('open');
+  mrDrawerMonth = '';
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.getElementById('mrDrawer')?.classList.contains('open')) {
+    mrCloseDrawer();
+  }
+});
+
+/** Header action: the newest report on record, without hunting for its card. */
+function mrViewLatestPdf() {
+  const newest = monthlyReportsCache[0];
+  if (!newest) {
+    showToast('There is no report to open yet.', 'warning');
+    return;
+  }
+  viewMonthlyReportPdf(newest.month);
 }
 
 // ── Coupon Reviews (In-Panel) ──────────────────────────────────────────
@@ -1242,7 +1507,7 @@ function renderReviewTable(type, coupons) {
                 <td>${escapeHtml(c.category || 'General')}</td>
                 <td>₹${escapeHtml(c.originalValue || '—')}</td>
                 <td style="font-weight:700;color:#00e676">₹${escapeHtml(c.sellingPrice || '0')}</td>
-                <td style="font-size:.8rem;color:#a8c0dc;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${escapeHtml(sellerDisplay)}">${escapeHtml(sellerDisplay)}</td>
+                <td style="font-size:.8rem;color:#a8c0dc;max-width:140px" title="${escapeHtml(sellerDisplay)}"><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 22) : ''}<span class="cm-seller">${escapeHtml(sellerDisplay)}</span></div></td>
                 <td style="font-size:.78rem;color:#6b88aa">${submittedDate}</td>
                 <td><span class="badge badge-${statusBadge}">${escapeHtml(c.status || 'pending')}</span></td>
                 <td>
@@ -1355,9 +1620,16 @@ async function openReviewModal(couponId) {
     const subEl = document.getElementById('armSubmitted');
     if (subEl) subEl.textContent = c.addedAt || c.createdAt ? new Date(c.addedAt || c.createdAt).toLocaleString('en-IN') : '—';
 
-    // Seller Details
+    // Seller Details — the account's own Google photo beside the address.
     const sEmailEl = document.getElementById('armSellerEmail');
-    if (sEmailEl) sEmailEl.textContent = c.sellerEmail || 'Admin';
+    if (sEmailEl) {
+      const sellerEmail = c.sellerEmail || '';
+      sEmailEl.innerHTML = sellerEmail
+        ? `<span style="display:inline-flex;align-items:center;gap:8px;min-width:0">`
+          + `${emailAvatarHtml(sellerEmail, 24)}`
+          + `<span style="overflow-wrap:anywhere">${escapeHtml(sellerEmail)}</span></span>`
+        : 'Admin';
+    }
 
     const sIdEl = document.getElementById('armSellerId');
     if (sIdEl) sIdEl.textContent = c.sellerUserId || '—';
@@ -1605,6 +1877,107 @@ function userAvatarHtml(user, size = 28, extra = '') {
     + `</span>`;
 }
 
+/* ── Email → Google photo directory ───────────────────────────────────────
+   Most admin sections carry only an email: a coupon row has sellerEmail, a
+   payout has sellerEmail, a session has email. The Google photo lives on the
+   user record, so those sections resolve it through this directory rather than
+   deriving anything from the address itself.
+
+   The lookup is an exact match on the lowercased email against the canonical
+   users list, so a row can only ever show that account's own photo. An address
+   with no matching user record — an admin-created coupon, a deleted account —
+   keeps its initials tile. */
+
+const userDirectory = new Map();
+let userDirectoryPromise = null;
+
+function rebuildUserDirectory() {
+  userDirectory.clear();
+  (usersCache || []).forEach((u) => {
+    const key = String(u.email || '').toLowerCase().trim();
+    if (key) userDirectory.set(key, u);
+  });
+}
+
+/**
+ * Loads the users list once so any section can resolve an email to its photo,
+ * then upgrades the placeholders already on screen. Sections call this without
+ * awaiting it: the avatars start as initials and fill in when it lands.
+ */
+function ensureUserDirectory() {
+  if (userDirectory.size) return Promise.resolve();
+  if (userDirectoryPromise) return userDirectoryPromise;
+
+  userDirectoryPromise = (async () => {
+    try {
+      if (!usersCache.length) {
+        const data = await api('/admin/users', { useAdmin: true });
+        usersCache = data.users || [];
+      }
+      rebuildUserDirectory();
+      hydrateEmailAvatars();
+    } catch (e) {
+      // A directory that cannot load is not an error worth showing an admin:
+      // every avatar simply stays an initials tile.
+      userDirectoryPromise = null;
+    }
+  })();
+  return userDirectoryPromise;
+}
+
+/** Initials from an email local part, for an address with no user record. */
+function emailInitials(email) {
+  const local = String(email || '').split('@')[0];
+  const word = local.split(/[\s._-]+/).filter(Boolean)[0] || '';
+  return (word.slice(0, 2) || '?').toUpperCase();
+}
+
+/**
+ * Avatar for a row that knows only an email address. Renders an initials tile
+ * immediately and marks itself for hydrateEmailAvatars() to upgrade to the
+ * account's Google photo once the directory is loaded, so a table never waits on
+ * a second request to paint.
+ */
+function emailAvatarHtml(email, size = 28, extra = '') {
+  const addr = String(email || '').trim();
+  const key = addr.toLowerCase();
+  const box = `width:${size}px;height:${size}px;min-width:${size}px;border-radius:50%;flex-shrink:0`;
+  const tile = `${box};display:flex;align-items:center;justify-content:center;font-size:${Math.round(size * 0.38)}px;${extra}`;
+
+  // Already known: render the real photo straight away.
+  const known = key && userDirectory.get(key);
+  if (known) return userAvatarHtml(known, size, extra);
+
+  // First use from any section pulls the directory in. Single-flight, so calling
+  // it once per row in a map() costs nothing.
+  if (key) ensureUserDirectory();
+
+  const slot = key
+    ? ` data-avatar-email="${escapeHtml(key)}" data-avatar-size="${size}" data-avatar-extra="${escapeHtml(extra)}"`
+    : '';
+  return `<span class="u-avatar-slot" style="display:inline-flex;align-items:center;flex-shrink:0"${slot}>`
+    + `<div class="u-avatar" style="${tile}">${escapeHtml(emailInitials(addr))}</div></span>`;
+}
+
+/** Swaps every pending placeholder for the matching account's Google photo. */
+function hydrateEmailAvatars(root) {
+  const scope = root || document;
+  scope.querySelectorAll('.u-avatar-slot[data-avatar-email]').forEach((slot) => {
+    const rec = userDirectory.get(slot.dataset.avatarEmail || '');
+    if (!rec) return; // no such account — the initials tile is the right answer
+    slot.innerHTML = userAvatarHtml(rec, Number(slot.dataset.avatarSize) || 28,
+      slot.dataset.avatarExtra || '');
+    slot.removeAttribute('data-avatar-email');
+  });
+}
+
+// vault.html's inline script renders the payout sections, so these have to be
+// reachable from there the same way loadUsers() already is.
+window.emailAvatarHtml = emailAvatarHtml;
+window.userAvatarHtml = userAvatarHtml;
+window.hydrateEmailAvatars = hydrateEmailAvatars;
+window.ensureUserDirectory = ensureUserDirectory;
+
 function userStatusBadge(status) {
   const s = String(status || 'active').toLowerCase();
   if (s === 'suspended' || s === 'banned') return statusTag('suspended');
@@ -1665,6 +2038,10 @@ async function loadUsers() {
   try {
     const data = await api('/admin/users', { useAdmin: true });
     usersCache = (data.users || []).slice().sort((a, b) => String(b.lastLoginAt || b.createdAt || '').localeCompare(String(a.lastLoginAt || a.createdAt || '')));
+    // Refresh the email → photo directory from the same payload, then upgrade any
+    // placeholder avatars another section already painted.
+    rebuildUserDirectory();
+    hydrateEmailAvatars();
 
     const c = data.counts || {};
     const total = c.total ?? usersCache.length;
@@ -1765,7 +2142,12 @@ function openSuspendModal(userId, name, email) {
     return;
   }
   const who = document.getElementById('suspendModalUser');
-  if (who) who.innerHTML = `👤 <strong>${escapeHtml(name || 'This user')}</strong>${email ? ' · ' + escapeHtml(email) : ''}`;
+  if (who) {
+    who.innerHTML = `<span style="display:inline-flex;align-items:center;gap:8px;min-width:0">`
+      + `${email ? emailAvatarHtml(email, 24) : '👤'}`
+      + `<span style="overflow-wrap:anywhere"><strong>${escapeHtml(name || 'This user')}</strong>`
+      + `${email ? ' · ' + escapeHtml(email) : ''}</span></span>`;
+  }
   const ta = document.getElementById('suspendReason');
   if (ta) ta.value = '';
   syncSuspendConfirm();
@@ -1965,11 +2347,10 @@ function renderSessions() {
 
   body.innerHTML = rows.map((s) => {
     const email = s.email || s.user_id || 'Unknown user';
-    const initials = String(email).split(/[\s@._-]+/).filter(Boolean)[0]?.slice(0, 2).toUpperCase() || '?';
     const isActive = String(s.status || '').toLowerCase() === 'active';
     const idAttr = escapeHtml(s.session_id || '');
     return `<tr>
-      <td title="user_id: ${escapeHtml(s.user_id || '—')}"><div style="display:flex;align-items:center;gap:10px"><div class="u-avatar">${escapeHtml(initials)}</div><strong>${escapeHtml(email)}</strong></div></td>
+      <td title="user_id: ${escapeHtml(s.user_id || '—')}"><div style="display:flex;align-items:center;gap:10px">${emailAvatarHtml(s.email, 28)}<strong>${escapeHtml(email)}</strong></div></td>
       <td>${escapeHtml(sessionListLabel(s, ['device', 'os', 'browser']))}</td>
       <td>${escapeHtml(sessionLocation(s))}</td>
       <td style="font-family:'JetBrains Mono',monospace;font-size:.78rem">${escapeHtml(s.ip_address || '—')}</td>

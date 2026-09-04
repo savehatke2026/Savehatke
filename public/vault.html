@@ -313,6 +313,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .data-table td{overflow:hidden;text-overflow:ellipsis}
 .nowrap{white-space:nowrap}
 .ta-right{text-align:right}
+.ta-center{text-align:center}
 .admin-actions.ta-right{justify-content:flex-end}
 
 /* ── COUPON INVENTORY TABLE ── */
@@ -327,7 +328,9 @@ tbody td strong{color:#e2ecff;font-weight:600}
    measure and a near-square chipped logo like Pizza Hut grows to its intrinsic
    size, stretching the whole table row. */
 .inv-brand{display:flex;align-items:center;height:30px;min-width:0}
-.inv-brand-logo{width:74px;height:30px;flex-shrink:0;background:rgba(255,255,255,.06);border:1px solid rgba(79,195,247,.14);border-radius:7px;object-fit:contain;padding:3px}
+/* The logo sits on the row itself — no plate behind it. object-fit keeps a wide
+   wordmark and a square icon both readable at the same box size. */
+.inv-brand-logo{width:74px;height:30px;flex-shrink:0;object-fit:contain}
 .inv-brand-initial{width:30px;height:30px;border-radius:7px;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#00e676,#4fc3f7);color:#060d1f;font-weight:800;font-size:.8rem;border:1px solid rgba(79,195,247,.14)}
 .inv-code{font-family:'JetBrains Mono',monospace;font-size:.76rem;font-weight:600;color:#4fc3f7;background:rgba(79,195,247,.1);padding:3px 8px;border-radius:5px;white-space:nowrap;display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .inv-timer{width:100%;max-width:186px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.16);border-radius:6px;color:#e2ecff;font-family:'JetBrains Mono',monospace;font-size:.72rem;padding:5px 7px;outline:none;color-scheme:dark}
@@ -362,6 +365,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cm-summary b{color:#e2ecff;font-weight:700}
 .cm-loading{padding:36px 20px;text-align:center;color:#6b88aa;font-size:.85rem}
 .cm-seller{display:block;font-size:.78rem;color:#a8c0dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Seller cell: the account's own Google photo sits beside the address. min-width:0
+   on both the row and the text is what lets the address keep ellipsising inside
+   the flex container instead of forcing the column wider. */
+.cm-seller-cell{display:flex;align-items:center;gap:8px;min-width:0}
+.cm-seller-cell .cm-seller{min-width:0;flex:1}
 .appr-table{table-layout:fixed;min-width:1434px}
 .appr-table td{overflow:hidden}
 .appr-table .badge{white-space:nowrap}
@@ -373,23 +381,126 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .appr-table tbody tr:hover td:last-child{background:#111f40}
 .appr-brand-name{margin-left:8px;font-size:.82rem;font-weight:600;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 
-/* ── REPORTS → MONTHLY REPORTS ── */
-/* Three cards, not the four the grid defaults to. Written as .stats-grid.mr-kpis
-   so it outranks the shared .stats-grid rule wherever it sits in the sheet, and
-   the two narrow steps are repeated here for the same reason. */
-.stats-grid.mr-kpis{grid-template-columns:repeat(3,1fr)}
-@media(max-width:1000px){.stats-grid.mr-kpis{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:600px){.stats-grid.mr-kpis{grid-template-columns:1fr}}
+/* ══ REPORTS → MONTHLY REPORT MANAGEMENT CENTRE ══════════════════════════
+   Three regions, top to bottom: a page header with the actions, a compact
+   metric strip, then the Report History workspace of one card per month.
+   No wide table — the old .mr-table needed 1000px and pushed every row's
+   delivery state off-screen on a laptop. */
+
+/* ── Page header ── */
+.mr-crumb{display:flex;align-items:center;gap:7px;font-size:.72rem;font-weight:600;letter-spacing:.04em;color:#6b88aa;margin-bottom:9px}
+.mr-crumb-sep{color:#41577a}
+.mr-crumb-now{color:#4fc3f7}
+.mr-head{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap;margin-bottom:20px}
+.mr-head-txt{min-width:260px;flex:1}
+.mr-head-desc{font-size:.82rem;color:#8ea6c4;line-height:1.55;margin-top:6px;max-width:620px}
+.mr-head-act{display:flex;align-items:center;gap:9px;flex-wrap:wrap;flex-shrink:0}
+
+/* ── Metric strip: compact and balanced, not five empty cards ── */
+.mr-strip{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:1px;background:rgba(79,195,247,.1);border:1px solid rgba(79,195,247,.12);border-radius:14px;overflow:hidden;margin-bottom:20px}
+.mr-cell{background:#0d1a36;padding:15px 17px;min-width:0}
+.mr-cell-lbl{display:flex;align-items:center;gap:6px;font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b88aa}
+.mr-cell-val{font-family:'JetBrains Mono',monospace;font-size:1.22rem;font-weight:700;color:#e2ecff;margin-top:7px;line-height:1.1;overflow-wrap:anywhere}
+.mr-cell-val.green{color:#00e676}
+.mr-cell-val.blue{color:#4fc3f7}
+.mr-cell-val.purple{color:#ce93d8}
+.mr-cell-sub{font-size:.7rem;color:#6b88aa;margin-top:5px;line-height:1.45}
+@media(max-width:1100px){.mr-strip{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:720px){.mr-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.mr-strip{grid-template-columns:minmax(0,1fr)}}
+
+/* ── Workspace + filter bar ── */
+.mr-work-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:15px}
 .mr-note{font-size:.78rem;color:#6b88aa;margin-top:5px}
-.mr-table{min-width:1000px}
-.mr-month{font-weight:700;color:#e2ecff;white-space:nowrap}
-.mr-period{font-size:.78rem;color:#6b88aa;white-space:nowrap}
-.mr-amount{font-family:'JetBrains Mono',monospace;font-weight:700;color:#00e676;white-space:nowrap}
-.mr-count{font-family:'JetBrains Mono',monospace;color:#e2ecff}
-/* One line per admin: masked address above, delivery state below. */
-.mr-admin{display:flex;flex-direction:column;gap:4px;min-width:0}
-.mr-admin-mail{font-size:.72rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.mr-when{font-size:.68rem;color:#6b88aa;white-space:nowrap}
+.mr-filters{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding-bottom:16px;margin-bottom:4px;border-bottom:1px solid rgba(79,195,247,.09)}
+/* .form-input/.form-select are width:100% globally, so the flex basis below is
+   what actually sizes these; width:auto lets it win on desktop. */
+.mr-search{flex:1 1 200px;min-width:150px;width:auto}
+.mr-select{flex:0 1 auto;min-width:132px;width:auto}
+.mr-count-note{font-size:.74rem;color:#6b88aa;margin:14px 0 2px}
+@media(max-width:600px){
+  .mr-filters{gap:8px}
+  .mr-search,.mr-select{flex:1 1 100%;width:100%}
+}
+
+/* ── One card per month ── */
+.mr-cards{display:flex;flex-direction:column;gap:12px}
+.mr-card{background:rgba(15,30,58,.7);border:1px solid rgba(79,195,247,.11);border-left:3px solid rgba(107,136,170,.4);border-radius:13px;padding:16px 18px;cursor:pointer;transition:border-color .18s,background .18s,transform .18s}
+.mr-card:hover{background:rgba(20,38,70,.8);border-color:rgba(79,195,247,.24);transform:translateY(-1px)}
+.mr-card:focus-visible{outline:2px solid rgba(79,195,247,.55);outline-offset:2px}
+/* The left rail carries the delivery state, so a failure is visible before any
+   text is read. */
+.mr-card.ok{border-left-color:#00e676}
+.mr-card.warn{border-left-color:#ffb74d}
+.mr-card.bad{border-left-color:#ff8585}
+
+.mr-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.mr-card-month{font-size:1.02rem;font-weight:700;color:#e2ecff;line-height:1.2}
+.mr-card-period{font-size:.75rem;color:#6b88aa;margin-top:3px}
+
+/* Metric row inside the card */
+.mr-card-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0 0;padding:13px 0;border-top:1px solid rgba(79,195,247,.07);border-bottom:1px solid rgba(79,195,247,.07)}
+.mr-metric{min-width:0}
+.mr-metric-lbl{font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b88aa}
+.mr-metric-val{font-family:'JetBrains Mono',monospace;font-size:.92rem;font-weight:700;color:#e2ecff;margin-top:5px;overflow-wrap:anywhere}
+.mr-metric-val.green{color:#00e676}
+@media(max-width:520px){.mr-card-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Recipients */
+.mr-rcpt-lbl{font-size:.64rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b88aa;margin:13px 0 8px}
+.mr-rcpts{display:flex;flex-direction:column;gap:7px}
+.mr-rcpt{display:flex;align-items:center;gap:8px;min-width:0;font-size:.78rem}
+.mr-rcpt-mail{color:#a8c0dc;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mr-rcpt-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:#6b88aa}
+.mr-rcpt-dot.ok{background:#00e676}
+.mr-rcpt-dot.warn{background:#ffb74d}
+.mr-rcpt-dot.bad{background:#ff8585}
+.mr-rcpt-when{font-size:.7rem;color:#6b88aa;white-space:nowrap;margin-left:auto}
+/* A failed delivery states the reason on the card — the old table hid it in a
+   title attribute nobody hovers. */
+.mr-rcpt-err{font-size:.72rem;color:#f3b6b6;background:rgba(239,154,154,.07);border:1px solid rgba(239,154,154,.18);border-radius:8px;padding:7px 10px;margin-top:2px;line-height:1.5;overflow-wrap:anywhere}
+
+.mr-card-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid rgba(79,195,247,.07)}
+.mr-gen{font-size:.72rem;color:#6b88aa}
+.mr-card-act{display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:600px){
+  .mr-card-foot{align-items:stretch}
+  .mr-card-act{width:100%}
+  .mr-card-act .btn{flex:1;justify-content:center}
+}
+
+/* ── Details drawer: inspect a report without leaving the page ── */
+.mr-drawer-scrim{position:fixed;inset:0;background:rgba(3,8,20,.68);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .22s;z-index:1200}
+.mr-drawer-scrim.open{opacity:1;pointer-events:auto}
+.mr-drawer{position:fixed;top:0;right:0;bottom:0;width:min(470px,100vw);background:#0b1730;border-left:1px solid rgba(79,195,247,.16);box-shadow:-24px 0 60px rgba(0,0,0,.5);transform:translateX(100%);transition:transform .26s cubic-bezier(.22,.61,.36,1);z-index:1201;display:flex;flex-direction:column}
+.mr-drawer.open{transform:translateX(0)}
+.mr-drawer-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:20px 22px 16px;border-bottom:1px solid rgba(79,195,247,.1);flex-shrink:0}
+.mr-drawer-ttl{font-size:1.1rem;font-weight:700;color:#e2ecff;line-height:1.25}
+.mr-drawer-sub{font-size:.76rem;color:#6b88aa;margin-top:4px}
+.mr-drawer-x{background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.14);color:#a8c0dc;width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:.9rem;flex-shrink:0;transition:background .18s,color .18s}
+.mr-drawer-x:hover{background:rgba(239,154,154,.14);color:#ff8585}
+.mr-drawer-bd{padding:18px 22px 22px;overflow-y:auto;flex:1}
+.mr-drawer-sec{font-size:.66rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#6b88aa;margin:20px 0 10px}
+.mr-drawer-sec:first-child{margin-top:0}
+.mr-dl{display:flex;flex-direction:column;gap:1px;background:rgba(79,195,247,.08);border:1px solid rgba(79,195,247,.1);border-radius:11px;overflow:hidden}
+.mr-dl-row{display:flex;align-items:baseline;justify-content:space-between;gap:14px;background:#0d1a36;padding:11px 14px;font-size:.8rem}
+.mr-dl-k{color:#6b88aa;flex-shrink:0}
+.mr-dl-v{color:#e2ecff;font-weight:600;text-align:right;overflow-wrap:anywhere}
+.mr-dl-v.mono{font-family:'JetBrains Mono',monospace}
+.mr-dl-v.green{color:#00e676}
+/* One block per recipient, so an individual delivery can be read on its own. */
+.mr-dr-rcpt{background:rgba(8,16,42,.55);border:1px solid rgba(79,195,247,.1);border-radius:11px;padding:13px 15px;margin-bottom:9px}
+.mr-dr-rcpt:last-child{margin-bottom:0}
+.mr-dr-rcpt-top{display:flex;align-items:center;gap:8px;min-width:0}
+.mr-dr-rcpt-mail{font-size:.8rem;color:#e2ecff;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.mr-dr-rcpt-meta{font-size:.73rem;color:#6b88aa;margin-top:6px;line-height:1.5}
+.mr-drawer-foot{display:flex;gap:9px;padding:16px 22px;border-top:1px solid rgba(79,195,247,.1);flex-shrink:0;flex-wrap:wrap}
+.mr-drawer-foot .btn{flex:1;justify-content:center;min-width:130px}
+@media(max-width:520px){
+  .mr-drawer{width:100vw}
+  .mr-drawer-hd,.mr-drawer-bd,.mr-drawer-foot{padding-left:16px;padding-right:16px}
+}
+
 
 /* ── BADGES ── */
 .badge{display:inline-flex;align-items:center;gap:4px;font-size:.68rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:3px 9px;border-radius:6px}
@@ -622,7 +733,10 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .tab-content.active{display:block;animation:fadeIn .3s ease}
 
 /* ── TOGGLE ── */
-.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+/* A <label> is inline by default, so the width/height below were being ignored:
+   the absolutely-positioned slider then had a zero-sized containing block and the
+   switch was effectively invisible. inline-flex is what gives it a box. */
+.toggle{position:relative;display:inline-flex;width:40px;height:22px;flex-shrink:0;vertical-align:middle}
 .toggle input{opacity:0;width:0;height:0}
 .toggle-slider{position:absolute;cursor:pointer;inset:0;background:rgba(255,255,255,.1);border-radius:24px;transition:.3s}
 .toggle-slider::before{content:'';position:absolute;height:16px;width:16px;left:3px;bottom:3px;background:#6b88aa;border-radius:50%;transition:.3s}
@@ -1955,50 +2069,112 @@ tbody td strong{color:#e2ecff;font-weight:600}
       </div>
     </div>
 
-    <!-- ════════════════ REPORTS → MONTHLY REPORTS ════════════════ -->
-    <!-- Deliberately narrow: the month's three figures, then the delivery
-         history for each configured admin. Analytics, users, support, security
-         and reviews all have their own sections and stay out of this one. -->
+    <!-- ════════════════ REPORTS → MONTHLY REPORT MANAGEMENT ════════════════ -->
+    <!-- A management centre, not a spreadsheet: header actions, a compact metric
+         strip, then one card per month in the Report History workspace. Delivery
+         state lives on the card (and its left rail) instead of in two repeated
+         "Admin 1 / Admin 2" table columns, and the full record — per-recipient
+         timestamps and failure reasons — opens in a drawer without leaving the
+         page. Analytics, users, support and security keep their own sections. -->
     <div class="section-view" id="sec-reports">
-      <div class="page-title-row">
-        <div>
-          <div class="page-title">Monthly <span class="gtext">Reports</span></div>
-          <div class="page-subtitle">Monthly coupon marketplace revenue and report delivery status.</div>
-        </div>
-        <button class="btn btn-ghost btn-sm" onclick="loadMonthlyReports()" title="Refresh">↻ Refresh</button>
+
+      <div class="mr-crumb">
+        <span>Monthly Reports</span>
+        <span class="mr-crumb-sep">/</span>
+        <span class="mr-crumb-now">Revenue &amp; Delivery</span>
       </div>
 
-      <div class="stats-grid mr-kpis">
-        <div class="stat-card sc-green">
-          <div class="stat-card-top"><div class="stat-icon si-green">💰</div></div>
-          <div class="stat-val gtext" id="mrRevenue">—</div>
-          <div class="stat-lbl">Revenue This Month</div>
-          <div class="stat-sub" id="mrRevenueSub">Current month</div>
+      <div class="mr-head">
+        <div class="mr-head-txt">
+          <div class="page-title">Monthly <span class="gtext">Reports</span></div>
+          <div class="mr-head-desc">
+            Revenue and coupon activity for every completed month. Each report is
+            generated on the 1st, emailed to the configured admins, and every
+            delivery attempt is recorded below.
+          </div>
         </div>
-        <div class="stat-card sc-blue">
-          <div class="stat-card-top"><div class="stat-icon si-blue">🛒</div></div>
-          <div class="stat-val" style="color:#4fc3f7" id="mrBought">—</div>
-          <div class="stat-lbl">Coupons Bought This Month</div>
-          <div class="stat-sub">Completed buyer purchases</div>
+        <div class="mr-head-act">
+          <button class="btn btn-ghost btn-sm" id="mrLatestPdfBtn" onclick="mrViewLatestPdf()"
+                  title="Open the most recent report PDF">📄 Latest PDF</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadMonthlyReports()" title="Refresh">↻ Refresh</button>
         </div>
-        <div class="stat-card sc-purple">
-          <div class="stat-card-top"><div class="stat-icon si-purple">🏷️</div></div>
-          <div class="stat-val" style="color:#ce93d8" id="mrSold">—</div>
-          <div class="stat-lbl">Coupons Sold This Month</div>
-          <div class="stat-sub">Seller listings sold</div>
+      </div>
+
+      <!-- Current month first, then how the reporting itself is doing. -->
+      <div class="mr-strip">
+        <div class="mr-cell">
+          <div class="mr-cell-lbl">💰 Revenue</div>
+          <div class="mr-cell-val green" id="mrRevenue">—</div>
+          <div class="mr-cell-sub" id="mrRevenueSub">Current month</div>
+        </div>
+        <div class="mr-cell">
+          <div class="mr-cell-lbl">🛒 Coupons Bought</div>
+          <div class="mr-cell-val blue" id="mrBought">—</div>
+          <div class="mr-cell-sub">Completed buyer purchases</div>
+        </div>
+        <div class="mr-cell">
+          <div class="mr-cell-lbl">🏷️ Coupons Sold</div>
+          <div class="mr-cell-val purple" id="mrSold">—</div>
+          <div class="mr-cell-sub">Seller listings sold</div>
+        </div>
+        <div class="mr-cell">
+          <div class="mr-cell-lbl">🗂️ Reports Generated</div>
+          <div class="mr-cell-val" id="mrGenerated">—</div>
+          <div class="mr-cell-sub" id="mrGeneratedSub">Months on record</div>
+        </div>
+        <div class="mr-cell">
+          <div class="mr-cell-lbl">📬 Delivery Success</div>
+          <div class="mr-cell-val" id="mrDelivery">—</div>
+          <div class="mr-cell-sub" id="mrDeliverySub">Across all recipients</div>
         </div>
       </div>
 
       <div class="card">
-        <div class="cm-card-head">
+        <div class="mr-work-head">
           <div>
-            <div class="card-title" style="margin-bottom:0"><span class="ct-icon">📬</span> Monthly Report Delivery</div>
+            <div class="card-title" style="margin-bottom:0"><span class="ct-icon">🗂️</span> Report History</div>
             <div class="mr-note" id="mrRecipients">Sent automatically on the 1st of each month.</div>
           </div>
         </div>
-        <div id="mrTable" class="cm-list"></div>
+
+        <div class="mr-filters">
+          <input class="form-input mr-search" id="mrSearch" type="search" placeholder="🔍 Search reports…"
+                 oninput="mrApplyFilters()" aria-label="Search reports">
+          <select class="form-select mr-select" id="mrMonthFilter" onchange="mrApplyFilters()" aria-label="Filter by month">
+            <option value="">All months</option>
+          </select>
+          <select class="form-select mr-select" id="mrStatusFilter" onchange="mrApplyFilters()" aria-label="Filter by delivery status">
+            <option value="">All delivery states</option>
+            <option value="ok">Sent</option>
+            <option value="warn">Partly delivered</option>
+            <option value="bad">Failed</option>
+          </select>
+          <select class="form-select mr-select" id="mrRecipientFilter" onchange="mrApplyFilters()" aria-label="Filter by recipient">
+            <option value="">All recipients</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="mrClearFilters()">Clear filters</button>
+        </div>
+
+        <div id="mrTable" class="mr-cards"></div>
       </div>
     </div>
+
+    <!-- Report details: opened from a card, closed back to the same list. -->
+    <div class="mr-drawer-scrim" id="mrDrawerScrim" onclick="mrCloseDrawer()"></div>
+    <aside class="mr-drawer" id="mrDrawer" role="dialog" aria-modal="true" aria-labelledby="mrDrawerTitle">
+      <div class="mr-drawer-hd">
+        <div style="min-width:0">
+          <div class="mr-drawer-ttl" id="mrDrawerTitle">Report</div>
+          <div class="mr-drawer-sub" id="mrDrawerSub">—</div>
+        </div>
+        <button class="mr-drawer-x" onclick="mrCloseDrawer()" aria-label="Close report details">✕</button>
+      </div>
+      <div class="mr-drawer-bd" id="mrDrawerBody"></div>
+      <div class="mr-drawer-foot">
+        <button class="btn btn-ghost" id="mrDrawerPdf">📄 View PDF</button>
+        <button class="btn btn-info" id="mrDrawerResend">✉️ Resend report</button>
+      </div>
+    </aside>
 
     <!-- ════════════════ SECURITY ════════════════ -->
     <div class="section-view" id="sec-security">
@@ -3671,7 +3847,7 @@ function renderTable(status) {
     const base = `
       <td><strong style="font-family:'JetBrains Mono',monospace" title="${idAttr}">${esc(shortId(c.id))}</strong></td>
       <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(c.subject)}"><strong>${esc(c.subject)}</strong></td>
-      <td><div style="display:flex;align-items:center;gap:8px">${avatarHtml(c.user)}${esc(c.user)}</div></td>
+      <td><div style="display:flex;align-items:center;gap:8px">${c.email ? emailAvatarHtml(c.email, 28) : avatarHtml(c.user)}${esc(c.user)}</div></td>
       <td style="font-size:.78rem;color:#6b88aa">${fmtDT(c.createdAt)}</td>`;
 
     if (status === 'open') {
@@ -3790,7 +3966,9 @@ function viewCase(id) {
     ['Case ID', `<span class="case-info-v mono">${esc(c.id || '—')}</span>`, true],
     ['Status', `<span style="color:${statusDot[c.status] || '#a8c0dc'}">●</span> <span class="badge ${statusBadge[c.status] || ''}">${statusLabel[c.status] || esc(c.status || '—')}</span>`],
     ['User', esc(c.user || '—')],
-    ['Email', esc(c.email || '—')],
+    ['Email', c.email
+      ? `<div class="case-info-v" style="display:flex;align-items:center;gap:8px;min-width:0">${emailAvatarHtml(c.email, 24)}<span style="overflow-wrap:anywhere">${esc(c.email)}</span></div>`
+      : esc('—'), Boolean(c.email)],
     ['Submitted', esc(fmtDT(c.createdAt))],
   ];
   if (c.resolvedAt) rows.push(['Resolved', esc(fmtDT(c.resolvedAt))]);
@@ -4141,7 +4319,7 @@ function payoutRow(p) {
         <strong>#PO-${escapeHtml(shortId)}</strong>
         <div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${p.sourceType === 'auto' ? '🤖 auto' : '✋ manual'}</div>
       </td>
-      <td>${escapeHtml(p.sellerEmail || '—')}</td>
+      <td><div class="cm-seller-cell">${p.sellerEmail ? emailAvatarHtml(p.sellerEmail, 24) : ''}<span class="cm-seller">${escapeHtml(p.sellerEmail || '—')}</span></div></td>
       <td><strong class="mono">${inr(p.amount)}</strong></td>
       <td style="font-size:.82rem">${payoutMethodLine(p)}${p.beneficiaryName ? `<div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(p.beneficiaryName)}</div>` : ''}</td>
       <td class="mono" style="font-size:.78rem">${escapeHtml(timeAgo(p.requestedAt))}<div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(fullDateTime(p.requestedAt))}</div></td>
@@ -4309,7 +4487,7 @@ function openMarkPaidModal(payoutId) {
   if (summary) {
     summary.innerHTML = `
       <div style="font-size:.78rem;color:#6b88aa;margin-bottom:4px">Payout</div>
-      <div style="font-size:.9rem;font-weight:700;color:#e2ecff">#PO-${escapeHtml(String(payout.id).slice(0, 8).toUpperCase())} · ${escapeHtml(payout.sellerEmail)}</div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:700;color:#e2ecff;min-width:0">${payout.sellerEmail ? emailAvatarHtml(payout.sellerEmail, 24) : ''}<span style="overflow-wrap:anywhere">#PO-${escapeHtml(String(payout.id).slice(0, 8).toUpperCase())} · ${escapeHtml(payout.sellerEmail)}</span></div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600;color:#00e676;margin-top:6px">${inr(payout.amount)}</div>
       <div style="font-size:.76rem;color:#a8c0dc;margin-top:6px">${payoutMethodLine(payout)}</div>
     `;
@@ -4356,7 +4534,7 @@ function openRejectPayoutModal(payoutId) {
   if (summary) {
     summary.innerHTML = `
       <div style="font-size:.78rem;color:#6b88aa;margin-bottom:4px">Payout</div>
-      <div style="font-size:.9rem;font-weight:700;color:#e2ecff">#PO-${escapeHtml(String(payout.id).slice(0, 8).toUpperCase())} · ${escapeHtml(payout.sellerEmail)}</div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:700;color:#e2ecff;min-width:0">${payout.sellerEmail ? emailAvatarHtml(payout.sellerEmail, 24) : ''}<span style="overflow-wrap:anywhere">#PO-${escapeHtml(String(payout.id).slice(0, 8).toUpperCase())} · ${escapeHtml(payout.sellerEmail)}</span></div>
       <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600;color:#ff8585;margin-top:6px">${inr(payout.amount)}</div>
     `;
   }
