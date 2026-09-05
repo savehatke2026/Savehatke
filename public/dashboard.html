@@ -1355,11 +1355,32 @@
           </div>
           <div class="cs-item">
             <div class="cs-num" style="color:#ffb74d" id="mlPendingCount">0</div>
-            <div class="cs-lbl">Pending</div>
+            <div class="cs-lbl">Pending Review</div>
           </div>
           <div class="cs-item">
-            <div class="cs-num" style="color:#00e676" id="mlSoldCount">0</div>
-            <div class="cs-lbl">Sold</div>
+            <div class="cs-num" style="color:#00e676" id="mlPayableCount">0</div>
+            <div class="cs-lbl">Eligible for Payout</div>
+          </div>
+        </div>
+
+        <!-- Payout details, held once for the account.
+             They live here rather than on a coupon because a payout is paid to a
+             seller, not to a listing: asking again per coupon would create as
+             many copies of the same bank details as the seller has listings. -->
+        <div class="card pc-card" id="payoutDetailsCard">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">🏦</span> Payout Details</div>
+            <button class="btn btn-ghost btn-sm" id="pdEditBtn" onclick="openPayoutDetailsModal()">Edit</button>
+          </div>
+
+          <div id="payoutDetailsBody">
+            <div class="sess-sk-row">
+              <div class="sess-sk sess-sk-ico"></div>
+              <div style="flex:1">
+                <div class="sess-sk" style="height:11px;width:38%"></div>
+                <div class="sess-sk" style="height:9px;width:56%;margin-top:8px"></div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1371,8 +1392,9 @@
           <div id="mlFilterChips" class="pc-tabs">
             <button class="mc-chip active" data-filter="all" onclick="setMlFilter('all')">All</button>
             <button class="mc-chip" data-filter="active" onclick="setMlFilter('active')">Active</button>
-            <button class="mc-chip" data-filter="pending" onclick="setMlFilter('pending')">Pending</button>
-            <button class="mc-chip" data-filter="sold" onclick="setMlFilter('sold')">Sold</button>
+            <button class="mc-chip" data-filter="pending" onclick="setMlFilter('pending')">Pending Review</button>
+            <button class="mc-chip" data-filter="payable" onclick="setMlFilter('payable')">Eligible for Payout</button>
+            <button class="mc-chip" data-filter="paid" onclick="setMlFilter('paid')">Paid</button>
             <button class="mc-chip" data-filter="history" onclick="setMlFilter('history')">History</button>
           </div>
 
@@ -2476,13 +2498,16 @@
   </div>
 </div>
 
-<!-- REQUEST PAYOUT MODAL -->
+<!-- REQUEST PAYOUT MODAL
+     Amount only. The destination is the account-level payout record, so a
+     request can never carry its own bank details, and the seller is never asked
+     for them twice. -->
 <div class="modal-overlay" id="requestPayoutModal" onclick="handleOverlayClick(event,'requestPayoutModal')">
   <div class="modal modal-lg">
     <button class="modal-close-btn" onclick="closeModal('requestPayoutModal')">✕</button>
     <div class="modal-hdr">
       <div class="modal-title">Request <span class="gtext">Payout</span></div>
-      <div class="modal-sub">Withdraw your earnings to your bank or UPI. Minimum ₹50.</div>
+      <div class="modal-sub">Paid to the payout details saved on your account. Minimum ₹50.</div>
     </div>
     <div class="wallet-modal-bal">
       <p>Available to withdraw</p>
@@ -2492,35 +2517,54 @@
       <label class="form-lbl">Amount (₹) *</label>
       <input type="number" class="form-inp" id="rpAmount" placeholder="e.g. 500" min="50" step="10">
     </div>
-    <div class="form-grp">
-      <label class="form-lbl">Payment Method *</label>
-      <select class="form-inp" id="rpMethod" onchange="toggleRpFields(this.value)">
-        <option value="upi">UPI</option>
-        <option value="bank">Bank Transfer</option>
-      </select>
-    </div>
-    <div id="rpUpiGroup" class="form-grp">
-      <label class="form-lbl">UPI ID *</label>
-      <input type="text" class="form-inp" id="rpUpiId" placeholder="yourname@upi">
-    </div>
-    <div id="rpBankGroup" style="display:none">
-      <div class="form-grp">
-        <label class="form-lbl">Account Number *</label>
-        <input type="text" class="form-inp" id="rpBankAccount" placeholder="e.g. 1234567890">
-      </div>
-      <div class="form-grp">
-        <label class="form-lbl">IFSC Code *</label>
-        <input type="text" class="form-inp" id="rpBankIfsc" placeholder="e.g. SBIN0001234">
-      </div>
-      <div class="form-grp">
-        <label class="form-lbl">Beneficiary Name</label>
-        <input type="text" class="form-inp" id="rpBeneficiaryName" placeholder="As on your bank account">
-      </div>
-    </div>
     <div style="font-size:.76rem;color:#6b88aa;margin-bottom:4px">⏱️ Payouts are processed by the admin team within 1–3 business days.</div>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('requestPayoutModal')">Cancel</button>
       <button class="btn btn-primary" style="flex:1" id="rpSubmitBtn" onclick="submitPayoutRequest()">💸 Submit Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYOUT DETAILS MODAL
+     Where the account-level record is added or replaced. Stored values come back
+     masked, so the inputs open empty: what is typed here replaces the record
+     rather than being merged with dots. -->
+<div class="modal-overlay" id="payoutDetailsModal" onclick="handleOverlayClick(event,'payoutDetailsModal')">
+  <div class="modal modal-lg">
+    <button class="modal-close-btn" onclick="closeModal('payoutDetailsModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Payout <span class="gtext">Details</span></div>
+      <div class="modal-sub">Saved once for your account and used for every payout.</div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Payment Method *</label>
+      <select class="form-inp" id="pdMethod" onchange="togglePdFields(this.value)">
+        <option value="upi">UPI</option>
+        <option value="bank">Bank Transfer</option>
+      </select>
+    </div>
+    <div id="pdUpiGroup" class="form-grp">
+      <label class="form-lbl">UPI ID *</label>
+      <input type="text" class="form-inp" id="pdUpiId" placeholder="yourname@upi" autocomplete="off">
+    </div>
+    <div id="pdBankGroup" style="display:none">
+      <div class="form-grp">
+        <label class="form-lbl">Account Number *</label>
+        <input type="text" class="form-inp" id="pdBankAccount" placeholder="e.g. 1234567890" autocomplete="off">
+      </div>
+      <div class="form-grp">
+        <label class="form-lbl">IFSC Code *</label>
+        <input type="text" class="form-inp" id="pdBankIfsc" placeholder="e.g. SBIN0001234" autocomplete="off">
+      </div>
+    </div>
+    <div class="form-grp">
+      <label class="form-lbl">Beneficiary Name</label>
+      <input type="text" class="form-inp" id="pdBeneficiaryName" placeholder="As on your bank account" autocomplete="off">
+    </div>
+    <div style="font-size:.76rem;color:#6b88aa;margin-bottom:4px">🔒 Used only to pay you. Shown partly hidden after saving.</div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('payoutDetailsModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="pdSaveBtn" onclick="savePayoutDetails()">Save Details</button>
     </div>
   </div>
 </div>
@@ -2572,6 +2616,91 @@
     available:  ['Available',       'badge-blue'],
     rejected:   ['Rejected',        'badge-red'],
   };
+
+  // ─── Seller status ladder ──────────────────────────────────────
+  //   What a seller sees for their own listing, in the order money moves:
+  //     Pending Review → Active → Eligible for Payout → Payout Processing → Paid
+  //   and Validation Failed when a coupon is rejected at review or marked invalid
+  //   afterwards, in which case payment is withheld.
+  //
+  //   The stage is a view over data the server owns: the coupon's status, its
+  //   invalidation flag, and the payout row that references it. The server sends
+  //   `sellerStage` on the listing when it can; this derives the same ladder
+  //   locally so the page still reads correctly on its own.
+  const SELLER_STAGES = {
+    pending_review:    ['Pending Review',     'badge-orange'],
+    active:            ['Active',             'badge-blue'],
+    eligible:          ['Eligible for Payout','badge-green'],
+    payout_processing: ['Payout Processing',  'badge-purple'],
+    paid:              ['Paid',               'badge-green'],
+    validation_failed: ['Validation Failed',  'badge-red'],
+  };
+
+  // The server owns this ladder (GET /api/payouts/coupon-status). Its labels are
+  // mapped back onto the keys above so one vocabulary drives the badges, and the
+  // local derivation below stays as the fallback for when that call has not
+  // landed yet.
+  const SERVER_STAGE_KEYS = {
+    'pending review': 'pending_review',
+    active: 'active',
+    'eligible for payout': 'eligible',
+    'payout processing': 'payout_processing',
+    paid: 'paid',
+    'validation failed': 'validation_failed',
+  };
+
+  /** couponId → stage key, from the server's own derivation. */
+  let sellerStageByCoupon = {};
+
+  async function loadSellerCouponStatuses() {
+    try {
+      const data = await api('/payouts/coupon-status');
+      const map = {};
+      (data.coupons || []).forEach((c) => {
+        const key = SERVER_STAGE_KEYS[String(c.sellerStatus || '').toLowerCase()];
+        if (key && c.couponId) map[String(c.couponId)] = key;
+      });
+      sellerStageByCoupon = map;
+    } catch (err) {
+      // Leave the map empty — sellerStage() then derives locally.
+      if (!err.sessionExpired) console.warn('Seller status notice:', err.message);
+    }
+  }
+
+  /** Payout row for a coupon, if the payouts view has loaded them. */
+  function payoutForCoupon(couponId) {
+    const id = String(couponId || '');
+    if (!id) return null;
+    return (STATE.payouts || []).find((p) => String(p.sourceCouponId || '') === id) || null;
+  }
+
+  function sellerStage(c) {
+    const fromServer = c && c.id ? sellerStageByCoupon[String(c.id)] : '';
+    if (fromServer && SELLER_STAGES[fromServer]) return fromServer;
+    if (c && c.sellerStage && SELLER_STAGES[c.sellerStage]) return c.sellerStage;
+
+    const status = String((c && c.status) || '').toLowerCase();
+    // A coupon marked invalid after review withholds payment, whatever else it
+    // looks like, so this is checked before anything payable.
+    if (c && (c.invalidated || c.invalidatedAt || status === 'invalid')) return 'validation_failed';
+    if (status === 'rejected') return 'validation_failed';
+    if (isPending(c)) return 'pending_review';
+    if (isSold(c)) {
+      const payout = payoutForCoupon(c.id);
+      const pStatus = String((payout && payout.status) || '').toLowerCase();
+      if (pStatus === 'paid') return 'paid';
+      if (pStatus === 'requested' || pStatus === 'processing' || pStatus === 'approved') return 'payout_processing';
+      if (pStatus === 'rejected' || pStatus === 'withheld') return 'validation_failed';
+      return 'eligible';
+    }
+    if (isAvailable(c)) return 'active';
+    return 'pending_review';
+  }
+
+  function sellerStageBadge(stage) {
+    const [label, cls] = SELLER_STAGES[stage] || SELLER_STAGES.pending_review;
+    return `<span class="badge ${cls}">${label}</span>`;
+  }
 
   function statusBadge(status) {
     const key = String(status || '').toLowerCase();
@@ -3069,8 +3198,12 @@
     if (browse) browse.style.display = next === 'purchased' ? 'inline-flex' : 'none';
     if (submit) submit.style.display = next === 'sales' ? 'inline-flex' : 'none';
 
-    if (next === 'sales') renderMyListings();
-    else renderMyCoupons();
+    if (next === 'sales') {
+      renderMyListings();
+      // Switching to For Sale by tab (not by navigation) still needs the payout
+      // card filled in.
+      if (typeof loadPayoutDetails === 'function') loadPayoutDetails();
+    } else renderMyCoupons();
   }
 
   // ─── My-Coupons filter chip helpers ──────────────────────────────────
@@ -3134,9 +3267,9 @@
     const sales = STATE.sales || [];
 
     const listed = sales.map((c) => {
-      const kind = isSold(c) ? 'sold' : (isPending(c) ? 'pending' : (isAvailable(c) ? 'active' : 'other'));
+      const stage = sellerStage(c);
       return {
-        kind,
+        stage,
         brand: c.brand || 'Coupon',
         code: c.code || '',
         value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.discount || c.title || ''),
@@ -3145,13 +3278,17 @@
       };
     });
 
-    const activeList = listed.filter((c) => c.kind === 'active');
-    const pendingList = listed.filter((c) => c.kind === 'pending');
-    const soldList = listed.filter((c) => c.kind === 'sold');
+    const stageIs = (s) => listed.filter((c) => c.stage === s);
+    const activeList = stageIs('active');
+    const pendingList = stageIs('pending_review');
+    // Everything the seller is owed money for, at whatever point of the payout
+    // it has reached.
+    const payableList = listed.filter((c) => ['eligible', 'payout_processing'].includes(c.stage));
+    const paidList = stageIs('paid');
 
     setText('mlActiveCount', activeList.length);
     setText('mlPendingCount', pendingList.length);
-    setText('mlSoldCount', soldList.length);
+    setText('mlPayableCount', payableList.length + paidList.length);
 
     const filter = String(window.ML_FILTER || 'all');
     let list = listed;
@@ -3162,16 +3299,21 @@
     if (filter === 'active') {
       list = activeList;
       emptyTitle = 'No active listings';
-      emptyHint = 'Approved coupons waiting for a buyer appear here.';
+      emptyHint = 'Approved coupons that are live on the marketplace appear here.';
     } else if (filter === 'pending') {
       list = pendingList;
-      emptyTitle = 'Nothing pending';
+      emptyTitle = 'Nothing pending review';
       emptyHint = 'Coupons still being reviewed by our team appear here.';
       showSubmit = false;
-    } else if (filter === 'sold') {
-      list = soldList;
-      emptyTitle = 'No coupons sold yet';
-      emptyHint = 'Once one of your coupons sells, it will show up here.';
+    } else if (filter === 'payable') {
+      list = payableList;
+      emptyTitle = 'Nothing eligible for payout yet';
+      emptyHint = 'A listing becomes eligible once it completes successfully.';
+      showSubmit = false;
+    } else if (filter === 'paid') {
+      list = paidList;
+      emptyTitle = 'No payouts yet';
+      emptyHint = 'Listings you have already been paid for appear here.';
       showSubmit = false;
     } else if (filter === 'history') {
       emptyTitle = 'No listing history';
@@ -3199,8 +3341,9 @@
     }
 
     container.innerHTML = list.map((c) => {
-      const badge = statusBadge(c.status);
-      const when = c.kind === 'sold' ? `Sold: ${timeAgo(c.at)}` : `Listed: ${timeAgo(c.at)}`;
+      const badge = sellerStageBadge(c.stage);
+      const PAID_STAGES = ['eligible', 'payout_processing', 'paid'];
+      const when = PAID_STAGES.includes(c.stage) ? `Completed: ${timeAgo(c.at)}` : `Listed: ${timeAgo(c.at)}`;
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px">
           <div style="min-width:0;flex:1">
@@ -4512,41 +4655,150 @@
   }
 
   // ─── Payout request (seller) ──────────────────────────────────
+  // ─── Payout details (account level) ────────────────────────────
+  //   One record per seller, held by the server in its own store. A payout is
+  //   paid to a seller, not to a listing, so the details are asked for once here
+  //   and reused for every request. The card lives in My Coupons → For Sale
+  //   because that is where a seller is already looking at what they are owed.
+  let payoutDetails = { details: null, complete: false, loaded: false };
+
+  async function loadPayoutDetails({ force = false } = {}) {
+    const body = document.getElementById('payoutDetailsBody');
+    if (!body) return;
+    if (payoutDetails.loaded && !force) { renderPayoutDetailsCard(); return; }
+
+    try {
+      const data = await api('/payouts/details');
+      payoutDetails = { details: data.details || null, complete: Boolean(data.complete), loaded: true };
+    } catch (err) {
+      if (err.sessionExpired) return;
+      payoutDetails = { details: null, complete: false, loaded: true, error: err.message };
+    }
+    renderPayoutDetailsCard();
+  }
+
+  function renderPayoutDetailsCard() {
+    const body = document.getElementById('payoutDetailsBody');
+    const editBtn = document.getElementById('pdEditBtn');
+    if (!body) return;
+
+    if (payoutDetails.error) {
+      body.innerHTML = `
+        <div class="sess-error">
+          <span class="sess-error-txt">Unable to load your payout details.</span>
+          <button class="btn btn-ghost btn-sm" onclick="loadPayoutDetails({force:true})">Try Again</button>
+        </div>`;
+      if (editBtn) editBtn.textContent = 'Edit';
+      return;
+    }
+
+    const d = payoutDetails.details;
+    if (!payoutDetails.complete || !d) {
+      // The account-level prompt. It appears whenever details are missing, and
+      // says plainly that a payout cannot be released without them.
+      const owed = (STATE.sales || []).some((c) => ['eligible', 'payout_processing'].includes(sellerStage(c)));
+      body.innerHTML = `
+        <div class="acct-rows">
+          <div class="acct-row">
+            <div class="acct-row-main">
+              <div class="acct-row-lbl">Not added yet</div>
+              <div class="acct-row-sub">${owed
+    ? 'You have a listing that is eligible for payout. Add your payout details so the payment can be released.'
+    : 'Add your UPI ID or bank account once, and every future payout uses it.'}</div>
+            </div>
+            <div class="acct-row-act">
+              <button class="btn btn-primary btn-sm" onclick="openPayoutDetailsModal()">Add Payout Details</button>
+            </div>
+          </div>
+        </div>`;
+      if (editBtn) editBtn.style.display = 'none';
+      return;
+    }
+
+    if (editBtn) editBtn.style.display = '';
+    const rows = d.method === 'Bank'
+      ? [['Method', 'Bank transfer'], ['Account', d.bankAccount || '—'], ['IFSC', d.bankIfsc || '—'], ['Beneficiary', d.beneficiaryName || '—']]
+      : [['Method', 'UPI'], ['UPI ID', d.upiId || '—'], ['Beneficiary', d.beneficiaryName || '—']];
+
+    body.innerHTML = `
+      <div class="acct-rows">
+        ${rows.map(([label, value]) => `
+          <div class="acct-row">
+            <div class="acct-row-main">
+              <div class="acct-row-lbl">${escapeHtml(label)}</div>
+              <div class="acct-row-val mono">${escapeHtml(value)}</div>
+            </div>
+          </div>`).join('')}
+      </div>
+      <p class="lh-hdr-note" style="margin:14px 0 0">Used for every payout on this account. Partly hidden for safety — edit to replace.</p>`;
+  }
+
+  function openPayoutDetailsModal() {
+    if (typeof requireAuth === 'function' && !requireAuth()) return;
+    const d = payoutDetails.details || {};
+    const method = String(d.method || 'UPI').toLowerCase() === 'bank' ? 'bank' : 'upi';
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('pdMethod', method);
+    // Stored values come back masked, so the fields start empty rather than
+    // showing dots the seller might submit back as real data.
+    set('pdUpiId', '');
+    set('pdBankAccount', '');
+    set('pdBankIfsc', '');
+    set('pdBeneficiaryName', d.beneficiaryName && !d.beneficiaryName.includes('•') ? d.beneficiaryName : '');
+    togglePdFields(method);
+    openModal('payoutDetailsModal');
+    setTimeout(() => document.getElementById(method === 'bank' ? 'pdBankAccount' : 'pdUpiId')?.focus(), 200);
+  }
+
+  function togglePdFields(val) {
+    const upi = document.getElementById('pdUpiGroup');
+    const bank = document.getElementById('pdBankGroup');
+    if (upi) upi.style.display = val === 'upi' ? '' : 'none';
+    if (bank) bank.style.display = val === 'upi' ? 'none' : '';
+  }
+
+  async function savePayoutDetails() {
+    if (typeof requireAuth === 'function' && !requireAuth()) return;
+    const method = document.getElementById('pdMethod')?.value || 'upi';
+    const upiId = (document.getElementById('pdUpiId')?.value || '').trim();
+    const bankAccount = (document.getElementById('pdBankAccount')?.value || '').trim();
+    const bankIfsc = (document.getElementById('pdBankIfsc')?.value || '').trim();
+    const beneficiaryName = (document.getElementById('pdBeneficiaryName')?.value || '').trim();
+
+    if (method === 'upi' && !upiId) { showToast('Please enter your UPI ID.', 'error'); return; }
+    if (method === 'bank' && (!bankAccount || !bankIfsc)) { showToast('Please enter your bank account and IFSC.', 'error'); return; }
+
+    const btn = document.getElementById('pdSaveBtn');
+    const orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+    try {
+      const data = await api('/payouts/details', {
+        method: 'PUT',
+        body: { method, upiId, bankAccount, bankIfsc, beneficiaryName },
+      });
+      payoutDetails = { details: data.details || null, complete: Boolean(data.complete), loaded: true };
+      closeModal('payoutDetailsModal');
+      renderPayoutDetailsCard();
+      showToast(data.message || 'Payout details saved.', 'success');
+    } catch (err) {
+      if (!err.sessionExpired) showToast(err.message || 'Could not save your payout details.', 'error');
+    } finally {
+      if (btn) { btn.disabled = false; btn.textContent = orig; }
+    }
+  }
+
   function openRequestPayoutModal() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
     const summary = STATE.payoutsSummary || { pending: 0 };
     document.getElementById('requestPayoutAvailable').textContent = inr(summary.pending);
     document.getElementById('rpAmount').value = summary.pending > 0 ? String(summary.pending) : '';
-    document.getElementById('rpMethod').value = 'upi';
-    document.getElementById('rpUpiId').value = '';
-    document.getElementById('rpBankAccount').value = '';
-    document.getElementById('rpBankIfsc').value = '';
-    document.getElementById('rpBeneficiaryName').value = '';
-    toggleRpFields('upi');
     openModal('requestPayoutModal');
     setTimeout(() => document.getElementById('rpAmount')?.focus(), 200);
-  }
-
-  function toggleRpFields(val) {
-    const upi = document.getElementById('rpUpiGroup');
-    const bank = document.getElementById('rpBankGroup');
-    if (val === 'upi') {
-      upi.style.display = '';
-      bank.style.display = 'none';
-    } else {
-      upi.style.display = 'none';
-      bank.style.display = '';
-    }
   }
 
   async function submitPayoutRequest() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
     const amount = Number(document.getElementById('rpAmount')?.value);
-    const method = document.getElementById('rpMethod')?.value;
-    const upiId = (document.getElementById('rpUpiId')?.value || '').trim();
-    const bankAccount = (document.getElementById('rpBankAccount')?.value || '').trim();
-    const bankIfsc = (document.getElementById('rpBankIfsc')?.value || '').trim();
-    const beneficiaryName = (document.getElementById('rpBeneficiaryName')?.value || '').trim();
 
     if (!Number.isFinite(amount) || amount < 50) {
       showToast('Minimum payout request is ₹50.', 'error');
@@ -4557,23 +4809,32 @@
       showToast(`You can only request up to ${inr(available)} right now.`, 'error');
       return;
     }
-    if (method === 'upi' && !upiId) { showToast('Please enter your UPI ID.', 'error'); return; }
-    if (method === 'bank' && (!bankAccount || !bankIfsc)) { showToast('Please enter your bank account and IFSC.', 'error'); return; }
 
     const btn = document.getElementById('rpSubmitBtn');
     const orig = btn.textContent;
     btn.disabled = true;
     btn.textContent = '⏳ Submitting…';
     try {
-      const data = await api('/payouts/request', {
-        method: 'POST',
-        body: { amount, method, upiId, bankAccount, bankIfsc, beneficiaryName },
-      });
+      // Only the amount is sent: the payment destination is the account-level
+      // record the server holds, which a client is not allowed to override.
+      const data = await api('/payouts/request', { method: 'POST', body: { amount } });
       closeModal('requestPayoutModal');
       showToast(data.message || 'Payout request submitted!', 'success', 5000);
       await refreshDashboard({ silent: true });
     } catch (err) {
-      showToast(err.message || 'Could not submit payout request.', 'error');
+      // The server refuses a request it cannot pay. Send the seller to the one
+      // place the details are kept instead of asking for them here.
+      const code = (err.data && err.data.code) || '';
+      if (code === 'PAYOUT_DETAILS_MISSING') {
+        closeModal('requestPayoutModal');
+        showToast('Add your payout details first — a payout cannot be released without them.', 'warning', 6000);
+        showView('my-coupons', 'sales');
+        payoutDetails.loaded = false;
+        await loadPayoutDetails({ force: true });
+        setTimeout(() => document.getElementById('payoutDetailsCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+      } else if (!err.sessionExpired) {
+        showToast(err.message || 'Could not submit payout request.', 'error');
+      }
     } finally {
       btn.disabled = false;
       btn.textContent = orig;
@@ -5696,10 +5957,12 @@
     // what stops the Purchased pane from ever claiming "listed for sale".
     if (name === 'my-coupons') {
       const key = String(sub || '');
-      const SELLER_SUBS = new Set(['sales', 'for-sale', 'active-listings', 'sold', 'payout-status']);
+      const SELLER_SUBS = new Set(['sales', 'for-sale', 'active-listings', 'sold', 'payable', 'payout-status']);
 
       if (SELLER_SUBS.has(key)) {
-        window.ML_FILTER = key === 'sold' ? 'sold' : (key === 'active-listings' ? 'active' : 'all');
+        window.ML_FILTER = (key === 'sold' || key === 'payable' || key === 'payout-status')
+          ? 'payable'
+          : (key === 'active-listings' ? 'active' : 'all');
         if (typeof refreshMlFilterChips === 'function') refreshMlFilterChips();
         setMcSide('sales');
       } else {
@@ -5707,6 +5970,16 @@
         if (typeof refreshMcFilterChips === 'function') refreshMcFilterChips();
         setMcSide('purchased');
       }
+
+      // The seller side needs two things the rest of the dashboard does not: the
+      // server's status ladder for each listing, and the account-level payout
+      // record the Payout Details card shows. Both are re-read on entry so the
+      // pane never shows a stale stage or a stale destination.
+      Promise.resolve()
+        .then(() => (typeof loadSellerCouponStatuses === 'function' ? loadSellerCouponStatuses() : null))
+        .then(() => { if (typeof renderMyListings === 'function') renderMyListings(); })
+        .catch(() => {});
+      if (typeof loadPayoutDetails === 'function') loadPayoutDetails({ force: true });
     } else if (name === 'wallet') {
       // Transactions view — repaint the ledger with whatever data is loaded
       if (typeof renderTransactions === 'function') renderTransactions();

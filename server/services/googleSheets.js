@@ -28,6 +28,7 @@ const SHEETS = {
   SECURITY_AUDIT: 'SecurityAudit',
   BACKUP_CODE_AUDIT: 'BackupCodeAudit',
   MONTHLY_REPORTS: 'MonthlyReports',
+  SELLER_PAYOUT_DETAILS: 'SellerPayoutDetails',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -118,6 +119,30 @@ const HEADERS = {
     'paymentReference',
     'rejectionReason',
     'notes',
+  ],
+  // One row per seller: where that seller's money goes. Payout destinations are
+  // account-level on purpose — a coupon row must never carry payment
+  // credentials, and a seller must never be asked to re-type an account number
+  // for every payout request. /api/payouts/request copies this row onto the
+  // Payouts row it creates, so the admin payout screens keep reading one place.
+  //
+  // sellerEmail is the key and is stored lowercased so it matches the Payouts
+  // tab's sellerEmail under one identity. Only a destination is kept here (UPI
+  // handle, or account number + IFSC) — never a card number, CVV or password —
+  // and seller-facing responses return it masked. Every row also carries an `id`
+  // because appendRow/getRows identify a row by it when merging the in-memory
+  // fallback: without one, two sellers' rows collide as "the same row".
+  [SHEETS.SELLER_PAYOUT_DETAILS]: [
+    'id',
+    'sellerEmail',
+    'sellerUserId',
+    'method',           // 'UPI' | 'Bank' — same casing the Payouts tab stores
+    'upiId',
+    'bankAccount',
+    'bankIfsc',
+    'beneficiaryName',
+    'createdAt',
+    'updatedAt',
   ],
   [SHEETS.PRICE_TRACKING]: [
     'id', 'userEmail', 'productUrl', 'platform', 'productName',

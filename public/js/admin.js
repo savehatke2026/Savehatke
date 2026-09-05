@@ -750,6 +750,7 @@ function activeRowHtml(c) {
       <td>
         <div class="admin-actions ta-right">
           <button class="btn btn-ghost btn-xs" title="Open the full review record" onclick="openReviewModal('${id}')">🔍</button>
+          <button class="btn btn-warning btn-xs" title="Mark this coupon invalid and withhold its payout" onclick="invalidateCoupon('${id}')">⛔</button>
           <button class="btn btn-danger btn-xs" title="Delete this coupon" onclick="deleteCoupon('${id}')">🗑</button>
         </div>
       </td>
@@ -761,6 +762,33 @@ function activeRowHtml(c) {
 function isSellerSubmission(c) {
   const src = String(c.source || '').toLowerCase();
   return src === 'user-submitted' || src === 'user';
+}
+
+/**
+ * Mark an already-reviewed coupon invalid.
+ *
+ * This is the post-review failure path: the coupon passed review, so rejecting it
+ * again on the review screen is not the right action. The server records the
+ * invalidation, withholds any payout still pending for that coupon, and the
+ * seller's own listing then reads "Validation Failed".
+ */
+async function invalidateCoupon(id) {
+  const reason = prompt('Why is this coupon invalid? The seller sees Validation Failed and any pending payout is withheld.');
+  // A blank prompt is a deliberate cancel; an empty string is not a reason.
+  if (reason === null) return;
+
+  try {
+    const data = await api(`/admin/coupons/${encodeURIComponent(id)}/invalidate`, {
+      method: 'POST',
+      useAdmin: true,
+      body: { reason: String(reason || '').trim() },
+    });
+    showToast(data.message || 'Coupon marked invalid.', data.alreadyInvalidated ? 'info' : 'success', 5000);
+    if (typeof loadActiveCoupons === 'function') loadActiveCoupons();
+    if (typeof loadInventory === 'function') loadInventory();
+  } catch (err) {
+    if (!err.sessionExpired) showToast(err.message || 'Could not mark this coupon invalid.', 'error');
+  }
 }
 
 function matchesActiveFilters(c) {

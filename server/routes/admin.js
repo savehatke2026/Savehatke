@@ -13,6 +13,9 @@ const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const monthlyReports = require('../services/monthlyReports');
+// Payout withholding and the seller status vocabulary live with the Payouts tab,
+// so the invalidate action below reuses them instead of restating the rules.
+const payouts = require('./payouts');
 
 const router = express.Router();
 
@@ -754,6 +757,107 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, async
     });
   } catch (err) {
     console.error('Admin review action error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/admin/coupons/:id/invalidate — mark an already-reviewed coupon invalid
+// The post-review counterpart of review-action's `reject`: the coupon is already
+// live (or already sold and payable) and turns out not to work. Its marketplace
+// `status` is left alone on purpose — the marketplace's own status filtering must
+// not change under it — so the failure is recorded in its own field, and anything
+// still owed on that coupon is withheld in the same call, because a coupon that
+// failed validation must never reach a payout run.
+router.post('/coupons/:id/invalidate', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    const cleanReason = String(reason || '').trim().slice(0, 500);
+
+    let coupon = null;
+    if (supabase.isConfigured()) {
+      try {
+        coupon = await supabase.findCouponById(id);
+      } catch (e) {}
+    }
+    if (!coupon) {
+      coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
+    }
+    if (!coupon) {
+      return res.status(404).json({ error: 'Coupon not found.' });
+    }
+
+    // Before review, the right tool is the review screen's Reject action. Refusing
+    // pre-review statuses here keeps the two actions from silently overlapping.
+    if (payouts.PRE_REVIEW_COUPON_STATUSES.includes(String(coupon.status || '').toLowerCase())) {
+      return res.status(400).json({
+        error: 'This coupon has not been reviewed yet. Use Reject on the review screen instead.',
+        code: 'COUPON_NOT_REVIEWED',
+      });
+    }
+
+    const existing = await payouts.describeCouponInvalidationById(id, coupon);
+    const admin = req.user.email || req.user.name || 'admin';
+
+    // Withholding runs on every call. It only touches rows that are still
+    // payable, so a repeat click finishes a partially-failed first attempt
+    // instead of paying or rejecting anything twice.
+    const withheldPayouts = await payouts.withholdPayoutsForCoupon({
+      couponId: id,
+      reason: cleanReason,
+      actorEmail: admin,
+    });
+
+    if (existing.invalidated) {
+      return res.json({
+        message: 'This coupon is already marked invalid. Payment stays withheld.',
+        alreadyInvalidated: true,
+        coupon,
+        invalidation: { at: existing.at, by: existing.by, reason: existing.reason },
+        withheldPayouts,
+        sellerStatus: payouts.SELLER_STATUS.FAILED,
+      });
+    }
+
+    const at = new Date().toISOString();
+    const updates = {
+      validationStatus: 'failed',
+      invalidatedAt: at,
+      invalidationReason: cleanReason,
+      paymentWithheld: 'true',
+    };
+
+    // Same dual-write path as PUT /coupons/:id — Supabase is the store the
+    // marketplace reads, the Coupons sheet is the mirror. Both are best-effort
+    // here: the audit row below is the record that has to survive, which is why
+    // it is also what the seller-facing status derivation reads back.
+    if (supabase.isConfigured()) {
+      try {
+        await supabase.updateCoupon(id, updates);
+      } catch (e) {
+        console.warn('[admin/invalidate] Supabase write notice:', e.message);
+      }
+    }
+    try {
+      await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
+    } catch (e) {
+      console.warn('[admin/invalidate] Sheets write notice:', e.message);
+    }
+
+    await logCouponAudit(id, admin, 'invalidate', cleanReason || 'Marked invalid by admin.');
+
+    res.json({
+      message: withheldPayouts.count
+        ? `Coupon marked invalid. ₹${withheldPayouts.amount} of pending payout was withheld.`
+        : 'Coupon marked invalid. No pending payout to withhold.',
+      alreadyInvalidated: false,
+      coupon: { ...coupon, ...updates },
+      invalidation: { at, by: admin, reason: cleanReason },
+      withheldPayouts,
+      sellerStatus: payouts.SELLER_STATUS.FAILED,
+    });
+  } catch (err) {
+    console.error('Admin invalidate coupon error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
