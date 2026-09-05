@@ -817,6 +817,28 @@
   /* =====================
      SUPPORT FORM SUBMIT
   ===================== */
+  /** Read a File into the base64 payload /api/support/attachment expects. */
+  function readSupportFileAsBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('That screenshot could not be read.'));
+      reader.onload = () => {
+        // "data:<type>;base64,AAAA" → keep only the payload.
+        const result = String(reader.result || '');
+        const comma = result.indexOf(',');
+        resolve(comma === -1 ? '' : result.slice(comma + 1));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // Matches ATTACHMENT_MAX_BYTES in routes/support.js. The screenshot travels as
+  // base64 inside a JSON body, which inflates it by a third, and Vercel rejects a
+  // serverless request body over ~4.5MB at the edge before the function runs — so
+  // 3MB raw is the largest that reliably survives the platform.
+  const SUPPORT_ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024;
+  const SUPPORT_ATTACHMENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
   async function handleSupportSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('supportSubmitBtn');
@@ -824,9 +846,23 @@
     const email = document.getElementById('supportEmail').value.trim();
     const subject = document.getElementById('supportSubject').value;
     const message = document.getElementById('supportMessage').value.trim();
+    const fileInput = document.getElementById('supportAttachment');
+    const file = fileInput && fileInput.files ? fileInput.files[0] : null;
 
     if (!name || !email || !subject || !message) {
       showToast('Please fill in all required fields.', 'warning');
+      return;
+    }
+
+    // Checked here as well as on the server so a multi-MB upload is not wasted
+    // first. The server also sniffs the bytes, so a renamed non-image still fails
+    // there and its answer is the one that counts.
+    if (file && file.size > SUPPORT_ATTACHMENT_MAX_BYTES) {
+      showToast('That screenshot is larger than 3MB. Please attach a smaller one.', 'error');
+      return;
+    }
+    if (file && !SUPPORT_ATTACHMENT_TYPES.includes(String(file.type).toLowerCase())) {
+      showToast('Please attach a PNG, JPG or WebP screenshot.', 'error');
       return;
     }
 
@@ -841,10 +877,42 @@
     btn.textContent = '⏳ Submitting...';
 
     try {
+      // The screenshot goes up first so the ticket can carry its Drive reference.
+      // A failed upload aborts the whole submission: creating the case anyway
+      // would report success while silently discarding the evidence the user
+      // deliberately attached.
+      let attachment = null;
+      if (file) {
+        btn.textContent = '⏳ Uploading screenshot...';
+        try {
+          const dataBase64 = await readSupportFileAsBase64(file);
+          attachment = await api('/support/attachment', {
+            method: 'POST',
+            body: { filename: file.name, contentType: file.type, dataBase64 },
+          });
+        } catch (err) {
+          showToast(`Attachment upload failed. Please try again. (${err.message || 'unknown error'})`, 'error', 7000);
+          return;
+        }
+        if (!attachment || !attachment.url) {
+          showToast('Attachment upload failed. Please try again.', 'error', 7000);
+          return;
+        }
+        btn.textContent = '⏳ Submitting...';
+      }
+
       if (typeof api === 'function') {
         await api('/support/ticket', {
           method: 'POST',
-          body: { name, email, subject, message, cfTurnstileToken: turnstileToken }
+          body: {
+            name, email, subject, message, cfTurnstileToken: turnstileToken,
+            ...(attachment ? {
+              attachmentUrl: attachment.url,
+              attachmentName: attachment.name || file.name,
+              attachmentMime: attachment.mimeType || '',
+              attachmentSize: attachment.size || '',
+            } : {}),
+          }
         });
       } else {
         await new Promise(resolve => setTimeout(resolve, 1000));

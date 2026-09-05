@@ -174,6 +174,13 @@ router.post('/attachment', optionalAuth, async (req, res) => {
       uploaderEmail: req.user && req.user.email ? req.user.email : '',
     });
 
+    // Enough to confirm a real upload in the deployment log without naming the
+    // uploader or any credential.
+    console.log(
+      `[support/attachment] uploaded ${sniffed.mime} ${buffer.length}B -> ${uploaded.url} ` +
+      `(folder=${process.env.GOOGLE_DRIVE_SUPPORT_FOLDER_ID ? 'support' : 'proofs-fallback'})`
+    );
+
     // The original filename travels back for display only; it is recorded as
     // ticket metadata and never used as a path or a Drive name.
     const displayName = String(filename || 'screenshot')
@@ -193,7 +200,15 @@ router.post('/attachment', optionalAuth, async (req, res) => {
   } catch (err) {
     // Google's own error text can name folders, accounts and internal reasons,
     // so it stays in the server log. The caller gets one neutral sentence.
-    console.error(`[support/attachment] upload failed (${err.code || 'error'}): ${err.message}`);
+    // The auth mode and folder target are what actually distinguish the failures
+    // that happen in practice — service-account quota, unreachable folder, dead
+    // token — and neither is a credential.
+    let ctx = '';
+    try {
+      const c = googleDrive._getCreds();
+      ctx = ` [mode=${c.mode} supportFolder=${process.env.GOOGLE_DRIVE_SUPPORT_FOLDER_ID ? 'set' : 'unset'}]`;
+    } catch (e) { /* diagnostics must never mask the error being reported */ }
+    console.error(`[support/attachment] upload failed (${err.code || 'error'})${ctx}: ${err.message}`);
     return res.status(502).json({
       error: 'We could not attach that screenshot right now. Please try again in a moment.',
     });

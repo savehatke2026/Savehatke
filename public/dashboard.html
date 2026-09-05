@@ -4430,7 +4430,7 @@
     });
   }
 
-  const CASE_ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // matches routes/support.js
+  const CASE_ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // matches routes/support.js
 
   async function createCase() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
@@ -4443,10 +4443,10 @@
 
     if (!subject) { showToast('Please enter a subject for your case.', 'error'); return; }
     if (!desc) { showToast('Please describe your issue.', 'error'); return; }
-    // Checked here as well as on the server so a 5MB upload isn't wasted first.
+    // Checked here as well as on the server so a 3MB upload isn't wasted first.
     // The server also sniffs the bytes, so a renamed non-image fails there.
     if (file && file.size > CASE_ATTACHMENT_MAX_BYTES) {
-      showToast('That screenshot is larger than 5MB. Please attach a smaller one.', 'error');
+      showToast('That screenshot is larger than 3MB. Please attach a smaller one.', 'error');
       return;
     }
     if (file && !['image/png', 'image/jpeg', 'image/webp'].includes(String(file.type).toLowerCase())) {
