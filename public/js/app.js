@@ -829,7 +829,7 @@ function openCouponTermsModal(couponData) {
           <li>Cart value must meet the minimum requirement specified by ${brand} (e.g. ₹${originalValue}).</li>
           <li>Single-use promo code per user account on the merchant site.</li>
           <li>Cannot be combined with conflicting promotional vouchers or gift cards.</li>
-          <li><strong>100% Active Guarantee:</strong> Verified by SaveHatke. If the code is invalid, request a full refund within 48 hours via your Dashboard.</li>
+          <li><strong>Reviewed before listing:</strong> Coupons are reviewed by SaveHatke before approval. If the code is invalid, request a refund within 48 hours via your Dashboard.</li>
         </ul>
       </div>
 
