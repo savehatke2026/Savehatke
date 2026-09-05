@@ -909,6 +909,206 @@ async function countActiveSessions() {
   return total;
 }
 
+// ── SOS Backup Codes ────────────────────────────────────────────────────
+// Postgres mirror of server/models/BackupCode.js. A break-glass code is only
+// useful if it can be checked when the primary store is unreachable, so the SOS
+// gate reads every store it can talk to and a code may live in either or both.
+//
+// The cleartext is never written here — only its bcrypt hash. Columns are
+// snake_case in Postgres and camelCase in the application, so everything
+// crossing this boundary goes through the two mappers below.
+
+const BACKUP_CODES_TABLE = 'backup_codes';
+
+/**
+ * True when Postgres says the table isn't there. The migration in
+ * supabase/migrations/backup_codes.sql may not have been applied yet, and that
+ * has to read as "this store has nothing to say" rather than as an outage —
+ * otherwise adding Supabase support would break a working MongoDB setup.
+ */
+function isMissingBackupTableError(err) {
+  if (!err) return false;
+  const code = String(err.code || '');
+  const msg = String(err.message || '').toLowerCase();
+  return code === 'PGRST205' || code === '42P01' || msg.includes('could not find the table');
+}
+
+function fromSupabaseBackupCode(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    codeHash: row.code_hash,
+    codePrefix: row.code_prefix,
+    label: row.label,
+    createdBy: row.created_by,
+    notes: row.notes || '',
+    isActive: row.is_active !== false,
+    expiresAt: row.expires_at ? new Date(row.expires_at) : null,
+    maxUses: row.max_uses == null ? null : Number(row.max_uses),
+    usageCount: Number(row.usage_count || 0),
+    lastUsedAt: row.last_used_at ? new Date(row.last_used_at) : null,
+    lastUsedIp: row.last_used_ip || '',
+    lastUsedReason: row.last_used_reason || '',
+    allowedAdminEmails: Array.isArray(row.allowed_admin_emails) ? row.allowed_admin_emails : [],
+    created_at: row.created_at ? new Date(row.created_at) : null,
+    updated_at: row.updated_at ? new Date(row.updated_at) : null,
+  };
+}
+
+function toSupabaseBackupCode(code) {
+  const row = {
+    // Omitted when the caller has no id, so Postgres mints one.
+    ...(code.id ? { id: code.id } : {}),
+    code_hash: code.codeHash,
+    code_prefix: code.codePrefix,
+    label: String(code.label || '').slice(0, 120),
+    created_by: String(code.createdBy || 'admin'),
+    notes: String(code.notes || '').slice(0, 1000),
+    is_active: code.isActive !== false,
+    expires_at: code.expiresAt ? new Date(code.expiresAt).toISOString() : null,
+    max_uses: code.maxUses == null ? null : Number(code.maxUses),
+    usage_count: Number(code.usageCount || 0),
+    last_used_at: code.lastUsedAt ? new Date(code.lastUsedAt).toISOString() : null,
+    last_used_ip: String(code.lastUsedIp || ''),
+    last_used_reason: String(code.lastUsedReason || '').slice(0, 500),
+    allowed_admin_emails: Array.isArray(code.allowedAdminEmails) ? code.allowedAdminEmails : [],
+  };
+  return row;
+}
+
+/** Insert a minted code. Returns the stored row, or null when unavailable. */
+async function createBackupCode(code) {
+  const client = getClient();
+  if (!client) return null;
+  const { data, error } = await client
+    .from(BACKUP_CODES_TABLE)
+    .insert(toSupabaseBackupCode(code))
+    .select()
+    .single();
+  if (error) {
+    if (isMissingBackupTableError(error)) {
+      console.warn('[supabase] backup_codes table is missing — run supabase/migrations/backup_codes.sql');
+      return null;
+    }
+    throw new Error(error.message);
+  }
+  return fromSupabaseBackupCode(data);
+}
+
+/**
+ * Every code the SOS gate should bcrypt-compare against: active only, hash
+ * included.
+ *
+ * Returns null — not [] — when this store cannot answer at all (not configured,
+ * or the migration has not been applied). The distinction matters at the gate:
+ * "no rows" means the code is unknown, while "could not ask" must not be
+ * reported to an operator as a wrong code.
+ */
+async function listActiveBackupCodes() {
+  const client = getClient();
+  if (!client) return null;
+  const { data, error } = await client
+    .from(BACKUP_CODES_TABLE)
+    .select('*')
+    .eq('is_active', true);
+  if (error) {
+    if (isMissingBackupTableError(error)) {
+      console.warn('[supabase] backup_codes table is missing — run supabase/migrations/backup_codes.sql');
+      return null;
+    }
+    throw new Error(error.message);
+  }
+  return (data || []).map(fromSupabaseBackupCode);
+}
+
+/** All codes, newest first, for the admin list. null when the store cannot answer. */
+async function listAllBackupCodes({ includeInactive = true } = {}) {
+  const client = getClient();
+  if (!client) return null;
+  let query = client.from(BACKUP_CODES_TABLE).select('*').order('created_at', { ascending: false }).limit(200);
+  if (!includeInactive) query = query.eq('is_active', true);
+  const { data, error } = await query;
+  if (error) {
+    if (isMissingBackupTableError(error)) return null;
+    throw new Error(error.message);
+  }
+  return (data || []).map(fromSupabaseBackupCode);
+}
+
+async function findBackupCodeById(id) {
+  const client = getClient();
+  if (!client || !id) return null;
+  const { data, error } = await client
+    .from(BACKUP_CODES_TABLE)
+    .select('*')
+    .eq('id', id)
+    .maybeSingle();
+  if (error) {
+    if (isMissingBackupTableError(error)) return null;
+    throw new Error(error.message);
+  }
+  return fromSupabaseBackupCode(data);
+}
+
+/** Patch mutable metadata. `updates` uses the application's camelCase names. */
+async function updateBackupCode(id, updates) {
+  const client = getClient();
+  if (!client || !id) return null;
+  const map = {
+    label: 'label',
+    notes: 'notes',
+    isActive: 'is_active',
+    expiresAt: 'expires_at',
+    maxUses: 'max_uses',
+    allowedAdminEmails: 'allowed_admin_emails',
+    usageCount: 'usage_count',
+    lastUsedAt: 'last_used_at',
+    lastUsedIp: 'last_used_ip',
+    lastUsedReason: 'last_used_reason',
+  };
+  const patch = { updated_at: new Date().toISOString() };
+  for (const [field, column] of Object.entries(map)) {
+    if (!(field in updates)) continue;
+    const value = updates[field];
+    if (column === 'expires_at' || column === 'last_used_at') {
+      patch[column] = value ? new Date(value).toISOString() : null;
+    } else if (column === 'max_uses') {
+      patch[column] = value == null ? null : Number(value);
+    } else {
+      patch[column] = value;
+    }
+  }
+  const { data, error } = await client
+    .from(BACKUP_CODES_TABLE)
+    .update(patch)
+    .eq('id', id)
+    .select()
+    .single();
+  if (error) {
+    if (isMissingBackupTableError(error)) return null;
+    throw new Error(error.message);
+  }
+  return fromSupabaseBackupCode(data);
+}
+
+/**
+ * Spend one use of a code and stamp who/why. PostgREST cannot express
+ * `usage_count = usage_count + 1`, so the current value is read first. The
+ * increment is therefore not atomic — acceptable here because the caller
+ * already holds a single verified SOS session, and the gate re-reads the count
+ * before it lets any later attempt through.
+ */
+async function stampBackupCodeUsage(id, { ip = '', reason = '' } = {}) {
+  const current = await findBackupCodeById(id);
+  if (!current) return null;
+  return updateBackupCode(id, {
+    usageCount: (current.usageCount || 0) + 1,
+    lastUsedAt: new Date(),
+    lastUsedIp: String(ip || '').slice(0, 64),
+    lastUsedReason: String(reason || '').slice(0, 500),
+  });
+}
+
 module.exports = {
   getClient,
   isConfigured,
@@ -944,5 +1144,12 @@ module.exports = {
   countActiveSessions,
   SESSION_TTL_MS,
   ADMIN_SESSION_TTL_MS,
+  // SOS backup codes
+  createBackupCode,
+  listActiveBackupCodes,
+  listAllBackupCodes,
+  findBackupCodeById,
+  updateBackupCode,
+  stampBackupCodeUsage,
 };
 

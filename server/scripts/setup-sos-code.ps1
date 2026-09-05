@@ -31,9 +31,13 @@ node server\scripts\register-backup-code.js `
 if ($LASTEXITCODE -ne 0) {
     Write-Host ''
     Write-Host 'Registration failed. Common causes:' -ForegroundColor Red
+    Write-Host '  - the Supabase backup_codes table does not exist yet:' -ForegroundColor Red
+    Write-Host '      run supabase/migrations/backup_codes.sql in the Supabase SQL Editor' -ForegroundColor Yellow
+    Write-Host '  - SUPABASE_URL / SUPABASE_SERVICE_KEY are missing from .env' -ForegroundColor Red
     Write-Host '  - your IP is not whitelisted in MongoDB Atlas' -ForegroundColor Red
     Write-Host '  - MONGODB_URI is missing or wrong in .env' -ForegroundColor Red
-    Write-Host '  - the model has not been loaded by the running server' -ForegroundColor Red
+    Write-Host ''
+    Write-Host 'The code only needs ONE store to accept it — Supabase alone is enough.' -ForegroundColor Yellow
     exit 1
 }
 

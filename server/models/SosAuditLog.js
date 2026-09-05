@@ -43,6 +43,9 @@ const sosAuditSchema = new mongoose.Schema(
 
     backup_code_id: { type: String, default: '' },
     backup_code_prefix: { type: String, default: '' },
+    // Which store recognised the code ('supabase' | 'mongo'), so a break-glass
+    // event can be traced back to the row that authorised it.
+    backup_code_store: { type: String, default: '' },
 
     reason: { type: String, default: '', maxlength: 500 },
 

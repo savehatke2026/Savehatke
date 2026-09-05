@@ -44,10 +44,16 @@ const sosSessionSchema = new mongoose.Schema(
     // non-secret display prefix only.
     backup_code_id: { type: String, required: true },
     backup_code_prefix: { type: String, default: '' },
+    // Which store recognised the code ('supabase' | 'mongo'). Recorded so the
+    // grant stamps the use against the row that actually authorised it.
+    backup_code_store: { type: String, default: '' },
 
-    reason: { type: String, required: true, maxlength: 500 },
+    // Written at the 'reason' stage, once the code has already been accepted.
+    // Empty means the attempt has not got that far — never that no reason was
+    // required; /start refuses to advance without one.
+    reason: { type: String, default: '', maxlength: 500 },
 
-    stage: { type: String, enum: STAGES, default: 'select-admin', index: true },
+    stage: { type: String, enum: STAGES, default: 'reason', index: true },
 
     // Bound once the user picks an administrator, after the server re-checks
     // eligibility. Stores the admin's uuid `id`, never the _id or email.

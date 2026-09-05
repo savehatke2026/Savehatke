@@ -5,9 +5,10 @@
 // field unlocks a "Reason for using this Backup code" prompt, then a
 // picker for one of two privileged admin emails. Every step is audited.
 //
-// Storage: codes live in MongoDB (models/BackupCode.js). Only the bcrypt
+// Storage: codes live in Supabase (table backup_codes) and/or MongoDB
+// (models/BackupCode.js), behind services/backupCodeStore.js. Only the bcrypt
 // hash + a short prefix are persisted. The cleartext is shown to the
-// minter exactly once and is never recoverable from the database.
+// minter exactly once and is never recoverable from either store.
 //
 // Two-step flow (prevents admin-email enumeration by anyone who doesn't
 // hold a real code):
@@ -42,11 +43,9 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const db = require('../services/googleSheets');
-const dbConfig = require('../config/db');
 const getClientIP = require('../middleware/getClientIP');
-const { generateToken, authenticateToken, requireAdmin } = require('../middleware/auth');
-const BackupCode = require('../models/BackupCode');
-const mongoose = require('mongoose');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const backupCodeStore = require('../services/backupCodeStore');
 
 const router = express.Router();
 
@@ -109,25 +108,6 @@ function isBackupCodeShape(s) {
   return true;
 }
 
-function isMongoReady() {
-  return mongoose.connection && mongoose.connection.readyState === 1;
-}
-
-/**
- * Wait for Mongo to be ready (up to maxMs) before the backup-code
- * route continues. The first time the server starts (especially right
- * after a fresh Atlas IP whitelist) the connection can take a few
- * seconds, and we want the user to be able to use the SOS code without
- * a manual server restart.
- */
-async function ensureMongoReady(maxMs = 5000) {
-  if (isMongoReady()) return true;
-  if (dbConfig && typeof dbConfig.waitForMongoReady === 'function') {
-    return dbConfig.waitForMongoReady(maxMs);
-  }
-  return false;
-}
-
 function codePrefixFromHash(hash) {
   return crypto.createHash('sha256').update(String(hash)).digest('hex').slice(0, 6);
 }
@@ -151,38 +131,10 @@ async function writeAuditRow(row) {
   }
 }
 
-/**
- * Find the first active MongoDB backup code that matches the submitted
- * cleartext via bcrypt, and that is not expired or over its usage cap.
- * Returns the BackupCode document on success, or null.
- */
-async function matchBackupCode(code) {
-  if (!isMongoReady()) return null;
-  const now = new Date();
-  const candidates = await BackupCode.find({
-    isActive: true,
-    $and: [
-      { $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] },
-    ],
-  }).select('+codeHash codePrefix usageCount maxUses');
-
-  for (const row of candidates) {
-    // If the row has a maxUses cap, skip rows that are already at it
-    if (row.maxUses != null && row.usageCount >= row.maxUses) continue;
-    try {
-      // eslint-disable-next-line no-await-in-loop
-      if (await bcrypt.compare(code, row.codeHash)) return row;
-    } catch (e) { /* malformed hash — skip */ }
-  }
-  return null;
-}
-
-function isCodeUsable(row) {
-  if (!row || !row.isActive) return false;
-  if (row.expiresAt && new Date(row.expiresAt) <= new Date()) return false;
-  if (row.maxUses != null && row.usageCount >= row.maxUses) return false;
-  return true;
-}
+// The Mongo-only code lookup that used to live here (matchBackupCode /
+// isCodeUsable / ensureMongoReady) is gone: matching now belongs to
+// services/backupCodeStore.js, which checks every store a code may live in.
+// Nothing called them — /init and /complete were retired long before this.
 
 // ── RETIRED: POST /init and POST /complete ────────────────────────────────
 // These two endpoints used to be the whole SOS flow: they took the raw backup
@@ -192,13 +144,13 @@ function isCodeUsable(row) {
 // They are answered with 410 rather than deleted because leaving a weaker
 // parallel path mounted would defeat the staged flow entirely — a code holder
 // could simply skip the questions. The replacement lives in routes/sos.js:
-//   POST /api/admin/sos/start  →  /select-admin  →  /verify
+//   POST /api/admin/sos/check-code  →  /start  →  /select-admin  →  /verify
 //
 // The reply is intentionally uninformative about codes and administrators.
 const RETIRED_MSG = { error: 'Unable to continue with SOS recovery.' };
 
 router.post('/init', (req, res) => {
-  console.warn(`[backup-code] retired /init called from ${getClientIP(req)} — direct to /api/admin/sos/start`);
+  console.warn(`[backup-code] retired /init called from ${getClientIP(req)} — direct to /api/admin/sos/check-code`);
   res.status(410).json(RETIRED_MSG);
 });
 
@@ -213,8 +165,12 @@ router.post('/complete', (req, res) => {
 // codes exist and the exact rate-limit parameters — a free reconnaissance feed
 // for anyone probing the break-glass path. The counts and identities moved to
 // GET /admin/list, which requires an authenticated admin.
+//
+// "Available" means at least one code store can be reached: codes live in
+// Supabase, MongoDB or both, and either is enough to verify one.
 router.get('/status', async (_req, res) => {
-  res.json({ ok: true, available: isMongoReady() });
+  const stores = backupCodeStore.describeStores();
+  res.json({ ok: true, available: Boolean(stores.mongo || stores.supabase) });
 });
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -226,14 +182,18 @@ router.get('/status', async (_req, res) => {
 // recorded as the `createdBy` field on the Mongo row.
 
 /**
- * Mint a fresh code, persist the hash to MongoDB, and return the cleartext
- * EXACTLY ONCE in the response. The caller is responsible for capturing it
- * and handing it to the human owner over a secure channel.
+ * Mint a fresh code, persist the hash to every reachable store, and return the
+ * cleartext EXACTLY ONCE in the response. The caller is responsible for
+ * capturing it and handing it to the human owner over a secure channel.
+ *
+ * The same id and the same bcrypt hash go to every store, so one code reads as
+ * one code in the audit trail no matter which store later answers for it.
  */
 router.post('/admin/create', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    if (!isMongoReady()) {
-      return res.status(503).json({ error: 'MongoDB is not reachable. Cannot mint a new code right now.' });
+    const stores = backupCodeStore.describeStores();
+    if (!stores.mongo && !stores.supabase) {
+      return res.status(503).json({ error: 'No code store is reachable (Supabase and MongoDB are both unavailable). Cannot mint a new code right now.' });
     }
 
     const {
@@ -285,7 +245,7 @@ router.post('/admin/create', authenticateToken, requireAdmin, async (req, res) =
 
     const createdBy = req.user?.email || req.user?.id || 'admin';
 
-    const row = await BackupCode.create({
+    const fields = {
       id: uuidv4(),
       codeHash: hash,
       codePrefix,
@@ -296,21 +256,36 @@ router.post('/admin/create', authenticateToken, requireAdmin, async (req, res) =
       expiresAt: expiresAtDate,
       maxUses: maxUsesInt,
       allowedAdminEmails: validEmails,
-    });
+    };
+
+    const { written, failed } = await backupCodeStore.create(fields);
+    if (!written.length) {
+      console.error('[backup-code] mint failed in every store:', JSON.stringify(failed));
+      return res.status(503).json({
+        error: 'Could not save the new code to any store. Nothing was minted.',
+        details: failed.map((f) => `${f.store}: ${f.error}`),
+      });
+    }
+    if (failed.length) {
+      console.warn('[backup-code] minted, but one store refused:', JSON.stringify(failed));
+    }
 
     res.status(201).json({
       message: 'Backup code minted. Save the cleartext now — it will NOT be shown again.',
+      // Which stores actually hold it. A code in only one store still works, but
+      // the operator should know the redundancy they did or did not get.
+      savedTo: written.map((w) => w.store),
+      storeErrors: failed.map((f) => `${f.store}: ${f.error}`),
       code: {
-        id: row.id,
-        codePrefix: row.codePrefix,
+        id: fields.id,
+        codePrefix,
         cleartext,                  // shown ONCE
-        label: row.label,
-        createdBy: row.createdBy,
-        notes: row.notes,
-        expiresAt: row.expiresAt,
-        maxUses: row.maxUses,
-        allowedAdminEmails: row.allowedAdminEmails,
-        created_at: row.created_at,
+        label: fields.label,
+        createdBy,
+        notes: fields.notes,
+        expiresAt: fields.expiresAt,
+        maxUses: fields.maxUses,
+        allowedAdminEmails: fields.allowedAdminEmails,
       },
     });
   } catch (err) {
@@ -319,18 +294,20 @@ router.post('/admin/create', authenticateToken, requireAdmin, async (req, res) =
   }
 });
 
-/** List codes (no secrets). Supports a few filters. */
+/** List codes from every reachable store (no secrets). */
 router.get('/admin/list', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    if (!isMongoReady()) {
-      return res.status(503).json({ error: 'MongoDB is not reachable.' });
-    }
     const { includeInactive = 'true' } = req.query;
-    const filter = includeInactive === 'false' ? { isActive: true } : {};
-    const rows = await BackupCode.find(filter).sort({ created_at: -1 }).limit(200);
+    const { rows, answered } = await backupCodeStore.listAll({
+      includeInactive: includeInactive !== 'false',
+    });
+    if (!answered.length) {
+      return res.status(503).json({ error: 'No code store is reachable.' });
+    }
     res.json({
       total: rows.length,
-      codes: rows.map((r) => r.toSafeJSON()),
+      stores: answered,
+      codes: rows.map(backupCodeStore.toSafeJSON),
     });
   } catch (err) {
     console.error('Backup code list error:', err);
@@ -341,49 +318,49 @@ router.get('/admin/list', authenticateToken, requireAdmin, async (req, res) => {
 /** Update mutable fields (label, notes, expiresAt, maxUses, allowedAdminEmails). */
 router.put('/admin/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    if (!isMongoReady()) return res.status(503).json({ error: 'MongoDB is not reachable.' });
-    const row = await BackupCode.findOne({ id: req.params.id });
+    const row = await backupCodeStore.findById(req.params.id);
     if (!row) return res.status(404).json({ error: 'Code not found.' });
 
     const { label, notes, expiresAt, maxUses, allowedAdminEmails } = req.body || {};
+    const updates = {};
 
     if (label !== undefined) {
       if (!String(label).trim()) return res.status(400).json({ error: 'label cannot be empty.' });
       if (String(label).length > 120) return res.status(400).json({ error: 'label is too long (max 120 chars).' });
-      row.label = String(label).trim();
+      updates.label = String(label).trim();
     }
-    if (notes !== undefined) row.notes = String(notes || '').slice(0, 1000);
+    if (notes !== undefined) updates.notes = String(notes || '').slice(0, 1000);
 
     if (expiresAt !== undefined) {
       if (expiresAt === null || expiresAt === '') {
-        row.expiresAt = null;
+        updates.expiresAt = null;
       } else {
         const d = new Date(expiresAt);
         if (isNaN(d.getTime())) return res.status(400).json({ error: 'expiresAt must be a valid ISO date string or null.' });
-        row.expiresAt = d;
+        updates.expiresAt = d;
       }
     }
 
     if (maxUses !== undefined) {
       if (maxUses === null || maxUses === '') {
-        row.maxUses = null;
+        updates.maxUses = null;
       } else {
         const n = Number(maxUses);
         if (!Number.isInteger(n) || n < 1) return res.status(400).json({ error: 'maxUses must be a positive integer or null.' });
-        row.maxUses = n;
+        updates.maxUses = n;
       }
     }
 
     if (allowedAdminEmails !== undefined) {
       if (!Array.isArray(allowedAdminEmails)) return res.status(400).json({ error: 'allowedAdminEmails must be an array.' });
-      const valid = allowedAdminEmails
+      updates.allowedAdminEmails = allowedAdminEmails
         .map((e) => String(e).toLowerCase().trim())
         .filter((e) => BACKUP_CODE_ALLOWED_ADMINS.some((a) => a.email === e));
-      row.allowedAdminEmails = valid;
     }
 
-    await row.save();
-    res.json({ message: 'Code updated.', code: row.toSafeJSON() });
+    const saved = await backupCodeStore.update(row.id, updates, { store: row.store });
+    if (!saved) return res.status(503).json({ error: 'Could not save the change to the code store.' });
+    res.json({ message: 'Code updated.', code: backupCodeStore.toSafeJSON(saved) });
   } catch (err) {
     console.error('Backup code update error:', err);
     res.status(500).json({ error: 'Failed to update code.' });
@@ -393,12 +370,11 @@ router.put('/admin/:id', authenticateToken, requireAdmin, async (req, res) => {
 /** Revoke a code (isActive=false). The hash + audit history are preserved. */
 router.post('/admin/:id/revoke', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    if (!isMongoReady()) return res.status(503).json({ error: 'MongoDB is not reachable.' });
-    const row = await BackupCode.findOne({ id: req.params.id });
+    const row = await backupCodeStore.findById(req.params.id);
     if (!row) return res.status(404).json({ error: 'Code not found.' });
-    row.isActive = false;
-    await row.save();
-    res.json({ message: 'Code revoked.', code: row.toSafeJSON() });
+    const saved = await backupCodeStore.update(row.id, { isActive: false }, { store: row.store });
+    if (!saved) return res.status(503).json({ error: 'Could not save the change to the code store.' });
+    res.json({ message: 'Code revoked.', code: backupCodeStore.toSafeJSON(saved) });
   } catch (err) {
     console.error('Backup code revoke error:', err);
     res.status(500).json({ error: 'Failed to revoke code.' });
@@ -408,15 +384,14 @@ router.post('/admin/:id/revoke', authenticateToken, requireAdmin, async (req, re
 /** Re-activate a previously revoked code. */
 router.post('/admin/:id/restore', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    if (!isMongoReady()) return res.status(503).json({ error: 'MongoDB is not reachable.' });
-    const row = await BackupCode.findOne({ id: req.params.id });
+    const row = await backupCodeStore.findById(req.params.id);
     if (!row) return res.status(404).json({ error: 'Code not found.' });
     if (row.expiresAt && new Date(row.expiresAt) <= new Date()) {
       return res.status(400).json({ error: 'Cannot restore an expired code. Update expiresAt first.' });
     }
-    row.isActive = true;
-    await row.save();
-    res.json({ message: 'Code restored.', code: row.toSafeJSON() });
+    const saved = await backupCodeStore.update(row.id, { isActive: true }, { store: row.store });
+    if (!saved) return res.status(503).json({ error: 'Could not save the change to the code store.' });
+    res.json({ message: 'Code restored.', code: backupCodeStore.toSafeJSON(saved) });
   } catch (err) {
     console.error('Backup code restore error:', err);
     res.status(500).json({ error: 'Failed to restore code.' });

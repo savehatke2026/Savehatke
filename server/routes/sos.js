@@ -1,9 +1,10 @@
 // ============================================
 // SaveHatke — SOS Backup Access (staged recovery)
 // ============================================
-// Break-glass admin recovery. Three server-authoritative stages, in order:
+// Break-glass admin recovery. Four server-authoritative stages, in order:
 //
-//   POST /api/admin/sos/start          code + reason + CAPTCHA  → eligible admins
+//   POST /api/admin/sos/check-code     code + CAPTCHA           → attempt session
+//   POST /api/admin/sos/start          reason                   → eligible admins
 //   POST /api/admin/sos/select-admin   pick an admin            → 5 questions
 //   POST /api/admin/sos/verify         answers                  → admin session
 //
@@ -12,9 +13,13 @@
 //     eligibility, answer correctness, whether the attempt may advance — is
 //     evaluated here and recorded in MongoDB. There is no "verified" flag the
 //     client can set.
-//   - The raw backup code is submitted once, compared against a bcrypt hash,
-//     and never stored, echoed, logged or persisted in any form. The audit trail
-//     carries the code's database id and its non-secret display prefix only.
+//   - The code is checked before anything else is shown. /check-code is the gate
+//     that decides whether the recovery form opens at all, so a stranger who
+//     types a wrong value learns nothing beyond "no".
+//   - The raw backup code is submitted once, to /check-code, compared against a
+//     bcrypt hash, and never stored, echoed, logged or persisted in any form.
+//     The audit trail carries the code's database id and its non-secret display
+//     prefix only.
 //   - Security answers are compared against per-admin bcrypt hashes after
 //     normalisation. Plaintext answers exist only inside verifyAnswer().
 //   - Failures are generic. Nothing in a response distinguishes "no such code"
@@ -28,9 +33,9 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 
 const Admin = require('../models/Admin');
-const BackupCode = require('../models/BackupCode');
 const SosSession = require('../models/SosSession');
 const SosAuditLog = require('../models/SosAuditLog');
+const backupCodeStore = require('../services/backupCodeStore');
 
 const { waitForMongoReady, isMongoReady } = require('../config/db');
 const getClientIP = require('../middleware/getClientIP');
@@ -70,6 +75,35 @@ function looksLikeBackupCode(value) {
   const v = String(value || '').trim();
   if (!v || v.length < 8 || v.length > 128) return false;
   return !v.includes('@');
+}
+
+// The shape every minting path produces: SH-BK- followed by four groups of four
+// uppercase hex characters (see scripts/mint-backup-code.js and the /admin/create
+// endpoint). Used for normalisation only — a code of any other shape is still
+// compared byte-for-byte, so an older or hand-made code keeps working.
+const CANONICAL_CODE = /^SH-BK-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/i;
+
+/**
+ * Tidy up a pasted code before the bcrypt comparison: drop surrounding and
+ * embedded whitespace, and upper-case it when the result is recognisably one of
+ * ours. Anything else is returned trimmed and otherwise untouched, because a
+ * hash is over exact bytes and we must not silently mangle an unfamiliar format.
+ */
+function normaliseCode(value) {
+  const trimmed = String(value == null ? '' : value).trim();
+  const squeezed = trimmed.replace(/\s+/g, '');
+  return CANONICAL_CODE.test(squeezed) ? squeezed.toUpperCase() : trimmed;
+}
+
+/**
+ * Whether a matched code may still open an attempt. Single use is the default:
+ * a code with no explicit maxUses is spent after one successful recovery.
+ * Revocation is already handled by the isActive filter on the query.
+ */
+function codeIsSpendable(row) {
+  if (!row) return false;
+  if (row.expiresAt && new Date(row.expiresAt) <= new Date()) return false;
+  return (row.usageCount || 0) < (row.maxUses == null ? 1 : row.maxUses);
 }
 
 /**
@@ -158,11 +192,19 @@ async function eligibleAdmins() {
   return rows.filter((r) => r.sos_available !== false);
 }
 
-// ── Stage 1: POST /api/admin/sos/start ────────────────────────────────────
-// Body: { code, reason, cfTurnstileToken }
-// The only place the raw code is accepted. On success the caller gets an opaque
-// session token and the list of administrators eligible right now.
-router.post('/start', async (req, res) => {
+// ── Stage 0: POST /api/admin/sos/check-code ───────────────────────────────
+// Body: { code, cfTurnstileToken }
+//
+// The gate. Nothing about the recovery flow is shown to a caller that cannot
+// produce a live backup code: the browser asks here first and only opens the
+// reason form when this endpoint says yes. It is also the only place the raw
+// code is accepted — the session it hands back stands in for the code from then
+// on, so the secret crosses the wire exactly once.
+//
+// Every rejection returns the same message, whether the code is unknown,
+// revoked, expired or already spent, and each one is audited so the per-IP
+// failure throttle counts guesses.
+router.post('/check-code', async (req, res) => {
   const { ip, client, uaHash } = contextOf(req);
   const baseAudit = {
     ip,
@@ -179,35 +221,38 @@ router.post('/start', async (req, res) => {
       return res.status(429).json({ error: MSG.throttled });
     }
 
-    const rawCode = String((req.body && req.body.code) || '');
-    const reason = sanitiseReason(req.body && req.body.reason);
-
-    // Reason is checked before the code, so a malformed request never becomes a
-    // code-guessing oracle.
-    if (reason.length < REASON_MIN) return res.status(400).json({ error: MSG.reasonShort });
-    if (reason.length > REASON_MAX) return res.status(400).json({ error: MSG.reasonLong });
-
-    // CAPTCHA before any database work, so bots cannot make us hash.
-    const captcha = await verifyTurnstileStrict(req, 'sos-start');
+    // CAPTCHA before any database work, so bots cannot make us hash. The single
+    // challenge of the whole flow is spent here, at the step that needs it: by
+    // /start the caller already holds a session this endpoint issued.
+    const captcha = await verifyTurnstileStrict(req, 'sos-check-code');
     if (!captcha.ok) {
       await recordAudit({
-        ...baseAudit, reason, success: false,
+        ...baseAudit, success: false,
         failure_category: 'CAPTCHA_FAILED', captcha_result: captcha.result,
       });
       return res.status(400).json({ error: captcha.error || MSG.captcha });
     }
 
+    const rawCode = normaliseCode(req.body && req.body.code);
     if (!looksLikeBackupCode(rawCode)) {
       await recordAudit({
-        ...baseAudit, reason, success: false,
+        ...baseAudit, success: false,
         failure_category: 'CODE_INVALID', captcha_result: captcha.result,
       });
       return res.status(401).json({ error: MSG.generic });
     }
 
-    if (!(await ensureStore())) {
+    // Codes are checked before the session store is required, so a code held in
+    // Supabase still verifies when MongoDB is unreachable — the situation a
+    // break-glass credential exists for. It does mean a caller who already holds
+    // a valid code can tell "store down" (503) from "wrong code" (401) during an
+    // outage. That is deliberate: enumeration still gets a uniform 401 for every
+    // wrong guess, and someone holding a live code has nothing left to learn.
+    const { candidates, answered, failed } = await backupCodeStore.listActiveCandidates();
+    if (!answered.length) {
+      console.error('[sos] no backup-code store could be consulted:', JSON.stringify(failed));
       await recordAudit({
-        ...baseAudit, reason, success: false,
+        ...baseAudit, success: false,
         failure_category: 'STORE_UNAVAILABLE', captcha_result: captcha.result,
       });
       return res.status(503).json({ error: MSG.offline });
@@ -215,37 +260,33 @@ router.post('/start', async (req, res) => {
 
     // Compare against every live code's hash. Same work either way, so a
     // response time does not reveal whether the code exists.
-    const candidates = await BackupCode.find({ isActive: true }).select('+codeHash').lean();
     let matched = null;
     for (const row of candidates) {
       // eslint-disable-next-line no-await-in-loop
       if (row.codeHash && await bcrypt.compare(rawCode, row.codeHash)) { matched = row; break; }
     }
 
-    // Single use is the default: a code with no explicit maxUses is spent after
-    // one successful recovery. Expiry and revocation are checked here too, and
-    // every rejection returns the same message as "no such code".
-    const usable = matched
-      && (!matched.expiresAt || new Date(matched.expiresAt) > new Date())
-      && (matched.usageCount || 0) < (matched.maxUses == null ? 1 : matched.maxUses);
-
-    if (!usable) {
+    if (!codeIsSpendable(matched)) {
       await recordAudit({
-        ...baseAudit, reason, success: false,
+        ...baseAudit, success: false,
         backup_code_id: matched ? matched.id : '',
         backup_code_prefix: matched ? matched.codePrefix : '',
+        backup_code_store: matched ? matched.store : '',
         failure_category: matched ? 'CODE_NOT_USABLE' : 'CODE_INVALID',
         captcha_result: captcha.result,
       });
       return res.status(401).json({ error: MSG.generic });
     }
 
-    const admins = await eligibleAdmins();
-    if (!admins.length) {
+    // The attempt itself is tracked in MongoDB, so the staged flow cannot start
+    // without it even when the code came from Supabase.
+    if (!(await ensureStore())) {
       await recordAudit({
-        ...baseAudit, reason, success: false,
-        backup_code_id: matched.id, backup_code_prefix: matched.codePrefix,
-        failure_category: 'ADMIN_INELIGIBLE', captcha_result: captcha.result,
+        ...baseAudit, success: false,
+        backup_code_id: matched.id,
+        backup_code_prefix: matched.codePrefix,
+        backup_code_store: matched.store,
+        failure_category: 'STORE_UNAVAILABLE', captcha_result: captcha.result,
       });
       return res.status(503).json({ error: MSG.offline });
     }
@@ -256,26 +297,80 @@ router.post('/start', async (req, res) => {
       token_hash: sha256(token),
       backup_code_id: matched.id,
       backup_code_prefix: matched.codePrefix || '',
-      reason,
-      stage: 'select-admin',
+      backup_code_store: matched.store || '',
+      stage: 'reason',
       captcha_passed: captcha.result === 'passed',
       ip,
       user_agent_hash: uaHash,
       expires_at: new Date(Date.now() + SESSION_TTL_MS),
     });
 
-    console.log(`🆘 [sos] attempt ${session.attempt_id} opened from ${ip} (code ${matched.codePrefix}) — awaiting admin selection`);
+    console.log(`🆘 [sos] code ${matched.codePrefix} (${matched.store}) accepted from ${ip} — attempt ${session.attempt_id} opened, awaiting reason`);
 
     return res.json({
       sosToken: token,
       attemptId: session.attempt_id,
       expiresInSeconds: Math.floor(SESSION_TTL_MS / 1000),
       captcha: captcha.result,
+    });
+  } catch (err) {
+    console.error('[sos] check-code failed:', err.message);
+    await recordAudit({ ...baseAudit, success: false, failure_category: 'BAD_REQUEST' });
+    return res.status(500).json({ error: MSG.generic });
+  }
+});
+
+// ── Stage 1: POST /api/admin/sos/start ────────────────────────────────────
+// Body: { sosToken, reason }
+// Records why the code is being used and returns the administrators eligible
+// right now. Reachable only with the session /check-code issued, so the code has
+// already been proven live; no code and no CAPTCHA token are accepted here.
+router.post('/start', async (req, res) => {
+  const { ip, client } = contextOf(req);
+
+  try {
+    if (!(await ensureStore())) return res.status(503).json({ error: MSG.offline });
+
+    const { session, error } = await loadSession(req, 'reason');
+    if (error) {
+      if (error === 'CONTEXT_MISMATCH') await closeSession(session, error);
+      return res.status(401).json({ error: MSG.generic });
+    }
+
+    const reason = sanitiseReason(req.body && req.body.reason);
+    if (reason.length < REASON_MIN) return res.status(400).json({ error: MSG.reasonShort });
+    if (reason.length > REASON_MAX) return res.status(400).json({ error: MSG.reasonLong });
+
+    const admins = await eligibleAdmins();
+    if (!admins.length) {
+      await recordAudit({
+        attempt_id: session.attempt_id,
+        backup_code_id: session.backup_code_id,
+        backup_code_prefix: session.backup_code_prefix,
+        backup_code_store: session.backup_code_store,
+        reason,
+        ip, browser: client.browser, os: client.os, device: client.device, user_agent: client.userAgent,
+        captcha_result: session.captcha_passed ? 'passed' : 'skipped',
+        success: false, failure_category: 'ADMIN_INELIGIBLE',
+        attempt_number: session.failed_attempts + 1,
+      });
+      return res.status(503).json({ error: MSG.offline });
+    }
+
+    session.reason = reason;
+    session.stage = 'select-admin';
+    await session.save();
+
+    console.log(`🆘 [sos] attempt ${session.attempt_id} reason recorded (code ${session.backup_code_prefix}) — awaiting admin selection`);
+
+    return res.json({
+      attemptId: session.attempt_id,
+      expiresInSeconds: Math.max(0, Math.floor((session.expires_at.getTime() - Date.now()) / 1000)),
+      captcha: session.captcha_passed ? 'passed' : 'skipped',
       admins: admins.map(publicAdmin),
     });
   } catch (err) {
     console.error('[sos] start failed:', err.message);
-    await recordAudit({ ...baseAudit, success: false, failure_category: 'BAD_REQUEST' });
     return res.status(500).json({ error: MSG.generic });
   }
 });
@@ -341,6 +436,7 @@ router.post('/select-admin', async (req, res) => {
         attempt_id: session.attempt_id,
         backup_code_id: session.backup_code_id,
         backup_code_prefix: session.backup_code_prefix,
+        backup_code_store: session.backup_code_store,
         reason: session.reason,
         ip, browser: client.browser, os: client.os, device: client.device, user_agent: client.userAgent,
         captcha_result: session.captcha_passed ? 'passed' : 'skipped',
@@ -357,6 +453,7 @@ router.post('/select-admin', async (req, res) => {
         attempt_id: session.attempt_id,
         backup_code_id: session.backup_code_id,
         backup_code_prefix: session.backup_code_prefix,
+        backup_code_store: session.backup_code_store,
         reason: session.reason,
         selected_admin_id: admin.id, selected_admin_name: admin.name,
         ip, browser: client.browser, os: client.os, device: client.device, user_agent: client.userAgent,
@@ -409,6 +506,7 @@ router.post('/verify', async (req, res) => {
       attempt_id: session.attempt_id,
       backup_code_id: session.backup_code_id,
       backup_code_prefix: session.backup_code_prefix,
+      backup_code_store: session.backup_code_store,
       reason: session.reason,
       selected_admin_id: session.selected_admin_id,
       selected_admin_name: session.selected_admin_name,
@@ -480,16 +578,15 @@ router.post('/verify', async (req, res) => {
     session.stage = 'verified';
     await session.save();
 
-    // Spend the backup code. Single-use by default, so a replay of the same code
-    // cannot open a second attempt.
+    // Spend the backup code, in whichever store recognised it. Single-use by
+    // default, so a replay of the same code cannot open a second attempt.
     try {
-      await BackupCode.updateOne(
-        { id: session.backup_code_id },
-        {
-          $inc: { usageCount: 1 },
-          $set: { lastUsedAt: new Date(), lastUsedIp: ip, lastUsedReason: session.reason },
-        }
-      );
+      const stamped = await backupCodeStore.stampUsage(session.backup_code_id, {
+        store: session.backup_code_store || null,
+        ip,
+        reason: session.reason,
+      });
+      if (!stamped) console.warn(`[sos] backup code ${session.backup_code_prefix} could not be stamped — row not found in ${session.backup_code_store || 'any store'}`);
     } catch (e) {
       console.warn('[sos] could not stamp backup code usage:', e.message);
     }

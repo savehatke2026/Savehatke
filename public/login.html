@@ -454,7 +454,7 @@
           </svg>
         </div>
         <h1 class="auth-title">SOS <span class="gtext">Backup Access</span></h1>
-        <p class="auth-sub">A backup code was detected. Please tell us why you need to use it. This is recorded for audit.</p>
+        <p class="auth-sub">This backup code checks out. Tell us why you need to use it — the reason is recorded for audit.</p>
       </div>
 
       <form id="backupReasonForm" onsubmit="handleBackupReasonSubmit(event)">
@@ -480,10 +480,8 @@
           <strong>⚠️ This action is audited.</strong> Your reason, IP, and the admin account you pick will be recorded.
         </div>
 
-        <!-- CAPTCHA for the SOS path. Its own widget, because a Turnstile token
-             is single-use and the login widget's token may already be spent. -->
-        <div class="fgroup" id="backupTurnstileGroup" style="display:none"></div>
-
+        <!-- No CAPTCHA here: the challenge is solved on the login screen, before
+             the code is checked, and a Turnstile token is single-use. -->
         <button type="submit" class="btn btn-primary" id="backupReasonBtn" style="background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#1a0f00" disabled>
           Continue &rarr;
         </button>
@@ -868,6 +866,10 @@
   let loginTurnstileWidgetId = null; // 'error' when the widget failed to load
   let turnstileSiteKeyPromise = null;
   let loginSubmitPending = false;    // Continue was pressed while the challenge was still solving
+  // What Continue is waiting to do once the challenge settles: 'otp' for an
+  // email sign-in, 'sos' for a backup code. The callbacks below fire long after
+  // the click that armed them, so the intent cannot be re-derived there.
+  let pendingSubmitKind = 'otp';
 
   /* turnstile.render() returns a widget id string ('0', '1', …) on success and
      undefined when it refuses to mount. Anything that is not a usable id must
@@ -930,18 +932,18 @@
           theme: 'dark',
           // Solving the challenge finishes the sign-in the visitor already
           // asked for, instead of making them press Continue a second time.
-          callback: () => { if (loginSubmitPending) { loginSubmitPending = false; sendLoginOtp(); } },
+          callback: () => { if (loginSubmitPending) { loginSubmitPending = false; runPendingLoginSubmit(); } },
           'expired-callback': () => { loginSubmitPending = false; restoreLoginSubmitBtn(); },
           'error-callback': () => {
             // Domain not registered in the Turnstile widget settings (error 110200), etc.
             group.innerHTML = '<small style="color:#ffb4a2">CAPTCHA could not load — continuing without it.</small>';
             loginTurnstileWidgetId = 'error';
-            if (loginSubmitPending) { loginSubmitPending = false; sendLoginOtp(); }
+            if (loginSubmitPending) { loginSubmitPending = false; runPendingLoginSubmit(); }
           },
         }));
         watchCaptchaLoad(group, () => {
           loginTurnstileWidgetId = 'error';
-          if (loginSubmitPending) { loginSubmitPending = false; sendLoginOtp(); }
+          if (loginSubmitPending) { loginSubmitPending = false; runPendingLoginSubmit(); }
         });
       } else {
         loginTurnstileWidgetId = 'error'; // API script never loaded
@@ -1039,24 +1041,17 @@
     const btn = document.getElementById('submitBtn');
     const raw = document.getElementById('inputEmail')?.value?.trim() || '';
     const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw);
-    const looksLikeBackupCode = !looksLikeEmail && raw.length >= 8;
 
-    // ── Backup-code path (SOS access). The login CAPTCHA is not shown here:
-    //    the SOS step has its own, and the code itself is never validated in
-    //    the browser. The value is held in memory only — writing it to
-    //    sessionStorage would leave an admin credential readable by any later
-    //    script on the page.
-    if (looksLikeBackupCode) {
-      backupCodeOnce = raw;
-      showBackupReasonState();
-      return;
-    }
-
-    // Don't put a security challenge in front of an address that cannot work.
-    if (!looksLikeEmail) {
+    // ── Backup-code path (SOS access). The form itself is not the gate: the
+    //    code is sent to /sos/check-code and the SOS screens open only if the
+    //    server recognises it. Typing anything else — including a mistyped
+    //    address — gets the ordinary "enter a valid email" answer, so the
+    //    break-glass path stays invisible to anyone without a code.
+    if (!looksLikeEmail && !isBackupCodeFormat(raw)) {
       showToast('Enter a valid email address to continue.', 'error');
       return;
     }
+    pendingSubmitKind = looksLikeEmail ? 'otp' : 'sos';
 
     // First click: reveal the CAPTCHA below the email box. The visitor does not
     // press Continue again — solving the challenge submits for them (and if the
@@ -1082,7 +1077,12 @@
       return;
     }
 
-    await sendLoginOtp();
+    await runPendingLoginSubmit();
+  }
+
+  async function runPendingLoginSubmit() {
+    if (pendingSubmitKind === 'sos') await checkBackupCodeAndOpenSos();
+    else await sendLoginOtp();
   }
 
   // Sends the verification code with whatever CAPTCHA token is available.
@@ -1111,98 +1111,72 @@
   /* ══════════════════════════════════════════
      BACKUP-CODE (SOS) FLOW
   ══════════════════════════════════════════ */
-  // The raw backup code lives in this closure for the duration of the attempt
-  // and nowhere else: not sessionStorage, not localStorage, not the URL. It is
-  // sent exactly once, to /sos/start, and cleared as soon as the server answers.
-  let backupCodeOnce = null;
+  // The code is never held here. It goes straight from the email field to
+  // /sos/check-code, and from then on the attempt is identified by the opaque
+  // session token that endpoint returns — so the credential crosses the wire
+  // once and is never in sessionStorage, localStorage or the URL.
   let sosToken = null;
   let sosQuestions = [];
   let sosAdminName = '';
 
-  function isBackupCodeShapeClient(s) {
-    if (!s || typeof s !== 'string') return false;
-    const v = s.trim();
-    if (v.length < 8 || v.length > 128) return false;
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return false;
-    return true;
+  // The shape every SaveHatke code has: SH-BK- plus four groups of four hex
+  // characters. Only a value in this shape is treated as an attempt to use a
+  // backup code; anything else is a mistyped email address, and sending it would
+  // spend one of the five SOS attempts this IP gets per 15 minutes.
+  function isBackupCodeFormat(s) {
+    return /^SH-BK-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/i
+      .test(String(s == null ? '' : s).trim().replace(/\s+/g, ''));
   }
 
+  // Wipe a code out of the email field so a later "back" cannot resurrect an
+  // admin credential, and drop the attempt token with it.
   function forgetBackupCode() {
-    backupCodeOnce = null;
+    sosToken = null;
+    const input = document.getElementById('inputEmail');
+    if (input && isBackupCodeFormat(input.value)) input.value = '';
   }
 
-  /* ── SOS CAPTCHA (its own widget: Turnstile tokens are single-use) ── */
-  let sosTurnstileWidgetId = null;
-  let sosCaptchaUnavailable = false;
-  let sosTurnstileMounting = false;
+  /* ── Stage 0: the gate. Nothing opens until the server accepts the code. ── */
+  async function checkBackupCodeAndOpenSos() {
+    const btn = document.getElementById('submitBtn');
+    const input = document.getElementById('inputEmail');
+    const code = (input?.value || '').trim().replace(/\s+/g, '').toUpperCase();
 
-  async function mountSosTurnstile() {
-    const group = document.getElementById('backupTurnstileGroup');
-    if (!group || sosTurnstileMounting) return;
-    if (sosTurnstileWidgetId !== null && sosTurnstileWidgetId !== 'error') {
-      // Already mounted — a fresh token is needed, not a second widget.
-      resetSosCaptcha();
-      refreshBackupReasonButton();
+    if (!isBackupCodeFormat(code)) {
+      showToast('Enter a valid email address to continue.', 'error');
+      restoreLoginSubmitBtn();
       return;
     }
-    sosTurnstileMounting = true;
+
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Checking code&hellip;'; }
     try {
-      // getTurnstileSiteKey() is async: awaiting it is what makes the widget
-      // mountable at all — passing the pending promise as `sitekey` used to
-      // make every render throw and silently disable the SOS challenge.
-      const siteKey = await getTurnstileSiteKey();
-      await loginTurnstileApiReady;
-      if (!siteKey || typeof turnstile === 'undefined' || !turnstile.render) {
-        // No CAPTCHA available in this browser/deployment. The server decides
-        // whether that is acceptable; the button is not held hostage by it.
-        sosCaptchaUnavailable = true;
-        group.style.display = 'none';
-        refreshBackupReasonButton();
-        return;
-      }
-      group.style.display = 'block';
-      group.innerHTML = '';
-      try {
-        sosTurnstileWidgetId = normalizeWidgetId(turnstile.render(group, {
-          sitekey: siteKey,
-          theme: 'dark',
-          callback: () => refreshBackupReasonButton(),
-          'expired-callback': () => refreshBackupReasonButton(),
-          'error-callback': () => { sosCaptchaUnavailable = true; refreshBackupReasonButton(); },
-        }));
-        if (sosTurnstileWidgetId === 'error') sosCaptchaUnavailable = true;
-        else watchCaptchaLoad(group, () => { sosCaptchaUnavailable = true; refreshBackupReasonButton(); });
-      } catch (e) {
-        sosTurnstileWidgetId = 'error';
-        sosCaptchaUnavailable = true;
-        group.style.display = 'none';
-      }
-    } finally {
-      sosTurnstileMounting = false;
-      refreshBackupReasonButton();
+      const data = await api('/admin/sos/check-code', {
+        method: 'POST',
+        body: { code, cfTurnstileToken: getLoginTurnstileToken() },
+      });
+      if (!data || !data.sosToken) throw new Error('Unable to continue with SOS recovery.');
+      sosToken = data.sosToken;
+      if (input) input.value = '';   // the code has done its job
+      restoreLoginSubmitBtn();
+      showBackupReasonState();
+    } catch (err) {
+      // Deliberately the same wording the server uses for every rejection: an
+      // unknown, revoked, expired or spent code must look identical from here.
+      showToast(err.message || 'Unable to continue with SOS recovery.', 'error');
+      resetLoginTurnstile();   // tokens are single-use — refresh for the retry
+      restoreLoginSubmitBtn();
     }
   }
 
-  function getSosCaptchaToken() {
-    if (typeof turnstile === 'undefined' || sosTurnstileWidgetId === null || sosTurnstileWidgetId === 'error') return '';
-    try { return turnstile.getResponse(sosTurnstileWidgetId) || ''; } catch (e) { return ''; }
-  }
-
-  function resetSosCaptcha() {
-    if (typeof turnstile === 'undefined' || sosTurnstileWidgetId === null || sosTurnstileWidgetId === 'error') return;
-    try { turnstile.reset(sosTurnstileWidgetId); } catch (e) {}
-  }
-
-  // Continue stays disabled until the reason is long enough and the CAPTCHA has
-  // produced a token. The server re-checks both — this is purely so the button
-  // does not invite a request that cannot succeed.
+  // Continue stays disabled until the reason is long enough. The server re-checks
+  // it — this is purely so the button does not invite a request that cannot
+  // succeed. The CAPTCHA was already solved on the login screen.
   function refreshBackupReasonButton() {
     const btn = document.getElementById('backupReasonBtn');
     const ta = document.getElementById('inputBackupReason');
     if (!btn || !ta) return;
-    const reasonOk = ta.value.trim().length >= 10 && ta.value.trim().length <= 500;
-    const captchaOk = sosCaptchaUnavailable || Boolean(getSosCaptchaToken());
-    btn.disabled = !(reasonOk && captchaOk);
+    const len = ta.value.trim().length;
+    btn.disabled = !(len >= 10 && len <= 500);
   }
 
   function hideAllBackupStates() {
@@ -1225,7 +1199,6 @@
       if (counter) counter.textContent = '0';
       setTimeout(() => ta.focus(), 60);
     }
-    mountSosTurnstile();
     refreshBackupReasonButton();
   }
 
@@ -1278,15 +1251,14 @@
     return escapeText(v).replace(/"/g, '&quot;');
   }
 
-  /* ── Stage 1: reason + CAPTCHA ── */
+  /* ── Stage 1: the reason for using the code ── */
   async function handleBackupReasonSubmit(e) {
     e.preventDefault();
-    const code = backupCodeOnce || '';
     const reason = (document.getElementById('inputBackupReason')?.value || '').trim();
     const btn = document.getElementById('backupReasonBtn');
 
-    if (!isBackupCodeShapeClient(code)) {
-      showToast('Please start again from the login screen.', 'error');
+    if (!sosToken) {
+      showToast('Your SOS session expired. Please start over.', 'error');
       backupGoBackToLogin();
       return;
     }
@@ -1299,17 +1271,13 @@
     try {
       const data = await api('/admin/sos/start', {
         method: 'POST',
-        body: { code, reason, cfTurnstileToken: getSosCaptchaToken() },
+        body: { sosToken, reason },
       });
-      // The code has done its job; drop it before anything else can read it.
-      forgetBackupCode();
-      sosToken = data.sosToken || null;
-      if (!sosToken || !Array.isArray(data.admins) || !data.admins.length) {
+      if (!Array.isArray(data.admins) || !data.admins.length) {
         throw new Error('Unable to continue with SOS recovery.');
       }
       showBackupPickState(data.admins);
     } catch (err) {
-      resetSosCaptcha();
       showToast(err.message || 'Unable to continue with SOS recovery.', 'error');
       if (btn) { btn.innerHTML = 'Continue &rarr;'; }
       refreshBackupReasonButton();
@@ -1451,10 +1419,13 @@
 
   function backupGoBackToLogin() {
     forgetBackupCode();
-    sosToken = null;
     sosQuestions = [];
+    pendingSubmitKind = 'otp';
     hideAllBackupStates();
     document.getElementById('loginState').style.display = 'block';
+    // The token the code check spent cannot be replayed, so the next attempt
+    // needs a fresh challenge.
+    resetLoginTurnstile();
     const submit = document.getElementById('submitBtn');
     if (submit) { submit.disabled = false; submit.textContent = 'Continue \u2192'; }
   }
