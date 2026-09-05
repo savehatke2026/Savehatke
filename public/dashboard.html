@@ -309,9 +309,9 @@
 
     /* ===================================================
        ACCOUNT SECURITY PAGE
-       Four compact cards, all on one page: Security Overview
-       (verification, 2FA, last sign-in), Two-Factor, Active
-       Sessions and Security Alerts. No sub-pages, no tabs.
+       Three compact cards, all on one page: Security Overview
+       (verification, 2FA, last sign-in), Two-Factor and Active
+       Sessions. No sub-pages, no tabs.
        Scoped to #view-security so no other view is affected.
        #view-account borrows .sec-stack for the same rhythm.
     =================================================== */
@@ -473,8 +473,8 @@
        existing card, type and colour tokens — the page is a new
        arrangement of the dashboard's own furniture, not a new look.
     =================================================== */
-    /* .lh-hdr-note is the shared card footnote type; the Security Alerts card
-       and both Account Settings cards use it. */
+    /* .lh-hdr-note is the shared card footnote type used by the Account Settings
+       and payout cards. */
     .lh-hdr-note{font-size:.78rem;color:#6b88aa;line-height:1.55;margin:0 0 16px}
     .acct-identity{display:flex;align-items:center;gap:16px;min-width:0}
     .acct-avatar{width:66px;height:66px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:1.5rem;color:#060d1f;background:linear-gradient(135deg,#00e676,#00c853);border:2px solid rgba(0,230,118,.55);overflow:hidden}
@@ -507,27 +507,6 @@
     }
 
     /* ===================================================
-       SECURITY ALERTS
-       Compact feed of the server-side security audit log. Tone comes from
-       the server (good / warn / bad) so the colours can't drift from the
-       meaning of the event.
-    =================================================== */
-    .sa-row{display:flex;align-items:flex-start;gap:11px;padding:12px 0;border-bottom:1px solid rgba(79,195,247,.06)}
-    .sa-row:first-child{padding-top:0}
-    .sa-row:last-child{border-bottom:none;padding-bottom:0}
-    .sa-ico{width:28px;height:28px;flex:0 0 auto;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.8rem;background:rgba(107,136,170,.12);border:1px solid rgba(107,136,170,.22)}
-    .sa-ico.good{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.22)}
-    .sa-ico.warn{background:rgba(255,183,77,.08);border-color:rgba(255,183,77,.22)}
-    .sa-ico.bad{background:rgba(239,154,154,.08);border-color:rgba(239,154,154,.22)}
-    .sa-body{min-width:0;flex:1}
-    .sa-title{font-size:.86rem;font-weight:600;color:#e2ecff;overflow-wrap:anywhere}
-    .sa-meta{font-size:.76rem;color:#6b88aa;margin-top:3px;line-height:1.55;overflow-wrap:anywhere}
-    .sa-when{flex:0 0 auto;font-size:.73rem;color:#6b88aa;white-space:nowrap;padding-top:2px}
-    @media(max-width:560px){
-      .sa-row{flex-wrap:wrap}
-      .sa-when{width:100%;padding-left:39px;padding-top:0;margin-top:4px}
-    }
-
     /* ===================================================
        NOTIFICATION SETTINGS
     =================================================== */
@@ -1570,27 +1549,6 @@
           </p>
         </div>
 
-        <!-- Preferences the site already supports, linked rather than repeated:
-             the notification settings keep their own page and their own save
-             action, so there is exactly one place they can be changed. -->
-        <div class="card">
-          <div class="card-hdr">
-            <div class="card-title"><span class="ico">🎛️</span> Preferences</div>
-          </div>
-
-          <div class="acct-rows">
-            <div class="acct-row">
-              <div class="acct-row-main">
-                <div class="acct-row-lbl">Notifications</div>
-                <div class="acct-row-sub">Choose which emails and alerts you receive.</div>
-              </div>
-              <div class="acct-row-act">
-                <button class="btn btn-ghost btn-sm" onclick="showView('notifications')">Open</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
       </div><!-- /sec-stack -->
 
     </div><!-- /container -->
@@ -1722,30 +1680,6 @@
           <div class="sess-foot" id="sessFoot" style="display:none">
             <button class="btn btn-danger" onclick="openModal('logoutOthersModal')">Log out of all other devices</button>
             <div class="sess-foot-note">Your current session on this device stays signed in.</div>
-          </div>
-        </div>
-
-        <!-- CARD 3 — Security alerts.
-             A curated, read-only feed of the server's security audit log
-             (GET /api/auth/security-events): new device / new location
-             sign-ins, 2FA changes, recovery-code activity and failed
-             attempts. Nothing here is computed client-side. -->
-        <div class="card" id="secAlerts">
-          <div class="card-hdr">
-            <div class="card-title"><span class="ico">🔔</span> Security Alerts</div>
-            <button class="btn btn-ghost btn-sm" onclick="loadSecurityAlerts()" id="saRefreshBtn">Refresh</button>
-          </div>
-
-          <p class="lh-hdr-note">Recent security activity on your account.</p>
-
-          <div id="securityAlertsBody">
-            <div class="sess-sk-row">
-              <div class="sess-sk sess-sk-ico"></div>
-              <div style="flex:1">
-                <div class="sess-sk" style="height:11px;width:44%"></div>
-                <div class="sess-sk" style="height:9px;width:60%;margin-top:8px"></div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -2539,22 +2473,25 @@
     <div class="form-grp">
       <label class="form-lbl">Payment Method *</label>
       <select class="form-inp" id="pdMethod" onchange="togglePdFields(this.value)">
-        <option value="upi">UPI</option>
-        <option value="bank">Bank Transfer</option>
+        <option value="upi">UPI ID</option>
+        <option value="qr">QR Code</option>
       </select>
     </div>
     <div id="pdUpiGroup" class="form-grp">
       <label class="form-lbl">UPI ID *</label>
       <input type="text" class="form-inp" id="pdUpiId" placeholder="yourname@upi" autocomplete="off">
     </div>
-    <div id="pdBankGroup" style="display:none">
+    <!-- The image is uploaded on choose, before the record is saved: the record
+         keeps only the Drive file id, so there is nothing to save until the
+         upload has actually succeeded. -->
+    <div id="pdQrGroup" style="display:none">
       <div class="form-grp">
-        <label class="form-lbl">Account Number *</label>
-        <input type="text" class="form-inp" id="pdBankAccount" placeholder="e.g. 1234567890" autocomplete="off">
-      </div>
-      <div class="form-grp">
-        <label class="form-lbl">IFSC Code *</label>
-        <input type="text" class="form-inp" id="pdBankIfsc" placeholder="e.g. SBIN0001234" autocomplete="off">
+        <label class="form-lbl">Payment QR Code *</label>
+        <input type="file" class="form-inp" id="pdQrFile" accept="image/png,image/jpeg,image/webp" onchange="uploadPayoutQr(this)">
+        <div id="pdQrStatus" style="font-size:.78rem;color:#6b88aa;margin-top:7px">PNG, JPG or WebP, up to 3MB.</div>
+        <div id="pdQrPreview" style="display:none;margin-top:10px">
+          <img id="pdQrPreviewImg" alt="Your payment QR code" style="max-width:170px;width:100%;border-radius:10px;border:1px solid rgba(79,195,247,.18);background:#fff;padding:6px">
+        </div>
       </div>
     </div>
     <div class="form-grp">
@@ -3784,8 +3721,10 @@
       };
       const [statusLabel, statusCls] = statusMap[s] || [p.status || 'Pending', 'badge-gray'];
       const dest = (p.method === 'UPI' && p.upiId) ? `UPI · ${p.upiId}`
-        : (p.method === 'Bank' && p.bankAccount) ? `Bank · •••• ${String(p.bankAccount).slice(-4)}`
-          : (p.method ? `${p.method} Withdrawal` : 'Withdrawal');
+        : (p.method === 'QR' && p.qrFileId) ? 'QR code'
+          // Bank rows only exist from before QR replaced bank transfer.
+          : (p.method === 'Bank' && p.bankAccount) ? `Bank · •••• ${String(p.bankAccount).slice(-4)}`
+            : (p.method ? `${p.method} Withdrawal` : 'Withdrawal');
       rows.push({
         group: 'withdrawals',
         type: 'Withdrawal',
@@ -3895,9 +3834,12 @@
       const [statusLabel, statusCls] = statusMap[s] || [p.status || 'Pending', 'badge-gray'];
       const methodLine = (p.method === 'UPI' && p.upiId)
         ? `UPI · ${escapeHtml(p.upiId)}`
-        : (p.method === 'Bank' && p.bankAccount)
-          ? `Bank · •••• ${escapeHtml(String(p.bankAccount).slice(-4))}`
-          : (p.sourceType === 'auto' ? '🤖 Auto-payout (destination not yet set)' : '—');
+        : (p.method === 'QR' && p.qrFileId)
+          ? 'QR code'
+          // Bank rows only exist from before QR replaced bank transfer.
+          : (p.method === 'Bank' && p.bankAccount)
+            ? `Bank · •••• ${escapeHtml(String(p.bankAccount).slice(-4))}`
+            : (p.sourceType === 'auto' ? '🤖 Auto-payout (destination not yet set)' : '—');
       return `
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px;gap:10px">
           <div style="min-width:0;flex:1">
@@ -4315,68 +4257,6 @@
     return 'Unknown';
   }
 
-  // ─── Security alerts ───────────────────────────────────────────
-  //   Read-only projection of GET /api/auth/security-events. The server
-  //   decides which events are shown, their wording and their tone; this only
-  //   paints them, so the UI can never disagree with the audit log.
-  const SA_TONE_ICONS = { good: '✓', warn: '!', bad: '✕' };
-
-  function securityAlertRow(a) {
-    const tone = ['good', 'warn', 'bad'].includes(String(a.tone)) ? String(a.tone) : 'warn';
-    const meta = [a.detail, a.device].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
-    return `
-      <div class="sa-row">
-        <div class="sa-ico ${tone}" aria-hidden="true">${SA_TONE_ICONS[tone]}</div>
-        <div class="sa-body">
-          <div class="sa-title">${escapeHtml(a.title || 'Security activity')}</div>
-          ${meta ? `<div class="sa-meta">${escapeHtml(meta)}</div>` : ''}
-        </div>
-        <div class="sa-when">${escapeHtml(relSessionTime(a.at) || fmtSessionDT(a.at))}</div>
-      </div>`;
-  }
-
-  function renderSecurityAlerts(data) {
-    const box = document.getElementById('securityAlertsBody');
-    if (!box) return;
-    const events = (data && data.events) || [];
-
-    if (!events.length) {
-      box.innerHTML = `
-        <div class="sess-none">
-          <span class="sess-none-ico" aria-hidden="true">✓</span>
-          <div>
-            <div class="sess-none-title">No recent security activity</div>
-            <div class="sess-none-sub">New device sign-ins and security changes will appear here.</div>
-          </div>
-        </div>`;
-      return;
-    }
-
-    box.innerHTML = events.map(securityAlertRow).join('');
-  }
-
-  async function loadSecurityAlerts() {
-    const box = document.getElementById('securityAlertsBody');
-    if (!box) return;
-    const btn = document.getElementById('saRefreshBtn');
-    if (btn) btn.disabled = true;
-    box.innerHTML = SESSIONS_SKELETON;
-
-    try {
-      renderSecurityAlerts(await api('/auth/security-events'));
-    } catch (err) {
-      if (!err.sessionExpired) {
-        box.innerHTML = `
-          <div class="sess-error">
-            <span class="sess-error-txt">Unable to load your recent security activity.</span>
-            <button class="btn btn-ghost btn-sm" onclick="loadSecurityAlerts()">Try Again</button>
-          </div>`;
-      }
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
-
   // ─── Interaction handlers ──────────────────────────────────────
   function toggleNotif(e) {
     if (e) e.stopPropagation();
@@ -4716,9 +4596,19 @@
     }
 
     if (editBtn) editBtn.style.display = '';
-    const rows = d.method === 'Bank'
-      ? [['Method', 'Bank transfer'], ['Account', d.bankAccount || '—'], ['IFSC', d.bankIfsc || '—'], ['Beneficiary', d.beneficiaryName || '—']]
-      : [['Method', 'UPI'], ['UPI ID', d.upiId || '—'], ['Beneficiary', d.beneficiaryName || '—']];
+    const isQr = String(d.method || '').toUpperCase() === 'QR';
+    const rows = isQr
+      ? [['Method', 'QR code'], ['Beneficiary', d.beneficiaryName || '—']]
+      : [['Method', 'UPI ID'], ['UPI ID', d.upiId || '—'], ['Beneficiary', d.beneficiaryName || '—']];
+
+    // A stored QR is shown through the drive proxy, which authorises the viewer —
+    // the image itself is never public and never stored in the sheet.
+    const qrImage = isQr && d.qrFileId
+      ? `<div style="margin-top:14px">
+           <img src="/api/proxy/drive/${encodeURIComponent(d.qrFileId)}" alt="Your payment QR code"
+                style="max-width:170px;width:100%;border-radius:10px;border:1px solid rgba(79,195,247,.18);background:#fff;padding:6px">
+         </div>`
+      : '';
 
     body.innerHTML = `
       <div class="acct-rows">
@@ -4730,43 +4620,103 @@
             </div>
           </div>`).join('')}
       </div>
-      <p class="lh-hdr-note" style="margin:14px 0 0">Used for every payout on this account. Partly hidden for safety — edit to replace.</p>`;
+      ${qrImage}
+      <p class="lh-hdr-note" style="margin:14px 0 0">Used for every payout on this account.${isQr ? '' : ' Partly hidden for safety — edit to replace.'}</p>`;
   }
 
   function openPayoutDetailsModal() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
     const d = payoutDetails.details || {};
-    const method = String(d.method || 'UPI').toLowerCase() === 'bank' ? 'bank' : 'upi';
+    const method = String(d.method || 'UPI').toUpperCase() === 'QR' ? 'qr' : 'upi';
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
     set('pdMethod', method);
     // Stored values come back masked, so the fields start empty rather than
     // showing dots the seller might submit back as real data.
     set('pdUpiId', '');
-    set('pdBankAccount', '');
-    set('pdBankIfsc', '');
+    set('pdQrFile', '');
+    // An existing QR carries over unless a new file is chosen, so editing the
+    // beneficiary name alone does not wipe the image.
+    pendingQr = d.qrFileId ? { fileId: d.qrFileId, name: d.qrFileName || '' } : null;
+    renderPendingQr();
     set('pdBeneficiaryName', d.beneficiaryName && !d.beneficiaryName.includes('•') ? d.beneficiaryName : '');
     togglePdFields(method);
     openModal('payoutDetailsModal');
-    setTimeout(() => document.getElementById(method === 'bank' ? 'pdBankAccount' : 'pdUpiId')?.focus(), 200);
+    setTimeout(() => document.getElementById(method === 'qr' ? 'pdQrFile' : 'pdUpiId')?.focus(), 200);
   }
 
   function togglePdFields(val) {
     const upi = document.getElementById('pdUpiGroup');
-    const bank = document.getElementById('pdBankGroup');
+    const qr = document.getElementById('pdQrGroup');
     if (upi) upi.style.display = val === 'upi' ? '' : 'none';
-    if (bank) bank.style.display = val === 'upi' ? 'none' : '';
+    if (qr) qr.style.display = val === 'upi' ? 'none' : '';
+  }
+
+  // The QR image the modal will save. It is uploaded first and referenced by id,
+  // so the record never holds image bytes.
+  let pendingQr = null;
+
+  function renderPendingQr() {
+    const wrap = document.getElementById('pdQrPreview');
+    const img = document.getElementById('pdQrPreviewImg');
+    const status = document.getElementById('pdQrStatus');
+    if (!wrap || !img) return;
+    if (pendingQr && pendingQr.fileId) {
+      img.src = `/api/proxy/drive/${encodeURIComponent(pendingQr.fileId)}`;
+      wrap.style.display = '';
+      if (status) status.textContent = pendingQr.name ? `Uploaded: ${pendingQr.name}` : 'QR code uploaded.';
+    } else {
+      wrap.style.display = 'none';
+      img.removeAttribute('src');
+      if (status) status.textContent = 'PNG, JPG or WebP, up to 3MB.';
+    }
+  }
+
+  /** Send the chosen QR image to private Drive and keep its file id. */
+  async function uploadPayoutQr(input) {
+    const file = input && input.files && input.files[0];
+    const status = document.getElementById('pdQrStatus');
+    const saveBtn = document.getElementById('pdSaveBtn');
+    if (!file) return;
+
+    if (file.size > 3 * 1024 * 1024) {
+      if (status) status.textContent = 'That image is too large. The maximum size is 3MB.';
+      input.value = '';
+      return;
+    }
+
+    if (status) status.textContent = '⏳ Uploading…';
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      const dataBase64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+        reader.onerror = () => reject(new Error('That file could not be read.'));
+        reader.readAsDataURL(file);
+      });
+      const data = await api('/payouts/details/qr', {
+        method: 'POST',
+        body: { filename: file.name, dataBase64 },
+      });
+      pendingQr = { fileId: data.fileId, name: data.name || file.name };
+      renderPendingQr();
+    } catch (err) {
+      pendingQr = null;
+      renderPendingQr();
+      input.value = '';
+      if (status) status.textContent = err.message || 'That upload could not be completed.';
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
   }
 
   async function savePayoutDetails() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
     const method = document.getElementById('pdMethod')?.value || 'upi';
     const upiId = (document.getElementById('pdUpiId')?.value || '').trim();
-    const bankAccount = (document.getElementById('pdBankAccount')?.value || '').trim();
-    const bankIfsc = (document.getElementById('pdBankIfsc')?.value || '').trim();
     const beneficiaryName = (document.getElementById('pdBeneficiaryName')?.value || '').trim();
 
     if (method === 'upi' && !upiId) { showToast('Please enter your UPI ID.', 'error'); return; }
-    if (method === 'bank' && (!bankAccount || !bankIfsc)) { showToast('Please enter your bank account and IFSC.', 'error'); return; }
+    if (method === 'qr' && !(pendingQr && pendingQr.fileId)) { showToast('Please upload your payment QR code image.', 'error'); return; }
 
     const btn = document.getElementById('pdSaveBtn');
     const orig = btn ? btn.textContent : '';
@@ -4774,7 +4724,13 @@
     try {
       const data = await api('/payouts/details', {
         method: 'PUT',
-        body: { method, upiId, bankAccount, bankIfsc, beneficiaryName },
+        body: {
+          method,
+          upiId,
+          qrFileId: method === 'qr' && pendingQr ? pendingQr.fileId : '',
+          qrFileName: method === 'qr' && pendingQr ? pendingQr.name : '',
+          beneficiaryName,
+        },
       });
       payoutDetails = { details: data.details || null, complete: Boolean(data.complete), loaded: true };
       closeModal('payoutDetailsModal');
@@ -5994,7 +5950,6 @@
       // loading state) is never stale from an earlier visit.
       if (typeof loadMySessions === 'function') loadMySessions();
       if (typeof loadTwoFactorStatus === 'function') loadTwoFactorStatus();
-      if (typeof loadSecurityAlerts === 'function') loadSecurityAlerts();
     } else if (name === 'account') {
       // Repaint from the signed-in session — no fetch, so re-entering the page
       // cannot show a stale profile or flash a skeleton.

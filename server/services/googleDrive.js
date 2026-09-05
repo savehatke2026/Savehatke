@@ -304,10 +304,44 @@ async function uploadSupportScreenshot(input) {
   });
 }
 
+/**
+ * A seller's payout QR code.
+ *
+ * Kept in its own folder ("QR Code Images") and always private: this is how the
+ * platform pays a person, so it is filed with the same care as a support
+ * screenshot and never made link-shareable. The folder id ships as a default
+ * because it is a fixed destination in this Drive, and GOOGLE_DRIVE_QR_FOLDER_ID
+ * overrides it for another environment.
+ *
+ * @param {{ buffer: Buffer, ext?: string, mimeType?: string,
+ *           sellerEmail?: string }} input
+ */
+const DEFAULT_QR_FOLDER_ID = '1qykqVyUtk4OFRVuoTum4_t-1ZHkhx-02';
+
+async function uploadPayoutQrImage(input) {
+  const { buffer, ext, mimeType, sellerEmail } = input || {};
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const unique = crypto.randomUUID();
+  const safeExt = /^\.(png|jpg|jpeg|webp)$/i.test(String(ext || '')) ? String(ext).toLowerCase() : '.png';
+  // The filename carries who it belongs to, so a folder listing is readable
+  // without opening every image.
+  const who = String(sellerEmail || 'seller').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40);
+
+  return uploadProofScreenshot({
+    buffer,
+    filename: `payout-qr-${who}-${stamp}-${unique}${safeExt}`,
+    mimeType,
+    folderId: clean(process.env.GOOGLE_DRIVE_QR_FOLDER_ID) || DEFAULT_QR_FOLDER_ID,
+    description: `SaveHatke payout QR code${sellerEmail ? ` for ${sellerEmail}` : ''} on ${new Date().toISOString()}`,
+    forcePrivate: true,
+  });
+}
+
 module.exports = {
   isConfigured,
   uploadProofScreenshot,
   uploadSupportScreenshot,
+  uploadPayoutQrImage,
   downloadFile,
   getFileMeta,
   // Exposed for diagnostics

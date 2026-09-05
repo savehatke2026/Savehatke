@@ -16,6 +16,10 @@ const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const googleDrive = require('../services/googleDrive');
+// A payout QR is an image upload, so it goes through the same content sniffing the
+// support screenshots use rather than trusting the browser's content type.
+const { sniffImage, looksComplete } = require('../utils/imageSniff');
 
 const router = express.Router();
 
@@ -25,7 +29,7 @@ const PER_COUPON_EARNING = 10;
 // Length caps for a stored payout destination — identical to the caps the payout
 // request used to apply when these were typed in per request, so a row written
 // by either generation of the flow reads back in the same shape.
-const DETAIL_LIMITS = { upiId: 120, bankAccount: 40, bankIfsc: 20, beneficiaryName: 120 };
+const DETAIL_LIMITS = { upiId: 120, qrFileId: 120, qrFileName: 120, beneficiaryName: 120 };
 
 // Written onto a Payouts row when the coupon it came from is marked invalid.
 // It is a fixed prefix because it also marks the money as withheld-by-validation
@@ -92,7 +96,9 @@ function maskUpi(upiId) {
 function normalizeMethod(method) {
   const m = String(method || '').trim().toLowerCase();
   if (m === 'upi') return 'UPI';
-  if (m === 'bank') return 'Bank';
+  // A payout QR is the other way this platform pays a seller. Bank transfer is
+  // deliberately not offered.
+  if (m === 'qr' || m === 'qrcode' || m === 'qr_code') return 'QR';
   return '';
 }
 
@@ -105,6 +111,9 @@ function sanitize(payout) {
     currency: payout.currency || 'INR',
     method: payout.method || 'UPI',
     upiId: payout.upiId || '',
+    // QR payouts carry the Drive reference so an admin can open the image the
+    // seller uploaded; bank fields stay for rows written before QR existed.
+    qrFileId: payout.qrFileId || '',
     bankAccount: payout.bankAccount || '',
     bankIfsc: payout.bankIfsc || '',
     beneficiaryName: payout.beneficiaryName || '',
@@ -175,7 +184,8 @@ function payoutDetailsComplete(row) {
   if (!row) return false;
   const method = normalizeMethod(row.method);
   if (method === 'UPI') return Boolean(String(row.upiId || '').trim());
-  if (method === 'Bank') return Boolean(String(row.bankAccount || '').trim() && String(row.bankIfsc || '').trim());
+  // A QR record is only payable once the image itself is in Drive.
+  if (method === 'QR') return Boolean(String(row.qrFileId || '').trim());
   return false;
 }
 
@@ -187,8 +197,10 @@ function toSellerDetails(row) {
   return {
     method: normalizeMethod(row.method) || '',
     upiId: maskUpi(row.upiId),
-    bankAccount: maskTail(row.bankAccount),
-    bankIfsc: String(row.bankIfsc || ''),
+    // The file id is not a credential and the seller needs it to see their own
+    // QR through /api/proxy/drive/:fileId, which authorises every view.
+    qrFileId: String(row.qrFileId || ''),
+    qrFileName: String(row.qrFileName || ''),
     beneficiaryName: String(row.beneficiaryName || ''),
     createdAt: row.createdAt || '',
     updatedAt: row.updatedAt || '',
@@ -458,6 +470,97 @@ router.post('/admin/payouts/batch-process', authenticateToken, requireAdmin, asy
 //  SELLER ENDPOINTS
 // ===================================================
 
+// POST /api/payouts/details/qr — upload the seller's payment QR image
+//
+// The browser sends base64 plus a claimed filename. None of that is trusted: the
+// bytes are sniffed for a real PNG / JPEG / WebP signature and checked for a
+// complete trailer, the size limit is enforced here rather than in the browser,
+// and the Drive filename is generated server-side so a crafted name never reaches
+// storage. The image goes to the private "QR Code Images" folder and the response
+// carries only a file id — the picture is served back through
+// GET /api/proxy/drive/:fileId, which authorises the viewer.
+//
+// Uploading does not by itself change how the seller is paid: the id returned
+// here has to be saved through PUT /payouts/details, which is the one place the
+// destination changes.
+const QR_MAX_BYTES = 3 * 1024 * 1024;
+const QR_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+router.post('/payouts/details/qr', authenticateToken, async (req, res) => {
+  try {
+    const email = (req.user.email || '').toLowerCase().trim();
+    if (!email) return res.status(400).json({ error: 'User email not found.' });
+
+    const { filename, dataBase64 } = req.body || {};
+    if (!dataBase64) {
+      return res.status(400).json({ error: 'No QR code image was received. Please try again.' });
+    }
+
+    let buffer;
+    try {
+      buffer = Buffer.from(String(dataBase64), 'base64');
+    } catch (e) {
+      buffer = null;
+    }
+    if (!buffer || buffer.length === 0) {
+      return res.status(400).json({ error: 'That image could not be read. Please try another file.' });
+    }
+    if (buffer.length > QR_MAX_BYTES) {
+      return res.status(413).json({ error: 'That image is too large. The maximum size is 3MB.' });
+    }
+
+    // Content decides the type, not the upload's claim about itself.
+    const sniffed = sniffImage(buffer);
+    if (!sniffed || !QR_ALLOWED_TYPES.includes(sniffed.mime)) {
+      return res.status(400).json({ error: 'Please upload a PNG, JPG or WebP image of your QR code.' });
+    }
+    if (!looksComplete(buffer, sniffed.mime)) {
+      return res.status(400).json({ error: 'That image looks incomplete. Please re-save it and try again.' });
+    }
+
+    if (!googleDrive.isConfigured()) {
+      // Loud on the server, vague to the caller.
+      console.error(
+        '[payouts/qr] Google Drive is not configured — refusing the upload. '
+        + 'Set GOOGLE_DRIVE_FOLDER_ID (and GOOGLE_DRIVE_QR_FOLDER_ID) plus '
+        + 'GOOGLE_DRIVE_REFRESH_TOKEN in .env.',
+      );
+      return res.status(503).json({
+        error: 'QR uploads are temporarily unavailable. Please use a UPI ID for now, or try again later.',
+      });
+    }
+
+    const uploaded = await googleDrive.uploadPayoutQrImage({
+      buffer,
+      ext: sniffed.ext,
+      mimeType: sniffed.mime,
+      sellerEmail: email,
+    });
+
+    // Enough to confirm a real upload in the log without naming the seller.
+    console.log(`[payouts/qr] uploaded ${sniffed.mime} ${buffer.length}B -> ${uploaded.fileId}`);
+
+    // The seller's own filename travels back for display only.
+    const displayName = String(filename || 'qr-code')
+      .replace(/[\\/]/g, '_')
+      .replace(/[^a-zA-Z0-9._ -]/g, '_')
+      .slice(0, 120) || 'qr-code';
+
+    res.status(201).json({
+      fileId: uploaded.fileId,
+      name: displayName,
+      mimeType: sniffed.mime,
+      size: buffer.length,
+      uploadedAt: nowIso(),
+    });
+  } catch (err) {
+    // Google's own error text can name folders and accounts, so it is logged and
+    // not returned.
+    console.error('Payout QR upload error:', err && err.message);
+    res.status(500).json({ error: 'That upload could not be completed. Please try again.' });
+  }
+});
+
 // GET /api/payouts/details — the signed-in seller's stored payout destination
 // The seller is taken from the verified session, never from a query or body
 // field, so one seller can never read another's destination by guessing an
@@ -484,24 +587,24 @@ router.put('/payouts/details', authenticateToken, async (req, res) => {
     const email = (req.user.email || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'User email not found.' });
 
-    const { method, upiId, bankAccount, bankIfsc, beneficiaryName } = req.body || {};
+    const { method, upiId, qrFileId, qrFileName, beneficiaryName } = req.body || {};
     const cleanMethod = normalizeMethod(method);
     if (!cleanMethod) {
-      return res.status(400).json({ error: 'Please choose UPI or bank transfer.' });
+      return res.status(400).json({ error: 'Please choose a UPI ID or a payment QR code.' });
     }
 
     const cleanUpi = String(upiId || '').trim().slice(0, DETAIL_LIMITS.upiId);
-    const cleanAccount = String(bankAccount || '').trim().slice(0, DETAIL_LIMITS.bankAccount);
-    // IFSC is uppercased on the way in so a payout row never differs from the
-    // bank's own formatting because of how the seller typed it.
-    const cleanIfsc = String(bankIfsc || '').trim().slice(0, DETAIL_LIMITS.bankIfsc).toUpperCase();
+    // The id has to be one this seller just uploaded through /payouts/details/qr;
+    // it is stored as an opaque reference and never used to build a path.
+    const cleanQrId = String(qrFileId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '').slice(0, DETAIL_LIMITS.qrFileId);
+    const cleanQrName = String(qrFileName || '').trim().replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, DETAIL_LIMITS.qrFileName);
     const cleanName = String(beneficiaryName || req.user.name || '').trim().slice(0, DETAIL_LIMITS.beneficiaryName);
 
     if (cleanMethod === 'UPI' && !cleanUpi) {
       return res.status(400).json({ error: 'Please provide your UPI ID.' });
     }
-    if (cleanMethod === 'Bank' && (!cleanAccount || !cleanIfsc)) {
-      return res.status(400).json({ error: 'Please provide bank account number and IFSC.' });
+    if (cleanMethod === 'QR' && !cleanQrId) {
+      return res.status(400).json({ error: 'Please upload your payment QR code image.' });
     }
 
     const existing = await loadSellerPayoutDetails(email);
@@ -514,8 +617,8 @@ router.put('/payouts/details', authenticateToken, async (req, res) => {
       sellerUserId: String(req.user.id || req.user.user_id || (existing && existing.sellerUserId) || ''),
       method: cleanMethod,
       upiId: cleanMethod === 'UPI' ? cleanUpi : '',
-      bankAccount: cleanMethod === 'Bank' ? cleanAccount : '',
-      bankIfsc: cleanMethod === 'Bank' ? cleanIfsc : '',
+      qrFileId: cleanMethod === 'QR' ? cleanQrId : '',
+      qrFileName: cleanMethod === 'QR' ? cleanQrName : '',
       beneficiaryName: cleanName,
       createdAt: (existing && existing.createdAt) || now,
       updatedAt: now,
@@ -670,8 +773,7 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
       currency: 'INR',
       method: normalizeMethod(stored.method),
       upiId: String(stored.upiId || '').slice(0, DETAIL_LIMITS.upiId),
-      bankAccount: String(stored.bankAccount || '').slice(0, DETAIL_LIMITS.bankAccount),
-      bankIfsc: String(stored.bankIfsc || '').slice(0, DETAIL_LIMITS.bankIfsc).toUpperCase(),
+      qrFileId: String(stored.qrFileId || '').slice(0, DETAIL_LIMITS.qrFileId),
       beneficiaryName: String(stored.beneficiaryName || req.user.name || '').slice(0, DETAIL_LIMITS.beneficiaryName),
       status: 'pending',
       sourceType: 'manual',
@@ -726,8 +828,7 @@ module.exports.createAutoPayout = async function createAutoPayout({ coupon, sell
       currency: 'INR',
       method: 'UPI',
       upiId: '',
-      bankAccount: '',
-      bankIfsc: '',
+      qrFileId: '',
       beneficiaryName: '',
       status: 'pending',
       sourceType: 'auto',

@@ -136,10 +136,13 @@ const HEADERS = {
     'id',
     'sellerEmail',
     'sellerUserId',
-    'method',           // 'UPI' | 'Bank' — same casing the Payouts tab stores
+    'method',           // 'UPI' | 'QR' — same casing the Payouts tab stores
     'upiId',
-    'bankAccount',
-    'bankIfsc',
+    // A payout QR image lives in Drive ("QR Code Images"); only its file id and
+    // the seller's own filename are kept here, so the sheet never carries the
+    // picture and it is served back through the authorised drive proxy.
+    'qrFileId',
+    'qrFileName',
     'beneficiaryName',
     'createdAt',
     'updatedAt',
