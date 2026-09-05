@@ -2220,11 +2220,11 @@ function viewUserDetail(userId) {
         </div>
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px">
           ${avatarHtml}
-          <div>
-            <div style="font-weight:700;font-size:1.05rem;color:#e2ecff">${escapeHtml(user.name)}</div>
-            <a href="mailto:${emailStr}" style="font-size:.82rem;color:#4fc3f7">${emailStr || '—'}</a>
+          <div style="min-width:0;flex:1">
+            <div style="font-weight:700;font-size:1.05rem;color:#e2ecff;overflow-wrap:anywhere">${escapeHtml(user.name)}</div>
+            <a href="mailto:${emailStr}" title="${emailStr}" style="font-size:.82rem;color:#4fc3f7;display:block;overflow-wrap:anywhere">${emailStr || '—'}</a>
           </div>
-          <span style="margin-left:auto">${userSessionStatusBadge(user.sessionStatus, user.status)}</span>
+          <span style="flex-shrink:0">${userSessionStatusBadge(user.sessionStatus, user.status)}</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
           <div style="background:rgba(255,255,255,.04);border-radius:10px;padding:12px 14px">
