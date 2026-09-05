@@ -311,11 +311,13 @@
 
     /* ===================================================
        ACCOUNT SECURITY PAGE
-       Five compact cards: Security Overview, Two-Factor, Active Sessions,
-       Login History and Security Alerts.
+       Four compact cards, all on one page: Security Overview
+       (verification, 2FA, last sign-in), Two-Factor, Active
+       Sessions and Security Alerts. No sub-pages, no tabs.
        Scoped to #view-security so no other view is affected.
+       #view-account borrows .sec-stack for the same rhythm.
     =================================================== */
-    #view-security .container{max-width:780px}
+    #view-security .container,#view-account .container{max-width:780px}
     .sec-stack{display:flex;flex-direction:column;gap:18px}
 
     /* Posture banner — the overall Account Security Status, promoted out of the
@@ -468,36 +470,42 @@
     }
 
     /* ===================================================
-       LOGIN HISTORY
-       One row per sign-in attempt. Desktop reads as a table;
-       below 720px the same rows become stacked mini-cards so
-       nothing overflows the card on a phone.
+       ACCOUNT SETTINGS
+       Profile identity plus a label/value list. Both reuse the
+       existing card, type and colour tokens — the page is a new
+       arrangement of the dashboard's own furniture, not a new look.
     =================================================== */
+    /* .lh-hdr-note is the shared card footnote type; the Security Alerts card
+       and both Account Settings cards use it. */
     .lh-hdr-note{font-size:.78rem;color:#6b88aa;line-height:1.55;margin:0 0 16px}
-    .lh-table-wrap{overflow-x:auto}
-    .lh-table{width:100%;border-collapse:collapse}
-    .lh-table th{text-align:left;font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:0 12px 10px;border-bottom:1px solid rgba(79,195,247,.1);white-space:nowrap}
-    .lh-table th:first-child,.lh-table td:first-child{padding-left:0}
-    .lh-table th:last-child,.lh-table td:last-child{padding-right:0;text-align:right}
-    .lh-table td{padding:12px;border-bottom:1px solid rgba(79,195,247,.06);font-size:.84rem;color:#a8c0dc;vertical-align:middle}
-    .lh-table tbody tr:last-child td{border-bottom:none}
-    .lh-when{color:#e2ecff;font-weight:600;white-space:nowrap}
-    .lh-when-sub{color:#6b88aa;font-size:.75rem;margin-top:3px;white-space:nowrap}
-    .lh-device{min-width:0}
-    .lh-device-sub{color:#6b88aa;font-size:.75rem;margin-top:3px}
-    .lh-loc{color:#a8c0dc;overflow-wrap:anywhere}
-    .lh-loc.unknown{color:#546e8f}
-    .lh-badge{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:700;letter-spacing:.03em;border-radius:999px;padding:4px 10px;white-space:nowrap;color:#00e676;background:rgba(0,230,118,.09);border:1px solid rgba(0,230,118,.2)}
-    .lh-badge.fail{color:#ef9a9a;background:rgba(239,154,154,.08);border-color:rgba(239,154,154,.22)}
-    .lh-mobile{display:none;flex-direction:column;gap:9px}
-    .lh-mob-card{background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:11px;padding:12px 13px}
-    .lh-mob-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px}
-    .lh-mob-when{font-size:.83rem;font-weight:600;color:#e2ecff;min-width:0;overflow-wrap:anywhere}
-    .lh-mob-meta{font-size:.76rem;color:#6b88aa;line-height:1.55;overflow-wrap:anywhere}
-    .lh-foot{margin-top:16px;padding-top:14px;border-top:1px solid rgba(79,195,247,.08);font-size:.74rem;color:#6b88aa;line-height:1.55}
-    @media(max-width:720px){
-      .lh-table-wrap{display:none}
-      .lh-mobile{display:flex}
+    .acct-identity{display:flex;align-items:center;gap:16px;min-width:0}
+    .acct-avatar{width:66px;height:66px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:1.5rem;color:#060d1f;background:linear-gradient(135deg,#00e676,#00c853);border:2px solid rgba(0,230,118,.55);overflow:hidden}
+    .acct-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+    .acct-identity-txt{min-width:0}
+    .acct-name{font-size:1.05rem;font-weight:700;color:#e2ecff;overflow-wrap:anywhere}
+    .acct-email{font-size:.84rem;color:#6b88aa;margin-top:3px;overflow-wrap:anywhere}
+    .acct-identity-txt .sec-status{margin-top:9px}
+    .acct-rows{display:flex;flex-direction:column}
+    .acct-row{display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid rgba(79,195,247,.07)}
+    .acct-row:last-child{border-bottom:none}
+    .acct-row:first-child{padding-top:0}
+    .acct-row-main{min-width:0;flex:1}
+    .acct-row-lbl{font-size:.68rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa}
+    .acct-row-val{font-size:.92rem;color:#e2ecff;margin-top:5px;overflow-wrap:anywhere}
+    .acct-row-val.mono{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:#a8c0dc}
+    .acct-row-sub{font-size:.78rem;color:#6b88aa;margin-top:4px;line-height:1.5}
+    .acct-row-act{flex-shrink:0}
+    /* A text button that reads as a link, so a cross-page pointer needs no new
+       component. */
+    .acct-link{background:none;border:none;padding:0;font-family:'Outfit',sans-serif;font-size:inherit;font-weight:700;color:#4fc3f7;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+    .acct-link:hover{color:#9ad9ff}
+    @media(max-width:560px){
+      /* The value is the long part, so the action drops under it rather than
+         squeezing it. */
+      .acct-row{flex-direction:column;align-items:flex-start;gap:10px}
+      .acct-row-act{width:100%}
+      .acct-row-act .btn{width:100%}
+      .acct-avatar{width:56px;height:56px;font-size:1.3rem}
     }
 
     /* ===================================================
@@ -738,15 +746,11 @@
     .sb-item.active{background:rgba(0,230,118,.1);color:#00e676}
     .sb-item-ico{width:18px;text-align:center;flex-shrink:0;font-size:.95rem}
 
-    /* Sub-items (nested under a parent sb-item) — collapsed until parent is clicked */
-    .sb-subgroup{padding:0 0 0 28px;margin:0 0 0 16px;border-left:1px solid rgba(79,195,247,.18);max-height:0;overflow:hidden;opacity:0;transition:max-height .28s ease,opacity .2s ease,padding .28s ease,margin .28s ease}
-    .sb-subgroup.open{max-height:240px;opacity:1;padding:2px 0 4px 28px;margin:0 0 4px 16px}
-    .sb-subitem{display:flex;align-items:center;gap:6px;width:100%;padding:5px 8px 5px 6px;border-radius:6px;font-size:.78rem;font-weight:500;color:#7a8fb0;background:none;border:none;cursor:pointer;text-align:left;font-family:'Outfit',sans-serif;transition:all .15s;text-decoration:none;white-space:nowrap;margin-bottom:1px}
-    .sb-subitem:hover{background:rgba(79,195,247,.06);color:#a8c0dc}
-    .sb-subitem.active{color:#00e676;background:rgba(0,230,118,.08)}
-    .sb-subitem-line{color:rgba(107,136,170,.45);font-family:'JetBrains Mono',monospace;font-size:.7rem;flex-shrink:0;width:14px;text-align:center;letter-spacing:-1px}
+    /* The sidebar is deliberately flat: every entry is a page. The nested
+       sub-item styles that used to sit here belonged to Security's Login History
+       and Active Sessions children, which are now cards on the Security page. */
 
-    /* My-Coupons filter chips (driven by sidebar sub-items) */
+    /* My-Coupons filter chips */
     .mc-chip{padding:5px 12px;border-radius:9999px;font-size:.74rem;font-weight:600;background:rgba(79,195,247,.08);color:#a8c0dc;border:1px solid rgba(79,195,247,.15);cursor:pointer;font-family:'Outfit',sans-serif;transition:all .15s;white-space:nowrap}
     .mc-chip:hover{background:rgba(79,195,247,.14);color:#e2ecff}
     .mc-chip.active{background:rgba(0,230,118,.12);color:#00e676;border-color:rgba(0,230,118,.4)}
@@ -959,10 +963,8 @@
       .nav-actions .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
       .mclose{position:relative}
       .mclose::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
-      /* Sub-nav rows sit 1px apart, so they grow rather than overlay. Measured
-         37px at 11px padding — 15px lands on 44px. */
-      .sb-subitem{padding-top:15px;padding-bottom:15px}
-      /* Sidebar rows sit 3px apart: same reasoning, 9px padding measured 38px. */
+      /* Sidebar rows sit 3px apart, so they grow rather than overlay. Measured
+         38px at 9px padding — 12px lands on 44px. */
       .sb-item{padding-top:12px;padding-bottom:12px}
       /* Vertical-only overlays: these controls have close horizontal
          neighbours, so widening sideways would steal their taps. */
@@ -1073,14 +1075,18 @@
       <button class="sb-item" data-view="notifications" onclick="showView('notifications')"><span class="sb-item-ico">🔔</span> Notifications</button>
       <button class="sb-item" data-view="reviews" onclick="showView('reviews')"><span class="sb-item-ico">⭐</span> Reviews</button>
 
-      <!-- Security -->
-      <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🔐</span> Security</button>
-      <div class="sb-subgroup">
-        <button class="sb-subitem" data-sub="login-history" onclick="showView('security','login-history')"><span class="sb-subitem-line">├─</span> Login History</button>
-        <button class="sb-subitem" data-sub="active-sessions" onclick="showView('security','active-sessions')"><span class="sb-subitem-line">└─</span> Active Sessions</button>
-      </div>
+      <!-- Account Settings holds profile and account identity only. Anything
+           that protects the account — verification, 2FA, sessions, last login —
+           lives on the Security page instead, so a user always knows which of
+           the two pages to open. -->
+      <button class="sb-item" data-view="account" onclick="showView('account')"><span class="sb-item-ico">⚙️</span> Account Settings</button>
 
-      <button class="sb-item" onclick="showToast('⚙️ Account Settings — coming soon!','info')"><span class="sb-item-ico">⚙️</span> Account Settings</button>
+      <div class="sb-section-label">Security</div>
+
+      <!-- One page, no children. Sessions, 2FA and the last sign-in are cards on
+           it, not sub-navigation: the two sub-items that used to sit here only
+           scrolled to anchors on this same page. -->
+      <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🔐</span> Security</button>
 
       <div class="sb-section-label">Support</div>
 
@@ -1490,6 +1496,88 @@
     </div><!-- /view-payouts -->
 
     <!-- ═══════════════════════════════════════════════
+         VIEW: ACCOUNT SETTINGS
+         Profile and account identity only. Every value is
+         painted by renderAccountSettings() from the session
+         the user is already signed in with — this page adds
+         no new endpoint and stores nothing of its own.
+         Security posture (verification status, 2FA, sessions,
+         last sign-in) deliberately lives on the Security page.
+    ═══════════════════════════════════════════════ -->
+    <div id="view-account" class="db-view">
+    <div class="container">
+
+      <div class="view-hdr">
+        <div>
+          <div class="view-title">Account <span class="gtext">Settings</span></div>
+          <div class="view-subtitle">Your profile and account details.</div>
+        </div>
+      </div>
+
+      <div class="sec-stack">
+
+        <!-- Identity: photo, display name, email -->
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">👤</span> Profile</div>
+          </div>
+
+          <div class="acct-identity">
+            <div class="acct-avatar" id="acctAvatar" aria-hidden="true"></div>
+            <div class="acct-identity-txt">
+              <div class="acct-name" id="acctHeaderName">—</div>
+              <div class="acct-email" id="acctHeaderEmail">—</div>
+              <span class="sec-status" id="acctStatusTag" style="display:none">Active</span>
+            </div>
+          </div>
+
+          <p class="lh-hdr-note" id="acctPhotoNote" style="margin:16px 0 0">
+            Your photo comes from the Google account you sign in with.
+          </p>
+        </div>
+
+        <!-- Account details. A row is only rendered when the account actually
+             carries that value, so nothing on this page is a placeholder. -->
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">🪪</span> Account Details</div>
+          </div>
+
+          <div class="acct-rows" id="acctRows"></div>
+
+          <p class="lh-hdr-note" style="margin:16px 0 0">
+            Whether your email is verified, and everything else that protects this
+            account, is on the <button type="button" class="acct-link" onclick="showView('security')">Security</button> page.
+          </p>
+        </div>
+
+        <!-- Preferences the site already supports, linked rather than repeated:
+             the notification settings keep their own page and their own save
+             action, so there is exactly one place they can be changed. -->
+        <div class="card">
+          <div class="card-hdr">
+            <div class="card-title"><span class="ico">🎛️</span> Preferences</div>
+          </div>
+
+          <div class="acct-rows">
+            <div class="acct-row">
+              <div class="acct-row-main">
+                <div class="acct-row-lbl">Notifications</div>
+                <div class="acct-row-sub">Choose which emails and alerts you receive.</div>
+              </div>
+              <div class="acct-row-act">
+                <button class="btn btn-ghost btn-sm" onclick="showView('notifications')">Open</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /sec-stack -->
+
+    </div><!-- /container -->
+    </div><!-- /view-account -->
+
+    <!-- ═══════════════════════════════════════════════
          VIEW: SECURITY
     ═══════════════════════════════════════════════ -->
     <div id="view-security" class="db-view">
@@ -1618,31 +1706,7 @@
           </div>
         </div>
 
-        <!-- CARD 3 — Login history.
-             Read-only, capped at the 10 most recent records so the page stays
-             short. Successful sign-ins come from the session log; rejected
-             attempts come from the server-side security audit log. Both are
-             served by GET /api/auth/login-history. -->
-        <div class="card" id="secLoginHistory">
-          <div class="card-hdr">
-            <div class="card-title"><span class="ico">📜</span> Login History</div>
-            <button class="btn btn-ghost btn-sm" onclick="loadLoginHistory()" id="lhRefreshBtn">Refresh</button>
-          </div>
-
-          <p class="lh-hdr-note">Showing your 10 most recent sign-ins. If you see something you don't recognise, log out of the other devices and turn on two-factor authentication.</p>
-
-          <div id="loginHistoryBody">
-            <div class="sess-sk-row">
-              <div class="sess-sk sess-sk-ico"></div>
-              <div style="flex:1">
-                <div class="sess-sk" style="height:11px;width:38%"></div>
-                <div class="sess-sk" style="height:9px;width:58%;margin-top:8px"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- CARD 4 — Security alerts.
+        <!-- CARD 3 — Security alerts.
              A curated, read-only feed of the server's security audit log
              (GET /api/auth/security-events): new device / new location
              sign-ins, 2FA changes, recovery-code activity and failed
@@ -2689,6 +2753,101 @@
 
     // Toggle the dashboard vs suspension view based on account status
     applySuspensionState(status);
+
+    // Account Settings reads the same session, so it is painted here rather than
+    // fetching anything of its own.
+    renderAccountSettings();
+  }
+
+  // ─── Account Settings ──────────────────────────────────────────
+  //   Profile and account identity, painted from the signed-in session
+  //   (GET /api/auth/me merged with the stored login payload). This page adds no
+  //   endpoint, saves nothing and repeats nothing: a field the account does not
+  //   carry is simply not rendered, which is why there is no phone row — the
+  //   Users store has no phone column — and why notification preferences are a
+  //   link to their existing page instead of a second copy of the controls.
+  function renderAccountSettings() {
+    const view = document.getElementById('view-account');
+    if (!view) return;
+
+    const local = (typeof Auth === 'object' && Auth.getUser && Auth.getUser()) || {};
+    const user = STATE.user || local || {};
+    const val = (...candidates) => {
+      for (const c of candidates) {
+        const s = String(c == null ? '' : c).trim();
+        if (s) return s;
+      }
+      return '';
+    };
+
+    const name = val(user.name, local.name, (val(user.email, local.email).split('@')[0]));
+    const email = val(user.email, local.email);
+    const username = val(user.username, local.username);
+    const userId = val(user.user_id, user.id, local.user_id, local.id);
+    const picture = val(user.picture, local.picture);
+    const status = val(user.status, local.status, 'active').toLowerCase();
+    const initials = name.split(/\s+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
+
+    const setText = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    const avatar = document.getElementById('acctAvatar');
+    if (avatar) {
+      avatar.innerHTML = picture
+        ? `<img src="${escapeHtml(picture)}" alt="${escapeHtml(name)}">`
+        : escapeHtml(initials);
+    }
+    setText('acctHeaderName', name || '—');
+    setText('acctHeaderEmail', email || '—');
+
+    // The photo note only makes sense for an account that actually has one.
+    const photoNote = document.getElementById('acctPhotoNote');
+    if (photoNote) {
+      photoNote.textContent = picture
+        ? 'Your photo comes from the Google account you sign in with.'
+        : 'Sign in with Google to use your Google profile photo here.';
+    }
+
+    const statusTag = document.getElementById('acctStatusTag');
+    if (statusTag) {
+      const active = status === 'active';
+      statusTag.textContent = active ? 'Active' : 'Suspended';
+      statusTag.classList.toggle('off', !active);
+      statusTag.style.display = 'inline-flex';
+    }
+
+    // Only rows the account can actually fill. `copy` marks the ones worth a
+    // copy button — the user ID is the value support asks for.
+    const rows = [
+      { label: 'Full Name', value: name },
+      { label: 'Username', value: username },
+      { label: 'Email Address', value: email },
+      { label: 'User ID', value: userId, mono: true, copy: true },
+    ].filter((r) => r.value);
+
+    const box = document.getElementById('acctRows');
+    if (!box) return;
+    box.innerHTML = rows.map((r) => `
+      <div class="acct-row">
+        <div class="acct-row-main">
+          <div class="acct-row-lbl">${escapeHtml(r.label)}</div>
+          <div class="acct-row-val${r.mono ? ' mono' : ''}">${escapeHtml(r.value)}</div>
+        </div>
+        ${r.copy ? `<div class="acct-row-act">
+          <button class="btn btn-ghost btn-sm" onclick="copyAccountValue(this, '${escapeHtml(r.value)}')">Copy</button>
+        </div>` : ''}
+      </div>`).join('');
+  }
+
+  /** Copy a single account value, with the button itself as the confirmation. */
+  async function copyAccountValue(btn, value) {
+    try {
+      await navigator.clipboard.writeText(String(value || ''));
+      const original = btn.textContent;
+      btn.textContent = 'Copied';
+      btn.disabled = true;
+      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1400);
+    } catch (err) {
+      showToast('Could not copy — select the text instead.', 'warning');
+    }
   }
 
   // ─── Security posture ──────────────────────────────────────────
@@ -3785,9 +3944,6 @@
     const local = Auth.getUser();
     if (local) applyUserToUI(local);
 
-    // Collapsible sidebar sub-sections (open on parent click)
-    initSidebarAccordion();
-
     // Notification toggles auto-save on change
     initNotificationPrefs();
 
@@ -3804,7 +3960,7 @@
 
     // Handle URL hash on load
     const hash = window.location.hash.replace('#', '');
-    const validViews = ['my-coupons', 'wallet', 'payouts', 'security', 'notifications', 'reviews', 'support'];
+    const validViews = ['my-coupons', 'wallet', 'payouts', 'security', 'account', 'notifications', 'reviews', 'support'];
     if (validViews.includes(hash)) showView(hash);
   });
 
@@ -4008,144 +4164,15 @@
     }
   }
 
-  // ─── Login history ─────────────────────────────────────────────
-  //   Read-only view of GET /api/auth/login-history. Successful sign-ins come
-  //   from the session log; rejected attempts come from the server's security
-  //   audit log. Nothing here is computed client-side.
-  const LH_SKELETON = SESSIONS_SKELETON;
-
-  function lhDeviceLine(e) {
-    const browser = String(e.browser || '').trim();
-    const os = String(e.os || e.device || '').trim();
-    if (browser && os) return `${escapeHtml(browser)} • ${escapeHtml(os)}`;
-    return escapeHtml(browser || os || 'Unknown device');
-  }
-
-  // Device type ("Desktop" / "Mobile" / "Tablet") is inferred from the same
-  // user-agent hints the session list uses, so the two cards agree.
+  // Device type ("Desktop" / "Mobile" / "Tablet") inferred from the user-agent
+  // hints a session row carries, so a device is named the same way wherever it
+  // appears on this page.
   function lhDeviceKind(e) {
     const hint = `${e.device || ''} ${e.os || ''}`.toLowerCase();
     if (/ipad|tablet/.test(hint)) return 'Tablet';
     if (/android|iphone|ios|mobile|phone/.test(hint)) return 'Mobile';
     if (hint.trim()) return 'Desktop';
     return 'Unknown';
-  }
-
-  function lhStatusBadge(e) {
-    const failed = String(e.status) === 'Failed';
-    return `<span class="lh-badge${failed ? ' fail' : ''}">${failed ? '✕ Failed' : '✓ Successful'}</span>`;
-  }
-
-  function renderLoginHistory(data) {
-    const box = document.getElementById('loginHistoryBody');
-    if (!box) return;
-    // Only the 10 most recent records are ever shown — the server may retain
-    // more, but this card stays compact and there is no full-history page.
-    const entries = ((data && data.entries) || []).slice(0, 10);
-
-    if (!entries.length) {
-      box.innerHTML = `
-        <div class="sess-none">
-          <span class="sess-none-ico" aria-hidden="true">✓</span>
-          <div>
-            <div class="sess-none-title">No sign-in activity yet</div>
-            <div class="sess-none-sub">Your recent sign-ins will be listed here.</div>
-          </div>
-        </div>`;
-      return;
-    }
-
-    const rows = entries.map((e) => {
-      const loc = String(e.location || '').trim();
-      const locCell = loc
-        ? `<span class="lh-loc">${escapeHtml(loc)}</span>`
-        : '<span class="lh-loc unknown">Not available</span>';
-      const ip = String(e.ip || '').trim();
-      const ipCell = ip
-        ? `<span class="lh-loc">${escapeHtml(ip)}</span>`
-        : '<span class="lh-loc unknown">Not available</span>';
-      const sub = [e.method, e.detail].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
-      return `
-        <tr>
-          <td>
-            <div class="lh-when">${fmtSessionDT(e.at) || '—'}</div>
-            <div class="lh-when-sub">${escapeHtml(relSessionTime(e.at) || '')}</div>
-          </td>
-          <td>
-            <div>${escapeHtml(lhDeviceKind(e))}${e.is_current ? ' <span class="sess-tag">Current session</span>' : ''}</div>
-          </td>
-          <td class="lh-device">
-            <div>${lhDeviceLine(e)}</div>
-            ${sub ? `<div class="lh-device-sub">${escapeHtml(sub)}</div>` : ''}
-          </td>
-          <td>${locCell}</td>
-          <td>${ipCell}</td>
-          <td>${lhStatusBadge(e)}</td>
-        </tr>`;
-    }).join('');
-
-    const cards = entries.map((e) => {
-      const loc = String(e.location || '').trim();
-      const ip = String(e.ip || '').trim();
-      const sub = [e.method, e.detail].map((v) => String(v || '').trim()).filter(Boolean).join(' · ');
-      return `
-        <div class="lh-mob-card">
-          <div class="lh-mob-top">
-            <div class="lh-mob-when">${fmtSessionDT(e.at) || '—'}</div>
-            ${lhStatusBadge(e)}
-          </div>
-          <div class="lh-mob-meta">
-            ${escapeHtml(lhDeviceKind(e))} · ${lhDeviceLine(e)}${e.is_current ? ' <span class="sess-tag">Current session</span>' : ''}<br>
-            ${loc ? escapeHtml(loc) : 'Location not available'} · IP ${ip ? escapeHtml(ip) : 'not available'}${sub ? `<br>${escapeHtml(sub)}` : ''}
-          </div>
-        </div>`;
-    }).join('');
-
-    const notes = ['Location is approximate and based on the sign-in IP address.'];
-    if (data && data.failures_available === false) {
-      notes.push('Failed sign-in attempts could not be loaded right now, so only successful sign-ins are listed.');
-    }
-
-    box.innerHTML = `
-      <div class="lh-table-wrap">
-        <table class="lh-table">
-          <thead>
-            <tr>
-              <th scope="col">Date &amp; time</th>
-              <th scope="col">Device</th>
-              <th scope="col">Browser / OS</th>
-              <th scope="col">Approximate location</th>
-              <th scope="col">IP address</th>
-              <th scope="col">Status</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-      <div class="lh-mobile">${cards}</div>
-      <div class="lh-foot">${notes.join(' ')}</div>`;
-  }
-
-  async function loadLoginHistory() {
-    const box = document.getElementById('loginHistoryBody');
-    if (!box) return;
-    const btn = document.getElementById('lhRefreshBtn');
-    if (btn) btn.disabled = true;
-    box.innerHTML = LH_SKELETON;
-
-    try {
-      renderLoginHistory(await api('/auth/login-history?limit=10'));
-    } catch (err) {
-      if (!err.sessionExpired) {
-        box.innerHTML = `
-          <div class="sess-error">
-            <span class="sess-error-txt">Unable to load your login history.</span>
-            <button class="btn btn-ghost btn-sm" onclick="loadLoginHistory()">Try Again</button>
-          </div>`;
-      }
-    } finally {
-      if (btn) btn.disabled = false;
-    }
   }
 
   // ─── Security alerts ───────────────────────────────────────────
@@ -5659,17 +5686,11 @@
     const view = document.getElementById('view-' + name);
     if (view) view.classList.add('active');
 
-    // Top-level sb-item active state
+    // Top-level sb-item active state. There is no second level: every sidebar
+    // entry is a page, so `sub` only ever selects something *inside* a view.
     document.querySelectorAll('.sb-item[data-view]').forEach(item => {
       item.classList.toggle('active', item.dataset.view === name);
     });
-
-    // Sub-item active state — clear, then set the matching one
-    document.querySelectorAll('.sb-subitem').forEach((el) => el.classList.remove('active'));
-    if (sub) {
-      const subEl = document.querySelector(`.sb-subitem[data-sub="${sub}"]`);
-      if (subEl) subEl.classList.add('active');
-    }
 
     // My Coupons is one view with two panes. `sub` selects the pane — either
     // directly ('purchased' / 'sales') or via a legacy sidebar filter value
@@ -5703,19 +5724,22 @@
       // loading state) is never stale from an earlier visit.
       if (typeof loadMySessions === 'function') loadMySessions();
       if (typeof loadTwoFactorStatus === 'function') loadTwoFactorStatus();
-      if (typeof loadLoginHistory === 'function') loadLoginHistory();
       if (typeof loadSecurityAlerts === 'function') loadSecurityAlerts();
+    } else if (name === 'account') {
+      // Repaint from the signed-in session — no fetch, so re-entering the page
+      // cannot show a stale profile or flash a skeleton.
+      if (typeof renderAccountSettings === 'function') renderAccountSettings();
     }
 
-    // The security and support pages are short — let the footer follow the
-    // content instead of a viewport-height gap. Scoped to those views only.
-    document.body.classList.toggle('view-security-active', name === 'security');
+    // The security, account and support pages are short — let the footer follow
+    // the content instead of a viewport-height gap. Scoped to those views only.
+    document.body.classList.toggle('view-security-active', name === 'security' || name === 'account');
     document.body.classList.toggle('view-support-active', name === 'support');
     document.body.classList.toggle('view-reviews-active', name === 'reviews');
 
-    // Section anchors for the security sub-items. The scroll happens after the
-    // view is visible, and it overrides the scroll-to-top below.
-    const SEC_ANCHORS = { 'active-sessions': 'secActiveSessions', 'login-history': 'secLoginHistory' };
+    // Security has no sub-navigation any more; this only keeps an older
+    // #security deep link that asked for the sessions card still landing on it.
+    const SEC_ANCHORS = { 'active-sessions': 'secActiveSessions' };
     if (name === 'security' && SEC_ANCHORS[sub]) {
       setTimeout(() => {
         const el = document.getElementById(SEC_ANCHORS[sub]);
@@ -5729,22 +5753,6 @@
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (window.innerWidth <= 960) closeSidebar();
-  }
-
-  // Sidebar accordion: clicking a main section opens its sub-section (and
-  // closes the others). Main items without a sub-section just close any open one.
-  function initSidebarAccordion() {
-    const items = document.querySelectorAll('.sb-nav .sb-item');
-    items.forEach((item) => {
-      const group = item.nextElementSibling;
-      const hasGroup = group && group.classList.contains('sb-subgroup');
-      item.addEventListener('click', () => {
-        document.querySelectorAll('.sb-nav .sb-subgroup').forEach((g) => {
-          if (g !== group) g.classList.remove('open');
-        });
-        if (hasGroup) group.classList.toggle('open');
-      });
-    });
   }
 
   function openSidebar() {
