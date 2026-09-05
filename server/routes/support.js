@@ -18,7 +18,15 @@ const router = express.Router();
 // publicly linkable, and the browser's claimed MIME type is not trusted: the
 // bytes are sniffed server-side and anything that is not a real PNG, JPEG or
 // WebP is refused.
-const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5MB per screenshot
+//
+// The 3MB ceiling is dictated by the deployment, not by Drive. The screenshot
+// arrives as base64 inside a JSON body, which inflates it by a third, and Vercel
+// rejects any serverless request body over ~4.5MB at the edge with
+// FUNCTION_PAYLOAD_TOO_LARGE — before this function is invoked, so no app-level
+// body-parser limit can raise it. 3MB raw ≈ 4MB encoded, which clears that cap
+// with room for the JSON envelope. Raising this again means moving the upload
+// off the JSON body (resumable/direct-to-Drive), not editing this number.
+const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB per screenshot
 const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 // Drive reference stored on the ticket: 'drive:<fileId>'.
 const DRIVE_REF_RE = /^drive:[a-zA-Z0-9_-]{10,80}$/;
@@ -135,7 +143,7 @@ router.post('/attachment', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'That screenshot could not be read. Please try another file.' });
     }
     if (buffer.length > ATTACHMENT_MAX_BYTES) {
-      return res.status(413).json({ error: 'That screenshot is too large. The maximum size is 5MB.' });
+      return res.status(413).json({ error: 'That screenshot is too large. The maximum size is 3MB.' });
     }
 
     // Content decides the type, not the upload's claim about itself.

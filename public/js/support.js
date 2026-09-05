@@ -15,10 +15,15 @@ document.addEventListener('DOMContentLoaded', () => {
   initSupportForm();
 });
 
-// Screenshots only, 5MB each. These checks are a courtesy so the user hears
+// Screenshots only, 3MB each. These checks are a courtesy so the user hears
 // about a bad file before a multi-MB upload starts; the server sniffs the actual
 // bytes and enforces the same limits again, and its answer is the one that counts.
-const ATTACHMENT_MAX_BYTES = 5 * 1024 * 1024; // 5MB
+//
+// The size check earns its keep in production: anything much larger is rejected
+// by Vercel's ~4.5MB request-body cap before the API is even reached, and that
+// rejection is a bare platform 413 rather than a JSON error, so catching it here
+// is the difference between a clear message and a mystery failure.
+const ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024; // 3MB
 const ATTACHMENT_ALLOWED_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
 // Read a File as base64 (without the data: prefix)
@@ -33,7 +38,7 @@ function fileToBase64(file) {
 
 async function uploadAttachment(file) {
   if (file.size > ATTACHMENT_MAX_BYTES) {
-    throw new Error('That screenshot is too large. The maximum size is 5MB.');
+    throw new Error('That screenshot is too large. The maximum size is 3MB.');
   }
   const type = (file.type || '').toLowerCase();
   if (!ATTACHMENT_ALLOWED_TYPES.includes(type)) {
