@@ -295,9 +295,9 @@
 <body>
 
 <!-- NAVBAR -->
-<nav class="navbar" id="mainNav">
+<nav class="navbar" id="nav" role="navigation" aria-label="Main navigation">
   <div class="container">
-    <a href="index" class="nav-brand">
+    <a href="index" class="nav-brand" aria-label="SaveHatke home">
       <img src="logo.png" alt="SaveHatke" class="brand-icon">
       <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
@@ -307,10 +307,10 @@
       <a href="sell">Sell Coupons</a>
       <a href="how-it-works">How it Works</a>
       <a href="about">About</a>
-      <a href="support" class="active">Support</a>
+      <a href="support" class="active" aria-current="page">Support</a>
     </div>
     <div class="nav-actions" id="navActions"></div>
-    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu">
       <span></span><span></span><span></span>
     </button>
   </div>
@@ -546,11 +546,11 @@
 </main>
 
 <!-- FOOTER -->
-<footer class="footer">
+<footer class="footer" aria-label="Site footer">
   <div class="container">
     <div class="footer-grid">
       <div class="fbrand">
-        <a href="index" class="nav-brand" style="font-size:1.2rem">
+        <a href="index" class="nav-brand" style="font-size:1.2rem" aria-label="SaveHatke home">
           <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
         </a>
         <p>SaveHatke is a marketplace where users can discover available coupons and submit eligible unused coupons for review and potential sale.</p>
@@ -577,7 +577,7 @@
       </div>
     </div>
     <div class="fbot">
-      <span>© 2026 SaveHatke. All rights reserved.</span>
+      <span>&copy; 2026 SaveHatke. All rights reserved.</span>
       <span>Made with ❤️ in India</span>
     </div>
   </div>
@@ -1036,7 +1036,7 @@
      NAV SCROLL + MOBILE
   ===================== */
   window.addEventListener('scroll', () => {
-    const nav = document.getElementById('mainNav');
+    const nav = document.getElementById('nav');
     if (nav) nav.style.background = window.scrollY > 40 ? 'rgba(6,13,31,0.97)' : 'rgba(6,13,31,0.85)';
   });
 

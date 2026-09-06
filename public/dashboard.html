@@ -988,9 +988,9 @@
 <!-- =====================================================
      NAVBAR
 ===================================================== -->
-<nav class="navbar" id="mainNav">
+<nav class="navbar" id="nav" role="navigation" aria-label="Main navigation">
   <div class="container">
-    <a href="index" class="nav-brand">
+    <a href="index" class="nav-brand" aria-label="SaveHatke home">
       <img src="logo.png" alt="SaveHatke" class="brand-icon">
       <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
@@ -1022,7 +1022,7 @@
       </div>
       <!-- Profile button will be injected by app.js updateNavAuth() -->
     </div>
-    <button class="nav-toggle" id="navToggle" onclick="toggleMobileNav()" aria-label="Menu">
+    <button class="nav-toggle" id="navToggle" onclick="toggleMobileNav()" aria-label="Toggle navigation menu">
       <span></span><span></span><span></span>
     </button>
   </div>
@@ -1953,11 +1953,11 @@
 <!-- =====================================================
      FOOTER — matches index.html
 ===================================================== -->
-<footer class="footer">
+<footer class="footer" aria-label="Site footer">
   <div class="container">
     <div class="footer-grid">
       <div class="fbrand">
-        <a href="index" class="nav-brand" style="font-size:1.2rem">
+        <a href="index" class="nav-brand" style="font-size:1.2rem" aria-label="SaveHatke home">
           <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
         </a>
         <p>SaveHatke is a marketplace where users can discover available coupons and submit eligible unused coupons for review and potential sale.</p>
@@ -1984,7 +1984,7 @@
       </div>
     </div>
     <div class="fbot">
-      <span>© 2026 SaveHatke. All rights reserved.</span>
+      <span>&copy; 2026 SaveHatke. All rights reserved.</span>
       <span>Made with ❤️ in India</span>
     </div>
   </div>
