@@ -228,6 +228,11 @@ const BRAND_LOGOS = {
   'Uber':               '/logos/uber.svg',
   'Booking.com':        '/logos/booking.svg',
   'Reliance Digital':   '/logos/reliance-digital.svg',
+  'ixigo':              'https://upload.wikimedia.org/wikipedia/commons/9/9a/Ixigo_logo.svg',
+  'Shopsy':             'https://upload.wikimedia.org/wikipedia/commons/f/fd/Shopsy.jpg',
+  'Snapdeal':           'https://upload.wikimedia.org/wikipedia/commons/e/ef/Snapdeal_new_official_logo.png',
+  'Tata CLiQ':          'https://upload.wikimedia.org/wikipedia/commons/f/fa/TATA_Cliq_Logo.jpg',
+  'Netflix':            'https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg',
 };
 
 /**
@@ -294,11 +299,13 @@ const BRAND_LOGO_MONO_DARK = new Set([
 ]);
 
 // Brand colours worth keeping, but with dark artwork mixed in (Booking.com's
-// navy wordmark, Pizza Hut's black lettering). These get a light chip behind
-// them — the logo is untouched, the chip is only as big as the logo.
+// navy wordmark, Pizza Hut's black lettering, Snapdeal's black "snapdeal" beside
+// its red mark). These get a light chip behind them — the logo is untouched, the
+// chip is only as big as the logo.
 const BRAND_LOGO_LIGHT_CHIP = new Set([
   '/logos/booking.svg',
   '/logos/pizzahut.svg',
+  'https://upload.wikimedia.org/wikipedia/commons/e/ef/Snapdeal_new_official_logo.png',
 ]);
 
 /**
