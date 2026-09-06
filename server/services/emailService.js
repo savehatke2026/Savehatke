@@ -1232,61 +1232,83 @@ SaveHatke Support Team
 }
 
 /**
- * Send the "New sign-in detected on your SaveHatke account" security alert
- * after a successful user login. NOT sent for admin logins (admins have
- * their own audit pipeline in the vault).
+ * Send the "New device detected" security alert after a successful sign-in
+ * from a device the account has not been seen on before.
+ *
+ * Sent for BOTH regular users and admins — the account type only changes a
+ * line of copy, never whether the alert goes out. The caller
+ * (routes/auth.js → createLoginSession) decides when: authentication has
+ * already succeeded and services/deviceRecognition.js has already reported the
+ * device as unrecognised. A recognised device produces no call at all.
  *
  * @param {object} params
- * @param {string} params.to - User's email address
- * @param {string} params.userName - User's display name
- * @param {string} params.userEmail - User's email (echoed for verification)
+ * @param {string} params.to - Account email address
+ * @param {string} params.userName - Account display name
+ * @param {string} params.userEmail - Account email (printed in the alert)
  * @param {string} params.signInTime - ISO login timestamp
  * @param {string} params.ip - Client IP address
- * @param {string} params.device - Parsed device name (e.g. "iPhone 15 Pro")
+ * @param {string} params.device - Parsed device name (e.g. "Apple iPhone")
  * @param {string} params.browser - Parsed browser name (e.g. "Chrome 127")
  * @param {string} params.os - Parsed OS name (e.g. "Windows 11")
  * @param {string} [params.city] - Geo-IP city (optional)
+ * @param {string} [params.state] - Geo-IP region (optional)
  * @param {string} [params.country] - Geo-IP country (optional)
- * @param {string} [params.loginMethod] - "Email" | "Google" | "OTP"
+ * @param {string} [params.loginMethod] - "Email" | "Google" | "Admin" | …
+ * @param {'user'|'admin'} [params.accountType] - Labels the account in the copy
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
 async function sendSignInAlertEmail({
   to, userName, userEmail, signInTime,
   ip, device, browser, os,
-  city, country, loginMethod,
+  city, state, country, loginMethod, accountType,
 }) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   if (!cleanEmail) {
     return { success: false, error: 'No recipient address provided.' };
   }
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
+  const isAdminAccount = String(accountType || '').toLowerCase() === 'admin';
+  const accountLabel = isAdminAccount ? 'SaveHatke admin account' : 'SaveHatke account';
 
-  const signInDate = signInTime
-    ? new Date(signInTime).toLocaleString('en-IN', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
-      })
-    : new Date().toLocaleString('en-IN', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata',
-      });
+  // Seconds are included on purpose: the point of the alert is to let someone
+  // match it against what they were doing at that exact moment.
+  const stamp = (value) => value.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    timeZone: 'Asia/Kolkata',
+  });
+  const signInDate = stamp(signInTime ? new Date(signInTime) : new Date());
 
-  const safeDevice = escapeHtml(device || 'Unknown device');
-  const safeBrowser = escapeHtml(browser || 'Unknown browser');
   // Plain-text values for the text part, escaped twins for the HTML part.
-  // Location falls back to "Unknown" rather than being hidden: the alert
-  // always shows the four fields (Location / Time / Browser / Device).
-  const locationText = [city, country]
+  // Every field is always shown, with an honest placeholder when the value
+  // could not be resolved — a missing line reads as if it were hidden.
+  const locationText = [city, state, country]
     .map((v) => String(v || '').trim())
     .filter((v) => v && v.toLowerCase() !== 'unknown')
-    .join(', ') || 'Unknown';
-  const deviceText = os && String(os).trim() && String(os).trim() !== 'Unknown'
-    ? `${device || 'Unknown device'} (${String(os).trim()})`
-    : (device || 'Unknown device');
+    .filter((v, i, arr) => arr.indexOf(v) === i)
+    .join(', ') || 'Could not be determined';
+  const deviceText = device && String(device).trim() ? String(device).trim() : 'Unknown device';
+  const browserText = browser && String(browser).trim() ? String(browser).trim() : 'Unknown browser';
+  const osText = os && String(os).trim() && String(os).trim() !== 'Unknown'
+    ? String(os).trim()
+    : 'Unknown';
+  const ipText = ip && String(ip).trim() && String(ip).trim() !== 'unknown'
+    ? String(ip).trim()
+    : 'Not available';
+  const accountText = userEmail && String(userEmail).trim() ? String(userEmail).trim() : cleanEmail;
+  const accountTypeText = isAdminAccount ? 'Administrator' : 'User';
+  const methodText = loginMethod && String(loginMethod).trim() ? String(loginMethod).trim() : '';
+
   const safeLocation = escapeHtml(locationText);
   const safeDeviceLine = escapeHtml(deviceText);
+  const safeBrowser = escapeHtml(browserText);
+  const safeOs = escapeHtml(osText);
+  const safeIp = escapeHtml(ipText);
+  const safeAccount = escapeHtml(accountText);
+  const safeAccountType = escapeHtml(accountTypeText);
+  const safeMethod = escapeHtml(methodText);
 
-  // Sender — the "new sign-in" alert goes out from the SAME main
+  // Sender — the "new device" alert goes out from the SAME main
   // "SaveHatke Security" mailbox as the OTP email (per product decision), so
   // both security messages share one verified, SPF/DKIM-aligned sender.
   // resolveMainFromAddress() keeps the From aligned with the SMTP login;
@@ -1297,12 +1319,13 @@ async function sendSignInAlertEmail({
   // Replies to a security alert still route to the support inbox when set.
   const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
-  const secureUrl = `${siteUrl}/dashboard.html#security`;
+  // Admins secure their account from the vault; users from their dashboard.
+  const secureUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#security`;
   const year = new Date().getFullYear();
 
   const t = getTransporter();
   if (!t || !isEmailConfigured()) {
-    console.warn(`⚠️ [EmailService] SMTP not configured. Sign-in alert for ${cleanEmail} was NOT sent.`);
+    console.warn(`⚠️ [EmailService] SMTP not configured. New-device alert for ${cleanEmail} was NOT sent.`);
     return {
       success: false,
       isSimulated: true,
@@ -1310,32 +1333,37 @@ async function sendSignInAlertEmail({
     };
   }
 
-  const subject_ = `SaveHatke Security — New sign-in detected on your account`;
+  const subject_ = `SaveHatke Security — New device detected on your ${isAdminAccount ? 'admin account' : 'account'}`;
 
   const textBody =
 `SaveHatke
 
-New sign-in detected on your SaveHatke account
+New device detected on your ${accountLabel}
 
 Hello, ${userName && String(userName).trim() ? userName.trim() : 'there'}.
 
-Your SaveHatke account was recently signed in from a new location, device, or browser.
+Your ${accountLabel} was just signed in to from a device we have not seen on this account before. The sign-in succeeded.
 
 Sign-in details
 
-  Location: ${locationText}
-  Time: ${signInDate} IST
-  Browser: ${browser || 'Unknown browser'}
-  Device: ${deviceText}
+  Account: ${accountText}
+  Account type: ${accountTypeText}
+  Date and time: ${signInDate} IST
+  Device type: ${deviceText}
+  Browser: ${browserText}
+  Operating system: ${osText}
+  Approximate location: ${locationText}
+  IP address: ${ipText}${methodText ? `
+  Sign-in method: ${methodText}` : ''}
 
-Don't recognize this activity?
+If this wasn't you, secure your account immediately.
 
-If you didn't sign in to your account, we recommend reviewing your account security and changing your password immediately:
+Sign out every other device and review your recent sign-in activity here:
 ${secureUrl}
 
-If this was you, you can safely ignore this email.
+If this was you, no action is needed — this device is now recognised and you will not be alerted for it again.
 
-This alert is sent when we detect a sign-in from a device, browser, or location that we haven't seen before. This can happen when you use a new device, browser, network, or VPN.
+You are receiving this because the device, browser or operating system above has never been used to sign in to this account. You will not get this alert for devices you already use.
 
 If you believe someone else accessed your account, please contact SaveHatke Support${supportFrom ? ` (${supportFrom})` : ''} as soon as possible.
 
@@ -1351,7 +1379,7 @@ Team SaveHatke
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light">
-    <title>New Sign-in Detected — SaveHatke Security</title>
+    <title>New Device Detected — SaveHatke Security</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1550,7 +1578,7 @@ Team SaveHatke
   <body>
 
   <!-- Preheader (hidden inbox preview line) -->
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">New sign-in detected on your SaveHatke account at ${signInDate}.</div>
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">A device we haven't seen before signed in to your ${accountLabel} at ${signInDate} IST.</div>
 
   <div class="email-wrapper">
 
@@ -1568,34 +1596,39 @@ Team SaveHatke
       <div class="email-body">
 
         <h1 class="email-title">SaveHatke</h1>
-        <h2 class="email-subtitle">New sign-in detected on your SaveHatke account</h2>
+        <h2 class="email-subtitle">New device detected on your ${isAdminAccount ? 'admin account' : 'account'}</h2>
 
         <p class="line">
           Hello, <span class="greeting-name">${safeName}</span>.
         </p>
 
-        <p class="line">Your SaveHatke account was recently signed in from a new location, device, or browser.</p>
+        <p class="line">Your ${escapeHtml(accountLabel)} was just signed in to from a device we have not seen on this account before. The sign-in succeeded.</p>
 
         <p class="detail-label">Sign-in details</p>
 
         <ul class="case-list">
-          <li><strong>Location:</strong> ${safeLocation}</li>
-          <li><strong>Time:</strong> <span class="mono">${escapeHtml(signInDate)} IST</span></li>
+          <li><strong>Account:</strong> ${safeAccount}</li>
+          <li><strong>Account type:</strong> ${safeAccountType}</li>
+          <li><strong>Date and time:</strong> <span class="mono">${escapeHtml(signInDate)} IST</span></li>
+          <li><strong>Device type:</strong> ${safeDeviceLine}</li>
           <li><strong>Browser:</strong> ${safeBrowser}</li>
-          <li><strong>Device:</strong> ${safeDeviceLine}</li>
+          <li><strong>Operating system:</strong> ${safeOs}</li>
+          <li><strong>Approximate location:</strong> ${safeLocation}</li>
+          <li><strong>IP address:</strong> <span class="mono">${safeIp}</span></li>
+          ${safeMethod ? `<li><strong>Sign-in method:</strong> ${safeMethod}</li>` : ''}
         </ul>
 
-        <h3 class="email-h3">Don't recognize this activity?</h3>
+        <h3 class="email-h3">Didn't sign in just now?</h3>
 
-        <p class="warn-line">If you didn't sign in to your account, we recommend reviewing your account security and changing your password immediately.</p>
-
-        <p class="line">If this was you, you can safely ignore this email.</p>
+        <p class="warn-line"><strong>If this wasn't you, secure your account immediately.</strong> Sign out every other device and review your recent sign-in activity.</p>
 
         <div class="cta-wrap">
-          <a href="${secureUrl}" class="cta-btn">🔒 Review Account Security</a>
+          <a href="${secureUrl}" class="cta-btn">🔒 Secure My Account</a>
         </div>
 
-        <p class="line note">This alert is sent when we detect a sign-in from a device, browser, or location that we haven't seen before. This can happen when you use a new device, browser, network, or VPN.</p>
+        <p class="line">If this was you, no action is needed — this device is now recognised and you will not be alerted for it again.</p>
+
+        <p class="line note">You are receiving this because the device, browser or operating system above has never been used to sign in to this account. You will not get this alert for devices you already use.</p>
 
         <p class="line">If you believe someone else accessed your account, please contact
           ${supportFrom
@@ -1629,7 +1662,7 @@ Team SaveHatke
   const unsubscribeUrl = `${siteUrl}/unsubscribe?c=${emailHash}&type=security`;
 
   const headers = {
-    'X-Entity-Ref-ID': `signin-alert-${emailHash}-${Date.now()}`,
+    'X-Entity-Ref-ID': `new-device-alert-${emailHash}-${Date.now()}`,
     'Auto-Submitted': 'auto-generated',
     'X-Mailer': 'SaveHatke Security',
     'X-Priority': '1', // Security alerts are high-priority
@@ -1646,7 +1679,7 @@ Team SaveHatke
     text: textBody,
     html: htmlContent,
     envelope: { from: fromEmail, to: cleanEmail },
-    messageId: `<signin-alert-${emailHash}-${Date.now()}@${(String(fromEmail).split('@')[1] || fqdn).toLowerCase()}>`,
+    messageId: `<new-device-alert-${emailHash}-${Date.now()}@${(String(fromEmail).split('@')[1] || fqdn).toLowerCase()}>`,
     headers,
   };
 
@@ -1664,10 +1697,10 @@ Team SaveHatke
 
   try {
     const info = await t.sendMail(mailOptions);
-    console.log(`✅ [EmailService] Sign-in alert sent to ${cleanEmail} (IP: ${ip || 'n/a'}, device: ${safeDevice}) (Message ID: ${info.messageId})`);
+    console.log(`✅ [EmailService] New-device alert sent to ${cleanEmail} (${accountTypeText}, IP: ${ipText}, ${deviceText} / ${browserText} / ${osText}) (Message ID: ${info.messageId})`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
-    console.error(`❌ [EmailService] Failed to send sign-in alert to ${cleanEmail}:`, err.message);
+    console.error(`❌ [EmailService] Failed to send new-device alert to ${cleanEmail}:`, err.message);
     return { success: false, error: err.message };
   }
 }

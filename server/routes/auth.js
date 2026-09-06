@@ -22,6 +22,7 @@ const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const emailService = require('../services/emailService');
 const otpService = require('../services/otpService');
+const deviceRecognition = require('../services/deviceRecognition');
 const getClientIP = require('../middleware/getClientIP');
 const { verifyTurnstile } = require('../utils/turnstile');
 const sessionCleanup = require('../services/sessionCleanup');
@@ -292,44 +293,64 @@ function logLoginFailure(req, { email, userId = '', detail = '' }) {
 }
 
 /**
- * After a successful sign-in, compare this session against the account's
- * earlier ones and record a "new device" / "new location" security event when
- * the combination has not been seen before. Purely informational — the sign-in
- * has already happened, and the alert email is sent separately. Best-effort:
- * this runs after the login response and swallows its own failures.
+ * After a successful sign-in, record the security events that describe how
+ * unusual it was. The new-device verdict is decided by
+ * services/deviceRecognition.js and passed in, so the audit log, the alert
+ * email and the admin/user behaviour can never disagree. The location check
+ * compares the geo resolved for this login against the account's earlier
+ * sign-ins. Purely informational — the sign-in has already happened — and
+ * best-effort: this runs after the login response and swallows its failures.
  */
-async function flagUnfamiliarSignIn({ userId, email, sessionId, ip, device }) {
+async function flagUnfamiliarSignIn({ userId, email, ip, device, isNewDevice, geo, previousSessions }) {
   try {
     if (!email) return;
-    const rows = await supabase.getUserSessions(userId);
-    const current = rows.find((r) => r.session_id === sessionId);
-    if (!current) return;
 
-    const previous = rows.filter((r) => r.session_id !== sessionId);
-    if (!previous.length) return; // first ever sign-in: nothing to compare against
-
-    const deviceKey = (r) => [r.browser, r.os, r.device]
-      .map((p) => String(p || '').toLowerCase().trim()).join('|');
-    const placeKey = (r) => placeOf(r).toLowerCase();
-
-    if (!previous.some((r) => deviceKey(r) === deviceKey(current))) {
+    if (isNewDevice) {
       await twoFactor.logSecurityEvent({
         userId, email, event: twoFactor.EVENTS.NEW_DEVICE, ip, device,
         detail: 'Signed in from a device not used before',
       });
     }
 
-    const place = placeKey(current);
-    if (place && !previous.some((r) => placeKey(r) === place)) {
-      await twoFactor.logSecurityEvent({
-        userId, email, event: twoFactor.EVENTS.NEW_LOCATION, ip, device,
-        detail: `Signed in from a new approximate location: ${placeOf(current)}`,
-      });
-    }
+    const place = placeOf(geo || {});
+    if (!place) return;
+
+    const previous = Array.isArray(previousSessions) ? previousSessions : [];
+    if (!previous.length) return; // first ever sign-in: nothing to compare against
+    if (previous.some((r) => placeOf(r).toLowerCase() === place.toLowerCase())) return;
+
+    await twoFactor.logSecurityEvent({
+      userId, email, event: twoFactor.EVENTS.NEW_LOCATION, ip, device,
+      detail: `Signed in from a new approximate location: ${place}`,
+    });
   } catch (e) { /* alerting is best-effort */ }
 }
 
-async function createLoginSession(req, userId, loginMethod, email, userName) {
+/**
+ * Resolve a promise, or give up after `ms` and resolve null.
+ *
+ * The new-device email has to reach the account within seconds of the sign-in,
+ * so the geo lookup gets a short grace period rather than the full provider
+ * timeout chain. Location is the one optional field in the alert.
+ */
+function withDeadline(promise, ms) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const timer = setTimeout(() => finish(null), ms);
+    if (typeof timer.unref === 'function') timer.unref();
+    Promise.resolve(promise).then(finish, () => finish(null));
+  });
+}
+
+const GEO_WAIT_FOR_EMAIL_MS = 3500;
+
+async function createLoginSession(req, userId, loginMethod, email, userName, res) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const isAdminLogin = /admin/i.test(String(loginMethod || ''));
@@ -343,13 +364,37 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
     const signInAt = new Date().toISOString();
     const geoPromise = resolveGeo(ip).catch(() => null);
 
-    // Send the "New sign-in detected" security alert to the account's own
-    // address (user or admin) from the SaveHatke Security mailbox. It runs
-    // before the user-id lookup and the session row are written, so neither a
-    // Google Sheets nor a Supabase outage can swallow the notification.
-    // Opt-out via SIGNIN_ALERT_DISABLED=true.
-    if (cleanEmail && process.env.SIGNIN_ALERT_DISABLED !== 'true') {
-      geoPromise
+    // Is this a device the account has signed in from before? Awaited, because
+    // the device token cookie it (re)issues has to be on this response, and
+    // because the answer decides whether an email goes out at all. Identical
+    // for users and admins — same ledger, same comparison, same secret.
+    const deviceCheck = await deviceRecognition.evaluateSignInDevice({
+      req,
+      res,
+      email: cleanEmail,
+      userAgent: userAgentRaw,
+      device: deviceStr,
+      os: osStr,
+      browser: browserStr,
+    }).catch((e) => {
+      console.warn('[Auth] Device recognition failed:', e && e.message ? e.message : e);
+      return { isNewDevice: false, evaluated: false, reason: 'device check error', previousSessions: [] };
+    });
+
+    // The "New device detected" alert, to the account's own address (user or
+    // admin) from the SaveHatke Security mailbox. It fires only when the
+    // device is genuinely unrecognised, and only here — after the password /
+    // OTP / Google / second factor has already been accepted, so it can never
+    // precede a successful authentication or follow a rejected one. A
+    // recognised device sends nothing. Opt-out via SIGNIN_ALERT_DISABLED=true.
+    if (!deviceCheck.evaluated) {
+      console.warn(`[Auth] New-device check inconclusive for ${cleanEmail || 'unknown account'} (${deviceCheck.reason}) — no alert sent.`);
+    } else if (!deviceCheck.isNewDevice) {
+      console.log(`[Auth] Recognised device for ${cleanEmail} (${deviceCheck.reason}) — no new-device alert.`);
+    } else if (process.env.SIGNIN_ALERT_DISABLED === 'true') {
+      console.warn(`[Auth] New device for ${cleanEmail} but SIGNIN_ALERT_DISABLED=true — alert suppressed.`);
+    } else {
+      withDeadline(geoPromise, GEO_WAIT_FOR_EMAIL_MS)
         .then((geo) => emailService.sendSignInAlertEmail({
           to: cleanEmail,
           userName: userName && String(userName).trim() ? String(userName).trim() : '',
@@ -360,19 +405,21 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
           browser: browserStr,
           os: osStr,
           city: geo ? geo.city : '',
+          state: geo ? geo.state : '',
           country: geo ? geo.country : '',
           loginMethod: loginMethod || (isAdminLogin ? 'Admin' : 'Email'),
+          accountType: isAdminLogin ? 'admin' : 'user',
         }))
         .then((r) => {
           if (r && r.success) {
-            console.log(`[Auth] Sign-in alert sent to ${cleanEmail} (IP ${ip}, device ${deviceStr})`);
+            console.log(`[Auth] New-device alert sent to ${cleanEmail} (IP ${ip}, device ${deviceStr} / ${browserStr} / ${osStr})`);
           } else if (r && r.isSimulated) {
-            console.warn(`[Auth] Sign-in alert NOT sent for ${cleanEmail} -> ${r.error || 'SMTP not configured'}`);
+            console.warn(`[Auth] New-device alert NOT sent for ${cleanEmail} -> ${r.error || 'SMTP not configured'}`);
           } else {
-            console.warn(`[Auth] Sign-in alert FAILED for ${cleanEmail}: ${(r && r.error) || 'unknown'}`);
+            console.warn(`[Auth] New-device alert FAILED for ${cleanEmail}: ${(r && r.error) || 'unknown'}`);
           }
         })
-        .catch((e) => console.warn('[Auth] Sign-in alert unexpected error:', e && e.message ? e.message : e));
+        .catch((e) => console.warn('[Auth] New-device alert unexpected error:', e && e.message ? e.message : e));
     }
 
     // Cryptographically random session identifier. The raw value goes into
@@ -409,13 +456,15 @@ async function createLoginSession(req, userId, loginMethod, email, userName) {
 
     // Geo-IP enrichment in the background â€” never blocks the login response
     geoPromise
-      .then((geo) => enrichSessionGeo(sessionResult.session_id, ip, geo))
-      .then(() => flagUnfamiliarSignIn({
+      .then((geo) => enrichSessionGeo(sessionResult.session_id, ip, geo).then(() => geo))
+      .then((geo) => flagUnfamiliarSignIn({
         userId: finalUserId,
         email: cleanEmail,
-        sessionId: sessionResult.session_id,
         ip,
         device: [browserStr, osStr || deviceStr].filter(Boolean).join(' \u2022 '),
+        isNewDevice: deviceCheck.evaluated && deviceCheck.isNewDevice,
+        geo,
+        previousSessions: deviceCheck.previousSessions,
       }))
       .catch(() => {});
 
@@ -630,7 +679,7 @@ router.post('/verify-otp', async (req, res) => {
 
     // Create the server-side 48h session (must be awaited â€” the JWT and
     // cookie carry this session's token)
-    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail, sheetUser.name).catch(() => null);
+    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail, sheetUser.name, res).catch(() => null);
 
     // Generate JWT token (48h hard limit, sid-bound to the session)
     const token = issueLoginToken({
@@ -736,7 +785,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Create the server-side 48h session
-    const session = await createLoginSession(req, userId, 'Email', cleanEmail, cleanName).catch(() => null);
+    const session = await createLoginSession(req, userId, 'Email', cleanEmail, cleanName, res).catch(() => null);
 
     // Generate token (48h hard limit, sid-bound to the session)
     const token = issueLoginToken({ id: userId, email: cleanEmail, name: cleanName, role: 'user' }, session);
@@ -788,6 +837,14 @@ router.post('/login', async (req, res) => {
       Admin = require('../models/Admin');
     } catch (e) {}
 
+    // Set when the address belongs to an administrator but the password does
+    // not verify. Such an attempt must never fall through to the passwordless
+    // user paths below: doing so hands back a real session bound to an admin's
+    // address, and — since a session means a successful sign-in — would also
+    // mail that admin a "new device detected" alert for an attempt that was
+    // in fact rejected.
+    let adminPasswordRejected = false;
+
     if (Admin) {
       try {
         const dbAdmin = await Admin.findOne({ email: loginEmail });
@@ -802,7 +859,7 @@ router.post('/login', async (req, res) => {
             await dbAdmin.save();
 
             // Server-side 48h session for the admin login
-            const session = await createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Admin', dbAdmin.email, dbAdmin.name || dbAdmin.full_name).catch(() => null);
+            const session = await createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Admin', dbAdmin.email, dbAdmin.name || dbAdmin.full_name, res).catch(() => null);
             const token = issueLoginToken({
               id: dbAdmin.id || dbAdmin._id.toString(),
               email: dbAdmin.email,
@@ -825,8 +882,12 @@ router.post('/login', async (req, res) => {
               },
             });
           }
+          adminPasswordRejected = true;
         }
-      } catch (e) {}
+      } catch (e) {
+        // Admin store unreachable — leave the decision to the checks below
+        // rather than locking everyone out of the site.
+      }
     }
 
     // â”€â”€ 2. Hardcoded admin fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -835,12 +896,20 @@ router.post('/login', async (req, res) => {
       { email: 'jaggik8888@gmail.com', password: 'Jaggik', name: 'Jaggik' },
     ];
 
-    const hardcoded = hardcodedAdmins.find(a => a.email === loginEmail && a.password === password);
+    const hardcodedAccount = hardcodedAdmins.find(a => a.email === loginEmail);
+    const hardcoded = hardcodedAccount && hardcodedAccount.password === password ? hardcodedAccount : null;
+    if (hardcodedAccount && !hardcoded) adminPasswordRejected = true;
+
+    if (adminPasswordRejected) {
+      logLoginFailure(req, { email: loginEmail, detail: 'Incorrect administrator password' });
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
     if (hardcoded) {
       const hardcodedId = uuidv4();
 
       // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, hardcodedId, 'Admin', hardcoded.email, hardcoded.name).catch(() => null);
+      const session = await createLoginSession(req, hardcodedId, 'Admin', hardcoded.email, hardcoded.name, res).catch(() => null);
       const token = issueLoginToken({
         id: hardcodedId,
         email: hardcoded.email,
@@ -898,7 +967,7 @@ router.post('/login', async (req, res) => {
       if (gate.required) return res.json(gate.body);
 
       // Server-side 48h session
-      const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail, sheetUser.name).catch(() => null);
+      const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail, sheetUser.name, res).catch(() => null);
       const token = issueLoginToken({
         id: sheetUser.user_id || sheetUser.id,
         email: sheetUser.email,
@@ -946,7 +1015,7 @@ router.post('/login', async (req, res) => {
     await db.appendRow(db.SHEETS.USERS, sheetUser);
 
     // Server-side 48h session
-    const session = await createLoginSession(req, newUserId, 'Email', loginEmail, displayName).catch(() => null);
+    const session = await createLoginSession(req, newUserId, 'Email', loginEmail, displayName, res).catch(() => null);
     const token = issueLoginToken({ id: newUserId, email: loginEmail, name: displayName, role: 'user' }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
 
@@ -1130,7 +1199,7 @@ router.post('/google-redirect', async (req, res) => {
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
 
       // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName).catch(() => null);
+      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName, res).catch(() => null);
       const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
       if (session) setSessionCookie(res, session.token, session.ttlMs);
 
@@ -1206,7 +1275,7 @@ router.post('/google-redirect', async (req, res) => {
     if (gate.required) return res.json(gate.body);
 
     // Server-side 48h session
-    const session = await createLoginSession(req, userId, 'Google', userEmail, sheetUser.name || userName).catch(() => null);
+    const session = await createLoginSession(req, userId, 'Google', userEmail, sheetUser.name || userName, res).catch(() => null);
     const token = issueLoginToken({
       id: userId,
       email: userEmail,
@@ -1287,7 +1356,7 @@ router.post('/google', async (req, res) => {
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
 
       // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName).catch(() => null);
+      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName, res).catch(() => null);
       const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
       if (session) setSessionCookie(res, session.token, session.ttlMs);
 
@@ -1357,7 +1426,7 @@ router.post('/google', async (req, res) => {
     if (gate.required) return res.json(gate.body);
 
     // Server-side 48h session
-    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail, sheetUser.name || userName).catch(() => null);
+    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail, sheetUser.name || userName, res).catch(() => null);
     const token = issueLoginToken({
       id: sheetUser.user_id || sheetUser.id,
       email: userEmail,
@@ -1616,7 +1685,15 @@ router.get('/login-history', authenticateToken, async (req, res) => {
   const LIMIT = Number.isFinite(asked) && asked > 0 ? Math.min(asked, MAX_LIMIT) : DEFAULT_LIMIT;
 
   try {
-    const rows = await supabase.getUserSessions(req.user.id);
+    // Admin logins are recorded in admin_sessions, and a hardcoded admin login
+    // mints a fresh user_id every time, so the id-keyed read finds nothing for
+    // those accounts. Falling back to the email-keyed history across both
+    // tables makes this endpoint report every successful sign-in for users and
+    // admins alike.
+    let rows = await supabase.getUserSessions(req.user.id);
+    if (!rows.length && req.user.email) {
+      rows = (await supabase.getAccountSessionHistory(req.user.email, MAX_LIMIT)) || [];
+    }
 
     const entries = rows.map((r) => ({
       at: r.login_time,

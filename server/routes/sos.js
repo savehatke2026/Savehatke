@@ -598,7 +598,7 @@ router.post('/verify', async (req, res) => {
     let sessionRow = null;
     let token = null;
     try {
-      sessionRow = await authRoutes.createLoginSession(req, admin.id, 'Admin (SOS)', admin.email, admin.name);
+      sessionRow = await authRoutes.createLoginSession(req, admin.id, 'Admin (SOS)', admin.email, admin.name, res);
       token = authRoutes.issueLoginToken(
         { id: admin.id, email: admin.email, name: admin.name, role: 'admin' },
         sessionRow

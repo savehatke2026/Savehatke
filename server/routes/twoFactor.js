@@ -604,7 +604,7 @@ router.post('/login', loginVerifyLimiter, async (req, res) => {
     // Only now does a session exist.
     const name = challenge.claims.name || me.email.split('@')[0];
     const session = await authRoutes.createLoginSession(
-      req, me.id, challenge.claims.method || 'Email OTP + 2FA', me.email, name,
+      req, me.id, challenge.claims.method || 'Email OTP + 2FA', me.email, name, res,
     ).catch(() => null);
 
     const token = authRoutes.issueLoginToken({

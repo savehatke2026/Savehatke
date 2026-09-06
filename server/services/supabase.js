@@ -888,6 +888,58 @@ async function getUserSessions(userId) {
 }
 
 /**
+ * Every recorded sign-in for one account, newest first, across BOTH session
+ * tables. This is the ledger services/deviceRecognition.js compares a fresh
+ * login against, so it has to be blind to the user/admin split: the same
+ * person can hold rows in either table, and 'Admin (SOS)' logins land in
+ * user_sessions despite being an admin session.
+ *
+ * Keyed on email, not user_id, because a hardcoded admin login mints a new
+ * uuid every time — the email is the only stable account identity here.
+ *
+ * @returns {Promise<Array|null>} rows, or null when neither table could be
+ *   read. null means "unknown", not "no history": the caller must not treat it
+ *   as a device it has never seen.
+ */
+async function getAccountSessionHistory(email, limit = 200) {
+  const client = getClient();
+  if (!client) return null;
+
+  const clean = String(email || '').toLowerCase().trim();
+  if (!clean) return null;
+
+  const rows = [];
+  let readable = false;
+
+  for (const table of SESSION_TABLES) {
+    try {
+      const { data, error } = await client
+        .from(table)
+        .select('session_id, login_time, login_method, user_agent, device, os, browser, city, state, country, ip_address, status')
+        .eq('email', clean)
+        .order('login_time', { ascending: false })
+        .limit(limit);
+
+      if (error) {
+        // A pre-migration table without an `email` or `user_agent` column
+        // cannot answer this question; the other table still might.
+        console.warn(`[device] session history read failed for "${table}":`, error.message);
+        continue;
+      }
+      readable = true;
+      if (data) rows.push(...data);
+    } catch (err) {
+      console.warn(`[device] session history exception for "${table}":`, err.message);
+    }
+  }
+
+  if (!readable) return null;
+
+  rows.sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
+  return rows.slice(0, limit);
+}
+
+/**
  * Count active sessions across both user and admin tables.
  */
 async function countActiveSessions() {
@@ -1141,6 +1193,7 @@ module.exports = {
   getAllSessions,
   getAdminSessions,
   getUserSessions,
+  getAccountSessionHistory,
   countActiveSessions,
   SESSION_TTL_MS,
   ADMIN_SESSION_TTL_MS,
