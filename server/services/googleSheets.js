@@ -29,6 +29,7 @@ const SHEETS = {
   BACKUP_CODE_AUDIT: 'BackupCodeAudit',
   MONTHLY_REPORTS: 'MonthlyReports',
   SELLER_PAYOUT_DETAILS: 'SellerPayoutDetails',
+  TESTIMONIALS: 'Testimonials',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -197,6 +198,23 @@ const HEADERS = {
     'createdAt',
     'updatedAt',
   ],
+  // Homepage testimonials, written and ordered entirely from the admin panel's
+  // Reviews section. These are marketing copy the admin controls — unrelated to
+  // SHEETS.REVIEWS above, which holds real buyer reviews of purchased coupons.
+  //
+  // isVisible / sortOrder are stored as strings because sheet writes are RAW:
+  // 'false' and '0' read back unambiguously, an empty cell does not.
+  [SHEETS.TESTIMONIALS]: [
+    'id',
+    'name',
+    'role',
+    'quote',
+    'rating',
+    'isVisible',
+    'sortOrder',
+    'createdAt',
+    'updatedAt',
+  ],
   // One row per user holding their authenticator-app enrolment.
   //
   // secretEncrypted / pendingSecretEncrypted are AES-256-GCM blobs, never the
@@ -247,7 +265,14 @@ const HEADERS = {
     'attachmentMime', 'attachmentSize', 'attachmentFileId', 'attachmentUploadedAt',
   ],
   [SHEETS.SETTINGS]: [
-    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'heroBadge', 'showHeroBadge', 'updatedAt',
+    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'heroBadge', 'showHeroBadge',
+    // Homepage testimonials section — the heading copy and whether the section
+    // renders at all. The testimonials themselves live in SHEETS.TESTIMONIALS.
+    // testimonialsSeeded is an internal one-time flag: it stops the three
+    // starter testimonials being re-created after an admin deletes them.
+    'testimonialsLabel', 'testimonialsTitle', 'testimonialsTitleHighlight',
+    'testimonialsSubtitle', 'showTestimonials', 'testimonialsSeeded',
+    'updatedAt',
   ],
   [SHEETS.OTP_REQUESTS]: [
     'id', 'userId', 'userIdEmail', 'email', 'ipAddress', 'otpHash',
@@ -505,6 +530,7 @@ const memoryDB = {
   [SHEETS.USER_TWO_FACTOR]: [],
   [SHEETS.SECURITY_AUDIT]: [],
   [SHEETS.BACKUP_CODE_AUDIT]: [],
+  [SHEETS.TESTIMONIALS]: [],
 };
 
 function seedDemoData() {
@@ -961,12 +987,29 @@ async function getSettings() {
     showSavedByUsers: true,
     heroBadge: "🚀 India's #1 Coupon Marketplace — Now Live!",
     showHeroBadge: true,
+    testimonialsLabel: 'Testimonials',
+    testimonialsTitle: 'Loved by',
+    testimonialsTitleHighlight: '10,000+ Smart Shoppers',
+    testimonialsSubtitle: 'Real stories from real users who save big with SaveHatke.',
+    showTestimonials: true,
+    testimonialsSeeded: false,
     updatedAt: new Date().toISOString(),
   };
 
   try {
     const existing = await findRow(SHEETS.SETTINGS, 'key', 'site_settings');
     if (existing) {
+      // A settings row written before the testimonial columns existed reads them
+      // back as '' once ensureSheets() tops up the header row, which is
+      // indistinguishable from an admin clearing a field. The toggles settle it:
+      // saveSettings() always writes the whole record, so if every testimonial
+      // cell is empty the row simply predates the feature and the defaults
+      // apply. After one save, '' means the admin meant it to be empty.
+      const written = ['testimonialsLabel', 'testimonialsTitle', 'testimonialsTitleHighlight',
+        'testimonialsSubtitle', 'showTestimonials', 'testimonialsSeeded']
+        .some((k) => String(existing[k] == null ? '' : existing[k]).trim() !== '');
+      const copy = (k) => (written ? String(existing[k] == null ? '' : existing[k]) : defaultSettings[k]);
+
       return {
         ...defaultSettings,
         ...existing,
@@ -974,6 +1017,14 @@ async function getSettings() {
         showCouponsTraded: toSettingBool(existing.showCouponsTraded),
         showSavedByUsers: toSettingBool(existing.showSavedByUsers),
         showHeroBadge: toSettingBool(existing.showHeroBadge),
+        showTestimonials: written ? toSettingBool(existing.showTestimonials) : defaultSettings.showTestimonials,
+        // Unlike the display toggles this one defaults to false: a blank cell
+        // means "the starter testimonials have never been written".
+        testimonialsSeeded: toSettingBool(existing.testimonialsSeeded, false),
+        testimonialsLabel: copy('testimonialsLabel'),
+        testimonialsTitle: copy('testimonialsTitle'),
+        testimonialsTitleHighlight: copy('testimonialsTitleHighlight'),
+        testimonialsSubtitle: copy('testimonialsSubtitle'),
       };
     }
   } catch (err) {
@@ -983,23 +1034,40 @@ async function getSettings() {
 }
 
 /**
- * Save website settings to Google Sheets
+ * Save website settings to Google Sheets.
+ *
+ * Every key the caller omits keeps the value already on record, so a caller that
+ * only knows about some of the settings cannot silently reset the rest.
  */
 async function saveSettings(data) {
+  const current = await getSettings();
+  const text = (key, max) => {
+    const value = data[key] !== undefined ? data[key] : current[key];
+    const s = String(value == null ? '' : value).trim();
+    return max ? s.slice(0, max) : s;
+  };
+  // Toggles are stored as 'true'/'false' strings: RAW sheet writes of booleans
+  // are ambiguous and empty-string cells read back as the default (true).
+  const flag = (key) => String(Boolean(data[key] !== undefined ? data[key] : current[key]));
+
   const record = {
     key: 'site_settings',
-    activeUsers: data.activeUsers || '10K+',
-    couponsTraded: data.couponsTraded || '50K+',
-    savedByUsers: data.savedByUsers || '₹2L+',
-    platformName: data.platformName || 'SaveHatke',
-    adminEmail: data.adminEmail || 'rupayandas2024@gmail.com',
-    // Store toggles as 'true'/'false' strings: RAW sheet writes of booleans
-    // are ambiguous and empty-string cells read back as the default (true).
-    showActiveUsers: data.showActiveUsers !== undefined ? String(Boolean(data.showActiveUsers)) : 'true',
-    showCouponsTraded: data.showCouponsTraded !== undefined ? String(Boolean(data.showCouponsTraded)) : 'true',
-    showSavedByUsers: data.showSavedByUsers !== undefined ? String(Boolean(data.showSavedByUsers)) : 'true',
-    heroBadge: data.heroBadge !== undefined ? String(data.heroBadge).slice(0, 120) : "🚀 India's #1 Coupon Marketplace — Now Live!",
-    showHeroBadge: data.showHeroBadge !== undefined ? String(Boolean(data.showHeroBadge)) : 'true',
+    activeUsers: text('activeUsers') || '10K+',
+    couponsTraded: text('couponsTraded') || '50K+',
+    savedByUsers: text('savedByUsers') || '₹2L+',
+    platformName: text('platformName') || 'SaveHatke',
+    adminEmail: text('adminEmail') || 'rupayandas2024@gmail.com',
+    showActiveUsers: flag('showActiveUsers'),
+    showCouponsTraded: flag('showCouponsTraded'),
+    showSavedByUsers: flag('showSavedByUsers'),
+    heroBadge: text('heroBadge', 120),
+    showHeroBadge: flag('showHeroBadge'),
+    testimonialsLabel: text('testimonialsLabel', 60),
+    testimonialsTitle: text('testimonialsTitle', 120),
+    testimonialsTitleHighlight: text('testimonialsTitleHighlight', 120),
+    testimonialsSubtitle: text('testimonialsSubtitle', 240),
+    showTestimonials: flag('showTestimonials'),
+    testimonialsSeeded: flag('testimonialsSeeded'),
     updatedAt: new Date().toISOString(),
   };
 

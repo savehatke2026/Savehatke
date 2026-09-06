@@ -466,40 +466,18 @@
   </div>
 </section>
 
-<!-- TESTIMONIALS -->
-<section class="section" id="testimonials">
+<!-- TESTIMONIALS — every word here is admin-owned. The heading comes from
+     Settings → Homepage Testimonials Section and the cards from Reviews →
+     Homepage Testimonials, both served by /api/testimonials. The section starts
+     hidden so a slow or failed load shows nothing rather than an empty strip. -->
+<section class="section" id="testimonials" style="display:none">
   <div class="container">
     <div class="sec-hdr fu">
-      <span class="slabel">Testimonials</span>
-      <h2 class="stitle">Loved by <span class="gtext">10,000+ Smart Shoppers</span></h2>
-      <p class="ssub">Real stories from real users who save big with SaveHatke.</p>
+      <span class="slabel" id="tmLabel">Testimonials</span>
+      <h2 class="stitle" id="tmTitle"></h2>
+      <p class="ssub" id="tmSubtitle" style="display:none"></p>
     </div>
-    <div class="tgrid">
-      <div class="tcard fu">
-        <div class="tstars">★★★★★</div>
-        <p class="ttext">"I had ₹500 worth of Nykaa coupons I was never going to use. Sold them all on SaveHatke and got cash instantly. Genius concept!"</p>
-        <div class="tauthor">
-          <div class="tavatar">RK</div>
-          <div><div class="tname">Rahul Kumar</div><div class="trole">Software Engineer, Bangalore</div></div>
-        </div>
-      </div>
-      <div class="tcard fu d1">
-        <div class="tstars">★★★★★</div>
-        <p class="ttext">"The price tracker saved me ₹4,000 on a laptop! It alerted me the moment the price dropped on Flipkart. Absolutely recommend."</p>
-        <div class="tauthor">
-          <div class="tavatar">PS</div>
-          <div><div class="tname">Priya Sharma</div><div class="trole">College Student, Delhi</div></div>
-        </div>
-      </div>
-      <div class="tcard fu d2">
-        <div class="tstars">★★★★★</div>
-        <p class="ttext">"Bought a Puma coupon for ₹20 that gave ₹500 off. That's a 25x return! SaveHatke is my go-to before any online purchase now."</p>
-        <div class="tauthor">
-          <div class="tavatar">AM</div>
-          <div><div class="tname">Aditya Mehta</div><div class="trole">Freelancer, Mumbai</div></div>
-        </div>
-      </div>
-    </div>
+    <div class="tgrid" id="tmGrid"></div>
   </div>
 </section>
 
@@ -700,6 +678,10 @@
     entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
   }, {threshold: 0.1});
   document.querySelectorAll('.fu').forEach(el => obs.observe(el));
+  // Cards rendered after this point (the testimonials) start at opacity 0 like
+  // every other .fu element, so they have to be handed to the same observer or
+  // they would never fade in.
+  window.revealOnScroll = (el) => obs.observe(el);
 
   // Sticky nav
   window.addEventListener('scroll', () => {
@@ -837,6 +819,76 @@
       }
     } catch (err) {
       // Silent fail for hero stats
+    }
+  })();
+
+  // ── Homepage testimonials ────────────────────────────────────────────
+  // Heading and cards both come from the admin panel. /api/testimonials only
+  // returns the cards an admin has marked visible, already in display order.
+  (async function loadTestimonials() {
+    const section = document.getElementById('testimonials');
+    const grid = document.getElementById('tmGrid');
+    if (!section || !grid) return;
+
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
+    try {
+      const res = await fetch('/api/testimonials');
+      if (!res.ok) return;
+      const data = await res.json();
+      const cards = Array.isArray(data.testimonials) ? data.testimonials : [];
+      const s = data.section || {};
+
+      // No cards to show is a legitimate admin choice, and so is switching the
+      // section off — either way the strip stays out of the page entirely.
+      if (!cards.length || s.show === false) return;
+
+      const label = document.getElementById('tmLabel');
+      const title = document.getElementById('tmTitle');
+      const subtitle = document.getElementById('tmSubtitle');
+      // A blank field means the admin removed that line, so drop the element
+      // rather than falling back to copy they deleted.
+      if (label) {
+        label.textContent = s.label || '';
+        label.style.display = s.label ? '' : 'none';
+      }
+      if (title) {
+        const head = esc(s.title || '');
+        const hi = s.titleHighlight ? `<span class="gtext">${esc(s.titleHighlight)}</span>` : '';
+        title.innerHTML = [head, hi].filter(Boolean).join(' ');
+        title.style.display = head || hi ? '' : 'none';
+      }
+      if (subtitle) {
+        subtitle.textContent = s.subtitle || '';
+        subtitle.style.display = s.subtitle ? '' : 'none';
+      }
+
+      grid.innerHTML = cards.map((t, i) => {
+        const rating = Math.max(1, Math.min(5, Number(t.rating) || 5));
+        // Stagger the fade-in across the row, then restart on the next row so a
+        // long list does not end up with cards waiting seconds to appear.
+        const delay = ['', 'd1', 'd2'][i % 3];
+        return `
+      <div class="tcard fu ${delay}">
+        <div class="tstars" aria-label="${rating} out of 5 stars">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</div>
+        <p class="ttext">"${esc(t.quote)}"</p>
+        <div class="tauthor">
+          <div class="tavatar">${esc(t.initials || '★')}</div>
+          <div><div class="tname">${esc(t.name)}</div>${t.role ? `<div class="trole">${esc(t.role)}</div>` : ''}</div>
+        </div>
+      </div>`;
+      }).join('');
+
+      section.style.display = '';
+      if (typeof window.revealOnScroll === 'function') {
+        section.querySelectorAll('.fu').forEach((el) => window.revealOnScroll(el));
+      } else {
+        section.querySelectorAll('.fu').forEach((el) => el.classList.add('in'));
+      }
+    } catch (err) {
+      // Leave the section hidden rather than showing a broken strip of cards.
     }
   })();
 </script>

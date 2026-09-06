@@ -29,6 +29,7 @@ const chatRoutes = require('./routes/chat');
 const gmailRoutes = require('./routes/gmail');
 const payoutRoutes = require('./routes/payouts');
 const reviewRoutes = require('./routes/reviews');
+const testimonialRoutes = require('./routes/testimonials');
 const twoFactorRoutes = require('./routes/twoFactor');
 const paymentRoutes = require('./routes/payments');
 const driveProxyRoutes = require('./routes/driveProxy');
@@ -202,6 +203,7 @@ app.use('/api/admin', (req, res, next) => {
 app.use('/api/support/attachment', supportUploadLimiter);
 app.use('/api/support', apiLimiter, supportRoutes);
 app.use('/api/reviews', apiLimiter, reviewRoutes); // buyer reviews of purchased coupons
+app.use('/api/testimonials', apiLimiter, testimonialRoutes); // homepage testimonials — public read, admin CRUD
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
 app.use('/api/chat', chatRoutes); // /api/chat applies its own service-level rate limits
 app.use('/api/payments', apiLimiter, paymentRoutes); // Razorpay: /api/payments/{config,create-order,verify}

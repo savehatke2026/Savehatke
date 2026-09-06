@@ -1309,6 +1309,13 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
             showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
             heroBadge: mongoSetting.heroBadge || settings.heroBadge,
             showHeroBadge: mongoSetting.showHeroBadge !== undefined ? mongoSetting.showHeroBadge : settings.showHeroBadge,
+            testimonialsLabel: mongoSetting.testimonialsLabel || settings.testimonialsLabel,
+            testimonialsTitle: mongoSetting.testimonialsTitle || settings.testimonialsTitle,
+            testimonialsTitleHighlight: mongoSetting.testimonialsTitleHighlight || settings.testimonialsTitleHighlight,
+            testimonialsSubtitle: mongoSetting.testimonialsSubtitle !== undefined && mongoSetting.testimonialsSubtitle !== null
+              ? mongoSetting.testimonialsSubtitle
+              : settings.testimonialsSubtitle,
+            showTestimonials: mongoSetting.showTestimonials !== undefined ? mongoSetting.showTestimonials : settings.showTestimonials,
           };
         }
       } catch (e) {}
@@ -1329,6 +1336,11 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
         showSavedByUsers: true,
         heroBadge: "🚀 India's #1 Coupon Marketplace — Now Live!",
         showHeroBadge: true,
+        testimonialsLabel: 'Testimonials',
+        testimonialsTitle: 'Loved by',
+        testimonialsTitleHighlight: '10,000+ Smart Shoppers',
+        testimonialsSubtitle: 'Real stories from real users who save big with SaveHatke.',
+        showTestimonials: true,
       },
     });
   }
@@ -1338,6 +1350,14 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers, heroBadge, showHeroBadge } = req.body;
+    const {
+      testimonialsLabel, testimonialsTitle, testimonialsTitleHighlight,
+      testimonialsSubtitle, showTestimonials,
+    } = req.body;
+    // A key the request omits is left at its stored value by db.saveSettings, so
+    // a caller that only knows about some of the settings cannot blank the rest.
+    const text = (v, max) => (v === undefined ? undefined : String(v == null ? '' : v).trim().slice(0, max));
+    const flag = (v) => (v === undefined ? undefined : Boolean(v));
 
     const payload = {
       activeUsers: activeUsers ? String(activeUsers).trim() : '10K+',
@@ -1350,6 +1370,13 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
       showSavedByUsers: showSavedByUsers !== undefined ? Boolean(showSavedByUsers) : true,
       heroBadge: heroBadge !== undefined ? String(heroBadge).trim().slice(0, 120) : "🚀 India's #1 Coupon Marketplace — Now Live!",
       showHeroBadge: showHeroBadge !== undefined ? Boolean(showHeroBadge) : true,
+      // Heading above the homepage testimonial cards. The cards themselves are
+      // managed through /api/testimonials, not here.
+      testimonialsLabel: text(testimonialsLabel, 60),
+      testimonialsTitle: text(testimonialsTitle, 120),
+      testimonialsTitleHighlight: text(testimonialsTitleHighlight, 120),
+      testimonialsSubtitle: text(testimonialsSubtitle, 240),
+      showTestimonials: flag(showTestimonials),
     };
 
     // 1. Save to Google Sheets / memoryDB

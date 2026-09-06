@@ -423,6 +423,29 @@ tbody td strong{color:#e2ecff;font-weight:600}
   .mr-search,.mr-select{flex:1 1 100%;width:100%}
 }
 
+/* ── Homepage testimonial cards (Reviews section) ──
+   One card per testimonial, laid out the same way the landing page stacks them:
+   stars, then the quote, then the author. A hidden card keeps its place in the
+   list but is dimmed and flagged, so "not published" reads differently from
+   "deleted". */
+.tm-cards{display:flex;flex-direction:column;gap:12px}
+.tm-card{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:14px;align-items:start;background:rgba(15,30,58,.7);border:1px solid rgba(79,195,247,.11);border-left:3px solid rgba(0,230,118,.45);border-radius:13px;padding:16px 18px;transition:border-color .18s,background .18s}
+.tm-card:hover{background:rgba(20,38,70,.8);border-color:rgba(79,195,247,.24)}
+.tm-card.hidden-card{border-left-color:rgba(107,136,170,.4);opacity:.62}
+.tm-slot{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;color:#6b88aa;background:rgba(6,13,31,.6);border:1px solid rgba(79,195,247,.12);border-radius:8px;height:30px;display:flex;align-items:center;justify-content:center}
+.tm-stars{color:#ffd740;letter-spacing:2px;font-size:.82rem;margin-bottom:6px}
+.tm-quote{font-size:.88rem;color:#a8c0dc;line-height:1.6;font-style:italic;overflow-wrap:anywhere}
+.tm-author{display:flex;align-items:center;gap:10px;margin-top:10px}
+.tm-avatar{width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#00e676,#4fc3f7);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;color:#060d1f;flex-shrink:0}
+.tm-name{font-weight:700;font-size:.85rem;color:#e2ecff}
+.tm-role{font-size:.76rem;color:#6b88aa}
+.tm-side{display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.tm-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:700px){
+  .tm-card{grid-template-columns:34px minmax(0,1fr)}
+  .tm-side{grid-column:1/-1;align-items:flex-start;flex-direction:row;justify-content:space-between;width:100%;flex-wrap:wrap}
+}
+
 /* ── One card per month ── */
 .mr-cards{display:flex;flex-direction:column;gap:12px}
 .mr-card{background:rgba(15,30,58,.7);border:1px solid rgba(79,195,247,.11);border-left:3px solid rgba(107,136,170,.4);border-radius:13px;padding:16px 18px;cursor:pointer;transition:border-color .18s,background .18s,transform .18s}
@@ -1061,7 +1084,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <span class="ni">🎟️</span> Coupons <span class="nbadge">14</span>
     </div>
     <div class="nav-item" onclick="showSection('reviews',this)">
-      <span class="ni">📝</span> Reviews <span class="nbadge" id="reviewsNavBadge" style="background:rgba(255,183,77,.2);color:#ffb74d">0</span>
+      <span class="ni">💬</span> Reviews <span class="nbadge" id="reviewsNavBadge" style="background:rgba(0,230,118,.15);color:#00e676;display:none">0</span>
     </div>
 
     <!-- Payments & Revenue (collapsible) -->
@@ -1734,27 +1757,38 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
       </div>
     </div>
-    <!-- ════════════════ REVIEWS ════════════════ -->
+    <!-- ════════════════ REVIEWS → HOMEPAGE TESTIMONIALS ════════════════ -->
+    <!-- The review cards visitors read on the landing page. This section owns the
+         content — each card's stars, quote and author — while the heading above
+         them and the section's visibility live in Settings, so the copy that
+         wraps the cards is edited in the same place as the rest of the homepage
+         copy. Coupon submissions are approved in Coupons → ⏳ Pending. -->
     <div class="section-view" id="sec-reviews">
       <div class="page-title-row">
-        <div><div class="page-title">Coupon <span class="gtext">Reviews</span></div><div class="page-subtitle">Review, approve, or reject user-submitted coupons</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="loadReviews()" title="Refresh">↻ Refresh</button>
+        <div><div class="page-title">Homepage <span class="gtext">Testimonials</span></div><div class="page-subtitle">The review cards on the landing page — write them, reorder them, or hide one without deleting it</div></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="loadTestimonials()" title="Refresh">↻ Refresh</button>
+          <button class="btn btn-primary btn-lg" style="background:#00e676;color:#0a0e1a;font-weight:700" onclick="openTestimonialModal()">➕ Add Testimonial</button>
+        </div>
       </div>
 
-      <div class="tab-row">
-        <button class="tab-btn active" onclick="showReviewTab('pending',this)">⏳ Pending <span class="nbadge" id="reviewPendingBadge" style="background:rgba(255,183,77,.2);color:#ffb74d;border-radius:9999px;padding:1px 7px;font-size:.65rem;margin-left:4px;display:none;">0</span></button>
-        <button class="tab-btn" onclick="showReviewTab('approved',this)">✅ Approved</button>
-        <button class="tab-btn" onclick="showReviewTab('rejected',this)">❌ Rejected</button>
+      <div class="card" style="margin-bottom:18px">
+        <div class="cm-card-head">
+          <div class="card-title" style="margin-bottom:0"><span class="ct-icon">🏷️</span> Section Heading</div>
+          <button class="btn btn-ghost btn-sm" onclick="showSection('settings')">⚙️ Edit in Settings</button>
+        </div>
+        <p style="color:#6b88aa;font-size:.84rem;margin:10px 0 14px">This is the heading that sits above the cards on the homepage. It is edited in Settings → Homepage Testimonials Section.</p>
+        <div id="tmHeadingPreview" style="background:rgba(6,13,31,.55);border:1px solid rgba(79,195,247,.12);border-radius:12px;padding:18px 20px;text-align:center">
+          <div style="color:#6b88aa;font-size:.82rem">Loading the current heading…</div>
+        </div>
       </div>
 
-      <div class="tab-content active" id="rtab-pending">
-        <div style="display:grid;gap:12px" id="reviewsPendingTable"></div>
-      </div>
-      <div class="tab-content" id="rtab-approved">
-        <div style="display:grid;gap:12px" id="reviewsApprovedTable"></div>
-      </div>
-      <div class="tab-content" id="rtab-rejected">
-        <div style="display:grid;gap:12px" id="reviewsRejectedTable"></div>
+      <div class="card">
+        <div class="cm-card-head">
+          <div class="card-title" style="margin-bottom:0"><span class="ct-icon">💬</span> Testimonial Cards</div>
+          <span id="tmCount" style="font-size:.78rem;color:#6b88aa">—</span>
+        </div>
+        <div id="testimonialList" class="cm-list" style="margin-top:16px"></div>
       </div>
     </div>
 
@@ -2244,6 +2278,42 @@ tbody td strong{color:#e2ecff;font-weight:600}
             </div>
             <small style="color:#6b88aa;">Show on landing page hero</small>
           </div>
+        </div>
+      </div>
+
+      <!-- Heading copy for the homepage testimonials strip. The cards themselves
+           are written in Reviews → Homepage Testimonials. -->
+      <div class="card" style="margin-bottom:24px">
+        <div class="card-title">💬 Homepage Testimonials Section</div>
+        <p style="color:#6b88aa;font-size:0.88rem;margin-bottom:16px">Control the heading above the testimonial cards on the index.html landing page. The cards themselves are managed in <a href="javascript:void(0)" onclick="showSection('reviews')" style="color:#4fc3f7;font-weight:600">Reviews → Homepage Testimonials</a>.</p>
+        <div class="form-grid form-grid-2">
+          <div class="form-group">
+            <label class="form-label" for="setTestimonialsLabel">Section Label (small caps above the heading)</label>
+            <input class="form-input" id="setTestimonialsLabel" maxlength="60" value="Testimonials" placeholder="e.g. Testimonials">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Show the whole section</label>
+            <div style="display:flex; align-items:center; gap:12px; height:44px;">
+              <label class="toggle" style="flex-shrink:0;">
+                <input type="checkbox" id="toggleTestimonials" checked>
+                <span class="toggle-slider"></span>
+              </label>
+              <small style="color:#6b88aa;">Off hides the testimonials strip on the landing page</small>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="setTestimonialsTitle">Heading</label>
+            <input class="form-input" id="setTestimonialsTitle" maxlength="120" value="Loved by" placeholder="e.g. Loved by">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="setTestimonialsTitleHighlight">Heading — highlighted part</label>
+            <input class="form-input" id="setTestimonialsTitleHighlight" maxlength="120" value="10,000+ Smart Shoppers" placeholder="e.g. 10,000+ Smart Shoppers">
+            <small style="color:#6b88aa;">Rendered in the green gradient after the heading</small>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:4px">
+          <label class="form-label" for="setTestimonialsSubtitle">Sub-heading</label>
+          <input class="form-input" id="setTestimonialsSubtitle" maxlength="240" value="Real stories from real users who save big with SaveHatke." placeholder="One line under the heading">
         </div>
       </div>
 
@@ -3107,7 +3177,7 @@ const sectionTitles = {
   sessions:      ['User Sessions', '/ Live Sessions'],
   'admin-sessions': ['Admin Sessions', '/ 2-Hour Auto-Logout'],
   coupons:       ['Coupons', '/ Management'],
-  reviews:       ['Coupon Reviews', '/ Approvals & Moderation'],
+  reviews:       ['Reviews', '/ Homepage Testimonials'],
   revenue:       ['Revenue Overview', '/ Financial'],
   transactions:  ['Payment Transactions', '/ History'],
   payouts:       ['Seller Payouts', '/ Pending'],
@@ -3162,8 +3232,8 @@ function showSection(id, navEl) {
   if (id === 'coupons' && typeof loadInventory === 'function') {
     loadInventory();
   }
-  if (id === 'reviews' && typeof loadReviews === 'function') {
-    loadReviews();
+  if (id === 'reviews' && typeof loadTestimonials === 'function') {
+    loadTestimonials();
   }
   if (id === 'reports' && typeof loadMonthlyReports === 'function') {
     loadMonthlyReports();
@@ -4672,7 +4742,72 @@ function maybeLoadPayouts() {
 
 </script>
 
+<!-- ════════════════ HOMEPAGE TESTIMONIAL EDITOR ════════════════ -->
+<!-- One form for both adding and editing: openTestimonialModal(id) fills it from
+     the row already on screen, openTestimonialModal() opens it empty. -->
+<div id="testimonialModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(2,6,18,0.85);backdrop-filter:blur(8px);overflow-y:auto;padding:24px 16px;align-items:center;justify-content:center;">
+  <div style="background:#0c1835;border:1px solid rgba(79,195,247,.22);border-radius:18px;max-width:620px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.85);overflow:hidden;position:relative;animation:fadeIn .25s ease;margin:auto;">
+    <div style="padding:18px 24px;border-bottom:1px solid rgba(79,195,247,.12);display:flex;align-items:center;justify-content:space-between;background:rgba(6,13,31,.7);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:1.3rem;">💬</span>
+        <div>
+          <h3 style="font-size:1.1rem;font-weight:700;color:#e2ecff;margin:0;" id="tmModalTitle">Add Testimonial</h3>
+          <div style="font-size:.75rem;color:#6b88aa;">Shown on the homepage testimonials section</div>
+        </div>
+      </div>
+      <button type="button" onclick="closeTestimonialModal()" aria-label="Close" style="background:rgba(255,255,255,.06);border:1px solid rgba(79,195,247,.15);color:#a8c0dc;font-size:1.2rem;cursor:pointer;width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:all .2s;" onmouseover="this.style.color='#ff6b6b';this.style.borderColor='rgba(255,107,107,.4)'" onmouseout="this.style.color='#a8c0dc';this.style.borderColor='rgba(79,195,247,.15)'">✕</button>
+    </div>
+
+    <div style="padding:22px 24px;max-height:calc(85vh - 150px);overflow-y:auto;">
+      <input type="hidden" id="tmId">
+      <div class="form-grid form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="tmName">Name *</label>
+          <input class="form-input" type="text" id="tmName" maxlength="60" placeholder="e.g. Rahul Kumar">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="tmRole">Role / Location</label>
+          <input class="form-input" type="text" id="tmRole" maxlength="80" placeholder="e.g. Software Engineer, Bangalore">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="tmQuote">Testimonial *</label>
+        <textarea class="form-textarea" id="tmQuote" maxlength="400" rows="4" placeholder="What did they say about SaveHatke?" oninput="tmUpdateQuoteCount()"></textarea>
+        <small style="color:#6b88aa"><span id="tmQuoteCount">0</span> / 400 characters</small>
+      </div>
+      <div class="form-grid form-grid-2">
+        <div class="form-group">
+          <label class="form-label" for="tmRating">Star Rating</label>
+          <select class="form-select" id="tmRating">
+            <option value="5">★★★★★ — 5</option>
+            <option value="4">★★★★ — 4</option>
+            <option value="3">★★★ — 3</option>
+            <option value="2">★★ — 2</option>
+            <option value="1">★ — 1</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Show on the homepage</label>
+          <div style="display:flex;align-items:center;gap:12px;height:44px">
+            <label class="toggle" style="flex-shrink:0">
+              <input type="checkbox" id="tmVisible" checked>
+              <span class="toggle-slider"></span>
+            </label>
+            <small style="color:#6b88aa">Turn off to keep it without publishing</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:16px 24px;border-top:1px solid rgba(79,195,247,.12);display:flex;justify-content:flex-end;gap:10px;background:rgba(6,13,31,.5)">
+      <button type="button" class="btn btn-ghost" onclick="closeTestimonialModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" id="tmSaveBtn" onclick="saveTestimonial()">💾 Save Testimonial</button>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════ IN-PANEL COUPON REVIEW MODAL ════════════════ -->
+<!-- Opened from Coupons → ⏳ Pending / ✅ Active. -->
 <div id="adminReviewModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(2,6,18,0.85);backdrop-filter:blur(8px);overflow-y:auto;padding:24px 16px;align-items:center;justify-content:center;">
   <div style="background:#0c1835;border:1px solid rgba(79,195,247,.22);border-radius:18px;max-width:880px;width:100%;box-shadow:0 30px 80px rgba(0,0,0,.85);overflow:hidden;position:relative;animation:fadeIn .25s ease;margin:auto;">
     <!-- Modal Header -->

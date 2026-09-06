@@ -1447,117 +1447,259 @@ function mrViewLatestPdf() {
   viewMonthlyReportPdf(newest.month);
 }
 
-// ── Coupon Reviews (In-Panel) ──────────────────────────────────────────
-let reviewsCache = { pending: [], available: [], rejected: [] };
-let reviewsLoading = false;
-let currentReviewCouponId = null;
-let currentReviewData = null;
+// ── Reviews → Homepage Testimonials ────────────────────────────────────
+// The review cards on the landing page. This section owns their content; the
+// heading above them is part of System Settings, and coupon submissions are
+// approved in Coupons → ⏳ Pending, so nothing here touches a coupon.
+let testimonialsCache = [];
+let testimonialsSection = null;
+let testimonialsLoading = false;
 
-async function loadReviews() {
-  if (reviewsLoading) return;
-  reviewsLoading = true;
+async function loadTestimonials() {
+  const list = document.getElementById('testimonialList');
+  if (testimonialsLoading) return;
+  testimonialsLoading = true;
+  if (list && !testimonialsCache.length) {
+    list.innerHTML = '<div class="cm-loading">Loading testimonials…</div>';
+  }
+
   try {
-    const data = await api('/admin/coupons', { useAdmin: true });
-    const all = data.coupons || [];
-    reviewsCache.pending = all.filter(c => c.status === 'pending' || c.status === 'proof_requested');
-    reviewsCache.available = all.filter(c => c.status === 'available');
-    reviewsCache.rejected = all.filter(c => c.status === 'rejected');
-
-    // Update nav badge in sidebar
-    const navBadge = document.getElementById('reviewsNavBadge');
-    if (navBadge) {
-      navBadge.textContent = reviewsCache.pending.length;
-      navBadge.style.display = reviewsCache.pending.length > 0 ? 'inline-block' : 'none';
-    }
-    // Update tab badge
-    const tabBadge = document.getElementById('reviewPendingBadge');
-    if (tabBadge) {
-      tabBadge.textContent = reviewsCache.pending.length;
-      tabBadge.style.display = reviewsCache.pending.length > 0 ? 'inline-block' : 'none';
-    }
-
-    renderReviewTable('pending', reviewsCache.pending);
-    renderReviewTable('approved', reviewsCache.available);
-    renderReviewTable('rejected', reviewsCache.rejected);
-    // Coupon Management's ⏳ Pending tab badge, so the count is right before
-    // that tab has ever been opened.
-    cmSetPendingBadge(reviewsCache.pending.length);
+    const data = await api('/testimonials/all', { useAdmin: true });
+    testimonialsCache = data.testimonials || [];
+    testimonialsSection = data.section || null;
+    renderTestimonials();
+    renderTestimonialHeading();
   } catch (err) {
-    const el = document.getElementById('reviewsPendingTable');
-    if (el) el.innerHTML = `<p class="text-danger">Failed to load reviews: ${err.message}</p>`;
+    if (err.sessionExpired) return;
+    if (list) {
+      list.innerHTML = cmStateHtml('⚠️', 'Could not load the testimonials', escapeHtml(err.message || 'Please try again.'));
+    }
   } finally {
-    reviewsLoading = false;
+    testimonialsLoading = false;
   }
 }
 
-function renderReviewTable(type, coupons) {
-  const containerId = type === 'approved' ? 'reviewsApprovedTable' : type === 'rejected' ? 'reviewsRejectedTable' : 'reviewsPendingTable';
-  const container = document.getElementById(containerId);
-  if (!container) return;
+/** Sidebar badge counts what a visitor would actually see. */
+function tmSetNavBadge() {
+  const shown = testimonialsCache.filter((t) => t.isVisible).length;
+  const badge = document.getElementById('reviewsNavBadge');
+  if (badge) {
+    badge.textContent = String(shown);
+    badge.style.display = 'inline-block';
+  }
+  const count = document.getElementById('tmCount');
+  if (count) {
+    count.textContent = testimonialsCache.length
+      ? `${shown} of ${testimonialsCache.length} live on the homepage`
+      : 'None yet';
+  }
+}
 
-  if (coupons.length === 0) {
-    const label = type === 'pending' ? 'pending review' : type === 'approved' ? 'approved' : 'rejected';
-    container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">${type === 'pending' ? '⏳' : type === 'approved' ? '✅' : '❌'}</div>
-        <h3>No ${label} coupons</h3>
-        <p>${type === 'pending' ? 'All caught up! No coupons awaiting review.' : `No ${label} coupons found.`}</p>
+function renderTestimonials() {
+  const list = document.getElementById('testimonialList');
+  tmSetNavBadge();
+  if (!list) return;
+
+  if (!testimonialsCache.length) {
+    list.innerHTML = cmStateHtml(
+      '💬',
+      'No testimonials yet',
+      'Add one and it appears on the homepage straight away. Until then the section stays hidden.',
+    );
+    return;
+  }
+
+  const last = testimonialsCache.length - 1;
+  list.innerHTML = `<div class="tm-cards">${testimonialsCache.map((t, i) => tmCardHtml(t, i, last)).join('')}</div>`;
+}
+
+function tmCardHtml(t, index, last) {
+  const id = escapeHtml(t.id);
+  const rating = Math.max(1, Math.min(5, Number(t.rating) || 5));
+  const off = 'disabled style="opacity:.35;pointer-events:none"';
+
+  return `
+    <div class="tm-card${t.isVisible ? '' : ' hidden-card'}" data-testimonial-id="${id}">
+      <div class="tm-slot" title="Position ${index + 1} on the homepage">${index + 1}</div>
+      <div style="min-width:0">
+        <div class="tm-stars" aria-label="${rating} out of 5 stars">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</div>
+        <div class="tm-quote">“${escapeHtml(t.quote)}”</div>
+        <div class="tm-author">
+          <div class="tm-avatar">${escapeHtml(t.initials || '★')}</div>
+          <div style="min-width:0">
+            <div class="tm-name">${escapeHtml(t.name)}</div>
+            <div class="tm-role">${escapeHtml(t.role || '—')}</div>
+          </div>
+        </div>
       </div>
+      <div class="tm-side">
+        <label class="toggle" title="${t.isVisible ? 'Visible on the homepage — turn off to unpublish' : 'Hidden — turn on to publish'}">
+          <input type="checkbox" ${t.isVisible ? 'checked' : ''} onchange="setTestimonialVisible('${id}', this.checked, this)">
+          <span class="toggle-slider"></span>
+        </label>
+        <div class="tm-actions">
+          <button class="btn btn-ghost btn-xs" title="Move up" onclick="moveTestimonial('${id}','up')" ${index === 0 ? off : ''}>↑</button>
+          <button class="btn btn-ghost btn-xs" title="Move down" onclick="moveTestimonial('${id}','down')" ${index === last ? off : ''}>↓</button>
+          <button class="btn btn-info btn-xs" title="Edit this testimonial" onclick="openTestimonialModal('${id}')">✎</button>
+          <button class="btn btn-danger btn-xs" title="Delete this testimonial" onclick="deleteTestimonial('${id}')">🗑</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/** Mirrors how the landing page assembles the heading, from the saved settings. */
+function renderTestimonialHeading() {
+  const box = document.getElementById('tmHeadingPreview');
+  if (!box) return;
+  const s = testimonialsSection || {};
+
+  if (!s.show) {
+    box.innerHTML = `
+      <div style="color:#ffb74d;font-size:.84rem;font-weight:600">🚫 The testimonials section is switched off, so none of these cards appear on the homepage.</div>
+      <div style="color:#6b88aa;font-size:.78rem;margin-top:6px">Turn it back on in Settings → Homepage Testimonials Section.</div>
     `;
     return;
   }
 
-  container.innerHTML = `
-    <div class="table-wrapper">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Code</th>
-            <th>Brand</th>
-            <th>Category</th>
-            <th>Value</th>
-            <th>Price</th>
-            <th>Seller</th>
-            <th>Submitted</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${coupons.map(c => {
-            const submittedDate = c.createdAt || c.addedAt ? new Date(c.createdAt || c.addedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
-            const statusBadge = c.status === 'available' ? 'green' : c.status === 'rejected' ? 'red' : c.status === 'proof_requested' ? 'blue' : 'amber';
-            const sellerDisplay = c.sellerEmail || 'Admin';
-            return `
-              <tr>
-                <td><code style="background:rgba(37,99,235,.12);padding:2px 8px;border-radius:4px;color:#4fc3f7;font-weight:600">${escapeHtml(c.code)}</code></td>
-                <td style="font-weight:600;color:#e2ecff">${escapeHtml(c.brand)}</td>
-                <td>${escapeHtml(c.category || 'General')}</td>
-                <td>₹${escapeHtml(c.originalValue || '—')}</td>
-                <td style="font-weight:700;color:#00e676">₹${escapeHtml(c.sellingPrice || '0')}</td>
-                <td style="font-size:.8rem;color:#a8c0dc;max-width:140px" title="${escapeHtml(sellerDisplay)}"><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 22) : ''}<span class="cm-seller">${escapeHtml(sellerDisplay)}</span></div></td>
-                <td style="font-size:.78rem;color:#6b88aa">${submittedDate}</td>
-                <td><span class="badge badge-${statusBadge}">${escapeHtml(c.status || 'pending')}</span></td>
-                <td>
-                  <div style="display:flex;gap:6px;flex-wrap:nowrap;align-items:center">
-                    <button class="btn btn-ghost btn-sm" onclick="openReviewModal('${escapeHtml(c.id)}')" title="Review Full Details" style="border:1px solid rgba(79,195,247,.3);color:#4fc3f7">🔍 Review</button>
-                    ${type === 'pending' ? `
-                      <button class="btn btn-success btn-sm" onclick="quickReviewAction('${escapeHtml(c.id)}','approve')" title="Quick Approve">✓</button>
-                      <button class="btn btn-danger btn-sm" onclick="quickReviewAction('${escapeHtml(c.id)}','reject')" title="Quick Reject">✗</button>
-                    ` : ''}
-                  </div>
-                </td>
-              </tr>
-            `;
-          }).join('')}
-        </tbody>
-      </table>
-    </div>
-    <div style="padding:10px 16px;font-size:.78rem;color:#6b88aa;border-top:1px solid rgba(79,195,247,.08)">
-      ${coupons.length} ${type} coupon${coupons.length !== 1 ? 's' : ''}
-    </div>
+  const heading = [
+    s.title ? escapeHtml(s.title) : '',
+    s.titleHighlight ? `<span class="gtext">${escapeHtml(s.titleHighlight)}</span>` : '',
+  ].filter(Boolean).join(' ');
+
+  box.innerHTML = `
+    ${s.label ? `<div style="font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#00e676;margin-bottom:8px">${escapeHtml(s.label)}</div>` : ''}
+    ${heading ? `<div style="font-size:1.35rem;font-weight:800;color:#e2ecff;line-height:1.3">${heading}</div>` : ''}
+    ${s.subtitle ? `<div style="color:#6b88aa;font-size:.85rem;margin-top:8px">${escapeHtml(s.subtitle)}</div>` : ''}
+    ${s.label || heading || s.subtitle ? '' : '<div style="color:#6b88aa;font-size:.84rem">Every heading line is empty, so the cards appear with no heading above them.</div>'}
   `;
 }
+
+/* ── Add / edit ── */
+function tmUpdateQuoteCount() {
+  const field = document.getElementById('tmQuote');
+  const out = document.getElementById('tmQuoteCount');
+  if (field && out) out.textContent = String(field.value.length);
+}
+
+function openTestimonialModal(id) {
+  const modal = document.getElementById('testimonialModal');
+  if (!modal) return;
+  const existing = id ? testimonialsCache.find((t) => t.id === id) : null;
+
+  document.getElementById('tmModalTitle').textContent = existing ? 'Edit Testimonial' : 'Add Testimonial';
+  document.getElementById('tmId').value = existing ? existing.id : '';
+  document.getElementById('tmName').value = existing ? existing.name : '';
+  document.getElementById('tmRole').value = existing ? existing.role : '';
+  document.getElementById('tmQuote').value = existing ? existing.quote : '';
+  document.getElementById('tmRating').value = String(existing ? existing.rating || 5 : 5);
+  document.getElementById('tmVisible').checked = existing ? existing.isVisible : true;
+  tmUpdateQuoteCount();
+
+  modal.style.display = 'flex';
+  document.getElementById('tmName').focus();
+}
+
+function closeTestimonialModal() {
+  const modal = document.getElementById('testimonialModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function saveTestimonial() {
+  const btn = document.getElementById('tmSaveBtn');
+  const id = document.getElementById('tmId').value.trim();
+  const body = {
+    name: document.getElementById('tmName').value.trim(),
+    role: document.getElementById('tmRole').value.trim(),
+    quote: document.getElementById('tmQuote').value.trim(),
+    rating: Number(document.getElementById('tmRating').value) || 5,
+    isVisible: document.getElementById('tmVisible').checked,
+  };
+
+  // Checked client-side too so the modal stays open on the offending field
+  // instead of round-tripping for an error the form already knows about.
+  if (!body.name) return showToast('Please enter a name.', 'warning');
+  if (!body.quote) return showToast('Please enter the testimonial text.', 'warning');
+
+  const original = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Saving…'; }
+
+  try {
+    const data = await api(id ? `/testimonials/${encodeURIComponent(id)}` : '/testimonials', {
+      method: id ? 'PUT' : 'POST',
+      useAdmin: true,
+      body,
+    });
+    showToast(data.message || 'Testimonial saved.', 'success');
+    closeTestimonialModal();
+    await loadTestimonials();
+  } catch (err) {
+    if (!err.sessionExpired) showToast(err.message || 'Could not save the testimonial.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  }
+}
+
+/**
+ * Publish / unpublish in place. Reverts the switch if the write fails, so the
+ * list never claims a card is live when it is not.
+ */
+async function setTestimonialVisible(id, visible, inputEl) {
+  inputEl.disabled = true;
+  try {
+    await api(`/testimonials/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      useAdmin: true,
+      body: { isVisible: visible },
+    });
+    const cached = testimonialsCache.find((t) => t.id === id);
+    if (cached) cached.isVisible = visible;
+    inputEl.closest('.tm-card')?.classList.toggle('hidden-card', !visible);
+    tmSetNavBadge();
+    showToast(visible ? 'Testimonial is now live on the homepage.' : 'Testimonial hidden from the homepage.', 'success');
+  } catch (err) {
+    inputEl.checked = !visible;
+    if (!err.sessionExpired) showToast(err.message || 'Could not change the visibility.', 'error');
+  } finally {
+    inputEl.disabled = false;
+  }
+}
+
+async function moveTestimonial(id, direction) {
+  try {
+    const data = await api(`/testimonials/${encodeURIComponent(id)}/move`, {
+      method: 'POST',
+      useAdmin: true,
+      body: { direction },
+    });
+    if (data.testimonials) {
+      testimonialsCache = data.testimonials;
+      renderTestimonials();
+    } else {
+      await loadTestimonials();
+    }
+  } catch (err) {
+    if (!err.sessionExpired) showToast(err.message || 'Could not reorder the testimonials.', 'error');
+  }
+}
+
+async function deleteTestimonial(id) {
+  const t = testimonialsCache.find((x) => x.id === id);
+  const who = t ? t.name : 'this testimonial';
+  if (!confirm(`Delete the testimonial from ${who}? This cannot be undone — hide it instead if you may want it back.`)) return;
+
+  try {
+    const data = await api(`/testimonials/${encodeURIComponent(id)}`, { method: 'DELETE', useAdmin: true });
+    showToast(data.message || 'Testimonial deleted.', 'success');
+    await loadTestimonials();
+  } catch (err) {
+    if (!err.sessionExpired) showToast(err.message || 'Could not delete the testimonial.', 'error');
+  }
+}
+
+// ── Coupon Review Modal (opened from Coupon Management) ────────────────
+let currentReviewCouponId = null;
+let currentReviewData = null;
 
 async function quickReviewAction(couponId, action) {
   if (!confirm(`Are you sure you want to ${action} this coupon?`)) return;
@@ -1572,21 +1714,6 @@ async function quickReviewAction(couponId, action) {
     refreshCouponViews();
   } catch (err) {
     if (typeof showToast === 'function') showToast(`Failed to ${action} coupon: ${err.message}`, 'error');
-  }
-}
-
-function showReviewTab(tab, btnEl) {
-  const tabRow = btnEl?.closest('.tab-row');
-  if (tabRow) {
-    tabRow.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    if (btnEl) btnEl.classList.add('active');
-  }
-  // Toggle tab content
-  const section = document.getElementById('sec-reviews');
-  if (section) {
-    section.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-    const target = document.getElementById(`rtab-${tab}`);
-    if (target) target.classList.add('active');
   }
 }
 
@@ -1762,9 +1889,9 @@ async function submitReviewModalAction(action) {
     });
     if (typeof showToast === 'function') showToast(data.message || `Coupon ${action}d successfully!`, 'success');
     closeReviewModal();
-    loadReviews();
-    if (typeof loadAdminStats === 'function') loadAdminStats();
-    if (typeof loadInventory === 'function') loadInventory();
+    // The decision moves the coupon between Coupon Management's tabs, so both
+    // of its tables (and the sidebar counts) need to be re-read.
+    if (typeof refreshCouponViews === 'function') refreshCouponViews();
   } catch (err) {
     if (typeof showToast === 'function') showToast(`Action failed: ${err.message}`, 'error');
   } finally {
@@ -1799,8 +1926,14 @@ window.loadInventory = loadInventory;
 window.invPrev = invPrev;
 window.invNext = invNext;
 window.invGoToPage = invGoToPage;
-window.loadReviews = loadReviews;
-window.showReviewTab = showReviewTab;
+window.loadTestimonials = loadTestimonials;
+window.openTestimonialModal = openTestimonialModal;
+window.closeTestimonialModal = closeTestimonialModal;
+window.saveTestimonial = saveTestimonial;
+window.setTestimonialVisible = setTestimonialVisible;
+window.moveTestimonial = moveTestimonial;
+window.deleteTestimonial = deleteTestimonial;
+window.tmUpdateQuoteCount = tmUpdateQuoteCount;
 window.quickReviewAction = quickReviewAction;
 window.openReviewModal = openReviewModal;
 window.closeReviewModal = closeReviewModal;
@@ -2445,17 +2578,17 @@ async function deleteCoupon(id) {
 
 /**
  * Every view that reads the coupon list. Called after an approve or a delete so
- * Coupon Management and Coupon Reviews agree without the admin having to
- * refresh. (deleteCoupon() also used to call loadExpiredCoupons() — there has
- * never been such a function or an expired-coupons container; expired coupons
- * show up in the inventory table with an "Expired" chip.)
+ * the dashboard counters and both Coupon Management tables agree without the
+ * admin having to refresh. (deleteCoupon() also used to call
+ * loadExpiredCoupons() — there has never been such a function or an
+ * expired-coupons container; expired coupons show up in the inventory table
+ * with an "Expired" chip.)
  */
 function refreshCouponViews() {
   loadAdminStats();
   loadInventory();
   loadPending();
   loadActiveCoupons();
-  loadReviews();
 }
 
 function debounce(fn, ms) {
@@ -2807,6 +2940,14 @@ async function loadSystemSettings() {
       if (document.getElementById('toggleSavedByUsers')) document.getElementById('toggleSavedByUsers').checked = s.showSavedByUsers !== false;
       if (document.getElementById('setHeroBadge')) document.getElementById('setHeroBadge').value = s.heroBadge || "🔥 Buy & Sell Coupons — All in One Place!";
       if (document.getElementById('toggleHeroBadge')) document.getElementById('toggleHeroBadge').checked = s.showHeroBadge !== false;
+      // Homepage testimonials section heading (the cards live in Reviews).
+      // ?? not ||: a heading line the admin cleared must come back empty.
+      const tmText = (v, dflt) => (v === undefined || v === null ? dflt : v);
+      if (document.getElementById('setTestimonialsLabel')) document.getElementById('setTestimonialsLabel').value = tmText(s.testimonialsLabel, 'Testimonials');
+      if (document.getElementById('setTestimonialsTitle')) document.getElementById('setTestimonialsTitle').value = tmText(s.testimonialsTitle, 'Loved by');
+      if (document.getElementById('setTestimonialsTitleHighlight')) document.getElementById('setTestimonialsTitleHighlight').value = tmText(s.testimonialsTitleHighlight, '10,000+ Smart Shoppers');
+      if (document.getElementById('setTestimonialsSubtitle')) document.getElementById('setTestimonialsSubtitle').value = tmText(s.testimonialsSubtitle, 'Real stories from real users who save big with SaveHatke.');
+      if (document.getElementById('toggleTestimonials')) document.getElementById('toggleTestimonials').checked = s.showTestimonials !== false;
     }
   } catch (err) {
     console.warn('Failed to load system settings:', err.message);
@@ -2832,6 +2973,14 @@ async function saveSystemSettings() {
     const showSavedByUsers = document.getElementById('toggleSavedByUsers')?.checked !== false;
     const heroBadge = document.getElementById('setHeroBadge')?.value?.trim() || "🔥 Buy & Sell Coupons — All in One Place!";
     const showHeroBadge = document.getElementById('toggleHeroBadge')?.checked !== false;
+    // Homepage testimonials section heading. Sent as typed, empty included —
+    // clearing a line is how an admin removes it from the homepage.
+    const tmField = (id) => (document.getElementById(id)?.value ?? '').trim();
+    const testimonialsLabel = tmField('setTestimonialsLabel');
+    const testimonialsTitle = tmField('setTestimonialsTitle');
+    const testimonialsTitleHighlight = tmField('setTestimonialsTitleHighlight');
+    const testimonialsSubtitle = tmField('setTestimonialsSubtitle');
+    const showTestimonials = document.getElementById('toggleTestimonials')?.checked !== false;
 
     const data = await api('/admin/settings', {
       method: 'PUT',
@@ -2847,6 +2996,11 @@ async function saveSystemSettings() {
         showSavedByUsers,
         heroBadge,
         showHeroBadge,
+        testimonialsLabel,
+        testimonialsTitle,
+        testimonialsTitleHighlight,
+        testimonialsSubtitle,
+        showTestimonials,
       },
     });
 
@@ -2855,6 +3009,18 @@ async function saveSystemSettings() {
     } else {
       alert(data.message || 'Website settings updated successfully!');
     }
+
+    // The Reviews section previews this heading, so keep it in step rather than
+    // leaving it showing the copy that was on screen before the save. What was
+    // just posted is what is now stored, so use it rather than re-reading.
+    testimonialsSection = {
+      label: testimonialsLabel,
+      title: testimonialsTitle,
+      titleHighlight: testimonialsTitleHighlight,
+      subtitle: testimonialsSubtitle,
+      show: showTestimonials,
+    };
+    if (typeof renderTestimonialHeading === 'function') renderTestimonialHeading();
   } catch (err) {
     if (typeof showToast === 'function') {
       showToast(err.message || 'Failed to save settings.', 'error');
