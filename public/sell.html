@@ -323,6 +323,9 @@
     .drop-zone:hover, .drop-zone:focus-visible { border-color:rgba(0,230,118,.5); background:rgba(0,230,118,.04); outline:none; }
     .drop-zone.dragover { border-color:rgba(0,230,118,.7); background:rgba(0,230,118,.08); }
     .drop-zone.filled { border-style:solid; border-color:rgba(0,230,118,.35); }
+    /* Already satisfied by the screenshot the AI scanner uploaded for this
+       coupon — the field stays usable so a seller can replace that image. */
+    .drop-zone.has-scan { border-style:solid; border-color:rgba(0,230,118,.35); background:rgba(0,230,118,.05); }
     .drop-icon { font-size:1.6rem; display:block; margin-bottom:6px; }
     .drop-text { font-size:.86rem; color:#a8c0dc; font-weight:600; }
     .drop-hint { font-size:.72rem; color:#6b88aa; margin-top:4px; }
@@ -915,10 +918,10 @@ const proofFiles = {};
 const PROOF_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const PROOF_MAX_BYTES = 3 * 1024 * 1024;
 
-/* Screenshot proof is switched off for now. The dropzone, its validation and the
-   Drive upload are all still here and still work — flip this back to true to
-   show the field again and resume uploading before submit. */
-const PROOF_ENABLED = false;
+/* Screenshot proof is required on every coupon. A coupon filled by the AI
+   scanner already has its screenshot in Drive, so that scan counts as the proof
+   and only a manually typed coupon needs an upload here. */
+const PROOF_ENABLED = true;
 
 /* ══════════════════════════════════════
    MINIMUM SHELF LIFE
@@ -1489,7 +1492,7 @@ function createProofField(id) {
   const group = document.createElement('div');
   group.className = 'fgroup';
   group.innerHTML = `
-    <label class="flabel" for="proof-${id}">📸 Coupon Screenshot / Proof <span class="frequired">*required*</span></label>
+    <label class="flabel" for="proof-${id}">📸 Coupon Screenshot / Proof <span class="frequired" id="preq-${id}">*required*</span></label>
     <input type="file" id="proof-${id}" accept="image/png,image/jpeg,image/webp" hidden>
     <div class="drop-zone" id="dropzone-${id}" role="button" tabindex="0" aria-label="Upload screenshot for this coupon">
       <span class="drop-icon">🖼️</span>
@@ -1529,6 +1532,33 @@ function createProofField(id) {
   return group;
 }
 
+/* ── Keep a coupon's proof field honest ──
+   A coupon filled by the AI scanner already has its screenshot in Drive, so the
+   field must stop demanding an upload for that coupon. Picking a file here still
+   wins: it replaces the scan as the proof that travels with the submission. */
+function syncProofField(id) {
+  const zone = document.getElementById('dropzone-' + id);
+  if (!zone) return;
+
+  const fromScan = !proofFiles[id] && !!aiDriveUrlFor(id);
+  const text = zone.querySelector('.drop-text');
+  const hint = zone.querySelector('.drop-hint');
+  const req = document.getElementById('preq-' + id);
+
+  zone.classList.toggle('has-scan', fromScan);
+  if (req) req.style.display = fromScan ? 'none' : '';
+  if (text) {
+    text.textContent = fromScan
+      ? '✓ Screenshot attached from your scan'
+      : 'Tap to upload or drag an image here';
+  }
+  if (hint) {
+    hint.textContent = fromScan
+      ? 'Upload a different image to replace it'
+      : 'PNG, JPG or WEBP · up to 3MB · shows the code in your rewards page';
+  }
+}
+
 /* ── Validate + preview a picked screenshot ── */
 function onProofPicked(id, files) {
   if (!files || !files.length) return;
@@ -1561,6 +1591,7 @@ function onProofPicked(id, files) {
 
   document.getElementById('preview-' + id)?.classList.add('show');
   document.getElementById('dropzone-' + id)?.classList.add('filled');
+  syncProofField(id);
 }
 
 /* ── Remove a picked screenshot ── */
@@ -1578,6 +1609,7 @@ function clearProof(id) {
   }
   document.getElementById('preview-' + id)?.classList.remove('show');
   document.getElementById('dropzone-' + id)?.classList.remove('filled');
+  syncProofField(id);
 }
 
 /* ── Read a File as base64 (payload for POST /coupons/proof) ── */
@@ -1936,6 +1968,9 @@ async function runAiScan(file, opts = {}) {
 
   // ── 5. Fill the form, flag what needs checking ──
   applyAiFields(result.fields);
+  // This coupon's screenshot is now in Drive, so its proof field stops asking
+  // for an upload.
+  if (aiScan.couponId != null) syncProofField(aiScan.couponId);
   renderAiSummary(result.fields);
   renderAiShotRow(file, aiScan.driveUrl);
   setAiState('StateDone');
@@ -2283,6 +2318,8 @@ function clearAiScanFor(id) {
     aiScan.fields = null;
     aiScan.pending = new Set();
   }
+  // The scan is gone, so this coupon needs its own screenshot again.
+  syncProofField(id);
 }
 
 /**
@@ -2644,7 +2681,10 @@ function validateCoupons() {
       return fail('the affiliate link must start with http:// or https://.', 'link-' + c.id);
     }
 
-    if (PROOF_ENABLED && !c.proofFile) {
+    // A coupon scanned by the AI card already has its screenshot in Drive, so
+    // that scan satisfies the requirement; a manually typed coupon must attach
+    // one here.
+    if (PROOF_ENABLED && !c.proofFile && !aiDriveUrlFor(c.id)) {
       return fail('please attach a screenshot of the coupon.', 'dropzone-' + c.id);
     }
   }
@@ -2722,10 +2762,13 @@ function buildReviewSummary() {
       ['Affiliate Link', c.affiliateLink || '—'],
       ['Terms & Conditions', c.terms || '—'],
     ];
-    if (PROOF_ENABLED) rows.push(['Screenshot', c.proofFile ? c.proofFile.name : '— missing —']);
-    // AI-scanned coupon: show that this coupon's own screenshot is attached.
-    if (!PROOF_ENABLED && aiDriveUrlFor(c.id)) {
-      rows.push(['Screenshot', 'Attached ✓']);
+    // The proof is either the file picked on this card or, for an AI-scanned
+    // coupon, the screenshot already attached to it.
+    if (PROOF_ENABLED) {
+      rows.push([
+        'Screenshot',
+        c.proofFile ? c.proofFile.name : (aiDriveUrlFor(c.id) ? 'Attached ✓' : '— missing —'),
+      ]);
     }
 
     rows.forEach(([key, val]) => {
@@ -2813,20 +2856,25 @@ async function submitCoupons() {
     return;
   }
 
-  // 1. Upload each coupon's screenshot to Drive and collect its drive:<id> token.
-  //    Uploaded one at a time so a 3MB × 5 batch cannot blow up the request.
-  //    Skipped entirely while PROOF_ENABLED is false.
+  // 1. Upload each attached screenshot to Drive and keep its drive:<id> token
+  //    against that coupon's own index. Uploaded one at a time so a 3MB × 5
+  //    batch cannot blow up a single request. A coupon filled by the AI scanner
+  //    is skipped here: its screenshot already went to Drive during the scan.
   const proofUrls = [];
   if (PROOF_ENABLED) {
+    const toUpload = coupons.filter((c) => c.proofFile).length;
+    let done = 0;
     for (let i = 0; i < coupons.length; i++) {
       const c = coupons[i];
       if (!c.proofFile) {
+        if (aiDriveUrlFor(c.id)) continue; // the scan is this coupon's proof
         showToast('Coupon ' + (i + 1) + ': screenshot is missing.', 'error');
         restoreBtn();
         return;
       }
-      btn.textContent = count > 1
-        ? `⏳ Uploading screenshot ${i + 1}/${count}...`
+      done++;
+      btn.textContent = toUpload > 1
+        ? `⏳ Uploading screenshot ${done}/${toUpload}...`
         : '⏳ Uploading screenshot...';
       try {
         const dataBase64 = await fileToBase64(c.proofFile);
@@ -2836,7 +2884,7 @@ async function submitCoupons() {
         });
         const url = (upload && upload.url) || '';
         if (!url) throw new Error('Upload did not return a file reference.');
-        proofUrls.push(url);
+        proofUrls[i] = url;
       } catch (err) {
         showToast(
           'Coupon ' + (i + 1) + ': screenshot upload failed — ' + (err.message || 'please try again.'),

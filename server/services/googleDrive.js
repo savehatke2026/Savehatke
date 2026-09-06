@@ -337,10 +337,46 @@ async function uploadPayoutQrImage(input) {
   });
 }
 
+/**
+ * A seller's coupon proof screenshot.
+ *
+ * Kept in its own folder ("Coupon Proofs") and always private: a proof image
+ * shows a live coupon code, so it is filed with the same care as a payout QR and
+ * never made link-shareable. The folder id ships as a default because it is a
+ * fixed destination in this Drive, and GOOGLE_DRIVE_COUPON_PROOF_FOLDER_ID
+ * overrides it for another environment. The Drive name is written here from the
+ * sniffed content type; the browser's filename is recorded on the submission but
+ * never used as the Drive name.
+ *
+ * @param {{ buffer: Buffer, ext?: string, mimeType?: string,
+ *           sellerEmail?: string }} input
+ */
+const DEFAULT_COUPON_PROOF_FOLDER_ID = '1mjodbeSPtbzZHUxr6o9w2m6H95aSIyyH';
+
+async function uploadCouponProofScreenshot(input) {
+  const { buffer, ext, mimeType, sellerEmail } = input || {};
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const unique = crypto.randomUUID();
+  const safeExt = /^\.(png|jpg|jpeg|webp)$/i.test(String(ext || '')) ? String(ext).toLowerCase() : '.png';
+  // The filename carries who submitted it, so a folder listing is readable
+  // without opening every image.
+  const who = String(sellerEmail || 'seller').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40);
+
+  return uploadProofScreenshot({
+    buffer,
+    filename: `coupon-proof-${who}-${stamp}-${unique}${safeExt}`,
+    mimeType,
+    folderId: clean(process.env.GOOGLE_DRIVE_COUPON_PROOF_FOLDER_ID) || DEFAULT_COUPON_PROOF_FOLDER_ID,
+    description: `SaveHatke coupon proof${sellerEmail ? ` from ${sellerEmail}` : ''} on ${new Date().toISOString()}`,
+    forcePrivate: true,
+  });
+}
+
 module.exports = {
   isConfigured,
   uploadProofScreenshot,
   uploadSupportScreenshot,
+  uploadCouponProofScreenshot,
   uploadPayoutQrImage,
   downloadFile,
   getFileMeta,

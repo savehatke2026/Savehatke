@@ -252,9 +252,12 @@ router.post('/proof', authenticateToken, async (req, res) => {
     }
 
     try {
-      const result = await googleDrive.uploadProofScreenshot({
+      // Filed in the "Coupon Proofs" folder and named by the server; the
+      // browser's filename never becomes the Drive name.
+      const extFromType = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
+      const result = await googleDrive.uploadCouponProofScreenshot({
         buffer,
-        filename,
+        ext: extFromType[type] || '.png',
         mimeType: type,
         sellerEmail: req.user?.email,
       });
