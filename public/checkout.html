@@ -168,6 +168,23 @@
     /* COMPACT NOTE */
     .compact-note { font-size:.78rem; color:#6b88aa; display:flex; align-items:flex-start; gap:7px; padding:10px 14px; border-radius:9px; background:rgba(79,195,247,.04); border:1px solid rgba(79,195,247,.08); line-height:1.55; }
 
+    /* COMPACT KEY/VALUE LIST — the coupon facts, one hairline-separated row each.
+       Same palette and type scale as the cards it sits in; no inner box. */
+    .ck-list { margin:0; }
+    .ck-row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding:9px 0; border-bottom:1px solid rgba(79,195,247,.07); }
+    .ck-row:last-child { border-bottom:none; }
+    .ck-row dt { font-size:.8rem; color:#a8c0dc; font-weight:500; }
+    .ck-row dd { margin:0; font-size:.85rem; font-weight:700; color:#e2ecff; text-align:right; }
+    .ck-row dd.green { color:#00e676; }
+
+    /* IMPORTANT INFORMATION — deliberately lighter than .co-card: no heading
+       icon tile, no nested panel, just the essentials the buyer must see. */
+    .ck-info { border-radius:12px; background:rgba(79,195,247,.03); border:1px solid rgba(79,195,247,.08); padding:16px 18px; margin-bottom:20px; }
+    .ck-info-ttl { font-size:.86rem; font-weight:700; color:#e2ecff; margin-bottom:10px; }
+    .ck-info-list { margin:0; padding-left:18px; }
+    .ck-info-list li { font-size:.78rem; color:#8ba2c4; line-height:1.6; margin-bottom:5px; }
+    .ck-info-list li:last-child { margin-bottom:0; }
+
     /* FORM */
     .fgroup { margin-bottom:16px; }
     .flabel { display:block; font-size:.8rem; font-weight:600; color:#a8c0dc; margin-bottom:7px; }
@@ -439,76 +456,49 @@
             <div class="co-card-ico">🏷️</div>
             <div>
               <div class="co-card-ttl">Coupon Details</div>
-              <div class="co-card-sub">What you're purchasing</div>
             </div>
           </div>
 
-          <div class="coupon-compact">
-            <div class="cc-top">
-              <div class="cc-brand">
-                <div class="cc-brand-ico" id="csBrandIco"></div>
-                <div>
-                  <div class="cc-brand-name" id="csBrandName">—</div>
-                  <div class="cc-brand-cat" id="csBrandCat">—</div>
-                </div>
-              </div>
-              <div class="cc-discount" id="csOff">—</div>
+          <!-- No inner panel: the card itself is the box, so the facts sit
+               directly on it instead of inside a second bordered surface. -->
+          <div class="cc-top">
+            <div class="cc-brand">
+              <div class="cc-brand-ico" id="csBrandIco"></div>
+              <div class="cc-brand-name" id="csBrandName">—</div>
             </div>
-
-            <div class="cc-divider"></div>
-
-            <div class="cc-info-row">
-              <div class="cc-info-item">
-                <label>Valid Till</label>
-                <span id="csExpiry">—</span>
-              </div>
-              <div class="cc-info-item" id="csMinOrderItem">
-                <label>Min. Order</label>
-                <span id="csMinOrder">—</span>
-              </div>
-              <div class="cc-info-item">
-                <label>Status</label>
-                <span id="csStatus" style="color:#00e676">Available</span>
-              </div>
-            </div>
-
-            <!-- Live countdown. Hidden until we know the coupon's real expiry,
-                 and stays hidden when the admin turned this coupon's timer off
-                 (timerOn=false) — same rule as the marketplace card. -->
-            <div class="cc-expiry" id="csExpiryTimer" style="display:none">
-              <span class="cc-exp-head">
-                <svg class="cc-exp-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
-                  <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                <span class="cc-exp-label">Offer ends in</span>
-              </span>
-              <span class="cc-exp-clock">
-                <span class="cc-exp-tile cc-exp-tile-d"><b class="cc-exp-d"></b><i>d</i></span>
-                <span class="cc-exp-tile"><b class="cc-exp-h">00</b><i>h</i></span>
-                <span class="cc-exp-tile"><b class="cc-exp-m">00</b><i>m</i></span>
-                <span class="cc-exp-tile"><b class="cc-exp-s">00</b><i>s</i></span>
-              </span>
-              <span class="cc-exp-over">Offer ended</span>
-            </div>
-
-            <div class="cc-code-row" style="margin-top:14px">
-              <span>🔒</span>
-              <span class="cc-code-text">Code revealed after payment</span>
-            </div>
-
-            <div class="cc-badges">
-              <span class="cc-badge">✓ Verified Coupon</span>
-              <!-- Admin-controlled per-coupon sale switch, carried over from the
-                   marketplace card and re-confirmed by /api/coupons/:id. -->
-              <span class="cc-sale-badge" id="csSaleBadge" style="display:none">🔥 Sale</span>
-            </div>
+            <!-- Admin-controlled per-coupon sale switch, carried over from the
+                 marketplace card and re-confirmed by /api/coupons/:id. -->
+            <span class="cc-sale-badge" id="csSaleBadge" style="display:none">🔥 Sale</span>
           </div>
 
-          <div class="compact-note">
-            <span>🔒</span>
-            <span>Your coupon code will be revealed instantly after successful payment and sent to your email.</span>
-          </div>
+          <div class="cc-divider"></div>
+
+          <dl class="ck-list">
+            <div class="ck-row">
+              <dt>Coupon value</dt>
+              <dd class="green" id="csValue">—</dd>
+            </div>
+            <div class="ck-row">
+              <dt>Price</dt>
+              <dd id="csPrice">—</dd>
+            </div>
+            <!-- Hidden by paintCoupon when the coupon has no minimum, so no
+                 minimum is ever invented for it. -->
+            <div class="ck-row" id="csMinOrderItem">
+              <dt>Minimum order</dt>
+              <dd id="csMinOrder">—</dd>
+            </div>
+            <div class="ck-row">
+              <dt>Valid until</dt>
+              <dd id="csExpiry">—</dd>
+            </div>
+            <!-- blockPurchase() overwrites this with the reason a coupon cannot
+                 be bought (expired, sold out), so it must keep this id. -->
+            <div class="ck-row">
+              <dt>Status</dt>
+              <dd class="green" id="csStatus">✓ Verified</dd>
+            </div>
+          </dl>
         </div>
 
         <!-- BUYER DETAILS -->
@@ -517,59 +507,44 @@
             <div class="co-card-ico">👤</div>
             <div>
               <div class="co-card-ttl">Buyer Information</div>
-              <div class="co-card-sub">Enter your details for payment and order confirmation.</div>
             </div>
           </div>
 
           <div class="fgroup">
-            <label class="flabel">Full Name <span class="req">*</span></label>
+            <label class="flabel" for="buyerName">Full Name <span class="req">*</span></label>
             <input type="text" class="finput" id="buyerName" value="" placeholder="Your full name">
           </div>
 
           <div class="finput-group">
-            <div class="fgroup">
-              <label class="flabel">Email Address <span class="req">*</span></label>
+            <div class="fgroup" style="margin-bottom:0">
+              <label class="flabel" for="buyerEmail">Email Address <span class="req">*</span></label>
               <input type="email" class="finput" id="buyerEmail" value="" placeholder="you@example.com">
             </div>
-            <div class="fgroup">
-              <label class="flabel">Mobile Number <span class="req">*</span></label>
+            <div class="fgroup" style="margin-bottom:0">
+              <label class="flabel" for="buyerPhone">Mobile Number <span class="req">*</span></label>
               <div class="finput-prefix">
                 <span class="prefix">+91</span>
                 <input type="tel" class="finput" id="buyerPhone" value="" placeholder="10-digit number" maxlength="10">
               </div>
             </div>
           </div>
-
-          <div class="compact-note" style="margin-top:4px">
-            <span>🔒</span>
-            <span>Your details are used only for payment and order confirmation.</span>
-          </div>
         </div>
 
-        <!-- COUPON TERMS & CONDITIONS -->
-        <!-- The coupon's own terms, as published by whoever listed it. This is a
-             separate agreement from SaveHatke's platform Terms & Privacy in the
-             summary card, and both have to be ticked before paying: one covers
-             the marketplace, the other covers this specific coupon. -->
-        <div class="co-card fu in d2">
-          <div class="co-card-hdr">
-            <div class="co-card-ico">📜</div>
-            <div>
-              <div class="co-card-ttl">Coupon Terms &amp; Conditions</div>
-              <div class="co-card-sub">Please read the terms and conditions for using this coupon.</div>
-            </div>
-          </div>
-
-          <div class="ct-preview" id="ctPreview">Loading the terms for this coupon…</div>
-
+        <!-- IMPORTANT INFORMATION -->
+        <!-- Replaces the old Coupon Terms & Conditions card and its required
+             tick-box: only what a buyer needs before paying. The coupon's full
+             published terms are still one tap away in the existing panel. -->
+        <div class="ck-info fu in d2">
+          <div class="ck-info-ttl">ℹ️ Important Information</div>
+          <ul class="ck-info-list">
+            <li>Your coupon code is revealed after successful payment and sent to your email.</li>
+            <li>Use the code at the store before the valid-until date, following the coupon's own terms.</li>
+            <li>Your name, email and mobile number are used only for payment and order confirmation.</li>
+            <li>If a purchased code does not work, contact SaveHatke support.</li>
+          </ul>
           <button type="button" class="ct-more" id="ctMoreBtn" onclick="openCouponTerms()">
-            View Full Coupon Terms &amp; Conditions →
+            View this coupon's terms &rarr;
           </button>
-
-          <div class="terms-check ct-agree" style="margin-bottom:0">
-            <input type="checkbox" id="couponTermsCheck">
-            <label for="couponTermsCheck">I have read and agree to the coupon's Terms &amp; Conditions.</label>
-          </div>
         </div>
 
       </div>
@@ -579,22 +554,13 @@
         <div class="summary-card fu in d1">
           <div class="sum-title">Order Summary</div>
 
-          <div class="sum-coupon-preview">
-            <div class="scp-ico" id="sumBrandIco"></div>
-            <div style="min-width:0">
-              <div class="scp-brand" id="sumBrandName">—</div>
-              <div class="scp-off" id="sumOff">—</div>
-            </div>
-            <span class="cc-sale-badge" id="sumSaleBadge" style="display:none;margin-left:auto">🔥 Sale</span>
-          </div>
-
           <div class="sum-rows">
             <div class="sum-row">
               <span class="sum-row-label">Coupon Value</span>
               <span class="sum-row-val green" id="sumValue">—</span>
             </div>
             <div class="sum-row">
-              <span class="sum-row-label">Coupon Price</span>
+              <span class="sum-row-label">You Pay</span>
               <span class="sum-row-val" id="sumPrice">—</span>
             </div>
           </div>
@@ -615,14 +581,14 @@
             <span class="sum-total-val" id="sumTotal">—</span>
           </div>
 
-          <div class="sum-saving-note" id="sumSavings">🎉 Great deal — you're saving vs retail!</div>
-
           <div class="sum-divider" style="margin-top:16px"></div>
 
           <div class="terms-check">
             <input type="checkbox" id="termsCheck" checked>
             <label for="termsCheck">I agree to SaveHatke's <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy.html">Privacy Policy</a>.</label>
           </div>
+
+          <div class="pay-secure-note" style="margin:0 0 12px">🔒 Coupon code revealed after successful payment</div>
 
           <button class="btn-pay" id="payBtn" onclick="initiatePayment()">
             <span id="payBtnText">🔒 Pay Securely</span>
@@ -898,13 +864,8 @@
     const dash = (v) => (v === '' || v == null ? '—' : v);
 
     renderBrandIcon(document.getElementById('csBrandIco'), currentCoupon.brand);
-    renderBrandIcon(document.getElementById('sumBrandIco'), currentCoupon.brand);
 
     set('csBrandName', dash(currentCoupon.brand));
-    set('csBrandCat', dash(currentCoupon.category));
-    set('sumBrandName', currentCoupon.brand ? currentCoupon.brand + ' Coupon' : '—');
-    set('csOff', dash(currentCoupon.title));
-    set('sumOff', dash(currentCoupon.title));
 
     // "Valid Till" is a real formatted date now, not a hardcoded sample string.
     const at = (typeof parseExpiry === 'function') ? parseExpiry(currentCoupon.expiry) : null;
@@ -913,6 +874,12 @@
     });
     set('csExpiry', validTill);
     set('succExpiry', validTill);
+
+    // An expired coupon can't be honoured, so stop the sale rather than take the
+    // money. The countdown used to be the only thing making this call; it is
+    // checked here now that the details box shows a date instead of a clock.
+    // The server is the real gate; this is the honest UI.
+    if (at !== null && at - Date.now() <= 0) blockPurchase('This offer has ended.');
 
     // No minimum order on the coupon means there is no minimum to advertise —
     // the old page invented "₹999" for every coupon.
@@ -925,8 +892,11 @@
     }
 
     show('csSaleBadge', currentCoupon.onSale);
-    show('sumSaleBadge', currentCoupon.onSale);
 
+    // The coupon's worth and its price are shown in both boxes: the details card
+    // states the facts, the summary totals them up.
+    set('csValue', currentCoupon.value ? '₹' + currentCoupon.value : '—');
+    set('csPrice', totalPrice ? '₹' + totalPrice : '—');
     set('sumValue', currentCoupon.value ? '₹' + currentCoupon.value : '—');
     set('sumPrice', totalPrice ? '₹' + totalPrice : '—');
     set('sumTotal', totalPrice ? '₹' + totalPrice : '—');
@@ -1142,19 +1112,12 @@
       return;
     }
 
-    // Two separate agreements, checked separately: the platform's Terms &
-    // Privacy in the summary card, and this coupon's own conditions. Ticking one
-    // must never be read as consent to the other.
+    // SaveHatke's platform Terms & Privacy, ticked in the summary card. The
+    // coupon's own published conditions are linked from Important Information
+    // and no longer carry a separate tick-box.
     const termsCheck = document.getElementById('termsCheck');
     if (termsCheck && !termsCheck.checked) {
       showToastLocal('Please accept the Terms & Conditions to proceed.', 'warning');
-      return;
-    }
-
-    const couponTermsCheck = document.getElementById('couponTermsCheck');
-    if (couponTermsCheck && !couponTermsCheck.checked) {
-      showToastLocal("Please confirm you have read the coupon's Terms & Conditions.", 'warning');
-      couponTermsCheck.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
 
