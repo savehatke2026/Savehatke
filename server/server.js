@@ -37,6 +37,7 @@ const backupCodeRoutes = require('./routes/backupCode');
 const sosRoutes = require('./routes/sos');
 const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
+const { maintenanceAuthGuard } = require('./middleware/maintenance');
 
 const app = express();
 
@@ -163,8 +164,13 @@ app.get('/admin/coupons/:couponId', (req, res) => {
 // per-endpoint limiters (10 verification attempts / 15 min), and the generic
 // 20-per-15-min authLimiter would otherwise exhaust itself part-way through the
 // four-step enrolment flow.
-app.use('/api/auth/2fa', twoFactorRoutes);
-app.use('/api/auth', authLimiter, authRoutes);
+//
+// maintenanceAuthGuard sits at the very front of every login path so a
+// non-whitelisted visitor hits the maintenance page on the very first
+// request. Mounted before the rate limiters so blocked callers do not
+// consume the legitimate-user budget while they retry.
+app.use('/api/auth/2fa', maintenanceAuthGuard, twoFactorRoutes);
+app.use('/api/auth', maintenanceAuthGuard, authLimiter, authRoutes);
 app.use('/api/coupons/sell', couponSubmissionLimiter);
 app.use('/api/coupons/submit', couponSubmissionLimiter);
 app.use('/api/coupons/proof', couponSubmissionLimiter);
@@ -215,25 +221,79 @@ app.use('/api/proxy/drive', apiLimiter, maintenanceGuard, driveProxyRoutes); // 
 // throttling it would make the consent state unreadable exactly when a visitor
 // is browsing quickly.
 app.use('/api/consent', consentRoutes);
+
+// Public maintenance mode status (no auth required — called by the maintenance
+// page "Try Again" button and the dashboard auth guard to decide where to send
+// the user). Deliberately unauthenticated so it works before login.
+//
+// Mounted BEFORE the generic '/api' mount below so the maintenance guard
+// there cannot shadow it — the status endpoint MUST remain reachable so
+// blocked users can poll for the toggle to be flipped off.
+//
+// When the caller supplies an `Authorization: Bearer <jwt>` header we ALSO
+// resolve whether that user can bypass maintenance (admin or on the
+// whitelist). The response then carries `canAccess` / `isWhitelisted` so the
+// frontend doesn't have to guess. If no token is sent, those flags default
+// to false — i.e. an anonymous visitor is always treated as "no bypass".
+app.get('/api/maintenance/status', async (req, res) => {
+  try {
+    const supabaseService = require('./services/supabase');
+    const status = await supabaseService.getMaintenanceMode();
+
+    let canAccess = !status.enabled;
+    let isAdmin = false;
+    let isWhitelisted = false;
+
+    if (status.enabled) {
+      const authHeader = req.headers && req.headers.authorization;
+      if (authHeader && /^Bearer\s+/i.test(authHeader)) {
+        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+        if (token) {
+          try {
+            const jwt = require('jsonwebtoken');
+            const decoded = jwt.decode(token) || null;
+            if (decoded) {
+              const role = decoded.role ? String(decoded.role).toLowerCase() : '';
+              isAdmin = role === 'admin' || role === 'super admin' || role === 'support';
+              const email = decoded.email ? String(decoded.email).toLowerCase().trim() : '';
+              if (email) {
+                try {
+                  const wl = await supabaseService.getMaintenanceWhitelist();
+                  isWhitelisted = wl && wl.has(email);
+                } catch (e) { /* ignore — defaults to false */ }
+              }
+            }
+          } catch (e) { /* bad token — treat as anonymous */ }
+        }
+      }
+    }
+
+    canAccess = !status.enabled || isAdmin || isWhitelisted;
+
+    res.json({
+      enabled: status.enabled,
+      message: status.message,
+      canAccess,
+      isAdmin,
+      isWhitelisted,
+    });
+  } catch (err) {
+    // Fail open — if the check fails, report maintenance as off
+    res.json({
+      enabled: false,
+      message: '',
+      canAccess: true,
+      isAdmin: false,
+      isWhitelisted: false,
+    });
+  }
+});
+
 app.use('/api', apiLimiter, maintenanceGuard, payoutRoutes); // /api/payouts/* (seller)
 
 // Public Turnstile site key for CAPTCHA widgets (secret stays in .env)
 app.get('/api/turnstile-config', (req, res) => {
   res.json({ siteKey: process.env.TURNSTILE_SITE_KEY || '' });
-});
-
-// Public maintenance mode status (no auth required — called by the maintenance
-// page "Try Again" button and the dashboard auth guard to decide where to send
-// the user). Deliberately unauthenticated so it works before login.
-app.get('/api/maintenance/status', async (req, res) => {
-  try {
-    const supabaseService = require('./services/supabase');
-    const status = await supabaseService.getMaintenanceMode();
-    res.json({ enabled: status.enabled, message: status.message });
-  } catch (err) {
-    // Fail open — if the check fails, report maintenance as off
-    res.json({ enabled: false, message: '' });
-  }
 });
 
 // Public settings route (for index.html hero stats & platform settings)
@@ -341,6 +401,25 @@ async function initServices() {
   if (supabase.isConfigured()) {
     await supabase.ensureSessionsTable();
     await supabase.ensureSiteSettingsTable();
+
+    // Seed the default maintenance whitelist if the row is missing. The
+    // hardcoded test users stay allow-listed so the platform owner can
+    // always sign in while tuning maintenance mode. Admins can edit the
+    // list at any time from the admin panel; this only runs when the
+    // site_settings row does not exist yet.
+    try {
+      const current = await supabase.getMaintenanceWhitelist();
+      if (!current || current.size === 0) {
+        const seedEmails = [
+          'rupayandas2026@gmail.com',
+          'rupayandas2025@gmail.com',
+        ];
+        await supabase.setMaintenanceWhitelist(seedEmails, 'startup-seed');
+        console.log(`🌱 Maintenance whitelist seeded with ${seedEmails.length} email(s).`);
+      }
+    } catch (e) {
+      console.warn('⚠️  Could not seed maintenance whitelist:', e.message);
+    }
   }
 
   // 48-hour session expiry sweep — a real interval on a long-running server;

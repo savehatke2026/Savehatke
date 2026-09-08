@@ -266,9 +266,11 @@ async function loadInventory() {
 
     // Unfiltered fetch already holds every coupon — use it to keep the ⏳ Pending
     // tab badge honest, since opening the section only loads this table.
+    // The Pending tab is for fresh submissions only; proof_requested items
+    // continue to live in the Coupon Reviews section.
     if (!status) {
       cmSetPendingBadge(
-        (data.coupons || []).filter((c) => c.status === 'pending' || c.status === 'proof_requested').length,
+        (data.coupons || []).filter((c) => c.status === 'pending').length,
       );
     }
 
@@ -834,13 +836,14 @@ async function loadPending() {
   container.innerHTML = '<div class="cm-loading">Loading pending submissions…</div>';
 
   try {
-    // 'pending' and 'proof_requested' are both still awaiting a decision, and
-    // the API filters one status at a time — so fetch all and split here.
+    // The Pending tab is for coupons that are still awaiting the very first
+    // review decision. `proof_requested` is a follow-up state ("admin asked
+    // the seller for proof, now waiting on the seller"), which has its own
+    // workflow in the Coupon Reviews section — so we deliberately exclude
+    // it from THIS view to keep the table focused on fresh submissions.
     const data = await api('/admin/coupons', { useAdmin: true });
     if (seq !== pendingCoupons.seq) return;
-    const rows = (data.coupons || []).filter(
-      (c) => c.status === 'pending' || c.status === 'proof_requested',
-    );
+    const rows = (data.coupons || []).filter((c) => c.status === 'pending');
     cmSetPendingBadge(rows.length);
 
     if (rows.length === 0) {
@@ -3048,14 +3051,71 @@ async function loadMaintenanceStatus() {
   if (spinner) spinner.style.display = 'block';
 
   try {
-    const data = await api('/admin/maintenance', { useAdmin: true });
-    applyMaintenanceUI(data);
+    const [status, whitelist] = await Promise.all([
+      api('/admin/maintenance', { useAdmin: true }),
+      api('/admin/maintenance/whitelist', { useAdmin: true }),
+    ]);
+    applyMaintenanceUI(status);
+    applyMaintenanceWhitelistUI(whitelist);
   } catch (err) {
     console.warn('Failed to load maintenance status:', err.message);
     // Show default OFF state
     applyMaintenanceUI({ enabled: false, message: '', updatedBy: '', updatedAt: '' });
+    applyMaintenanceWhitelistUI({ emails: [], count: 0 });
   } finally {
     if (spinner) spinner.style.display = 'none';
+  }
+}
+
+/**
+ * Populate the whitelist textarea + count badge from the server.
+ */
+function applyMaintenanceWhitelistUI(data) {
+  const ta = document.getElementById('maintenanceWhitelist');
+  const count = document.getElementById('maintenanceWhitelistCount');
+  const list = Array.isArray(data && data.emails) ? data.emails : [];
+  if (ta) {
+    if (!ta.dataset.touched) ta.value = list.join('\n');
+    // Mark the field "touched" the first time the admin types in it so a
+    // background refresh can't clobber pending edits.
+    if (!ta.dataset.bound) {
+      ta.addEventListener('input', () => { ta.dataset.touched = '1'; });
+      ta.dataset.bound = '1';
+    }
+  }
+  if (count) count.textContent = list.length ? `${list.length} saved` : 'empty';
+}
+
+/**
+ * Persist the current contents of the whitelist textarea.
+ */
+async function saveMaintenanceWhitelist() {
+  const ta = document.getElementById('maintenanceWhitelist');
+  const btn = document.getElementById('maintenanceWhitelistSaveBtn');
+  if (!ta) return;
+  const emails = (ta.value || '')
+    .split(/[\n,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
+  try {
+    const data = await api('/admin/maintenance/whitelist', {
+      method: 'PUT',
+      useAdmin: true,
+      body: { emails },
+    });
+    if (ta) ta.dataset.touched = '';
+    applyMaintenanceWhitelistUI(data);
+    if (typeof showToast === 'function') {
+      showToast(data.message || `Whitelist saved (${(data.emails || []).length} email(s)).`, 'success');
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') {
+      showToast(err.message || 'Failed to save whitelist.', 'error');
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Whitelist'; }
   }
 }
 

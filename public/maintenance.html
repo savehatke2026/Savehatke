@@ -329,53 +329,91 @@
   <script>
     const API_BASE = window.location.origin;
 
-    // On load: fetch the latest maintenance message
-    (async function loadMessage() {
+    // Pull the caller's stored token (if any) so the status endpoint can
+    // tell us whether THIS browser session is on the admin/whitelist side
+    // of the gate. Without it, a whitelisted user landing on this page
+    // would be stuck staring at the maintenance spinner instead of
+    // being sent straight through to the dashboard.
+    function getCallerToken() {
       try {
-        const res = await fetch(`${API_BASE}/api/maintenance/status`);
-        const data = await res.json();
-        if (data.message) {
-          document.getElementById('maintMessage').textContent = data.message;
-        }
-        // If maintenance is already OFF, redirect to dashboard
-        if (!data.enabled) {
-          window.location.href = '/dashboard.html';
-          return;
-        }
+        return (localStorage.getItem('sh_admin_token')
+              || localStorage.getItem('sh_token')
+              || '').trim();
+      } catch (e) { return ''; }
+    }
+
+    // On load: fetch the latest maintenance message + caller access
+    (async function loadMessage() {
+      let data = null;
+      try {
+        const headers = { 'Accept': 'application/json' };
+        const token = getCallerToken();
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const res = await fetch(`${API_BASE}/api/maintenance/status`, { headers, cache: 'no-store' });
+        data = await res.json();
       } catch (e) {
-        // Keep default message
+        // Keep default message and stay put — a network blip is not a
+        // reason to dump a user into a redirect loop.
+        return;
+      }
+
+      if (data.message) {
+        document.getElementById('maintMessage').textContent = data.message;
+      }
+
+      // Redirect away from the maintenance page if either:
+      //  - maintenance is OFF for everyone, OR
+      //  - the caller is an admin / on the whitelist
+      // canAccess is computed server-side and is the single source of truth.
+      if (data && data.canAccess) {
+        const dest = (data.isAdmin || data.isWhitelisted) && AuthUserLooksLoggedIn()
+          ? '/dashboard.html'
+          : '/index.html';
+        window.location.replace(dest);
       }
     })();
+
+    function AuthUserLooksLoggedIn() {
+      try {
+        return !!(localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token'));
+      } catch (e) { return false; }
+    }
 
     async function tryAgain() {
       const btn = document.getElementById('tryAgainBtn');
       btn.classList.add('loading');
       btn.disabled = true;
 
+      let data = null;
       try {
-        const res = await fetch(`${API_BASE}/api/maintenance/status`);
-        const data = await res.json();
-
-        if (!data.enabled) {
-          // Maintenance is OFF — send user to dashboard
-          showToast('Website is back online! Redirecting...', 'success');
-          setTimeout(() => {
-            window.location.href = '/dashboard.html';
-          }, 800);
-          return;
-        }
-
-        // Still under maintenance
-        if (data.message) {
-          document.getElementById('maintMessage').textContent = data.message;
-        }
-        showToast('Still under maintenance. Please try again later.', 'info');
+        const headers = { 'Accept': 'application/json' };
+        const token = getCallerToken();
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+        const res = await fetch(`${API_BASE}/api/maintenance/status`, { headers, cache: 'no-store' });
+        data = await res.json();
       } catch (e) {
         showToast('Could not check status. Please try again.', 'info');
+        return;
       } finally {
         btn.classList.remove('loading');
         btn.disabled = false;
       }
+
+      // Server said this caller can come in — bounce them to dashboard.
+      if (data && data.canAccess) {
+        showToast('Welcome back! Redirecting...', 'success');
+        const dest = (data.isAdmin || data.isWhitelisted) && AuthUserLooksLoggedIn()
+          ? '/dashboard.html'
+          : '/index.html';
+        setTimeout(() => { window.location.replace(dest); }, 800);
+        return;
+      }
+
+      // Still under maintenance (or this caller still isn't allowed in)
+      if (data && data.message) {
+        document.getElementById('maintMessage').textContent = data.message;
+      }
+      showToast('Still under maintenance. Please try again later.', 'info');
     }
 
     function showToast(msg, type) {

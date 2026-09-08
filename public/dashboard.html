@@ -3964,11 +3964,18 @@
 
     // Maintenance mode guard — check server-side source of truth.
     // If maintenance is ON and the user is a normal user, redirect to the
-    // maintenance page. Admins are never affected (they use vault.html).
+    // maintenance page. Admins and whitelisted users are never affected
+    // (the server tells us via canAccess / isWhitelisted).
     try {
-      const mRes = await fetch('/api/maintenance/status');
+      const mHeaders = { 'Accept': 'application/json' };
+      try {
+        const tok = (localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token') || '').trim();
+        if (tok) mHeaders['Authorization'] = 'Bearer ' + tok;
+      } catch (e) { /* localStorage blocked — treat as anonymous */ }
+      const mRes = await fetch('/api/maintenance/status', { headers: mHeaders, cache: 'no-store' });
       const mData = await mRes.json();
-      if (mData && mData.enabled) {
+      // canAccess = maintenance OFF, or caller is admin / on the whitelist
+      if (mData && mData.enabled && !mData.canAccess) {
         window.location.href = '/maintenance.html';
         return;
       }

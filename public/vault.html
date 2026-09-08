@@ -2236,7 +2236,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
           🛠️ Website Maintenance
         </div>
         <p style="color:#6b88aa;font-size:.88rem;margin-bottom:18px">
-          Temporarily restrict user access while keeping the Admin Panel available.
+          Temporarily restrict user access while keeping the Admin Panel available. Add trusted emails below — they will continue to use the site normally while maintenance is ON.
         </p>
 
         <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
@@ -2265,6 +2265,20 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <label class="form-label" style="font-size:.78rem;margin-bottom:6px">Custom Maintenance Message (optional)</label>
           <textarea id="maintenanceMessage" class="form-input" rows="2" maxlength="500" placeholder="Leave blank to use the default message..." style="resize:vertical;min-height:60px;font-size:.86rem"></textarea>
           <small style="color:#6b88aa;font-size:.72rem">Shown to users on the maintenance page.</small>
+        </div>
+
+        <!-- Whitelist editor (always visible — admins can curate the list
+             even when maintenance is OFF, so toggling is instant) -->
+        <div id="maintenanceWhitelistWrap" style="margin-bottom:6px">
+          <label class="form-label" style="font-size:.78rem;margin-bottom:6px;display:flex;align-items:center;gap:8px">
+            Allowed Emails While Maintenance Is On
+            <span id="maintenanceWhitelistCount" style="font-size:.7rem;color:#6b88aa;font-weight:600"></span>
+          </label>
+          <textarea id="maintenanceWhitelist" class="form-input" rows="3" placeholder="one email per line, e.g.&#10;rupayandas2026@gmail.com&#10;friend@example.com" style="resize:vertical;min-height:70px;font-size:.86rem;font-family:'JetBrains Mono',monospace"></textarea>
+          <small style="color:#6b88aa;font-size:.72rem">These users (plus admins) keep full access while maintenance is ON. One email per line. Blank lines and invalid addresses are ignored.</small>
+          <div style="display:flex;justify-content:flex-end;margin-top:8px">
+            <button type="button" class="btn btn-sm" id="maintenanceWhitelistSaveBtn" onclick="saveMaintenanceWhitelist()" style="background:rgba(79,195,247,.12);color:#4fc3f7;border:1px solid rgba(79,195,247,.3);padding:7px 16px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.78rem">💾 Save Whitelist</button>
+          </div>
         </div>
 
         <!-- Loading spinner (shown during API calls) -->
