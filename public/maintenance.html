@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SaveHatke is temporarily under maintenance. Please check back shortly.">
+  <title>Under Maintenance — SaveHatke</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: #060d1f;
+      color: #e2ecff;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ── Ambient background glow ── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -30%;
+      left: -10%;
+      width: 60%;
+      height: 60%;
+      background: radial-gradient(ellipse, rgba(0,230,118,.06) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -20%;
+      right: -10%;
+      width: 50%;
+      height: 50%;
+      background: radial-gradient(ellipse, rgba(79,195,247,.04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Animations ── */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes gearSpin {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(360deg); }
+    }
+    @keyframes gearSpinReverse {
+      from { transform: rotate(0deg); }
+      to   { transform: rotate(-360deg); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50%      { transform: translateY(-8px); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 20px rgba(0,230,118,.15), 0 8px 32px rgba(0,0,0,.3); }
+      50%      { box-shadow: 0 0 30px rgba(0,230,118,.25), 0 8px 32px rgba(0,0,0,.3); }
+    }
+
+    /* ── Main container ── */
+    .maintenance-container {
+      position: relative;
+      z-index: 1;
+      max-width: 560px;
+      width: 100%;
+      padding: 32px 24px;
+      text-align: center;
+      animation: fadeInUp .7s ease;
+    }
+
+    /* ── Logo ── */
+    .logo-wrap {
+      margin-bottom: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .logo-wrap img {
+      width: 44px;
+      height: 44px;
+      object-fit: contain;
+    }
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: 800;
+      letter-spacing: -.02em;
+    }
+    .logo-text .green {
+      background: linear-gradient(135deg, #00e676, #4fc3f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    /* ── Gear illustration ── */
+    .gear-wrap {
+      margin-bottom: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      position: relative;
+      height: 110px;
+      animation: float 4s ease-in-out infinite;
+    }
+    .gear {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      position: relative;
+    }
+    .gear-lg {
+      width: 90px;
+      height: 90px;
+      animation: gearSpin 8s linear infinite;
+    }
+    .gear-sm {
+      width: 56px;
+      height: 56px;
+      animation: gearSpinReverse 6s linear infinite;
+      margin-left: -12px;
+      margin-top: -30px;
+    }
+    .gear svg {
+      width: 100%;
+      height: 100%;
+    }
+    .gear-lg svg {
+      color: #00e676;
+      filter: drop-shadow(0 0 12px rgba(0,230,118,.3));
+    }
+    .gear-sm svg {
+      color: #4fc3f7;
+      filter: drop-shadow(0 0 8px rgba(79,195,247,.3));
+    }
+
+    /* ── Wrench icon ── */
+    .wrench-icon {
+      font-size: 2.2rem;
+      margin-bottom: 12px;
+      display: inline-block;
+    }
+
+    /* ── Heading ── */
+    .maint-heading {
+      font-family: 'DM Serif Display', serif;
+      font-size: 2rem;
+      line-height: 1.2;
+      margin-bottom: 16px;
+      color: #e2ecff;
+    }
+    .maint-heading .highlight {
+      background: linear-gradient(90deg, #00e676 0%, #4fc3f7 35%, #00e676 70%, #4fc3f7 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 3.5s linear infinite;
+    }
+
+    /* ── Message ── */
+    .maint-message {
+      font-size: 1rem;
+      line-height: 1.7;
+      color: #8ba2c4;
+      max-width: 440px;
+      margin: 0 auto 32px;
+    }
+
+    /* ── Try Again button ── */
+    .try-again-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 32px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #00e676, #00c853);
+      color: #060d1f;
+      font-family: 'Outfit', sans-serif;
+      font-size: .95rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      transition: all .25s;
+      animation: pulseGlow 3s ease-in-out infinite;
+    }
+    .try-again-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 36px rgba(0,230,118,.4);
+    }
+    .try-again-btn:active {
+      transform: translateY(0);
+    }
+    .try-again-btn:disabled {
+      opacity: .6;
+      cursor: wait;
+      animation: none;
+    }
+    .try-again-btn .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(6,13,31,.2);
+      border-top-color: #060d1f;
+      border-radius: 50%;
+      animation: gearSpin .7s linear infinite;
+      display: none;
+    }
+    .try-again-btn.loading .spinner { display: inline-block; }
+    .try-again-btn.loading .btn-text { display: none; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: rgba(12,24,52,.95);
+      border: 1px solid rgba(79,195,247,.2);
+      backdrop-filter: blur(12px);
+      color: #e2ecff;
+      padding: 12px 22px;
+      border-radius: 12px;
+      font-size: .88rem;
+      font-weight: 600;
+      box-shadow: 0 12px 40px rgba(0,0,0,.5);
+      z-index: 100;
+      opacity: 0;
+      transition: all .35s ease;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast.success { border-color: rgba(0,230,118,.35); }
+    .toast.info    { border-color: rgba(79,195,247,.35); }
+
+    /* ── Footer ── */
+    .maint-footer {
+      margin-top: 48px;
+      font-size: .78rem;
+      color: #4a6080;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .maint-heading { font-size: 1.55rem; }
+      .maint-message { font-size: .92rem; }
+      .gear-lg { width: 72px; height: 72px; }
+      .gear-sm { width: 44px; height: 44px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="maintenance-container">
+
+    <!-- Logo -->
+    <div class="logo-wrap">
+      <img src="logo.png" alt="SaveHatke">
+      <div class="logo-text">Save<span class="green">Hatke</span></div>
+    </div>
+
+    <!-- Animated gear illustration -->
+    <div class="gear-wrap">
+      <div class="gear gear-lg">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </div>
+      <div class="gear gear-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Heading -->
+    <h1 class="maint-heading">
+      🔧 We're <span class="highlight">Under Maintenance</span>
+    </h1>
+
+    <!-- Message (dynamic from server, or default) -->
+    <p class="maint-message" id="maintMessage">
+      SaveHatke is temporarily unavailable while we make some improvements.
+      Please check back shortly. Thank you for your patience.
+    </p>
+
+    <!-- Try Again button -->
+    <button class="try-again-btn" id="tryAgainBtn" onclick="tryAgain()">
+      <span class="btn-text">🔄 Try Again</span>
+      <span class="spinner"></span>
+    </button>
+
+    <!-- Footer -->
+    <div class="maint-footer">
+      &copy; SaveHatke · We'll be back soon
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API_BASE = window.location.origin;
+
+    // On load: fetch the latest maintenance message
+    (async function loadMessage() {
+      try {
+        const res = await fetch(`${API_BASE}/api/maintenance/status`);
+        const data = await res.json();
+        if (data.message) {
+          document.getElementById('maintMessage').textContent = data.message;
+        }
+        // If maintenance is already OFF, redirect to dashboard
+        if (!data.enabled) {
+          window.location.href = '/dashboard.html';
+          return;
+        }
+      } catch (e) {
+        // Keep default message
+      }
+    })();
+
+    async function tryAgain() {
+      const btn = document.getElementById('tryAgainBtn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/maintenance/status`);
+        const data = await res.json();
+
+        if (!data.enabled) {
+          // Maintenance is OFF — send user to dashboard
+          showToast('Website is back online! Redirecting...', 'success');
+          setTimeout(() => {
+            window.location.href = '/dashboard.html';
+          }, 800);
+          return;
+        }
+
+        // Still under maintenance
+        if (data.message) {
+          document.getElementById('maintMessage').textContent = data.message;
+        }
+        showToast('Still under maintenance. Please try again later.', 'info');
+      } catch (e) {
+        showToast('Could not check status. Please try again.', 'info');
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
+      }
+    }
+
+    function showToast(msg, type) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = 'toast ' + (type || 'info');
+      // Force reflow for animation reset
+      void el.offsetHeight;
+      el.classList.add('show');
+      setTimeout(() => { el.classList.remove('show'); }, 3500);
+    }
+  </script>
+</body>
+</html>

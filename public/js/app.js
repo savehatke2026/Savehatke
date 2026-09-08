@@ -255,6 +255,19 @@ async function api(endpoint, options = {}) {
         handleSessionExpired();
         throw err;
       }
+      // Maintenance mode — the server has blocked this user request because
+      // maintenance is ON and the requester is a normal user. Redirect to the
+      // maintenance page without logging the user out (session stays valid).
+      if (data && data.code === 'MAINTENANCE_MODE') {
+        const err = new Error(data.message || 'Website is under maintenance.');
+        err.status = res.status;
+        err.maintenanceMode = true;
+        const page = (window.location.pathname.split('/').pop() || '').toLowerCase();
+        if (page !== 'maintenance' && page !== 'maintenance.html') {
+          window.location.href = '/maintenance.html';
+        }
+        throw err;
+      }
       // Rate-limited: surface a friendlier message that tells the admin this is
       // temporary, since it can otherwise look like a real failure.
       if (res.status === 429) {

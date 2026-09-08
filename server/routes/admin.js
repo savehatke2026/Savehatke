@@ -1544,5 +1544,46 @@ async function handleMonthlyRun(req, res) {
     res.status(500).json({ error: err.message || 'Failed to generate the report.' });
   }
 }
+// ════════════════════════════════════════════════════════════════════════
+// MAINTENANCE MODE
+// ════════════════════════════════════════════════════════════════════════
+
+// GET /api/admin/maintenance — Get current maintenance mode status
+router.get('/maintenance', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const status = await supabase.getMaintenanceMode();
+    res.json(status);
+  } catch (err) {
+    console.error('Admin get maintenance status error:', err);
+    res.status(500).json({ error: 'Failed to fetch maintenance status.' });
+  }
+});
+
+// PUT /api/admin/maintenance — Toggle maintenance mode ON/OFF
+router.put('/maintenance', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { enabled, message } = req.body;
+
+    if (typeof enabled !== 'boolean') {
+      return res.status(400).json({ error: 'The "enabled" field must be a boolean (true/false).' });
+    }
+
+    const adminEmail = (req.user && req.user.email) || 'unknown';
+    const result = await supabase.setMaintenanceMode(enabled, message || '', adminEmail);
+
+    const action = enabled ? 'enabled' : 'disabled';
+    console.log(`[Maintenance] Mode ${action} by ${adminEmail}`);
+
+    res.json({
+      message: enabled
+        ? 'Maintenance mode enabled. Normal users are now restricted.'
+        : 'Maintenance mode disabled. Website is live for all users.',
+      ...result,
+    });
+  } catch (err) {
+    console.error('Admin update maintenance status error:', err);
+    res.status(500).json({ error: 'Failed to update maintenance mode: ' + err.message });
+  }
+});
 
 module.exports = router;

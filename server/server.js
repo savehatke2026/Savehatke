@@ -36,6 +36,7 @@ const driveProxyRoutes = require('./routes/driveProxy');
 const backupCodeRoutes = require('./routes/backupCode');
 const sosRoutes = require('./routes/sos');
 const consentRoutes = require('./routes/consent');
+const maintenanceGuard = require('./middleware/maintenance');
 
 const app = express();
 
@@ -168,8 +169,8 @@ app.use('/api/coupons/sell', couponSubmissionLimiter);
 app.use('/api/coupons/submit', couponSubmissionLimiter);
 app.use('/api/coupons/proof', couponSubmissionLimiter);
 app.use('/api/coupons/scan', couponScanLimiter);
-app.use('/api/coupons', apiLimiter, couponRoutes);
-app.use('/api/tracker', apiLimiter, trackerRoutes);
+app.use('/api/coupons', apiLimiter, maintenanceGuard, couponRoutes);
+app.use('/api/tracker', apiLimiter, maintenanceGuard, trackerRoutes);
 app.use('/api/admin/gmail', gmailRoutes); // own rate limits; must precede /api/admin to avoid the generic limiter
 // SOS backup access. Mounted before /api/admin so it keeps its own tight
 // limiter instead of the generous authenticated-admin one.
@@ -201,24 +202,38 @@ app.use('/api/admin', (req, res, next) => {
 // get a tighter cap than the rest of the support API. Mounted first so it
 // applies before the generic apiLimiter on the line below.
 app.use('/api/support/attachment', supportUploadLimiter);
-app.use('/api/support', apiLimiter, supportRoutes);
-app.use('/api/reviews', apiLimiter, reviewRoutes); // buyer reviews of purchased coupons
+app.use('/api/support', apiLimiter, maintenanceGuard, supportRoutes);
+app.use('/api/reviews', apiLimiter, maintenanceGuard, reviewRoutes); // buyer reviews of purchased coupons
 app.use('/api/testimonials', apiLimiter, testimonialRoutes); // homepage testimonials — public read, admin CRUD
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
-app.use('/api/chat', chatRoutes); // /api/chat applies its own service-level rate limits
-app.use('/api/payments', apiLimiter, paymentRoutes); // Razorpay: /api/payments/{config,create-order,verify}
-app.use('/api/proxy/drive', apiLimiter, driveProxyRoutes); // Auth-protected Google Drive file streaming
+app.use('/api/chat', maintenanceGuard, chatRoutes); // /api/chat applies its own service-level rate limits
+app.use('/api/payments', apiLimiter, maintenanceGuard, paymentRoutes); // Razorpay: /api/payments/{config,create-order,verify}
+app.use('/api/proxy/drive', apiLimiter, maintenanceGuard, driveProxyRoutes); // Auth-protected Google Drive file streaming
 // Read-only view of the visitor's cookie consent. Mounted before the generic
 // '/api' router below so it is not shadowed by it, and left off the rate limiter
 // on purpose: it is a cheap cookie read that any page may call on load, and
 // throttling it would make the consent state unreadable exactly when a visitor
 // is browsing quickly.
 app.use('/api/consent', consentRoutes);
-app.use('/api', apiLimiter, payoutRoutes); // /api/payouts/* (seller)
+app.use('/api', apiLimiter, maintenanceGuard, payoutRoutes); // /api/payouts/* (seller)
 
 // Public Turnstile site key for CAPTCHA widgets (secret stays in .env)
 app.get('/api/turnstile-config', (req, res) => {
   res.json({ siteKey: process.env.TURNSTILE_SITE_KEY || '' });
+});
+
+// Public maintenance mode status (no auth required — called by the maintenance
+// page "Try Again" button and the dashboard auth guard to decide where to send
+// the user). Deliberately unauthenticated so it works before login.
+app.get('/api/maintenance/status', async (req, res) => {
+  try {
+    const supabaseService = require('./services/supabase');
+    const status = await supabaseService.getMaintenanceMode();
+    res.json({ enabled: status.enabled, message: status.message });
+  } catch (err) {
+    // Fail open — if the check fails, report maintenance as off
+    res.json({ enabled: false, message: '' });
+  }
 });
 
 // Public settings route (for index.html hero stats & platform settings)
@@ -325,6 +340,7 @@ async function initServices() {
   const supabase = require('./services/supabase');
   if (supabase.isConfigured()) {
     await supabase.ensureSessionsTable();
+    await supabase.ensureSiteSettingsTable();
   }
 
   // 48-hour session expiry sweep — a real interval on a long-running server;

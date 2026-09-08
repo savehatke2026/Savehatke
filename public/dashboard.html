@@ -3962,6 +3962,20 @@
       return;
     }
 
+    // Maintenance mode guard — check server-side source of truth.
+    // If maintenance is ON and the user is a normal user, redirect to the
+    // maintenance page. Admins are never affected (they use vault.html).
+    try {
+      const mRes = await fetch('/api/maintenance/status');
+      const mData = await mRes.json();
+      if (mData && mData.enabled) {
+        window.location.href = '/maintenance.html';
+        return;
+      }
+    } catch (e) {
+      // If the check fails, allow access (fail open)
+    }
+
     // Apply basic user from localStorage immediately so the greeting isn't empty
     const local = Auth.getUser();
     if (local) applyUserToUI(local);

@@ -1161,6 +1161,114 @@ async function stampBackupCodeUsage(id, { ip = '', reason = '' } = {}) {
   });
 }
 
+// ── Maintenance Mode (site_settings table) ──────────────────────────────
+// The maintenance flag lives in a Supabase `site_settings` table (key-value
+// with JSONB values). Reads are cached in-memory for 10 seconds so the guard
+// middleware doesn't hit the DB on every request. Writes invalidate the cache
+// immediately so admin toggles take effect instantly on this server instance.
+
+const MAINTENANCE_CACHE_TTL_MS = 10 * 1000; // 10 seconds
+let maintenanceCache = null;  // { data, fetchedAt }
+
+/**
+ * Ensure the site_settings table exists in Supabase.
+ * Called once on startup; silently succeeds if already present.
+ */
+async function ensureSiteSettingsTable() {
+  const client = getClient();
+  if (!client) return;
+
+  try {
+    await client.from('site_settings').select('key').limit(1);
+  } catch (err) {
+    console.warn('site_settings table probe failed (may need manual creation):', err.message);
+    console.warn('Run supabase/migrations/maintenance_mode.sql in Supabase SQL Editor.');
+  }
+}
+
+/**
+ * Get the current maintenance mode status.
+ * Returns { enabled: boolean, message: string, updatedAt?: string, updatedBy?: string }
+ * Uses a 10-second in-memory cache to avoid per-request DB calls.
+ */
+async function getMaintenanceMode() {
+  // Return cached value if fresh
+  if (maintenanceCache && (Date.now() - maintenanceCache.fetchedAt) < MAINTENANCE_CACHE_TTL_MS) {
+    return maintenanceCache.data;
+  }
+
+  const client = getClient();
+  if (!client) {
+    return { enabled: false, message: '' }; // fail open
+  }
+
+  try {
+    const { data, error } = await client
+      .from('site_settings')
+      .select('value, updated_at, updated_by')
+      .eq('key', 'maintenance_mode')
+      .limit(1)
+      .single();
+
+    if (error || !data) {
+      // Table or row doesn't exist yet — maintenance is off
+      return { enabled: false, message: '' };
+    }
+
+    const val = data.value || {};
+    const result = {
+      enabled: Boolean(val.enabled),
+      message: val.message || '',
+      updatedAt: data.updated_at || '',
+      updatedBy: data.updated_by || '',
+    };
+
+    maintenanceCache = { data: result, fetchedAt: Date.now() };
+    return result;
+  } catch (err) {
+    console.warn('getMaintenanceMode error (failing open):', err.message);
+    return { enabled: false, message: '' };
+  }
+}
+
+/**
+ * Set the maintenance mode status. Only called by admin API endpoints.
+ * @param {boolean} enabled
+ * @param {string} message - Optional custom maintenance message
+ * @param {string} adminEmail - Email of the admin making the change
+ */
+async function setMaintenanceMode(enabled, message, adminEmail) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase not configured');
+
+  const now = new Date().toISOString();
+  const { data, error } = await client
+    .from('site_settings')
+    .upsert({
+      key: 'maintenance_mode',
+      value: { enabled: Boolean(enabled), message: message || '' },
+      updated_at: now,
+      updated_by: adminEmail || '',
+    }, { onConflict: 'key' })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error('Failed to update maintenance mode: ' + error.message);
+  }
+
+  // Invalidate cache immediately so this instance reflects the change
+  maintenanceCache = null;
+
+  const val = data.value || {};
+  return {
+    enabled: Boolean(val.enabled),
+    message: val.message || '',
+    updatedAt: data.updated_at || now,
+    updatedBy: data.updated_by || adminEmail || '',
+  };
+}
+
 module.exports = {
   getClient,
   isConfigured,
@@ -1204,5 +1312,9 @@ module.exports = {
   findBackupCodeById,
   updateBackupCode,
   stampBackupCodeUsage,
+  // Maintenance mode (site_settings)
+  ensureSiteSettingsTable,
+  getMaintenanceMode,
+  setMaintenanceMode,
 };
 

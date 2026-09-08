@@ -2230,6 +2230,49 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div><div class="page-title">System <span class="gtext">Settings</span></div><div class="page-subtitle">Configure SaveHatke application &amp; homepage defaults (Saved in Google Sheets)</div></div>
       </div>
 
+      <!-- ── Website Maintenance ── -->
+      <div class="card" id="maintenanceCard" style="margin-bottom:24px;border:1px solid rgba(79,195,247,.12)">
+        <div class="card-title" style="display:flex;align-items:center;gap:10px">
+          🛠️ Website Maintenance
+        </div>
+        <p style="color:#6b88aa;font-size:.88rem;margin-bottom:18px">
+          Temporarily restrict user access while keeping the Admin Panel available.
+        </p>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span style="font-size:.9rem;font-weight:600;color:#a8c0dc">Maintenance Mode</span>
+            <label class="toggle" style="flex-shrink:0">
+              <input type="checkbox" id="maintenanceToggle" onchange="toggleMaintenanceMode()">
+              <span class="toggle-slider"></span>
+            </label>
+            <span id="maintenanceToggleLabel" style="font-size:.82rem;font-weight:700;letter-spacing:.06em;padding:3px 10px;border-radius:6px;background:rgba(0,230,118,.12);color:#00e676">OFF</span>
+          </div>
+          <div id="maintenanceUpdatedBy" style="font-size:.72rem;color:#6b88aa;display:none"></div>
+        </div>
+
+        <!-- Status message -->
+        <div id="maintenanceStatusBox" style="display:flex;align-items:flex-start;gap:10px;padding:12px 16px;border-radius:10px;background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.18);margin-bottom:14px">
+          <span id="maintenanceStatusIcon" style="font-size:1rem;flex-shrink:0;margin-top:1px">✓</span>
+          <div>
+            <div id="maintenanceStatusTitle" style="font-size:.88rem;font-weight:700;color:#00e676;margin-bottom:2px">Website is Live</div>
+            <div id="maintenanceStatusDesc" style="font-size:.8rem;color:#6b88aa">Users can access SaveHatke normally.</div>
+          </div>
+        </div>
+
+        <!-- Optional custom message (hidden by default, shown when ON) -->
+        <div id="maintenanceMessageWrap" style="display:none;margin-bottom:14px">
+          <label class="form-label" style="font-size:.78rem;margin-bottom:6px">Custom Maintenance Message (optional)</label>
+          <textarea id="maintenanceMessage" class="form-input" rows="2" maxlength="500" placeholder="Leave blank to use the default message..." style="resize:vertical;min-height:60px;font-size:.86rem"></textarea>
+          <small style="color:#6b88aa;font-size:.72rem">Shown to users on the maintenance page.</small>
+        </div>
+
+        <!-- Loading spinner (shown during API calls) -->
+        <div id="maintenanceSpinner" style="display:none;text-align:center;padding:8px">
+          <span class="spinner"></span>
+        </div>
+      </div>
+
       <div class="card" style="margin-bottom:24px">
         <div class="card-title">📊 Website Hero Statistics (Landing Page Counters)</div>
         <p style="color:#6b88aa;font-size:0.88rem;margin-bottom:16px">Control the statistics shown on the index.html landing page hero section. Toggle visibility and edit values.</p>
@@ -3249,6 +3292,7 @@ function showSection(id, navEl) {
   }
   if (id === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
+    if (typeof loadMaintenanceStatus === 'function') loadMaintenanceStatus();
   }
   if (id === 'support' && typeof loadSupportCases === 'function') {
     loadSupportCases();

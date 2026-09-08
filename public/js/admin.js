@@ -3034,3 +3034,120 @@ async function saveSystemSettings() {
     }
   }
 }
+
+// ════════════════════════════════════════════════════════════════════════
+// MAINTENANCE MODE
+// ════════════════════════════════════════════════════════════════════════
+
+/**
+ * Fetch current maintenance mode status from the server and update the UI.
+ * Called when the Settings section is opened.
+ */
+async function loadMaintenanceStatus() {
+  const spinner = document.getElementById('maintenanceSpinner');
+  if (spinner) spinner.style.display = 'block';
+
+  try {
+    const data = await api('/admin/maintenance', { useAdmin: true });
+    applyMaintenanceUI(data);
+  } catch (err) {
+    console.warn('Failed to load maintenance status:', err.message);
+    // Show default OFF state
+    applyMaintenanceUI({ enabled: false, message: '', updatedBy: '', updatedAt: '' });
+  } finally {
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+/**
+ * Toggle maintenance mode ON/OFF. Called when the admin clicks the toggle.
+ */
+async function toggleMaintenanceMode() {
+  const toggle = document.getElementById('maintenanceToggle');
+  const spinner = document.getElementById('maintenanceSpinner');
+  const enabled = toggle ? toggle.checked : false;
+  const message = (document.getElementById('maintenanceMessage')?.value || '').trim();
+
+  if (spinner) spinner.style.display = 'block';
+
+  try {
+    const data = await api('/admin/maintenance', {
+      method: 'PUT',
+      useAdmin: true,
+      body: { enabled, message },
+    });
+
+    applyMaintenanceUI(data);
+
+    if (typeof showToast === 'function') {
+      showToast(
+        data.message || (enabled
+          ? 'Maintenance mode enabled. Normal users are restricted.'
+          : 'Maintenance mode disabled. Website is live.'),
+        enabled ? 'warning' : 'success'
+      );
+    }
+  } catch (err) {
+    // Revert toggle on failure
+    if (toggle) toggle.checked = !enabled;
+    applyMaintenanceUI({ enabled: !enabled });
+
+    if (typeof showToast === 'function') {
+      showToast(err.message || 'Failed to update maintenance mode.', 'error');
+    }
+  } finally {
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+/**
+ * Update all maintenance card UI elements to reflect the current state.
+ */
+function applyMaintenanceUI(data) {
+  const enabled = Boolean(data && data.enabled);
+  const toggle = document.getElementById('maintenanceToggle');
+  const label = document.getElementById('maintenanceToggleLabel');
+  const statusBox = document.getElementById('maintenanceStatusBox');
+  const statusIcon = document.getElementById('maintenanceStatusIcon');
+  const statusTitle = document.getElementById('maintenanceStatusTitle');
+  const statusDesc = document.getElementById('maintenanceStatusDesc');
+  const messageWrap = document.getElementById('maintenanceMessageWrap');
+  const messageInput = document.getElementById('maintenanceMessage');
+  const updatedBy = document.getElementById('maintenanceUpdatedBy');
+
+  if (toggle) toggle.checked = enabled;
+
+  if (label) {
+    label.textContent = enabled ? 'ON' : 'OFF';
+    label.style.background = enabled ? 'rgba(255,183,77,.15)' : 'rgba(0,230,118,.12)';
+    label.style.color = enabled ? '#ffb74d' : '#00e676';
+  }
+
+  if (statusBox) {
+    statusBox.style.background = enabled ? 'rgba(255,183,77,.06)' : 'rgba(0,230,118,.06)';
+    statusBox.style.borderColor = enabled ? 'rgba(255,183,77,.22)' : 'rgba(0,230,118,.18)';
+  }
+  if (statusIcon) statusIcon.textContent = enabled ? '⚠' : '✓';
+  if (statusTitle) {
+    statusTitle.textContent = enabled ? 'Maintenance Mode Active' : 'Website is Live';
+    statusTitle.style.color = enabled ? '#ffb74d' : '#00e676';
+  }
+  if (statusDesc) {
+    statusDesc.textContent = enabled
+      ? 'Normal users are currently restricted from accessing the website. Admin access remains available.'
+      : 'Users can access SaveHatke normally.';
+  }
+
+  // Show/hide custom message textarea
+  if (messageWrap) messageWrap.style.display = enabled ? 'block' : 'none';
+  if (messageInput && data && data.message) messageInput.value = data.message;
+
+  // Show who last changed it
+  if (updatedBy && data && data.updatedBy) {
+    const when = data.updatedAt ? new Date(data.updatedAt).toLocaleString('en-IN', {
+      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+    }) : '';
+    updatedBy.textContent = `Last changed by ${data.updatedBy}${when ? ' · ' + when : ''}`;
+    updatedBy.style.display = 'block';
+  }
+}
