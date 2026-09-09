@@ -228,11 +228,11 @@ const BRAND_LOGOS = {
   'Uber':               '/logos/uber.svg',
   'Booking.com':        '/logos/booking.svg',
   'Reliance Digital':   '/logos/reliance-digital.svg',
-  'ixigo':              'https://upload.wikimedia.org/wikipedia/commons/9/9a/Ixigo_logo.svg',
-  'Shopsy':             'https://upload.wikimedia.org/wikipedia/commons/f/fd/Shopsy.jpg',
-  'Snapdeal':           'https://upload.wikimedia.org/wikipedia/commons/e/ef/Snapdeal_new_official_logo.png',
-  'Tata CLiQ':          'https://upload.wikimedia.org/wikipedia/commons/f/fa/TATA_Cliq_Logo.jpg',
-  'Netflix':            'https://upload.wikimedia.org/wikipedia/commons/0/08/Netflix_2015_logo.svg',
+  'ixigo':              '/logos/ixigo.svg',
+  'Shopsy':             '/logos/shopsy.jpg',
+  'Snapdeal':           '/logos/snapdeal.png',
+  'Tata CLiQ':          '/logos/tata-cliq.jpg',
+  'Netflix':            '/logos/netflix.svg',
 };
 
 /**
@@ -302,10 +302,17 @@ const BRAND_LOGO_MONO_DARK = new Set([
 // navy wordmark, Pizza Hut's black lettering, Snapdeal's black "snapdeal" beside
 // its red mark). These get a light chip behind them — the logo is untouched, the
 // chip is only as big as the logo.
+//
+// The JPGs are here for a different reason: JPEG cannot carry transparency, so
+// the background behind the artwork is baked in. For these two it is solid
+// white, which would sit as a harsh white slab on a dark card; the chip is the
+// same white, so the slab reads as a deliberate badge instead.
 const BRAND_LOGO_LIGHT_CHIP = new Set([
   '/logos/booking.svg',
   '/logos/pizzahut.svg',
-  'https://upload.wikimedia.org/wikipedia/commons/e/ef/Snapdeal_new_official_logo.png',
+  '/logos/snapdeal.png',
+  '/logos/shopsy.jpg',
+  '/logos/tata-cliq.jpg',
 ]);
 
 /**
