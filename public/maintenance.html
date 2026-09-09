@@ -56,25 +56,9 @@
       from { opacity: 0; transform: translateY(24px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes gearSpin {
-      from { transform: rotate(0deg); }
-      to   { transform: rotate(360deg); }
-    }
-    @keyframes gearSpinReverse {
-      from { transform: rotate(0deg); }
-      to   { transform: rotate(-360deg); }
-    }
-    @keyframes float {
-      0%, 100% { transform: translateY(0); }
-      50%      { transform: translateY(-8px); }
-    }
     @keyframes shimmer {
       0%   { background-position: -200% center; }
       100% { background-position: 200% center; }
-    }
-    @keyframes pulseGlow {
-      0%, 100% { box-shadow: 0 0 20px rgba(0,230,118,.15), 0 8px 32px rgba(0,0,0,.3); }
-      50%      { box-shadow: 0 0 30px rgba(0,230,118,.25), 0 8px 32px rgba(0,0,0,.3); }
     }
 
     /* ── Main container ── */
@@ -86,81 +70,6 @@
       padding: 32px 24px;
       text-align: center;
       animation: fadeInUp .7s ease;
-    }
-
-    /* ── Logo ── */
-    .logo-wrap {
-      margin-bottom: 32px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-    }
-    .logo-wrap img {
-      width: 44px;
-      height: 44px;
-      object-fit: contain;
-    }
-    .logo-text {
-      font-size: 1.5rem;
-      font-weight: 800;
-      letter-spacing: -.02em;
-    }
-    .logo-text .green {
-      background: linear-gradient(135deg, #00e676, #4fc3f7);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    /* ── Gear illustration ── */
-    .gear-wrap {
-      margin-bottom: 28px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-      position: relative;
-      height: 110px;
-      animation: float 4s ease-in-out infinite;
-    }
-    .gear {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 50%;
-      position: relative;
-    }
-    .gear-lg {
-      width: 90px;
-      height: 90px;
-      animation: gearSpin 8s linear infinite;
-    }
-    .gear-sm {
-      width: 56px;
-      height: 56px;
-      animation: gearSpinReverse 6s linear infinite;
-      margin-left: -12px;
-      margin-top: -30px;
-    }
-    .gear svg {
-      width: 100%;
-      height: 100%;
-    }
-    .gear-lg svg {
-      color: #00e676;
-      filter: drop-shadow(0 0 12px rgba(0,230,118,.3));
-    }
-    .gear-sm svg {
-      color: #4fc3f7;
-      filter: drop-shadow(0 0 8px rgba(79,195,247,.3));
-    }
-
-    /* ── Wrench icon ── */
-    .wrench-icon {
-      font-size: 2.2rem;
-      margin-bottom: 12px;
-      display: inline-block;
     }
 
     /* ── Heading ── */
@@ -189,75 +98,6 @@
       margin: 0 auto 32px;
     }
 
-    /* ── Try Again button ── */
-    .try-again-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 0 32px;
-      height: 48px;
-      border-radius: 12px;
-      background: linear-gradient(135deg, #00e676, #00c853);
-      color: #060d1f;
-      font-family: 'Outfit', sans-serif;
-      font-size: .95rem;
-      font-weight: 700;
-      border: none;
-      cursor: pointer;
-      transition: all .25s;
-      animation: pulseGlow 3s ease-in-out infinite;
-    }
-    .try-again-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 12px 36px rgba(0,230,118,.4);
-    }
-    .try-again-btn:active {
-      transform: translateY(0);
-    }
-    .try-again-btn:disabled {
-      opacity: .6;
-      cursor: wait;
-      animation: none;
-    }
-    .try-again-btn .spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(6,13,31,.2);
-      border-top-color: #060d1f;
-      border-radius: 50%;
-      animation: gearSpin .7s linear infinite;
-      display: none;
-    }
-    .try-again-btn.loading .spinner { display: inline-block; }
-    .try-again-btn.loading .btn-text { display: none; }
-
-    /* ── Toast ── */
-    .toast {
-      position: fixed;
-      bottom: 28px;
-      left: 50%;
-      transform: translateX(-50%) translateY(80px);
-      background: rgba(12,24,52,.95);
-      border: 1px solid rgba(79,195,247,.2);
-      backdrop-filter: blur(12px);
-      color: #e2ecff;
-      padding: 12px 22px;
-      border-radius: 12px;
-      font-size: .88rem;
-      font-weight: 600;
-      box-shadow: 0 12px 40px rgba(0,0,0,.5);
-      z-index: 100;
-      opacity: 0;
-      transition: all .35s ease;
-      white-space: nowrap;
-    }
-    .toast.show {
-      opacity: 1;
-      transform: translateX(-50%) translateY(0);
-    }
-    .toast.success { border-color: rgba(0,230,118,.35); }
-    .toast.info    { border-color: rgba(79,195,247,.35); }
-
     /* ── Footer ── */
     .maint-footer {
       margin-top: 48px;
@@ -269,36 +109,12 @@
     @media (max-width: 480px) {
       .maint-heading { font-size: 1.55rem; }
       .maint-message { font-size: .92rem; }
-      .gear-lg { width: 72px; height: 72px; }
-      .gear-sm { width: 44px; height: 44px; }
     }
   </style>
 </head>
 <body>
 
   <div class="maintenance-container">
-
-    <!-- Logo -->
-    <div class="logo-wrap">
-      <img src="logo.png" alt="SaveHatke">
-      <div class="logo-text">Save<span class="green">Hatke</span></div>
-    </div>
-
-    <!-- Animated gear illustration -->
-    <div class="gear-wrap">
-      <div class="gear gear-lg">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </div>
-      <div class="gear gear-sm">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </div>
-    </div>
 
     <!-- Heading -->
     <h1 class="maint-heading">
@@ -311,29 +127,18 @@
       Please check back shortly. Thank you for your patience.
     </p>
 
-    <!-- Try Again button -->
-    <button class="try-again-btn" id="tryAgainBtn" onclick="tryAgain()">
-      <span class="btn-text">🔄 Try Again</span>
-      <span class="spinner"></span>
-    </button>
-
     <!-- Footer -->
     <div class="maint-footer">
       &copy; SaveHatke · We'll be back soon
     </div>
   </div>
 
-  <!-- Toast notification -->
-  <div class="toast" id="toast"></div>
-
   <script>
     const API_BASE = window.location.origin;
 
     // Pull the caller's stored token (if any) so the status endpoint can
-    // tell us whether THIS browser session is on the admin/whitelist side
-    // of the gate. Without it, a whitelisted user landing on this page
-    // would be stuck staring at the maintenance spinner instead of
-    // being sent straight through to the dashboard.
+    // tell us whether THIS browser session is an admin. Admins are never
+    // held on the maintenance page.
     function getCallerToken() {
       try {
         return (localStorage.getItem('sh_admin_token')
@@ -342,7 +147,9 @@
       } catch (e) { return ''; }
     }
 
-    // On load: fetch the latest maintenance message + caller access
+    // On load: fetch the latest maintenance message + caller access.
+    // The server already 302s this page to /index when maintenance is OFF;
+    // this check is a client-side fallback for a cached copy of the page.
     (async function loadMessage() {
       let data = null;
       try {
@@ -363,67 +170,20 @@
 
       // Redirect away from the maintenance page if either:
       //  - maintenance is OFF for everyone, OR
-      //  - the caller is an admin / on the whitelist
+      //  - the caller is an admin
       // canAccess is computed server-side and is the single source of truth.
       if (data && data.canAccess) {
-        const dest = (data.isAdmin || data.isWhitelisted) && AuthUserLooksLoggedIn()
+        const dest = data.isAdmin && adminLooksLoggedIn()
           ? '/dashboard.html'
           : '/index.html';
         window.location.replace(dest);
       }
     })();
 
-    function AuthUserLooksLoggedIn() {
+    function adminLooksLoggedIn() {
       try {
-        return !!(localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token'));
+        return !!localStorage.getItem('sh_admin_token');
       } catch (e) { return false; }
-    }
-
-    async function tryAgain() {
-      const btn = document.getElementById('tryAgainBtn');
-      btn.classList.add('loading');
-      btn.disabled = true;
-
-      let data = null;
-      try {
-        const headers = { 'Accept': 'application/json' };
-        const token = getCallerToken();
-        if (token) headers['Authorization'] = 'Bearer ' + token;
-        const res = await fetch(`${API_BASE}/api/maintenance/status`, { headers, cache: 'no-store' });
-        data = await res.json();
-      } catch (e) {
-        showToast('Could not check status. Please try again.', 'info');
-        return;
-      } finally {
-        btn.classList.remove('loading');
-        btn.disabled = false;
-      }
-
-      // Server said this caller can come in — bounce them to dashboard.
-      if (data && data.canAccess) {
-        showToast('Welcome back! Redirecting...', 'success');
-        const dest = (data.isAdmin || data.isWhitelisted) && AuthUserLooksLoggedIn()
-          ? '/dashboard.html'
-          : '/index.html';
-        setTimeout(() => { window.location.replace(dest); }, 800);
-        return;
-      }
-
-      // Still under maintenance (or this caller still isn't allowed in)
-      if (data && data.message) {
-        document.getElementById('maintMessage').textContent = data.message;
-      }
-      showToast('Still under maintenance. Please try again later.', 'info');
-    }
-
-    function showToast(msg, type) {
-      const el = document.getElementById('toast');
-      el.textContent = msg;
-      el.className = 'toast ' + (type || 'info');
-      // Force reflow for animation reset
-      void el.offsetHeight;
-      el.classList.add('show');
-      setTimeout(() => { el.classList.remove('show'); }, 3500);
     }
   </script>
 </body>

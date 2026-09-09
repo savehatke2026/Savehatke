@@ -1586,47 +1586,4 @@ router.put('/maintenance', authenticateToken, requireAdmin, async (req, res) => 
   }
 });
 
-// GET /api/admin/maintenance/whitelist — Read the current whitelist.
-// Returns the email list plus who last touched it and when.
-router.get('/maintenance/whitelist', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const list = await supabase.getMaintenanceWhitelist();
-    const emails = Array.from(list).sort();
-    res.json({
-      emails,
-      count: emails.length,
-      // updated_at / updated_by are not stored alongside the Set, so this
-      // endpoint is best-effort: a follow-up Supabase read could be added
-      // if the admin UI starts showing that meta. Today the data is enough.
-    });
-  } catch (err) {
-    console.error('Admin get maintenance whitelist error:', err);
-    res.status(500).json({ error: 'Failed to fetch maintenance whitelist.' });
-  }
-});
-
-// PUT /api/admin/maintenance/whitelist — Replace the whitelist entirely.
-// Body: { emails: ["a@x.com", "b@y.com"] } — duplicates / blanks / invalid
-// shapes are dropped server-side. Empty array is allowed and clears the list.
-router.put('/maintenance/whitelist', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { emails } = req.body;
-    if (!Array.isArray(emails) && typeof emails !== 'undefined') {
-      return res.status(400).json({ error: 'The "emails" field must be an array of strings.' });
-    }
-    const adminEmail = (req.user && req.user.email) || 'unknown';
-    const result = await supabase.setMaintenanceWhitelist(emails || [], adminEmail);
-    console.log(`[Maintenance] Whitelist updated by ${adminEmail}: ${result.emails.length} email(s)`);
-    res.json({
-      message: result.emails.length
-        ? `Whitelist saved. ${result.emails.length} email${result.emails.length === 1 ? '' : 's'} can now bypass maintenance.`
-        : 'Whitelist cleared. Only admins can access the site while maintenance is on.',
-      ...result,
-    });
-  } catch (err) {
-    console.error('Admin update maintenance whitelist error:', err);
-    res.status(500).json({ error: 'Failed to update maintenance whitelist: ' + err.message });
-  }
-});
-
 module.exports = router;

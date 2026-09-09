@@ -37,7 +37,8 @@ const backupCodeRoutes = require('./routes/backupCode');
 const sosRoutes = require('./routes/sos');
 const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
-const { maintenanceAuthGuard } = require('./middleware/maintenance');
+const { checkPageAccess } = require('./middleware/maintenance');
+const supabase = require('./services/supabase');
 
 const app = express();
 
@@ -138,6 +139,92 @@ app.use(async (req, res, next) => {
 // Send "no-cache" for .html so users always see the latest markup after a
 // deploy (browsers still get 304s via ETag when the file hasn't changed).
 // JS / CSS / images get a short max-age so they stay snappy on repeat loads.
+//
+// NOTE: the maintenance HTML guards are mounted BEFORE this static handler
+// so /maintenance.html and the protected user pages can issue a true
+// server-side redirect with no flash of the wrong page. The static
+// handler only sees requests that survived those checks.
+
+// ── HTML Maintenance Guards ─────────────────────────────────────────────
+// These run BEFORE the static file handler so the redirect happens at the
+// server, with no chance of flashing the wrong page. Each rule:
+//
+//   /maintenance            → when OFF, redirect to /index.html
+//   /<protected user page>  → when ON and caller is not admin, redirect to /maintenance.html
+//
+// The list of protected user pages mirrors the requirements spec; add to
+// it whenever a new authenticated-user HTML page is introduced. Admin
+// pages (vault.html, admin-*.html) are intentionally not protected here
+// because the admin role bypasses maintenance mode entirely.
+const PROTECTED_USER_PAGES = new Set([
+  '/dashboard', '/dashboard.html',
+  '/profile', '/profile.html',
+  '/account', '/account.html',
+  '/marketplace', '/marketplace.html',
+  '/buy', '/buy.html',
+  '/sell', '/sell.html',
+  '/my-coupons', '/my-coupons.html',
+  '/purchased', '/purchased.html',
+  '/checkout', '/checkout.html',
+  '/payment', '/payment.html',
+  '/orders', '/orders.html',
+  '/settings', '/settings.html',
+  '/wallet', '/wallet.html',
+  '/payouts', '/payouts.html',
+  '/notifications', '/notifications.html',
+  '/security', '/security.html',
+]);
+
+function isMaintenanceHtmlRequest(req) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  // Trim query string and decode the path before comparing.
+  const raw = (req.path || '').toLowerCase();
+  return raw === '/maintenance' || raw === '/maintenance.html';
+}
+
+function isProtectedUserHtmlRequest(req) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  const raw = (req.path || '').toLowerCase();
+  return PROTECTED_USER_PAGES.has(raw);
+}
+
+// /maintenance and /maintenance.html: when maintenance is OFF, redirect
+// straight to /index.html. This is a true server-side 302 with no body,
+// so the Maintenance page can never flash on screen.
+async function maintenancePageGuard(req, res, next) {
+  if (!isMaintenanceHtmlRequest(req)) return next();
+  try {
+    const status = await supabase.getMaintenanceMode();
+    if (!status || !status.enabled) {
+      return res.redirect(302, '/index.html');
+    }
+  } catch (e) {
+    // Fail open — if the status check itself errors, allow the page to
+    // render rather than risk a redirect loop.
+    console.warn('Maintenance page guard status check failed, allowing:', e.message);
+  }
+  return next();
+}
+
+// Protected user pages: when maintenance is ON and the caller is not an
+// admin, redirect to /maintenance.html. Same true 302 story — the
+// dashboard HTML never reaches the browser.
+async function protectedPageGuard(req, res, next) {
+  if (!isProtectedUserHtmlRequest(req)) return next();
+  try {
+    const access = await checkPageAccess(req);
+    if (!access.allowed) {
+      return res.redirect(302, access.redirect || '/maintenance.html');
+    }
+  } catch (e) {
+    console.warn('Protected page guard check failed, allowing:', e.message);
+  }
+  return next();
+}
+
+app.use(maintenancePageGuard);
+app.use(protectedPageGuard);
+
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   extensions: ['html'],
   setHeaders: (res, filePath) => {
@@ -165,12 +252,14 @@ app.get('/admin/coupons/:couponId', (req, res) => {
 // 20-per-15-min authLimiter would otherwise exhaust itself part-way through the
 // four-step enrolment flow.
 //
-// maintenanceAuthGuard sits at the very front of every login path so a
-// non-whitelisted visitor hits the maintenance page on the very first
-// request. Mounted before the rate limiters so blocked callers do not
-// consume the legitimate-user budget while they retry.
-app.use('/api/auth/2fa', maintenanceAuthGuard, twoFactorRoutes);
-app.use('/api/auth', maintenanceAuthGuard, authLimiter, authRoutes);
+// NOTE: the auth routes are intentionally NOT behind a maintenance guard.
+// Login must keep working while maintenance is ON so the user can complete
+// authentication and then be sent to the maintenance page client-side (the
+// same destination the API guard would have sent them to). This satisfies
+// the requirement that "normal users should still be able to authenticate"
+// even while maintenance is active.
+app.use('/api/auth/2fa', twoFactorRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/coupons/sell', couponSubmissionLimiter);
 app.use('/api/coupons/submit', couponSubmissionLimiter);
 app.use('/api/coupons/proof', couponSubmissionLimiter);
@@ -231,19 +320,16 @@ app.use('/api/consent', consentRoutes);
 // blocked users can poll for the toggle to be flipped off.
 //
 // When the caller supplies an `Authorization: Bearer <jwt>` header we ALSO
-// resolve whether that user can bypass maintenance (admin or on the
-// whitelist). The response then carries `canAccess` / `isWhitelisted` so the
-// frontend doesn't have to guess. If no token is sent, those flags default
+// resolve whether that user is an admin (the only role that bypasses
+// maintenance). The response then carries `canAccess` / `isAdmin` so the
+// frontend doesn't have to guess. If no token is sent, both flags default
 // to false — i.e. an anonymous visitor is always treated as "no bypass".
 app.get('/api/maintenance/status', async (req, res) => {
   try {
     const supabaseService = require('./services/supabase');
     const status = await supabaseService.getMaintenanceMode();
 
-    let canAccess = !status.enabled;
     let isAdmin = false;
-    let isWhitelisted = false;
-
     if (status.enabled) {
       const authHeader = req.headers && req.headers.authorization;
       if (authHeader && /^Bearer\s+/i.test(authHeader)) {
@@ -255,27 +341,19 @@ app.get('/api/maintenance/status', async (req, res) => {
             if (decoded) {
               const role = decoded.role ? String(decoded.role).toLowerCase() : '';
               isAdmin = role === 'admin' || role === 'super admin' || role === 'support';
-              const email = decoded.email ? String(decoded.email).toLowerCase().trim() : '';
-              if (email) {
-                try {
-                  const wl = await supabaseService.getMaintenanceWhitelist();
-                  isWhitelisted = wl && wl.has(email);
-                } catch (e) { /* ignore — defaults to false */ }
-              }
             }
           } catch (e) { /* bad token — treat as anonymous */ }
         }
       }
     }
 
-    canAccess = !status.enabled || isAdmin || isWhitelisted;
+    const canAccess = !status.enabled || isAdmin;
 
     res.json({
       enabled: status.enabled,
       message: status.message,
       canAccess,
       isAdmin,
-      isWhitelisted,
     });
   } catch (err) {
     // Fail open — if the check fails, report maintenance as off
@@ -284,7 +362,6 @@ app.get('/api/maintenance/status', async (req, res) => {
       message: '',
       canAccess: true,
       isAdmin: false,
-      isWhitelisted: false,
     });
   }
 });
@@ -402,24 +479,10 @@ async function initServices() {
     await supabase.ensureSessionsTable();
     await supabase.ensureSiteSettingsTable();
 
-    // Seed the default maintenance whitelist if the row is missing. The
-    // hardcoded test users stay allow-listed so the platform owner can
-    // always sign in while tuning maintenance mode. Admins can edit the
-    // list at any time from the admin panel; this only runs when the
-    // site_settings row does not exist yet.
-    try {
-      const current = await supabase.getMaintenanceWhitelist();
-      if (!current || current.size === 0) {
-        const seedEmails = [
-          'rupayandas2026@gmail.com',
-          'rupayandas2025@gmail.com',
-        ];
-        await supabase.setMaintenanceWhitelist(seedEmails, 'startup-seed');
-        console.log(`🌱 Maintenance whitelist seeded with ${seedEmails.length} email(s).`);
-      }
-    } catch (e) {
-      console.warn('⚠️  Could not seed maintenance whitelist:', e.message);
-    }
+    // Maintenance mode itself has no seed data — `site_settings.maintenance_mode`
+    // is initialised to `{ enabled: false, message: '' }` by the migration
+    // and there's intentionally no allow-list of "trusted" user emails:
+    // admin role is the only bypass, decided server-side from the JWT.
   }
 
   // 48-hour session expiry sweep — a real interval on a long-running server;

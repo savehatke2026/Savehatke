@@ -1167,15 +1167,13 @@ async function stampBackupCodeUsage(id, { ip = '', reason = '' } = {}) {
 // middleware doesn't hit the DB on every request. Writes invalidate the cache
 // immediately so admin toggles take effect instantly on this server instance.
 //
-// The maintenance whitelist is stored under the same table with key
-// `maintenance_whitelist` and shape `{ emails: string[] }`. When maintenance
-// mode is ON, only admins AND addresses on this whitelist can use the site;
-// every other login attempt is rejected with the same 503 MAINTENANCE_MODE
-// response the API uses for the other gated routes.
+// There is no email whitelist any more. The only callers that bypass the
+// maintenance guard are admins (role admin / super admin / support), and
+// that decision is made server-side from the JWT — there is no list of
+// privileged user emails to manage or to mis-seed by accident.
 
 const MAINTENANCE_CACHE_TTL_MS = 10 * 1000; // 10 seconds
 let maintenanceCache = null;  // { data, fetchedAt }
-let whitelistCache = null;    // { data: Set<string>, fetchedAt }
 
 /**
  * Ensure the site_settings table exists in Supabase.
@@ -1276,109 +1274,13 @@ async function setMaintenanceMode(enabled, message, adminEmail) {
   };
 }
 
-// ── Maintenance Whitelist ────────────────────────────────────────────────
-// Stored as a single site_settings row (`maintenance_whitelist`) so the
-// admin panel can manage it like any other key. The value is a JSONB object
-// `{ emails: string[] }` where every entry is the lowercased, trimmed
-// address. The middleware compares against `email.toLowerCase().trim()` so
-// the comparison is robust to accidental whitespace/case differences.
-
 /**
- * Normalise an email for whitelist comparison. Returns empty string for
- * non-string inputs so we never accidentally match `null`/`undefined`.
- */
-function normalizeEmail(email) {
-  if (typeof email !== 'string') return '';
-  return email.toLowerCase().trim();
-}
-
-/**
- * Read the maintenance whitelist. Returns a Set of lowercased addresses.
- * Falls back to an empty Set on any error so the guard never grants
- * access because of a missing row.
- */
-async function getMaintenanceWhitelist() {
-  if (whitelistCache && (Date.now() - whitelistCache.fetchedAt) < MAINTENANCE_CACHE_TTL_MS) {
-    return whitelistCache.data;
-  }
-
-  const client = getClient();
-  if (!client) return new Set();
-
-  try {
-    const { data, error } = await client
-      .from('site_settings')
-      .select('value, updated_at, updated_by')
-      .eq('key', 'maintenance_whitelist')
-      .limit(1)
-      .single();
-
-    const emails = (() => {
-      if (error || !data) return [];
-      const raw = data.value;
-      // Tolerate both `{ emails: [...] }` and a bare `[...]` shape, in case
-      // someone hand-edits the row in the Supabase dashboard.
-      const list = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.emails) ? raw.emails : []);
-      return list
-        .map((e) => normalizeEmail(e))
-        .filter((e) => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
-    })();
-
-    const set = new Set(emails);
-    whitelistCache = { data: set, fetchedAt: Date.now() };
-    return set;
-  } catch (err) {
-    console.warn('getMaintenanceWhitelist error (failing closed):', err.message);
-    return new Set();
-  }
-}
-
-/**
- * Replace the entire whitelist. The UI is a single textarea-style editor,
- * so it's simpler to upsert the whole list than to compute a diff here.
- */
-async function setMaintenanceWhitelist(emails, adminEmail) {
-  const client = getClient();
-  if (!client) throw new Error('Supabase not configured');
-
-  // Defensive cleanup — drop blanks, normalise, dedupe, validate format.
-  const cleaned = Array.from(new Set(
-    (Array.isArray(emails) ? emails : [])
-      .map((e) => normalizeEmail(e))
-      .filter((e) => e && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e))
-  ));
-
-  const now = new Date().toISOString();
-  const { data, error } = await client
-    .from('site_settings')
-    .upsert({
-      key: 'maintenance_whitelist',
-      value: { emails: cleaned },
-      updated_at: now,
-      updated_by: adminEmail || '',
-    }, { onConflict: 'key' })
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error('Failed to update maintenance whitelist: ' + error.message);
-  }
-
-  whitelistCache = null; // invalidate so the next read reflects the change
-  return {
-    emails: cleaned,
-    updatedAt: data.updated_at || now,
-    updatedBy: data.updated_by || adminEmail || '',
-  };
-}
-
-/**
- * Test helper: clear the in-memory cache. Used by the seeding script and
- * by the server in tests so a fresh Supabase read happens on demand.
+ * Test helper: clear the in-memory maintenance cache so a fresh Supabase
+ * read happens on demand (e.g. after the seeding script writes a new
+ * value, or in tests that toggle maintenance from a different process).
  */
 function _clearMaintenanceCachesForTests() {
   maintenanceCache = null;
-  whitelistCache = null;
 }
 
 module.exports = {
@@ -1428,8 +1330,6 @@ module.exports = {
   ensureSiteSettingsTable,
   getMaintenanceMode,
   setMaintenanceMode,
-  getMaintenanceWhitelist,
-  setMaintenanceWhitelist,
   // Test helpers
   _clearMaintenanceCachesForTests,
 };

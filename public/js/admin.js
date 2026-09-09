@@ -3051,71 +3051,14 @@ async function loadMaintenanceStatus() {
   if (spinner) spinner.style.display = 'block';
 
   try {
-    const [status, whitelist] = await Promise.all([
-      api('/admin/maintenance', { useAdmin: true }),
-      api('/admin/maintenance/whitelist', { useAdmin: true }),
-    ]);
-    applyMaintenanceUI(status);
-    applyMaintenanceWhitelistUI(whitelist);
+    const data = await api('/admin/maintenance', { useAdmin: true });
+    applyMaintenanceUI(data);
   } catch (err) {
     console.warn('Failed to load maintenance status:', err.message);
     // Show default OFF state
     applyMaintenanceUI({ enabled: false, message: '', updatedBy: '', updatedAt: '' });
-    applyMaintenanceWhitelistUI({ emails: [], count: 0 });
   } finally {
     if (spinner) spinner.style.display = 'none';
-  }
-}
-
-/**
- * Populate the whitelist textarea + count badge from the server.
- */
-function applyMaintenanceWhitelistUI(data) {
-  const ta = document.getElementById('maintenanceWhitelist');
-  const count = document.getElementById('maintenanceWhitelistCount');
-  const list = Array.isArray(data && data.emails) ? data.emails : [];
-  if (ta) {
-    if (!ta.dataset.touched) ta.value = list.join('\n');
-    // Mark the field "touched" the first time the admin types in it so a
-    // background refresh can't clobber pending edits.
-    if (!ta.dataset.bound) {
-      ta.addEventListener('input', () => { ta.dataset.touched = '1'; });
-      ta.dataset.bound = '1';
-    }
-  }
-  if (count) count.textContent = list.length ? `${list.length} saved` : 'empty';
-}
-
-/**
- * Persist the current contents of the whitelist textarea.
- */
-async function saveMaintenanceWhitelist() {
-  const ta = document.getElementById('maintenanceWhitelist');
-  const btn = document.getElementById('maintenanceWhitelistSaveBtn');
-  if (!ta) return;
-  const emails = (ta.value || '')
-    .split(/[\n,]+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
-  try {
-    const data = await api('/admin/maintenance/whitelist', {
-      method: 'PUT',
-      useAdmin: true,
-      body: { emails },
-    });
-    if (ta) ta.dataset.touched = '';
-    applyMaintenanceWhitelistUI(data);
-    if (typeof showToast === 'function') {
-      showToast(data.message || `Whitelist saved (${(data.emails || []).length} email(s)).`, 'success');
-    }
-  } catch (err) {
-    if (typeof showToast === 'function') {
-      showToast(err.message || 'Failed to save whitelist.', 'error');
-    }
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '💾 Save Whitelist'; }
   }
 }
 
