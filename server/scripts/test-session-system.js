@@ -56,10 +56,21 @@ function check(name, cond, extra) {
 
 function makeRes() {
   return {
-    statusCode: null, body: null, headers: {},
+    statusCode: null, body: null, headers: {}, _cookies: [],
     status(c) { this.statusCode = c; return this; },
     json(b) { this.body = b; return this; },
     setHeader(k, v) { this.headers[k] = v; },
+    // setSessionCookie/clearSessionCookie APPEND Set-Cookie (so a second cookie
+    // never clobbers the first); keep every appended value readable through
+    // headers['Set-Cookie'] as a single joined string, like a real response.
+    append(k, v) {
+      if (k === 'Set-Cookie') {
+        this._cookies.push(v);
+        this.headers[k] = this._cookies.join(', ');
+      } else {
+        this.headers[k] = v;
+      }
+    },
   };
 }
 
