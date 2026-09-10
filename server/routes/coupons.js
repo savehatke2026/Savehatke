@@ -43,6 +43,60 @@ const MIN_EXPIRY_FLOOR_DAYS = MIN_EXPIRY_DAYS - 1;
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
 
+// ── Sell eligibility — a completed purchase unlocks selling ──
+// A user may sell coupons only after at least one successfully completed
+// purchase. This mirrors the "completed purchase" definition used by the
+// review routes (see server/routes/reviews.js): the coupon must be marked sold
+// to THIS user (buyerEmail match) with a soldAt timestamp, and its status must
+// not be one of the non-completed statuses below. Pending, cancelled, failed,
+// refunded and abandoned orders therefore never unlock selling.
+const NON_COMPLETED_STATUSES = new Set([
+  'pending', 'review', 'awaiting', 'submitted', 'available',
+  'rejected', 'cancelled', 'canceled', 'refunded', 'failed', 'expired',
+]);
+
+const SELL_GATE_MESSAGE = 'You must purchase at least one coupon before you can sell coupons.';
+
+function normEmail(v) {
+  return String(v || '').toLowerCase().trim();
+}
+
+function isCompletedPurchase(coupon, email) {
+  if (!coupon) return false;
+  const buyer = normEmail(coupon.buyerEmail);
+  if (!buyer || buyer !== email) return false;
+  if (NON_COMPLETED_STATUSES.has(String(coupon.status || '').toLowerCase())) return false;
+  return !!coupon.soldAt;
+}
+
+// Supabase primary, Sheets fallback — the same dual-store lookup shape as
+// GET /my-purchases. Read errors are swallowed per store (a single store being
+// down must not 500 the page); if BOTH stores are unreachable we return false
+// so the gate stays closed — the safe direction for eligibility.
+async function hasCompletedPurchase(user) {
+  const email = normEmail(user && user.email);
+  if (!email) return false;
+  if (supabase.isConfigured()) {
+    try {
+      const purchased = await supabase.getCoupons({ buyerEmail: email });
+      if (Array.isArray(purchased) && purchased.some((c) => isCompletedPurchase(c, email))) {
+        return true;
+      }
+    } catch (e) {
+      console.warn('Sell eligibility Supabase read notice:', e.message);
+    }
+  }
+  try {
+    const rows = await db.findRows(db.SHEETS.COUPONS, 'buyerEmail', email);
+    if (Array.isArray(rows) && rows.some((c) => isCompletedPurchase(c, email))) {
+      return true;
+    }
+  } catch (e) {
+    console.warn('Sell eligibility Sheets read notice:', e.message);
+  }
+  return false;
+}
+
 // GET /api/coupons — List available coupons (public, with optional auth)
 router.get('/', optionalAuth, async (req, res) => {
   try {
@@ -298,6 +352,16 @@ router.post('/proof', authenticateToken, async (req, res) => {
 // and the legacy single-coupon format { code, category, brand, ... }.
 const handleCouponSubmission = async (req, res) => {
   try {
+    // ── Purchase eligibility gate (server-side, authoritative) ──
+    // Checked before any validation or storage work, so a user with zero
+    // completed purchases can never submit coupons through ANY client —
+    // /api/coupons/sell, /api/coupons/submit and the legacy public/js/sell.js
+    // all funnel through this shared handler.
+    const maySell = await hasCompletedPurchase(req.user);
+    if (!maySell) {
+      return res.status(403).json({ error: SELL_GATE_MESSAGE });
+    }
+
     const {
       code, category, brand, description, originalValue, faceValue, coupons,
       type, sellingPrice, expiryDate, proofUrl,
@@ -742,10 +806,29 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
   }
 });
 
+// GET /api/coupons/sell-eligibility — Can this user sell coupons yet?
+//
+// Called on /sell page load. Uses the exact same hasCompletedPurchase() as the
+// submission gate above, so the page and the API can never disagree.
+//
+// Always answers 200 with a boolean — never 403 — because the frontend api()
+// helper in public/js/app.js treats 401/403 as an auth problem and enters a
+// token-refresh retry loop.
+router.get('/sell-eligibility', authenticateToken, async (req, res) => {
+  try {
+    const canSell = await hasCompletedPurchase(req.user);
+    res.json({ canSell });
+  } catch (err) {
+    console.error('Sell eligibility error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // GET /api/coupons/:id — One coupon's public detail, for the checkout page.
 //
-// Registered last on purpose: '/categories', '/my-sales' and '/my-purchases'
-// are literal GET paths and would otherwise be swallowed by ':id'.
+// Registered last on purpose: '/categories', '/my-sales', '/my-purchases' and
+// '/sell-eligibility' are literal GET paths and would otherwise be swallowed
+// by ':id'.
 //
 // The checkout page used to paint itself entirely from URL query parameters,
 // which meant a stale link showed stale prices and the "Valid Till" / "Min.
