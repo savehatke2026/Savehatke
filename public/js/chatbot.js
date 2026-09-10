@@ -309,20 +309,6 @@
       flex-shrink: 0;
     }
     .chatbot-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
-    .chatbot-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 9px;
-      background: linear-gradient(135deg, #00e676, #00c853);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex: 0 0 32px;
-      overflow: hidden;
-    }
-    /* The same coupon-ticket chat mark the launcher uses, dark on the green plate
-       so it stays visible on navy. */
-    .chatbot-avatar svg { width: 20px; height: 20px; display: block; color: #04210f; }
     .chatbot-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .chatbot-header-name {
       font-family: var(--cb-font);
@@ -453,7 +439,9 @@
       justify-content: center;
       overflow: hidden;
     }
-    .cb-turn.cb-ai .cb-rail { background: linear-gradient(135deg, #00e676, #00c853); color: #04210f; }
+    /* Both rails are neutral inside the window — the green brand mark lives on
+       the launcher only, not inside the chat. */
+    .cb-turn.cb-ai .cb-rail { background: rgba(255,255,255,.04); border: 1px solid var(--cb-hair-2); color: var(--cb-ink-3); }
     .cb-turn.cb-user .cb-rail { background: rgba(255,255,255,.06); border: 1px solid var(--cb-hair-2); color: var(--cb-ink-3); }
     .cb-rail svg { width: 16px; height: 16px; display: block; }
     /* Consecutive assistant turns hide the repeated avatar and tighten the gap. */
@@ -565,20 +553,8 @@
       min-width: 0;
       animation: cb-turn-rise .26s cubic-bezier(.2,.7,.3,1) both;
     }
-    .cb-welcome-mark {
-      width: 38px;
-      height: 38px;
-      border-radius: 11px;
-      background: linear-gradient(135deg, #00e676, #00c853);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #04210f;
-      flex: 0 0 38px;
-    }
-    .cb-welcome-mark svg { width: 23px; height: 23px; display: block; }
     .cb-welcome-head {
-      margin: 2px 0 0;
+      margin: 4px 0 0;
       font-family: var(--cb-font);
       font-size: 18px;
       font-weight: 650;
@@ -995,10 +971,10 @@
   aria-label="SaveHatke AI Assistant"
   aria-hidden="true"
 >
-  <!-- UI-1 · header: name, status, tagline and actions share one row band -->
+  <!-- UI-1 · header: name, status, tagline and actions share one row band.
+       No logo plate — the green brand mark stays on the launcher only. -->
   <div class="chatbot-header">
     <div class="chatbot-header-left">
-      <span class="chatbot-avatar" aria-hidden="true">${AI_MARK}</span>
       <span class="chatbot-header-text">
         <span class="chatbot-header-name">${STR.name}</span>
         <span class="chatbot-header-status">
@@ -1606,12 +1582,6 @@
       const el = document.createElement('div');
       el.className = 'cb-welcome';
       el.id = 'cbWelcome';
-
-      const mark = document.createElement('div');
-      mark.className = 'cb-welcome-mark';
-      mark.setAttribute('aria-hidden', 'true');
-      mark.innerHTML = AI_MARK;
-      el.appendChild(mark);
 
       const head = document.createElement('h2');
       head.className = 'cb-welcome-head';
