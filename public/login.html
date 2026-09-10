@@ -172,7 +172,7 @@
       border: 1px solid rgba(251,191,36,.15);
     }
 
-    /* ── OTP ── */
+    /* ── Code boxes (two-factor) ── */
     .otp-group { display:flex; justify-content:center; gap:8px; margin:20px 0 16px; }
     .otp-input {
       width:52px; height:52px; border-radius:10px;
@@ -196,7 +196,6 @@
     .resend-btn { background:none; border:none; font-family:'Outfit',sans-serif; font-size:.83rem; font-weight:700; color:#00e676; cursor:pointer; border-bottom:1px solid rgba(0,230,118,.3); transition:border-color .2s; padding:0; }
     .resend-btn:hover { border-color:#00e676; }
     .resend-btn:disabled { color:#6b88aa; border-bottom-color:rgba(107,136,170,.3); cursor:not-allowed; }
-    .timer { font-family:'JetBrains Mono',monospace; font-size:.82rem; font-weight:600; color:#4fc3f7; }
 
     .back-link { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:18px; font-size:.82rem; color:#6b88aa; cursor:pointer; transition:color .2s; background:none; border:none; font-family:'Outfit',sans-serif; width:100%; }
     .back-link:hover { color:#e2ecff; }
@@ -404,6 +403,10 @@
           <label class="flabel" for="inputEmail">Email Address</label>
           <input type="text" inputmode="email" class="finput" id="inputEmail" placeholder="you@example.com" required autocomplete="email">
         </div>
+        <div class="fgroup">
+          <label class="flabel" for="inputPassword">Password</label>
+          <input type="password" class="finput" id="inputPassword" placeholder="Your password" required autocomplete="current-password">
+        </div>
         <!-- Cloudflare Turnstile CAPTCHA — revealed after email + Continue -->
         <div class="fgroup" id="loginTurnstileGroup" style="display:none;justify-content:center;margin-bottom:14px"></div>
         <button type="submit" class="btn btn-primary" id="submitBtn">
@@ -556,51 +559,6 @@
           <path d="m12 19-7-7 7-7"/>
         </svg>
         Choose a different admin
-      </button>
-    </div>
-
-    <!-- OTP Verify State -->
-    <div id="verifyState" style="display:none;">
-      <div class="auth-hdr">
-        <div class="auth-icon">
-          <!-- Envelope icon -->
-          <svg viewBox="0 0 24 24" fill="none" stroke="#4fc3f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
-            <polyline points="22,6 12,13 2,6"/>
-          </svg>
-        </div>
-        <h1 class="auth-title">Verify your <span class="gtext">email</span></h1>
-        <p class="auth-sub">We sent a 6-digit code to <strong id="displayEmail">user@example.com</strong>. Enter it below to continue.</p>
-      </div>
-
-      <div class="otp-group" id="otpGroup" role="group" aria-label="Enter 6-digit OTP">
-        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp0" autocomplete="one-time-code" aria-label="Digit 1">
-        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp1" aria-label="Digit 2">
-        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp2" aria-label="Digit 3">
-        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp3" aria-label="Digit 4">
-        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp4" aria-label="Digit 5">
-        <input class="otp-input" type="text" inputmode="numeric" pattern="[0-9]" maxlength="1" id="otp5" aria-label="Digit 6">
-      </div>
-
-      <button class="btn btn-primary" id="verifyBtn" onclick="handleVerify()" disabled>
-        Verify Code &rarr;
-      </button>
-
-      <div class="resend-area" id="resendArea">
-        Didn't receive the code?&nbsp;
-        <button class="resend-btn" id="resendBtn" onclick="handleResend()" disabled>Resend</button>
-        <span id="timerText"> in <span class="timer" id="timerCount">30s</span></span>
-      </div>
-
-      <!-- Turnstile for resend — CAPTCHA tokens are single-use, so a resend needs its own -->
-      <div class="fgroup" id="resendTurnstileGroup" style="display:none;justify-content:center;margin:12px 0 0"></div>
-
-      <button class="back-link" onclick="goBack()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5"/>
-          <path d="m12 19-7-7 7-7"/>
-        </svg>
-        Back to login
       </button>
     </div>
 
@@ -865,10 +823,10 @@
   let loginTurnstileWidgetId = null; // 'error' when the widget failed to load
   let turnstileSiteKeyPromise = null;
   let loginSubmitPending = false;    // Continue was pressed while the challenge was still solving
-  // What Continue is waiting to do once the challenge settles: 'otp' for an
-  // email sign-in, 'sos' for a backup code. The callbacks below fire long after
-  // the click that armed them, so the intent cannot be re-derived there.
-  let pendingSubmitKind = 'otp';
+  // What Continue is waiting to do once the challenge settles: 'login' for an
+  // email + password sign-in, 'sos' for a backup code. The callbacks below fire
+  // long after the click that armed them, so the intent cannot be re-derived there.
+  let pendingSubmitKind = 'login';
 
   /* turnstile.render() returns a widget id string ('0', '1', …) on success and
      undefined when it refuses to mount. Anything that is not a usable id must
@@ -983,62 +941,14 @@
     if (btn) { btn.disabled = false; btn.textContent = label || 'Continue \u2192'; }
   }
 
-  /* ── Resend CAPTCHA: its own widget, since tokens are single-use ── */
-  let resendTurnstileWidgetId = null; // null = not rendered, 'error' = failed/not configured
-
-  // Renders the resend widget on demand and returns a token, or '' when CAPTCHA
-  // is disabled/broken (the server then skips verification anyway).
-  async function getResendTurnstileToken() {
-    const group = document.getElementById('resendTurnstileGroup');
-    if (!group) return '';
-
-    if (resendTurnstileWidgetId === null) {
-      const siteKey = await getTurnstileSiteKey();
-      if (!siteKey) { resendTurnstileWidgetId = 'error'; return ''; }
-      await loginTurnstileApiReady;
-      if (typeof turnstile === 'undefined' || !turnstile.render) {
-        resendTurnstileWidgetId = 'error';
-        return '';
-      }
-      group.style.display = 'flex';
-      try {
-        resendTurnstileWidgetId = normalizeWidgetId(turnstile.render(group, {
-          sitekey: siteKey,
-          theme: 'dark',
-          'error-callback': () => {
-            group.innerHTML = '<small style="color:#ffb4a2">CAPTCHA could not load — continuing without it.</small>';
-            resendTurnstileWidgetId = 'error';
-          },
-        }));
-        watchCaptchaLoad(group, () => { resendTurnstileWidgetId = 'error'; });
-      } catch (e) {
-        resendTurnstileWidgetId = 'error';
-        return '';
-      }
-    }
-
-    if (resendTurnstileWidgetId === 'error') return '';
-    try {
-      return turnstile.getResponse(resendTurnstileWidgetId) || '';
-    } catch (e) {
-      return '';
-    }
-  }
-
-  function resetResendTurnstile() {
-    if (typeof turnstile !== 'undefined' && turnstile.reset &&
-        resendTurnstileWidgetId != null && resendTurnstileWidgetId !== 'error') {
-      turnstile.reset(resendTurnstileWidgetId);
-    }
-  }
-
   /* ══════════════════════════════════════════
-     EMAIL OTP FLOW
+     EMAIL + PASSWORD LOGIN
   ══════════════════════════════════════════ */
   async function handleAuthSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
     const raw = document.getElementById('inputEmail')?.value?.trim() || '';
+    const password = document.getElementById('inputPassword')?.value || '';
     const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw);
 
     // ── Backup-code path (SOS access). The form itself is not the gate: the
@@ -1050,7 +960,13 @@
       showToast('Enter a valid email address to continue.', 'error');
       return;
     }
-    pendingSubmitKind = looksLikeEmail ? 'otp' : 'sos';
+    pendingSubmitKind = looksLikeEmail ? 'login' : 'sos';
+
+    // An email sign-in needs its password too; a backup code does not.
+    if (pendingSubmitKind === 'login' && !password) {
+      showToast('Enter your password to continue.', 'error');
+      return;
+    }
 
     // First click: reveal the CAPTCHA below the email box. The visitor does not
     // press Continue again — solving the challenge submits for them (and if the
@@ -1060,7 +976,7 @@
       loginSubmitPending = true;
       await showLoginTurnstile();
       if (isLoginCaptchaUnavailable()) {
-        // Nothing to solve — no callback will ever fire, so send the code now.
+        // Nothing to solve — no callback will ever fire, so send the request now.
         loginSubmitPending = false;
       } else {
         if (btn) { btn.disabled = true; btn.textContent = 'Complete the security check…'; }
@@ -1081,27 +997,38 @@
 
   async function runPendingLoginSubmit() {
     if (pendingSubmitKind === 'sos') await checkBackupCodeAndOpenSos();
-    else await sendLoginOtp();
+    else await submitPasswordLogin();
   }
 
-  // Sends the verification code with whatever CAPTCHA token is available.
-  // Called by handleAuthSubmit and by the Turnstile success callback.
-  async function sendLoginOtp() {
+  // Sends the email + password to /auth/login with whatever CAPTCHA token is
+  // available. Called by handleAuthSubmit and by the Turnstile success callback.
+  async function submitPasswordLogin() {
     const btn = document.getElementById('submitBtn');
     const email = document.getElementById('inputEmail')?.value?.trim() || '';
-    if (!email) { restoreLoginSubmitBtn(); return; }
+    const password = document.getElementById('inputPassword')?.value || '';
+    if (!email || !password) { restoreLoginSubmitBtn(); return; }
 
-    const turnstileToken = getLoginTurnstileToken();
-    if (btn) { btn.disabled = true; btn.textContent = 'Sending code...'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
     try {
-      await api('/auth/send-otp', { method: 'POST', body: { email, cfTurnstileToken: turnstileToken } });
-      sessionStorage.setItem('otp_email', email);
-      document.getElementById('displayEmail').textContent = email;
-      showVerifyState();
-      document.getElementById('otp0').focus();
-      showToast('Verification code sent to ' + email, 'success');
+      const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+
+      // The account has an authenticator enrolled: the server withheld the
+      // session and returned a challenge instead. Nothing is stored in Auth
+      // until the second factor is verified.
+      if (data.twoFactorRequired) {
+        enterTwoFactorState(data);
+        return;
+      }
+
+      Auth.setAuth(data.token, data.user);
+      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+        Auth.setAdminAuth(data.token, data.user);
+        window.location.replace('vault');
+      } else {
+        window.location.replace('index');
+      }
     } catch (err) {
-      showToast(err.message || 'Failed to send verification code. Please try again.', 'error');
+      showToast(err.message || 'Login failed. Please check your credentials and try again.', 'error');
       resetLoginTurnstile(); // tokens are single-use — refresh for the retry
       restoreLoginSubmitBtn();
     }
@@ -1187,7 +1114,6 @@
 
   function showBackupReasonState() {
     document.getElementById('loginState').style.display = 'none';
-    document.getElementById('verifyState').style.display = 'none';
     document.getElementById('successState').style.display = 'none';
     hideAllBackupStates();
     document.getElementById('backupReasonState').style.display = 'block';
@@ -1419,7 +1345,7 @@
   function backupGoBackToLogin() {
     forgetBackupCode();
     sosQuestions = [];
-    pendingSubmitKind = 'otp';
+    pendingSubmitKind = 'login';
     hideAllBackupStates();
     document.getElementById('loginState').style.display = 'block';
     // The token the code check spent cannot be replayed, so the next attempt
@@ -1456,168 +1382,6 @@
       });
     }
   });
-
-  function showVerifyState() {
-    document.getElementById('loginState').style.display = 'none';
-    document.getElementById('verifyState').style.display = 'block';
-  }
-
-  /* ── OTP Inputs ── */
-  // Scoped to #otpGroup on purpose: the two-factor state below reuses the same
-  // .otp-input styling, and an unscoped selector would make the email-OTP
-  // handlers drive both sets of boxes.
-  const otpInputs = Array.from(document.querySelectorAll('#otpGroup .otp-input'));
-  const verifyBtn = document.getElementById('verifyBtn');
-
-  function getOTP() { return otpInputs.map(i => i.value).join(''); }
-
-  function updateOTPState() {
-    otpInputs.forEach(inp => {
-      if (inp.value) inp.classList.add('filled');
-      else inp.classList.remove('filled');
-    });
-    verifyBtn.disabled = getOTP().length < 6;
-  }
-
-  function clearOTPErrors() {
-    otpInputs.forEach(i => i.classList.remove('error'));
-    document.getElementById('otpGroup').classList.remove('shake');
-  }
-
-  otpInputs.forEach((input, idx) => {
-    input.addEventListener('focus', () => clearOTPErrors());
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Backspace') {
-        if (input.value) { input.value = ''; updateOTPState(); }
-        else if (idx > 0) { otpInputs[idx - 1].focus(); otpInputs[idx - 1].value = ''; updateOTPState(); }
-        e.preventDefault(); return;
-      }
-      if (e.key === 'ArrowLeft' && idx > 0) { otpInputs[idx - 1].focus(); e.preventDefault(); return; }
-      if (e.key === 'ArrowRight' && idx < 5) { otpInputs[idx + 1].focus(); e.preventDefault(); return; }
-      if (e.key === 'Enter' && getOTP().length === 6) { handleVerify(); return; }
-    });
-    input.addEventListener('input', (e) => {
-      const val = e.target.value.replace(/\D/g, '');
-      if (!val) { input.value = ''; updateOTPState(); return; }
-      if (val.length > 1) {
-        val.split('').forEach((d, di) => { if (otpInputs[idx + di]) otpInputs[idx + di].value = d; });
-        otpInputs[Math.min(idx + val.length, 5)].focus();
-        updateOTPState(); return;
-      }
-      input.value = val[0];
-      updateOTPState();
-      if (idx < 5) otpInputs[idx + 1].focus();
-    });
-    input.addEventListener('paste', (e) => {
-      e.preventDefault();
-      const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
-      if (!pasted) return;
-      pasted.split('').forEach((d, di) => { if (otpInputs[di]) otpInputs[di].value = d; });
-      otpInputs[Math.min(pasted.length, 5)].focus();
-      updateOTPState();
-    });
-  });
-
-  /* ── Timer ── */
-  let timerInterval = null;
-  let secondsLeft = 30;
-
-  function startTimer(seconds = 30) {
-    secondsLeft = seconds;
-    const resendBtn = document.getElementById('resendBtn');
-    const timerText = document.getElementById('timerText');
-    const timerCount = document.getElementById('timerCount');
-    resendBtn.disabled = true;
-    timerText.style.display = 'inline';
-    timerCount.textContent = secondsLeft + 's';
-    clearInterval(timerInterval);
-    timerInterval = setInterval(() => {
-      secondsLeft--;
-      timerCount.textContent = secondsLeft + 's';
-      if (secondsLeft <= 0) {
-        clearInterval(timerInterval);
-        resendBtn.disabled = false;
-        timerText.style.display = 'none';
-      }
-    }, 1000);
-  }
-
-  startTimer(30);
-
-  async function handleResend() {
-    const btn = document.getElementById('resendBtn');
-    const email = sessionStorage.getItem('otp_email') || document.getElementById('displayEmail').textContent;
-
-    // The server gates /auth/send-otp behind Turnstile, and tokens are single-use,
-    // so the resend needs a freshly solved challenge of its own.
-    btn.disabled = true;
-    btn.textContent = 'Checking\u2026';
-    const token = await getResendTurnstileToken();
-    if (resendTurnstileWidgetId !== 'error' && !token) {
-      showToast('Complete the security check, then press Resend.', 'warning');
-      btn.textContent = 'Resend';
-      btn.disabled = false;
-      return;
-    }
-
-    btn.textContent = 'Sending\u2026';
-    try {
-      await api('/auth/send-otp', { method: 'POST', body: { email, cfTurnstileToken: token } });
-      showToast('A new code has been sent to ' + email, 'success');
-      otpInputs.forEach(i => { i.value = ''; i.classList.remove('filled', 'error', 'success'); });
-      otpInputs[0].focus();
-      updateOTPState();
-      clearOTPErrors();
-    } catch (err) {
-      showToast(err.message || 'Could not resend OTP. Try again.', 'error');
-    }
-    resetResendTurnstile(); // token consumed — refresh for the next resend
-    btn.textContent = 'Resend';
-    startTimer(30);
-  }
-
-  async function handleVerify() {
-    const otp = getOTP();
-    if (otp.length < 6) return;
-    const btn = document.getElementById('verifyBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Verifying\u2026';
-    const email = sessionStorage.getItem('otp_email') || document.getElementById('displayEmail').textContent;
-    try {
-      const data = await api('/auth/verify-otp', { method: 'POST', body: { email, otp } });
-
-      // The account has an authenticator enrolled: the server withheld the
-      // session and returned a challenge instead. Nothing is stored in Auth
-      // until the second factor is verified.
-      if (data.twoFactorRequired) {
-        enterTwoFactorState(data);
-        btn.disabled = false;
-        btn.innerHTML = 'Verify Code \u2192';
-        return;
-      }
-
-      Auth.setAuth(data.token, data.user);
-      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-        Auth.setAdminAuth(data.token, data.user);
-        window.location.replace('vault');
-      } else {
-        window.location.replace('index');
-      }
-    } catch (err) {
-      otpInputs.forEach(i => i.classList.add('error'));
-      const group = document.getElementById('otpGroup');
-      group.classList.add('shake');
-      setTimeout(() => group.classList.remove('shake'), 500);
-      showToast(err.message || 'Invalid code. Please try again.', 'error');
-      btn.disabled = false;
-      btn.innerHTML = 'Verify Code \u2192';
-      setTimeout(() => {
-        otpInputs.forEach(i => { i.value = ''; i.classList.remove('error', 'filled'); });
-        otpInputs[0].focus();
-        updateOTPState();
-      }, 900);
-    }
-  }
 
   /* ══════════════════════════════════════════
      TWO-FACTOR CHALLENGE
@@ -1675,11 +1439,10 @@
     });
   }
 
-  /** Swap the email-OTP screen for the authenticator prompt. */
+  /** Swap the login screen for the authenticator prompt. */
   function enterTwoFactorState(data) {
     tfaChallengeToken = data.challengeToken || '';
     document.getElementById('loginState').style.display = 'none';
-    document.getElementById('verifyState').style.display = 'none';
     document.getElementById('twofaState').style.display = 'block';
     showAuthenticatorCodeEntry();
   }
@@ -1725,7 +1488,6 @@
   function cancelTwoFactor() {
     tfaChallengeToken = '';
     document.getElementById('twofaState').style.display = 'none';
-    document.getElementById('verifyState').style.display = 'none';
     document.getElementById('loginState').style.display = 'block';
     resetLoginTurnstile();
     const submit = document.getElementById('submitBtn');
@@ -1808,18 +1570,6 @@
           : getTfaCode().length < 6;
       }
     }
-  }
-
-  function goBack() {
-    document.getElementById('verifyState').style.display = 'none';
-    document.getElementById('successState').style.display = 'none';
-    document.getElementById('twofaState').style.display = 'none';
-    document.getElementById('loginState').style.display = 'block';
-    const email = sessionStorage.getItem('otp_email') || '';
-    if (email) document.getElementById('inputEmail').value = email;
-    resetLoginTurnstile(); // fresh CAPTCHA token needed for the next attempt
-    document.getElementById('submitBtn').disabled = false;
-    document.getElementById('submitBtn').textContent = 'Continue \u2192';
   }
 
   // Belt and braces: drop the in-memory backup code (and clear the keys older

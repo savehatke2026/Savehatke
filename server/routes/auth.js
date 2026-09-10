@@ -21,10 +21,8 @@ const {
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const emailService = require('../services/emailService');
-const otpService = require('../services/otpService');
 const deviceRecognition = require('../services/deviceRecognition');
 const getClientIP = require('../middleware/getClientIP');
-const { verifyTurnstile } = require('../utils/turnstile');
 const sessionCleanup = require('../services/sessionCleanup');
 const twoFactor = require('../services/twoFactorService');
 
@@ -500,227 +498,10 @@ function issueLoginToken(user, session) {
   return generateToken(payload, expiresIn);
 }
 
-// â”€â”€ POST /api/auth/send-otp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Send OTP to email with full security: rate limiting, hashing, audit trail.
-// Identity is derived server-side â€” never trust frontend-supplied userId or IP.
-router.post('/send-otp', async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required.' });
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
-
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(cleanEmail)) {
-      return res.status(400).json({ error: 'Please enter a valid email address.' });
-    }
-
-    // Verify the Cloudflare Turnstile token. The shared verifier fails open on
-    // CAPTCHA infrastructure problems (widget unreachable, siteverify down,
-    // misconfigured key) so a bot defence outage can never stop a real user
-    // from receiving their code; per-email and per-IP rate limits still apply.
-    const captcha = await verifyTurnstile(req, 'send-otp');
-    if (!captcha.ok) {
-      return res.status(400).json({ error: captcha.error });
-    }
-
-    // Derive userId server-side (look up existing user, or leave it empty).
-    // It must NOT be invented here: /verify-otp derives the same value again a
-    // few minutes later, and otpService keys every OTP row on userId+email. A
-    // clock-based placeholder produced a different key on each call, so a code
-    // sent to an address with no account yet could never be verified — and the
-    // per-email rate limits never matched either. An empty id keys the row on
-    // the email alone, which both routes can reproduce.
-    let userId = '';
-    try {
-      const existingUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
-      if (existingUser) {
-        userId = existingUser.user_id || existingUser.id || '';
-      }
-    } catch (e) {
-      // User lookup failed â€” continue with empty userId (new user flow)
-    }
-
-    // Derive IP address server-side
-    const ipAddress = getClientIP(req);
-
-    // Request OTP through the security service
-    const result = await otpService.requestOTP(userId, cleanEmail, ipAddress);
-
-    if (!result.success) {
-      // Every ceiling (cooldown, hourly, daily, per-IP) surfaces as 429 with
-      // the service's own wording, plus the seconds the client should wait.
-      const retryAfter = result.retryAfterSeconds || result.retryAfter;
-      if (retryAfter) res.set('Retry-After', String(retryAfter));
-      return res.status(429).json({
-        error: result.error,
-        retryAfter: retryAfter || undefined,
-        retryAfterSeconds: retryAfter || undefined,
-      });
-    }
-
-    // Send real OTP via Nodemailer email service
-    const emailResult = await emailService.sendOTPEmail(cleanEmail, result.otp);
-
-    if (!emailResult.success) {
-      console.warn('Email sending failed:', emailResult.error);
-      // SMTP is configured but the send failed — don't pretend the code is on its way.
-      if (!emailResult.isSimulated) {
-        return res.status(502).json({
-          error: 'We could not deliver the verification email right now. Please try again in a moment.',
-        });
-      }
-    }
-
-    res.json({
-      message: 'Verification code sent to ' + cleanEmail + '.',
-      // Only exposed when SMTP is not configured, so local dev without mail still works.
-      // A real, delivered code is never returned over HTTP.
-      devOtp: emailResult.isSimulated ? result.otp : undefined,
-    });
-  } catch (err) {
-    console.error('Send OTP error:', err);
-    res.status(500).json({ error: 'Failed to send verification code. Please try again.' });
-  }
-});
-
-// â”€â”€ POST /api/auth/verify-otp â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-// Verify OTP, log the attempt, and create an authenticated session.
-router.post('/verify-otp', async (req, res) => {
-  try {
-    const { email, otp } = req.body;
-
-    if (!email || !otp) {
-      return res.status(400).json({ error: 'Email and verification code are required.' });
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
-
-    // Derive userId server-side exactly as /send-otp does, so verifyOTP looks
-    // under the same composite key. Never substitute a placeholder here.
-    let userId = '';
-    try {
-      const existingUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
-      if (existingUser) userId = existingUser.user_id || existingUser.id || '';
-    } catch (e) { /* lookup failed — empty userId is fine, the email fallback still applies */ }
-
-    // Verify OTP through the security service (handles hash comparison, expiry,
-    // per-code attempts and the per-IP brute-force ceiling). The IP is derived
-    // server-side; the client cannot influence which bucket it is charged to.
-    const ipAddress = getClientIP(req);
-    const verification = await otpService.verifyOTP(userId, cleanEmail, otp, ipAddress);
-    if (!verification.valid) {
-      // One generic message for every failure mode — a wrong code, an expired
-      // code and an address with no account must be indistinguishable.
-      return res.status(400).json({ error: verification.error });
-    }
-
-    const now = new Date().toISOString();
-
-    // Find or create user in Google Sheets
-    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
-    let isNewSignup = false;
-    if (!sheetUser) {
-      // ── Paranoid pre-create scan ─────────────────────────────────────
-      // findRow above should normally find any existing user. This
-      // extra pass is a safety net: do a full case-insensitive scan
-      // against the live sheet before appending. If anything matches,
-      // we update that row in place instead of creating a duplicate.
-      const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
-      const existingDup = (allRows || []).find((r) => {
-        const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
-        return v && v === cleanEmail;
-      });
-      if (existingDup) {
-        sheetUser = existingDup;
-        isNewSignup = false;
-        await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
-          last_login_at: now,
-          updated_at: now,
-        }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
-      } else {
-        // New user - create account
-        const userId = uuidv4();
-        sheetUser = {
-          user_ID: userId,
-          user_id: userId,
-          id: userId,
-          name: cleanEmail.split('@')[0],
-          username: cleanEmail.split('@')[0],
-          email: cleanEmail,
-          status: 'active',
-          created_at: now,
-          updated_at: now,
-          last_login_at: now,
-          last_logout_at: '',
-        };
-        await db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
-        isNewSignup = true;
-      }
-    } else {
-      // Existing user - update last login
-      await db.updateRow(db.SHEETS.USERS, 'email', cleanEmail, {
-        last_login_at: now,
-        updated_at: now,
-      }).catch((e) => console.warn('GSheet update notice:', e.message));
-    }
-
-    // Second-factor gate. When an authenticator is enrolled we stop here and
-    // hand back a challenge — no session, JWT or cookie is created yet.
-    const gate = await twoFactorGate(req, sheetUser, {
-      email: cleanEmail,
-      method: 'Email OTP + 2FA',
-    });
-    if (gate.required) return res.json(gate.body);
-
-    // Create the server-side 48h session (must be awaited â€” the JWT and
-    // cookie carry this session's token)
-    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email OTP', cleanEmail, sheetUser.name, res).catch(() => null);
-
-    // Generate JWT token (48h hard limit, sid-bound to the session)
-    const token = issueLoginToken({
-      id: sheetUser.user_id || sheetUser.id,
-      email: cleanEmail,
-      name: sheetUser.name || cleanEmail.split('@')[0],
-      role: 'user',
-    }, session);
-    if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-    // Send welcome email on first-time signup (fire-and-forget â€” never blocks the response)
-    if (isNewSignup) {
-      const welcomeName = sheetUser.name || cleanEmail.split('@')[0];
-      emailService.sendWelcomeEmail(cleanEmail, welcomeName)
-        .then((r) => {
-          if (r.success) console.log(`ðŸ“§ Welcome email queued for new user: ${cleanEmail}`);
-          else if (!r.isSimulated) console.warn(`ðŸ“§ Welcome email failed for ${cleanEmail}: ${r.error}`);
-        })
-        .catch((e) => console.warn('Welcome email notice:', e.message));
-    }
-
-    res.json({
-      message: 'Email verified successfully!',
-      token,
-      session_id: session ? session.sessionId : undefined,
-      session_expires_at: session ? session.expiresAt : undefined,
-      user: {
-        id: sheetUser.user_id || sheetUser.id,
-        user_id: sheetUser.user_id || sheetUser.id,
-        email: cleanEmail,
-        name: sheetUser.name || cleanEmail.split('@')[0],
-        username: sheetUser.username || cleanEmail.split('@')[0],
-        status: sheetUser.status || 'active',
-        role: 'user',
-      },
-    });
-  } catch (err) {
-    console.error('Verify OTP error:', err);
-    res.status(500).json({ error: 'Failed to verify code. Please try again.' });
-  }
-});
+// ─── Login ────────────────────────────────────────────────────────────
+// Login is email + password only (POST /login below). The email-OTP sign-in
+// flow was removed; the 8-digit enrolment codes used by 2FA setup live in
+// routes/twoFactor.js and are unaffected.
 
 function getSheetsFallbackError(message) {
   return db.getWriteAvailabilityError(message);
@@ -1226,7 +1007,7 @@ router.post('/google-redirect', async (req, res) => {
     const now = new Date().toISOString();
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
-      // Paranoid pre-create scan — see verify-otp path for rationale.
+      // Paranoid pre-create scan — see the password login path for rationale.
       const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
       const existingDup = (allRows || []).find((r) => {
         const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
@@ -1379,7 +1160,7 @@ router.post('/google', async (req, res) => {
     const now = new Date().toISOString();
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
-      // Paranoid pre-create scan — see verify-otp path for rationale.
+      // Paranoid pre-create scan — see the password login path for rationale.
       const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
       const existingDup = (allRows || []).find((r) => {
         const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';

@@ -144,7 +144,7 @@ function canonicalEmail(email) {
 /**
  * Composite userId + canonical email key. This is what binds a code to an
  * account. With no userId yet (first-ever sign-in for an address) it degrades
- * to the canonical email, which both /send-otp and /verify-otp can reproduce.
+ * to the canonical email, which every caller (the 2FA setup routes) can reproduce.
  */
 function buildUserIdEmailKey(userId, email) {
   const canon = canonicalEmail(email);

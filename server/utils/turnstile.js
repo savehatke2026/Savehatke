@@ -40,7 +40,7 @@ function isLoopbackOrPrivate(ip) {
  * Verify the Turnstile token attached to a request.
  *
  * @param {import('express').Request} req  Express request (reads req.body.cfTurnstileToken)
- * @param {string} label                  Short tag for log lines, e.g. 'send-otp'
+ * @param {string} label                  Short tag for log lines, e.g. 'support-ticket'
  * @returns {Promise<{ok: boolean, reason?: string, error?: string, skipped?: string}>}
  *          ok:true when the request may proceed. ok:false carries `error`,
  *          a message safe to return to the client.

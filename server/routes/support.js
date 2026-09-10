@@ -227,7 +227,7 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'All fields are required: name, email, subject, message.' });
     }
 
-    // Same shared CAPTCHA verifier as the OTP route: fails open when the
+    // Same shared CAPTCHA verifier as the login page: fails open when the
     // Turnstile infrastructure is the thing that's broken, closed on a real
     // rejection from Cloudflare.
     const captcha = await verifyTurnstile(req, 'support-ticket');
