@@ -21,11 +21,13 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
       overflow-x: hidden;
       position: relative;
     }
+    a { text-decoration: none; color: inherit; }
+
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+    .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
 
     /* ── Ambient background glow ── */
     body::before {
@@ -51,6 +53,26 @@
       z-index: 0;
     }
 
+    /* ── NAVBAR (same chrome as every SaveHatke page) ── */
+    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
+    .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
+    .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
+    .bhl { color:#00e676; }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
+    .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
+    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00e676; border-radius:1px; }
+    .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
+    .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
+    @media(max-width:768px){
+      .nav-links,.nav-actions{display:none}
+      .nav-toggle{display:flex}
+      .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
+      .nav-actions.open{display:flex;position:absolute;top:200px;right:24px;flex-direction:column;gap:10px;z-index:99}
+    }
+
     /* ── Animations ── */
     @keyframes fadeInUp {
       from { opacity: 0; transform: translateY(24px); }
@@ -61,13 +83,16 @@
       100% { background-position: 200% center; }
     }
 
-    /* ── Main container ── */
+    /* ── Middle section: ONLY the maintenance message ──
+       No buttons, no CTAs, no controls of any kind — the message is the
+       entire content between the navbar and the footer. */
     .maintenance-container {
       position: relative;
       z-index: 1;
       max-width: 560px;
       width: 100%;
-      padding: 32px 24px;
+      padding: 0 24px;
+      margin: auto; /* centres between the fixed navbar and the footer */
       text-align: center;
       animation: fadeInUp .7s ease;
     }
@@ -95,15 +120,19 @@
       line-height: 1.7;
       color: #8ba2c4;
       max-width: 440px;
-      margin: 0 auto 32px;
+      margin: 0 auto;
     }
 
-    /* ── Footer ── */
-    .maint-footer {
-      margin-top: 48px;
-      font-size: .78rem;
-      color: #4a6080;
-    }
+    /* ── FOOTER (same chrome as every SaveHatke page) ── */
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:36px 0 0; margin-top:auto; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; padding-bottom:28px; }
+    .fbrand p { font-size:.85rem; color:#6b88aa; line-height:1.7; margin-top:12px; max-width:300px; }
+    .fcol h4 { font-size:.85rem; font-weight:700; color:#e2ecff; margin-bottom:14px; }
+    .fcol a { display:block; font-size:.82rem; color:#6b88aa; padding:5px 0; transition:color .2s; }
+    .fcol a:hover { color:#00e676; }
+    .fbot { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 0; border-top:1px solid rgba(79,195,247,.1); font-size:.78rem; color:#4a6080; }
+    @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:24px}}
+    @media(max-width:600px){.footer-grid{grid-template-columns:1fr}.fbot{flex-direction:column;gap:6px;text-align:center}}
 
     /* ── Responsive ── */
     @media (max-width: 480px) {
@@ -114,77 +143,155 @@
 </head>
 <body>
 
-  <div class="maintenance-container">
+<!-- NAVBAR — the normal SaveHatke navbar; profile dropdown is rendered
+     into .nav-actions by js/app.js (updateNavAuth), so Logout keeps working.
+     While maintenance is ON, js/maintenance-nav-lock.js keeps every link
+     on this page. -->
+<nav class="navbar" id="nav" role="navigation" aria-label="Main navigation">
+  <div class="container">
+    <a href="index" class="nav-brand" aria-label="SaveHatke home">
+      <img src="logo.png" alt="SaveHatke" class="brand-icon">
+      <span class="brand-name">Save<span class="bhl">Hatke</span></span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="index">Home</a>
+      <a href="marketplace">Buy Coupons</a>
+      <a href="sell">Sell Coupons</a>
+      <a href="how-it-works">How it Works</a>
+      <a href="about">About</a>
+      <a href="support">Support</a>
+    </div>
+    <div class="nav-actions" id="navActions"></div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
 
-    <!-- Heading -->
-    <h1 class="maint-heading">
-      🔧 We're <span class="highlight">Under Maintenance</span>
-    </h1>
+<!-- MIDDLE — ONLY the maintenance message. No Try Again, no Dashboard,
+     no CTAs of any kind. -->
+<main class="maintenance-container" style="padding-top:68px;">
+  <h1 class="maint-heading">
+    🔧 We're <span class="highlight">Under Maintenance</span>
+  </h1>
+  <p class="maint-message" id="maintMessage">
+    SaveHatke is temporarily unavailable while we make some improvements.
+    Please check back shortly. Thank you for your patience.
+  </p>
+</main>
 
-    <!-- Message (dynamic from server, or default) -->
-    <p class="maint-message" id="maintMessage">
-      SaveHatke is temporarily unavailable while we make some improvements.
-      Please check back shortly. Thank you for your patience.
-    </p>
-
-    <!-- Footer -->
-    <div class="maint-footer">
-      &copy; SaveHatke · We'll be back soon
+<!-- FOOTER — the normal SaveHatke footer; links stay visible but locked
+     by js/maintenance-nav-lock.js while maintenance is ON. -->
+<footer class="footer" aria-label="Site footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="fbrand">
+        <a href="index" class="nav-brand" style="font-size:1.2rem" aria-label="SaveHatke home">
+          <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+        </a>
+        <p>SaveHatke is a marketplace where users can discover available coupons and submit eligible unused coupons for review and potential sale.</p>
+      </div>
+      <div class="fcol">
+        <h4>Platform</h4>
+        <a href="marketplace">Coupon Marketplace</a>
+        <a href="sell">Sell Coupons</a>
+        <a href="how-it-works">How it Works</a>
+      </div>
+      <div class="fcol">
+        <h4>Company</h4>
+        <a href="support">Help Center</a>
+        <a href="support">Contact Us</a>
+        <a href="terms">Terms &amp; Conditions</a>
+        <a href="privacy">Privacy Policy</a>
+      </div>
+      <div class="fcol">
+        <h4>Categories</h4>
+        <a href="marketplace?cat=Makeup">Makeup Coupons</a>
+        <a href="marketplace?cat=Electronics">Electronics Deals</a>
+        <a href="marketplace?cat=Fashion">Fashion Codes</a>
+        <a href="marketplace?cat=Food">Food &amp; Delivery</a>
+      </div>
+    </div>
+    <div class="fbot">
+      <span>&copy; 2026 SaveHatke. All rights reserved.</span>
+      <span>Made with ❤️ in India</span>
     </div>
   </div>
+</footer>
 
-  <script>
-    const API_BASE = window.location.origin;
+<script src="js/app.js"></script>
+<!-- Keeps every navbar/footer link on this page while maintenance is ON.
+     The profile dropdown still opens and Logout still works. -->
+<script src="js/maintenance-nav-lock.js"></script>
+<script>
+  // ── Maintenance page behaviour ─────────────────────────────────────────
+  // The server 302s /maintenance → /index.html when maintenance is OFF, so
+  // this script normally only runs while maintenance is genuinely ON. It
+  // exists for the cached-copy case and to move users along the moment the
+  // toggle flips:
+  //   - maintenance turns OFF  → /index.html
+  //   - caller is an admin     → the admin panel (admins bypass maintenance)
 
-    // Pull the caller's stored token (if any) so the status endpoint can
-    // tell us whether THIS browser session is an admin. Admins are never
-    // held on the maintenance page.
-    function getCallerToken() {
-      try {
-        return (localStorage.getItem('sh_admin_token')
-              || localStorage.getItem('sh_token')
-              || '').trim();
-      } catch (e) { return ''; }
+  const API_BASE = window.location.origin;
+
+  function getCallerToken() {
+    try {
+      return (localStorage.getItem('sh_admin_token')
+            || localStorage.getItem('sh_token')
+            || '').trim();
+    } catch (e) { return ''; }
+  }
+
+  function adminLooksLoggedIn() {
+    try {
+      return !!localStorage.getItem('sh_admin_token');
+    } catch (e) { return false; }
+  }
+
+  async function checkMaintenanceStatus() {
+    let data = null;
+    try {
+      const headers = { 'Accept': 'application/json' };
+      const token = getCallerToken();
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      const res = await fetch(`${API_BASE}/api/maintenance/status`, { headers, cache: 'no-store' });
+      data = await res.json();
+    } catch (e) {
+      // A network blip is not a reason to dump the user into a redirect
+      // loop — stay put and try again on the next poll.
+      return;
     }
 
-    // On load: fetch the latest maintenance message + caller access.
-    // The server already 302s this page to /index when maintenance is OFF;
-    // this check is a client-side fallback for a cached copy of the page.
-    (async function loadMessage() {
-      let data = null;
-      try {
-        const headers = { 'Accept': 'application/json' };
-        const token = getCallerToken();
-        if (token) headers['Authorization'] = 'Bearer ' + token;
-        const res = await fetch(`${API_BASE}/api/maintenance/status`, { headers, cache: 'no-store' });
-        data = await res.json();
-      } catch (e) {
-        // Keep default message and stay put — a network blip is not a
-        // reason to dump a user into a redirect loop.
-        return;
-      }
-
-      if (data.message) {
-        document.getElementById('maintMessage').textContent = data.message;
-      }
-
-      // Redirect away from the maintenance page if either:
-      //  - maintenance is OFF for everyone, OR
-      //  - the caller is an admin
-      // canAccess is computed server-side and is the single source of truth.
-      if (data && data.canAccess) {
-        const dest = data.isAdmin && adminLooksLoggedIn()
-          ? '/dashboard.html'
-          : '/index.html';
-        window.location.replace(dest);
-      }
-    })();
-
-    function adminLooksLoggedIn() {
-      try {
-        return !!localStorage.getItem('sh_admin_token');
-      } catch (e) { return false; }
+    if (data && data.message) {
+      const el = document.getElementById('maintMessage');
+      if (el) el.textContent = data.message;
     }
-  </script>
+
+    // Leave the page only when the server says this caller is no longer
+    // held: maintenance OFF for everyone, or the caller is an admin.
+    // canAccess is computed server-side from VERIFIED credentials.
+    if (data && data.canAccess) {
+      const dest = (data.isAdmin && adminLooksLoggedIn())
+        ? '/vault'
+        : '/index.html';
+      window.location.replace(dest);
+    }
+  }
+
+  checkMaintenanceStatus();
+  // Re-check periodically so a user parked here is sent on their way as
+  // soon as maintenance is switched off — no button needed (and none shown).
+  setInterval(checkMaintenanceStatus, 30000);
+
+  // Mobile menu toggle — same behaviour as the other pages, scoped to the
+  // class names this page's CSS uses ('open').
+  const navToggle = document.getElementById('navToggle');
+  if (navToggle) {
+    navToggle.addEventListener('click', () => {
+      document.getElementById('navLinks')?.classList.toggle('open');
+      document.getElementById('navActions')?.classList.toggle('open');
+    });
+  }
+</script>
 </body>
 </html>

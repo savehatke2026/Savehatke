@@ -348,6 +348,7 @@ module.exports = {
   generateToken,
   refreshToken,
   decodeTokenIgnoreExpiry,
+  validateSessionToken,
   generateSessionToken,
   hashSessionToken,
   setSessionCookie,

@@ -77,6 +77,56 @@ initPageProgressBar();
   } catch (e) {}
 })();
 
+// ── Maintenance Mode Page Guard (client-side) ─────────────────────────────
+// Defense-in-depth for protected pages. The SERVER already 302s blocked
+// pages to /maintenance.html before any HTML reaches the browser (see
+// server/server.js) — this guard covers the two places the server cannot
+// reach: a purely static deployment of these files, and a page restored
+// from the browser's back/forward cache after maintenance was switched on.
+// It runs before anything renders, and only fires when maintenance is ON
+// and the caller is not an admin (both decided by the server's status
+// endpoint, never by local state).
+(function checkMaintenanceRedirectImmediate() {
+  try {
+    const path = window.location.pathname.toLowerCase();
+    const filename = path.split('/').pop() || 'index.html';
+
+    // Pages that must stay reachable while maintenance is ON.
+    const stayPages = ['maintenance', 'maintenance.html', 'login', 'login.html',
+                       'vault', 'vault.html', 'admin-gmail', 'admin-gmail.html',
+                       'admin-review', 'admin-review.html'];
+    if (stayPages.includes(filename)) return;
+    if (path.startsWith('/admin/')) return; // admin coupon review — admins only anyway
+
+    fetch('/api/maintenance/status', { cache: 'no-store', credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && data.enabled && !data.canAccess) {
+          window.location.replace('/maintenance.html');
+        }
+      })
+      .catch(() => { /* status endpoint unreachable — server guards still apply */ });
+  } catch (e) { /* never block the page on this guard */ }
+})();
+
+// Same check for pages restored from the back/forward cache — a BFCache
+// restore re-fires pageshow but does NOT re-run page scripts, so without
+// this a user could Back into a protected page rendered before maintenance
+// was switched on.
+window.addEventListener('pageshow', (event) => {
+  if (!event.persisted) return;
+  try {
+    fetch('/api/maintenance/status', { cache: 'no-store', credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && data.enabled && !data.canAccess) {
+          window.location.replace('/maintenance.html');
+        }
+      })
+      .catch(() => {});
+  } catch (e) {}
+});
+
 // ── Auth State Management ───────────────────────────────────────────────
 const Auth = {
   getToken() {

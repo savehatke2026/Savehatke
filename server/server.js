@@ -37,7 +37,7 @@ const backupCodeRoutes = require('./routes/backupCode');
 const sosRoutes = require('./routes/sos');
 const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
-const { checkPageAccess } = require('./middleware/maintenance');
+const { checkPageAccess, resolveCaller, isAdminRole } = require('./middleware/maintenance');
 const supabase = require('./services/supabase');
 
 const app = express();
@@ -147,14 +147,21 @@ app.use(async (req, res, next) => {
 
 // ── HTML Maintenance Guards ─────────────────────────────────────────────
 // These run BEFORE the static file handler so the redirect happens at the
-// server, with no chance of flashing the wrong page. Each rule:
+// server, with no chance of flashing the wrong page. Rules:
 //
 //   /maintenance            → when OFF, redirect to /index.html
 //   /<protected user page>  → when ON and caller is not admin, redirect to /maintenance.html
 //
-// The list of protected user pages mirrors the requirements spec; add to
-// it whenever a new authenticated-user HTML page is introduced. Admin
-// pages (vault.html, admin-*.html) are intentionally not protected here
+// PROTECTED_USER_PAGES covers every authenticated user page named in the
+// requirements spec (dashboard, profile, account, marketplace, buy, sell,
+// my-coupons, purchased, checkout, payment, orders, settings, …).
+// PROTECTED_PUBLIC_PAGES covers the pages the navbar and footer expose
+// (home, how-it-works, about) — during maintenance a logged-in user must
+// not be able to leave the maintenance page through them, so they share the
+// same "ON + non-admin → /maintenance" rule.
+//
+// Intentionally NOT protected here: login.html (auth must keep working),
+// maintenance.html itself, and the admin pages (vault.html, admin-*.html)
 // because the admin role bypasses maintenance mode entirely.
 const PROTECTED_USER_PAGES = new Set([
   '/dashboard', '/dashboard.html',
@@ -175,9 +182,26 @@ const PROTECTED_USER_PAGES = new Set([
   '/security', '/security.html',
 ]);
 
+// Navbar / footer destinations that are public pages. terms.html,
+// privacy.html and support.html are deliberately listed: the requirements
+// say footer navigation must stay locked during maintenance unless a page
+// is explicitly whitelisted — none has been. (support.html's own UI links
+// to the public /api/support endpoints; those stay reachable via the API
+// guard rules below.)
+//
+// The maintenance page's own minimal footer links DIRECTLY to /privacy and
+// /terms — the requirements call those the genuinely public pages ("Only
+// expose genuinely public pages"), so they are intentionally NOT in this
+// set and stay reachable even while maintenance is ON.
+const PROTECTED_PUBLIC_PAGES = new Set([
+  '/', '/index', '/index.html',
+  '/how-it-works', '/how-it-works.html',
+  '/about', '/about.html',
+  '/support', '/support.html',
+]);
+
 function isMaintenanceHtmlRequest(req) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return false;
-  // Trim query string and decode the path before comparing.
   const raw = (req.path || '').toLowerCase();
   return raw === '/maintenance' || raw === '/maintenance.html';
 }
@@ -188,15 +212,28 @@ function isProtectedUserHtmlRequest(req) {
   return PROTECTED_USER_PAGES.has(raw);
 }
 
+function isProtectedPublicHtmlRequest(req) {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return false;
+  const raw = (req.path || '').toLowerCase();
+  return PROTECTED_PUBLIC_PAGES.has(raw);
+}
+
 // /maintenance and /maintenance.html: when maintenance is OFF, redirect
-// straight to /index.html. This is a true server-side 302 with no body,
-// so the Maintenance page can never flash on screen.
+// straight to /index.html (true server-side 302 with no body, so the
+// Maintenance page can never flash on screen). When maintenance is ON the
+// page is served — EXCEPT to admins, who bypass maintenance entirely and
+// are sent to the admin panel so they are never stranded on the page they
+// are supposed to be able to manage around.
 async function maintenancePageGuard(req, res, next) {
   if (!isMaintenanceHtmlRequest(req)) return next();
   try {
     const status = await supabase.getMaintenanceMode();
     if (!status || !status.enabled) {
       return res.redirect(302, '/index.html');
+    }
+    const caller = await resolveCaller(req);
+    if (isAdminRole(caller)) {
+      return res.redirect(302, '/vault');
     }
   } catch (e) {
     // Fail open — if the status check itself errors, allow the page to
@@ -222,8 +259,28 @@ async function protectedPageGuard(req, res, next) {
   return next();
 }
 
+// Navbar / footer public pages (home, about, terms, privacy, support, …):
+// while maintenance is ON a signed-in NORMAL user is kept on the maintenance
+// page — the navbar and footer must not be an exit. Anonymous visitors get
+// the same treatment so the whole site reads as "down for maintenance",
+// and admins pass through untouched (they keep the real site so the admin
+// panel and its pages stay fully usable while maintenance runs).
+async function protectedPublicPageGuard(req, res, next) {
+  if (!isProtectedPublicHtmlRequest(req)) return next();
+  try {
+    const access = await checkPageAccess(req);
+    if (!access.allowed) {
+      return res.redirect(302, '/maintenance.html');
+    }
+  } catch (e) {
+    console.warn('Public page guard check failed, allowing:', e.message);
+  }
+  return next();
+}
+
 app.use(maintenancePageGuard);
 app.use(protectedPageGuard);
+app.use(protectedPublicPageGuard);
 
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   extensions: ['html'],
@@ -312,18 +369,21 @@ app.use('/api/proxy/drive', apiLimiter, maintenanceGuard, driveProxyRoutes); // 
 app.use('/api/consent', consentRoutes);
 
 // Public maintenance mode status (no auth required — called by the maintenance
-// page "Try Again" button and the dashboard auth guard to decide where to send
-// the user). Deliberately unauthenticated so it works before login.
+// page and page guards to decide where to send the user). Deliberately
+// unauthenticated so it works before login.
 //
 // Mounted BEFORE the generic '/api' mount below so the maintenance guard
 // there cannot shadow it — the status endpoint MUST remain reachable so
 // blocked users can poll for the toggle to be flipped off.
 //
-// When the caller supplies an `Authorization: Bearer <jwt>` header we ALSO
-// resolve whether that user is an admin (the only role that bypasses
-// maintenance). The response then carries `canAccess` / `isAdmin` so the
-// frontend doesn't have to guess. If no token is sent, both flags default
-// to false — i.e. an anonymous visitor is always treated as "no bypass".
+// When the caller carries a credential (a verified Bearer JWT, or the
+// HttpOnly session cookie that page navigations rely on) we ALSO resolve
+// whether that user is an admin — the only role that bypasses maintenance.
+// The response then carries `canAccess` / `isAdmin` so the frontend doesn't
+// have to guess. With no credential at all, both flags default to false —
+// an anonymous visitor is always treated as "no bypass". The role is read
+// from VERIFIED credentials only (never a raw decode of an untrusted token),
+// so nobody can forge themselves an admin answer.
 app.get('/api/maintenance/status', async (req, res) => {
   try {
     const supabaseService = require('./services/supabase');
@@ -331,20 +391,8 @@ app.get('/api/maintenance/status', async (req, res) => {
 
     let isAdmin = false;
     if (status.enabled) {
-      const authHeader = req.headers && req.headers.authorization;
-      if (authHeader && /^Bearer\s+/i.test(authHeader)) {
-        const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-        if (token) {
-          try {
-            const jwt = require('jsonwebtoken');
-            const decoded = jwt.decode(token) || null;
-            if (decoded) {
-              const role = decoded.role ? String(decoded.role).toLowerCase() : '';
-              isAdmin = role === 'admin' || role === 'super admin' || role === 'support';
-            }
-          } catch (e) { /* bad token — treat as anonymous */ }
-        }
-      }
+      const caller = await resolveCaller(req);
+      isAdmin = isAdminRole(caller);
     }
 
     const canAccess = !status.enabled || isAdmin;
@@ -443,11 +491,20 @@ app.get('/api/health', (req, res) => {
 });
 
 // ── SPA Fallback — serve index.html for unmatched routes ────────────────────
-app.get('*', (req, res) => {
+app.get('*', async (req, res) => {
   // Only serve HTML for non-API routes
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found.' });
   }
+  // Unknown paths normally land on the landing page — during maintenance
+  // that would hand a normal user the full site, so they get the maintenance
+  // page instead. Admins keep the real fallback (they bypass maintenance).
+  try {
+    const access = await checkPageAccess(req);
+    if (!access.allowed) {
+      return res.redirect(302, '/maintenance.html');
+    }
+  } catch (e) { /* status check failed — fail open like the static guards */ }
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
