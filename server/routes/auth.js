@@ -979,6 +979,22 @@ router.post('/google-redirect', async (req, res) => {
       const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
 
+      // Persist the Google profile picture on the MongoDB admin document so
+      // the admin panel can render the real Google avatar from the database
+      // rather than from this one login response. Google rotates these URLs,
+      // so the newest one from each Google sign-in wins; a login with no
+      // picture never blanks a photo already on file.
+      if (adminData && userPicture) {
+        try {
+          if (adminData.profile_image !== userPicture) {
+            adminData.profile_image = userPicture;
+            await adminData.save();
+          }
+        } catch (e) {
+          console.warn('Admin Google profile image persist failed:', e.message);
+        }
+      }
+
       // Server-side 48h session for the admin login
       const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName, res).catch(() => null);
       const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
@@ -988,7 +1004,7 @@ router.post('/google-redirect', async (req, res) => {
         id: adminId,
         email: userEmail,
         name: adminName,
-        picture: userPicture || '',
+        picture: userPicture || (adminData ? adminData.profile_image : '') || '',
         role: 'admin',
       };
 
@@ -1136,6 +1152,21 @@ router.post('/google', async (req, res) => {
       const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
       const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
 
+      // Persist the Google profile picture on the MongoDB admin document —
+      // same policy as the /google-redirect admin branch: newest URL from a
+      // Google sign-in wins, a picture-less login never blanks an existing
+      // photo, and the panel later reads it back from the database.
+      if (adminData && userPicture) {
+        try {
+          if (adminData.profile_image !== userPicture) {
+            adminData.profile_image = userPicture;
+            await adminData.save();
+          }
+        } catch (e) {
+          console.warn('Admin Google profile image persist failed:', e.message);
+        }
+      }
+
       // Server-side 48h session for the admin login
       const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName, res).catch(() => null);
       const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
@@ -1145,12 +1176,12 @@ router.post('/google', async (req, res) => {
         message: 'Admin Google login successful.',
         token,
         session_id: session ? session.sessionId : undefined,
-        session_expires_at: session ? session.expiresAt : undefined,
+        session_expires_at: session ? session.expires_at : undefined,
         user: {
           id: adminId,
           email: userEmail,
           name: adminName,
-          picture: userPicture || '',
+          picture: userPicture || (adminData ? adminData.profile_image : '') || '',
           role: 'admin',
         },
       });

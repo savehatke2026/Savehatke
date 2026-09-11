@@ -9,6 +9,7 @@ function initAdminApp() {
   }
 
   renderCurrentAdminProfile();
+  refreshAdminProfile(); // server-side profile refresh — updates the avatar from MongoDB
   showAdminDashboard();
   initAdminTabs();
   initAddCouponForm();
@@ -43,16 +44,25 @@ function renderCurrentAdminProfile() {
   const email = adminUser.email || '';
   const role = adminUser.role || 'Super Admin';
 
+  // Google logins hand the photo over as `picture`; the password login and
+  // the /admin/me refresh use `profile_image`. The Google avatar host also
+  // rejects requests that carry a referer, and rotates its URLs, so the
+  // image falls back to the initials tile on any load failure.
+  const avatarUrl = safeProfilePictureUrl(adminUser.profile_image || adminUser.picture);
+
   const initials = name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'SA';
 
-  const avatarEl = document.getElementById('currentAdminAvatar');
-  if (avatarEl) {
-    if (adminUser.profile_image) {
-      avatarEl.innerHTML = `<img src="${adminUser.profile_image}" alt="${name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
+  const renderAvatar = (el, fallbackText) => {
+    if (!el) return;
+    if (avatarUrl) {
+      el.innerHTML = `<img src="${escapeHtml(avatarUrl)}" alt="${escapeHtml(name)}" referrerpolicy="no-referrer" loading="lazy" style="width:100%;height:100%;border-radius:50%;object-fit:cover;"`
+        + ` onerror="this.replace(document.createTextNode('${initials.replace(/'/g, '')}'))">`;
     } else {
-      avatarEl.textContent = initials;
+      el.textContent = fallbackText;
     }
-  }
+  };
+
+  renderAvatar(document.getElementById('currentAdminAvatar'), initials);
 
   const nameEl = document.getElementById('currentAdminName');
   if (nameEl) nameEl.textContent = name;
@@ -76,13 +86,40 @@ function renderCurrentAdminProfile() {
   const topbarName = document.getElementById('topbarAdminName');
   if (topbarName) topbarName.textContent = name;
 
-  const topbarAvatar = document.getElementById('topbarAdminAvatar');
-  if (topbarAvatar) {
-    if (adminUser.profile_image) {
-      topbarAvatar.innerHTML = `<img src="${adminUser.profile_image}" alt="${name}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" />`;
-    } else {
-      topbarAvatar.textContent = initials.slice(0, 1);
-    }
+  renderAvatar(document.getElementById('topbarAdminAvatar'), initials.slice(0, 1));
+}
+
+// ── Admin profile refresh ─────────────────────────────────────────────────
+// The localStorage admin user is a snapshot from login time. The panel reloads
+// the profile from the server on every load so the avatar reflects the
+// MongoDB document (where Google sign-ins persist their profile image)
+// instead of whichever device happened to log in last. Only the authenticated
+// admin's own profile ever comes back — the server derives identity from the
+// verified JWT, not from anything the browser sends.
+async function refreshAdminProfile() {
+  try {
+    const data = await api('/admin/me', { useAdmin: true });
+    const admin = (data && data.admin) || null;
+    if (!admin || !admin.email) return;
+
+    const cached = Auth.getAdminUser() || {};
+    const merged = { ...cached, ...admin };
+
+    // Only re-render (and re-cache) when something actually changed, so an
+    // unchanged profile doesn't thrash the header on every visit.
+    const changed = (admin.profile_image || '') !== (cached.profile_image || cached.picture || '')
+      || (admin.name || '') !== (cached.name || cached.full_name || '')
+      || (admin.role || '') !== (cached.role || '');
+    if (!changed) return;
+
+    // Keep the Google-login `picture` field from overriding the fresher
+    // server value on the next render.
+    delete merged.picture;
+    Auth.setAdminAuth(Auth.getAdminToken(), merged);
+    renderCurrentAdminProfile();
+  } catch (e) {
+    // /admin/me is a refinement, not a gate: on failure the panel keeps the
+    // login-time snapshot and the initials fallback avatar.
   }
 }
 
@@ -2709,8 +2746,10 @@ function adminRowHtml(a) {
   const role = a.role || 'Admin';
   const phone = a.phone || '';
   const initials = adminInitials(name, email);
+  // Google's avatar host rejects referer-carrying requests and rotates its
+  // URLs — a failed load falls back to the initials tile.
   const avatar = a.profile_image
-    ? `<img src="${escHtml(a.profile_image)}" alt="">`
+    ? `<img src="${escHtml(a.profile_image)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.replace(document.createTextNode('${escHtml(initials).replace(/'/g, '')}'))">`
     : escHtml(initials);
   const lastLogin = fmtDateTime(a.last_login);
   const lastLoginRel = fmtRelative(a.last_login);

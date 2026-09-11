@@ -297,6 +297,52 @@ router.delete('/delete-admin/:id', authenticateToken, requireAdmin, async (req, 
   }
 });
 
+// GET /api/admin/me — The AUTHENTICATED admin's own profile.
+//
+// Identity comes exclusively from the verified JWT that authenticateToken
+// populated onto req.user — the caller can never name another admin or read
+// anyone else's document. The response carries only what the panel header
+// and avatar need; no password hash, no security questions, no session data.
+router.get('/me', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const email = String(req.user.email || '').toLowerCase().trim();
+    const id = String(req.user.id || '');
+
+    const me = await Admin.findOne({
+      $or: [{ email }, ...(id ? [{ id }] : [])],
+    }).catch(() => null);
+
+    if (!me) {
+      // Admins that exist only in the env fallback (no Mongo document) keep
+      // whatever the login response gave the frontend — answer with the JWT's
+      // own claims rather than a 404, so the panel still renders.
+      return res.json({
+        admin: {
+          id,
+          email,
+          name: req.user.name || email.split('@')[0] || 'Admin',
+          role: req.user.role || 'Admin',
+          profile_image: '',
+        },
+      });
+    }
+
+    res.json({
+      admin: {
+        id: me.id || (me._id ? me._id.toString() : id),
+        email: me.email,
+        name: me.name || me.full_name || req.user.name || 'Admin',
+        role: me.role || 'Admin',
+        profile_image: me.profile_image || '',
+        last_login: me.last_login || null,
+      },
+    });
+  } catch (err) {
+    console.error('GET /admin/me error:', err);
+    res.status(500).json({ error: 'Failed to load admin profile.' });
+  }
+});
+
 // GET /api/admin/stats — Dashboard statistics
 router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
