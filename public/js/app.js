@@ -489,7 +489,7 @@ function ensureNavProfileStyles() {
       transition:all .22s ease;box-shadow:0 0 14px rgba(0,230,118,.35);outline:none;overflow:hidden}
     .nav-profile-btn:hover{transform:scale(1.08);box-shadow:0 0 22px rgba(0,230,118,.65);border-color:#4fc3f7}
     .nav-profile-btn img{width:100%;height:100%;border-radius:50%;object-fit:cover}
-    .nav-profile-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:230px;
+    .nav-profile-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:280px;max-width:calc(100vw - 32px);
       background:rgba(12,24,53,.96);backdrop-filter:blur(20px);border:1px solid rgba(79,195,247,.25);
       border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.65);padding:10px;display:none;
       flex-direction:column;gap:6px;z-index:1000;animation:shDropdownFadeIn .2s ease-out forwards}
@@ -500,7 +500,7 @@ function ensureNavProfileStyles() {
     .npd-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
     .npd-info{display:flex;flex-direction:column;overflow:hidden}
     .npd-name{font-size:.88rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:3px}
-    .npd-email{font-size:.74rem;color:#6b88aa;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .npd-email{font-size:.74rem;color:#6b88aa;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.4}
     .npd-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:#e2ecff;font-size:.86rem;font-weight:600;text-decoration:none;cursor:pointer;transition:all .18s;background:transparent;border:none;width:100%;text-align:left;font-family:'Outfit',sans-serif}
     .npd-item:hover{background:rgba(0,230,118,.12);color:#00e676}
     .npd-item-logout{color:#ff6b6b}

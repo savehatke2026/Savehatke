@@ -44,14 +44,6 @@ const settingSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    heroBadge: {
-      type: String,
-      default: "🚀 India's #1 Coupon Marketplace — Now Live!",
-    },
-    showHeroBadge: {
-      type: Boolean,
-      default: true,
-    },
     // Heading copy above the homepage testimonial cards. The cards themselves
     // are rows in the Testimonials sheet, not settings.
     testimonialsLabel: {

@@ -338,6 +338,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .inv-timer:disabled{opacity:.5;cursor:wait}
 /* Timer switch off — the date is still stored, it just isn't counting down */
 .inv-timer.inv-timer-off{opacity:.4;cursor:not-allowed}
+/* Per-coupon card background image — inline editor in the inventory table */
+.inv-img{width:100%;max-width:160px;background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.16);border-radius:6px;color:#e2ecff;font-family:'JetBrains Mono',monospace;font-size:.68rem;padding:5px 7px;outline:none}
+.inv-img:focus{border-color:rgba(0,230,118,.45);background:rgba(0,230,118,.05)}
+.inv-img:disabled{opacity:.5;cursor:wait}
+.inv-img::placeholder{color:#6b88aa}
 .inv-exp{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:3px 7px;border-radius:6px;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:.68rem;font-weight:700;border:1px solid transparent;white-space:nowrap}
 .inv-exp-green{color:#00e676;background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.22)}
 .inv-exp-yellow{color:#ffd740;background:rgba(255,215,64,.09);border-color:rgba(255,215,64,.3)}
@@ -580,6 +585,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .form-textarea{background:rgba(255,255,255,.05);border:1.5px solid rgba(79,195,247,.15);color:#e2ecff;border-radius:9px;padding:8px 12px;font-size:.86rem;transition:border-color .2s;outline:none;width:100%;resize:vertical;min-height:90px}
 .form-textarea:focus{border-color:rgba(0,230,118,.4)}
 .form-textarea::placeholder{color:#6b88aa}
+.form-hint{font-size:.72rem;color:#6b88aa;line-height:1.5}
 .form-check{display:flex;align-items:center;gap:8px;font-size:.88rem;color:#a8c0dc;cursor:pointer}
 .form-check input{width:16px;height:16px;accent-color:#00e676;cursor:pointer}
 .form-input,.form-select{width:100%}
@@ -1695,6 +1701,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select" id="acSource"><option value="admin">Admin</option><option value="partner">Partner</option><option value="user-submitted">User Submitted</option></select></div>
             <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="acStatus"><option value="available">Active (Available)</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option></select></div>
             <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" id="acLink" placeholder="https://..."></div>
+            <div class="form-group">
+              <label class="form-label">Coupon Background Image (optional)</label>
+              <input class="form-input" type="text" id="acBackgroundImage" placeholder="/images/coupons/amazon.webp or https://...">
+              <div class="form-hint">Hero image shown on this coupon's marketplace card. Leave empty for the default SaveHatke background.</div>
+            </div>
           </div>
           <div class="form-group" style="margin-top:14px"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" id="acTerms" placeholder="Enter terms and conditions..."></textarea></div>
           <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">
@@ -2236,7 +2247,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
           🛠️ Website Maintenance
         </div>
         <p style="color:#6b88aa;font-size:.88rem;margin-bottom:18px">
-          Control whether normal users can access SaveHatke. While ON, only the Admin Panel remains available; every other user is redirected to the maintenance page. While OFF, the site is fully live for everyone.
+          Control whether normal users can access SaveHatke. While ON, every user is redirected to the maintenance page, which offers only a login button; whitelisted users who log in are let straight back into the normal site. Admins always keep full access. While OFF, the site is fully live for everyone.
         </p>
 
         <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:16px">
@@ -2265,6 +2276,19 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <label class="form-label" style="font-size:.78rem;margin-bottom:6px">Custom Maintenance Message (optional)</label>
           <textarea id="maintenanceMessage" class="form-input" rows="2" maxlength="500" placeholder="Leave blank to use the default message..." style="resize:vertical;min-height:60px;font-size:.86rem"></textarea>
           <small style="color:#6b88aa;font-size:.72rem">Shown to users on the maintenance page.</small>
+        </div>
+
+        <!-- ── Maintenance whitelist ── -->
+        <div style="border-top:1px solid rgba(79,195,247,.12);padding-top:16px;margin-top:4px">
+          <div style="font-size:.9rem;font-weight:700;color:#a8c0dc;margin-bottom:4px">Whitelisted Users</div>
+          <p style="color:#6b88aa;font-size:.8rem;margin-bottom:10px">
+            These users can log in from the maintenance page and browse the normal site while maintenance is ON. One email per line.
+          </p>
+          <textarea id="maintenanceWhitelist" class="form-input" rows="4" placeholder="user@example.com&#10;another@example.com" style="resize:vertical;min-height:80px;font-size:.86rem;font-family:'JetBrains Mono',monospace"></textarea>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+            <button class="btn btn-primary btn-sm" type="button" onclick="saveMaintenanceWhitelist()">Save Whitelist</button>
+            <span id="maintenanceWhitelistCount" style="font-size:.78rem;color:#6b88aa"></span>
+          </div>
         </div>
 
         <!-- Loading spinner (shown during API calls) -->
@@ -2309,17 +2333,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
               </label>
             </div>
             <small style="color:#6b88aa;">Show on landing page</small>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Hero Banner (Top Announcement)</label>
-            <div style="display:flex; align-items:center; gap:12px;">
-              <input class="form-input" id="setHeroBadge" value="🔥 Buy & Sell Coupons — All in One Place!" placeholder="e.g. 🔥 Buy & Sell Coupons — All in One Place!" style="flex:1;">
-              <label class="toggle" style="flex-shrink:0;">
-                <input type="checkbox" id="toggleHeroBadge" checked>
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-            <small style="color:#6b88aa;">Show on landing page hero</small>
           </div>
         </div>
       </div>
