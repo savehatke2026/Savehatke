@@ -3278,8 +3278,12 @@
     if (next === 'sales') {
       renderMyListings();
       // Switching to For Sale by tab (not by navigation) still refreshes the
-      // account payout record the listing trackers read.
-      if (typeof loadPayoutDetails === 'function') loadPayoutDetails();
+      // account payout record the listing trackers read, and repaints them once
+      // it lands so the details steps never show a stale account state.
+      Promise.resolve()
+        .then(() => (typeof loadPayoutDetails === 'function' ? loadPayoutDetails() : null))
+        .then(() => renderMyListings())
+        .catch(() => {});
     } else renderMyCoupons();
   }
 
