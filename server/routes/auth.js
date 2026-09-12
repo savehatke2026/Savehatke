@@ -1,12 +1,14 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
+const crypto = require('crypto');
 const UAParser = require('ua-parser-js');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const {
   authenticateToken,
+  requireAdmin,
   generateToken,
   refreshToken,
   decodeTokenIgnoreExpiry,
@@ -1533,32 +1535,73 @@ router.get('/security-events', authenticateToken, async (req, res) => {
   }
 });
 
-// GET|POST /api/auth/session-cleanup â€” 10-minute expiry sweep endpoint for
-// external/Vercel cron. Guarded by SESSION_CLEANUP_SECRET (query param
-// `secret` or `x-cleanup-secret` header) when configured; otherwise only
-// an authenticated admin may trigger it.
-router.all('/session-cleanup', async (req, res) => {
-  const secret = process.env.SESSION_CLEANUP_SECRET;
-  if (secret) {
+// GET|POST /api/auth/session-cleanup — cleanup sweep endpoint for external/
+// Vercel cron. One pass flips past-expiry sessions to 'Expired', deletes
+// ended sessions past the 90-day retention window, and sweeps expired SOS
+// recovery sessions in MongoDB. Idempotent — safe to run repeatedly.
+//
+// Authentication, in order:
+//   1. SESSION_CLEANUP_SECRET (query `secret` or `x-cleanup-secret` header) —
+//      the dedicated key for this endpoint;
+//   2. CRON_SECRET as `Authorization: Bearer <secret>` (what Vercel Cron
+//      sends automatically) or `x-cron-key` — the same contract as the monthly
+//      report run;
+//   3. otherwise a logged-in admin, validated through the full session
+//      middleware chain (server-side session row, not just a decoded JWT).
+//
+// The response never includes tokens, emails or row contents — only counts.
+router.all('/session-cleanup', async (req, res, next) => {
+  if (!['GET', 'POST'].includes(req.method)) {
+    return res.status(405).json({ error: 'Method not allowed.' });
+  }
+
+  const dedicatedSecret = process.env.SESSION_CLEANUP_SECRET;
+  if (dedicatedSecret) {
     const provided = req.query.secret || req.headers['x-cleanup-secret'];
-    if (provided !== secret) {
+    const a = Buffer.from(String(provided || ''));
+    const b = Buffer.from(String(dedicatedSecret));
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
       return res.status(401).json({ error: 'Unauthorized.' });
     }
-  } else {
-    // No secret configured â€” require an admin bearer token
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Unauthorized.' });
-    const decoded = decodeTokenIgnoreExpiry(token);
-    const role = decoded && decoded.role ? String(decoded.role).toLowerCase() : '';
-    if (!decoded || !(role === 'admin' || role === 'super admin' || role === 'support')) {
-      return res.status(403).json({ error: 'Admin access required.' });
+    return handleSessionCleanupRun(req, res);
+  }
+
+  const cronSecret = String(process.env.CRON_SECRET || '').trim();
+  if (cronSecret) {
+    const bearer = String(req.get('authorization') || '').trim();
+    const presented = bearer.toLowerCase().startsWith('bearer ')
+      ? bearer.slice(7).trim()
+      : String(req.get('x-cron-key') || '').trim();
+    if (presented) {
+      const a = Buffer.from(presented);
+      const b = Buffer.from(cronSecret);
+      if (a.length === b.length && crypto.timingSafeEqual(a, b)) {
+        return handleSessionCleanupRun(req, res);
+      }
+      return res.status(401).json({ error: 'Unauthorized.' });
     }
   }
 
-  const result = await sessionCleanup.runSessionCleanup();
-  res.json({ message: 'Session cleanup complete.', expired: result.count, ranAt: new Date().toISOString() });
+  // No secret configured (or none presented) — require an admin session.
+  return authenticateToken(req, res, () => requireAdmin(req, res, () => handleSessionCleanupRun(req, res)));
 });
+
+async function handleSessionCleanupRun(req, res) {
+  try {
+    const result = await sessionCleanup.runSessionCleanup();
+    res.json({
+      message: 'Session cleanup complete.',
+      expired: result.expired,
+      purged: result.purged,
+      sosPurged: result.sosPurged,
+      ranAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    // Counts only — never log token hashes or credentials on failure.
+    console.error('Session cleanup endpoint error:', err && err.message ? err.message : err);
+    res.status(500).json({ error: 'Session cleanup failed.' });
+  }
+}
 
 // GET /api/auth/me
 router.get('/me', authenticateToken, async (req, res) => {

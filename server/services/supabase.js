@@ -763,6 +763,14 @@ async function endAllUserSessions(userId, options = {}) {
   sessionCache.invalidateByUserId(userId);
 }
 
+// How long ended session rows are kept after their expiry before deletion.
+// They are not just a live-session list: services/deviceRecognition.js reads
+// them as the durable "which devices has this account used" ledger behind
+// new-device alerts, and the Security page shows them as login history —
+// so an expired row must stay readable for a while before it is removed.
+// The old upgrade SQL shipped the same 90-day figure as its suggested cutoff.
+const SESSION_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
+
 /**
  * 48-hour expiry sweep — flips every session whose expires_at has passed
  * but is still marked Active: status → 'Expired', revoked_at → now.
@@ -804,6 +812,68 @@ async function expireOutdatedSessions() {
     }
   }
   sessionCache.clear(); // swept rows may be cached as Active
+  return { count: total };
+}
+
+/**
+ * Delete expired session rows that are past the retention window.
+ *
+ * A row is only eligible when BOTH hold:
+ *   • status != 'Active' — an active session can never be deleted, even if a
+ *     bad clock or a manual edit left expires_at in the past;
+ *   • the session is definitely past retention: expires_at (falling back to
+ *     login_time when expires_at is NULL, as pre-48h-upgrade rows can be) is
+ *     older than SESSION_RETENTION_MS measured from the database server's
+ *     own now() — the browser/application clock is never trusted for a delete.
+ *
+ * The `.lt('expires_at', cutoff)` bound uses a computed timestamp, so the
+ * criterion is "definitely expired", never "about to expire". The delete is
+ * naturally idempotent: re-running it just finds nothing left to remove.
+ *
+ * Only rows in the application's own user_sessions / admin_sessions tables
+ * are touched — never Supabase's internal auth.* tables, and never user
+ * profiles, coupons, payouts or any other data.
+ *
+ * @returns {Promise<{count:number}>} rows removed across both tables
+ */
+async function deleteExpiredSessions() {
+  const client = getClient();
+  if (!client) return { count: 0 };
+
+  // Computed from the application clock but compared only against rows that
+  // are BOTH non-Active AND already past retention by a wide margin, so a
+  // small clock skew can never make a live session eligible.
+  const cutoff = new Date(Date.now() - SESSION_RETENTION_MS).toISOString();
+  let total = 0;
+
+  for (const table of SESSION_TABLES) {
+    try {
+      let { data, error } = await client
+        .from(table)
+        .delete()
+        .in('status', ['Expired', 'Logged out'])
+        .lt('expires_at', cutoff)
+        .select('session_id');
+      if (error && isMissingColumnError(error)) {
+        // Pre-migration table without expires_at: retire on login_time alone.
+        // The status guard still keeps every Active row safe.
+        ({ data, error } = await client
+          .from(table)
+          .delete()
+          .in('status', ['Expired', 'Logged out'])
+          .lt('login_time', cutoff)
+          .select('session_id'));
+      }
+      if (error) {
+        console.warn('Delete expired sessions warning:', error.message);
+        continue;
+      }
+      total += (data || []).length;
+    } catch (err) {
+      console.warn('Delete expired sessions exception:', err.message);
+    }
+  }
+  if (total > 0) sessionCache.clear(); // deleted rows must not linger as cached validations
   return { count: total };
 }
 
@@ -1311,6 +1381,7 @@ module.exports = {
   endSession,
   endAllUserSessions,
   expireOutdatedSessions,
+  deleteExpiredSessions,
   getAllSessions,
   getAdminSessions,
   getUserSessions,
@@ -1318,6 +1389,7 @@ module.exports = {
   countActiveSessions,
   SESSION_TTL_MS,
   ADMIN_SESSION_TTL_MS,
+  SESSION_RETENTION_MS,
   // SOS backup codes
   createBackupCode,
   listActiveBackupCodes,
