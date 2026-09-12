@@ -42,8 +42,12 @@ const supabase = require('./services/supabase');
 
 const app = express();
 
-// Behind Vercel's edge proxy — makes req.ip resolve the real client IP
-app.set('trust proxy', true);
+// Behind Vercel's edge proxy — exactly one trusted hop between the client and
+// this server. Trusting only that first hop makes req.ip resolve the real
+// client IP from X-Forwarded-For while ignoring client-spoofed entries.
+// (Boolean `true` would trust every hop, letting anyone forge XFF headers to
+// bypass the IP-based rate limiters below.)
+app.set('trust proxy', 1);
 
 // ── Security & Middleware ───────────────────────────────────────────────────
 app.use(helmet({
