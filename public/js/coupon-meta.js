@@ -354,20 +354,71 @@ function getBrandInitial(brand) {
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
- * Parse a coupon expiry value into a timestamp.
- * Date-only strings ("2026-10-11") are treated as end-of-day local time so a
- * coupon stays usable for the whole of its final day; values that also carry a
- * time ("2026-10-11T18:30", written by the admin timer picker) are taken as-is.
+ * Parse a coupon's actual stored expiry value into a timestamp. This is the
+ * single source of the countdown — the remaining time is always computed as
+ * (this timestamp − now); no default, fixed or generated timer is ever
+ * substituted for it. When a coupon genuinely has no expiry, this returns
+ * null so callers can say so ("No timer set") instead of inventing one.
+ *
+ * expiry is stored as TEXT (Supabase `expiry_date` / the Sheets `expiryDate`
+ * column), and the Coupons sheet mirrors whatever a cell renders in the
+ * sheet's locale — so the accepted shapes, all deterministic (no reliance on
+ * the engine's loose string parsing):
+ *   "2026-10-11"              → end of that LOCAL day, so the coupon stays
+ *                                usable for the whole of its final day
+ *   "2026-10-11T18:30"        → LOCAL time (what the admin timer picker and
+ *   "2026-10-11 18:30"          the sell form's datetime-local inputs write;
+ *                                a space separator is swapped for the "T"
+ *                                the engine is only required to understand)
+ *   "2026-10-11T18:30:00.000Z" → absolute — an explicit offset is honoured
+ *   "30/09/2026", "30/09/2026 23:59", "09/30/2026 11:30 PM"
+ *                            → a locale-rendered date parsed by hand, since
+ *                                new Date() rejects day-first dates outright
  * @returns {number|null} epoch ms, or null when unset/unparseable
  */
 function parseExpiry(raw) {
   const s = String(raw == null ? '' : raw).trim();
   if (!s) return null;
+
+  // Bare "YYYY-MM-DD" → end of that local day (23:59:59.999).
   const dateOnly = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  const d = dateOnly
-    ? new Date(Number(dateOnly[1]), Number(dateOnly[2]) - 1, Number(dateOnly[3]), 23, 59, 59, 999)
-    : new Date(s);
-  const t = d.getTime();
+  if (dateOnly) {
+    return new Date(+dateOnly[1], +dateOnly[2] - 1, +dateOnly[3], 23, 59, 59, 999).getTime();
+  }
+
+  // Day/month/year with separators — "30/09/2026", "30-09-2026", optionally
+  // with a clock ("30/09/2026 23:59", "… 11:30:15 PM"). Disambiguate on which
+  // component can only be a day (first > 12) or only be a month (second > 12);
+  // when both fit, read it day-first — the sheets behind this project render
+  // en-IN. Without a time, the whole final day counts (same rule as above).
+  const locale = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(am|pm)?)?$/i.exec(s);
+  if (locale) {
+    const first = +locale[1];
+    const second = +locale[2];
+    let day = first;
+    let month = second;
+    if (first <= 12 && second > 12) { day = second; month = first; } // month-first sheet
+    if (!(day >= 1 && day <= 31) || !(month >= 1 && month <= 12)) return null;
+    const hasTime = locale[4] !== undefined;
+    let hour = hasTime ? +locale[4] : 23;
+    const minute = hasTime ? +locale[5] : 59;
+    const sec = hasTime ? (locale[6] !== undefined ? +locale[6] : 0) : 59;
+    const ampm = (locale[7] || '').toLowerCase();
+    if (hour > 23 || minute > 59 || sec > 59) return null;
+    if (ampm === 'pm' && hour < 12) hour += 12;
+    if (ampm === 'am' && hour === 12) hour = 0;
+    const at = new Date(+locale[3], month - 1, day, hour, minute, sec, 0);
+    // Date auto-rolls overflow (Feb 31 → Mar 3) — a rolled date would count
+    // down to the wrong moment, so only accept it when it round-trips.
+    if (!Number.isFinite(at.getTime()) || at.getDate() !== day || at.getMonth() !== month - 1) return null;
+    return at.getTime();
+  }
+
+  // Everything ISO-shaped — "…T18:30" is LOCAL time (no offset given),
+  // "…T18:30:00Z"/"…T18:30+05:30" is absolute — plus the space-separated
+  // "YYYY-MM-DD HH:mm" rendering, normalised to the "T" form first because
+  // engines are only required to accept "T".
+  const t = new Date(s.replace(/^(\d{4}-\d{2}-\d{2}) /, '$1T')).getTime();
   return Number.isFinite(t) ? t : null;
 }
 

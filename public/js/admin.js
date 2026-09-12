@@ -301,17 +301,29 @@ async function loadInventory() {
     // If a newer request started while we were awaiting, drop this response
     if (seq !== inventoryRequestSeq) return;
 
+    // All Coupons = approved/active/available inventory only. A seller
+    // submission starts life as status 'pending' and belongs in the ⏳ Pending
+    // tab until an admin approves it; showing it here too would put the same
+    // coupon in both tabs at once. The exclusion is keyed on (source, status)
+    // so an admin-entered coupon is never hidden from this table — the Add
+    // Coupon form only offers available/scheduled/draft, but a status set
+    // through the API keeps rendering here exactly as it always has.
+    const allCoupons = (data.coupons || []).filter(
+      (c) => !(c.status === 'pending' && isSellerSubmission(c)),
+    );
+
     // Unfiltered fetch already holds every coupon — use it to keep the ⏳ Pending
-    // tab badge honest, since opening the section only loads this table.
-    // The Pending tab is for fresh submissions only; proof_requested items
-    // continue to live in the Coupon Reviews section.
+    // tab badge honest, since opening the section only loads this table. The
+    // badge counts seller submissions only, matching what the Pending tab
+    // itself renders. proof_requested items continue to live in the Coupon
+    // Reviews section.
     if (!status) {
       cmSetPendingBadge(
-        (data.coupons || []).filter((c) => c.status === 'pending').length,
+        (data.coupons || []).filter((c) => c.status === 'pending' && isSellerSubmission(c)).length,
       );
     }
 
-    if (data.coupons.length === 0) {
+    if (allCoupons.length === 0) {
       INVENTORY_CACHE = [];
       container.innerHTML = `
         <div class="empty-state">
@@ -324,7 +336,7 @@ async function loadInventory() {
     }
 
     const search = document.getElementById('invSearch')?.value?.toLowerCase() || '';
-    let coupons = data.coupons;
+    let coupons = allCoupons;
     if (search) {
       coupons = coupons.filter(
         (c) =>
@@ -873,14 +885,19 @@ async function loadPending() {
   container.innerHTML = '<div class="cm-loading">Loading pending submissions…</div>';
 
   try {
-    // The Pending tab is for coupons that are still awaiting the very first
-    // review decision. `proof_requested` is a follow-up state ("admin asked
-    // the seller for proof, now waiting on the seller"), which has its own
-    // workflow in the Coupon Reviews section — so we deliberately exclude
-    // it from THIS view to keep the table focused on fresh submissions.
+    // The Pending tab is for seller/user-submitted coupons that are still
+    // awaiting the very first review decision — the exact set that is hidden
+    // from All Coupons meanwhile, so the two tabs can never show the same
+    // coupon. `proof_requested` is a follow-up state ("admin asked the seller
+    // for proof, now waiting on the seller"), which has its own workflow in
+    // the Coupon Reviews section — so we deliberately exclude it from THIS
+    // view to keep the table focused on fresh submissions. Admin-created
+    // coupons are never pending and never belong here either.
     const data = await api('/admin/coupons', { useAdmin: true });
     if (seq !== pendingCoupons.seq) return;
-    const rows = (data.coupons || []).filter((c) => c.status === 'pending');
+    const rows = (data.coupons || []).filter(
+      (c) => c.status === 'pending' && isSellerSubmission(c),
+    );
     cmSetPendingBadge(rows.length);
 
     if (rows.length === 0) {
@@ -1810,7 +1827,16 @@ async function openReviewModal(couponId) {
     if (descEl) descEl.textContent = c.description || c.title || '—';
 
     const expEl = document.getElementById('armExpiry');
-    if (expEl) expEl.textContent = c.expiryDate ? new Date(c.expiryDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    if (expEl) {
+      // Same parsing as the countdown chip (parseExpiry) so the date shown
+      // here can never disagree with the timer — and a locale-formatted
+      // expiry ("30/09/2026 23:59") shows its real date instead of
+      // "Invalid Date".
+      const at = typeof parseExpiry === 'function' ? parseExpiry(c.expiryDate) : null;
+      expEl.textContent = at !== null
+        ? new Date(at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : (c.expiryDate ? String(c.expiryDate) : '—');
+    }
 
     const subEl = document.getElementById('armSubmitted');
     if (subEl) subEl.textContent = c.addedAt || c.createdAt ? new Date(c.addedAt || c.createdAt).toLocaleString('en-IN') : '—';
