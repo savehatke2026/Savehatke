@@ -17,6 +17,7 @@ const stubCalls = { endSessionByToken: [], updateSessionActivity: [] };
 const stubSupabase = {
   SESSION_TTL_MS: 48 * 60 * 60 * 1000,
   ADMIN_SESSION_TTL_MS: 2 * 60 * 60 * 1000,
+  SESSION_RETENTION_MS: 90 * 24 * 60 * 60 * 1000,
   getClient: () => null,
   isConfigured: () => true,
   findSessionByToken: async (hash) => {
@@ -40,6 +41,7 @@ const stubSupabase = {
   },
   updateSessionActivity: async (id) => { stubCalls.updateSessionActivity.push(id); },
   expireOutdatedSessions: async () => { sessionCache.clear(); return { count: 0 }; },
+  deleteExpiredSessions: async () => ({ count: 0 }),
 };
 require.cache[supabasePath] = { id: supabasePath, filename: supabasePath, loaded: true, exports: stubSupabase };
 
