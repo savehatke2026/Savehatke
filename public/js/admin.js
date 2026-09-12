@@ -3148,6 +3148,72 @@ async function loadMaintenanceStatus() {
   } finally {
     if (spinner) spinner.style.display = 'none';
   }
+
+  // The whitelist card sits in the same Settings section — load it alongside.
+  loadMaintenanceWhitelist();
+}
+
+/**
+ * Load the maintenance whitelist into the textarea (one email per line).
+ */
+async function loadMaintenanceWhitelist() {
+  const textarea = document.getElementById('maintenanceWhitelist');
+  const countEl = document.getElementById('maintenanceWhitelistCount');
+  if (!textarea) return;
+
+  try {
+    const data = await api('/admin/maintenance/whitelist', { useAdmin: true });
+    const emails = Array.isArray(data && data.emails) ? data.emails : [];
+    textarea.value = emails.join('\n');
+    if (countEl) {
+      countEl.textContent = emails.length
+        ? `${emails.length} whitelisted user(s)`
+        : 'No whitelisted users yet';
+    }
+  } catch (err) {
+    console.warn('Failed to load maintenance whitelist:', err.message);
+    if (countEl) countEl.textContent = 'Could not load the whitelist.';
+  }
+}
+
+/**
+ * Save the textarea contents as the full replacement whitelist.
+ * Empty / whitespace-only lines are dropped; validation is server-side.
+ */
+async function saveMaintenanceWhitelist() {
+  const textarea = document.getElementById('maintenanceWhitelist');
+  const countEl = document.getElementById('maintenanceWhitelistCount');
+  const spinner = document.getElementById('maintenanceSpinner');
+  if (!textarea) return;
+
+  const emails = textarea.value
+    .split(/[\n,]+/)
+    .map((e) => e.trim())
+    .filter(Boolean);
+
+  if (spinner) spinner.style.display = 'block';
+
+  try {
+    const data = await api('/admin/maintenance/whitelist', {
+      method: 'PUT',
+      useAdmin: true,
+      body: { emails },
+    });
+
+    const saved = Array.isArray(data && data.emails) ? data.emails : [];
+    textarea.value = saved.join('\n');
+    if (countEl) countEl.textContent = `${saved.length} whitelisted user(s)`;
+
+    if (typeof showToast === 'function') {
+      showToast(data.message || `Whitelist saved — ${saved.length} user(s).`, 'success');
+    }
+  } catch (err) {
+    if (typeof showToast === 'function') {
+      showToast(err.message || 'Failed to save the whitelist.', 'error');
+    }
+  } finally {
+    if (spinner) spinner.style.display = 'none';
+  }
 }
 
 /**
