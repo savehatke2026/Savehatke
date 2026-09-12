@@ -309,6 +309,23 @@
       flex-shrink: 0;
     }
     .chatbot-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    /* Brand mark inside the chat — a miniature of the launcher plate, so the
+       coupon-ticket icon stays visible once the window covers the fab. */
+    .cb-header-logo {
+      width: 32px;
+      height: 32px;
+      flex: 0 0 32px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, #00e676 0%, #00c853 55%, #00b248 100%);
+      color: #052013;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.28),
+        0 2px 6px rgba(0,200,83,.28);
+    }
+    .cb-header-logo svg { width: 18px; height: 18px; display: block; }
     .chatbot-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .chatbot-header-name {
       font-family: var(--cb-font);
@@ -971,10 +988,21 @@
   aria-label="SaveHatke AI Assistant"
   aria-hidden="true"
 >
-  <!-- UI-1 · header: name, status, tagline and actions share one row band.
-       No logo plate — the green brand mark stays on the launcher only. -->
+  <!-- UI-1 · header: brand mark, name, status, tagline and actions share one row band. -->
   <div class="chatbot-header">
     <div class="chatbot-header-left">
+      <span class="cb-header-logo" aria-hidden="true">
+        <svg viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+          <path fill="currentColor" fill-rule="evenodd" d="
+            M6 4 H22 A3.5 3.5 0 0 1 25.5 7.5 V8.9 A2.6 2.6 0 0 0 25.5 14.1 V15.5
+            A3.5 3.5 0 0 1 22 19 H14.5 L7 23.9 L10.2 19 H6
+            A3.5 3.5 0 0 1 2.5 15.5 V14.1 A2.6 2.6 0 0 0 2.5 8.9 V7.5 A3.5 3.5 0 0 1 6 4 Z
+            M8.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+            M12.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+            M16.6 11.5 a1.4 1.4 0 1 0 2.8 0 a1.4 1.4 0 1 0 -2.8 0
+          "/>
+        </svg>
+      </span>
       <span class="chatbot-header-text">
         <span class="chatbot-header-name">${STR.name}</span>
         <span class="chatbot-header-status">
