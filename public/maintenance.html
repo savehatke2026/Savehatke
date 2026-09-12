@@ -29,6 +29,19 @@
     .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
     .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
 
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #060d1f; }
+    ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+
+    /* Buttons — index.html chrome. js/app.js renders the nav Log In button
+       into .nav-actions with these classes; without them it fell back to a
+       bare browser button instead of the green pill shown on every page. */
+    .btn { display:inline-flex; align-items:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; }
+    .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
+    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+
     /* ── Ambient background glow ── */
     body::before {
       content: '';
@@ -70,7 +83,7 @@
       .nav-links,.nav-actions{display:none}
       .nav-toggle{display:flex}
       .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
-      .nav-actions.open{display:flex;position:absolute;top:200px;right:24px;flex-direction:column;gap:10px;z-index:99}
+      .nav-actions.open{display:flex;position:absolute;top:240px;right:24px;flex-direction:column;gap:10px;z-index:99}
     }
 
     /* ── Animations ── */
@@ -126,11 +139,11 @@
     /* ── FOOTER (same chrome as every SaveHatke page) ── */
     .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:36px 0 0; margin-top:auto; }
     .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; padding-bottom:28px; }
-    .fbrand p { font-size:.85rem; color:#6b88aa; line-height:1.7; margin-top:12px; max-width:300px; }
-    .fcol h4 { font-size:.85rem; font-weight:700; color:#e2ecff; margin-bottom:14px; }
-    .fcol a { display:block; font-size:.82rem; color:#6b88aa; padding:5px 0; transition:color .2s; }
+    .fbrand p { font-size:.84rem; color:#6b88aa; line-height:1.6; margin-top:12px; max-width:320px; }
+    .fcol h4 { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; color:#e2ecff; }
+    .fcol a { display:block; font-size:.84rem; color:#6b88aa; margin-bottom:8px; transition:color .2s; }
     .fcol a:hover { color:#00e676; }
-    .fbot { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:18px 0; border-top:1px solid rgba(79,195,247,.1); font-size:.78rem; color:#4a6080; }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:14px 0; display:flex; justify-content:space-between; font-size:.78rem; color:#6b88aa; }
     @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:24px}}
     @media(max-width:600px){.footer-grid{grid-template-columns:1fr}.fbot{flex-direction:column;gap:6px;text-align:center}}
 
@@ -138,6 +151,23 @@
     @media (max-width: 480px) {
       .maint-heading { font-size: 1.55rem; }
       .maint-message { font-size: .92rem; }
+    }
+
+    /* ── MOBILE TOUCH TARGETS (same usability rules as index.html) ──
+       No redesign — an invisible absolutely-positioned ::after widens each
+       control's tappable region to ~44px on phones, so the navbar links,
+       footer links, Log In button and profile avatar are as easy to hit here
+       as on every other page. */
+    @media(max-width:768px),(max-height:500px) and (orientation:landscape){
+      .nav-toggle{position:relative}
+      .nav-toggle::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      .nav-brand{position:relative}
+      .nav-brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .fcol a{padding:14px 0;margin-bottom:0}
+      .nav-profile-btn{position:relative}
+      .nav-profile-btn::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
+      .nav-actions .btn{position:relative}
+      .nav-actions .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
     }
   </style>
 </head>
