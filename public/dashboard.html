@@ -1021,6 +1021,10 @@
     .ml-act{position:relative;display:inline-block;margin-top:5px;font-size:.75rem;font-weight:700;color:#00e676;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
     .ml-act::after{content:'';position:absolute;left:-8px;right:-8px;top:-6px;bottom:-6px}
     .ml-tl-note{margin:12px 0 2px;padding:8px 12px;border:1px solid rgba(239,154,154,.25);background:rgba(239,154,154,.07);border-radius:8px;font-size:.74rem;color:#ef9a9a;line-height:1.5}
+    /* The standalone payout-details card is retired from view — its job moved
+       into each listing's timeline — but it must stay in the DOM for the
+       loader, so this guarantees the hidden attribute always wins. */
+    #payoutDetailsCard[hidden]{display:none}
     @keyframes mlPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,.35)}50%{box-shadow:0 0 0 5px rgba(0,230,118,0)}}
     @media (prefers-reduced-motion:reduce){.ml-cur-dot{animation:none}.ml-track{transition:none}}
 
@@ -1396,8 +1400,11 @@
         <!-- Payout details, held once for the account.
              They live here rather than on a coupon because a payout is paid to a
              seller, not to a listing: asking again per coupon would create as
-             many copies of the same bank details as the seller has listings. -->
-        <div class="card pc-card" id="payoutDetailsCard">
+             many copies of the same bank details as the seller has listings.
+             The card is hidden now — payout details are reached from each
+             listing's tracking timeline instead — but it stays in the DOM
+             because loadPayoutDetails() writes into #payoutDetailsBody. -->
+        <div class="card pc-card" id="payoutDetailsCard" hidden>
           <div class="card-hdr">
             <div class="card-title"><span class="ico">🏦</span> Payout Details</div>
             <button class="btn btn-ghost btn-sm" id="pdEditBtn" onclick="openPayoutDetailsModal()">Edit</button>
@@ -1414,7 +1421,7 @@
           </div>
         </div>
 
-        <div class="card pc-card" style="margin-top:20px">
+        <div class="card pc-card" style="margin-top:0">
           <div class="card-hdr">
             <div class="card-title"><span class="ico">🏷️</span> Listing Overview</div>
           </div>
@@ -2587,15 +2594,23 @@
   /** couponId → stage key, from the server's own derivation. */
   let sellerStageByCoupon = {};
 
+  /** couponId → the server's full record for the listing (dates, payout row,
+      invalidation reason). The tracking timeline reads its step dates and its
+      failure reason from here; the stage map above carries the stage key only. */
+  let sellerRecordsByCoupon = {};
+
   async function loadSellerCouponStatuses() {
     try {
       const data = await api('/payouts/coupon-status');
       const map = {};
+      const records = {};
       (data.coupons || []).forEach((c) => {
         const key = SERVER_STAGE_KEYS[String(c.sellerStatus || '').toLowerCase()];
         if (key && c.couponId) map[String(c.couponId)] = key;
+        if (c.couponId) records[String(c.couponId)] = c;
       });
       sellerStageByCoupon = map;
+      sellerRecordsByCoupon = records;
     } catch (err) {
       // Leave the map empty — sellerStage() then derives locally.
       if (!err.sessionExpired) console.warn('Seller status notice:', err.message);
@@ -2635,6 +2650,135 @@
   function sellerStageBadge(stage) {
     const [label, cls] = SELLER_STAGES[stage] || SELLER_STAGES.pending_review;
     return `<span class="badge ${cls}">${label}</span>`;
+  }
+
+  // ─── Listing tracking timeline ──────────────────────────────────
+  //   The expandable half of a listing card: a vertical, order-tracking style
+  //   ladder from submission to payout. Every dot is derived at render time —
+  //   the stage from the server ladder above (with the local fallback), the
+  //   dates from the server record, and the payout-details steps from the
+  //   account record — so nothing on the ladder is ever hardcoded.
+
+  /** Trackers the seller has opened, by coupon id. Kept across the 30s
+      repaints so an open card re-renders already open, with no re-animation. */
+  const mlExpanded = new Set();
+
+  function toggleListingTracker(id) {
+    const key = String(id == null ? '' : id);
+    const item = document.getElementById(`mlItem-${key}`);
+    if (!item) return;
+    const summary = item.querySelector('.ml-item-summary');
+    if (mlExpanded.has(key)) {
+      mlExpanded.delete(key);
+      item.classList.remove('expanded');
+      if (summary) summary.setAttribute('aria-expanded', 'false');
+    } else {
+      mlExpanded.add(key);
+      item.classList.add('expanded');
+      if (summary) summary.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  /** The server's full record for a listing, once its ladder has loaded. */
+  function sellerRecordFor(couponId) {
+    return sellerRecordsByCoupon[String(couponId || '')] || null;
+  }
+
+  /** Same date style the ledger rows use, for the timeline's step dates. */
+  function mlDate(ts) {
+    if (!ts) return '';
+    const d = new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
+
+  /** One rung of the ladder. `state` is done | current | failed | '' (upcoming). */
+  function mlTimelineStep(state, labelHtml, sub) {
+    const icon = state === 'done'
+      ? '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>'
+      : state === 'failed'
+        ? '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>'
+        : (state === 'current' ? '<span class="ml-cur-dot"></span>' : '');
+    return `
+      <li class="ml-step ${state}">
+        <span class="ml-step-ico">${icon}</span>
+        <div class="ml-step-txt">
+          <div class="ml-step-lbl">${labelHtml}</div>
+          ${sub ? `<div class="ml-step-sub">${escapeHtml(sub)}</div>` : ''}
+        </div>
+      </li>`;
+  }
+
+  /** The whole ladder for one listing. Mirrors the badge's stage and layers
+      the account payout record on top of it for the details steps. */
+  function buildListingTimeline(c) {
+    const stage = c.stage || sellerStage(c);
+    const rec = sellerRecordFor(c.id) || {};
+    const postApproval = ['active', 'eligible', 'payout_processing', 'paid'].includes(stage);
+    // Details count as done only once the coupon is approved — a ladder never
+    // shows a later step finished before an earlier one — and a paid coupon
+    // must have had them, whatever the account record says now.
+    const detailsDone = postApproval && (payoutDetails.complete || stage === 'paid');
+    const steps = [];
+
+    // 1 — the listing exists, so submission always counts as complete.
+    steps.push(mlTimelineStep('done', 'Submitted for Review', mlDate(rec.addedAt || c.addedAt)));
+
+    // 2 — the review outcome. Approval timestamps live in the audit log, which
+    //     sellers never see, so this step carries no date.
+    if (stage === 'validation_failed') {
+      steps.push(mlTimelineStep('failed', 'Approved', ''));
+      const reason = rec.invalidationReason
+        || (rec.payout && rec.payout.rejectionReason)
+        || 'This coupon did not pass our validation checks, so it cannot be sold or paid out.';
+      return `<ul class="ml-tl">${steps.join('')}</ul>
+        <div class="ml-tl-note">${escapeHtml(reason)}</div>`;
+    }
+    if (stage === 'pending_review') {
+      steps.push(mlTimelineStep('current', 'Approved', 'Under review'));
+    } else if (postApproval) {
+      steps.push(mlTimelineStep('done', 'Approved', ''));
+    } else {
+      steps.push(mlTimelineStep('', 'Approved', ''));
+    }
+
+    // 3 — the one seller action on the ladder. It exists only after approval
+    //     and only while the account has no payout details, and it is plain
+    //     clickable text, never a button.
+    let addState = '';
+    let addSub = '';
+    if (detailsDone) addState = 'done';
+    else if (postApproval) { addState = 'current'; addSub = 'Required to release your payout'; }
+    const addLabel = (!detailsDone && postApproval)
+      ? `<span class="ml-act" style="margin-top:0" role="button" tabindex="0" onclick="openPayoutDetailsModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPayoutDetailsModal()}">Add Payout Details</span>`
+      : 'Add Payout Details';
+    steps.push(mlTimelineStep(addState, addLabel, addSub));
+
+    // 4 — the account record itself. It flips to done the moment details are
+    //     saved, which is why it is never the highlighted step.
+    steps.push(detailsDone
+      ? mlTimelineStep('done', 'Payout Details Submitted', mlDate(payoutDetails.details && payoutDetails.details.updatedAt))
+      : mlTimelineStep('', 'Payout Details Submitted', ''));
+
+    // 5 — the money. The date comes from the server's payout row, with the
+    //     payouts view's copy of it as the fallback.
+    if (stage === 'paid') {
+      const payoutRow = (rec.payout && rec.payout.processedAt)
+        ? rec.payout
+        : (payoutForCoupon(c.id) || {});
+      steps.push(mlTimelineStep('done', 'Paid', mlDate(payoutRow.processedAt)));
+    } else if (detailsDone) {
+      const waitSub = stage === 'active'
+        ? 'After your coupon sells'
+        : stage === 'eligible'
+          ? (rec.soldAt ? `Sold on ${mlDate(rec.soldAt)}` : 'Sold — payout pending')
+          : 'Payout in review';
+      steps.push(mlTimelineStep('current', 'Paid', waitSub));
+    } else {
+      steps.push(mlTimelineStep('', 'Paid', ''));
+    }
+
+    return `<ul class="ml-tl">${steps.join('')}</ul>`;
   }
 
   function statusBadge(status) {
@@ -3133,8 +3277,8 @@
 
     if (next === 'sales') {
       renderMyListings();
-      // Switching to For Sale by tab (not by navigation) still needs the payout
-      // card filled in.
+      // Switching to For Sale by tab (not by navigation) still refreshes the
+      // account payout record the listing trackers read.
       if (typeof loadPayoutDetails === 'function') loadPayoutDetails();
     } else renderMyCoupons();
   }
@@ -3202,11 +3346,13 @@
     const listed = sales.map((c) => {
       const stage = sellerStage(c);
       return {
+        id: c.id,
         stage,
         brand: c.brand || 'Coupon',
         code: c.code || '',
         value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.discount || c.title || ''),
         status: c.status || '',
+        addedAt: c.addedAt || '',
         at: c.soldAt || c.addedAt || '',
       };
     });
@@ -3268,19 +3414,35 @@
       return;
     }
 
+    // Each listing card is a closed accordion: the summary row keeps its exact
+    // old look (badge + when-text on the right, now with a chevron beside it),
+    // and tapping anywhere on it opens the tracking timeline beneath.
     container.innerHTML = list.map((c) => {
       const badge = sellerStageBadge(c.stage);
       const PAID_STAGES = ['eligible', 'payout_processing', 'paid'];
       const when = PAID_STAGES.includes(c.stage) ? `Completed: ${timeAgo(c.at)}` : `Listed: ${timeAgo(c.at)}`;
+      const cid = String(c.id || '');
+      const expanded = mlExpanded.has(cid);
+      const toggle = `toggleListingTracker('${escapeHtml(cid)}')`;
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px">
-          <div style="min-width:0;flex:1">
-            <div style="font-size:.85rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.brand)}${c.value ? ` — ${escapeHtml(c.value)}` : ''}</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#4fc3f7;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.code || '—')}</div>
+        <div class="ml-item${expanded ? ' expanded' : ''}" id="mlItem-${escapeHtml(cid)}">
+          <div class="ml-item-summary" role="button" tabindex="0" aria-expanded="${expanded ? 'true' : 'false'}"
+               onclick="${toggle}"
+               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${toggle}}">
+            <div class="ml-item-main">
+              <div class="ml-item-title">${escapeHtml(c.brand)}${c.value ? ` — ${escapeHtml(c.value)}` : ''}</div>
+              <div class="ml-item-code">${escapeHtml(c.code || '—')}</div>
+            </div>
+            <div class="ml-item-side">
+              ${badge}
+              <div class="ml-item-when">${escapeHtml(when)}</div>
+            </div>
+            <span class="ml-item-chev" aria-hidden="true">▾</span>
           </div>
-          <div style="text-align:right;flex-shrink:0;margin-left:10px">
-            ${badge}
-            <div style="font-size:.7rem;color:#6b88aa;margin-top:4px">${escapeHtml(when)}</div>
+          <div class="ml-track">
+            <div class="ml-track-inner">
+              <div class="ml-track-pad">${buildListingTimeline(c)}</div>
+            </div>
           </div>
         </div>
       `;
@@ -4470,8 +4632,9 @@
   // ─── Payout details (account level) ────────────────────────────
   //   One record per seller, held by the server in its own store. A payout is
   //   paid to a seller, not to a listing, so the details are asked for once here
-  //   and reused for every request. The card lives in My Coupons → For Sale
-  //   because that is where a seller is already looking at what they are owed.
+  //   and reused for every request. Its card stays in My Coupons → For Sale —
+  //   hidden, with the details reached from each listing's tracking timeline —
+  //   because that pane is where a seller is already looking at what they are owed.
   let payoutDetails = { details: null, complete: false, loaded: false };
 
   async function loadPayoutDetails({ force = false } = {}) {
@@ -4667,6 +4830,9 @@
       payoutDetails = { details: data.details || null, complete: Boolean(data.complete), loaded: true };
       closeModal('payoutDetailsModal');
       renderPayoutDetailsCard();
+      // The trackers show payout-details steps, so they repaint with the new
+      // account record the moment it is saved.
+      renderMyListings();
       showToast(data.message || 'Payout details saved.', 'success');
     } catch (err) {
       if (!err.sessionExpired) showToast(err.message || 'Could not save your payout details.', 'error');
@@ -4710,8 +4876,9 @@
       showToast(data.message || 'Payout request submitted!', 'success', 5000);
       await refreshDashboard({ silent: true });
     } catch (err) {
-      // The server refuses a request it cannot pay. Send the seller to the one
-      // place the details are kept instead of asking for them here.
+      // The server refuses a request it cannot pay. Send the seller to the
+      // For Sale trackers — where payout details now live — with the details
+      // form already open, instead of asking for them here.
       const code = (err.data && err.data.code) || '';
       if (code === 'PAYOUT_DETAILS_MISSING') {
         closeModal('requestPayoutModal');
@@ -4719,7 +4886,8 @@
         showView('my-coupons', 'sales');
         payoutDetails.loaded = false;
         await loadPayoutDetails({ force: true });
-        setTimeout(() => document.getElementById('payoutDetailsCard')?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 120);
+        renderMyListings();
+        openPayoutDetailsModal();
       } else if (!err.sessionExpired) {
         showToast(err.message || 'Could not submit payout request.', 'error');
       }
@@ -5861,13 +6029,14 @@
 
       // The seller side needs two things the rest of the dashboard does not: the
       // server's status ladder for each listing, and the account-level payout
-      // record the Payout Details card shows. Both are re-read on entry so the
-      // pane never shows a stale stage or a stale destination.
+      // record the listing trackers read. Both are re-read on entry, before the
+      // trackers render, so the pane never shows a stale stage, a stale step or
+      // a stale destination.
       Promise.resolve()
         .then(() => (typeof loadSellerCouponStatuses === 'function' ? loadSellerCouponStatuses() : null))
+        .then(() => (typeof loadPayoutDetails === 'function' ? loadPayoutDetails({ force: true }) : null))
         .then(() => { if (typeof renderMyListings === 'function') renderMyListings(); })
         .catch(() => {});
-      if (typeof loadPayoutDetails === 'function') loadPayoutDetails({ force: true });
     } else if (name === 'wallet') {
       // Transactions view — repaint the ledger with whatever data is loaded
       if (typeof renderTransactions === 'function') renderTransactions();
