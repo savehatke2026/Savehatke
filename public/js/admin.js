@@ -197,6 +197,7 @@ function initAddCouponForm() {
       const expiryDate = document.getElementById('acExpiry')?.value || '';
       const affiliateLink = document.getElementById('acLink')?.value?.trim() || '';
       const terms = document.getElementById('acTerms')?.value?.trim() || '';
+      const backgroundImage = document.getElementById('acBackgroundImage')?.value?.trim() || '';
       const description = title || discount || '';
       const sellingPrice = document.getElementById('acPrice')?.value?.trim() || '15';
       const status = document.getElementById('acStatus')?.value || 'available';
@@ -233,6 +234,7 @@ function initAddCouponForm() {
           isFeatured,
           isExclusive,
           isVerified,
+          ...(backgroundImage ? { backgroundImage } : {}),
         },
       });
 
@@ -363,7 +365,7 @@ async function loadInventory() {
                    where long coupon codes were being ellipsised. -->
               <col style="width:112px"><col style="width:228px"><col style="width:120px">
               <col style="width:88px"><col style="width:92px"><col style="width:70px">
-              <col style="width:70px"><col style="width:206px"><col style="width:116px">
+              <col style="width:70px"><col style="width:206px"><col style="width:170px">
               <col style="width:104px"><col style="width:110px">
             </colgroup>
             <thead>
@@ -376,6 +378,7 @@ async function loadInventory() {
                 <th class="ta-center" title="Show the 🔥 Sale badge on the marketplace card">Sale</th>
                 <th class="ta-center" title="Show the expiry countdown on the marketplace card. Turning it off keeps the date — it just stops counting down.">Timer</th>
                 <th title="When this coupon expires — drives the countdown on the marketplace card">Expires</th>
+                <th title="Hero image shown on the marketplace card — per coupon. Empty uses the default SaveHatke background.">Image</th>
                 <th>Source</th>
                 <th>Status</th>
                 <th class="ta-right">Actions</th>
@@ -462,6 +465,12 @@ function invRowHtml(c) {
                ${timerOn ? '' : 'disabled'}
                onchange="setCouponExpiry('${id}', this.value, this)">
         ${invExpiryChip(c.expiryDate, timerOn)}
+      </td>
+      <td>
+        <input class="inv-img" type="text" value="${escHtml(c.backgroundImage || '')}" data-prev-value="${escHtml(c.backgroundImage || '')}"
+               placeholder="/images/coupons/…"
+               title="Hero image for this coupon's marketplace card — a path like /images/coupons/amazon.webp or a full URL. Clear to use the default background."
+               onchange="setCouponBackgroundImage('${id}', this.value.trim(), this)">
       </td>
       <td><span class="badge badge-${sourceBadge}">${escHtml(c.source || '—')}</span></td>
       <td><span class="badge badge-${statusBadge}">${escHtml(c.status || '—')}</span></td>
@@ -619,6 +628,27 @@ async function setCouponExpiry(id, value, inputEl) {
   } catch (err) {
     inputEl.value = previous; // roll the picker back
     if (!err.sessionExpired) showToast(err.message || 'Could not save the timer.', 'error');
+  } finally {
+    inputEl.disabled = false;
+  }
+}
+
+/**
+ * Save the per-coupon card background image. Empty value clears it — the
+ * marketplace card then falls back to the default SaveHatke background.
+ */
+async function setCouponBackgroundImage(id, value, inputEl) {
+  const previous = inputEl.dataset.prevValue || '';
+  inputEl.disabled = true;
+  try {
+    await api(`/admin/coupons/${id}`, { method: 'PUT', useAdmin: true, body: { backgroundImage: value || '' } });
+    inputEl.dataset.prevValue = value;
+    const cached = INVENTORY_CACHE.find((c) => c.id === id);
+    if (cached) cached.backgroundImage = value;
+    showToast(value ? 'Background image saved for this coupon.' : 'Background image cleared — the card will use the default background.', 'success');
+  } catch (err) {
+    inputEl.value = previous; // roll the input back
+    if (!err.sessionExpired) showToast(err.message || 'Could not save the background image.', 'error');
   } finally {
     inputEl.disabled = false;
   }
@@ -3005,8 +3035,6 @@ async function loadSystemSettings() {
       if (document.getElementById('toggleActiveUsers')) document.getElementById('toggleActiveUsers').checked = s.showActiveUsers !== false;
       if (document.getElementById('toggleCouponsTraded')) document.getElementById('toggleCouponsTraded').checked = s.showCouponsTraded !== false;
       if (document.getElementById('toggleSavedByUsers')) document.getElementById('toggleSavedByUsers').checked = s.showSavedByUsers !== false;
-      if (document.getElementById('setHeroBadge')) document.getElementById('setHeroBadge').value = s.heroBadge || "🔥 Buy & Sell Coupons — All in One Place!";
-      if (document.getElementById('toggleHeroBadge')) document.getElementById('toggleHeroBadge').checked = s.showHeroBadge !== false;
       // Homepage testimonials section heading (the cards live in Reviews).
       // ?? not ||: a heading line the admin cleared must come back empty.
       const tmText = (v, dflt) => (v === undefined || v === null ? dflt : v);
@@ -3038,8 +3066,6 @@ async function saveSystemSettings() {
     const showActiveUsers = document.getElementById('toggleActiveUsers')?.checked !== false;
     const showCouponsTraded = document.getElementById('toggleCouponsTraded')?.checked !== false;
     const showSavedByUsers = document.getElementById('toggleSavedByUsers')?.checked !== false;
-    const heroBadge = document.getElementById('setHeroBadge')?.value?.trim() || "🔥 Buy & Sell Coupons — All in One Place!";
-    const showHeroBadge = document.getElementById('toggleHeroBadge')?.checked !== false;
     // Homepage testimonials section heading. Sent as typed, empty included —
     // clearing a line is how an admin removes it from the homepage.
     const tmField = (id) => (document.getElementById(id)?.value ?? '').trim();
@@ -3061,8 +3087,6 @@ async function saveSystemSettings() {
         showActiveUsers,
         showCouponsTraded,
         showSavedByUsers,
-        heroBadge,
-        showHeroBadge,
         testimonialsLabel,
         testimonialsTitle,
         testimonialsTitleHighlight,

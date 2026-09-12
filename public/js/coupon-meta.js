@@ -214,6 +214,8 @@ const BRAND_LOGOS = {
   'Google':           '/logos/google.svg',
   'Google Pay':       '/logos/google.svg',
   'Myntra':           '/logos/myntra.svg',
+  'Flipkart':         '/logos/flipkart.png',
+  'Flipkart Plus':    '/logos/flipkart.png',
   'Swiggy':           '/logos/swiggy.svg',
   'Swiggy Instamart': '/logos/swiggy.svg',
   'Meesho':           '/logos/meesho.png',

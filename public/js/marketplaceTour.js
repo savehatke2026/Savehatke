@@ -111,9 +111,9 @@
       },
       {
         kind: 'step',
-        target: () => q('#couponGrid .coupon-card .chow-tag') || q('#couponGrid .coupon-card') || q('#couponGrid'),
+        target: () => q('#couponGrid .coupon-card .c-icon-btn') || q('#couponGrid .coupon-card') || q('#couponGrid'),
         title: 'Coupon details',
-        body: 'Open a coupon to see all important information before buying.',
+        body: 'Tap the ⓘ for the terms, or the 📖 for how to use the coupon — both open right here, without leaving the marketplace.',
       },
       {
         kind: 'step',

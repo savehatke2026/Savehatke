@@ -349,6 +349,7 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       isVerified,
       onSale,
       timerOn,
+      backgroundImage,
     } = req.body;
 
     if (!code || !brand) {
@@ -401,6 +402,10 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       // inserts working before server/setup_coupon_sale_timer.sql is applied.
       ...(onSale !== undefined ? { onSale: Boolean(onSale !== false && onSale !== 'false') } : {}),
       ...(timerOn !== undefined ? { timerOn: Boolean(timerOn !== false && timerOn !== 'false') } : {}),
+      // Card hero image — optional, length-capped. Same "only when provided"
+      // rule as the switches so inserts work before
+      // server/setup_coupon_background_image.sql is applied.
+      ...(backgroundImage !== undefined ? { backgroundImage: String(backgroundImage).trim().slice(0, 300) } : {}),
       addedAt: new Date().toISOString(),
       soldAt: '',
       buyerEmail: '',
@@ -1254,8 +1259,6 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
             showActiveUsers: mongoSetting.showActiveUsers !== undefined ? mongoSetting.showActiveUsers : settings.showActiveUsers,
             showCouponsTraded: mongoSetting.showCouponsTraded !== undefined ? mongoSetting.showCouponsTraded : settings.showCouponsTraded,
             showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
-            heroBadge: mongoSetting.heroBadge || settings.heroBadge,
-            showHeroBadge: mongoSetting.showHeroBadge !== undefined ? mongoSetting.showHeroBadge : settings.showHeroBadge,
             testimonialsLabel: mongoSetting.testimonialsLabel || settings.testimonialsLabel,
             testimonialsTitle: mongoSetting.testimonialsTitle || settings.testimonialsTitle,
             testimonialsTitleHighlight: mongoSetting.testimonialsTitleHighlight || settings.testimonialsTitleHighlight,
@@ -1281,8 +1284,6 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
         showActiveUsers: true,
         showCouponsTraded: true,
         showSavedByUsers: true,
-        heroBadge: "🚀 India's #1 Coupon Marketplace — Now Live!",
-        showHeroBadge: true,
         testimonialsLabel: 'Testimonials',
         testimonialsTitle: 'Loved by',
         testimonialsTitleHighlight: '10,000+ Smart Shoppers',
@@ -1296,7 +1297,7 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
 // PUT /api/admin/settings — Update system settings (saved to Google Sheets & MongoDB)
 router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers, heroBadge, showHeroBadge } = req.body;
+    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers } = req.body;
     const {
       testimonialsLabel, testimonialsTitle, testimonialsTitleHighlight,
       testimonialsSubtitle, showTestimonials,
@@ -1315,8 +1316,6 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
       showActiveUsers: showActiveUsers !== undefined ? Boolean(showActiveUsers) : true,
       showCouponsTraded: showCouponsTraded !== undefined ? Boolean(showCouponsTraded) : true,
       showSavedByUsers: showSavedByUsers !== undefined ? Boolean(showSavedByUsers) : true,
-      heroBadge: heroBadge !== undefined ? String(heroBadge).trim().slice(0, 120) : "🚀 India's #1 Coupon Marketplace — Now Live!",
-      showHeroBadge: showHeroBadge !== undefined ? Boolean(showHeroBadge) : true,
       // Heading above the homepage testimonial cards. The cards themselves are
       // managed through /api/testimonials, not here.
       testimonialsLabel: text(testimonialsLabel, 60),
@@ -1530,6 +1529,52 @@ router.put('/maintenance', authenticateToken, requireAdmin, async (req, res) => 
   } catch (err) {
     console.error('Admin update maintenance status error:', err);
     res.status(500).json({ error: 'Failed to update maintenance mode: ' + err.message });
+  }
+});
+
+// GET /api/admin/maintenance/whitelist — List emails that bypass maintenance
+router.get('/maintenance/whitelist', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const emails = await supabase.getMaintenanceWhitelist();
+    res.json({ emails });
+  } catch (err) {
+    console.error('Admin get maintenance whitelist error:', err);
+    res.status(500).json({ error: 'Failed to fetch the maintenance whitelist.' });
+  }
+});
+
+// PUT /api/admin/maintenance/whitelist — Replace the whitelist.
+// Body: { emails: [ 'user@example.com', ... ] } — the full replacement list;
+// sending [] clears it. Emails are normalised server-side.
+router.put('/maintenance/whitelist', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { emails } = req.body || {};
+    if (!Array.isArray(emails)) {
+      return res.status(400).json({ error: 'The "emails" field must be an array of email addresses.' });
+    }
+    if (emails.length > 500) {
+      return res.status(400).json({ error: 'The whitelist is limited to 500 email addresses.' });
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const raw of emails) {
+      const email = String(raw || '').toLowerCase().trim();
+      if (!email || email.length > 254 || !emailPattern.test(email)) {
+        return res.status(400).json({ error: `"${raw}" is not a valid email address.` });
+      }
+    }
+
+    const adminEmail = (req.user && req.user.email) || 'unknown';
+    const result = await supabase.setMaintenanceWhitelist(emails, adminEmail);
+
+    console.log(`[Maintenance] Whitelist updated (${result.emails.length} email(s)) by ${adminEmail}`);
+    res.json({
+      message: `Whitelist saved — ${result.emails.length} whitelisted user(s) can browse the site during maintenance.`,
+      ...result,
+    });
+  } catch (err) {
+    console.error('Admin update maintenance whitelist error:', err);
+    res.status(500).json({ error: 'Failed to update the maintenance whitelist: ' + err.message });
   }
 });
 

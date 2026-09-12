@@ -166,6 +166,10 @@ router.get('/', optionalAuth, async (req, res) => {
       // Admin-controlled timer switch — when off the card hides the countdown
       // even though expiryDate is still set.
       timerOn: c.timerOn !== false,
+      // Per-coupon hero image for the card — each coupon can carry its own.
+      // Empty string means none is set; the card then falls back to the
+      // default SaveHatke background.
+      backgroundImage: c.backgroundImage || '',
     }));
 
     res.json({ coupons: sanitized, total: sanitized.length });
@@ -870,6 +874,8 @@ router.get('/:id', async (req, res) => {
         // Checkout shows these two and had no way to learn them before.
         minOrderValue: coupon.minOrderValue || '',
         terms: coupon.terms || '',
+        // Card hero image — the marketplace modal opens from this same record.
+        backgroundImage: coupon.backgroundImage || '',
         source: coupon.source,
         addedAt: coupon.addedAt,
         // Same 2-week default as the list route, so the card countdown and the

@@ -111,47 +111,83 @@ function renderCouponGrid(gridId, coupons) {
       // Admin-controlled per-coupon switch (Coupon Management → Sale column).
       // Defaults to on, so coupons from a pre-migration database keep the badge.
       const onSale = c.onSale !== false;
+      // The description only renders as its own line when it carries text the
+      // title doesn't already show, so the card never repeats itself.
+      const title = c.title || c.description || 'Verified Discount Offer';
+      const desc = c.description && c.description !== title ? c.description : '';
+      const id = String(c.id);
 
       return `
-        <div class="coupon-card" style="cursor:pointer" onclick="buyCoupon('${c.id}', ${isFree})">
-          ${isFree ? '<span class="cfree-badge">FREE</span>' : ''}
-          <div class="cbadges${isFree ? ' cbadges-free' : ''}">
-            ${isFree ? '' : '<span class="cverified">✓ VERIFIED DEAL</span>'}
-            ${!isFree && onSale ? '<span class="csale-badge">🔥 Sale</span>' : ''}
-            <button type="button" class="chow-tag" title="How to use this coupon"
-                    onclick="event.stopPropagation(); openCouponHowTo('${c.id}')">
-              📖 How to use
+        <div class="coupon-card" style="cursor:pointer" onclick="buyCoupon('${id}', ${isFree})">
+          <div class="c-hero">
+            <img class="c-hero-img" src="${escapeCoupon(heroImageFor(c))}" alt="" loading="lazy" decoding="async" aria-hidden="true">
+            <div class="c-hero-shade" aria-hidden="true"></div>
+            <div class="c-hero-badges">
+              ${isFree ? '<span class="cfree-badge">FREE</span>' : '<span class="cverified">✓ VERIFIED DEAL</span>'}
+              ${!isFree && onSale ? '<span class="csale-badge">🔥 Sale</span>' : ''}
+            </div>
+            <div class="c-hero-tools">
+              <button type="button" class="c-icon-btn" aria-label="View Terms and Conditions" title="Terms &amp; Conditions"
+                      onclick="event.stopPropagation(); openCouponTerms('${id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                </svg>
+              </button>
+              <button type="button" class="c-icon-btn" aria-label="View How to Use" title="How to Use"
+                      onclick="event.stopPropagation(); openCouponHowTo('${id}')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="c-hero-foot">
+              <div class="cbrand" title="${escapeCoupon(c.brand)}">
+                <span class="cbrand-logo-wrap">
+                  ${logoUrl
+                    ? `<img class="cbrand-logo${logoClass ? ' ' + logoClass : ''}" src="${escapeCoupon(logoUrl)}" alt="${escapeCoupon(c.brand)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="cbrand-initial" style="display:none">${escapeCoupon(initial)}</span>`
+                    : `<span class="cbrand-initial">${escapeCoupon(initial)}</span>`
+                  }
+                </span>
+              </div>
+              <div class="coff">${escapeCoupon(origVal)}</div>
+            </div>
+          </div>
+          <div class="c-body">
+            <div class="ctitle">${escapeCoupon(title)}</div>
+            ${desc ? `<div class="cdesc">${escapeCoupon(desc)}</div>` : ''}
+            <div class="c-catrow">
+              <span class="ccat">${escapeCoupon(c.category)}</span>
+            </div>
+            <div class="c-price">
+              <span class="clbl">Selling Price</span>
+              <span class="cval">${escapeCoupon(priceText)}</span>
+            </div>
+            ${renderExpiryTimer(c.expiryDate, c.timerOn)}
+            <button class="cbuy-btn" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">
+              ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
             </button>
           </div>
-          <div class="ctop">
-            <div class="cbrand" title="${c.brand}">
-              <span class="cbrand-logo-wrap">
-                ${logoUrl
-                  ? `<img class="cbrand-logo${logoClass ? ' ' + logoClass : ''}" src="${logoUrl}" alt="${c.brand}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="cbrand-initial" style="display:none">${initial}</span>`
-                  : `<span class="cbrand-initial">${initial}</span>`
-                }
-              </span>
-            </div>
-            <div class="coff">${origVal}</div>
-          </div>
-          <div class="cdesc">${c.title || c.description || 'Verified Discount Offer'}</div>
-          <div class="cmeta">
-            <div>
-              <span class="clbl">Selling Price</span>
-              <span class="cval">${priceText}</span>
-            </div>
-            <span class="ccat">${c.category}</span>
-          </div>
-          ${renderExpiryTimer(c.expiryDate, c.timerOn)}
-          <button class="cbuy-btn" onclick="event.stopPropagation(); buyCoupon('${c.id}', ${isFree})">
-            ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
-          </button>
         </div>
       `;
     })
     .join('');
 
   startExpiryTicker();
+}
+
+// ── Card hero image ─────────────────────────────────────────────────────
+// Every coupon can carry its own background image via coupon.backgroundImage
+// (set per coupon from Coupon Management → Image, or the Add Coupon form).
+// No image set → the generic SaveHatke default. The value is admin-supplied,
+// so only same-origin paths and http(s) URLs are accepted — anything else
+// falls back to the default instead of reaching the DOM.
+const COUPON_DEFAULT_BG = '/images/coupons/default.svg';
+
+function heroImageFor(c) {
+  const raw = String(c.backgroundImage || '').trim();
+  if (/^https?:\/\/\S+$/i.test(raw)) return raw;
+  if (/^\/[\w\-./~%#?=&+]*$/.test(raw) && !raw.includes('"') && !raw.includes("'")) return raw;
+  return COUPON_DEFAULT_BG;
 }
 
 // ── Expiry Countdown ────────────────────────────────────────────────────
@@ -166,18 +202,18 @@ function expiryClass(msLeft) {
 }
 
 /**
- * Markup for one card's countdown row. Empty string when no expiry is set, or
- * when the admin turned this coupon's timer off in Coupon Management — the
- * expiry date stays stored either way, so switching it back on restores it.
+ * Markup for one card's compact countdown pill. Empty string when no expiry is
+ * set, or when the admin turned this coupon's timer off in Coupon Management —
+ * the expiry date stays stored either way, so switching it back on restores it.
  *
- * Each unit is a value followed by its own small unit letter on the same
- * baseline, so the row reads as "04h 33m 07s" on one slim line. The digits
- * live in their own long-lived spans and the "Offer ended" copy ships with
- * every pill, hidden by CSS. That way the ticker below only ever writes
- * `textContent`: the unit spans and the breathing clock icon are never
- * replaced, so the animation keeps running instead of restarting every second,
- * and both the expired state and the "no days left to show" state are reached
- * by a class swap rather than a re-render.
+ * One slim line inside a rounded pill: clock icon, "Ends in", then every unit
+ * inline as value+letter ("48d 01h 43m 40s"). The digits live in their own
+ * long-lived spans and the "Offer ended" copy ships with every pill, hidden by
+ * CSS. That way the ticker below only ever writes `textContent`: the unit spans
+ * and the breathing clock icon are never replaced, so the animation keeps
+ * running instead of restarting every second, and both the expired state and
+ * the "no days left to show" state are reached by a class swap rather than a
+ * re-render.
  */
 function renderExpiryTimer(raw, timerOn) {
   if (timerOn === false) return '';
@@ -202,7 +238,7 @@ function renderExpiryTimer(raw, timerOn) {
               <span class="cexp-tile"><b class="cexp-n cexp-m">${p.mm}</b><i>m</i></span>
               <span class="cexp-tile"><b class="cexp-n cexp-s">${p.ss}</b><i>s</i></span>
             </span>
-            <span class="cexp-over">Offer ended</span>
+            <span class="cexp-over">◷ Offer ended</span>
           </div>`;
 }
 
@@ -328,13 +364,90 @@ function buyCoupon(id, isFree) {
   }
 }
 
-// ── "How to use" tag ────────────────────────────────────────────────────
-// Every card carries a "📖 How to use" tag that opens the redemption steps for
-// that coupon. The modal is built here rather than reusing openCouponTermsModal()
-// from js/app.js for two reasons: this page ships its own stylesheet and never
-// loads css/styles.css, so that modal's classes would render unstyled here, and
-// it opens by removing the first `.modal-overlay` on the page — which on this
-// page is the static auth modal (#modalOverlay), not a leftover of its own.
+// ── Card info modals — T&C and How to use ────────────────────────────────
+// Both are opened from the compact ⓘ / 📖 icons on the card's hero and show the
+// data belonging to THAT coupon. The list endpoint deliberately omits `terms`,
+// so each modal fetches the single coupon after it opens — the modal paints
+// instantly and fills in the coupon-specific text a beat later. Both are built
+// here (not reusing openCouponTermsModal() from js/app.js) because this page
+// ships its own stylesheet and never loads css/styles.css, so those classes
+// would render unstyled; they also need to scope their cleanup to their own
+// overlay class so the page's static auth modal (#modalOverlay) is left alone.
+
+/** Open the Terms & Conditions modal for one card's coupon. */
+function openCouponTerms(id) {
+  const c = allCoupons.find((x) => String(x.id) === String(id)) || { id };
+  const brand = c.brand || 'this coupon';
+  const offer = c.title || c.description || 'Verified Discount Offer';
+
+  // Only ever one of these open at a time. Scoped to .cterms-overlay so the
+  // page's own auth modal is left alone.
+  document.querySelectorAll('.modal-overlay.cterms-overlay').forEach((el) => el.remove());
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay cterms-overlay';
+  overlay.dataset.termsId = String(id);
+  overlay.innerHTML = `
+    <div class="modal cterms-modal" role="dialog" aria-modal="true" aria-labelledby="ctermsTitle">
+      <div class="mhdr" style="margin-bottom:20px">
+        <div>
+          <div class="mtitle" id="ctermsTitle">Terms &amp; Conditions</div>
+          <div class="cterms-sub">${escapeCoupon(brand)}${c.category ? ' · ' + escapeCoupon(c.category) : ''}</div>
+        </div>
+        <button class="mclose" type="button" aria-label="Close">✕</button>
+      </div>
+      <div class="cterms-offer">${escapeCoupon(offer)}</div>
+      <div class="cterms-body" data-terms-body>
+        <div class="cterms-loading">Loading terms…</div>
+      </div>
+    </div>
+  `;
+
+  wireCouponModal(overlay);
+  document.body.appendChild(overlay);
+  void overlay.offsetWidth; // flush layout so the fade-in actually transitions
+  overlay.classList.add('open');
+  overlay.querySelector('.mclose').focus();
+
+  loadCouponTerms(id);
+}
+
+/**
+ * Fetch the coupon's stored terms and paint them into the open T&C modal.
+ * sellerHowToText() strips the "How to use: …" paragraph the sell form appends
+ * to terms — that text belongs to the How to Use modal, not this one.
+ */
+async function loadCouponTerms(id) {
+  let terms = '';
+  try {
+    const res = await api(`/coupons/${encodeURIComponent(id)}`);
+    terms = String(res?.coupon?.terms || '').trim();
+    const match = terms.match(/how\s*to\s*use\s*:\s*([\s\S]*)/i);
+    if (match) terms = terms.slice(0, match.index).trim();
+  } catch (err) {
+    terms = '';
+  }
+
+  // The modal may have been closed, or replaced by another coupon's, while the
+  // request was in flight.
+  const overlay = document.querySelector('.modal-overlay.cterms-overlay');
+  if (!overlay || overlay.dataset.termsId !== String(id)) return;
+
+  const body = overlay.querySelector('[data-terms-body]');
+  if (!body) return;
+  body.textContent = '';
+  if (terms) {
+    const p = document.createElement('p');
+    p.className = 'cterms-text';
+    p.textContent = terms;
+    body.appendChild(p);
+  } else {
+    const none = document.createElement('p');
+    none.className = 'cterms-none';
+    none.textContent = 'No terms and conditions were provided for this coupon.';
+    body.appendChild(none);
+  }
+}
 
 /** Open the "How to use" modal for one card's coupon. */
 function openCouponHowTo(id) {
@@ -356,7 +469,7 @@ function openCouponHowTo(id) {
     <div class="modal howto-modal" role="dialog" aria-modal="true" aria-labelledby="howtoTitle">
       <div class="mhdr" style="margin-bottom:20px">
         <div>
-          <div class="mtitle" id="howtoTitle">How to use</div>
+          <div class="mtitle" id="howtoTitle">How to Use This Coupon</div>
           <div class="howto-sub">${escapeCoupon(brand)}${c.category ? ' · ' + escapeCoupon(c.category) : ''}</div>
         </div>
         <button class="mclose" type="button" aria-label="Close">✕</button>
@@ -365,6 +478,7 @@ function openCouponHowTo(id) {
         <div class="howto-offer-title">${escapeCoupon(offer)}</div>
         <div class="howto-offer-meta">${worth ? escapeCoupon(worth) + ' · ' : ''}You pay <b>${escapeCoupon(priceText)}</b></div>
       </div>
+      <div class="chow-seller-slot"></div>
       <ol class="howto-steps">
         <li><span><b>${isFree ? 'Unlock the code' : 'Buy the coupon'}:</b> ${isFree
           ? 'Tap <em>Get Free Code</em> — the code is revealed right away, no payment needed.'
@@ -380,16 +494,7 @@ function openCouponHowTo(id) {
     </div>
   `;
 
-  overlay.querySelector('.mclose').addEventListener('click', () => closeCouponHowTo(overlay));
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeCouponHowTo(overlay);
-  });
-  document.addEventListener('keydown', function onEsc(e) {
-    if (e.key !== 'Escape') return;
-    document.removeEventListener('keydown', onEsc);
-    closeCouponHowTo(overlay);
-  });
-
+  wireCouponModal(overlay);
   document.body.appendChild(overlay);
   void overlay.offsetWidth; // flush layout so the fade-in actually transitions
   overlay.classList.add('open');
@@ -398,10 +503,48 @@ function openCouponHowTo(id) {
   loadSellerHowTo(id);
 }
 
-function closeCouponHowTo(overlay) {
+/**
+ * Shared open/close behaviour for the card info modals: close button, backdrop
+ * click, Escape, and a body scroll-lock so the page behind doesn't scroll while
+ * a modal (or the phone bottom-sheet) is open. The lock is counted so two
+ * modals never fight over restoring it, and it's released even if a modal is
+ * removed by other code.
+ */
+const openCouponModals = new Set();
+
+function wireCouponModal(overlay) {
+  overlay.querySelector('.mclose').addEventListener('click', () => closeCouponModal(overlay));
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeCouponModal(overlay);
+  });
+  document.addEventListener('keydown', function onEsc(e) {
+    if (e.key !== 'Escape') return;
+    document.removeEventListener('keydown', onEsc);
+    closeCouponModal(overlay);
+  });
+  openCouponModals.add(overlay);
+  document.body.style.overflow = 'hidden';
+  // Safety net: if the modal is removed by anything but closeCouponModal, the
+  // lock must still lift.
+  new MutationObserver((records, obs) => {
+    if (!overlay.isConnected) {
+      obs.disconnect();
+      openCouponModals.delete(overlay);
+      if (openCouponModals.size === 0) document.body.style.overflow = '';
+    }
+  }).observe(document.body, { childList: true, subtree: false });
+}
+
+function closeCouponModal(overlay) {
   if (!overlay.isConnected) return;
+  openCouponModals.delete(overlay);
+  if (openCouponModals.size === 0) document.body.style.overflow = '';
   overlay.classList.remove('open');
   setTimeout(() => overlay.remove(), 250); // matches the .modal-overlay transition
+}
+
+function closeCouponHowTo(overlay) {
+  closeCouponModal(overlay);
 }
 
 /**
@@ -428,7 +571,8 @@ async function loadSellerHowTo(id) {
   // request was in flight.
   const overlay = document.querySelector('.modal-overlay.howto-overlay');
   if (!overlay || overlay.dataset.howtoId !== String(id)) return;
-  if (overlay.querySelector('.chow-seller')) return;
+  const slot = overlay.querySelector('.chow-seller-slot');
+  if (!slot || slot.querySelector('.chow-seller')) return;
 
   // Seller-supplied text: built with textContent, never innerHTML.
   const box = document.createElement('div');
@@ -440,7 +584,7 @@ async function loadSellerHowTo(id) {
   body.className = 'chow-seller-body';
   body.textContent = note;
   box.append(head, body);
-  overlay.querySelector('.howto-steps').before(box);
+  slot.appendChild(box);
 }
 
 /** Pull the "How to use: …" paragraph back out of a coupon's stored terms. */

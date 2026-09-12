@@ -71,6 +71,9 @@ const HEADERS = {
     'originalValue',
     'validFrom',
     'expiryDate',
+    // Hero image for the marketplace card, per coupon ('/images/coupons/amazon.webp'
+    // or an absolute URL). Blank ⇒ the card falls back to the default background.
+    'backgroundImage',
     'category',
     'source',
     'status',
@@ -265,7 +268,10 @@ const HEADERS = {
     'attachmentMime', 'attachmentSize', 'attachmentFileId', 'attachmentUploadedAt',
   ],
   [SHEETS.SETTINGS]: [
-    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'heroBadge', 'showHeroBadge',
+    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers',
+    // heroBadge/showHeroBadge were removed — the landing-page hero badge is now
+    // permanent. The two columns may still exist in live sheets; rows are
+    // mapped by header name, so they are simply never read or written again.
     // Homepage testimonials section — the heading copy and whether the section
     // renders at all. The testimonials themselves live in SHEETS.TESTIMONIALS.
     // testimonialsSeeded is an internal one-time flag: it stops the three
@@ -985,8 +991,6 @@ async function getSettings() {
     showActiveUsers: true,
     showCouponsTraded: true,
     showSavedByUsers: true,
-    heroBadge: "🚀 India's #1 Coupon Marketplace — Now Live!",
-    showHeroBadge: true,
     testimonialsLabel: 'Testimonials',
     testimonialsTitle: 'Loved by',
     testimonialsTitleHighlight: '10,000+ Smart Shoppers',
@@ -1016,7 +1020,6 @@ async function getSettings() {
         showActiveUsers: toSettingBool(existing.showActiveUsers),
         showCouponsTraded: toSettingBool(existing.showCouponsTraded),
         showSavedByUsers: toSettingBool(existing.showSavedByUsers),
-        showHeroBadge: toSettingBool(existing.showHeroBadge),
         showTestimonials: written ? toSettingBool(existing.showTestimonials) : defaultSettings.showTestimonials,
         // Unlike the display toggles this one defaults to false: a blank cell
         // means "the starter testimonials have never been written".
@@ -1060,8 +1063,6 @@ async function saveSettings(data) {
     showActiveUsers: flag('showActiveUsers'),
     showCouponsTraded: flag('showCouponsTraded'),
     showSavedByUsers: flag('showSavedByUsers'),
-    heroBadge: text('heroBadge', 120),
-    showHeroBadge: flag('showHeroBadge'),
     testimonialsLabel: text('testimonialsLabel', 60),
     testimonialsTitle: text('testimonialsTitle', 120),
     testimonialsTitleHighlight: text('testimonialsTitleHighlight', 120),
