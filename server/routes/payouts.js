@@ -17,6 +17,9 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const googleDrive = require('../services/googleDrive');
+// Payout-request alerts to the admins ride the same no-reply transport the
+// coupon-submission alert uses.
+const emailService = require('../services/emailService');
 // A payout QR is an image upload, so it goes through the same content sniffing the
 // support screenshots use rather than trusting the browser's content type.
 const { sniffImage, looksComplete } = require('../utils/imageSniff');
@@ -787,6 +790,28 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
     };
 
     await db.appendRow(db.SHEETS.PAYOUTS, payout);
+
+    // Admin alert: noreply → the configured admin emails. Awaited rather than
+    // fire-and-forget (Vercel freezes the function as soon as the response is
+    // sent, which would drop an unawaited send), and a failure here never fails
+    // the request — the payout row is already saved.
+    try {
+      const mailed = await emailService.sendPayoutRequestAdminEmail({
+        userName: req.user.name || '',
+        userEmail: email,
+        amount: payout.amount,
+        paymentMethod: payout.method,
+        requestedAt: payout.requestedAt,
+      });
+      if (!mailed.success) {
+        console.warn('[payouts/request] admin alert reached nobody:', JSON.stringify(mailed.failed));
+      } else if (mailed.failed.length) {
+        console.warn(`[payouts/request] admin alert partially delivered — failed: ${mailed.failed.map((f) => f.to).join(', ')}`);
+      }
+    } catch (e) {
+      console.warn('[payouts/request] admin alert notice:', e.message);
+    }
+
     res.status(201).json({ message: 'Payout request submitted successfully.', payout: sanitizeForSeller(payout) });
   } catch (err) {
     console.error('Request payout error:', err);
