@@ -3,7 +3,6 @@
 // ============================================
 
 const mongoose = require('mongoose');
-const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const Admin = require('../models/Admin');
 
@@ -115,13 +114,11 @@ async function seedAdminUsers() {
       {
         name: 'Rupayan',
         email: 'rupayandas2024@gmail.com',
-        rawPassword: 'Rupayan',
         role: 'Super Admin',
       },
       {
         name: 'Jaggik',
         email: 'jaggik8888@gmail.com',
-        rawPassword: 'Jaggik',
         role: 'Super Admin',
       },
     ];
@@ -129,14 +126,10 @@ async function seedAdminUsers() {
     for (const adminData of initialAdmins) {
       const existing = await Admin.findOne({ email: adminData.email.toLowerCase() });
       if (!existing) {
-        const salt = await bcrypt.genSalt(10);
-        const password_hash = await bcrypt.hash(adminData.rawPassword, salt);
-
         await Admin.create({
           id: uuidv4(),
           name: adminData.name,
           email: adminData.email.toLowerCase(),
-          password_hash,
           role: adminData.role,
           phone: '',
           profile_image: '',

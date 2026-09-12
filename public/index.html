@@ -542,7 +542,6 @@
     </div>
     <div id="loginForm">
       <div class="fgroup"><label class="flabel">Email Address</label><input type="email" class="finput" id="mEmail" placeholder="you@example.com"></div>
-      <div class="fgroup"><label class="flabel">Password</label><input type="password" class="finput" id="mPass" placeholder="Enter password"></div>
       <button class="btn btn-primary fsubmit" onclick="submitModalForm('login')">Log In to SaveHatke</button>
       <div class="divider" style="display:flex;align-items:center;gap:12px;margin:20px 0;">
         <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
@@ -554,7 +553,6 @@
     <div id="registerForm" style="display:none">
       <div class="fgroup"><label class="flabel">Full Name</label><input type="text" class="finput" id="mName" placeholder="Rahul Kumar"></div>
       <div class="fgroup"><label class="flabel">Email Address</label><input type="email" class="finput" id="mRegEmail" placeholder="you@example.com"></div>
-      <div class="fgroup"><label class="flabel">Create Password</label><input type="password" class="finput" id="mRegPass" placeholder="Min. 8 characters"></div>
       <button class="btn btn-primary fsubmit" onclick="submitModalForm('register')">Create Free Account</button>
       <div class="divider" style="display:flex;align-items:center;gap:12px;margin:20px 0;">
         <div style="flex:1;height:1px;background:rgba(79,195,247,.15)"></div>
@@ -729,9 +727,8 @@
       try {
         if (type === 'login') {
           const email = document.getElementById('mEmail')?.value;
-          const password = document.getElementById('mPass')?.value;
-          if (!email || !password) return showToast?.('Please fill email and password', 'warning');
-          const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+          if (!email) return showToast?.('Please enter your email address', 'warning');
+          const data = await api('/auth/login', { method: 'POST', body: { email } });
           Auth.setAuth(data.token, data.user);
 
           // Admin redirect
@@ -748,9 +745,8 @@
         } else {
           const name = document.getElementById('mName')?.value;
           const email = document.getElementById('mRegEmail')?.value;
-          const password = document.getElementById('mRegPass')?.value;
-          if (!email || !password || !name) return showToast?.('Please fill all fields', 'warning');
-          const data = await api('/auth/register', { method: 'POST', body: { name, email, password } });
+          if (!email || !name) return showToast?.('Please fill all fields', 'warning');
+          const data = await api('/auth/register', { method: 'POST', body: { name, email } });
           Auth.setAuth(data.token, data.user);
           closeModal();
           // Update nav immediately before reload

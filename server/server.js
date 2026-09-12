@@ -93,7 +93,7 @@ const authLimiter = rateLimit({
 
 // Break-glass admin recovery. Tighter than authLimiter and deliberately at the
 // edge, in front of the route's own per-IP failure accounting, so a burst never
-// reaches the bcrypt comparisons. The message says nothing about which stage or
+// reaches the backup-code checks. The message says nothing about which stage or
 // credential was involved.
 const sosLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,

@@ -1,5 +1,4 @@
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const UAParser = require('ua-parser-js');
@@ -381,7 +380,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
 
     // The "New device detected" alert, to the account's own address (user or
     // admin) from the SaveHatke Security mailbox. It fires only when the
-    // device is genuinely unrecognised, and only here — after the password /
+    // device is genuinely unrecognised, and only here — after the
     // OTP / Google / second factor has already been accepted, so it can never
     // precede a successful authentication or follow a rejected one. A
     // recognised device sends nothing. Opt-out via SIGNIN_ALERT_DISABLED=true.
@@ -499,8 +498,9 @@ function issueLoginToken(user, session) {
 }
 
 // ─── Login ────────────────────────────────────────────────────────────
-// Login is email + password only (POST /login below). The email-OTP sign-in
-// flow was removed; the 8-digit enrolment codes used by 2FA setup live in
+// Sign-in is passwordless: email only (POST /login below) or Google
+// (/google-redirect). No password is ever stored or checked for an account;
+// the 8-digit enrolment codes used by 2FA setup live in
 // routes/twoFactor.js and are unaffected.
 
 function getSheetsFallbackError(message) {
@@ -510,10 +510,10 @@ function getSheetsFallbackError(message) {
 // POST /api/auth/register â€” Save user EXCLUSIVELY to Google Sheets (Users tab)
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, username } = req.body;
+    const { email, name, username } = req.body;
 
-    if (!email || !password || !name) {
-      return res.status(400).json({ error: 'Email, password, and name are required.' });
+    if (!email || !name) {
+      return res.status(400).json({ error: 'Email and name are required.' });
     }
 
     const cleanEmail = email.toLowerCase().trim();
@@ -525,10 +525,6 @@ router.post('/register', async (req, res) => {
     if (existingSheetUser) {
       return res.status(409).json({ error: 'An account with this email already exists.' });
     }
-
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
 
     const now = new Date().toISOString();
     const userId = uuidv4();
@@ -550,18 +546,17 @@ router.post('/register', async (req, res) => {
     // Save profile details to Google Sheets (Users tab)
     await db.appendRow(db.SHEETS.USERS, sheetUser);
 
-    // Dual-sync password hash securely to Supabase (not stored in Sheets)
+    // Sync the profile to Supabase (not stored in Sheets)
     if (supabase.isConfigured()) {
       try {
         await supabase.createUser({
           user_id: userId,
           name: cleanName,
           email: cleanEmail,
-          password_hash: passwordHash,
           username: cleanUsername,
         });
       } catch (spErr) {
-        console.warn('Supabase password hash storage notice:', spErr.message);
+        console.warn('Supabase user sync notice:', spErr.message);
       }
     }
 
@@ -604,7 +599,7 @@ router.post('/register', async (req, res) => {
 // POST /api/auth/login â€” Read user EXCLUSIVELY from Google Sheets
 router.post('/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email } = req.body;
 
     if (!email) {
       return res.status(400).json({ error: 'Email is required.' });
@@ -618,13 +613,14 @@ router.post('/login', async (req, res) => {
       Admin = require('../models/Admin');
     } catch (e) {}
 
-    // Set when the address belongs to an administrator but the password does
-    // not verify. Such an attempt must never fall through to the passwordless
-    // user paths below: doing so hands back a real session bound to an admin's
-    // address, and — since a session means a successful sign-in — would also
-    // mail that admin a "new device detected" alert for an attempt that was
-    // in fact rejected.
-    let adminPasswordRejected = false;
+    // An administrator's address must never pick up a session from the
+    // passwordless email path: an email alone proves nothing about identity,
+    // and a session here would both grant admin powers for a guessable public
+    // address and mail its owner a "new device detected" alert. Admins sign
+    // in with Google (verified address, see /google-redirect) or a backup
+    // code (the SOS flow).
+
+    let isAdminAddress = false;
 
     if (Admin) {
       try {
@@ -633,83 +629,23 @@ router.post('/login', async (req, res) => {
           if (!dbAdmin.is_active) {
             return res.status(403).json({ error: 'This admin account is currently deactivated.' });
           }
-
-          const isMatch = await bcrypt.compare(password, dbAdmin.password_hash);
-          if (isMatch) {
-            dbAdmin.last_login = new Date();
-            await dbAdmin.save();
-
-            // Server-side 48h session for the admin login
-            const session = await createLoginSession(req, dbAdmin.id || dbAdmin._id.toString(), 'Admin', dbAdmin.email, dbAdmin.name || dbAdmin.full_name, res).catch(() => null);
-            const token = issueLoginToken({
-              id: dbAdmin.id || dbAdmin._id.toString(),
-              email: dbAdmin.email,
-              name: dbAdmin.name || dbAdmin.full_name,
-              role: 'admin',
-            }, session);
-            if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-            return res.json({
-              message: 'Admin login successful.',
-              token,
-              session_id: session ? session.sessionId : undefined,
-              session_expires_at: session ? session.expiresAt : undefined,
-              user: {
-                id: dbAdmin.id || dbAdmin._id.toString(),
-                email: dbAdmin.email,
-                name: dbAdmin.name || dbAdmin.full_name,
-                role: 'admin',
-                profile_image: dbAdmin.profile_image,
-              },
-            });
-          }
-          adminPasswordRejected = true;
+          isAdminAddress = true;
         }
       } catch (e) {
-        // Admin store unreachable — leave the decision to the checks below
-        // rather than locking everyone out of the site.
+        // Admin store unreachable — the hardcoded list below still guards the
+        // built-in owners; an unlisted admin simply continues to the user paths.
       }
     }
 
     // â”€â”€ 2. Hardcoded admin fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const hardcodedAdmins = [
-      { email: 'rupayandas2024@gmail.com', password: 'Rupayan', name: 'Rupayan' },
-      { email: 'jaggik8888@gmail.com', password: 'Jaggik', name: 'Jaggik' },
-    ];
+    const hardcodedAdminEmails = ['rupayandas2024@gmail.com', 'jaggik8888@gmail.com'];
+    if (hardcodedAdminEmails.includes(loginEmail)) isAdminAddress = true;
 
-    const hardcodedAccount = hardcodedAdmins.find(a => a.email === loginEmail);
-    const hardcoded = hardcodedAccount && hardcodedAccount.password === password ? hardcodedAccount : null;
-    if (hardcodedAccount && !hardcoded) adminPasswordRejected = true;
-
-    if (adminPasswordRejected) {
-      logLoginFailure(req, { email: loginEmail, detail: 'Incorrect administrator password' });
-      return res.status(401).json({ error: 'Invalid email or password.' });
-    }
-
-    if (hardcoded) {
-      const hardcodedId = uuidv4();
-
-      // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, hardcodedId, 'Admin', hardcoded.email, hardcoded.name, res).catch(() => null);
-      const token = issueLoginToken({
-        id: hardcodedId,
-        email: hardcoded.email,
-        name: hardcoded.name,
-        role: 'admin',
-      }, session);
-      if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-      return res.json({
-        message: 'Admin login successful.',
-        token,
-        session_id: session ? session.sessionId : undefined,
-        session_expires_at: session ? session.expiresAt : undefined,
-        user: {
-          id: hardcodedId,
-          email: hardcoded.email,
-          name: hardcoded.name,
-          role: 'admin',
-        },
+    if (isAdminAddress) {
+      logLoginFailure(req, { email: loginEmail, detail: 'Admin address used the passwordless email path' });
+      return res.status(403).json({
+        error: 'Admin accounts sign in with Google or a backup code.',
+        code: 'ADMIN_USES_GOOGLE',
       });
     }
 
@@ -719,18 +655,6 @@ router.post('/login', async (req, res) => {
     if (sheetUser) {
       if (sheetUser.status && sheetUser.status !== 'active') {
         return res.status(403).json({ error: `Account is ${sheetUser.status}. Please contact support.` });
-      }
-
-      if (password && sheetUser.passwordHash) {
-        const validPassword = await bcrypt.compare(password, sheetUser.passwordHash);
-        if (!validPassword) {
-          logLoginFailure(req, {
-            email: loginEmail,
-            userId: sheetUser.user_id || sheetUser.id || '',
-            detail: 'Incorrect password',
-          });
-          return res.status(401).json({ error: 'Invalid password.' });
-        }
       }
 
       const now = new Date().toISOString();
@@ -1023,7 +947,7 @@ router.post('/google-redirect', async (req, res) => {
     const now = new Date().toISOString();
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
-      // Paranoid pre-create scan — see the password login path for rationale.
+      // Paranoid pre-create scan — see the email login path for rationale.
       const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
       const existingDup = (allRows || []).find((r) => {
         const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
@@ -1191,7 +1115,7 @@ router.post('/google', async (req, res) => {
     const now = new Date().toISOString();
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
-      // Paranoid pre-create scan — see the password login path for rationale.
+      // Paranoid pre-create scan — see the email login path for rationale.
       const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
       const existingDup = (allRows || []).find((r) => {
         const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
@@ -1478,7 +1402,7 @@ router.post('/sessions/revoke-others', authenticateToken, async (req, res) => {
 //   â€¢ user_sessions        â†’ every successful sign-in (a session only exists
 //                            because the login succeeded), including ones that
 //                            have since expired or been logged out.
-//   â€¢ SecurityAudit rows   â†’ rejected attempts (wrong password, failed 2FA
+//   â€¢ SecurityAudit rows   â†’ rejected attempts (blocked email path, failed 2FA
 //                            code), which never produce a session row.
 //
 // Never exposes session tokens. It does return the sign-in IP: the account

@@ -892,13 +892,11 @@
     </div>
     <div id="loginForm">
       <div class="mfgroup"><label class="mflabel">Email Address</label><input type="email" class="mfinput" id="mEmail" placeholder="you@example.com"></div>
-      <div class="mfgroup"><label class="mflabel">Password</label><input type="password" class="mfinput" id="mPass" placeholder="Enter password"></div>
       <button class="btn btn-primary mfsubmit w-full" onclick="submitModalForm('login')">Log In to SaveHatke</button>
     </div>
     <div id="registerForm" style="display:none">
       <div class="mfgroup"><label class="mflabel">Full Name</label><input type="text" class="mfinput" id="mName" placeholder="Rahul Kumar"></div>
       <div class="mfgroup"><label class="mflabel">Email Address</label><input type="email" class="mfinput" id="mRegEmail" placeholder="you@example.com"></div>
-      <div class="mfgroup"><label class="mflabel">Create Password</label><input type="password" class="mfinput" id="mRegPass" placeholder="Min. 8 characters"></div>
       <button class="btn btn-primary mfsubmit w-full" onclick="submitModalForm('register')">Create Free Account</button>
     </div>
     <div class="modal-divider">
@@ -3069,17 +3067,15 @@ async function submitModalForm(type) {
   try {
     if (type === 'login') {
       const email = document.getElementById('mEmail').value;
-      const password = document.getElementById('mPass').value;
-      if (!email || !password) return showToast('Please fill email and password', 'warning');
-      const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+      if (!email) return showToast('Please enter your email address', 'warning');
+      const data = await api('/auth/login', { method: 'POST', body: { email } });
       Auth.setAuth(data.token, data.user);
       showToast('Welcome back! 👋', 'success');
     } else {
       const name = document.getElementById('mName').value;
       const email = document.getElementById('mRegEmail').value;
-      const password = document.getElementById('mRegPass').value;
-      if (!email || !password || !name) return showToast('Please fill all fields', 'warning');
-      const data = await api('/auth/register', { method: 'POST', body: { name, email, password } });
+      if (!email || !name) return showToast('Please fill all fields', 'warning');
+      const data = await api('/auth/register', { method: 'POST', body: { name, email } });
       Auth.setAuth(data.token, data.user);
       showToast('Account created! 🎉', 'success');
     }

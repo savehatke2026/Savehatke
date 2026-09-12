@@ -973,6 +973,57 @@
       .modal-footer .btn{flex:1 1 100%}
     }
   
+    /* ── LISTING TRACKING ACCORDION (My Coupons → For Sale) ──
+       Each listing row keeps its exact look and becomes expandable: tapping
+       it opens a vertical, order-tracking style timeline beneath it
+       (Submitted → Approved → Payout Details → Paid). The expansion is pure
+       CSS (grid-template-rows 0fr→1fr): smooth and height-aware, and it does
+       not re-animate when the 30s refresh repaints an already-open card,
+       because the open class is applied before insertion. */
+    .ml-item{background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px;transition:border-color .25s ease}
+    .ml-item.expanded{border-color:rgba(0,230,118,.26)}
+    .ml-item-summary{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;cursor:pointer;-webkit-tap-highlight-color:transparent;user-select:none}
+    .ml-item-summary:focus-visible{outline:1px solid rgba(79,195,247,.45);outline-offset:-1px}
+    .ml-item-main{min-width:0;flex:1}
+    .ml-item-title{font-size:.85rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ml-item-code{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#4fc3f7;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .ml-item-side{text-align:right;flex-shrink:0;margin-left:10px}
+    .ml-item-when{font-size:.7rem;color:#6b88aa;margin-top:4px}
+    .ml-item-chev{flex-shrink:0;margin-left:10px;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:.8rem;line-height:1;color:#6b88aa;transition:transform .3s ease,color .2s ease}
+    .ml-item.expanded .ml-item-chev{transform:rotate(180deg);color:#00e676}
+    .ml-track{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s ease}
+    .ml-item.expanded .ml-track{grid-template-rows:1fr}
+    .ml-track-inner{overflow:hidden;min-height:0}
+    .ml-track-pad{padding:2px 14px 14px;border-top:1px solid rgba(79,195,247,.06)}
+    /* the tracker itself: done = green check, current = green ring with a
+       soft pulse, upcoming = muted grey ring, failed = red */
+    .ml-tl{list-style:none;margin:12px 0 0;padding:0}
+    .ml-step{display:grid;grid-template-columns:26px minmax(0,1fr);column-gap:12px;align-items:start}
+    .ml-step:not(:last-child){padding-bottom:18px}
+    .ml-step-ico{position:relative;width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:.72rem;font-weight:700;background:rgba(107,136,170,.08);border:1px solid rgba(107,136,170,.3);color:#6b88aa}
+    /* the vertical connector hangs off every icon but the last step's */
+    .ml-step:not(:last-child) .ml-step-ico::after{content:'';position:absolute;top:27px;bottom:-18px;left:50%;width:2px;transform:translateX(-50%);background:rgba(107,136,170,.18);border-radius:2px}
+    .ml-step-txt{min-width:0}
+    .ml-step.done .ml-step-ico{background:rgba(0,230,118,.14);border-color:rgba(0,230,118,.4);color:#00e676}
+    .ml-step.done .ml-step-ico::after{background:rgba(0,230,118,.35)}
+    .ml-step.current .ml-step-ico{background:rgba(0,230,118,.06);border:2px solid #00e676;color:#00e676}
+    .ml-step.current .ml-step-ico::after{background:rgba(0,230,118,.22)}
+    .ml-step.failed .ml-step-ico{background:rgba(239,154,154,.12);border-color:rgba(239,154,154,.4);color:#ef9a9a}
+    .ml-cur-dot{width:8px;height:8px;border-radius:50%;background:#00e676;animation:mlPulse 1.6s ease-in-out infinite}
+    .ml-step-lbl{font-size:.82rem;font-weight:700;color:#6b88aa;line-height:1.35;padding-top:4px}
+    .ml-step.done .ml-step-lbl{color:#e2ecff}
+    .ml-step.current .ml-step-lbl{color:#00e676}
+    .ml-step.failed .ml-step-lbl{color:#ef9a9a}
+    .ml-step-sub{font-size:.72rem;color:#6b88aa;margin-top:3px;line-height:1.5}
+    /* the seller's one action inside the tracker: plain clickable text,
+       never a button. The invisible ::after widens its tap area without
+       touching layout, the same trick the nav and sidebar already use. */
+    .ml-act{position:relative;display:inline-block;margin-top:5px;font-size:.75rem;font-weight:700;color:#00e676;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+    .ml-act::after{content:'';position:absolute;left:-8px;right:-8px;top:-6px;bottom:-6px}
+    .ml-tl-note{margin:12px 0 2px;padding:8px 12px;border:1px solid rgba(239,154,154,.25);background:rgba(239,154,154,.07);border-radius:8px;font-size:.74rem;color:#ef9a9a;line-height:1.5}
+    @keyframes mlPulse{0%,100%{box-shadow:0 0 0 0 rgba(0,230,118,.35)}50%{box-shadow:0 0 0 5px rgba(0,230,118,0)}}
+    @media (prefers-reduced-motion:reduce){.ml-cur-dot{animation:none}.ml-track{transition:none}}
+
     /* Landscape phones show the desktop nav row, whose links are 20px tall.
        Vertical-only overlay: the row is horizontal here, so neighbours keep
        their own taps. Portrait phones use the stacked menu instead and are

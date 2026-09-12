@@ -44,7 +44,7 @@ function renderCurrentAdminProfile() {
   const email = adminUser.email || '';
   const role = adminUser.role || 'Super Admin';
 
-  // Google logins hand the photo over as `picture`; the password login and
+  // Google logins hand the photo over as `picture`; the email login and
   // the /admin/me refresh use `profile_image`. The Google avatar host also
   // rejects requests that carry a referer, and rotates its URLs, so the
   // image falls back to the initials tile on any load failure.
@@ -2215,8 +2215,8 @@ function loginMethodBadge(method) {
   if (m.includes('google')) return plate('/google.png', method || 'Google');
   if (m.includes('otp')) return plate('/gmail.svg', method || 'Email OTP');
   if (m.includes('email') || m.includes('mail')) return plate('/gmail.svg', method || 'Email');
-  // Admin panel password logins are email-based too — "Google Admin" already
-  // matched above, so anything left here signed in with an email address.
+  // Every remaining admin-panel sign-in is email-based too — "Google Admin"
+  // already matched above, so anything left here signed in with an email address.
   if (m.includes('admin') || m.includes('password')) return plate('/gmail.svg', method || 'Email');
   if (m) return `<span style="font-size:.82rem;color:#6b88aa">${escapeHtml(method)}</span>`;
   return '<span style="font-size:.82rem;color:#6b88aa">—</span>';
@@ -2657,7 +2657,6 @@ function initCreateAdminForm() {
         body: {
           name: document.getElementById('newAdminName').value.trim(),
           email: document.getElementById('newAdminEmail').value.trim(),
-          password: document.getElementById('newAdminPassword').value,
           role: document.getElementById('newAdminRole').value,
           phone: document.getElementById('newAdminPhone').value.trim(),
           profile_image: document.getElementById('newAdminAvatar').value.trim(),

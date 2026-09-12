@@ -64,7 +64,7 @@
         + 'request forgery, and remember this cookie choice. Without them you could not '
         + 'log in or complete a purchase.',
       cookies: [
-        { name: 'sh_session', provider: 'SaveHatke', duration: '48 hours', purpose: 'Signed-in session. Holds a random session identifier only — never your password.' },
+        { name: 'sh_session', provider: 'SaveHatke', duration: '48 hours', purpose: 'Signed-in session. Holds a random session identifier only — not your account data.' },
         { name: 'sh_consent', provider: 'SaveHatke', duration: '180 days', purpose: 'Remembers the choice you make on this panel.' },
         { name: '__cf_bm, cf_chl_*', provider: 'Cloudflare Turnstile', duration: 'Up to 30 minutes', purpose: 'Bot and abuse protection on the login and support forms.' },
         { name: 'Razorpay checkout', provider: 'Razorpay', duration: 'Session', purpose: 'Set only while a payment is in progress, to complete that payment securely.' },

@@ -15,7 +15,7 @@
 // on its own.
 //
 // Login: POST /login exchanges a half-completed login (challenge token minted
-// by the email+password or Google paths) plus a TOTP or recovery code for
+// by the email-only or Google paths) plus a TOTP or recovery code for
 // a real session. No session, JWT or cookie exists until that call succeeds.
 
 const express = require('express');

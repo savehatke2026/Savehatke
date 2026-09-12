@@ -403,10 +403,6 @@
           <label class="flabel" for="inputEmail">Email Address</label>
           <input type="text" inputmode="email" class="finput" id="inputEmail" placeholder="you@example.com" required autocomplete="email">
         </div>
-        <div class="fgroup">
-          <label class="flabel" for="inputPassword">Password</label>
-          <input type="password" class="finput" id="inputPassword" placeholder="Your password" required autocomplete="current-password">
-        </div>
         <!-- Cloudflare Turnstile CAPTCHA — revealed after email + Continue -->
         <div class="fgroup" id="loginTurnstileGroup" style="display:none;justify-content:center;margin-bottom:14px"></div>
         <button type="submit" class="btn btn-primary" id="submitBtn">
@@ -824,7 +820,7 @@
   let turnstileSiteKeyPromise = null;
   let loginSubmitPending = false;    // Continue was pressed while the challenge was still solving
   // What Continue is waiting to do once the challenge settles: 'login' for an
-  // email + password sign-in, 'sos' for a backup code. The callbacks below fire
+  // email-only sign-in, 'sos' for a backup code. The callbacks below fire
   // long after the click that armed them, so the intent cannot be re-derived there.
   let pendingSubmitKind = 'login';
 
@@ -942,13 +938,12 @@
   }
 
   /* ══════════════════════════════════════════
-     EMAIL + PASSWORD LOGIN
+     EMAIL-ONLY LOGIN (PASSWORDLESS)
   ══════════════════════════════════════════ */
   async function handleAuthSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('submitBtn');
     const raw = document.getElementById('inputEmail')?.value?.trim() || '';
-    const password = document.getElementById('inputPassword')?.value || '';
     const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw);
 
     // ── Backup-code path (SOS access). The form itself is not the gate: the
@@ -961,12 +956,6 @@
       return;
     }
     pendingSubmitKind = looksLikeEmail ? 'login' : 'sos';
-
-    // An email sign-in needs its password too; a backup code does not.
-    if (pendingSubmitKind === 'login' && !password) {
-      showToast('Enter your password to continue.', 'error');
-      return;
-    }
 
     // First click: reveal the CAPTCHA below the email box. The visitor does not
     // press Continue again — solving the challenge submits for them (and if the
@@ -997,20 +986,19 @@
 
   async function runPendingLoginSubmit() {
     if (pendingSubmitKind === 'sos') await checkBackupCodeAndOpenSos();
-    else await submitPasswordLogin();
+    else await submitEmailLogin();
   }
 
-  // Sends the email + password to /auth/login with whatever CAPTCHA token is
-  // available. Called by handleAuthSubmit and by the Turnstile success callback.
-  async function submitPasswordLogin() {
+  // Sends the email to /auth/login with whatever CAPTCHA token is available.
+  // Called by handleAuthSubmit and by the Turnstile success callback.
+  async function submitEmailLogin() {
     const btn = document.getElementById('submitBtn');
     const email = document.getElementById('inputEmail')?.value?.trim() || '';
-    const password = document.getElementById('inputPassword')?.value || '';
-    if (!email || !password) { restoreLoginSubmitBtn(); return; }
+    if (!email) { restoreLoginSubmitBtn(); return; }
 
     if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
     try {
-      const data = await api('/auth/login', { method: 'POST', body: { email, password } });
+      const data = await api('/auth/login', { method: 'POST', body: { email } });
 
       // The account has an authenticator enrolled: the server withheld the
       // session and returned a challenge instead. Nothing is stored in Auth
@@ -1028,7 +1016,14 @@
         window.location.replace('index');
       }
     } catch (err) {
-      showToast(err.message || 'Login failed. Please check your credentials and try again.', 'error');
+      // Admin addresses cannot use the email-only path — the server rejects
+      // them with ADMIN_USES_GOOGLE because an email alone proves nothing for
+      // an admin account. Point the admin at the Google button / SOS code.
+      if (err && err.data && err.data.code === 'ADMIN_USES_GOOGLE') {
+        showToast('Admin accounts sign in with Google or a backup code. Use the Google button below.', 'warning');
+      } else {
+        showToast(err.message || 'Login failed. Please try again.', 'error');
+      }
       resetLoginTurnstile(); // tokens are single-use — refresh for the retry
       restoreLoginSubmitBtn();
     }

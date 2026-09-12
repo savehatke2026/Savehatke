@@ -36,9 +36,8 @@ npm run dev
 - 🔐 Admin Panel: http://localhost:3000/admin.html
 - 📞 Support: http://localhost:3000/support.html
 
-### Default Admin Credentials
-- **Username:** `admin`
-- **Password:** `SaveHatke@Admin2024`
+### Admin Access
+Sign-in is passwordless site-wide: a user enters just an email (new emails are auto-registered) or signs in with Google. Admin accounts sign in with their configured Google account or an SOS backup code.
 
 ---
 
@@ -119,7 +118,7 @@ SaveHatke/
 ## 🛡️ Security
 
 - JWT-based authentication with configurable expiry
-- Passwords hashed with bcrypt (10 salt rounds)
+- Passwordless authentication: email-only sign-in or Google OAuth; no account passwords are stored (bcrypt still hashes 2FA recovery codes, SOS answers and backup codes)
 - Helmet.js security headers
 - Rate limiting on all API endpoints (100 req/15min, 20 for auth)
 - Separate admin authentication

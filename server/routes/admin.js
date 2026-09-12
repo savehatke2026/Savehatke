@@ -3,7 +3,6 @@
 // ============================================
 
 const express = require('express');
-const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
@@ -58,114 +57,20 @@ function reportDebug(hypothesisId, location, msg, data = {}, runId = process.env
   } catch {}
 }
 
-// POST /api/admin/login — Admin login (MongoDB backed)
-router.post('/login', async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    const loginIdentifier = (email || username || '').toLowerCase().trim();
-
-    if (!loginIdentifier || !password) {
-      return res.status(400).json({ error: 'Email/Username and password are required.' });
-    }
-
-    let authenticatedAdmin = null;
-
-    // 1. Check MongoDB Admin collection by email or username
-    try {
-      const dbAdmin = await Admin.findOne({
-        $or: [
-          { email: loginIdentifier },
-          { email: { $regex: `^${loginIdentifier}@` } },
-        ],
-      });
-
-      if (dbAdmin) {
-        if (!dbAdmin.is_active) {
-          return res.status(403).json({ error: 'This admin account is currently deactivated.' });
-        }
-
-        const isMatch = await bcrypt.compare(password, dbAdmin.password_hash);
-        if (isMatch) {
-          // Update last_login timestamp
-          dbAdmin.last_login = new Date();
-          await dbAdmin.save();
-
-          authenticatedAdmin = {
-            id: dbAdmin.id || dbAdmin._id.toString(),
-            full_name: dbAdmin.full_name,
-            email: dbAdmin.email,
-            role: dbAdmin.role,
-            phone: dbAdmin.phone,
-            profile_image: dbAdmin.profile_image,
-            is_active: dbAdmin.is_active,
-            email_verified: dbAdmin.email_verified,
-            two_factor_enabled: dbAdmin.two_factor_enabled,
-            last_login: dbAdmin.last_login,
-            created_at: dbAdmin.created_at,
-          };
-        }
-      }
-    } catch (e) {
-      console.warn('MongoDB Admin lookup error, checking env fallback:', e.message);
-    }
-
-    // 2. Fallback to admin credentials if DB match not found
-    if (!authenticatedAdmin) {
-      if ((loginIdentifier === 'jaggik8888@gmail.com' || loginIdentifier === 'jaggik') && password === 'Jaggik') {
-        authenticatedAdmin = {
-          id: uuidv4(),
-          full_name: 'Jaggik',
-          email: 'jaggik8888@gmail.com',
-          role: 'Super Admin',
-          is_active: true,
-          email_verified: true,
-          two_factor_enabled: false,
-          last_login: new Date(),
-        };
-      } else if ((loginIdentifier === 'rupayandas2024@gmail.com' || loginIdentifier === 'rupayan') && password === 'Rupayan') {
-        authenticatedAdmin = {
-          id: uuidv4(),
-          full_name: 'Rupayan',
-          email: 'rupayandas2024@gmail.com',
-          role: 'Super Admin',
-          is_active: true,
-          email_verified: true,
-          two_factor_enabled: false,
-          last_login: new Date(),
-        };
-      }
-    }
-
-    if (!authenticatedAdmin) {
-      return res.status(401).json({ error: 'Invalid admin credentials.' });
-    }
-
-    const token = generateToken({
-      id: authenticatedAdmin.id,
-      email: authenticatedAdmin.email,
-      name: authenticatedAdmin.full_name,
-      role: 'admin',
-    }, '12h');
-
-    res.json({
-      message: 'Admin login successful.',
-      token,
-      user: authenticatedAdmin,
-    });
-  } catch (err) {
-    console.error('Admin login error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
-});
+// Admin sign-in is passwordless: admins authenticate with Google on the main
+// login page (POST /api/auth/google-redirect verifies the Google identity and
+// grants the admin session) or with a backup code through the SOS flow
+// (routes/sos.js). The old password-based admin login endpoint was removed
+// together with the rest of the password logic.
 
 // POST /api/admin/create-admin — Create new Admin/Super Admin/Support in MongoDB
 router.post('/create-admin', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { name, full_name, email, password, role, phone, profile_image } = req.body;
+    const { name, full_name, email, role, phone, profile_image } = req.body;
     const adminName = (name || full_name || '').trim();
 
-    if (!email || !password || !adminName) {
-      return res.status(400).json({ error: 'Name, email, and password are required.' });
+    if (!email || !adminName) {
+      return res.status(400).json({ error: 'Name and email are required.' });
     }
 
     const validRoles = ['Super Admin', 'Admin', 'Support'];
@@ -176,14 +81,10 @@ router.post('/create-admin', authenticateToken, requireAdmin, async (req, res) =
       return res.status(409).json({ error: 'An admin with this email already exists in MongoDB Atlas.' });
     }
 
-    const salt = await bcrypt.genSalt(10);
-    const password_hash = await bcrypt.hash(password, salt);
-
     const newAdmin = await Admin.create({
       id: uuidv4(),
       name: adminName,
       email: email.toLowerCase().trim(),
-      password_hash,
       role: assignedRole,
       phone: phone || '',
       profile_image: profile_image || '',
@@ -225,7 +126,7 @@ router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => 
   try {
     let admins = [];
     if (mongoose.connection.readyState === 1) {
-      admins = await Admin.find().select('-password_hash').sort({ created_at: -1 });
+      admins = await Admin.find().sort({ created_at: -1 });
     }
     if (!admins || admins.length === 0) {
       admins = FALLBACK_ADMINS();

@@ -25,7 +25,7 @@ function getClient() {
 /**
  * Create a new user in Supabase.
  */
-async function createUser({ name, email, password_hash, username }) {
+async function createUser({ name, email, username }) {
   const client = getClient();
   if (!client) throw new Error('Supabase not configured');
 
@@ -34,7 +34,6 @@ async function createUser({ name, email, password_hash, username }) {
     .insert({
       name,
       email: email.toLowerCase(),
-      password_hash,
       username: username || null,
       status: 'active',
     })

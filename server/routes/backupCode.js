@@ -20,7 +20,7 @@
 //   2. POST /api/admin/backup-code/complete { code, chosenEmail, initToken }
 //        - re-check the code, validate the init token
 //        - confirm chosenEmail is in the allowlist
-//        - mint a 12h admin JWT (same shape as POST /api/admin/login)
+//        - mint a 12h admin JWT (same shape the Google admin session uses)
 //        - bump usageCount, stamp lastUsedAt/IP/reason on the code row
 //        - record completion in the audit sheet
 //
