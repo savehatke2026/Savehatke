@@ -307,19 +307,27 @@
   // existing pages — #060d1f background, #0c1835 panels, #00e676 green accent,
   // #4fc3f7 blue, #e2ecff text, #6b88aa muted, Outfit typeface, rgba(79,195,247,.x)
   // borders — so nothing new is introduced to the design language.
+  //
+  // LAYOUT: a compact card anchored bottom-right, directly above the chatbot
+  // launcher (chatbot.js pins .chatbot-fab at bottom:24px right:24px, 56px
+  // tall, so 96px clears it with a 16px gap; its mobile anchor is 16px/50px,
+  // so 82px clears it there). The banner stays z-index 9000, under the
+  // launcher (9990) and the chat window (9995): the two never overlap, and
+  // while the chat window is open it simply covers the box, which is still
+  // there when the chat closes.
   function injectStyles() {
     if (document.getElementById('sh-consent-css')) return;
     const el = document.createElement('style');
     el.id = 'sh-consent-css';
     el.textContent = `
-.shc-banner{position:fixed;left:0;right:0;bottom:0;z-index:9000;background:rgba(9,16,34,.97);backdrop-filter:blur(14px);border-top:1px solid rgba(79,195,247,.16);box-shadow:0 -18px 50px rgba(0,0,0,.45);transform:translateY(110%);transition:transform .38s cubic-bezier(.22,.61,.36,1);font-family:'Outfit',system-ui,sans-serif}
-.shc-banner.shc-in{transform:translateY(0)}
-.shc-banner-inner{max-width:1120px;margin:0 auto;padding:18px 24px;display:flex;align-items:center;gap:22px}
+.shc-banner{position:fixed;right:24px;bottom:96px;z-index:9000;width:400px;max-width:calc(100vw - 32px);background:rgba(9,16,34,.97);backdrop-filter:blur(14px);border:1px solid rgba(79,195,247,.16);border-radius:16px;box-shadow:0 24px 60px rgba(0,0,0,.55);transform:translateY(14px);opacity:0;visibility:hidden;pointer-events:none;transition:transform .38s cubic-bezier(.22,.61,.36,1),opacity .38s ease,visibility .38s;font-family:'Outfit',system-ui,sans-serif}
+.shc-banner.shc-in{transform:translateY(0);opacity:1;visibility:visible;pointer-events:auto}
+.shc-banner-inner{padding:18px 20px}
 .shc-copy{min-width:0;flex:1}
 .shc-title{font-size:.98rem;font-weight:800;color:#e2ecff;margin-bottom:5px}
 .shc-text{font-size:.83rem;line-height:1.6;color:#a8c0dc;margin:0}
 .shc-text a{color:#4fc3f7;text-decoration:underline;text-underline-offset:2px}
-.shc-actions{display:flex;align-items:center;gap:9px;flex-shrink:0;flex-wrap:wrap}
+.shc-actions{display:flex;align-items:center;gap:9px;flex-shrink:0;flex-wrap:wrap;margin-top:14px}
 .shc-btn{font-family:'Outfit',system-ui,sans-serif;font-size:.83rem;font-weight:700;padding:0 18px;height:40px;border-radius:10px;cursor:pointer;white-space:nowrap;transition:all .2s;border:1.5px solid transparent}
 .shc-btn:focus-visible{outline:2px solid rgba(0,230,118,.7);outline-offset:2px}
 .shc-btn-primary{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;border-color:transparent}
@@ -367,13 +375,11 @@
 .shc-policy{font-size:.75rem;color:#6b88aa;margin:14px 0 0;line-height:1.55;text-align:center}
 .shc-policy a{color:#4fc3f7}
 
-/* Tablet: stack the copy above the buttons so nothing is squeezed. */
-@media(max-width:860px){
-  .shc-banner-inner{flex-direction:column;align-items:stretch;gap:14px;padding:16px 20px}
-  .shc-actions{justify-content:flex-start}
-}
-/* Phone: full-width targets, comfortably tappable. */
+/* Phone: the chatbot launcher anchors at 16px/50px, so the box keeps its
+   clear-the-icon offset and hugs the edge like the icon does; buttons go
+   full-width and comfortably tappable. */
 @media(max-width:520px){
+  .shc-banner{right:16px;bottom:82px;width:calc(100vw - 32px)}
   .shc-banner-inner{padding:15px 16px}
   .shc-actions{flex-direction:column;align-items:stretch;gap:8px}
   .shc-btn,.shc-btn-link{width:100%;height:44px}
