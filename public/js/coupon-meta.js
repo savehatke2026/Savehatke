@@ -235,7 +235,7 @@ const BRAND_LOGOS = {
   'Netflix':            '/logos/netflix.svg',
   'KFC':                '/logos/kfc.png',
   'CRED':               '/logos/cred.png',
-  'Subway':             '/logos/subway.jpg',
+  'Subway':             '/logos/subway.png',
   'Coursera':           '/logos/coursera.svg',
   "McDonald's":         '/logos/mcdonalds.svg',
 };
@@ -301,6 +301,7 @@ const BRAND_LOGO_MONO_DARK = new Set([
   '/logos/croma.svg',   // one fill, #191c1f
   '/logos/uber.svg',    // one fill, #010202
   '/logos/lakme.svg',   // no fill attributes at all, so it paints black
+  '/logos/cred.png',    // black wordmark on now-transparent background
 ]);
 
 // Brand colours worth keeping, but with dark artwork mixed in (Booking.com's
@@ -309,29 +310,15 @@ const BRAND_LOGO_MONO_DARK = new Set([
 // chip is only as big as the logo.
 //
 // The JPGs are here for a different reason: JPEG cannot carry transparency, so
-// the background behind the artwork is baked in. For these it is solid white,
-// which would sit as a harsh white slab on a dark card; the chip is the same
-// white, so the slab reads as a deliberate badge instead.
-//
-// The three marks added with the food/fintech brands need the chip from both
-// directions at once:
-//   kfc.png    — transparent, but the white of the artwork is knocked out and
-//                what remains is red bands plus a charcoal bucket/wordmark
-//                that measures ~1.2:1 against the card — invisible. The chip
-//                puts the white back behind the mark.
-//   cred.png   — black wordmark on a baked-white background (its colormap PNG
-//                has no alpha channel), so the same slab problem as the JPGs.
-//   subway.jpg — yellow/green wordmark on baked-white JPEG, exactly the
-//                shopsy/tata-cliq situation.
+// the background behind the artwork is baked in. For these two it is solid
+// white, which would sit as a harsh white slab on a dark card; the chip is the
+// same white, so the slab reads as a deliberate badge instead.
 const BRAND_LOGO_LIGHT_CHIP = new Set([
   '/logos/booking.svg',
   '/logos/pizzahut.svg',
   '/logos/snapdeal.png',
   '/logos/shopsy.jpg',
   '/logos/tata-cliq.jpg',
-  '/logos/kfc.png',
-  '/logos/cred.png',
-  '/logos/subway.jpg',
 ]);
 
 /**
