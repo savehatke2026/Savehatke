@@ -198,6 +198,10 @@ function toSupabaseCoupon(c) {
     // tolerate databases where the migration hasn't been applied yet
     ...(c.onSale !== undefined ? { on_sale: Boolean(c.onSale !== false && c.onSale !== 'false') } : {}),
     ...(c.timerOn !== undefined ? { timer_on: Boolean(c.timerOn !== false && c.timerOn !== 'false') } : {}),
+    // Hero image for the marketplace card — per-coupon, optional. Only sent
+    // when provided so writes tolerate databases where
+    // setup_coupon_background_image.sql hasn't been applied yet.
+    ...(c.backgroundImage !== undefined ? { background_image: c.backgroundImage || null } : {}),
     ...(c.proofUrl !== undefined ? { proof_url: c.proofUrl || '' } : {}),
     ...(c.adminNotes !== undefined ? { admin_notes: c.adminNotes || '' } : {}),
     ...(c.verifiedAt !== undefined ? { verified_at: c.verifiedAt || null } : {}),
@@ -239,6 +243,9 @@ function fromSupabaseCoupon(r) {
     // Timer OFF hides the countdown but keeps expiry_date, so flipping it back
     // on restores the date the admin already entered.
     timerOn: r.timer_on !== false,
+    // Card hero image — empty string means "no image set" and the card falls
+    // back to the default SaveHatke background.
+    backgroundImage: r.background_image || '',
     addedAt: r.added_at || new Date().toISOString(),
     soldAt: r.sold_at || '',
     buyerEmail: r.buyer_email || '',
@@ -379,6 +386,8 @@ async function updateCoupon(id, updates) {
   if (updates.onSale !== undefined) patch.on_sale = Boolean(updates.onSale !== false && updates.onSale !== 'false');
   if (updates.timerOn !== undefined) patch.timer_on = Boolean(updates.timerOn !== false && updates.timerOn !== 'false');
   if (updates.expiryDate !== undefined) patch.expiry_date = updates.expiryDate || null;
+  // Card hero image, edited from Coupon Management / Add Coupon
+  if (updates.backgroundImage !== undefined) patch.background_image = updates.backgroundImage || null;
 
   if (Object.keys(patch).length === 0) {
     throw new Error('No updatable fields were supplied.');
@@ -1353,6 +1362,96 @@ async function setMaintenanceMode(enabled, message, adminEmail) {
  */
 function _clearMaintenanceCachesForTests() {
   maintenanceCache = null;
+  maintenanceWhitelistCache = null;
+}
+
+// ── Maintenance Whitelist (site_settings table) ────────────────────────
+// Emails allowed to log in and browse the site normally while maintenance
+// is ON. Kept under its own site_settings key so the frequently-read
+// maintenance_mode row stays small. Admins always bypass maintenance
+// regardless of this list. Reads share the 10-second in-memory cache
+// pattern; writes invalidate it so admin changes land instantly.
+
+let maintenanceWhitelistCache = null; // { data, fetchedAt }
+
+/**
+ * Get the whitelisted emails (lowercase). Returns [] on any failure — an
+ * unreadable list must never lock admins or whitelisted users out.
+ */
+async function getMaintenanceWhitelist() {
+  if (maintenanceWhitelistCache
+      && (Date.now() - maintenanceWhitelistCache.fetchedAt) < MAINTENANCE_CACHE_TTL_MS) {
+    return maintenanceWhitelistCache.data;
+  }
+
+  const client = getClient();
+  if (!client) return [];
+
+  try {
+    const { data, error } = await client
+      .from('site_settings')
+      .select('value')
+      .eq('key', 'maintenance_whitelist')
+      .limit(1)
+      .single();
+
+    if (error || !data) return []; // row not seeded yet — empty list
+
+    const emails = Array.isArray(data.value && data.value.emails)
+      ? data.value.emails
+      : [];
+    const list = emails
+      .map((e) => String(e || '').toLowerCase().trim())
+      .filter(Boolean);
+    maintenanceWhitelistCache = { data: list, fetchedAt: Date.now() };
+    return list;
+  } catch (err) {
+    console.warn('getMaintenanceWhitelist error (treating as empty):', err.message);
+    return [];
+  }
+}
+
+/**
+ * Replace the whitelist. Only called by the admin API. Emails are
+ * normalised here (trimmed, lowercased, deduped) so every consumer
+ * compares against a canonical form.
+ */
+async function setMaintenanceWhitelist(emails, adminEmail) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase not configured');
+
+  const seen = new Set();
+  const normalized = [];
+  for (const raw of Array.isArray(emails) ? emails : []) {
+    const email = String(raw || '').toLowerCase().trim();
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    normalized.push(email);
+  }
+
+  const now = new Date().toISOString();
+  const { data, error } = await client
+    .from('site_settings')
+    .upsert({
+      key: 'maintenance_whitelist',
+      value: { emails: normalized },
+      updated_at: now,
+      updated_by: adminEmail || '',
+    }, { onConflict: 'key' })
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error('Failed to update maintenance whitelist: ' + error.message);
+  }
+
+  maintenanceWhitelistCache = null; // reflect the change immediately
+  const val = data.value || {};
+  return {
+    emails: Array.isArray(val.emails) ? val.emails : [],
+    updatedAt: data.updated_at || now,
+    updatedBy: data.updated_by || adminEmail || '',
+  };
 }
 
 module.exports = {
@@ -1404,6 +1503,8 @@ module.exports = {
   ensureSiteSettingsTable,
   getMaintenanceMode,
   setMaintenanceMode,
+  getMaintenanceWhitelist,
+  setMaintenanceWhitelist,
   // Test helpers
   _clearMaintenanceCachesForTests,
 };

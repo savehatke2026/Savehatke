@@ -37,7 +37,7 @@ const backupCodeRoutes = require('./routes/backupCode');
 const sosRoutes = require('./routes/sos');
 const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
-const { checkPageAccess, resolveCaller, isAdminRole } = require('./middleware/maintenance');
+const { checkPageAccess, resolveCaller, isAdminRole, isWhitelistedEmail } = require('./middleware/maintenance');
 const supabase = require('./services/supabase');
 
 const app = express();
@@ -225,9 +225,12 @@ function isProtectedPublicHtmlRequest(req) {
 // /maintenance and /maintenance.html: when maintenance is OFF, redirect
 // straight to /index.html (true server-side 302 with no body, so the
 // Maintenance page can never flash on screen). When maintenance is ON the
-// page is served — EXCEPT to admins, who bypass maintenance entirely and
-// are sent to the admin panel so they are never stranded on the page they
-// are supposed to be able to manage around.
+// page is served — EXCEPT to admins and whitelisted users, who bypass
+// maintenance entirely: admins are sent to the admin panel so they are
+// never stranded on the page they are supposed to be able to manage
+// around, and whitelisted users are sent to the real site, because
+// logging in as a whitelisted user must open the normal pages, never the
+// maintenance page.
 async function maintenancePageGuard(req, res, next) {
   if (!isMaintenanceHtmlRequest(req)) return next();
   try {
@@ -238,6 +241,9 @@ async function maintenancePageGuard(req, res, next) {
     const caller = await resolveCaller(req);
     if (isAdminRole(caller)) {
       return res.redirect(302, '/vault');
+    }
+    if (await isWhitelistedEmail(caller)) {
+      return res.redirect(302, '/index.html');
     }
   } catch (e) {
     // Fail open — if the status check itself errors, allow the page to
@@ -382,30 +388,36 @@ app.use('/api/consent', consentRoutes);
 //
 // When the caller carries a credential (a verified Bearer JWT, or the
 // HttpOnly session cookie that page navigations rely on) we ALSO resolve
-// whether that user is an admin — the only role that bypasses maintenance.
-// The response then carries `canAccess` / `isAdmin` so the frontend doesn't
-// have to guess. With no credential at all, both flags default to false —
-// an anonymous visitor is always treated as "no bypass". The role is read
-// from VERIFIED credentials only (never a raw decode of an untrusted token),
-// so nobody can forge themselves an admin answer.
+// whether that user bypasses maintenance: the admin role always, and any
+// user whose email is on the maintenance whitelist. The response then
+// carries `canAccess` / `isAdmin` / `isWhitelisted` so the frontend doesn't
+// have to guess. With no credential at all, all flags default to false —
+// an anonymous visitor is always treated as "no bypass". The role and email
+// are read from VERIFIED credentials only (never a raw decode of an
+// untrusted token), so nobody can forge themselves a bypass answer.
 app.get('/api/maintenance/status', async (req, res) => {
   try {
     const supabaseService = require('./services/supabase');
     const status = await supabaseService.getMaintenanceMode();
 
     let isAdmin = false;
+    let isWhitelisted = false;
     if (status.enabled) {
       const caller = await resolveCaller(req);
       isAdmin = isAdminRole(caller);
+      if (!isAdmin) {
+        isWhitelisted = await isWhitelistedEmail(caller);
+      }
     }
 
-    const canAccess = !status.enabled || isAdmin;
+    const canAccess = !status.enabled || isAdmin || isWhitelisted;
 
     res.json({
       enabled: status.enabled,
       message: status.message,
       canAccess,
       isAdmin,
+      isWhitelisted,
     });
   } catch (err) {
     // Fail open — if the check fails, report maintenance as off
@@ -414,6 +426,7 @@ app.get('/api/maintenance/status', async (req, res) => {
       message: '',
       canAccess: true,
       isAdmin: false,
+      isWhitelisted: false,
     });
   }
 });
@@ -445,8 +458,6 @@ app.get('/api/settings', async (req, res) => {
             showActiveUsers: mongoSetting.showActiveUsers !== undefined ? mongoSetting.showActiveUsers : settings.showActiveUsers,
             showCouponsTraded: mongoSetting.showCouponsTraded !== undefined ? mongoSetting.showCouponsTraded : settings.showCouponsTraded,
             showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
-            heroBadge: mongoSetting.heroBadge || settings.heroBadge,
-            showHeroBadge: mongoSetting.showHeroBadge !== undefined ? mongoSetting.showHeroBadge : settings.showHeroBadge,
           };
         }
       } catch (e) {}
@@ -457,7 +468,6 @@ app.get('/api/settings', async (req, res) => {
     settings.showActiveUsers = toBool(settings.showActiveUsers);
     settings.showCouponsTraded = toBool(settings.showCouponsTraded);
     settings.showSavedByUsers = toBool(settings.showSavedByUsers);
-    settings.showHeroBadge = toBool(settings.showHeroBadge);
 
     res.json({ settings });
   } catch (err) {
@@ -472,8 +482,6 @@ app.get('/api/settings', async (req, res) => {
         showActiveUsers: true,
         showCouponsTraded: true,
         showSavedByUsers: true,
-        heroBadge: "🚀 India's #1 Coupon Marketplace — Now Live!",
-        showHeroBadge: true,
       },
     });
   }
@@ -541,9 +549,10 @@ async function initServices() {
     await supabase.ensureSiteSettingsTable();
 
     // Maintenance mode itself has no seed data — `site_settings.maintenance_mode`
-    // is initialised to `{ enabled: false, message: '' }` by the migration
-    // and there's intentionally no allow-list of "trusted" user emails:
-    // admin role is the only bypass, decided server-side from the JWT.
+    // is initialised to `{ enabled: false, message: '' }` and
+    // `site_settings.maintenance_whitelist` to `{ "emails": [] }` by the
+    // migrations. Bypasses are decided server-side only: the admin role from
+    // the verified JWT, and user emails from the whitelist row.
   }
 
   // 48-hour session expiry sweep — a real interval on a long-running server;

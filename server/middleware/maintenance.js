@@ -2,14 +2,16 @@
 // SaveHatke — Maintenance Mode Middleware
 // ============================================
 // Server-side enforcement of maintenance mode. When maintenance is ON the
-// only callers that pass are admins (role admin / super admin / support).
-// Every other caller — including any allow-listed test user — gets a 503
-// MAINTENANCE_MODE response, which the frontend api() helper recognises and
-// uses to redirect to /maintenance.html.
+// callers that pass are:
 //
-// There is no email-allow-list any more. The requirements explicitly forbid
-// giving specific user emails a maintenance bypass; the only "bypass" is the
-// admin role, decided server-side.
+//   1. admins (role admin / super admin / support) — always, and
+//   2. whitelisted users — emails the admin listed under the
+//      `maintenance_whitelist` site_settings key. They can log in from the
+//      maintenance page and browse the normal site while maintenance runs.
+//
+// Every other caller gets a 503 MAINTENANCE_MODE response, which the
+// frontend api() helper recognises and uses to redirect to
+// /maintenance.html.
 //
 // This guard is mounted BEFORE the per-route authenticateToken (see
 // server.js), so req.user is NOT populated when we run. We therefore resolve
@@ -30,8 +32,8 @@
 //      /maintenance, whose own guard (correctly) recognises the admin and
 //      sends them straight back — an infinite redirect loop.
 //
-// Resolution is cached per-request (the cookie lookup can hit Supabase), and
-// deliberately returns null rather than throwing on any failure — an
+// Resolution is cached per-request (the cookie lookup can hit Supabase),
+// and deliberately returns null rather than throwing on any failure — an
 // unresolvable caller is treated as a normal user and checked by the real
 // auth gate downstream.
 
@@ -95,6 +97,18 @@ function isAdminRole(caller) {
   return caller.role === 'admin'
       || caller.role === 'super admin'
       || caller.role === 'support';
+}
+
+/**
+ * True when the caller's email is on the maintenance whitelist. The list is
+ * read from the same 10-second cache the maintenance flag uses, so the extra
+ * cost on a blocked request is negligible. An unreadable list behaves as
+ * empty — whitelist trouble must never lock out admins (checked first).
+ */
+async function isWhitelistedEmail(caller) {
+  if (!caller || !caller.email) return false;
+  const whitelist = await supabase.getMaintenanceWhitelist();
+  return whitelist.includes(String(caller.email).toLowerCase().trim());
 }
 
 // Per-request cache: header-credential and cookie-credential lookups share
@@ -161,13 +175,14 @@ async function maintenanceGuard(req, res, next) {
       return next(); // Maintenance OFF — allow everything
     }
 
-    // Maintenance is ON. Only admins pass.
+    // Maintenance is ON. Admins pass, and so do whitelisted users (they
+    // logged in from the maintenance page specifically to keep working).
     const caller = await resolveCaller(req);
-    if (isAdminRole(caller)) {
+    if (isAdminRole(caller) || (await isWhitelistedEmail(caller))) {
       return next();
     }
 
-    // Every other caller (anonymous, logged-in user, allow-listed email) is
+    // Every other caller (anonymous, logged-in non-whitelisted user) is
     // blocked. The frontend's api() helper turns this 503 into a redirect
     // to /maintenance.html.
     return res.status(503).json({
@@ -187,9 +202,12 @@ async function maintenanceGuard(req, res, next) {
  *   { allowed: true }                                       — render the page
  *   { allowed: false, redirect: '/maintenance.html' }       — maintenance is ON
  *
- * The admin bypass works for BOTH credentials a page request can carry — the
+ * The bypass works for BOTH credentials a page request can carry — the
  * verified Bearer JWT and the HttpOnly session cookie — because a plain page
  * navigation (navbar link, Back button, address bar) only has the cookie.
+ * Admins pass because of their role; whitelisted users because of their
+ * email, so a whitelisted login from the maintenance page lands straight on
+ * the normal site.
  */
 async function checkPageAccess(req) {
   const status = await supabase.getMaintenanceMode();
@@ -202,6 +220,9 @@ async function checkPageAccess(req) {
   if (isAdminRole(caller)) {
     return { allowed: true, status };
   }
+  if (await isWhitelistedEmail(caller)) {
+    return { allowed: true, status };
+  }
   return { allowed: false, redirect: '/maintenance.html', status };
 }
 
@@ -211,3 +232,4 @@ module.exports.checkPageAccess = checkPageAccess;
 module.exports.decodeCaller = decodeCaller;
 module.exports.resolveCaller = resolveCaller;
 module.exports.isAdminRole = isAdminRole;
+module.exports.isWhitelistedEmail = isWhitelistedEmail;
