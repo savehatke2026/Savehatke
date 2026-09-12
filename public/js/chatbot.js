@@ -450,17 +450,24 @@
       width: 26px;
       height: 26px;
       flex: 0 0 26px;
-      border-radius: 8px;
+      border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
     }
-    /* Both rails are neutral inside the window — the green brand mark lives on
-       the launcher only, not inside the chat. */
-    .cb-turn.cb-ai .cb-rail { background: rgba(255,255,255,.04); border: 1px solid var(--cb-hair-2); color: var(--cb-ink-3); }
+    /* The AI rail carries a miniature of the launcher plate — green gradient,
+       dark ticket — so the brand mark fronts every assistant turn, including
+       the "Thinking…" row. The user rail carries the signed-in Gmail photo
+       when present and falls back to the neutral silhouette otherwise. */
+    .cb-turn.cb-ai .cb-rail {
+      background: linear-gradient(145deg, #00e676 0%, #00c853 55%, #00b248 100%);
+      color: #052013;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.28);
+    }
     .cb-turn.cb-user .cb-rail { background: rgba(255,255,255,.06); border: 1px solid var(--cb-hair-2); color: var(--cb-ink-3); }
-    .cb-rail svg { width: 16px; height: 16px; display: block; }
+    .cb-rail svg { width: 15px; height: 15px; display: block; }
+    .cb-rail img { width: 100%; height: 100%; display: block; object-fit: cover; border-radius: 50%; }
     /* Consecutive assistant turns hide the repeated avatar and tighten the gap. */
     .cb-turn.cb-cont { margin-top: -6px; }
     .cb-turn.cb-cont .cb-rail { visibility: hidden; }
@@ -1205,6 +1212,18 @@
       } catch (e) { return 'signed-in'; }
     }
 
+    /** The signed-in user's Google/Gmail profile photo, when we have one.
+        Same sh_user record the navbar avatar reads from. */
+    function userPicture() {
+      const raw = LS.get('sh_user');
+      if (!raw) return null;
+      try {
+        const u = JSON.parse(raw);
+        const pic = u && u.picture;
+        return typeof pic === 'string' && pic ? pic : null;
+      } catch (e) { return null; }
+    }
+
     /** Only relative or http(s)/mailto/tel links may become a card action. */
     function safeHref(raw) {
       const h = String(raw == null ? '' : raw).trim();
@@ -1221,7 +1240,24 @@
       const rail = document.createElement('div');
       rail.className = 'cb-rail';
       rail.setAttribute('aria-hidden', 'true');
-      rail.innerHTML = role === 'user' ? USER_MARK : AI_MARK;
+      if (role === 'user') {
+        // Real Gmail photo for the signed-in user; the neutral silhouette
+        // stays as the signed-out / photo-less fallback. A dead photo URL
+        // (Google rotates them) also falls back instead of breaking.
+        const pic = userPicture();
+        if (pic) {
+          const img = document.createElement('img');
+          img.src = pic;
+          img.alt = '';
+          img.referrerPolicy = 'no-referrer';
+          img.addEventListener('error', () => { rail.innerHTML = USER_MARK; });
+          rail.appendChild(img);
+        } else {
+          rail.innerHTML = USER_MARK;
+        }
+      } else {
+        rail.innerHTML = AI_MARK;
+      }
       const stack = document.createElement('div');
       stack.className = 'cb-stack';
       turn.appendChild(rail);
