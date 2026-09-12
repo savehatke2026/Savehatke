@@ -177,14 +177,6 @@
     .ck-row dd { margin:0; font-size:.85rem; font-weight:700; color:#e2ecff; text-align:right; }
     .ck-row dd.green { color:#00e676; }
 
-    /* IMPORTANT INFORMATION — deliberately lighter than .co-card: no heading
-       icon tile, no nested panel, just the essentials the buyer must see. */
-    .ck-info { border-radius:12px; background:rgba(79,195,247,.03); border:1px solid rgba(79,195,247,.08); padding:16px 18px; margin-bottom:20px; }
-    .ck-info-ttl { font-size:.86rem; font-weight:700; color:#e2ecff; margin-bottom:10px; }
-    .ck-info-list { margin:0; padding-left:18px; }
-    .ck-info-list li { font-size:.78rem; color:#8ba2c4; line-height:1.6; margin-bottom:5px; }
-    .ck-info-list li:last-child { margin-bottom:0; }
-
     /* FORM */
     .fgroup { margin-bottom:16px; }
     .flabel { display:block; font-size:.8rem; font-weight:600; color:#a8c0dc; margin-bottom:7px; }
@@ -231,31 +223,6 @@
     .sum-total-label { font-weight:700; font-size:.95rem; color:#a8c0dc; letter-spacing:.01em; }
     .sum-total-val { font-family:'JetBrains Mono',monospace; font-size:2.15rem; line-height:1; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; }
     .sum-saving-note { margin:12px 0 0; font-size:.78rem; color:#4fc3f7; text-align:center; font-weight:500; }
-
-    /* COUPON TERMS & CONDITIONS — the coupon's own terms, kept separate from
-       SaveHatke's platform Terms & Privacy agreement in the summary card. */
-    .ct-preview { border-radius:11px; background:rgba(0,0,0,.22); border:1px solid rgba(79,195,247,.1); padding:14px 16px; font-size:.82rem; line-height:1.6; color:#a8c0dc; white-space:pre-line; max-height:132px; overflow:hidden; position:relative; }
-    /* Fade rather than a scrollbar: the preview is a taster, the modal is the document. */
-    .ct-preview::after { content:''; position:absolute; left:0; right:0; bottom:0; height:38px; background:linear-gradient(to bottom,transparent,rgba(10,20,42,.96)); pointer-events:none; }
-    .ct-preview.is-short { max-height:none; }
-    .ct-preview.is-short::after { display:none; }
-    .ct-more { display:inline-flex; align-items:center; gap:6px; margin-top:12px; background:none; border:none; padding:0; font-family:'Outfit',sans-serif; font-size:.82rem; font-weight:700; color:#4fc3f7; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
-    .ct-more:hover { color:#9ad9ff; }
-    .ct-agree { margin-top:16px; padding-top:14px; border-top:1px solid rgba(79,195,247,.08); }
-
-    /* Coupon terms modal — the full document without leaving checkout. */
-    .ctm-overlay { position:fixed; inset:0; z-index:260; background:rgba(4,9,22,.78); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
-    .ctm-overlay.show { opacity:1; pointer-events:auto; }
-    .ctm-panel { width:100%; max-width:560px; max-height:84vh; display:flex; flex-direction:column; border-radius:16px; background:#0c1835; border:1px solid rgba(79,195,247,.16); box-shadow:0 30px 80px rgba(0,0,0,.6); transform:translateY(14px); transition:transform .25s; }
-    .ctm-overlay.show .ctm-panel { transform:translateY(0); }
-    .ctm-head { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:20px 22px 14px; border-bottom:1px solid rgba(79,195,247,.1); }
-    .ctm-ttl { font-weight:800; font-size:1.02rem; }
-    .ctm-sub { font-size:.76rem; color:#6b88aa; margin-top:3px; }
-    .ctm-close { background:none; border:none; color:#6b88aa; font-size:1.3rem; line-height:1; padding:2px 6px; cursor:pointer; transition:color .2s; }
-    .ctm-close:hover { color:#e2ecff; }
-    .ctm-body { padding:18px 22px 22px; overflow-y:auto; font-size:.86rem; line-height:1.7; color:#a8c0dc; white-space:pre-line; }
-    .ctm-foot { padding:14px 22px 20px; border-top:1px solid rgba(79,195,247,.1); font-size:.76rem; color:#6b88aa; }
-    .ctm-foot a { color:#4fc3f7; text-decoration:underline; text-underline-offset:2px; }
 
     /* TERMS & PAYMENT */
     .terms-check { display:flex; align-items:flex-start; gap:9px; margin-bottom:16px; }
@@ -375,13 +342,6 @@
       .mclose::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
       .scr-copy{position:relative}
       .scr-copy::after{content:'';position:absolute;left:50%;top:50%;width:160px;height:44px;transform:translate(-50%,-50%)}
-      /* "View Full Coupon Terms" and the modal's close button: both stand alone
-         on their row, so a vertical/centred overlay reaches 44px without
-         touching a neighbour. */
-      .ct-more{position:relative}
-      .ct-more::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
-      .ctm-close{position:relative}
-      .ctm-close::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
     }
   
     /* Landscape phones show the desktop nav row, whose links are 20px tall.
@@ -530,23 +490,6 @@
           </div>
         </div>
 
-        <!-- IMPORTANT INFORMATION -->
-        <!-- Replaces the old Coupon Terms & Conditions card and its required
-             tick-box: only what a buyer needs before paying. The coupon's full
-             published terms are still one tap away in the existing panel. -->
-        <div class="ck-info fu in d2">
-          <div class="ck-info-ttl">ℹ️ Important Information</div>
-          <ul class="ck-info-list">
-            <li>Your coupon code is revealed after successful payment and sent to your email.</li>
-            <li>Use the code at the store before the valid-until date, following the coupon's own terms.</li>
-            <li>Your name, email and mobile number are used only for payment and order confirmation.</li>
-            <li>If a purchased code does not work, contact SaveHatke support.</li>
-          </ul>
-          <button type="button" class="ct-more" id="ctMoreBtn" onclick="openCouponTerms()">
-            View this coupon's terms &rarr;
-          </button>
-        </div>
-
       </div>
 
       <!-- RIGHT: ORDER SUMMARY -->
@@ -639,26 +582,6 @@
     </div>
   </div>
 </footer>
-
-<!-- COUPON TERMS MODAL -->
-<!-- The full coupon terms open here rather than on another page: leaving
-     checkout to read them means coming back to a re-fetched cart. -->
-<div class="ctm-overlay" id="couponTermsOverlay" role="dialog" aria-modal="true" aria-labelledby="ctmTitle">
-  <div class="ctm-panel">
-    <div class="ctm-head">
-      <div>
-        <div class="ctm-ttl" id="ctmTitle">Coupon Terms &amp; Conditions</div>
-        <div class="ctm-sub" id="ctmSub">For this coupon</div>
-      </div>
-      <button class="ctm-close" type="button" aria-label="Close coupon terms" onclick="closeCouponTerms()">✕</button>
-    </div>
-    <div class="ctm-body" id="ctmBody"></div>
-    <div class="ctm-foot">
-      These terms cover this coupon only. SaveHatke's platform
-      <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy.html">Privacy Policy</a> apply as well.
-    </div>
-  </div>
-</div>
 
 <!-- SUCCESS OVERLAY -->
 <div class="success-overlay" id="successOverlay">
@@ -926,58 +849,8 @@
     set('succDiscount', dash(currentCoupon.title));
     set('succAmount', totalPrice ? '₹' + totalPrice : '—');
 
-    renderCouponTerms();
     paintExpiryTimer();
   }
-
-  /**
-   * Fill the coupon-terms card and its modal.
-   *
-   * The text is whatever the seller or admin published on the coupon, inserted
-   * with textContent so a listing can never inject markup into checkout. When a
-   * coupon carries no terms of its own, the card says so plainly instead of
-   * inventing conditions the buyer would then be asked to agree to.
-   */
-  function renderCouponTerms() {
-    const preview = document.getElementById('ctPreview');
-    const body = document.getElementById('ctmBody');
-    const sub = document.getElementById('ctmSub');
-    const raw = String(currentCoupon.terms || '').trim();
-    const fallback = 'This coupon carries no seller-specific conditions.\n\n'
-      + 'It is used as published on the listing: apply the code at the store\'s checkout before the expiry date shown above, '
-      + 'on the store and account the coupon was issued for. Any minimum order value is shown in the coupon details.\n\n'
-      + 'SaveHatke\'s platform Terms & Conditions and Privacy Policy apply to the purchase itself.';
-    const text = raw || fallback;
-
-    if (preview) {
-      preview.textContent = text;
-      // A short set of terms needs no fade or "read more" affordance.
-      preview.classList.toggle('is-short', text.length < 220);
-    }
-    if (body) body.textContent = text;
-    if (sub) sub.textContent = currentCoupon.brand ? `For your ${currentCoupon.brand} coupon` : 'For this coupon';
-  }
-
-  function openCouponTerms() {
-    const overlay = document.getElementById('couponTermsOverlay');
-    if (!overlay) return;
-    overlay.classList.add('show');
-    const close = overlay.querySelector('.ctm-close');
-    if (close) close.focus();
-  }
-
-  function closeCouponTerms() {
-    const overlay = document.getElementById('couponTermsOverlay');
-    if (overlay) overlay.classList.remove('show');
-  }
-
-  // Backdrop click and Escape close the panel, so it never traps the buyer.
-  document.addEventListener('click', (e) => {
-    if (e.target && e.target.id === 'couponTermsOverlay') closeCouponTerms();
-  });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeCouponTerms();
-  });
 
   /**
    * Correct the page from the server. The URL only pre-paints; brand, category,
@@ -1113,8 +986,7 @@
     }
 
     // SaveHatke's platform Terms & Privacy, ticked in the summary card. The
-    // coupon's own published conditions are linked from Important Information
-    // and no longer carry a separate tick-box.
+    // coupon's own published conditions carry no separate tick-box.
     const termsCheck = document.getElementById('termsCheck');
     if (termsCheck && !termsCheck.checked) {
       showToastLocal('Please accept the Terms & Conditions to proceed.', 'warning');
