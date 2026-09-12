@@ -5,3 +5,16 @@ dist
 .trae
 .log
 .figma
+
+# Secrets and local-only files must never be uploaded by `vercel deploy`
+.env
+.env.*
+server/.env
+service-account*.json
+.gmail-token.json
+server/.gmail-token.json
+*.pem
+*.json.key
+.dbg
+.vercel
+.tmp_*

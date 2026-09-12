@@ -1,13 +1,17 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": null,
-  "outputDirectory": "public",
+  "version": 2,
   "cleanUrls": true,
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "public/**"
+  "builds": [
+    {
+      "src": "api/index.js",
+      "use": "@vercel/node",
+      "config": { "includeFiles": "public/**" }
+    },
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
     }
-  },
+  ],
   "headers": [
     {
       "source": "/(.*)\\.html",
@@ -24,37 +28,42 @@
       "schedule": "0 2 1 * *"
     }
   ],
-  "redirects": [
+  "routes": [
     {
-      "source": "/support-cases(\\.html)?",
-      "destination": "/vault",
-      "statusCode": 301
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/api/:path*",
-      "destination": "/api/index.js"
+      "src": "/api/(.*)",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/maintenance(\\.html)?",
-      "destination": "/api/index.js"
+      "src": "/maintenance(.html)?",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/:page(dashboard|profile|account|marketplace|buy|sell|my-coupons|purchased|checkout|payment|orders|settings|wallet|payouts|notifications|security)(\\.html)?",
-      "destination": "/api/index.js"
+      "src": "/(dashboard|profile|account|marketplace|buy|sell|my-coupons|purchased|checkout|payment|orders|settings|wallet|payouts|notifications|security)(\\.html)?",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/:page(index|about|how-it-works|terms|privacy|support)(\\.html)?",
-      "destination": "/api/index.js"
+      "src": "/(index|about|how-it-works|terms|privacy|support)(\\.html)?",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/",
-      "destination": "/api/index.js"
+      "src": "/",
+      "dest": "/api/index.js"
     },
     {
-      "source": "/admin/coupons/:couponId",
-      "destination": "/api/index.js"
+      "src": "/support-cases(\\.html)?",
+      "dest": "/vault",
+      "status": 301
+    },
+    {
+      "src": "/admin/coupons/([^/]+)",
+      "dest": "/api/index.js"
+    },
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/$1"
     }
   ]
 }
