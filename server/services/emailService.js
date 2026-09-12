@@ -2298,6 +2298,155 @@ ${reviewUrl}`;
   return { success: delivered.length > 0, delivered, failed };
 }
 
+/**
+ * Admin alert: a seller has submitted a payout request (their payment
+ * destination is copied onto the pending Payouts row at that moment). Sent
+ * from the no-reply account to every configured admin, mirroring
+ * sendCouponSubmissionAdminEmail's From/recipient rules.
+ *
+ * @param {{userName:string, userEmail:string, amount:number, paymentMethod:string, requestedAt:string|Date}} p
+ * @returns {Promise<{success:boolean, delivered:string[], failed:{to:string,error:string}[]}>}
+ */
+async function sendPayoutRequestAdminEmail(p) {
+  const recipients = String(process.env.ADMIN_ALERT_EMAILS || 'rupayandas2024@gmail.com,jaggik8888@gmail.com')
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!recipients.length) return { success: false, delivered: [], failed: [] };
+
+  const t = getNoreplyTransporter();
+  if (!t) {
+    console.warn('[EmailService] SMTP not configured. Payout-request alert NOT sent.');
+    return { success: false, delivered: [], failed: recipients.map((to) => ({ to, error: 'SMTP not configured' })) };
+  }
+
+  // Same alignment rule the welcome mail uses: only claim the no-reply address
+  // when this transport is genuinely authenticated as it, otherwise Gmail
+  // rejects or rewrites the sender.
+  const authUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const desired = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || '').trim();
+  const dedicated = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
+  const domainOf = (a) => (String(a).split('@')[1] || '').toLowerCase();
+  const canSendAsNoreply = dedicated
+    || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+    || Boolean(desired && authUser && domainOf(desired) === domainOf(authUser));
+  const fromEmail = canSendAsNoreply ? desired : (authUser || desired);
+  const fromName = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
+
+  const userName = String(p.userName || '').trim() || '(not provided)';
+  const userEmail = String(p.userEmail || '').trim() || '(not provided)';
+  // Rounded to whole rupees the way the Payouts row stores it, so the email and
+  // the admin panel can never disagree about the amount.
+  const amount = Math.round(Number(p.amount) || 0);
+  const amountText = `\u20B9${amount.toLocaleString('en-IN')}`;
+  const method = String(p.paymentMethod || '').trim().toUpperCase();
+  const methodText = method === 'QR' ? 'QR Code' : (method || '(not provided)');
+  const when = new Date(p.requestedAt || Date.now()).toLocaleString('en-IN', {
+    timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
+    hour: '2-digit', minute: '2-digit', hour12: true,
+  });
+  const payoutsUrl = `${(process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '')}/vault`;
+
+  const subject = 'New Payout Request \u2013 SaveHatke';
+
+  const textBody = `A user has submitted their payment details for payout.
+
+User: ${userName}
+Email: ${userEmail}
+Amount: ${amountText}
+Payment Method: ${methodText}
+
+Please review the details and process the payment.
+
+Status: Pending Payment
+
+\u2014 SaveHatke`;
+
+  const rows = [
+    ['User', userName],
+    ['Email', userEmail],
+    ['Amount', amountText],
+    ['Payment Method', methodText],
+  ].map(([k, v]) => `
+    <tr>
+      <td style="padding:9px 0;font-size:0.78rem;color:#6b7280;white-space:nowrap;width:210px;vertical-align:top;">${escapeHtml(k)}</td>
+      <td style="padding:9px 0;font-size:0.86rem;color:#111827;font-weight:600;word-break:break-word;">${escapeHtml(v)}</td>
+    </tr>`).join('');
+
+  const htmlContent = `<!DOCTYPE html>
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
+          <tr>
+            <td style="padding:22px 32px;background:linear-gradient(135deg,#065f46,#00a152);">
+              <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#a7f3d0;font-weight:700;">SaveHatke Admin</p>
+              <h1 style="margin:6px 0 0;font-size:1.2rem;color:#ffffff;font-weight:800;">New Payout Request</h1>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:26px 32px 10px;">
+              <p style="margin:0 0 18px;font-size:0.92rem;color:#374151;line-height:1.65;">A user has submitted their payment details for payout.</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e5e7eb;">${rows}</table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:8px 32px 0;">
+              <p style="margin:0 0 14px;font-size:0.92rem;color:#374151;line-height:1.65;">Please review the details and process the payment.</p>
+              <p style="margin:0;">
+                <span style="display:inline-block;background:rgba(255,183,77,.16);color:#b45309;font-weight:700;font-size:0.8rem;padding:5px 12px;border-radius:999px;">Status: Pending Payment</span>
+                <span style="font-size:0.76rem;color:#9ca3af;margin-left:8px;">requested ${escapeHtml(when)} IST</span>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px 26px;">
+              <a href="${escapeHtml(payoutsUrl)}" style="display:inline-block;background:#00a152;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Seller Payouts</a>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">\u2014 SaveHatke<br>Automated notification for SaveHatke administrators. No payment credentials are included in this email.</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body></html>`;
+
+  const delivered = [];
+  const failed = [];
+
+  // One message per administrator rather than a shared To line, so neither
+  // address is disclosed to the other's mail provider.
+  for (const to of recipients) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const info = await t.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to,
+        subject,
+        text: textBody,
+        html: htmlContent,
+        envelope: { from: fromEmail, to },
+        headers: {
+          'X-Entity-Ref-ID': `payout-request-${Date.now()}`,
+          'Auto-Submitted': 'auto-generated',
+        },
+      });
+      delivered.push(to);
+      console.log(`\u2705 [EmailService] Payout-request alert sent to ${to} from ${fromEmail} (Message ID: ${info.messageId})`);
+    } catch (err) {
+      failed.push({ to, error: err.message });
+      console.error(`\u274c [EmailService] Payout-request alert failed for ${to}:`, err.message);
+    }
+  }
+
+  return { success: delivered.length > 0, delivered, failed };
+}
+
 module.exports = {
   sendOTPEmail,
   sendTwoFactorSecurityEmail,
@@ -2307,6 +2456,7 @@ module.exports = {
   sendSignInAlertEmail,
   sendSosAccessAlertEmail,
   sendCouponSubmissionAdminEmail,
+  sendPayoutRequestAdminEmail,
   sendMonthlyReportEmail,
   isEmailConfigured,
   isSupportEmailConfigured,
