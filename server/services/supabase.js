@@ -819,16 +819,19 @@ async function expireOutdatedSessions() {
  * Delete expired session rows that are past the retention window.
  *
  * A row is only eligible when BOTH hold:
- *   • status != 'Active' — an active session can never be deleted, even if a
- *     bad clock or a manual edit left expires_at in the past;
+ *   • status is 'Expired' or 'Logged out' — an Active session can never be
+ *     deleted, even if a bad clock or a manual edit left expires_at in the past;
  *   • the session is definitely past retention: expires_at (falling back to
- *     login_time when expires_at is NULL, as pre-48h-upgrade rows can be) is
- *     older than SESSION_RETENTION_MS measured from the database server's
- *     own now() — the browser/application clock is never trusted for a delete.
+ *     login_time when the expires_at column is missing entirely) is older
+ *     than SESSION_RETENTION_MS ago.
  *
- * The `.lt('expires_at', cutoff)` bound uses a computed timestamp, so the
- * criterion is "definitely expired", never "about to expire". The delete is
- * naturally idempotent: re-running it just finds nothing left to remove.
+ * The cutoff is computed from the application clock, but it only ever
+ * disqualifies rows that are ALREADY non-Active by a 90-day margin — a
+ * small clock skew can therefore never make a live session eligible, and
+ * the browser's clock is never consulted at all.
+ *
+ * The delete is naturally idempotent: re-running it just finds nothing
+ * left to remove.
  *
  * Only rows in the application's own user_sessions / admin_sessions tables
  * are touched — never Supabase's internal auth.* tables, and never user
