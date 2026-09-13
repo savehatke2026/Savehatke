@@ -1,13 +1,46 @@
-// Maintenance whitelist seeding has been removed. The previous
-// implementation gave certain user emails a maintenance bypass, but the
-// new requirements explicitly forbid that — admins are the only role
-// that bypasses maintenance mode, decided server-side from the JWT.
+// Seeds / replaces the maintenance whitelist in Supabase site_settings.
+// Usage:
+//   node server/scripts/seedMaintenanceWhitelist.js email1@example.com email2@example.com
+//   node server/scripts/seedMaintenanceWhitelist.js            # prints current list
+//   node server/scripts/seedMaintenanceWhitelist.js --clear     # empties the list
+// Emails are normalised (trimmed, lowercased, deduped) by the service.
 //
-// This file is kept as a no-op so anyone with an old `node server/scripts/
-// seedMaintenanceWhitelist.js` command in their tooling still gets a
-// clean exit instead of a "Cannot find module" error.
+// Requires SUPABASE_URL + SUPABASE_SERVICE_KEY in the server .env.
 'use strict';
 
-console.log('Maintenance whitelist seeding is no longer supported.');
-console.log('Admin role is the only maintenance bypass; no user emails are special-cased.');
-process.exit(0);
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
+require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+
+const supabase = require('../services/supabase');
+
+async function main() {
+  if (!supabase.isConfigured()) {
+    console.error('✖ Supabase is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_KEY in server/.env.');
+    process.exit(1);
+  }
+
+  const args = process.argv.slice(2);
+
+  if (args.includes('--clear')) {
+    const result = await supabase.setMaintenanceWhitelist([], 'seed-script');
+    console.log(`✔ Maintenance whitelist cleared.`);
+    return;
+  }
+
+  if (args.length === 0) {
+    const emails = await supabase.getMaintenanceWhitelist();
+    console.log(`Maintenance whitelist (${emails.length} email${emails.length === 1 ? '' : 's'}):`);
+    emails.forEach((e) => console.log(`  ${e}`));
+    return;
+  }
+
+  const result = await supabase.setMaintenanceWhitelist(args, 'seed-script');
+  console.log(`✔ Saved ${result.emails.length} whitelisted email${result.emails.length === 1 ? '' : 's'}:`);
+  result.emails.forEach((e) => console.log(`  ${e}`));
+}
+
+main().catch((err) => {
+  console.error('✖ Failed to update maintenance whitelist:', err.message);
+  process.exit(1);
+});
