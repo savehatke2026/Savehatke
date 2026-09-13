@@ -160,15 +160,17 @@
     .c-icon-btn:hover { transform:scale(1.1); border-color:rgba(0,230,118,.55); color:#00e676; background:rgba(6,13,31,.82); }
     .c-icon-btn:focus-visible { outline:2px solid rgba(0,230,118,.75); outline-offset:2px; }
 
-    /* Hero footer — brand logo on a small glass plate (logos are drawn for
-       white backgrounds and need contrast over a photo), discount on the right
-       as the card's loudest line. */
+    /* Hero footer — brand logo straight on the hero (same plate-free look as
+       the home and checkout cards), discount on the right as the card's
+       loudest line. */
     .c-hero-foot { position:absolute; left:10px; right:12px; bottom:10px; display:flex; justify-content:space-between; align-items:flex-end; gap:10px; }
-    .cbrand { display:flex; align-items:center; min-width:0; padding:5px 8px; border-radius:10px; background:rgba(6,13,31,.62); border:1px solid rgba(226,236,255,.09); backdrop-filter:blur(8px); }
+    .cbrand { display:flex; align-items:center; min-width:0; }
     /* The wrapper keeps its fixed height so the row never depends on the
        logo's own aspect ratio, and still grows sideways for wordmark logos
-       (Uber, Booking.com, Reliance Digital) that would shrink in a square. */
-    .cbrand-logo-wrap { height:40px; min-width:40px; max-width:112px; flex-shrink:1; display:flex; align-items:center; justify-content:center; }
+       (Uber, Booking.com, Reliance Digital) that would shrink in a square.
+       A soft drop shadow replaces the old glass plate so dark wordmarks stay
+       readable over a bright hero photo without drawing a box. */
+    .cbrand-logo-wrap { height:40px; min-width:40px; max-width:112px; flex-shrink:1; display:flex; align-items:center; justify-content:center; filter:drop-shadow(0 2px 6px rgba(6,13,31,.85)); }
     .cbrand-logo { max-width:100%; width:auto; height:100%; object-fit:contain; background:transparent; padding:0; }
     .cbrand-initial { width:40px; height:40px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); border-radius:8px; }
     .coff { font-family:'JetBrains Mono',monospace; font-size:1.08rem; font-weight:800; color:#00e676; flex-shrink:0; white-space:nowrap; line-height:1; text-shadow:0 2px 14px rgba(0,230,118,.45), 0 1px 3px rgba(0,0,0,.6); }
