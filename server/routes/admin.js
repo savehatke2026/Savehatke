@@ -979,7 +979,39 @@ router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
       return res.status(503).json({ error: 'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.' });
     }
 
-    const sessions = await supabase.getAllSessions();
+    const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
+      supabase.getAllSessions(),
+      db.getRows(db.SHEETS.USERS).catch(() => []),
+      // readyState guard: an unconnected mongoose buffers the query and this
+      // endpoint would hang instead of simply listing sessions without photos.
+      mongoose.connection.readyState === 1
+        ? Admin.find({}).select('email profile_image').lean().catch(() => [])
+        : Promise.resolve([]),
+    ]);
+
+    // Email → Google profile photo. A session row knows only an email; the
+    // photo lives on the account record — profile_picture on the Users sheet,
+    // captured at Google login, plus profile_image on MongoDB admin documents.
+    // Attaching it here means the avatar paints in the same pass as the
+    // table, with no second client-side directory lookup — and it covers
+    // Email-OTP sessions of accounts that have signed in with Google before.
+    // Accounts that never used Google login have no photo anywhere (Google
+    // offers no public email→photo lookup), and simply keep their initials.
+    const photoByEmail = new Map();
+    for (const u of sheetUsers || []) {
+      const key = String((u && u.email) || '').toLowerCase().trim();
+      const photo = String((u && u.profile_picture) || '').trim();
+      if (key && photo) photoByEmail.set(key, photo);
+    }
+    for (const a of mongoAdmins || []) {
+      const key = String((a && a.email) || '').toLowerCase().trim();
+      const photo = String((a && a.profile_image) || '').trim();
+      if (key && photo && !photoByEmail.has(key)) photoByEmail.set(key, photo);
+    }
+    for (const s of sessions) {
+      const photo = photoByEmail.get(String(s.email || '').toLowerCase().trim());
+      if (photo) s.profilePicture = photo;
+    }
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -1009,7 +1041,32 @@ router.get('/admin-sessions', authenticateToken, requireAdmin, async (req, res) 
       return res.status(503).json({ error: 'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.' });
     }
 
-    const sessions = await supabase.getAdminSessions();
+    const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
+      supabase.getAdminSessions(),
+      db.getRows(db.SHEETS.USERS).catch(() => []),
+      // Same readyState guard as /sessions above.
+      mongoose.connection.readyState === 1
+        ? Admin.find({}).select('email profile_image').lean().catch(() => [])
+        : Promise.resolve([]),
+    ]);
+
+    // Same email→photo directory as GET /sessions above: admins get their
+    // Google photo too, from whichever record holds the newest one.
+    const photoByEmail = new Map();
+    for (const u of sheetUsers || []) {
+      const key = String((u && u.email) || '').toLowerCase().trim();
+      const photo = String((u && u.profile_picture) || '').trim();
+      if (key && photo) photoByEmail.set(key, photo);
+    }
+    for (const a of mongoAdmins || []) {
+      const key = String((a && a.email) || '').toLowerCase().trim();
+      const photo = String((a && a.profile_image) || '').trim();
+      if (key && photo && !photoByEmail.has(key)) photoByEmail.set(key, photo);
+    }
+    for (const s of sessions) {
+      const photo = photoByEmail.get(String(s.email || '').toLowerCase().trim());
+      if (photo) s.profilePicture = photo;
+    }
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);

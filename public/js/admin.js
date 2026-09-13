@@ -2228,12 +2228,30 @@ function hydrateEmailAvatars(root) {
   });
 }
 
+/**
+ * Avatar for a session row. The sessions APIs join the account's own Google
+ * photo onto the row as profilePicture, so a photo on file paints in the same
+ * pass as the table — no directory round-trip, and Email-OTP sessions of
+ * accounts that have signed in with Google get the photo too. No photo on the
+ * row (the account never used Google login — Google has no public
+ * email→photo lookup) falls back to the email directory chain as before.
+ * userAvatarHtml itself host-checks the URL and keeps the initials tile as
+ * the on-error fallback for Google's rotated URLs.
+ */
+function sessionAvatarHtml(session, email, size = 28) {
+  if (session && session.profilePicture) {
+    return userAvatarHtml({ name: email, profilePicture: session.profilePicture }, size);
+  }
+  return emailAvatarHtml(session && (session.email || session.user_id), size);
+}
+
 // vault.html's inline script renders the payout sections, so these have to be
 // reachable from there the same way loadUsers() already is.
 window.emailAvatarHtml = emailAvatarHtml;
 window.userAvatarHtml = userAvatarHtml;
 window.hydrateEmailAvatars = hydrateEmailAvatars;
 window.ensureUserDirectory = ensureUserDirectory;
+window.sessionAvatarHtml = sessionAvatarHtml;
 
 function userStatusBadge(status) {
   const s = String(status || 'active').toLowerCase();
@@ -2608,7 +2626,7 @@ function renderSessions() {
     const isActive = String(s.status || '').toLowerCase() === 'active';
     const idAttr = escapeHtml(s.session_id || '');
     return `<tr>
-      <td title="user_id: ${escapeHtml(s.user_id || '—')}"><div style="display:flex;align-items:center;gap:10px">${emailAvatarHtml(s.email, 28)}<strong>${escapeHtml(email)}</strong></div></td>
+      <td title="user_id: ${escapeHtml(s.user_id || '—')}"><div style="display:flex;align-items:center;gap:10px">${sessionAvatarHtml(s, email)}<strong>${escapeHtml(email)}</strong></div></td>
       <td>${escapeHtml(sessionListLabel(s, ['device', 'os', 'browser']))}</td>
       <td>${escapeHtml(sessionLocation(s))}</td>
       <td style="font-family:'JetBrains Mono',monospace;font-size:.78rem">${escapeHtml(s.ip_address || '—')}</td>
