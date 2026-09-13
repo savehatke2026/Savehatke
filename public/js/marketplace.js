@@ -145,10 +145,10 @@ function renderCouponGrid(gridId, coupons) {
             <div class="ctitle">${escapeCoupon(title)}</div>
             ${desc ? `<div class="cdesc">${escapeCoupon(desc)}</div>` : ''}
             <div class="c-catrow">
-              <span class="ccat">${escapeCoupon(c.category)}</span>
+              <span class="ccat" data-cat="${escapeCoupon(c.category)}">${escapeCoupon(c.category)}</span>
             </div>
             <div class="c-price">
-              <span class="clbl">Selling Price</span>
+              <span class="clbl">Price</span>
               <span class="cval">${escapeCoupon(priceText)}</span>
             </div>
             ${renderExpiryTimer(c.expiryDate, c.timerOn)}

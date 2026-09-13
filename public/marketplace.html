@@ -171,7 +171,46 @@
     .ctitle { font-size:.92rem; font-weight:700; color:#e2ecff; line-height:1.42; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     .cdesc { font-size:.75rem; color:#a8c0dc; line-height:1.5; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
     .c-catrow { display:flex; }
-    .ccat { font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:4px 10px; border-radius:6px; background:rgba(79,195,247,.1); color:#4fc3f7; max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; align-self:flex-start; }
+    /* Category pill — size, padding, position and typography are unchanged.
+       Colour now comes from --cat-rgb, set per category by the data-cat rules
+       below: the hue renders as a dark translucent tint behind a brighter
+       shade of itself for the text, with a matching hairline border and a
+       soft glow. The 1px border sits inside the pill's existing border-box
+       footprint, so the card layout does not move. Unlisted categories fall
+       back to the original light blue. */
+    .ccat { font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:4px 10px; border-radius:6px; background:rgba(var(--cat-rgb,79,195,247),.11); color:rgb(var(--cat-rgb,79,195,247)); border:1px solid rgba(var(--cat-rgb,79,195,247),.28); box-shadow:0 0 9px rgba(var(--cat-rgb,79,195,247),.16); text-shadow:0 0 9px rgba(var(--cat-rgb,79,195,247),.32); max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; align-self:flex-start; }
+    /* Per-category accent hues. Each category keeps its own recognisable
+       colour while staying harmonious with the dark navy / neon-green card.
+       Marketplace categories first, then names the wider category set uses
+       (admin-entered coupons may carry them). Matched case-insensitively on
+       the raw category text the card builder writes into data-cat. */
+    .ccat[data-cat="E-Commerce" i] { --cat-rgb:34,211,238; }            /* cyan / teal */
+    .ccat[data-cat="Fashion" i] { --cat-rgb:251,113,133; }              /* rose / pink */
+    .ccat[data-cat="Beauty & Personal Care" i],
+    .ccat[data-cat="Beauty" i] { --cat-rgb:167,139,250; }               /* violet */
+    .ccat[data-cat="Food & Delivery" i],
+    .ccat[data-cat="Food & Dining" i],
+    .ccat[data-cat="Food" i] { --cat-rgb:251,146,60; }                  /* amber / orange */
+    .ccat[data-cat="Travel & Transport" i],
+    .ccat[data-cat="Travel" i] { --cat-rgb:56,189,248; }                /* sky blue */
+    .ccat[data-cat="Hotels & Stays" i] { --cat-rgb:232,121,249; }       /* magenta / pink */
+    .ccat[data-cat="Electronics & Gadgets" i],
+    .ccat[data-cat="Mobiles & Electronics" i] { --cat-rgb:96,165,250; } /* bright blue */
+    .ccat[data-cat="Electronics" i] { --cat-rgb:59,130,246; }           /* blue */
+    .ccat[data-cat="Gaming & Entertainment" i],
+    .ccat[data-cat="Gaming" i] { --cat-rgb:129,140,248; }               /* indigo */
+    .ccat[data-cat="Entertainment" i] { --cat-rgb:248,113,113; }        /* red */
+    .ccat[data-cat="Fitness & Sports" i],
+    .ccat[data-cat="Fitness" i] { --cat-rgb:163,230,53; }               /* lime green */
+    .ccat[data-cat="Education" i] { --cat-rgb:250,204,21; }            /* gold / yellow */
+    .ccat[data-cat="Health & Pharmacy" i],
+    .ccat[data-cat="Health & Fitness" i],
+    .ccat[data-cat="Health" i] { --cat-rgb:52,211,153; }                /* green */
+    .ccat[data-cat="Finance & Payments" i] { --cat-rgb:0,230,118; }     /* money green */
+    .ccat[data-cat="Furniture & Home" i] { --cat-rgb:192,132,252; }     /* purple */
+    .ccat[data-cat="Home & Living" i] { --cat-rgb:244,114,182; }        /* pink / magenta */
+    .ccat[data-cat="Automotive" i] { --cat-rgb:148,163,184; }           /* slate */
+    .ccat[data-cat="General" i] { --cat-rgb:157,184,212; }              /* neutral steel */
     .c-price { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:7px 11px; border-radius:10px; background:rgba(255,255,255,.04); border:1px solid rgba(79,195,247,.1); }
     .clbl { font-size:.7rem; color:#6b88aa; }
     .cval { font-family:'JetBrains Mono',monospace; font-size:1.02rem; font-weight:700; color:#e2ecff; }
