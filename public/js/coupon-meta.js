@@ -308,13 +308,13 @@ const BRAND_LOGO_MONO_DARK = new Set([
 
 // Brand colours worth keeping, but with dark artwork mixed in (Booking.com's
 // navy wordmark, Pizza Hut's black lettering, Snapdeal's black "snapdeal" beside
-// its red mark). These get a light chip behind them — the logo is untouched, the
-// chip is only as big as the logo.
+// its red mark). These keep the chip's *sizing* treatment (height:auto so a
+// short wordmark doesn't stretch to fill the slot) but no longer draw the
+// white background or padding — the logo sits straight on the card like every
+// other brand, with the card's own dark surface behind it.
 //
-// The JPGs are here for a different reason: JPEG cannot carry transparency, so
-// the background behind the artwork is baked in. For these two it is solid
-// white, which would sit as a harsh white slab on a dark card; the chip is the
-// same white, so the slab reads as a deliberate badge instead.
+// The JPGs cannot carry transparency, so the white background behind their
+// artwork is baked into the file itself; nothing CSS draws adds to it.
 const BRAND_LOGO_LIGHT_CHIP = new Set([
   '/logos/booking.svg',
   '/logos/pizzahut.svg',
@@ -343,11 +343,11 @@ function getBrandLogoClass(logoUrl) {
   el.id = 'sh-brand-logo-css';
   el.textContent =
     'img.blogo-lift{filter:brightness(0) invert(1)}' +
-    // height:auto makes the chip hug the artwork. Without it the <img> keeps
-    // filling the slot's full height and a short wordmark like Booking.com ends
-    // up as a small logo floating in a tall white slab.
-    'img.blogo-chip{background:#fff;border-radius:7px;padding:4px 6px;' +
-    'width:auto;height:auto;max-width:100%;max-height:100%}';
+    // height:auto keeps the logo at its natural shape instead of stretching
+    // to fill the slot's full height (a short wordmark like Booking.com must
+    // not be pulled tall). No background, no padding, no border — the logo
+    // sits straight on the surface like every other brand's.
+    'img.blogo-chip{width:auto;height:auto;max-width:100%;max-height:100%}';
   (document.head || document.documentElement).appendChild(el);
 })();
 
