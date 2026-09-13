@@ -278,6 +278,97 @@ for (const [name, domain] of Object.entries(BRAND_DOMAINS)) {
   if (key && !(key in BRAND_DOMAINS_NORM)) BRAND_DOMAINS_NORM[key] = domain;
 }
 
+// ── Brand hero backgrounds ─────────────────────────────────────────────
+// Per-brand card backgrounds for the marketplace coupon cards, living in
+// public/images/coupons/brands/. Keyed on the same squashed-brand rules as
+// the logos above, so every spelling of a brand ("AJIO", "Ajio", "ajio")
+// finds its background. The filename is what matters — add a new
+// <name>-bg.png to the folder and an entry here, and every card for that
+// brand picks it up.
+const BRAND_BGS = {
+  'Adidas':           'adidas-bg.png',
+  'Airtel Thanks':    'airtel-thanks-bg.png',
+  'AJIO':             'ajio-bg.png',
+  'Amazon':           'amazon-bg.png',
+  'Amazon Pay':       'amazon-bg.png',
+  'Amazon Prime':     'amazon-bg.png',
+  'Apollo 24/7':      'apollo-247-bg.png',
+  'BigBasket':        'bigbasket-bg.png',
+  'Blinkit':          'blinkit-bg.png',
+  'boAt':             'boat-bg.png',
+  'BookMyShow':       'bookmyshow-bg.png',
+  'Burger King':      'burger-king-bg.png',
+  'Cleartrip':        'cleartrip-bg.png',
+  'Croma':            'croma-bg.png',
+  'Country Delight':  'country-delight-bg.png',
+  'CRED':             'cred-bg.png',
+  'Decathlon':        'decathlon-bg.png',
+  "Domino's":         'dominos-bg.png',
+  'FirstCry':         'firstcry-bg.png',
+  'Flipkart':         'flipkart-bg.png',
+  'Flipkart Plus':    'flipkart-bg.png',
+  'FreshToHome':      'freshtohome-bg.png',
+  'IKEA':             'ikea-bg.png',
+  'JBL':              'jbl-bg.png',
+  'KFC':              'kfc-bg.png',
+  'Lenskart':         'lenskart-bg.png',
+  'Livspace':         'livspace-bg.png',
+  'MakeMyTrip':       'makemytrip-bg.png',
+  'Mamaearth':        'mamaearth-bg.png',
+  "McDonald's":       'mcdonalds-bg.png',
+  'Meesho':           'meesho-bg.png',
+  'MobiKwik':         'mobikwik-bg.png',
+  'Myntra':           'myntra-bg.png',
+  'Netflix':          'netflix-bg.png',
+  'Nike':             'nike-bg.png',
+  'Nykaa':            'nykaa-bg.png',
+  'Nykaa Fashion':    'nykaa-bg.png',
+  'OYO':              'oyo-bg.png',
+  'Paytm':            'paytm-bg.png',
+  'PharmEasy':        'pharmeasy-bg.png',
+  'PhonePe':          'phonepe-bg.png',
+  'Pizza Hut':        'pizza-hut-bg.png',
+  'Puma':             'puma-bg.png',
+  'Rapido':           'rapido-bg.png',
+  'Realme':           'realme-bg.png',
+  'Samsung':          'samsung-bg.png',
+  'The Souled Store': 'souled-store-bg.png',
+  'Spotify':          'spotify-bg.png',
+  'Starbucks':        'starbucks-bg.png',
+  'Subway':           'subway-bg.png',
+  'Swiggy':           'swiggy-bg.png',
+  'Swiggy Instamart': 'swiggy-bg.png',
+  'Treebo':           'treebo-bg.png',
+  'Uber':             'uber-bg.png',
+  'Urban Company':    'urban-company-bg.png',
+  'Wakefit':          'wakefit-bg.png',
+  'Zepto':            'zepto-bg.png',
+  'Zomato':           'zomato-bg.png',
+};
+
+const BRAND_BGS_NORM = Object.create(null);
+for (const [name, file] of Object.entries(BRAND_BGS)) {
+  const key = normBrandKey(name);
+  if (key && !(key in BRAND_BGS_NORM)) BRAND_BGS_NORM[key] = file;
+}
+// Spellings that do not squash down to a listed name on their own.
+Object.assign(BRAND_BGS_NORM, {
+  dominos:     'dominos-bg.png',   // typed without the apostrophe
+  instamart:   'swiggy-bg.png',    // "Instamart" alone means Swiggy Instamart
+  souledstore: 'souled-store-bg.png',
+  urbancompany:'urban-company-bg.png',
+});
+
+/**
+ * The marketplace card's hero background for a brand, or '' when the brand
+ * has no background on file. Callers layer this under any coupon-specific
+ * admin image: coupon.backgroundImage (set per coupon) always wins.
+ */
+function getBrandBackground(brand) {
+  const file = BRAND_BGS[brand] || BRAND_BGS_NORM[normBrandKey(brand)];
+  return file ? `/images/coupons/brands/${file}` : '';
+}
+
 function getBrandLogo(brand) {
   // 1) Local file first (reliable, offline-friendly), exact key then squashed
   const local = BRAND_LOGOS[brand] || BRAND_LOGOS_NORM[normBrandKey(brand)];

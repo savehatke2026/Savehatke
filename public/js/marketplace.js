@@ -176,17 +176,25 @@ function renderCouponGrid(gridId, coupons) {
 }
 
 // ── Card hero image ─────────────────────────────────────────────────────
-// Every coupon can carry its own background image via coupon.backgroundImage
-// (set per coupon from Coupon Management → Image, or the Add Coupon form).
-// No image set → the generic SaveHatke default. The value is admin-supplied,
-// so only same-origin paths and http(s) URLs are accepted — anything else
-// falls back to the default instead of reaching the DOM.
+// Three layers, first match wins:
+//   1. coupon.backgroundImage — set per coupon from Coupon Management →
+//      Image, or the Add Coupon form. Admin choice always wins.
+//   2. The brand's own background (getBrandBackground in coupon-meta.js)
+//      — a per-brand hero from /images/coupons/brands/, matched on the
+//      same squashed-brand rules as the logo, so any spelling of the
+//      brand finds it.
+//   3. The generic SaveHatke default.
+// The first two values are admin-supplied, so only same-origin paths and
+// http(s) URLs are accepted — anything else falls through to the next
+// layer instead of reaching the DOM.
 const COUPON_DEFAULT_BG = '/images/coupons/default.svg';
 
 function heroImageFor(c) {
   const raw = String(c.backgroundImage || '').trim();
   if (/^https?:\/\/\S+$/i.test(raw)) return raw;
   if (/^\/[\w\-./~%#?=&+]*$/.test(raw) && !raw.includes('"') && !raw.includes("'")) return raw;
+  const brandBg = typeof getBrandBackground === 'function' ? getBrandBackground(c.brand) : '';
+  if (brandBg) return brandBg;
   return COUPON_DEFAULT_BG;
 }
 
