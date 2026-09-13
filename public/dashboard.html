@@ -1181,6 +1181,28 @@
           <div>
             <p class="slabel">Dashboard</p>
             <h1 class="welcome-greeting">Welcome back, <span class="gtext" id="welcomeFirstName">Friend</span> 👋</h1>
+            <!-- First-frame paint: the stored name goes in the moment this
+                 markup exists — the 150KB dashboard script at the end of the
+                 document used to be what the greeting waited for. A try/catch
+                 keeps blocked localStorage from throwing mid-parse; the main
+                 script still runs applyUserToUI() as the source of truth. -->
+            <script>
+              (function () {
+                try {
+                  var u = JSON.parse(localStorage.getItem('sh_user') || 'null');
+                  // Same name the full init's applyUserToUI() will land on
+                  // (name, else email prefix, else "Friend") so the first
+                  // frame never flips to a different word.
+                  var raw = u && (u.name || (u.email || '').split('@')[0]);
+                  if (raw) {
+                    var first = String(raw).trim().split(/[\s._-]+/)[0] || '';
+                    first = first.replace(/\d+$/, '');
+                    document.getElementById('welcomeFirstName').textContent =
+                      first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Friend';
+                  }
+                } catch (e) { /* blocked storage — "Friend" stays until init */ }
+              })();
+            </script>
             <p class="welcome-sub">Manage your coupons, purchases and earnings.</p>
           </div>
           <div class="welcome-actions">
@@ -4174,6 +4196,13 @@
       return;
     }
 
+    // Paint the stored name in the very first frame — before the network
+    // calls below. The maintenance check is a full round-trip and the data
+    // refresh chases several more; deferring this left "Friend" on screen
+    // until those fetches resolved before the real name appeared.
+    const stored = Auth.getUser();
+    if (stored) applyUserToUI(stored);
+
     // Maintenance mode guard — check server-side source of truth.
     // If maintenance is ON and the user is a normal user, redirect to the
     // maintenance page. Admins and whitelisted users are never affected
@@ -4194,10 +4223,6 @@
     } catch (e) {
       // If the check fails, allow access (fail open)
     }
-
-    // Apply basic user from localStorage immediately so the greeting isn't empty
-    const local = Auth.getUser();
-    if (local) applyUserToUI(local);
 
     // Notification toggles auto-save on change
     initNotificationPrefs();
