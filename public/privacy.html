@@ -141,14 +141,13 @@
 
     /* MAIN CONTENT */
     .legal-wrap {
-      display:grid; grid-template-columns:1fr 260px; gap:64px;
-      padding:72px 0 100px; align-items:start;
+      max-width:860px; margin:0 auto;
+      padding:72px 0 100px;
     }
     .legal-content { min-width:0; }
 
     @media(max-width:900px){
-      .legal-wrap { grid-template-columns:1fr; gap:40px; }
-      .sidebar { display:none; }
+      .legal-wrap { padding:48px 0 64px; }
     }
 
     /* SECTION BLOCKS */
@@ -230,17 +229,6 @@
     .contact-item .ci-val a { color:#4fc3f7; border:none; }
     .contact-item .ci-val a:hover { color:#00e676; }
     @media(max-width:600px){ .contact-grid { grid-template-columns:1fr; } }
-
-    /* SIDEBAR */
-    .sidebar-widget {
-      background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12);
-      border-radius:16px; padding:24px; margin-bottom:20px; position:sticky; top:88px;
-    }
-    .sw-title { font-size:.75rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#00e676; margin-bottom:16px; }
-    .sw-item { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid rgba(79,195,247,.07); font-size:.85rem; color:#a8c0dc; }
-    .sw-item:last-child { border-bottom:none; }
-    .sw-item .si { font-size:1.1rem; flex-shrink:0; }
-    .sw-item strong { display:block; color:#e2ecff; font-size:.8rem; margin-bottom:1px; }
 
     /* FOOTER */
     .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:36px 0 0; }
@@ -803,24 +791,6 @@
       </div>
 
     </div>
-
-    <!-- SIDEBAR -->
-    <aside class="sidebar">
-      <div class="sidebar-widget">
-        <div class="sw-title">Quick Facts</div>
-        <div class="sw-item"><span class="si">🔒</span><div><strong>SSL Encrypted</strong>All data in transit</div></div>
-        <div class="sw-item"><span class="si">🚫</span><div><strong>No Data Selling</strong>Never, to anyone</div></div>
-        <div class="sw-item"><span class="si">🍪</span><div><strong>No Ad Trackers</strong>Zero third-party pixels</div></div>
-        <div class="sw-item"><span class="si">💳</span><div><strong>Razorpay Payments</strong>Secure processing</div></div>
-        <div class="sw-item"><span class="si">📅</span><div><strong>Updated</strong>August 23, 2026</div></div>
-      </div>
-      <div class="sidebar-widget" style="position:static">
-        <div class="sw-title">Related Pages</div>
-        <div class="sw-item"><span class="si">📄</span><div><strong><a href="terms" style="color:#4fc3f7">Terms &amp; Conditions</a></strong></div></div>
-        <div class="sw-item"><span class="si">🛟</span><div><strong><a href="support" style="color:#4fc3f7">Help Center</a></strong></div></div>
-        <div class="sw-item"><span class="si">📬</span><div><strong><a href="mailto:privacy@savehatke.com" style="color:#4fc3f7">Contact Privacy Team</a></strong></div></div>
-      </div>
-    </aside>
   </div>
 </div>
 
