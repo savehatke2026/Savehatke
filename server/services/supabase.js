@@ -1356,15 +1356,13 @@ async function setMaintenanceMode(enabled, message, adminEmail) {
 }
 
 /**
- * Test helper: clear the in-memory maintenance caches so a fresh Supabase
+ * Test helper: clear the in-memory maintenance cache so a fresh Supabase
  * read happens on demand (e.g. after the seeding script writes a new
  * value, or in tests that toggle maintenance from a different process).
- * Also clears the sell-whitelist cache, which follows the same pattern.
  */
 function _clearMaintenanceCachesForTests() {
   maintenanceCache = null;
   maintenanceWhitelistCache = null;
-  sellWhitelistCache = null;
 }
 
 // ── Maintenance Whitelist (site_settings table) ────────────────────────
@@ -1456,99 +1454,6 @@ async function setMaintenanceWhitelist(emails, adminEmail) {
   };
 }
 
-// ── Sell Whitelist (site_settings table) ──────────────────────────────
-// Emails allowed to see and use the coupon SELLING form. Selling is a
-// closed beta: only these users (plus admins, who bypass on role) may
-// submit coupons. Kept under its own site_settings key so it shares none
-// of the maintenance whitelist's read traffic. Reads use the same
-// 10-second in-memory cache pattern; writes invalidate it so admin
-// changes land instantly.
-
-let sellWhitelistCache = null; // { data, fetchedAt }
-
-/**
- * Get the seller-whitelisted emails (lowercase). Returns [] on any
- * failure — an unreadable list keeps the gate closed for non-admins,
- * which is the safe direction (admin role is checked first, before this
- * is ever consulted, so admins can always fix the list).
- */
-async function getSellWhitelist() {
-  if (sellWhitelistCache
-      && (Date.now() - sellWhitelistCache.fetchedAt) < MAINTENANCE_CACHE_TTL_MS) {
-    return sellWhitelistCache.data;
-  }
-
-  const client = getClient();
-  if (!client) return [];
-
-  try {
-    const { data, error } = await client
-      .from('site_settings')
-      .select('value')
-      .eq('key', 'sell_whitelist')
-      .limit(1)
-      .single();
-
-    if (error || !data) return []; // row not seeded yet — empty list
-
-    const emails = Array.isArray(data.value && data.value.emails)
-      ? data.value.emails
-      : [];
-    const list = emails
-      .map((e) => String(e || '').toLowerCase().trim())
-      .filter(Boolean);
-    sellWhitelistCache = { data: list, fetchedAt: Date.now() };
-    return list;
-  } catch (err) {
-    console.warn('getSellWhitelist error (treating as empty):', err.message);
-    return [];
-  }
-}
-
-/**
- * Replace the seller whitelist. Only called by the admin API. Emails are
- * normalised here (trimmed, lowercased, deduped) so every consumer
- * compares against a canonical form — the same contract as the
- * maintenance whitelist.
- */
-async function setSellWhitelist(emails, adminEmail) {
-  const client = getClient();
-  if (!client) throw new Error('Supabase not configured');
-
-  const seen = new Set();
-  const normalized = [];
-  for (const raw of Array.isArray(emails) ? emails : []) {
-    const email = String(raw || '').toLowerCase().trim();
-    if (!email || seen.has(email)) continue;
-    seen.add(email);
-    normalized.push(email);
-  }
-
-  const now = new Date().toISOString();
-  const { data, error } = await client
-    .from('site_settings')
-    .upsert({
-      key: 'sell_whitelist',
-      value: { emails: normalized },
-      updated_at: now,
-      updated_by: adminEmail || '',
-    }, { onConflict: 'key' })
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error('Failed to update sell whitelist: ' + error.message);
-  }
-
-  sellWhitelistCache = null; // reflect the change immediately
-  const val = data.value || {};
-  return {
-    emails: Array.isArray(val.emails) ? val.emails : [],
-    updatedAt: data.updated_at || now,
-    updatedBy: data.updated_by || adminEmail || '',
-  };
-}
-
 module.exports = {
   getClient,
   isConfigured,
@@ -1600,8 +1505,6 @@ module.exports = {
   setMaintenanceMode,
   getMaintenanceWhitelist,
   setMaintenanceWhitelist,
-  getSellWhitelist,
-  setSellWhitelist,
   // Test helpers
   _clearMaintenanceCachesForTests,
 };

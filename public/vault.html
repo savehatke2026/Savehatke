@@ -2255,7 +2255,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div style="border-top:1px solid rgba(79,195,247,.12);padding-top:16px;margin-top:4px">
           <div style="font-size:.9rem;font-weight:700;color:#a8c0dc;margin-bottom:4px">Whitelisted Users</div>
           <p style="color:#6b88aa;font-size:.8rem;margin-bottom:10px">
-            These users can log in from the maintenance page and browse the normal site while maintenance is ON. One email per line.
+            These users can log in from the maintenance page and browse the normal site while maintenance is ON, and they are also the only ones (besides admins) who can see and use the selling form on /sell. One email per line.
           </p>
           <textarea id="maintenanceWhitelist" class="form-input" rows="4" placeholder="user@example.com&#10;another@example.com" style="resize:vertical;min-height:80px;font-size:.86rem;font-family:'JetBrains Mono',monospace"></textarea>
           <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
@@ -2266,27 +2266,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
 
         <!-- Loading spinner (shown during API calls) -->
         <div id="maintenanceSpinner" style="display:none;text-align:center;padding:8px">
-          <span class="spinner"></span>
-        </div>
-      </div>
-
-      <!-- ── Sell Coupons whitelist ── -->
-      <div class="card" id="sellWhitelistCard" style="margin-bottom:24px;border:1px solid rgba(79,195,247,.12)">
-        <div class="card-title" style="display:flex;align-items:center;gap:10px">
-          🎟️ Sell Coupons — Whitelisted Sellers
-        </div>
-        <p style="color:#6b88aa;font-size:.88rem;margin-bottom:18px">
-          The selling form on /sell is visible only to whitelisted email IDs. Admins, super admins and support accounts always have access; every other user needs their email on this list. One email per line.
-        </p>
-
-        <textarea id="sellWhitelist" class="form-input" rows="4" placeholder="seller1@example.com&#10;seller2@example.com" style="resize:vertical;min-height:80px;font-size:.86rem;font-family:'JetBrains Mono',monospace"></textarea>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
-          <button class="btn btn-primary btn-sm" type="button" onclick="saveSellWhitelist()">Save Whitelist</button>
-          <span id="sellWhitelistCount" style="font-size:.78rem;color:#6b88aa"></span>
-        </div>
-
-        <!-- Loading spinner (shown during API calls) -->
-        <div id="sellWhitelistSpinner" style="display:none;text-align:center;padding:8px">
           <span class="spinner"></span>
         </div>
       </div>
@@ -3300,7 +3279,6 @@ function showSection(id, navEl) {
   if (id === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
     if (typeof loadMaintenanceStatus === 'function') loadMaintenanceStatus();
-    if (typeof loadSellWhitelist === 'function') loadSellWhitelist();
   }
   if (id === 'support' && typeof loadSupportCases === 'function') {
     loadSupportCases();

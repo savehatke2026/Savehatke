@@ -3166,10 +3166,11 @@ document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 /* ══════════════════════════════════════
    INIT — seller whitelist gate
 ══════════════════════════════════════ */
-// The selling form is visible only to whitelisted email IDs (the admin's
-// sell_whitelist; admins bypass on role). The authoritative check lives on
-// the server (the submit API rejects everyone else with 403); this
-// page-load check just decides which UI to paint.
+// The selling form is visible only to whitelisted email IDs (the same
+// maintenance whitelist managed in the admin Settings; admins bypass on
+// role). The authoritative check lives on the server (the submit API
+// rejects everyone else with 403); this page-load check just decides
+// which UI to paint.
 //
 // js/app.js loads AFTER this inline script, so window.api (its API client)
 // is not defined yet at parse time — wait for it before calling the

@@ -45,7 +45,9 @@ const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').repla
 
 // ── Sell eligibility — a whitelisted email unlocks selling ──
 // Selling is invite-only: the coupon submission form is reserved for
-// emails the admin listed under the `sell_whitelist` site_settings key.
+// emails the admin listed under the `maintenance_whitelist`
+// site_settings key — the same list that lets users browse the site
+// during maintenance, so one card in the admin Settings manages both.
 // Admins (admin / super admin / support) bypass the list on role, so an
 // operator can always test the flow and never locks themselves out of
 // the admin-side tooling.
@@ -70,7 +72,7 @@ async function canSellCoupons(user) {
   const email = normEmail(user && user.email);
   if (!email) return false;
   try {
-    const whitelist = await supabase.getSellWhitelist();
+    const whitelist = await supabase.getMaintenanceWhitelist();
     return whitelist.includes(email);
   } catch (e) {
     console.warn('Sell eligibility whitelist read notice:', e.message);
