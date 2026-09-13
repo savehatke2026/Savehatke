@@ -3912,14 +3912,21 @@ function avatarHtml(name) {
   return `<div class="u-avatar" title="${esc(name)}">${esc(initials)}</div>`;
 }
 
-async function loadSupportCases() {
+let supportCasesLoading = false;
+async function loadSupportCases(silent) {
+  if (supportCasesLoading) return;
+  supportCasesLoading = true;
   try {
     const data = await api('/admin/support-cases', { useAdmin: true });
     cases = data.cases || [];
     supportCasesLoaded = true;
     renderAll();
   } catch (err) {
-    showToast('Failed to load support cases: ' + err.message, 'error');
+    // Background refreshes stay quiet so a returning admin isn't greeted by a
+    // stray toast; only a direct visit to the section surfaces the failure.
+    if (!silent) showToast('Failed to load support cases: ' + err.message, 'error');
+  } finally {
+    supportCasesLoading = false;
   }
 }
 
@@ -4332,6 +4339,27 @@ function renderAll() {
 
 // Init support cases (data loads when the section is opened)
 if (!supportCasesLoaded) renderAll();
+
+// Keep the list fresh once the section has been visited: re-fetch when the
+// admin returns to this browser tab (e.g. checks the sheet in another tab and
+// comes back) and every 60s while the section is visible, so a case submitted
+// meanwhile shows up without re-clicking the sidebar item. Mirrors the payouts
+// section lifecycle below.
+function isSupportSectionVisible() {
+  const sec = document.getElementById('sec-support');
+  return Boolean(sec && sec.classList.contains('active'));
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  if (isSupportSectionVisible() && !supportCasesLoading) {
+    loadSupportCases(true);
+  }
+});
+setInterval(() => {
+  if (isSupportSectionVisible() && document.visibilityState === 'visible' && !supportCasesLoading) {
+    loadSupportCases(true);
+  }
+}, 60 * 1000);
 
 /* ═══════════════════════════════════════════════════════════════
    PAYOUTS — admin section controller
