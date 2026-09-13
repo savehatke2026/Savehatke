@@ -1640,4 +1640,55 @@ router.put('/maintenance/whitelist', authenticateToken, requireAdmin, async (req
   }
 });
 
+// ── Sell whitelist ────────────────────────────────────────────────────────
+// Emails allowed to see and use the coupon selling form. Separate from the
+// maintenance whitelist on purpose: the two serve different purposes, so
+// neither list grants the other's access.
+
+// GET /api/admin/sell/whitelist — List emails that may sell coupons
+router.get('/sell/whitelist', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const emails = await supabase.getSellWhitelist();
+    res.json({ emails });
+  } catch (err) {
+    console.error('Admin get sell whitelist error:', err);
+    res.status(500).json({ error: 'Failed to fetch the sell whitelist.' });
+  }
+});
+
+// PUT /api/admin/sell/whitelist — Replace the sell whitelist.
+// Body: { emails: [ 'user@example.com', ... ] } — the full replacement list;
+// sending [] clears it. Emails are normalised server-side.
+router.put('/sell/whitelist', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { emails } = req.body || {};
+    if (!Array.isArray(emails)) {
+      return res.status(400).json({ error: 'The "emails" field must be an array of email addresses.' });
+    }
+    if (emails.length > 500) {
+      return res.status(400).json({ error: 'The whitelist is limited to 500 email addresses.' });
+    }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    for (const raw of emails) {
+      const email = String(raw || '').toLowerCase().trim();
+      if (!email || email.length > 254 || !emailPattern.test(email)) {
+        return res.status(400).json({ error: `"${raw}" is not a valid email address.` });
+      }
+    }
+
+    const adminEmail = (req.user && req.user.email) || 'unknown';
+    const result = await supabase.setSellWhitelist(emails, adminEmail);
+
+    console.log(`[Sell] Whitelist updated (${result.emails.length} email(s)) by ${adminEmail}`);
+    res.json({
+      message: `Whitelist saved — ${result.emails.length} user(s) can now see the selling form.`,
+      ...result,
+    });
+  } catch (err) {
+    console.error('Admin update sell whitelist error:', err);
+    res.status(500).json({ error: 'Failed to update the sell whitelist: ' + err.message });
+  }
+});
+
 module.exports = router;

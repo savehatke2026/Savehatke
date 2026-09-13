@@ -10,22 +10,21 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
-    /* ── Sell eligibility — pre-paint cloak ──
-       Selling unlocks only after the user's first completed purchase, so a
-       logged-in visitor might not be allowed to see the form at all. This
-       script runs before <body> paints and hides the sell UI while the
-       eligibility check (see initSellPage at the bottom of the page) runs,
-       so the form never flashes for a user who is about to be locked out.
-       Logged-out visitors are NOT cloaked: they see the page exactly as it
-       has always been (form visible, login enforced at submit time). The
-       same localStorage key Auth.isLoggedIn() reads in js/app.js. */
-    if (localStorage.getItem('sh_token')) {
-      document.documentElement.classList.add('sell-gate-pending');
-    }
+    /* ── Sell access — pre-paint cloak ──
+       The selling form is visible only to whitelisted email IDs, so almost
+       every visitor — logged out, or logged in without seller access — sees
+       the locked screen instead. This script runs before <body> paints and
+       hides the sell UI while the access check (see initSellPage at the
+       bottom of the page) decides which of the two to show, so the form
+       never flashes for a visitor who is about to be locked out. Applies to
+       everyone, including logged-out visitors (they cannot be on any
+       whitelist). The same localStorage key Auth.isLoggedIn() reads in
+       js/app.js. */
+    document.documentElement.classList.add('sell-gate-pending');
   </script>
   <style>
-    /* ── Sell eligibility gate ──
-       While the eligibility check is in flight the sell UI stays invisible
+    /* ── Sell access gate ──
+       While the access check is in flight the sell UI stays invisible
        (opacity, not display, so the page does not reflow when it unlocks).
        Specificity beats .fu.in on purpose; the class is removed as soon as
        the check resolves, in initSellPage at the bottom of this file. */
@@ -818,20 +817,23 @@
 
     </div><!-- /form-card -->
 
-    <!-- ── Sell locked screen — zero completed purchases ──
+    <!-- ── Sell locked screen — email not on the seller whitelist ──
          The server-side gate (GET /api/coupons/sell-eligibility) decides who
          sees this instead of the form. Same .form-card + .success-state design
          language as the submit-success step. Hidden by default; initSellPage
-         at the bottom of this file adds .show and hides the form elements. -->
+         at the bottom of this file adds .show, hides the form elements and
+         points the CTA at login for a logged-out visitor. -->
     <div class="form-card sell-locked" id="sellLocked">
       <div class="success-state">
         <span class="success-emoji">🔒</span>
-        <h2 class="success-title">Selling is available after your first purchase</h2>
+        <h2 class="success-title">Selling is available to selected users only</h2>
         <p class="success-sub">
-          To sell coupons on SaveHatke, you must first purchase at least one coupon from the marketplace.
+          Selling coupons on SaveHatke is currently available to whitelisted users only.
+          If you believe you should have access, contact our support team.
         </p>
         <div class="success-actions">
-          <a href="marketplace" class="btn btn-primary btn-lg">Browse Coupons →</a>
+          <a href="marketplace" class="btn btn-primary btn-lg" id="sellLockedBrowseBtn">Browse Coupons →</a>
+          <a href="support" class="btn btn-secondary btn-lg">Contact Support</a>
         </div>
       </div>
     </div><!-- /sell-locked -->
@@ -3162,11 +3164,12 @@ document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 })();
 
 /* ══════════════════════════════════════
-   INIT — purchase eligibility gate
+   INIT — seller whitelist gate
 ══════════════════════════════════════ */
-// Selling unlocks only after the user's first completed purchase. The
-// authoritative check lives on the server (the submit API rejects ineligible
-// users with 403); this page-load check just decides which UI to paint.
+// The selling form is visible only to whitelisted email IDs (the admin's
+// sell_whitelist; admins bypass on role). The authoritative check lives on
+// the server (the submit API rejects everyone else with 403); this
+// page-load check just decides which UI to paint.
 //
 // js/app.js loads AFTER this inline script, so window.api (its API client)
 // is not defined yet at parse time — wait for it before calling the
@@ -3174,47 +3177,59 @@ document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 // sell UI invisible until the check resolves, so neither the form nor the
 // locked screen flashes.
 function lockSellPage() {
-  // Zero completed purchases: replace the sell UI with the locked screen.
-  // The how-it-works card, the AI scanner, the stepper and the form card
+  // No seller access: replace the sell UI with the locked screen. The
+  // how-it-works card, the AI scanner, the stepper and the form card
   // itself all describe "selling", so they go too. The locked card uses the
   // same .form-card shell, hence the :not() guard.
   document.querySelectorAll('.how-mini, .ai-card, .stepper, .form-card:not(.sell-locked)')
     .forEach((el) => { el.style.display = 'none'; });
   const locked = document.getElementById('sellLocked');
   if (locked) locked.classList.add('show');
+  // A logged-out visitor's primary next step is logging in — their account
+  // may already be whitelisted — so the CTA becomes Log In. A signed-in
+  // user without access is better served by the marketplace button.
+  if (!localStorage.getItem('sh_token')) {
+    const cta = document.getElementById('sellLockedBrowseBtn');
+    if (cta) {
+      cta.href = 'login.html';
+      cta.textContent = 'Log In';
+    }
+  }
   document.documentElement.classList.remove('sell-gate-pending');
 }
 
 async function initSellPage() {
-  // Logged-out visitors see the page exactly as it has always been: the
-  // form renders, and login is enforced at submit time like before.
+  // A logged-out visitor cannot be on any whitelist, so lock straight away —
+  // without calling the eligibility endpoint, whose 401 SESSION_EXPIRED
+  // answer would bounce the visitor to the login page instead of showing
+  // them this page's locked screen (api() redirects on that code).
   if (!localStorage.getItem('sh_token')) {
-    document.documentElement.classList.remove('sell-gate-pending');
-    addCoupon();
+    lockSellPage();
     return;
   }
 
   try {
     const data = await api('/coupons/sell-eligibility');
-    if (data && data.canSell === false) {
+    if (!data || data.canSell !== true) {
       lockSellPage();
       return;
     }
   } catch (err) {
     // Transient failure — fail OPEN and show the form. The server-side 403
     // at submit time is the real gate, so a false "eligible" here can never
-    // let an ineligible submission through. api() itself already handles
+    // let an unauthorised submission through. api() itself already handles
     // session expiry and maintenance redirects before this catch runs.
-    console.warn('Sell eligibility check failed — showing the form.', err);
+    console.warn('Sell access check failed — showing the form.', err);
   }
 
-  // Eligible (or transient error): the existing page, unchanged.
+  // Authorised (or transient error): the existing page, unchanged.
   document.documentElement.classList.remove('sell-gate-pending');
   addCoupon();
 }
 
 // Wait for js/app.js to define window.api (see note above), then run the gate.
-// If it somehow never arrives (10s), fail open with the form.
+// If it somehow never arrives (10s), the gate still resolves: a logged-out
+// visitor locks without needing api(), a token holder fails open to the form.
 (function waitForApi() {
   if (typeof api !== 'undefined') { initSellPage(); return; }
   const started = Date.now();

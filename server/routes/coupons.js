@@ -43,58 +43,39 @@ const MIN_EXPIRY_FLOOR_DAYS = MIN_EXPIRY_DAYS - 1;
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
 
-// ── Sell eligibility — a completed purchase unlocks selling ──
-// A user may sell coupons only after at least one successfully completed
-// purchase. This mirrors the "completed purchase" definition used by the
-// review routes (see server/routes/reviews.js): the coupon must be marked sold
-// to THIS user (buyerEmail match) with a soldAt timestamp, and its status must
-// not be one of the non-completed statuses below. Pending, cancelled, failed,
-// refunded and abandoned orders therefore never unlock selling.
-const NON_COMPLETED_STATUSES = new Set([
-  'pending', 'review', 'awaiting', 'submitted', 'available',
-  'rejected', 'cancelled', 'canceled', 'refunded', 'failed', 'expired',
-]);
-
-const SELL_GATE_MESSAGE = 'You must purchase at least one coupon before you can sell coupons.';
+// ── Sell eligibility — a whitelisted email unlocks selling ──
+// Selling is invite-only: the coupon submission form is reserved for
+// emails the admin listed under the `sell_whitelist` site_settings key.
+// Admins (admin / super admin / support) bypass the list on role, so an
+// operator can always test the flow and never locks themselves out of
+// the admin-side tooling.
+const SELL_GATE_MESSAGE = 'Selling coupons is currently available to selected users only. If you believe you should have access, contact support.';
 
 function normEmail(v) {
   return String(v || '').toLowerCase().trim();
 }
 
-function isCompletedPurchase(coupon, email) {
-  if (!coupon) return false;
-  const buyer = normEmail(coupon.buyerEmail);
-  if (!buyer || buyer !== email) return false;
-  if (NON_COMPLETED_STATUSES.has(String(coupon.status || '').toLowerCase())) return false;
-  return !!coupon.soldAt;
+function isAdminSellRole(user) {
+  const role = String((user && user.role) || '').toLowerCase();
+  return role === 'admin' || role === 'super admin' || role === 'support';
 }
 
-// Supabase primary, Sheets fallback — the same dual-store lookup shape as
-// GET /my-purchases. Read errors are swallowed per store (a single store being
-// down must not 500 the page); if BOTH stores are unreachable we return false
-// so the gate stays closed — the safe direction for eligibility.
-async function hasCompletedPurchase(user) {
+// Supabase is the single source of truth for the list (no Sheets
+// fallback — an admin's edit must be reflected, not read from a stale
+// mirror). An unreadable list behaves as empty, which keeps the gate
+// closed for non-admins: the safe direction. Admins are checked first,
+// before this read, so a Supabase outage can never lock the operator out.
+async function canSellCoupons(user) {
+  if (isAdminSellRole(user)) return true;
   const email = normEmail(user && user.email);
   if (!email) return false;
-  if (supabase.isConfigured()) {
-    try {
-      const purchased = await supabase.getCoupons({ buyerEmail: email });
-      if (Array.isArray(purchased) && purchased.some((c) => isCompletedPurchase(c, email))) {
-        return true;
-      }
-    } catch (e) {
-      console.warn('Sell eligibility Supabase read notice:', e.message);
-    }
-  }
   try {
-    const rows = await db.findRows(db.SHEETS.COUPONS, 'buyerEmail', email);
-    if (Array.isArray(rows) && rows.some((c) => isCompletedPurchase(c, email))) {
-      return true;
-    }
+    const whitelist = await supabase.getSellWhitelist();
+    return whitelist.includes(email);
   } catch (e) {
-    console.warn('Sell eligibility Sheets read notice:', e.message);
+    console.warn('Sell eligibility whitelist read notice:', e.message);
+    return false;
   }
-  return false;
 }
 
 // GET /api/coupons — List available coupons (public, with optional auth)
@@ -216,8 +197,17 @@ router.get('/categories', async (req, res) => {
 // This endpoint only reads. It never creates a coupon, and it deliberately
 // returns no selling price, source or status — those stay with the seller and
 // the submit route.
+//
+// Sell-whitelist gated: the scanner exists only to fill the sell form, and
+// each call spends paid Gemini Vision quota — a user who cannot submit
+// coupons has no legitimate use for it.
 router.post('/scan', authenticateToken, async (req, res) => {
   try {
+    const maySell = await canSellCoupons(req.user);
+    if (!maySell) {
+      return res.status(403).json({ error: SELL_GATE_MESSAGE });
+    }
+
     const { contentType, dataBase64 } = req.body || {};
 
     if (!dataBase64) {
@@ -278,8 +268,17 @@ router.post('/scan', authenticateToken, async (req, res) => {
 // Drive is the ONLY accepted destination for proof screenshots: they must stay
 // in the operator's own Drive folder, never on public object storage. If Drive
 // is not usable we fail loudly rather than silently stashing the file elsewhere.
+//
+// Sell-whitelist gated: proof uploads exist only for coupon submissions, and
+// each one costs a Drive round-trip and storage — a user who cannot submit
+// coupons has no legitimate use for it.
 router.post('/proof', authenticateToken, async (req, res) => {
   try {
+    const maySell = await canSellCoupons(req.user);
+    if (!maySell) {
+      return res.status(403).json({ error: SELL_GATE_MESSAGE });
+    }
+
     const { filename, contentType, dataBase64 } = req.body;
 
     if (!dataBase64 || !filename) {
@@ -356,12 +355,12 @@ router.post('/proof', authenticateToken, async (req, res) => {
 // and the legacy single-coupon format { code, category, brand, ... }.
 const handleCouponSubmission = async (req, res) => {
   try {
-    // ── Purchase eligibility gate (server-side, authoritative) ──
-    // Checked before any validation or storage work, so a user with zero
-    // completed purchases can never submit coupons through ANY client —
-    // /api/coupons/sell, /api/coupons/submit and the legacy public/js/sell.js
-    // all funnel through this shared handler.
-    const maySell = await hasCompletedPurchase(req.user);
+    // ── Sell whitelist gate (server-side, authoritative) ──
+    // Checked before any validation or storage work, so a user whose email is
+    // not on the admin's sell whitelist can never submit coupons through ANY
+    // client — /api/coupons/sell, /api/coupons/submit and the legacy
+    // public/js/sell.js all funnel through this shared handler.
+    const maySell = await canSellCoupons(req.user);
     if (!maySell) {
       return res.status(403).json({ error: SELL_GATE_MESSAGE });
     }
@@ -812,7 +811,7 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
 
 // GET /api/coupons/sell-eligibility — Can this user sell coupons yet?
 //
-// Called on /sell page load. Uses the exact same hasCompletedPurchase() as the
+// Called on /sell page load. Uses the exact same canSellCoupons() as the
 // submission gate above, so the page and the API can never disagree.
 //
 // Always answers 200 with a boolean — never 403 — because the frontend api()
@@ -820,7 +819,7 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
 // token-refresh retry loop.
 router.get('/sell-eligibility', authenticateToken, async (req, res) => {
   try {
-    const canSell = await hasCompletedPurchase(req.user);
+    const canSell = await canSellCoupons(req.user);
     res.json({ canSell });
   } catch (err) {
     console.error('Sell eligibility error:', err);

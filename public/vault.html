@@ -2270,6 +2270,27 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
       </div>
 
+      <!-- ── Sell Coupons whitelist ── -->
+      <div class="card" id="sellWhitelistCard" style="margin-bottom:24px;border:1px solid rgba(79,195,247,.12)">
+        <div class="card-title" style="display:flex;align-items:center;gap:10px">
+          🎟️ Sell Coupons — Whitelisted Sellers
+        </div>
+        <p style="color:#6b88aa;font-size:.88rem;margin-bottom:18px">
+          The selling form on /sell is visible only to whitelisted email IDs. Admins, super admins and support accounts always have access; every other user needs their email on this list. One email per line.
+        </p>
+
+        <textarea id="sellWhitelist" class="form-input" rows="4" placeholder="seller1@example.com&#10;seller2@example.com" style="resize:vertical;min-height:80px;font-size:.86rem;font-family:'JetBrains Mono',monospace"></textarea>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap">
+          <button class="btn btn-primary btn-sm" type="button" onclick="saveSellWhitelist()">Save Whitelist</button>
+          <span id="sellWhitelistCount" style="font-size:.78rem;color:#6b88aa"></span>
+        </div>
+
+        <!-- Loading spinner (shown during API calls) -->
+        <div id="sellWhitelistSpinner" style="display:none;text-align:center;padding:8px">
+          <span class="spinner"></span>
+        </div>
+      </div>
+
       <div class="card" style="margin-bottom:24px">
         <div class="card-title">📊 Website Hero Statistics (Landing Page Counters)</div>
         <p style="color:#6b88aa;font-size:0.88rem;margin-bottom:16px">Control the statistics shown on the index.html landing page hero section. Toggle visibility and edit values.</p>
@@ -3279,6 +3300,7 @@ function showSection(id, navEl) {
   if (id === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
     if (typeof loadMaintenanceStatus === 'function') loadMaintenanceStatus();
+    if (typeof loadSellWhitelist === 'function') loadSellWhitelist();
   }
   if (id === 'support' && typeof loadSupportCases === 'function') {
     loadSupportCases();
