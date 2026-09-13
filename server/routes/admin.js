@@ -1385,6 +1385,11 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
     // 1. Save to Google Sheets / memoryDB
     const savedSheet = await db.saveSettings(payload);
 
+    // The landing page renders its hero counters from a cached settings read
+    // (services/publicSettings) — drop that cache so the new values apply on
+    // the very next page load rather than after the TTL.
+    try { require('../services/publicSettings').invalidatePublicSettings(); } catch (e) {}
+
     // 2. Dual sync to MongoDB Atlas if connected
     if (mongoose.connection.readyState === 1) {
       try {

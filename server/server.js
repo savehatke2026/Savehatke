@@ -3,6 +3,7 @@
 // ============================================
 
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
@@ -39,6 +40,7 @@ const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
 const { checkPageAccess, resolveCaller, isAdminRole, isWhitelistedEmail } = require('./middleware/maintenance');
 const supabase = require('./services/supabase');
+const { getPublicSettings, renderLandingStats } = require('./services/publicSettings');
 
 const app = express();
 
@@ -292,6 +294,47 @@ app.use(maintenancePageGuard);
 app.use(protectedPageGuard);
 app.use(protectedPublicPageGuard);
 
+// ── Landing page — hero counters rendered server-side ─────────────────────
+// The homepage's three counters (Active Users / Coupons Traded / Saved by
+// Users) used to paint with hardcoded defaults and then wait on a
+// /api/settings round-trip to correct themselves — a visible flash on every
+// visit, and a frozen default whenever that API was slow or unavailable.
+// Rendering them here puts the admin's values AND each counter's on/off
+// state into the first byte of the page. The settings read is cached
+// (services/publicSettings), so this costs nothing per visit; the client
+// fetch in index.html still runs afterwards and converges to the same
+// values, keeping the page self-healing.
+const LANDING_PAGE_PATH = path.join(__dirname, '..', 'public', 'index.html');
+let landingHtmlCache = null;
+
+async function sendLandingPage(req, res) {
+  try {
+    if (!landingHtmlCache) {
+      landingHtmlCache = fs.readFileSync(LANDING_PAGE_PATH, 'utf8');
+    }
+    let html = landingHtmlCache;
+    try {
+      html = renderLandingStats(html, await getPublicSettings());
+    } catch (e) {
+      // Settings read failed — the values already in the file are the
+      // install defaults and remain a sane first paint.
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    // Same no-store policy express.static applies to the HTML files.
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.send(html);
+  } catch (err) {
+    res.status(500).send('Landing page unavailable.');
+  }
+}
+
+// Mounted after the page guards so maintenance redirects still win, and
+// before express.static so '/', '/index' and '/index.html' never fall
+// through to the plain file.
+app.get(['/', '/index', '/index.html'], sendLandingPage);
+
 app.use(express.static(path.join(__dirname, '..', 'public'), {
   extensions: ['html'],
   setHeaders: (res, filePath) => {
@@ -441,34 +484,11 @@ app.get('/api/turnstile-config', (req, res) => {
 // Public settings route (for index.html hero stats & platform settings)
 app.get('/api/settings', async (req, res) => {
   try {
-    let settings = await db.getSettings();
-
-    if (mongoose.connection.readyState === 1) {
-      try {
-        const Setting = require('./models/Setting');
-        const mongoSetting = await Setting.findOne({ key: 'site_settings' });
-        if (mongoSetting) {
-          settings = {
-            ...settings,
-            activeUsers: mongoSetting.activeUsers || settings.activeUsers,
-            couponsTraded: mongoSetting.couponsTraded || settings.couponsTraded,
-            savedByUsers: mongoSetting.savedByUsers || settings.savedByUsers,
-            platformName: mongoSetting.platformName || settings.platformName,
-            adminEmail: mongoSetting.adminEmail || settings.adminEmail,
-            showActiveUsers: mongoSetting.showActiveUsers !== undefined ? mongoSetting.showActiveUsers : settings.showActiveUsers,
-            showCouponsTraded: mongoSetting.showCouponsTraded !== undefined ? mongoSetting.showCouponsTraded : settings.showCouponsTraded,
-            showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
-          };
-        }
-      } catch (e) {}
-    }
-    // Normalize toggle booleans — Google Sheets stores as strings ('true'/'false')
-    // which breaks strict comparison on the frontend. Force-cast to real booleans.
-    const toBool = (v) => v === true || v === 'true';
-    settings.showActiveUsers = toBool(settings.showActiveUsers);
-    settings.showCouponsTraded = toBool(settings.showCouponsTraded);
-    settings.showSavedByUsers = toBool(settings.showSavedByUsers);
-
+    // Shared cached read (services/publicSettings) — the same one that
+    // server-renders the landing-page counters. Sheets + Mongo are no longer
+    // hit per request, so this endpoint (and every page that calls it) is
+    // fast even under a cold function.
+    const settings = await getPublicSettings();
     res.json({ settings });
   } catch (err) {
     console.error('Get public settings error:', err);
@@ -517,7 +537,8 @@ app.get('*', async (req, res) => {
       return res.redirect(302, '/maintenance.html');
     }
   } catch (e) { /* status check failed — fail open like the static guards */ }
-  res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+  // Same server-rendered counters as the canonical landing page paths.
+  return sendLandingPage(req, res);
 });
 
 // ── Error Handler ───────────────────────────────────────────────────────────

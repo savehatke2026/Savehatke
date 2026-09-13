@@ -760,9 +760,15 @@
   }
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-  // Dynamically load site stats from Google Sheets database via /api/settings
+  // Dynamically load site stats from the database via /api/settings.
+  // The server already renders these counters into the HTML (data-ssr on
+  // .hero-stats) — values and on/off state are correct in the first paint.
+  // This fetch only needs to run when that render didn't happen (a
+  // statically served copy of the page), and self-heals values if the
+  // server render ever fell back to the file defaults.
   (async function loadDynamicHeroStats() {
     try {
+      if (document.querySelector('.hero-stats[data-ssr]')) return;
       const res = await fetch('/api/settings');
       if (res.ok) {
         const data = await res.json();
