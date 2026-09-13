@@ -105,9 +105,6 @@ function renderCouponGrid(gridId, coupons) {
       const isFree = c.source === 'auto-scraped';
       const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '15'}`;
       const origVal = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`) : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
-      const logoUrl = getBrandLogo(c.brand);
-      const logoClass = getBrandLogoClass(logoUrl);
-      const initial = getBrandInitial(c.brand);
       // Admin-controlled per-coupon switch (Coupon Management → Sale column).
       // Defaults to on, so coupons from a pre-migration database keep the badge.
       const onSale = c.onSale !== false;
@@ -141,14 +138,6 @@ function renderCouponGrid(gridId, coupons) {
               </button>
             </div>
             <div class="c-hero-foot">
-              <div class="cbrand" title="${escapeCoupon(c.brand)}">
-                <span class="cbrand-logo-wrap">
-                  ${logoUrl
-                    ? `<img class="cbrand-logo${logoClass ? ' ' + logoClass : ''}" src="${escapeCoupon(logoUrl)}" alt="${escapeCoupon(c.brand)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="cbrand-initial" style="display:none">${escapeCoupon(initial)}</span>`
-                    : `<span class="cbrand-initial">${escapeCoupon(initial)}</span>`
-                  }
-                </span>
-              </div>
               <div class="coff">${escapeCoupon(origVal)}</div>
             </div>
           </div>
