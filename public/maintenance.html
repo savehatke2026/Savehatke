@@ -67,14 +67,17 @@
       z-index: 0;
     }
 
-    /* ── TOP BAR — brand ONLY. No navigation links and no extra auth slot:
-       while maintenance is ON this page must offer nothing but the single
-       login/logout action rendered in the middle section. ── */
+    /* ── TOP BAR — brand on the left, the same .nav-actions slot as every
+       other page on the right: js/app.js renders the Log In button (or the
+       signed-in profile box) there, exactly like index.html. No navigation
+       links — maintenance-nav-lock.js keeps the page's only actions
+       (Log In / Log Out) from leaving maintenance. ── */
     .topbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); }
     .topbar .container { height:100%; display:flex; align-items:center; }
     .brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; }
     .brand-icon { width:34px; height:34px; object-fit:contain; }
     .bhl { color:#00e676; }
+    .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
 
     /* ── Animations ── */
     @keyframes fadeInUp {
@@ -87,8 +90,8 @@
     }
     @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
 
-    /* ── Middle section: the maintenance message and the ONE available
-       action — Log In. Nothing else is offered on this page. ── */
+    /* ── Middle section: the maintenance message. The login/logout action
+       lives in the top bar, same position as every other page. ── */
     .maintenance-container {
       position: relative;
       z-index: 1;
@@ -130,16 +133,8 @@
       line-height: 1.7;
       color: #8ba2c4;
       max-width: 440px;
-      margin: 0 auto 28px;
+      margin: 0 auto;
     }
-
-    /* ── The single available action ── */
-    .maint-action { display:flex; justify-content:center; gap:12px; flex-wrap:wrap; }
-
-    /* ── BOTTOM BAR — copyright only, no links: the footer must not be an
-       exit out of the maintenance page. ── */
-    .bottombar { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:16px 0; margin-top:auto; position:relative; z-index:1; }
-    .bottombar .container { display:flex; justify-content:center; gap:18px; flex-wrap:wrap; font-size:.78rem; color:#6b88aa; }
 
     /* ── Responsive ── */
     @media (max-width: 480px) {
@@ -149,32 +144,36 @@
 
     /* ── MOBILE TOUCH TARGETS ──
        Invisible absolutely-positioned ::after widens each control's
-       tappable region to ~44px on phones, so the brand and the single
+       tappable region to ~44px on phones, so the brand and the top-right
        Log In / Log Out button are as easy to hit here as on every page. */
     @media(max-width:768px),(max-height:500px) and (orientation:landscape){
       .brand{position:relative}
       .brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
-      .maint-action .btn{position:relative}
-      .maint-action .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+      .nav-actions .btn{position:relative}
+      .nav-actions .btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
     }
   </style>
 </head>
 <body>
 
-<!-- TOP BAR — brand only. No links: during maintenance this page offers
-     nothing but the single login/logout action in the middle section. -->
+<!-- TOP BAR — brand on the left, Log In / profile box on the right in the
+     same .nav-actions position as index.html (rendered by js/app.js).
+     No navigation links while maintenance is ON. -->
 <header class="topbar" role="banner">
   <div class="container">
     <div class="brand" aria-label="SaveHatke">
       <img src="logo.png" alt="SaveHatke" class="brand-icon">
       <span>Save<span class="bhl">Hatke</span></span>
     </div>
+    <!-- js/app.js renders the Log In button (or the signed-in profile box)
+         here, exactly as it does in the index.html navbar. -->
+    <div class="nav-actions" id="maintAction"></div>
   </div>
 </header>
 
-<!-- MIDDLE — the maintenance message and the ONE available action: Log In.
-     Whitelisted users who log in land on the normal site (the server
-     recognises their session and never shows them this page again). -->
+<!-- MIDDLE — the maintenance message. Whitelisted users who log in land on
+     the normal site (the server recognises their session and never shows
+     them this page again). -->
 <main class="maintenance-container" style="padding-top:68px;">
   <span class="maint-gear" aria-hidden="true">🔧</span>
   <h1 class="maint-heading">
@@ -184,19 +183,7 @@
     SaveHatke is temporarily unavailable while we make some improvements.
     Please check back shortly. Thank you for your patience.
   </p>
-  <!-- The single control on the page. Rendered by the script below:
-       "Log In" for visitors, "Log Out" for someone already signed in
-       (so they can switch to a whitelisted account). -->
-  <div class="maint-action" id="maintAction"></div>
 </main>
-
-<!-- BOTTOM BAR — copyright only, deliberately no links. -->
-<footer class="bottombar" aria-label="Site footer">
-  <div class="container">
-    <span>&copy; 2026 SaveHatke. All rights reserved.</span>
-    <span>Made with ❤️ in India</span>
-  </div>
-</footer>
 
 <script src="js/app.js"></script>
 <!-- Safety net: intercepts the profile dropdown's Dashboard link in case
@@ -232,58 +219,14 @@
       return !!localStorage.getItem('sh_admin_token');
     } catch (e) { return false; }
   }
-
-  function userLooksLoggedIn() {
-    try {
-      const token = localStorage.getItem('sh_token');
-      const userRaw = localStorage.getItem('sh_user');
-      return !!(token && userRaw);
-    } catch (e) { return false; }
-  }
-
-  // ── The page's single action ────────────────────────────────────────────
-  // Anonymous visitors get "Log In" → /login.html (login keeps working during
-  // maintenance; whitelisted users who log in are sent straight to the real
-  // site). Someone already signed in gets "Log Out" so they can switch to a
-  // whitelisted account — the only other thing this page may do.
-  function renderMaintAction() {
-    const wrap = document.getElementById('maintAction');
-    if (!wrap) return;
-    wrap.innerHTML = '';
-
-    if (userLooksLoggedIn() || adminLooksLoggedIn()) {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-ghost';
-      btn.textContent = 'Log Out';
-      btn.addEventListener('click', () => {
-        // Fire-and-forget logout API call (don't wait for it) — same
-        // pattern as the navbar dropdown in js/app.js.
-        let user = {};
-        try { user = JSON.parse(localStorage.getItem('sh_user') || '{}'); } catch (e) {}
-        try {
-          api('/auth/logout', {
-            method: 'POST',
-            body: { email: user.email, user_id: user.user_id || user.id },
-          }).catch(() => {});
-        } catch (e) {}
-        try {
-          Auth.clear();
-          Auth.clearAdmin();
-        } catch (e) {}
-        // Reload the maintenance page as an anonymous visitor.
-        window.location.replace('/maintenance.html');
-      });
-      wrap.appendChild(btn);
-    } else {
-      const btn = document.createElement('a');
-      btn.className = 'btn btn-primary';
-      btn.href = '/login.html';
-      btn.setAttribute('aria-label', 'Log in to SaveHatke');
-      btn.textContent = 'Log In';
-      wrap.appendChild(btn);
-    }
-  }
+  // ── The page's action ──────────────────────────────────────────────────
+  // js/app.js renders the top-right .nav-actions slot on DOMContentLoaded,
+  // exactly like on index.html: "Log In" → /login.html for anonymous visitors
+  // (login keeps working during maintenance; whitelisted users who log in
+  // are sent straight to the real site), and the signed-in profile box with
+  // its Log Out item otherwise. maintenance-nav-lock.js keeps the dropdown's
+  // Dashboard link from leaving maintenance while Log Out keeps working, so
+  // this page needs no action-rendering code of its own.
 
   async function checkMaintenanceStatus() {
     let data = null;
@@ -316,11 +259,11 @@
     }
   }
 
-  renderMaintAction();
   checkMaintenanceStatus();
   // Re-check periodically so a user parked here is sent on their way as
   // soon as maintenance is switched off or their email is whitelisted —
-  // no button needed beyond Log In.
+  // the navbar's Log In / Log Out (rendered by js/app.js) is the only
+  // action they need in the meantime.
   setInterval(checkMaintenanceStatus, 30000);
 </script>
 </body>
