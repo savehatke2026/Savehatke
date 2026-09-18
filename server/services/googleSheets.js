@@ -30,6 +30,14 @@ const SHEETS = {
   MONTHLY_REPORTS: 'MonthlyReports',
   SELLER_PAYOUT_DETAILS: 'SellerPayoutDetails',
   TESTIMONIALS: 'Testimonials',
+  // ── Custom UPI checkout ────────────────────────────────────────────────
+  // Orders + payments live here rather than in Supabase (operator decision:
+  // one place to read the money trail). The coupon unlock still happens in
+  // the Supabase `coupons` table, because that single conditional UPDATE is
+  // what makes unlocking exactly-once.
+  ORDERS: 'Orders',
+  PAYMENTS: 'Payments',
+  PAYMENT_NOTIFICATIONS: 'PaymentNotifications',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -318,6 +326,77 @@ const HEADERS = {
     'id', 'timestamp', 'admin_id', 'admin_email', 'action',
     'setting', 'old_value', 'new_value',
   ],
+
+  // ── Custom UPI checkout ────────────────────────────────────────────────
+  // One row per purchase attempt. `amount` is the server's own figure (read
+  // from the coupon), never the browser's — it is the price the QR encodes.
+  // Column names deliberately mirror the SQL these tables replaced, so the
+  // field mapping in services/paymentStore.js stays a 1:1 rename.
+  [SHEETS.ORDERS]: [
+    'id',
+    'order_code',
+    'user_id',
+    'user_email',
+    'coupon_id',
+    'amount',
+    'currency',
+    'status',
+    'buyer_name',
+    'buyer_email',
+    'buyer_phone',
+    'coupon_code',
+    'coupon_brand',
+    'created_at',
+    'updated_at',
+    'expires_at',
+    'paid_at',
+  ],
+  // One row per UPI payment attempt against an order. verified_transaction_id
+  // / verified_utr are only ever written by the server-side verifier.
+  [SHEETS.PAYMENTS]: [
+    'payment_id',
+    'order_id',
+    'user_id',
+    'user_email',
+    'coupon_id',
+    'amount',
+    'currency',
+    'status',
+    'created_at',
+    'updated_at',
+    'expires_at',
+    'paid_at',
+    'upi_id',
+    'payee_name',
+    'upi_uri',
+    'verified_transaction_id',
+    'verified_utr',
+    'verification_source',
+    'verification_notes',
+  ],
+  // Every confirmation the server observes (gateway webhook or payment-mailbox
+  // email), recorded before it is acted on. `fingerprint` is the identity that
+  // makes detection exactly-once; `raw` is a truncated payload kept for
+  // disputes.
+  [SHEETS.PAYMENT_NOTIFICATIONS]: [
+    'id',
+    'fingerprint',
+    'source',
+    'amount',
+    'currency',
+    'transaction_id',
+    'utr',
+    'payer_vpa',
+    'payee_vpa',
+    'reference',
+    'occurred_at',
+    'status',
+    'matched_payment_id',
+    'notes',
+    'created_at',
+    'processed_at',
+    'raw',
+  ],
 };
 
 let sheetsClient = null;
@@ -537,6 +616,9 @@ const memoryDB = {
   [SHEETS.SECURITY_AUDIT]: [],
   [SHEETS.BACKUP_CODE_AUDIT]: [],
   [SHEETS.TESTIMONIALS]: [],
+  [SHEETS.ORDERS]: [],
+  [SHEETS.PAYMENTS]: [],
+  [SHEETS.PAYMENT_NOTIFICATIONS]: [],
 };
 
 function seedDemoData() {
@@ -620,11 +702,15 @@ async function getRows(sheetName) {
         return obj;
       });
 
-      // Combine with memoryDB rows to prevent data loss when fallback was active
+      // Combine with memoryDB rows to prevent data loss when fallback was active.
+      // The match must use the sheet's own natural key: keying this on `id`/`code`
+      // alone made a row whose identity is `payment_id` (Payments) or
+      // `fingerprint` (PaymentNotifications) appear TWICE — once from the sheet
+      // and once from memoryDB — which downstream code read as two live records.
       const memRows = memoryDB[sheetName] || [];
       const combined = [...gsheetRows];
       memRows.forEach((m) => {
-        if (!combined.some((g) => (g.id && g.id === m.id) || (g.code && g.code === m.code))) {
+        if (!combined.some((g) => sameRow(sheetName, g, m))) {
           combined.push(m);
         }
       });
@@ -644,6 +730,41 @@ async function getRows(sheetName) {
 // Normalize header names for matching (live sheets may use e.g. "user_ID"
 // while code uses "user_id" — treat them as the same column).
 const normKey = (h) => String(h || '').trim().toLowerCase();
+
+// The column(s) that identify a row in each sheet.
+//
+// Both memoryDB reconciliation (getRows) and appendRow's upsert need to know
+// what "the same row" means. They used to hardcode `id`/`code`, which is
+// wrong for any sheet keyed by something else: a Payments row is keyed by
+// `payment_id`, so the memoryDB copy never matched its sheet twin and the row
+// was returned TWICE on every read. Listing the keys per sheet fixes that, and
+// keeps the fix from being payment-specific.
+//
+// The default stays `id`/`code` — the previous behaviour — so every sheet not
+// listed here is completely unaffected.
+const NATURAL_KEYS = {
+  [SHEETS.ORDERS]: ['id', 'order_code'],
+  [SHEETS.PAYMENTS]: ['payment_id'],
+  [SHEETS.PAYMENT_NOTIFICATIONS]: ['id', 'fingerprint'],
+};
+
+const DEFAULT_NATURAL_KEYS = ['id', 'code'];
+
+/**
+ * Are these two rows the same record? True when any natural key for the sheet
+ * is populated on both sides and equal. Blank/absent values never match, so a
+ * row missing its key cannot swallow an unrelated row.
+ */
+function sameRow(sheetName, a, b) {
+  if (!a || !b) return false;
+  const keys = NATURAL_KEYS[sheetName] || DEFAULT_NATURAL_KEYS;
+  return keys.some((k) => {
+    const av = a[k], bv = b[k];
+    if (av === undefined || av === null || av === '') return false;
+    if (bv === undefined || bv === null || bv === '') return false;
+    return String(av) === String(bv);
+  });
+}
 
 // Build a lookup of data values by normalized key name.
 function dataByNormKey(data) {
@@ -673,9 +794,12 @@ async function appendRow(sheetName, data) {
     data = { ...data, email: data.email.toLowerCase().trim() };
   }
 
-  // Always store in memory fallback first to guarantee availability
+  // Always store in memory fallback first to guarantee availability.
+  // Upsert on the sheet's natural key, not just id/code — otherwise a second
+  // append of the same record (a retry, or a row already written to the sheet)
+  // leaves two memoryDB copies that get merged back in as duplicates.
   memoryDB[sheetName] = memoryDB[sheetName] || [];
-  const existingIdx = memoryDB[sheetName].findIndex((r) => r.id === data.id || (r.code && r.code === data.code));
+  const existingIdx = memoryDB[sheetName].findIndex((r) => sameRow(sheetName, r, data));
   if (existingIdx >= 0) {
     memoryDB[sheetName][existingIdx] = data;
   } else {

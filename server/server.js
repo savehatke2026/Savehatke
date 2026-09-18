@@ -33,6 +33,9 @@ const reviewRoutes = require('./routes/reviews');
 const testimonialRoutes = require('./routes/testimonials');
 const twoFactorRoutes = require('./routes/twoFactor');
 const paymentRoutes = require('./routes/payments');
+// Custom UPI checkout — a separate module from the Razorpay routes above, on
+// the singular path so neither flow can disturb the other.
+const upiPaymentRoutes = require('./routes/payment');
 const driveProxyRoutes = require('./routes/driveProxy');
 const backupCodeRoutes = require('./routes/backupCode');
 const sosRoutes = require('./routes/sos');
@@ -63,7 +66,16 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({
+  limit: '10mb',
+  // Keep the exact bytes of the payment webhook body: its HMAC is computed
+  // over the raw payload, so a re-serialised object would not verify.
+  verify: (req, res, buf) => {
+    if (req.originalUrl && req.originalUrl.split('?')[0] === '/api/payment/webhook') {
+      req.rawBody = Buffer.from(buf);
+    }
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Rate limiting
@@ -413,6 +425,16 @@ app.use('/api/testimonials', apiLimiter, testimonialRoutes); // homepage testimo
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
 app.use('/api/chat', maintenanceGuard, chatRoutes); // /api/chat applies its own service-level rate limits
 app.use('/api/payments', apiLimiter, maintenanceGuard, paymentRoutes); // Razorpay: /api/payments/{config,create-order,verify}
+// The gateway webhook is mounted BEFORE the guarded mount below, so it stays
+// reachable while the site is in maintenance: a confirmation that arrives
+// during a maintenance window must still be processed, or a paid order would
+// be left unsettled forever. It carries its own HMAC signature and refuses
+// every request when PAYMENT_WEBHOOK_SECRET is unset, which is why dropping
+// the maintenance guard and the general limiter here is safe.
+app.use('/api/payment/webhook', upiPaymentRoutes.webhookHandler);
+// Custom UPI checkout: /api/payment/{config,create,status,active,verify,cancel,stream}.
+// Singular path on purpose — it must not collide with the Razorpay routes above.
+app.use('/api/payment', apiLimiter, maintenanceGuard, upiPaymentRoutes);
 app.use('/api/proxy/drive', apiLimiter, maintenanceGuard, driveProxyRoutes); // Auth-protected Google Drive file streaming
 // Read-only view of the visitor's cookie consent. Mounted before the generic
 // '/api' router below so it is not shadowed by it, and left off the rate limiter

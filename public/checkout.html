@@ -231,6 +231,89 @@
     .terms-check label a { color:#4fc3f7; text-decoration:underline; text-underline-offset:2px; }
     .pay-secure-note { text-align:center; font-size:.75rem; color:#6b88aa; margin-top:10px; display:flex; align-items:center; justify-content:center; gap:5px; }
 
+    /* ── UPI PAYMENT BOX ──────────────────────────────────────────────────
+       The payment box the "Pay ₹X Securely" button opens. It reuses this
+       page's own tokens — card #0c1835, the rgba(79,195,247,.1) hairline, the
+       #00e676 → #00c853 gradient, Outfit + JetBrains Mono — so it reads as
+       part of the existing Review & Pay surface rather than a second,
+       foreign interface. */
+    .upm-overlay { position:fixed; inset:0; z-index:340; background:rgba(6,13,31,.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .3s; }
+    .upm-overlay.show { opacity:1; pointer-events:auto; }
+    .upm-box { position:relative; width:100%; max-width:396px; border-radius:20px; background:#0c1835; border:1px solid rgba(0,230,118,.2); box-shadow:0 40px 110px rgba(0,0,0,.72); padding:22px 22px 20px; text-align:center; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
+    .upm-overlay.show .upm-box { transform:scale(1) translateY(0); }
+
+    .upm-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:18px; }
+    .upm-ttl { font-weight:800; font-size:1.02rem; letter-spacing:-.01em; text-align:left; }
+    .upm-sub { font-size:.74rem; color:#6b88aa; margin-top:3px; text-align:left; }
+    /* The × that opens the "Cancel Payment?" panel. Same 32px square as the
+       page's other close buttons so it sits on the same rhythm. */
+    .upm-close { width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid rgba(79,195,247,.16); border-radius:9px; color:#8ba2c4; font-size:1.15rem; line-height:1; cursor:pointer; transition:all .22s; font-family:'Outfit',sans-serif; }
+    .upm-close:hover { background:rgba(255,107,107,.14); border-color:rgba(255,107,107,.4); color:#ff6b6b; }
+    .upm-close:disabled { opacity:.4; cursor:not-allowed; }
+
+    .upm-amt-lbl { font-size:.7rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; color:#6b88aa; }
+    .upm-amt { font-family:'JetBrains Mono',monospace; font-size:2.3rem; font-weight:800; line-height:1.15; letter-spacing:-.02em; color:#00e676; font-variant-numeric:tabular-nums; margin-top:2px; }
+
+    /* QR area — a real matrix rendered server-side, so it needs a light plate
+       to stay scannable on this dark box. */
+    .upm-qr { width:216px; height:216px; margin:18px auto 0; border-radius:14px; background:#fff; display:flex; align-items:center; justify-content:center; padding:9px; position:relative; box-shadow:0 0 0 1px rgba(0,230,118,.28), 0 14px 34px rgba(0,0,0,.4); }
+    .upm-qr img { width:100%; height:100%; display:block; }
+    .upm-qr-empty { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+    .upm-qr-skel { width:26px; height:26px; border:3px solid rgba(6,13,31,.18); border-top-color:#00a152; border-radius:50%; animation:spin .7s linear infinite; }
+
+    .upm-scan { font-size:.78rem; color:#a8c0dc; margin-top:14px; }
+    .upm-vpa { display:inline-flex; align-items:center; gap:7px; margin-top:9px; padding:6px 12px; border-radius:9999px; background:rgba(0,230,118,.09); border:1px solid rgba(0,230,118,.22); font-family:'JetBrains Mono',monospace; font-size:.76rem; color:#00e676; }
+
+    /* Countdown — driven by the server's expires_at, never a local 10:00. */
+    .upm-timer { display:flex; align-items:center; justify-content:center; gap:9px; margin-top:16px; padding:11px 0; border-top:1px solid rgba(79,195,247,.1); border-bottom:1px solid rgba(79,195,247,.1); }
+    .upm-timer-ico { font-size:.9rem; }
+    .upm-timer-val { font-family:'JetBrains Mono',monospace; font-size:1.22rem; font-weight:700; letter-spacing:.06em; color:#e2ecff; font-variant-numeric:tabular-nums; }
+    .upm-timer-lbl { font-size:.72rem; color:#6b88aa; }
+    .upm-timer.warn .upm-timer-val { color:#ffd740; }
+    .upm-timer.danger .upm-timer-val { color:#ff5252; }
+
+    .upm-note { font-size:.72rem; color:#6b88aa; margin-top:13px; line-height:1.55; }
+    .upm-check { width:100%; height:44px; margin-top:14px; border-radius:11px; border:1.5px solid rgba(79,195,247,.28); background:transparent; color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.86rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
+    .upm-check:hover:not(:disabled) { border-color:rgba(79,195,247,.55); background:rgba(79,195,247,.08); }
+    .upm-check:disabled { opacity:.5; cursor:not-allowed; }
+    .upm-check .spinner { border-color:rgba(79,195,247,.28); border-top-color:#4fc3f7; }
+
+    /* Expired / review state — covers the box and stops all interaction. */
+    .upm-state { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:26px; background:rgba(12,24,53,.975); border-radius:20px; z-index:4; }
+    .upm-state.show { display:flex; }
+    .upm-state-ico { font-size:2.1rem; }
+    .upm-state-ttl { font-weight:800; font-size:1.02rem; }
+    .upm-state-sub { font-size:.79rem; color:#8ba2c4; line-height:1.6; max-width:272px; }
+    .upm-state-btn { margin-top:6px; height:42px; padding:0 22px; border-radius:11px; border:none; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .22s; }
+    .upm-state-btn:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,230,118,.4); }
+
+    /* "Cancel Payment?" confirmation — a panel inside the box, not a second
+       modal, so the payment context stays visible behind it. */
+    .upm-cancel { position:absolute; left:0; right:0; bottom:0; z-index:6; padding:18px 20px 20px; background:#101f3f; border-top:1px solid rgba(255,107,107,.28); border-radius:0 0 20px 20px; transform:translateY(103%); transition:transform .3s cubic-bezier(.4,0,.2,1); }
+    .upm-cancel.show { transform:translateY(0); }
+    .upm-cancel-ttl { font-weight:800; font-size:.92rem; color:#ff8a8a; }
+    .upm-cancel-sub { font-size:.75rem; color:#8ba2c4; margin-top:5px; line-height:1.55; }
+    .upm-cancel-row { display:flex; gap:10px; margin-top:15px; }
+    .upm-btn { flex:1; height:43px; border-radius:11px; border:none; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .22s; }
+    .upm-btn-keep { background:transparent; border:1.5px solid rgba(79,195,247,.28); color:#e2ecff; }
+    .upm-btn-keep:hover { border-color:rgba(79,195,247,.55); background:rgba(79,195,247,.08); }
+    .upm-btn-confirm { background:linear-gradient(135deg,#ff6b6b,#e53935); color:#fff; }
+    .upm-btn-confirm:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(229,57,53,.4); }
+    .upm-btn:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
+
+    /* Tap targets — the × and the state buttons must clear 44px on touch
+       without changing how they look on desktop. */
+    @media (hover:none) {
+      .upm-close { position:relative; }
+      .upm-close::after { content:''; position:absolute; top:50%; left:50%; width:44px; height:44px; transform:translate(-50%,-50%); }
+    }
+
+    @media (max-width:420px) {
+      .upm-box { padding:20px 17px 18px; border-radius:18px; }
+      .upm-amt { font-size:2rem; }
+      .upm-qr { width:190px; height:190px; }
+    }
+
     /* SUCCESS OVERLAY */
     .success-overlay { position:fixed; inset:0; z-index:300; background:rgba(6,13,31,.96); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .35s; }
     .success-overlay.show { opacity:1; pointer-events:auto; }
@@ -583,6 +666,67 @@
   </div>
 </footer>
 
+<!-- UPI PAYMENT BOX -->
+<div class="upm-overlay" id="upiPayOverlay" role="dialog" aria-modal="true" aria-labelledby="upmTitle">
+  <div class="upm-box" id="upiPayBox">
+    <div class="upm-head">
+      <div>
+        <div class="upm-ttl" id="upmTitle">Scan &amp; Pay</div>
+        <div class="upm-sub" id="upmOrderRef">Secure UPI payment</div>
+      </div>
+      <button class="upm-close" id="upmClose" type="button" onclick="askCancelPayment()" aria-label="Cancel payment">&times;</button>
+    </div>
+
+    <div class="upm-amt-lbl">Amount to pay</div>
+    <!-- Filled from the server's amount for this order, never from the URL. -->
+    <div class="upm-amt" id="upmAmount">—</div>
+
+    <!-- QR AREA — the image is a real QR generated server-side from the UPI
+         URI. It is never constructed or edited in the browser. -->
+    <div class="upm-qr" id="upmQr">
+      <div class="upm-qr-empty" id="upmQrEmpty"><div class="upm-qr-skel"></div></div>
+    </div>
+
+    <div class="upm-scan">Scan with any UPI app — GPay, PhonePe, Paytm</div>
+    <div class="upm-vpa" id="upmVpa" style="display:none"><span>UPI</span><span id="upmVpaText">—</span></div>
+
+    <div class="upm-timer" id="upmTimer">
+      <span class="upm-timer-ico"></span>
+      <span class="upm-timer-val" id="upmTimerVal">--:--</span>
+      <span class="upm-timer-lbl">remaining</span>
+    </div>
+
+    <div class="upm-note">
+      Your coupon code unlocks automatically once the payment is verified by our server. Keep this window open.
+    </div>
+
+    <!-- Manual nudge for the buyer; the server still decides. -->
+    <button class="upm-check" id="upmCheck" type="button" onclick="checkPaymentNow()">
+      <span id="upmCheckText">I've paid — Check status</span>
+    </button>
+
+    <!-- EXPIRED / REVIEW STATE -->
+    <div class="upm-state" id="upmState">
+      <div class="upm-state-ico" id="upmStateIco"></div>
+      <div class="upm-state-ttl" id="upmStateTtl">Payment window expired</div>
+      <div class="upm-state-sub" id="upmStateSub">
+        This payment request is no longer valid. If money was deducted, contact support with your UTR.
+      </div>
+      <button class="upm-state-btn" type="button" onclick="retryUpiPayment()">Start a new payment</button>
+    </div>
+
+    <!-- "Cancel Payment?" CONFIRMATION PANEL -->
+    <div class="upm-cancel" id="upmCancelPanel">
+      <div class="upm-cancel-ttl">Cancel Payment?</div>
+      <div class="upm-cancel-sub">This payment request will be cancelled. You can start a new one anytime.</div>
+      <div class="upm-cancel-row">
+        <button class="upm-btn upm-btn-keep" id="upmKeepBtn" type="button" onclick="dismissCancelPayment()">No, keep it</button>
+        <button class="upm-btn upm-btn-confirm" id="upmConfirmBtn" type="button" onclick="confirmCancelPayment()">Yes, cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- SUCCESS OVERLAY -->
 <div class="success-overlay" id="successOverlay">
   <div class="success-box">
@@ -910,6 +1054,10 @@
     // anything else that depends on it.
     await loadRazorpayConfig();
 
+    // Pull the UPI config too. Checkout uses the custom UPI flow when the
+    // server has it configured, and the Razorpay path otherwise.
+    await loadUpiConfig();
+
     // ── Auto-fill buyer details from the logged-in user ────────────────
     // Try several common field names so this works for Google login,
     // email signup, and admin sessions alike. The .prefilled class is
@@ -971,7 +1119,562 @@
   }, { threshold: 0.08 });
   document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 
-  // --- RAZORPAY PAYMENT ---
+  // ── Payment box dismissal ──────────────────────────────────────────────
+  // Esc closes the box the same way the × does: through the cancel
+  // confirmation while a payment is live, so a stray keypress cannot abandon
+  // a payment that is about to complete.
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const overlay = document.getElementById('upiPayOverlay');
+    if (!overlay || !overlay.classList.contains('show')) return;
+    const panel = document.getElementById('upmCancelPanel');
+    if (panel && panel.classList.contains('show')) { dismissCancelPayment(); return; }
+    askCancelPayment();
+  });
+
+  // Clicking the dimmed backdrop behaves like the × as well — but only when
+  // the cancel panel is not open, so a stray click cannot dismiss it.
+  document.getElementById('upiPayOverlay')?.addEventListener('click', (e) => {
+    if (e.target !== e.currentTarget) return;
+    const panel = document.getElementById('upmCancelPanel');
+    if (panel && panel.classList.contains('show')) return;
+    askCancelPayment();
+  });
+
+  // A tab that is closed or reloaded mid-payment must not leave a dangling
+  // stream/poll behind. The server still owns the real state, so nothing is
+  // lost — the next open resumes from the same expires_at.
+  window.addEventListener('pagehide', () => {
+    stopUpiStream();
+    stopUpiPoll();
+    if (upiState.timerId) clearInterval(upiState.timerId);
+  });
+
+// ── CUSTOM UPI PAYMENT ────────────────────────────────────────────────
+  // Everything below drives the existing "Pay ₹X Securely" button. The button,
+  // the summary card and the success overlay are unchanged; this only replaces
+  // what happens after the click.
+  //
+  // The frontend never decides that a payment succeeded. It opens the box,
+  // renders the QR the server generated, runs the countdown against the
+  // server's expires_at, and then waits for the server to report PAID. There
+  // is no code path here that can unlock a coupon.
+
+  window.UPI_CONFIG = { configured: false, upiId: '', payeeName: 'SaveHatke', windowMinutes: 10 };
+  // Flipped once /api/payment/config has answered. Checkout waits for this so
+  // it never picks a flow based on a config that hasn't loaded yet.
+  let upiConfigLoaded = false;
+
+  // Live payment state for this page. `paymentId` is the handle the server
+  // owns; nothing here is authoritative.
+  const upiState = {
+    paymentId: '',
+    orderId: '',
+    amount: 0,
+    expiresAt: 0,
+    status: '',
+    timerId: null,
+    stream: null,
+    // Clock skew between this device and the server, measured from
+    // server_now on every response. The countdown subtracts it so a wrong
+    // device clock cannot expire a payment early or make it linger.
+    skewMs: 0,
+    pollId: null,
+    opening: false,
+  };
+
+  function upiEl(id) { return document.getElementById(id); }
+
+  async function loadUpiConfig() {
+    try {
+      const res = await fetch('/api/payment/config', { credentials: 'include' });
+      const data = await res.json().catch(() => ({}));
+      window.UPI_CONFIG = {
+        configured: !!data.configured,
+        upiId: data.upiId || '',
+        payeeName: data.payeeName || 'SaveHatke',
+        windowMinutes: Number(data.windowMinutes) || 10,
+      };
+    } catch (e) {
+      console.warn('Could not load UPI config:', e);
+      window.UPI_CONFIG.configured = false;
+    } finally {
+      upiConfigLoaded = true;
+    }
+  }
+
+  function authHeaders() {
+    const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : '';
+    return { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) };
+  }
+
+  /** Record the server's clock so the countdown can be corrected against it. */
+  function noteServerTime(serverNow) {
+    if (!serverNow) return;
+    const t = new Date(serverNow).getTime();
+    if (Number.isFinite(t)) upiState.skewMs = Date.now() - t;
+  }
+
+  function formatCountdown(msLeft) {
+    if (msLeft < 0) msLeft = 0;
+    const total = Math.floor(msLeft / 1000);
+    const m = Math.floor(total / 60);
+    const s = total % 60;
+    return String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0');
+  }
+
+  /**
+   * Run the countdown from the server's expires_at.
+   * Reopening the box or refreshing the page re-enters this with the SAME
+   * expires_at the server returned, so the timer resumes where it was instead
+   * of restarting at 10:00.
+   */
+  function startUpiTimer() {
+    if (upiState.timerId) clearInterval(upiState.timerId);
+
+    const tick = () => {
+      const el = upiEl('upmTimerVal');
+      const box = upiEl('upmTimer');
+      if (!el) return;
+
+      const msLeft = upiState.expiresAt - (Date.now() - upiState.skewMs);
+      el.textContent = formatCountdown(msLeft);
+
+      if (box) {
+        box.classList.toggle('warn', msLeft <= 120000 && msLeft > 30000);
+        box.classList.toggle('danger', msLeft <= 30000);
+      }
+
+      if (msLeft <= 0) {
+        clearInterval(upiState.timerId);
+        upiState.timerId = null;
+        // The server is the source of truth for expiry; ask it to confirm
+        // rather than assuming, then show whatever it reports.
+        onPaymentExpiredByClock();
+      }
+    };
+
+    tick();
+    upiState.timerId = setInterval(tick, 1000);
+  }
+
+  async function onPaymentExpiredByClock() {
+    stopUpiStream();
+    const paymentId = upiState.paymentId;
+    if (!paymentId) { showUpiState('expired'); return; }
+    try {
+      const res = await fetch('/api/payment/status?payment_id=' + encodeURIComponent(paymentId), {
+        credentials: 'include', headers: authHeaders(),
+      });
+      const data = await res.json().catch(() => ({}));
+      applyPaymentState(data);
+    } catch (e) {
+      showUpiState('expired');
+    }
+  }
+
+  /** Paint the box from a server payment payload. */
+  function applyPaymentState(data) {
+    if (!data || !data.status) {
+      showUpiState('expired');
+      return;
+    }
+
+    noteServerTime(data.server_now);
+    upiState.status = data.status;
+    if (data.payment_id) upiState.paymentId = data.payment_id;
+    if (data.order_id) upiState.orderId = data.order_id;
+    if (data.expires_at) upiState.expiresAt = new Date(data.expires_at).getTime();
+
+    // The amount shown is the server's amount for this order.
+    if (data.amount !== undefined && upiEl('upmAmount')) {
+      upiState.amount = Number(data.amount);
+      upiEl('upmAmount').textContent = '₹' + Number(data.amount).toFixed(2);
+    }
+
+    if (data.upi_id && upiEl('upmVpa')) {
+      upiEl('upmVpaText').textContent = data.upi_id;
+      upiEl('upmVpa').style.display = 'inline-flex';
+    }
+
+    if (upiEl('upmOrderRef')) {
+      upiEl('upmOrderRef').textContent = data.order_id
+        ? 'Order ' + String(data.order_id).slice(0, 8).toUpperCase()
+        : 'Secure UPI payment';
+    }
+
+    switch (data.status) {
+      case 'PENDING':
+        hideUpiState();
+        renderUpiQr(data.qr);
+        startUpiTimer();
+        break;
+
+      case 'PAID':
+        clearInterval(upiState.timerId); upiState.timerId = null;
+        stopUpiStream();
+        stopUpiPoll();
+        closeUpiBox();
+        showServerConfirmedSuccess(data);
+        break;
+
+      case 'EXPIRED':
+        clearInterval(upiState.timerId); upiState.timerId = null;
+        stopUpiStream();
+        stopUpiPoll();
+        showUpiState('expired');
+        break;
+
+      case 'REVIEW':
+        clearInterval(upiState.timerId); upiState.timerId = null;
+        stopUpiStream();
+        stopUpiPoll();
+        showUpiState('review');
+        break;
+
+      case 'CANCELLED':
+        clearInterval(upiState.timerId); upiState.timerId = null;
+        stopUpiStream();
+        stopUpiPoll();
+        closeUpiBox();
+        showToastLocal('Payment cancelled.', 'info');
+        break;
+
+      default:
+        showUpiState('expired');
+    }
+  }
+
+  function renderUpiQr(dataUrl) {
+    const host = upiEl('upmQr');
+    if (!host || !dataUrl) return;
+    host.innerHTML = '<img alt="UPI payment QR code" src="' + dataUrl + '">';
+  }
+
+  function showUpiState(kind) {
+    const state = upiEl('upmState');
+    if (!state) return;
+    const ico = upiEl('upmStateIco');
+    const ttl = upiEl('upmStateTtl');
+    const sub = upiEl('upmStateSub');
+
+    if (kind === 'review') {
+      ico.textContent = '🔎';
+      ttl.textContent = 'Payment needs review';
+      sub.textContent = 'We could not verify this payment automatically. Nothing was unlocked. Please contact support with your UTR and order reference.';
+    } else {
+      ico.textContent = '⏳';
+      ttl.textContent = 'Payment window expired';
+      sub.textContent = 'This payment request is no longer valid and the coupon was not unlocked. If money was deducted, contact support with your UTR.';
+    }
+    state.classList.add('show');
+    // Freeze every interaction: an expired request must not be payable.
+    disableUpiInteraction(true);
+  }
+
+  function hideUpiState() {
+    const state = upiEl('upmState');
+    if (state) state.classList.remove('show');
+    disableUpiInteraction(false);
+  }
+
+  function disableUpiInteraction(disabled) {
+    const close = upiEl('upmClose');
+    const check = upiEl('upmCheck');
+    if (close) close.disabled = disabled;
+    if (check) check.disabled = disabled;
+    if (disabled) dismissCancelPayment();
+  }
+
+  function openUpiBox() {
+    const overlay = upiEl('upiPayOverlay');
+    if (overlay) overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeUpiBox() {
+    const overlay = upiEl('upiPayOverlay');
+    if (overlay) overlay.classList.remove('show');
+    document.body.style.overflow = '';
+    dismissCancelPayment();
+  }
+
+  // ─ Realtime: follow the server's status for this payment ───────────────
+  // The browser cannot read the payments table directly (no Supabase key is
+  // shipped to it, and the table is RLS-locked), so the server relays changes
+  // over an authenticated stream. Every tab subscribes independently, so two
+  // tabs on one order both see the same PAID without a refresh.
+  function subscribeToPayment(paymentId) {
+    stopUpiStream();
+    if (!paymentId || typeof EventSource === 'undefined') { startUpiPoll(); return; }
+
+    let url = '/api/payment/stream?payment_id=' + encodeURIComponent(paymentId);
+    const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : '';
+    // EventSource cannot set headers, so the session cookie carries auth. A
+    // bearer-only session falls back to polling below.
+    if (!token) url += '&_=1';
+
+    let es;
+    try {
+      es = new EventSource(url, { withCredentials: true });
+    } catch (e) {
+      startUpiPoll();
+      return;
+    }
+    upiState.stream = es;
+
+    es.addEventListener('status', (ev) => {
+      try { applyPaymentState(JSON.parse(ev.data)); } catch (e) {}
+    });
+    es.addEventListener('ping', (ev) => {
+      try {
+        const d = JSON.parse(ev.data);
+        noteServerTime(d.server_now);
+        // A ping that reports the window has closed means the server agrees
+        // the payment is over even if our timer disagreed.
+        if (upiState.expiresAt && upiState.expiresAt - (Date.now() - upiState.skewMs) <= 0) {
+          onPaymentExpiredByClock();
+        }
+      } catch (e) {}
+    });
+    es.addEventListener('error', () => {
+      // Stream dropped (serverless time cap, network). Fall back to polling so
+      // the buyer still gets their PAID state without refreshing.
+      stopUpiStream();
+      startUpiPoll();
+    });
+  }
+
+  function stopUpiStream() {
+    if (upiState.stream) {
+      try { upiState.stream.close(); } catch (e) {}
+      upiState.stream = null;
+    }
+  }
+
+  // Polling fallback. Reads the same server state, so it cannot diverge from
+  // the stream — it is only a different transport.
+  function startUpiPoll() {
+    stopUpiPoll();
+    upiState.pollId = setInterval(async () => {
+      const paymentId = upiState.paymentId;
+      if (!paymentId || upiState.status !== 'PENDING') { stopUpiPoll(); return; }
+      try {
+        const res = await fetch('/api/payment/status?payment_id=' + encodeURIComponent(paymentId), {
+          credentials: 'include', headers: authHeaders(),
+        });
+        const data = await res.json().catch(() => ({}));
+        applyPaymentState(data);
+      } catch (e) {
+        // Transient network failure: keep waiting rather than showing a
+        // scary state for a payment that may well still be pending.
+      }
+    }, 5000);
+  }
+
+  function stopUpiPoll() {
+    if (upiState.pollId) { clearInterval(upiState.pollId); upiState.pollId = null; }
+  }
+
+  /** The server confirmed a real, verified payment. Reveal the code. */
+  function showServerConfirmedSuccess(data) {
+    if (data.coupon_code) {
+      currentCoupon.code = data.coupon_code;
+      const codeEl = upiEl('revealedCode');
+      if (codeEl) codeEl.textContent = data.coupon_code;
+    }
+    if (data.brand && upiEl('succBrand')) upiEl('succBrand').textContent = data.brand;
+    if (data.amount !== undefined && upiEl('succAmount')) {
+      upiEl('succAmount').textContent = '₹' + Number(data.amount).toFixed(2);
+    }
+    const email = document.getElementById('buyerEmail');
+    const confirm = upiEl('confirmEmail');
+    if (confirm) confirm.textContent = (email && email.value) || 'your email';
+    showSuccessScreen();
+  }
+
+  // ─ "Cancel Payment?" panel ─────────────────────────────────────────────
+  function askCancelPayment() {
+    if (upiState.status !== 'PENDING') {
+      // Nothing live to cancel — the × just closes.
+      closeUpiBox();
+      return;
+    }
+    const panel = upiEl('upmCancelPanel');
+    if (panel) panel.classList.add('show');
+  }
+
+  function dismissCancelPayment() {
+    const panel = upiEl('upmCancelPanel');
+    if (panel) panel.classList.remove('show');
+  }
+
+  async function confirmCancelPayment() {
+    const confirmBtn = upiEl('upmConfirmBtn');
+    const paymentId = upiState.paymentId;
+
+    if (!paymentId) { closeUpiBox(); return; }
+
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.textContent = 'Cancelling...'; }
+
+    try {
+      const res = await fetch('/api/payment/cancel', {
+        method: 'POST', credentials: 'include', headers: authHeaders(),
+        body: JSON.stringify({ payment_id: paymentId }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      // A payment that completed while the panel was open must NOT be
+      // reported as cancelled — show the truth instead.
+      if (data && data.status === 'PAID') {
+        applyPaymentState(data);
+        return;
+      }
+      if (!res.ok && !(data && data.status)) {
+        showToastLocal(data.error || 'Could not cancel the payment. Please try again.', 'error');
+        return;
+      }
+
+      upiState.status = 'CANCELLED';
+      clearInterval(upiState.timerId); upiState.timerId = null;
+      stopUpiStream();
+      stopUpiPoll();
+      closeUpiBox();
+    } catch (e) {
+      showToastLocal('Network error. Could not cancel the payment.', 'error');
+    } finally {
+      if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.textContent = 'Yes, cancel'; }
+    }
+  }
+
+  /** Leave the expired/review state and start a fresh payment window. */
+  async function retryUpiPayment() {
+    hideUpiState();
+    upiState.status = '';
+    upiState.paymentId = '';
+    if (upiEl('upmAmount')) upiEl('upmAmount').textContent = '—';
+    const host = upiEl('upmQr');
+    if (host) host.innerHTML = '<div class="upm-qr-empty"><div class="upm-qr-skel"></div></div>';
+    await startUpiPayment();
+  }
+
+  /** "I've paid — Check status": ask the server to re-verify independently. */
+  async function checkPaymentNow() {
+    const btn = upiEl('upmCheck');
+    const label = upiEl('upmCheckText');
+    const paymentId = upiState.paymentId;
+    if (!paymentId) return;
+
+    if (btn) btn.disabled = true;
+    if (label) label.textContent = 'Checking with the server...';
+
+    try {
+      const res = await fetch('/api/payment/verify', {
+        method: 'POST', credentials: 'include', headers: authHeaders(),
+        body: JSON.stringify({ payment_id: paymentId }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok && data.code === 'RATE_LIMITED') {
+        showToastLocal('Please wait a few seconds before checking again.', 'info');
+        return;
+      }
+      if (!res.ok && !data.status) {
+        showToastLocal(data.error || 'Could not check the payment right now.', 'error');
+        return;
+      }
+
+      applyPaymentState(data);
+
+      if (data.status === 'PENDING' && !data.already_paid) {
+        showToastLocal(
+          data.verification && data.verification.mailboxChecked
+            ? 'No confirmed payment found yet. If you just paid, give it a few seconds.'
+            : 'Still waiting for the payment to be confirmed.',
+          'info'
+        );
+      }
+    } catch (e) {
+      showToastLocal('Network error. Please try again.', 'error');
+    } finally {
+      if (btn) btn.disabled = false;
+      if (label) label.textContent = "I've paid — Check status";
+    }
+  }
+
+  /**
+   * Start (or resume) a UPI payment for this coupon.
+   * The server owns the amount, the order, the expiry and the QR.
+   */
+  async function startUpiPayment() {
+    if (upiState.opening) return;
+    upiState.opening = true;
+
+    const payBtn = upiEl('payBtn');
+    const payBtnText = upiEl('payBtnText');
+    const resetBtn = () => {
+      if (payBtn) payBtn.disabled = false;
+      if (payBtnText) payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
+    };
+
+    if (payBtn) payBtn.disabled = true;
+    if (payBtnText) payBtnText.innerHTML = '<div class="spinner"></div> Creating secure payment...';
+
+    // Open the box immediately with its loading state, so the click feels
+    // instant and there is never a second, competing interface.
+    upiEl('upmAmount').textContent = totalPrice ? '₹' + Number(totalPrice).toFixed(2) : '—';
+    openUpiBox();
+
+    try {
+      const res = await fetch('/api/payment/create', {
+        method: 'POST', credentials: 'include', headers: authHeaders(),
+        body: JSON.stringify({
+          couponId: currentCoupon.id,
+          buyerName: (upiEl('buyerName') || {}).value || '',
+          buyerEmail: (upiEl('buyerEmail') || {}).value || '',
+          buyerPhone: (upiEl('buyerPhone') || {}).value || '',
+          // No amount is sent: the server reads it from the coupon.
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.status) {
+        closeUpiBox();
+        resetBtn();
+        // A missing migration / missing UPI config is an operator problem, not
+        // a buyer problem — say so plainly instead of a generic failure.
+        if (data.code === 'UPI_NOT_CONFIGURED' || data.code === 'STORAGE_UNAVAILABLE') {
+          showToastLocal(data.error || 'Payments are not available right now.', 'error');
+        } else {
+          showToastLocal(data.error || 'Could not start the payment. Please try again.', 'error');
+        }
+        return;
+      }
+
+      // The user may have closed the box while we were fetching.
+      if (!upiEl('upiPayOverlay').classList.contains('show')) {
+        resetBtn();
+        return;
+      }
+
+      resetBtn();
+      applyPaymentState(data);
+
+      if (data.status === 'PENDING') {
+        subscribeToPayment(data.payment_id);
+      }
+    } catch (e) {
+      closeUpiBox();
+      resetBtn();
+      showToastLocal('Network error. Please try again.', 'error');
+    } finally {
+      upiState.opening = false;
+    }
+  }
+
+  // --- PAYMENT ENTRY POINT ---
+  // The existing button leads here. UPI is used when it is configured;
+  // otherwise the previous Razorpay/demo path runs unchanged.
   async function initiatePayment() {
     if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
       showToastLocal('Please log in to complete your purchase.', 'warning');
@@ -1010,6 +1713,42 @@
       return;
     }
 
+    // Prefer the custom UPI flow. If the server has no UPI configured, fall
+    // through to the existing Razorpay path so checkout keeps working.
+    if (upiConfigLoaded && window.UPI_CONFIG.configured) {
+      const payBtn = upiEl('payBtn');
+      const payBtnText = upiEl('payBtnText');
+      if (payBtn) payBtn.disabled = true;
+      if (payBtnText) payBtnText.innerHTML = '<div class="spinner"></div> Creating secure payment...';
+
+      // Resume an existing live window instead of minting a second one: a
+      // refresh or a reopened modal must not restart the countdown.
+      try {
+        const res = await fetch('/api/payment/active?coupon_id=' + encodeURIComponent(currentCoupon.id), {
+          credentials: 'include', headers: authHeaders(),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (data && data.already_paid) { applyPaymentState(data); if (payBtn) payBtn.disabled = false; return; }
+        if (data && data.status && data.status !== 'NONE') {
+          applyPaymentState(data);
+          openUpiBox();
+          if (data.status === 'PENDING') subscribeToPayment(data.payment_id);
+          if (payBtn) payBtn.disabled = false;
+          return;
+        }
+      } catch (e) {
+        // Nothing live (or a transient failure) — start a new one below.
+      }
+
+      await startUpiPayment();
+      return;
+    }
+
+    // ── Fallback: the original Razorpay / demo flow ──
+    await initiateRazorpayPayment();
+  }
+
+  async function initiateRazorpayPayment() {
     const payBtn = document.getElementById('payBtn');
     const payBtnText = document.getElementById('payBtnText');
     const resetBtn = () => {
@@ -1017,12 +1756,16 @@
       payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
     };
 
+    const name = document.getElementById('buyerName').value.trim();
+    const email = document.getElementById('buyerEmail').value.trim();
+    const phone = document.getElementById('buyerPhone').value.trim();
+
     // Make sure the config is loaded (in case the user clicks before the
     // /api/payments/config call resolved)
     if (!window.RAZORPAY_KEY_ID) await loadRazorpayConfig();
 
     payBtn.disabled = true;
-    payBtnText.innerHTML = '<div class="spinner"></div> Creating secure order…';
+    payBtnText.innerHTML = '<div class="spinner"></div> Creating secure order...';
 
     // 1) Ask the server to create a Razorpay order. The amount is computed
     //    server-side from the coupon's sellingPrice, so the client can't
@@ -1055,12 +1798,12 @@
     // If the server hasn't been configured with Razorpay keys yet, fall back
     // to a local demo flow so the page is still testable.
     if (!window.RAZORPAY_CONFIGURED || !orderInfo.orderId) {
-      payBtnText.innerHTML = '<div class="spinner"></div> Opening Demo Checkout…';
+      payBtnText.innerHTML = '<div class="spinner"></div> Opening Demo Checkout...';
       simulateDemoPayment(email);
       return;
     }
 
-    payBtnText.innerHTML = '<div class="spinner"></div> Opening Secure Razorpay Checkout…';
+    payBtnText.innerHTML = '<div class="spinner"></div> Opening Secure Razorpay Checkout...';
 
     // 2) Open Razorpay's hosted checkout with the order_id from the server.
     const options = {
