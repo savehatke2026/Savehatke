@@ -28,7 +28,6 @@
        (opacity, not display, so the page does not reflow when it unlocks).
        Specificity beats .fu.in on purpose; the class is removed as soon as
        the check resolves, in initSellPage at the bottom of this file. */
-    html.sell-gate-pending .how-mini,
     html.sell-gate-pending .ai-card,
     html.sell-gate-pending .stepper,
     html.sell-gate-pending .form-card { opacity: 0; pointer-events: none; }
@@ -145,38 +144,6 @@
 
     /* ── Section ── */
     .section { padding:60px 0 80px; }
-
-    /* ── How It Works Mini — REDESIGNED ── */
-    .how-mini { border-radius:20px; padding:32px 28px; background:linear-gradient(135deg,rgba(0,230,118,.06) 0%,rgba(79,195,247,.04) 100%); border:1px solid rgba(0,230,118,.15); margin-bottom:40px; }
-    .how-mini-label { font-size:.7rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase; color:#00e676; margin-bottom:20px; display:block; }
-    .how-mini-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
-    .how-mini-item {
-      position:relative;
-      background:rgba(6,13,31,.55);
-      border:1px solid rgba(79,195,247,.1);
-      border-radius:14px;
-      padding:20px 16px;
-      text-align:left;
-      transition:border-color .22s, transform .22s;
-    }
-    .how-mini-item:hover { border-color:rgba(0,230,118,.3); transform:translateY(-2px); }
-    .how-mini-step-num {
-      display:flex; align-items:center; justify-content:center;
-      width:26px; height:26px; border-radius:50%;
-      background:linear-gradient(135deg,#00e676,#00c853);
-      color:#060d1f; font-family:'JetBrains Mono',monospace;
-      font-size:.72rem; font-weight:700;
-      margin-bottom:12px;
-    }
-    .how-mini-icon { font-size:1.5rem; margin-bottom:8px; display:block; }
-    .how-mini-title { font-weight:700; color:#e2ecff; font-size:.88rem; margin-bottom:4px; line-height:1.3; }
-    .how-mini-sub { font-size:.72rem; color:#6b88aa; line-height:1.5; }
-    .how-mini-connector {
-      display:none;
-    }
-    @media(max-width:600px){
-      .how-mini-grid { grid-template-columns:1fr; gap:10px; }
-    }
 
     /* ── AI Screenshot Scanner (Fill with AI) ──
        Sits above the existing form and never replaces it: the seller can scan a
@@ -632,31 +599,6 @@
 <!-- ── MAIN CONTENT ── -->
 <main class="section">
   <div class="container-sm">
-
-    <!-- How It Works Mini — REDESIGNED -->
-    <div class="how-mini fu in">
-      <span class="how-mini-label">How it works</span>
-      <div class="how-mini-grid">
-        <div class="how-mini-item">
-          <div class="how-mini-step-num">1</div>
-          <span class="how-mini-icon">📝</span>
-          <div class="how-mini-title">Submit Codes</div>
-          <div class="how-mini-sub">Enter 1–5 coupons at once</div>
-        </div>
-        <div class="how-mini-item">
-          <div class="how-mini-step-num">2</div>
-          <span class="how-mini-icon">✅</span>
-          <div class="how-mini-title">We Verify</div>
-          <div class="how-mini-sub">Quick validation check</div>
-        </div>
-        <div class="how-mini-item">
-          <div class="how-mini-step-num">3</div>
-          <span class="how-mini-icon">💸</span>
-          <div class="how-mini-title">Get Paid ₹10 Each</div>
-          <div class="how-mini-sub">Instant to your UPI</div>
-        </div>
-      </div>
-    </div>
 
     <!-- ── AI Screenshot Scanner ──
          Optional first step: upload a coupon screenshot and let Gemini Vision
@@ -1489,27 +1431,14 @@ function renderCouponCard(id, index) {
     })
   ));
 
-  card.appendChild(fieldRow(
-    makeField({ id: 'validfrom-' + id, label: 'Valid From', type: 'date' }),
-    makeField({
-      id: 'expiry-' + id, label: 'Expiry Date & Time', type: 'datetime-local', required: true,
-      min: toLocalDateTimeValue(minExpiryAt()),
-      hint: `Must stay valid at least ${MIN_EXPIRY_DAYS} days — so ${minExpiryText()} or later`,
-    })
-  ));
-
-  card.appendChild(fieldRow(
-    makeField({
-      id: 'source-' + id, label: 'Coupon Source', kind: 'select', disabled: true,
-      value: 'user-submitted', options: [['user-submitted', 'User Submitted']],
-      hint: 'Set automatically because you are selling this coupon',
-    }),
-    makeField({
-      id: 'status-' + id, label: 'Status', kind: 'select', disabled: true,
-      value: 'pending', options: [['pending', 'Pending review']],
-      hint: 'Goes live on the marketplace once our team verifies it',
-    })
-  ));
+  // Valid From, Coupon Source and Status are no longer shown to the seller:
+  // the source and status are fixed server-side (user-submitted / pending
+  // review), and the coupon simply goes live from the moment it is verified.
+  card.appendChild(makeField({
+    id: 'expiry-' + id, label: 'Expiry Date & Time', type: 'datetime-local', required: true,
+    min: toLocalDateTimeValue(minExpiryAt()),
+    hint: `Must stay valid at least ${MIN_EXPIRY_DAYS} days — so ${minExpiryText()} or later`,
+  }));
 
   card.appendChild(makeField({
     id: 'link-' + id, label: 'Affiliate Link (optional)', type: 'url',
@@ -1688,8 +1617,7 @@ function fileToBase64(file) {
    • The image is checked before anything is filled — resolution, brightness and
      sharpness here, "is this even a coupon" on the server via the model.
    • Nothing is guessed. A field the model could not read stays empty.
-   • Selling Price, Coupon Source and Status are never AI-controlled: source and
-     status are locked by the form/server, and the price stays the seller's.
+   • Selling Price is never AI-controlled: it stays the seller's own value.
    • Low-confidence values are marked "Please verify", and the four critical
      fields must be acknowledged before the seller can reach the review step.
    • Nothing is submitted automatically. The existing Review → Submit flow runs
@@ -1718,7 +1646,6 @@ const AI_FIELD_LABELS = {
   discount_value: 'Discount Value',
   minimum_order_value: 'Minimum Order',
   original_value_or_max_discount: 'Original / Max Discount',
-  valid_from: 'Valid From',
   expiry_date: 'Expiry Date',
   expiry_time: 'Expiry Time',
   terms_and_conditions: 'Terms & Conditions',
@@ -2108,7 +2035,6 @@ function applyAiFields(fields) {
   setField('discount-' + id, 'discount_value', 'discount');
   setField('minorder-' + id, 'minimum_order_value', 'minorder');
   setField('value-' + id, 'original_value_or_max_discount', 'value');
-  setField('validfrom-' + id, 'valid_from', 'validfrom');
 
   // Expiry needs the date and the time together.
   if (val('expiry_date')) {
@@ -2205,7 +2131,7 @@ function confirmAiFields() {
 }
 
 function clearAiMarks(id) {
-  ['title', 'code', 'type', 'discount', 'minorder', 'value', 'validfrom', 'expiry', 'terms']
+  ['title', 'code', 'type', 'discount', 'minorder', 'value', 'expiry', 'terms']
     .forEach((prefix) => {
       const el = document.getElementById(prefix + '-' + id);
       if (!el) return;
@@ -2660,7 +2586,6 @@ function collectCoupons() {
       sellingPrice: val('price', id),
       minOrderValue: val('minorder', id),
       faceValue: val('value', id),
-      validFrom: val('validfrom', id),
       expiryDate: val('expiry', id),
       affiliateLink: val('link', id),
       terms: val('terms', id),
@@ -2718,13 +2643,6 @@ function validateCoupons() {
         `the coupon must stay valid at least ${MIN_EXPIRY_DAYS} days — set the expiry to ${minExpiryText()} or later.`,
         'expiry-' + c.id
       );
-    }
-
-    // Date-only value, so compare against the start of the expiry's day.
-    if (c.validFrom) {
-      const fromAt = Date.parse(c.validFrom);
-      if (!Number.isFinite(fromAt)) return fail('Valid From is not a valid date.', 'validfrom-' + c.id);
-      if (fromAt > expiryAt) return fail('Valid From is after the expiry date.', 'validfrom-' + c.id);
     }
 
     if (c.affiliateLink && !/^https?:\/\/\S+$/i.test(c.affiliateLink)) {
@@ -2807,7 +2725,6 @@ function buildReviewSummary() {
       ['Selling Price', c.sellingPrice ? '₹' + c.sellingPrice : '—'],
       ['Minimum Order', c.minOrderValue ? '₹' + c.minOrderValue : '—'],
       ['Original Value / Max Discount', c.faceValue ? '₹' + c.faceValue : '—'],
-      ['Valid From', c.validFrom ? formatReviewDate(c.validFrom) : '—'],
       ['Expiry', c.expiryDate ? formatReviewDate(c.expiryDate) : '—'],
       ['Affiliate Link', c.affiliateLink || '—'],
       ['Terms & Conditions', c.terms || '—'],
@@ -2976,7 +2893,6 @@ async function submitCoupons() {
           sellingPrice: c.sellingPrice ? Number(c.sellingPrice) : undefined,
           minOrderValue: orNone(c.minOrderValue),
           faceValue: c.faceValue ? Number(c.faceValue) : undefined,
-          validFrom: orNone(c.validFrom),
           expiryDate: orNone(c.expiryDate),
           affiliateLink: orNone(c.affiliateLink),
           terms: orNone(c.terms),
@@ -3178,11 +3094,11 @@ document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 // sell UI invisible until the check resolves, so neither the form nor the
 // locked screen flashes.
 function lockSellPage() {
-  // No seller access: replace the sell UI with the locked screen. The
-  // how-it-works card, the AI scanner, the stepper and the form card
-  // itself all describe "selling", so they go too. The locked card uses the
-  // same .form-card shell, hence the :not() guard.
-  document.querySelectorAll('.how-mini, .ai-card, .stepper, .form-card:not(.sell-locked)')
+  // No seller access: replace the sell UI with the locked screen. The AI
+  // scanner, the stepper and the form card itself all describe "selling", so
+  // they go too. The locked card uses the same .form-card shell, hence the
+  // :not() guard.
+  document.querySelectorAll('.ai-card, .stepper, .form-card:not(.sell-locked)')
     .forEach((el) => { el.style.display = 'none'; });
   const locked = document.getElementById('sellLocked');
   if (locked) locked.classList.add('show');
