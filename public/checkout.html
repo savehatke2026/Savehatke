@@ -278,6 +278,16 @@
     .upm-check:disabled { opacity:.5; cursor:not-allowed; }
     .upm-check .spinner { border-color:rgba(79,195,247,.28); border-top-color:#4fc3f7; }
 
+    /* Primary action: hand the SAME server-generated UPI URI to the device's
+       UPI app. Same 44px height, radius and palette as the rest of the box —
+       it is an addition to the existing design, not a redesign of it. */
+    .upm-open { width:100%; height:44px; margin-top:14px; border-radius:11px; border:none; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-size:.86rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
+    .upm-open:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,230,118,.4); }
+    .upm-open:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
+    /* Hidden until a PENDING payment with a URI exists, so it is never a
+       button that does nothing. */
+    .upm-open.hide { display:none; }
+
     /* Expired / review state — covers the box and stops all interaction. */
     .upm-state { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:26px; background:rgba(12,24,53,.975); border-radius:20px; z-index:4; }
     .upm-state.show { display:flex; }
@@ -700,6 +710,13 @@
       Your coupon code unlocks automatically once the payment is verified by our server. Keep this window open.
     </div>
 
+    <!-- Opens the device's UPI app with the SAME server-generated URI the QR
+         encodes — payee, amount and currency are identical by construction.
+         Hidden until a pending payment exists. -->
+    <button class="upm-open hide" id="upmOpenApp" type="button" onclick="openUpiApp()">
+      <span>📲</span> <span id="upmOpenText">Open UPI App / Pay Now</span>
+    </button>
+
     <!-- Manual nudge for the buyer; the server still decides. -->
     <button class="upm-check" id="upmCheck" type="button" onclick="checkPaymentNow()">
       <span id="upmCheckText">I've paid — Check status</span>
@@ -813,6 +830,10 @@
     category: urlParams.get('category') || '',
     title: urlParams.get('title') || '',
     price: parseFloat(urlParams.get('price')) || 0,
+    // False until /api/coupons has replaced `price` with the coupon's stored
+    // sellingPrice. Until then the price above is a URL hint and must not be
+    // sent to the payment endpoint as if it were real.
+    priceIsServer: false,
     value: urlParams.get('value') || '',
     expiry: urlParams.get('expiry') || '',
     minOrder: '',
@@ -1029,6 +1050,7 @@
       const price = Number(c.sellingPrice);
       if (Number.isFinite(price) && price > 0) {
         currentCoupon.price = price;
+        currentCoupon.priceIsServer = true;
         totalPrice = price;
       }
 
@@ -1173,6 +1195,10 @@
     amount: 0,
     expiresAt: 0,
     status: '',
+    // The server's upi:// deep link for the current payment. Used verbatim by
+    // the "Open UPI App" button so the app receives exactly the payee, amount
+    // and currency the QR carries.
+    upiUri: '',
     timerId: null,
     stream: null,
     // Clock skew between this device and the server, measured from
@@ -1303,6 +1329,10 @@
         : 'Secure UPI payment';
     }
 
+    // The deep link is only actionable while the request is still payable, so
+    // the button follows the status rather than the payload's presence.
+    updateOpenAppButton(data.status === 'PENDING' ? data.upi_uri || '' : '');
+
     switch (data.status) {
       case 'PENDING':
         hideUpiState();
@@ -1351,6 +1381,51 @@
     host.innerHTML = '<img alt="UPI payment QR code" src="' + dataUrl + '">';
   }
 
+  /**
+   * Reveal the "Open UPI App / Pay Now" button only while a payable deep link
+   * exists. A button that silently does nothing is worse than no button.
+   */
+  function updateOpenAppButton(uri) {
+    upiState.upiUri = String(uri || '');
+    const btn = upiEl('upmOpenApp');
+    if (!btn) return;
+    btn.classList.toggle('hide', !upiState.upiUri);
+    btn.disabled = !upiState.upiUri;
+  }
+
+  /**
+   * Hand the server's UPI URI to the device. It is the SAME string the QR
+   * encodes, so the app is asked for the identical payee, amount and currency
+   * — there is no second, client-built link that could drift from the QR.
+   *
+   * If nothing on the device handles upi:// the page simply stays visible. A
+   * short timer detects that and points the buyer at the QR, rather than
+   * leaving them tapping a button that appears to do nothing.
+   */
+  function openUpiApp() {
+    if (!upiState.upiUri) return;
+
+    let left = false;
+    const markLeft = () => { left = true; };
+    document.addEventListener('visibilitychange', markLeft, { once: true });
+    window.addEventListener('pagehide', markLeft, { once: true });
+
+    try {
+      window.location.href = upiState.upiUri;
+    } catch (e) {
+      showToastLocal('Could not open a UPI app. Please scan the QR code instead.', 'warning');
+      return;
+    }
+
+    setTimeout(() => {
+      document.removeEventListener('visibilitychange', markLeft);
+      window.removeEventListener('pagehide', markLeft);
+      if (!left && document.visibilityState === 'visible') {
+        showToastLocal('No UPI app opened. Scan the QR code above with any UPI app.', 'info');
+      }
+    }, 1800);
+  }
+
   function showUpiState(kind) {
     const state = upiEl('upmState');
     if (!state) return;
@@ -1381,8 +1456,12 @@
   function disableUpiInteraction(disabled) {
     const close = upiEl('upmClose');
     const check = upiEl('upmCheck');
+    const open = upiEl('upmOpenApp');
     if (close) close.disabled = disabled;
     if (check) check.disabled = disabled;
+    // An expired request must not still offer a payable deep link. Re-enabling
+    // is only meaningful while a URI is actually present.
+    if (open) open.disabled = disabled || !upiState.upiUri;
     if (disabled) dismissCancelPayment();
   }
 
@@ -1396,6 +1475,8 @@
     const overlay = upiEl('upiPayOverlay');
     if (overlay) overlay.classList.remove('show');
     document.body.style.overflow = '';
+    // Never leave a payable deep link behind a closed box.
+    updateOpenAppButton('');
     dismissCancelPayment();
   }
 
@@ -1630,10 +1711,15 @@
         method: 'POST', credentials: 'include', headers: authHeaders(),
         body: JSON.stringify({
           couponId: currentCoupon.id,
+          // The amount this checkout is showing. Sent only once it came from
+          // /api/coupons rather than the ?price= URL hint; the server validates
+          // it and cross-checks it against the coupon's stored price, so a
+          // tampered value is refused instead of honoured. If it is omitted the
+          // server simply uses the coupon's own price.
+          ...(currentCoupon.priceIsServer ? { amount: Number(totalPrice) } : {}),
           buyerName: (upiEl('buyerName') || {}).value || '',
           buyerEmail: (upiEl('buyerEmail') || {}).value || '',
           buyerPhone: (upiEl('buyerPhone') || {}).value || '',
-          // No amount is sent: the server reads it from the coupon.
         }),
       });
       const data = await res.json().catch(() => ({}));

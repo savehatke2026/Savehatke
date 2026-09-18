@@ -372,18 +372,50 @@ function decodeDataUrl(dataUrl) {
   process.env.UPI_PAYEE_NAME = process.env.UPI_PAYEE_NAME || 'SaveHatke';
   await start();
 
+  const PAYEE = upi.getPayee();
+  // The receiving VPA is configuration, not a constant. Fixtures quote it so
+  // the suite exercises whatever UPI_ID is actually configured, instead of
+  // failing the moment a real VPA replaces the placeholder.
+  const VPA = PAYEE.upiId;
+
+  // Captured BEFORE section 11 replaces the env var with a throwaway test
+  // secret, so the leak checks below assert against the value that is really
+  // configured. Held in memory only — never printed.
+  const REAL_WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET || '';
+
   // ─────────────────────────────────────────────────────────────────────
   head('1. UPI URI construction (requirement 7)');
   const uri = upi.buildUpiUri({ amount: 37, orderCode: 'SH-ABC234', paymentId: 'pay_x' });
   check('starts with upi://pay?', uri.startsWith('upi://pay?'), uri);
-  check('carries pa= (payee VPA)', /[?&]pa=savehatke%40fam|[?&]pa=savehatke@fam/.test(uri), uri);
-  check('carries pn= (payee name)', /[?&]pn=SaveHatke/.test(uri), uri);
+  check('carries pa= (payee VPA)', uri.includes('pa=' + encodeURIComponent(PAYEE.upiId)), uri);
+  check('carries pn= (payee name)', uri.includes('pn=' + encodeURIComponent(PAYEE.payeeName)), uri);
   check('carries am=37.00 exactly two decimals', /[?&]am=37\.00(&|$)/.test(uri), uri);
   check('carries cu=INR', /[?&]cu=INR/.test(uri), uri);
-  check('VPA @ is not percent-encoded', uri.includes('savehatke@fam'), uri);
+  check("VPA '@' is percent-encoded as %40", uri.includes('%40') && !/[?&]pa=[^&]*@/.test(uri), uri);
   check('no literal + for spaces', !uri.includes('+'), uri);
   check('amount is formatted, not raw: 37.5 -> 37.50',
     /[?&]am=37\.50(&|$)/.test(upi.buildUpiUri({ amount: 37.5, orderCode: 'SH-ABC234' })));
+
+  // The four base parameters are the WHOLE link when no order context exists.
+  // This is the exact shape the spec asks for, with no extra parameters.
+  const bare299 = upi.buildUpiUri({ amount: 299 });
+  const expectedBare299 =
+    'upi://pay?pa=' + encodeURIComponent(PAYEE.upiId) +
+    '&pn=' + encodeURIComponent(PAYEE.payeeName) +
+    '&am=299.00&cu=INR';
+  check('₹299 with no order context is exactly the 4 spec parameters',
+    bare299 === expectedBare299, bare299);
+
+  if (PAYEE.upiId === '810054436@fam' && PAYEE.payeeName === 'Rupayan Das') {
+    check('₹299 matches the literal string given in the spec',
+      bare299 === 'upi://pay?pa=810054436%40fam&pn=Rupayan%20Das&am=299.00&cu=INR', bare299);
+    check('₹99 matches the literal string given in the spec',
+      upi.buildUpiUri({ amount: 99 }) === 'upi://pay?pa=810054436%40fam&pn=Rupayan%20Das&am=99.00&cu=INR',
+      upi.buildUpiUri({ amount: 99 }));
+  } else {
+    skip('literal spec URI string', 'configured payee is ' + PAYEE.upiId + ' / ' + PAYEE.payeeName);
+  }
+
   check('parseAmount rejects 0', upi.parseAmount(0) === null);
   check('parseAmount rejects negatives', upi.parseAmount(-5) === null);
   check('parseAmount rejects non-numeric', upi.parseAmount('abc') === null);
@@ -392,10 +424,36 @@ function decodeDataUrl(dataUrl) {
   check('isConfigured() true with a valid VPA', upi.isConfigured() === true);
 
   // ─────────────────────────────────────────────────────────────────────
-  head('2. QR encodes the real amount — ₹1, ₹10, ₹37, ₹100, ₹250, ₹500 (requirement 30)');
-  const AMOUNTS = [1, 10, 37, 100, 250, 500];
+  head('1b. Amount validation — the gate in front of every collect request');
+  const MAX = Number(process.env.PAYMENT_MAX_AMOUNT || 100000);
+  check('PAYMENT_MAX_AMOUNT is configured', Number.isFinite(MAX) && MAX > 0, String(MAX));
+
+  for (const bad of [0, -5, -0.01, 'abc', '', null, undefined, true, false, {}, [], NaN]) {
+    const r = upi.validateAmount(bad);
+    // JSON.stringify(NaN) and JSON.stringify(undefined) are both "null" /
+    // undefined, so label those two explicitly to keep the log unambiguous.
+    const label = Number.isNaN(bad) ? 'NaN' : bad === undefined ? 'undefined' : JSON.stringify(bad);
+    check('rejects ' + label + ' as INVALID_AMOUNT',
+      r.ok === false && r.code === 'INVALID_AMOUNT', JSON.stringify(r));
+  }
+  check('rejects 0.001 (rounds below one paise)', upi.validateAmount(0.001).code === 'INVALID_AMOUNT');
+  check('rejects MAX+0.01 as AMOUNT_TOO_LARGE',
+    upi.validateAmount(MAX + 0.01).code === 'AMOUNT_TOO_LARGE');
+  check('rejects an absurd amount as AMOUNT_TOO_LARGE',
+    upi.validateAmount(1e9).code === 'AMOUNT_TOO_LARGE');
+  check('the TOO_LARGE rejection reports the ceiling', upi.validateAmount(MAX + 1).max === MAX);
+  check('accepts exactly MAX (boundary is inclusive)', upi.validateAmount(MAX).ok === true);
+  check('accepts a numeric string', upi.validateAmount('299').ok === true);
+  check('accepts a string with whitespace', upi.validateAmount('  12  ').amount === 12);
+  check('accepts a fractional amount', upi.validateAmount(299.5).amount === 299.5);
+  check('never returns a value above the ceiling',
+    [MAX, MAX + 1, 1e9].every((v) => { const r = upi.validateAmount(v); return !r.ok || r.amount <= MAX; }));
+
+  // ─────────────────────────────────────────────────────────────────────
+  head('2. QR encodes the real amount — ₹1 … ₹999 (requirement 30)');
+  const AMOUNTS = [1, 10, 37, 99, 149, 250, 299, 499, 500, 999];
   for (const amount of AMOUNTS) {
-    const built = upi.buildUpiUri({ amount, orderCode: 'SH-' + String(amount).padStart(2, '0') + '234', paymentId: 'pay_' + amount });
+    const built = upi.buildUpiUri({ amount, orderCode: 'SH-' + String(amount).padStart(3, '0') + '234', paymentId: 'pay_' + amount });
     let dataUrl;
     try {
       dataUrl = await upi.generateQrPngDataUrl(built);
@@ -422,6 +480,12 @@ function decodeDataUrl(dataUrl) {
       a !== b && /am=1\.00/.test(a) && /am=10\.00/.test(b), `${a} vs ${b}`);
   }
 
+  // The QR must be big enough to scan comfortably from a phone screen.
+  const qrPng = PNG.sync.read(Buffer.from(
+    (await upi.generateQrPngDataUrl(bare299)).split(',')[1], 'base64'));
+  check('QR renders at least 1024px wide (high resolution)',
+    qrPng.width >= 1024 && qrPng.height >= 1024, qrPng.width + 'x' + qrPng.height);
+
   // ─────────────────────────────────────────────────────────────────────
   head('3. POST /api/payment/create — auth, amount authority, duplicate clicks/tabs');
   const noAuth = await api('POST', '/api/payment/create', { body: { couponId: 'coupon-x' } });
@@ -446,11 +510,88 @@ function decodeDataUrl(dataUrl) {
     check('the QR in the create response carries am=37.00', /[?&]am=37\.00(&|$)/.test(decoded || ''), decoded || 'decode failed');
   }
 
-  const bodyAmount = await api('POST', '/api/payment/create', {
-    token: 'Bearer tok-user-2', body: { couponId: addCoupon({ price: '250' }).id, amount: 1 },
+  // ── The amount contract ────────────────────────────────────────────────
+  // The checkout sends the amount it is displaying. It is validated as
+  // untrusted input, and when a coupon is referenced that coupon's own price
+  // is authoritative — a tampered amount is REFUSED, never silently honoured.
+  const tamperCoupon = addCoupon({ price: '250' });
+  const tampered = await api('POST', '/api/payment/create', {
+    token: 'Bearer tok-user-2', body: { couponId: tamperCoupon.id, amount: 1 },
   });
-  check('a frontend-supplied amount is IGNORED (asked ₹1 for a ₹250 coupon, got ₹250)',
-    bodyAmount.json?.amount === 250, JSON.stringify(bodyAmount.json?.amount));
+  check('a TAMPERED amount (₹1 for a ₹250 coupon) is refused with 409 AMOUNT_MISMATCH',
+    tampered.status === 409 && tampered.json?.code === 'AMOUNT_MISMATCH',
+    String(tampered.status) + ' ' + JSON.stringify(tampered.json).slice(0, 140));
+  check('the refusal reports the coupon\'s real price', tampered.json?.expected === 250,
+    JSON.stringify(tampered.json?.expected));
+  check('the tampered request created no payment',
+    (await store.findLivePaymentForUserCoupon('user-2', tamperCoupon.id)) === null);
+  check('the coupon is still available after the tampered attempt', tamperCoupon.status === 'available');
+
+  const matching = await api('POST', '/api/payment/create', {
+    token: 'Bearer tok-user-2', body: { couponId: tamperCoupon.id, amount: 250 },
+  });
+  check('a MATCHING amount is accepted', matching.status === 200 && matching.json?.amount === 250,
+    String(matching.status) + ' ' + JSON.stringify(matching.json).slice(0, 140));
+  check('the settled amount is the coupon price, never the body value',
+    matching.json?.amount === 250 && /[?&]am=250\.00(&|$)/.test(matching.json?.upi_uri || ''),
+    matching.json?.upi_uri);
+
+  const tooBig = await api('POST', '/api/payment/create', {
+    token: 'Bearer tok-user-2', body: { couponId: addCoupon({ price: '250' }).id, amount: MAX + 1 },
+  });
+  check('an amount above PAYMENT_MAX_AMOUNT is refused with 400 AMOUNT_TOO_LARGE',
+    tooBig.status === 400 && tooBig.json?.code === 'AMOUNT_TOO_LARGE',
+    String(tooBig.status) + ' ' + JSON.stringify(tooBig.json).slice(0, 140));
+
+  const notNumeric = await api('POST', '/api/payment/create', {
+    token: 'Bearer tok-user-2', body: { couponId: addCoupon({ price: '250' }).id, amount: 'abc' },
+  });
+  check('a non-numeric amount is refused with 400 INVALID_AMOUNT',
+    notNumeric.status === 400 && notNumeric.json?.code === 'INVALID_AMOUNT',
+    String(notNumeric.status) + ' ' + JSON.stringify(notNumeric.json).slice(0, 140));
+
+  const negative = await api('POST', '/api/payment/create', {
+    token: 'Bearer tok-user-2', body: { couponId: addCoupon({ price: '250' }).id, amount: -100 },
+  });
+  check('a negative amount is refused with 400 INVALID_AMOUNT',
+    negative.status === 400 && negative.json?.code === 'INVALID_AMOUNT',
+    String(negative.status) + ' ' + JSON.stringify(negative.json).slice(0, 140));
+
+  // Coupon-less: the validated amount IS the whole request.
+  const openAmount = await api('POST', '/api/payment/create', {
+    token: 'Bearer tok-user-2', body: { amount: 299 },
+  });
+  check('a coupon-less { amount: 299 } request is accepted', openAmount.status === 200,
+    String(openAmount.status) + ' ' + JSON.stringify(openAmount.json).slice(0, 140));
+  check('the coupon-less payment carries the requested amount', openAmount.json?.amount === 299,
+    JSON.stringify(openAmount.json?.amount));
+  // The route always attaches a reconciliation correlator: `tr` (and `tn`)
+  // carry the order code, which is what lets the verifier tie an incoming
+  // credit to THIS payment. Without it a coupon-less credit could only ever be
+  // flagged for review. The four spec parameters still lead the link, and
+  // payee / amount / currency are untouched by the extras.
+  const openUri = openAmount.json?.upi_uri || '';
+  check('the coupon-less UPI URI leads with exactly the 4 spec parameters in order',
+    /^upi:\/\/pay\?pa=[^&]+&pn=[^&]+&am=299\.00&cu=INR(&|$)/.test(openUri), openUri);
+  check('the coupon-less URI adds nothing beyond the tr/tn correlator',
+    /^upi:\/\/pay\?pa=[^&]+&pn=[^&]+&am=299\.00&cu=INR(&tr=[^&]*&tn=[^&]*)?$/.test(openUri), openUri);
+  check('the coupon-less URI carries am=299.00 exactly', /[?&]am=299\.00(&|$)/.test(openUri), openUri);
+  check('the coupon-less URI carries cu=INR', /[?&]cu=INR/.test(openUri), openUri);
+  check('the coupon-less request returns a real QR',
+    /^data:image\/png;base64,/.test(openAmount.json?.qr || ''));
+  if (jsqr) {
+    check('the coupon-less QR encodes ₹299',
+      /[?&]am=299\.00(&|$)/.test(decodeDataUrl(openAmount.json?.qr) || ''),
+      decodeDataUrl(openAmount.json?.qr) || 'decode failed');
+  } else {
+    skip('the coupon-less QR encodes ₹299', 'jsqr not installed');
+  }
+
+  const noAmountNoCoupon = await api('POST', '/api/payment/create', {
+    token: 'Bearer tok-user-2', body: {},
+  });
+  check('neither amount nor couponId is refused with 400',
+    noAmountNoCoupon.status === 400, String(noAmountNoCoupon.status));
 
   const click2 = await api('POST', '/api/payment/create', { token: 'Bearer tok-user-1', body: { couponId: c37.id } });
   check('duplicate click reuses the same payment', click2.json?.payment_id === created.json.payment_id);
@@ -580,7 +721,7 @@ function decodeDataUrl(dataUrl) {
   // subject quoting the right figure would make this fixture self-defeating.
   const wrongAmount = verifier.buildCandidateFromEmail({
     ...baseMail, messageId: 'm-wrong-amt', subject: 'You have received ₹99.00',
-    body: `You have received ₹99.00 to savehatke@fam. UTR 412345678902. ${orderCode}`,
+    body: `You have received ₹99.00 to ${VPA}. UTR 412345678902. ${orderCode}`,
   });
   const wrongVerdict = await verifier.processCandidate(wrongAmount);
   check('email claiming the WRONG amount is ignored, not settled',
@@ -591,7 +732,7 @@ function decodeDataUrl(dataUrl) {
 
   const noCorrelator = verifier.buildCandidateFromEmail({
     ...baseMail, messageId: 'm-no-ref',
-    body: 'You have received ₹37.00 to savehatke@fam from someone. Thanks.',
+    body: 'You have received ₹37.00 to ' + VPA + ' from someone. Thanks.',
   });
   const noCorrVerdict = await verifier.processCandidate(noCorrelator);
   check('right amount + right payee but NO order reference / transaction id → review, not settled',
@@ -599,7 +740,7 @@ function decodeDataUrl(dataUrl) {
 
   const debit = verifier.buildCandidateFromEmail({
     ...baseMail, messageId: 'm-debit',
-    body: `You paid ₹37.00 to savehatke@fam. UTR 412345678903. ${orderCode}`,
+    body: `You paid ₹37.00 to ${VPA}. UTR 412345678903. ${orderCode}`,
   });
   const debitVerdict = await verifier.processCandidate(debit);
   check('an outgoing "You paid" notification is never treated as a credit',
@@ -617,7 +758,7 @@ function decodeDataUrl(dataUrl) {
   head('9. Verified settlement (requirements 17, 19, 20, 21)');
   const good = verifier.buildCandidateFromEmail({
     ...baseMail, messageId: 'm-good',
-    body: `You have received ₹37.00 to savehatke@fam from rahul@okhdfcbank. UTR 412345678905. Ref ${orderCode}`,
+    body: `You have received ₹37.00 to ${VPA} from rahul@okhdfcbank. UTR 412345678905. Ref ${orderCode}`,
   });
   const goodVerdict = await verifier.processCandidate(good);
   check('a fully matching credit notification settles the payment',
@@ -661,13 +802,13 @@ function decodeDataUrl(dataUrl) {
 
   const first = await verifier.processCandidate(verifier.buildCandidateFromEmail({
     messageId: 'm-replay-1', from: 'no-reply@famapp.in', subject: 'You have received ₹37.00', date: new Date().toISOString(),
-    body: `You have received ₹37.00 to savehatke@fam from rahul@okhdfcbank. UTR 555555555555. Ref ${o1}`,
+    body: `You have received ₹37.00 to ${VPA} from rahul@okhdfcbank. UTR 555555555555. Ref ${o1}`,
   }));
   check('first settlement succeeds', first.action === 'settled', JSON.stringify(first).slice(0, 200));
 
   const replay = await verifier.processCandidate(verifier.buildCandidateFromEmail({
     messageId: 'm-replay-2', from: 'no-reply@famapp.in', subject: 'You have received ₹37.00', date: new Date().toISOString(),
-    body: 'You have received ₹37.00 to savehatke@fam from rahul@okhdfcbank. UTR 555555555555. Ref ' +
+    body: 'You have received ₹37.00 to ' + VPA + ' from rahul@okhdfcbank. UTR 555555555555. Ref ' +
       orderForPayment(p2.json.payment_id).order_code,
   }));
   check('the SAME UTR cannot settle a second order', replay.action !== 'settled', JSON.stringify(replay).slice(0, 240));
@@ -693,7 +834,7 @@ function decodeDataUrl(dataUrl) {
   const payload = {
     status: 'success', amount: 250, currency: 'INR',
     transactionId: 'WEBHOOK-TXN-9911', utr: 'WEBHOOK-TXN-9911',
-    payeeVpa: 'savehatke@fam', reference: wOrder, occurredAt: new Date().toISOString(),
+    payeeVpa: VPA, reference: wOrder, occurredAt: new Date().toISOString(),
   };
   const rawBody = JSON.stringify(payload);
   const sig = crypto.createHmac('sha256', 'test-webhook-secret').update(rawBody).digest('hex');
@@ -751,6 +892,48 @@ function decodeDataUrl(dataUrl) {
     !JSON.stringify(cfg.json).includes('test-webhook-secret') && cfg.json?.windowMinutes === 10);
 
   // ─────────────────────────────────────────────────────────────────────
+  head('12b. Currency gate, and the webhook secret never leaves the server');
+  // Only rupees may settle a rupee order: ₹150 and 150 USD are not the same
+  // amount of money, so a non-INR credit must never unlock anything.
+  const fxCoupon = addCoupon({ price: '150' });
+  const fxPay = await api('POST', '/api/payment/create', { token: 'Bearer tok-user-1', body: { couponId: fxCoupon.id } });
+  const fxOrder = orderForPayment(fxPay.json.payment_id).order_code;
+  const fxVerdict = await verifier.processCandidate(verifier.buildCandidateFromWebhook({
+    status: 'success', amount: 150, currency: 'USD',
+    transactionId: 'FX-TXN-0001', utr: 'FX-TXN-0001',
+    payeeVpa: VPA, reference: fxOrder, occurredAt: new Date().toISOString(),
+  }));
+  check('a non-INR credit does not settle an INR order',
+    fxVerdict.action !== 'settled', JSON.stringify(fxVerdict).slice(0, 200));
+  check('the non-INR notification is recorded as IGNORED',
+    fxVerdict.action === 'ignored', JSON.stringify(fxVerdict.action));
+  check('the payment is still PENDING after the non-INR credit',
+    payRow(fxPay.json.payment_id)?.status === 'PENDING');
+  check('the coupon is still locked after the non-INR credit', fxCoupon.status === 'available');
+
+  check('a webhook secret is configured', REAL_WEBHOOK_SECRET.length > 0,
+    REAL_WEBHOOK_SECRET.length ? 'set (' + REAL_WEBHOOK_SECRET.length + ' chars)' : 'NOT SET');
+
+  const secretProbeResponses = [
+    await api('GET', '/api/payment/config'),
+    await api('GET', '/api/payment/status?payment_id=' + fxPay.json.payment_id, { token: 'Bearer tok-user-1' }),
+    await api('GET', '/api/payment/active?coupon_id=' + fxCoupon.id, { token: 'Bearer tok-user-1' }),
+    await api('POST', '/api/payment/verify', { token: 'Bearer tok-user-1', body: { payment_id: fxPay.json.payment_id } }),
+    fxPay,
+  ];
+  const secretLeaks = secretProbeResponses.filter(
+    (r) => REAL_WEBHOOK_SECRET && JSON.stringify(r.json || {}).includes(REAL_WEBHOOK_SECRET)
+  );
+  check('the configured webhook secret is never echoed by any endpoint',
+    secretLeaks.length === 0,
+    secretLeaks.length ? 'leaked in ' + secretLeaks.length + ' response(s)' : '');
+  check('no response names an env var that holds a secret',
+    !secretProbeResponses.some((r) =>
+      /PAYMENT_WEBHOOK_SECRET|PAYMENT_MAIL_|GMAIL_REFRESH|SERVICE_KEY/.test(JSON.stringify(r.json || {}))));
+  check('the receiving VPA is exposed (it is printed in the QR anyway) but the secret is not',
+    JSON.stringify(cfg.json || {}).includes(VPA));
+
+  // ─────────────────────────────────────────────────────────────────────
   head('13. Realtime stream — every tab sees the same backend status (requirements 22, 23)');
   const sCoupon = addCoupon({ price: '500' });
   const sPay = await api('POST', '/api/payment/create', { token: 'Bearer tok-user-1', body: { couponId: sCoupon.id } });
@@ -775,6 +958,8 @@ function decodeDataUrl(dataUrl) {
   check('the stream pushes the current status immediately', /event: status/.test(streamBody.buf || ''), (streamBody.buf || '').slice(0, 120));
   check('the pushed payload carries the payment_id', (streamBody.buf || '').includes(sPay.json.payment_id));
   check('the pushed payload carries expires_at (so the countdown is server-driven)', /expires_at/.test(streamBody.buf || ''));
+  check('the stream never carries the webhook secret',
+    !REAL_WEBHOOK_SECRET || !(streamBody.buf || '').includes(REAL_WEBHOOK_SECRET));
 
   const streamNoAuth = await fetch(base + '/api/payment/stream?payment_id=' + sPay.json.payment_id);
   check('the stream refuses an unauthenticated subscriber', streamNoAuth.status === 404 || streamNoAuth.status === 401, String(streamNoAuth.status));

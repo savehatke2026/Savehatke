@@ -298,6 +298,28 @@ async function findLivePaymentForUserCoupon(userId, couponId) {
   return fromPayment(mine[0]);
 }
 
+/**
+ * A live payment owned by this user for the same amount and NO coupon.
+ *
+ * Coupon-less payments cannot reuse findLivePaymentForUserCoupon: an empty
+ * coupon_id matches every other coupon-less row for that user, so two
+ * unrelated "pay ₹X" intents would collapse into one. Matching on the amount
+ * too keeps the reuse correct — a second click for the same amount resumes
+ * the existing window instead of opening a competing one, while a different
+ * amount gets its own.
+ */
+async function findLiveOpenPayment(userId, amount) {
+  const rows = await rowsCached(PAYMENTS);
+  const mine = rows.filter((r) =>
+    r.status === 'PENDING' &&
+    String(r.user_id) === String(userId) &&
+    !String(r.coupon_id || '') &&
+    moneyEquals(r.amount, amount));
+  if (!mine.length) return null;
+  mine.sort((a, b) => toTime(b.created_at) - toTime(a.created_at));
+  return fromPayment(mine[0]);
+}
+
 /** True when this transaction id / UTR already settled some payment. */
 async function isTransactionUsed({ transactionId = '', utr = '' } = {}) {
   if (!transactionId && !utr) return false;
@@ -926,6 +948,7 @@ module.exports = {
   findLivePaymentForOrder,
   findLatestPaymentForOrder,
   findLivePaymentForUserCoupon,
+  findLiveOpenPayment,
   isTransactionUsed,
   findPaymentByTransaction,
   findPaidPaymentForBuyer,

@@ -21,11 +21,6 @@
 
 const QRCode = require('qrcode');
 
-// Defaults keep the flow usable in a dev environment; production must set
-// both variables (see isConfigured()).
-const DEFAULT_UPI_ID = process.env.UPI_ID || '';
-const DEFAULT_PAYEE_NAME = process.env.UPI_PAYEE_NAME || 'SaveHatke';
-
 // UPI requires exactly two decimal places. Anything else (37, 37.5, "37.00")
 // must be normalised before it reaches the URI.
 function formatAmount(amount) {
@@ -54,9 +49,67 @@ function parseAmount(value) {
   return paise / 100;
 }
 
+/**
+ * Validate an amount supplied by the client.
+ *
+ * The checkout sends the amount it is showing, so this is the gate that stops
+ * a tampered or fat-fingered value from ever reaching a collect request. It
+ * deliberately distinguishes the two failure modes so the caller can return a
+ * precise error instead of one generic rejection:
+ *
+ *   INVALID_AMOUNT   — not numeric, not finite, zero or negative
+ *   AMOUNT_TOO_LARGE — valid money, but above PAYMENT_MAX_AMOUNT
+ *
+ * Returns { ok: true, amount } on success, or { ok: false, code, error }.
+ */
+function validateAmount(value) {
+  if (value === null || value === undefined || value === '') {
+    return { ok: false, code: 'INVALID_AMOUNT', error: 'amount is required.' };
+  }
+
+  // Reject anything that is not a plain number. Number("") is 0 and
+  // Number("  ") is 0, so the emptiness check above runs first; Number(true)
+  // is 1 and Number([]) is 0, so objects/booleans are refused explicitly.
+  if (typeof value === 'boolean' || typeof value === 'object') {
+    return { ok: false, code: 'INVALID_AMOUNT', error: 'amount must be a number.' };
+  }
+  const n = typeof value === 'number' ? value : Number(String(value).trim());
+  if (!Number.isFinite(n)) {
+    return { ok: false, code: 'INVALID_AMOUNT', error: 'amount must be a valid number.' };
+  }
+  if (n <= 0) {
+    return { ok: false, code: 'INVALID_AMOUNT', error: 'amount must be greater than zero.' };
+  }
+
+  // Work in paise so 0.001 cannot round its way past the floor.
+  const paise = Math.round(n * 100);
+  if (paise <= 0) {
+    return { ok: false, code: 'INVALID_AMOUNT', error: 'amount must be greater than zero.' };
+  }
+
+  const max = Number(process.env.PAYMENT_MAX_AMOUNT || 100000);
+  if (Number.isFinite(max) && max > 0 && paise / 100 > max) {
+    return {
+      ok: false,
+      code: 'AMOUNT_TOO_LARGE',
+      error: `amount must not exceed ₹${max.toFixed(2)}.`,
+      max,
+    };
+  }
+
+  return { ok: true, amount: paise / 100 };
+}
+
+/**
+ * The receiving VPA and display name, read from the environment on every call.
+ *
+ * Deliberately NOT cached at module load: a cached copy would keep serving a
+ * stale VPA after a config change, and would make an unconfigured process look
+ * configured — which is precisely the failure isConfigured() exists to catch.
+ */
 function getPayee() {
-  const upiId = String(process.env.UPI_ID || DEFAULT_UPI_ID || '').trim();
-  const payeeName = String(process.env.UPI_PAYEE_NAME || DEFAULT_PAYEE_NAME || '').trim() || 'SaveHatke';
+  const upiId = String(process.env.UPI_ID || '').trim();
+  const payeeName = String(process.env.UPI_PAYEE_NAME || '').trim() || 'SaveHatke';
   return { upiId, payeeName, configured: /^[\w.\-]{2,}@[a-zA-Z]{2,}$/.test(upiId) };
 }
 
@@ -70,11 +123,14 @@ function isConfigured() {
  * Format: upi://pay?pa=UPI_ID&pn=PAYEE_NAME&am=AMOUNT&cu=INR
  * `am` is always exactly two decimal places.
  *
- * `tr` (transaction reference) and `tn` (note) make the resulting payment
- * matchable later: when the confirmation arrives it carries the same
- * reference back, which is what lets the verifier tie a bank credit to one
- * specific order instead of guessing. The browser never supplies either —
- * both are generated here from the server's own payment id / order code.
+ * The four base parameters are the whole link when there is no order context:
+ *
+ *   upi://pay?pa=810054436%40fam&pn=Rupayan%20Das&am=299.00&cu=INR
+ *
+ * `tr` (transaction reference) and `tn` (note) are appended ONLY when an
+ * order or payment id exists, because they are what let the verifier tie a
+ * bank credit back to one specific order. Neither is ever supplied by the
+ * browser — both are generated server-side.
  */
 function buildUpiUri({ upiId, payeeName, amount, currency = 'INR', orderCode = '', paymentId = '' }) {
   const { upiId: fallbackId, payeeName: fallbackName } = getPayee();
@@ -93,30 +149,32 @@ function buildUpiUri({ upiId, payeeName, amount, currency = 'INR', orderCode = '
   // Short reference — some PSPs cap `tr` at 35 chars. The order code alone is
   // unique and human-readable, so it is used as the primary handle.
   const tr = String(orderCode || paymentId || '').slice(0, 35);
-  if (tr) params.set('tr', tr);
-
-  const tn = orderCode ? `SaveHatke ${orderCode}` : 'SaveHatke coupon purchase';
-  params.set('tn', tn);
+  if (tr) {
+    params.set('tr', tr);
+    params.set('tn', orderCode ? `SaveHatke ${orderCode}` : 'SaveHatke coupon purchase');
+  }
 
   // URLSearchParams encodes spaces as '+' and the VPA's '@' as %40. UPI apps
-  // render the first literally and several PSPs fail to resolve a %40-encoded
-  // VPA, so both are restored to their plain form ('@' is a legal query
-  // character) while everything else stays escaped.
-  return 'upi://pay?' + params.toString().replace(/\+/g, '%20').replace(/%40/g, '@');
+  // render a literal '+' as a plus sign, so spaces are restored to %20. The
+  // '@' stays percent-encoded, which is both the RFC 3986 form and what the
+  // UPI deep-link examples use.
+  return 'upi://pay?' + params.toString().replace(/\+/g, '%20');
 }
 
 /**
  * Render a UPI URI to a real QR code PNG data URL.
- * Error correction 'M' survives a phone camera at an angle while keeping the
- * matrix small enough to stay scannable on a 240px display.
+ * Error correction 'M' survives a phone camera at an angle. The default is
+ * rendered at 1024px so it stays crisp when the modal scales it up on a
+ * phone screen — a 512px source upscaled on a 3x display softens the modules
+ * enough to make scanning finicky.
  */
-async function generateQrPngDataUrl(uri, { size = 512, margin = 1 } = {}) {
+async function generateQrPngDataUrl(uri, { size = 1024, margin = 1 } = {}) {
   if (!uri) throw new Error('A UPI URI is required to generate a QR code.');
   return QRCode.toDataURL(uri, {
     errorCorrectionLevel: 'M',
     type: 'image/png',
     margin: Number(margin) >= 0 ? Number(margin) : 1,
-    width: Number(size) || 512,
+    width: Number(size) || 1024,
     color: { dark: '#0c1835', light: '#ffffff' },
   });
 }
@@ -124,6 +182,7 @@ async function generateQrPngDataUrl(uri, { size = 512, margin = 1 } = {}) {
 module.exports = {
   formatAmount,
   parseAmount,
+  validateAmount,
   getPayee,
   isConfigured,
   buildUpiUri,

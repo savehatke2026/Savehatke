@@ -5,7 +5,7 @@
 // /api/payments so neither can disturb the other.
 //
 //   GET  /config    public feature flags for the checkout modal (no secrets)
-//   POST /create    start a payment for a coupon  (auth)
+//   POST /create    start a payment for an amount (+ optional coupon) (auth)
 //   GET  /status    authoritative current state   (auth)
 //   POST /verify    ask the server to re-check    (auth)
 //   POST /cancel    cancel a pending payment      (auth)
@@ -14,13 +14,17 @@
 //   POST /webhook   gateway confirmation          (HMAC, no user auth)
 //
 // Security posture
-//   * The amount is ALWAYS read from the coupon row on the server. Any amount
-//     in the request body is ignored entirely.
+//   * /create accepts the amount the checkout is displaying, but treats it as
+//     untrusted input: it must be numeric, > 0 and <= PAYMENT_MAX_AMOUNT.
+//   * When a coupon is referenced, that coupon's server-side price is
+//     authoritative and a mismatched amount is refused with AMOUNT_MISMATCH,
+//     so a tampered body cannot buy a coupon for less than it costs.
 //   * Every order is fetched by id and its user_id compared with the
 //     authenticated user, so one buyer cannot act on another's order (IDOR).
 //   * No endpoint accepts a status, an "unlock" instruction, or a transaction
 //     id as proof. /verify only triggers a server-side re-check.
-//   * The browser never receives a database credential.
+//   * The browser never receives a database credential, and no endpoint ever
+//     echoes an environment variable back.
 // ============================================
 
 const express = require('express');
@@ -121,8 +125,19 @@ function evaluateCoupon(coupon, { userId, userEmail }) {
   }
 
   // Authoritative price. The browser never supplies this.
-  const amount = upi.parseAmount(coupon.sellingPrice);
-  if (!amount) {
+  const priced = upi.validateAmount(coupon.sellingPrice);
+  if (!priced.ok) {
+    // Distinguish "the seller typed nonsense" from "this exceeds the payment
+    // ceiling". With PAYMENT_MAX_AMOUNT set, an over-ceiling listing is a real
+    // and fixable state, not a corrupt row, so it must not claim to be one.
+    if (priced.code === 'AMOUNT_TOO_LARGE') {
+      return {
+        ok: false,
+        status: 409,
+        code: 'PRICE_TOO_LARGE',
+        error: `This coupon is priced above the ₹${Number(priced.max).toFixed(2)} online payment limit and cannot be bought online. Please contact support.`,
+      };
+    }
     return {
       ok: false,
       status: 400,
@@ -131,7 +146,7 @@ function evaluateCoupon(coupon, { userId, userEmail }) {
     };
   }
 
-  return { ok: true, amount };
+  return { ok: true, amount: priced.amount };
 }
 
 /**
@@ -241,41 +256,89 @@ router.post('/create', createLimiter, authenticateToken, async (req, res) => {
       );
     }
 
-    const couponId = String((req.body && req.body.couponId) || '').trim();
-    if (!couponId) {
-      return fail(res, 400, 'INVALID_INPUT', 'couponId is required.');
-    }
-
-    // NOTE: req.body.amount is intentionally never read.
     const userId = String(req.user.userId || '');
     const userEmail = String(req.user.email || '');
     if (!userId && !userEmail) {
       return fail(res, 401, 'UNAUTHENTICATED', 'Please log in to continue.');
     }
 
-    const coupon = await loadCoupon(couponId);
-    const verdict = evaluateCoupon(coupon, { userId, userEmail });
-
-    // A coupon that is already sold to THIS buyer is not an error — it means
-    // they already paid. Report that instead of refusing, so a refresh after a
-    // successful payment lands on the success state rather than a dead end.
-    if (!verdict.ok && verdict.code === 'COUPON_UNAVAILABLE') {
-      const existingPaid = await findPaidPaymentForBuyer({ userId, userEmail, couponId });
-      if (existingPaid) {
-        const presented = await presentPayment(existingPaid, { coupon });
-        return res.set(NO_STORE).json({ ...presented, already_paid: true });
+    // ── The amount ─────────────────────────────────────────────────────────
+    // The checkout sends the amount it is currently displaying, so it is
+    // validated as untrusted input: numeric, finite, greater than zero and
+    // within PAYMENT_MAX_AMOUNT. Rejection codes are distinct so the modal can
+    // tell "that is not a number" from "that is above the ceiling".
+    const hasAmount =
+      req.body && req.body.amount !== undefined && req.body.amount !== null && req.body.amount !== '';
+    let requestedAmount = null;
+    if (hasAmount) {
+      const verdict = upi.validateAmount(req.body.amount);
+      if (!verdict.ok) {
+        return fail(res, 400, verdict.code, verdict.error, verdict.max ? { max: verdict.max } : {});
       }
-    }
-    if (!verdict.ok) {
-      return fail(res, verdict.status, verdict.code, verdict.error);
+      requestedAmount = verdict.amount;
     }
 
-    const amount = verdict.amount;
+    const couponId = String((req.body && req.body.couponId) || '').trim();
+    if (!couponId && requestedAmount === null) {
+      return fail(res, 400, 'INVALID_INPUT', 'An amount is required to start a payment.');
+    }
+
+    // ── Resolve the authoritative amount ───────────────────────────────────
+    // Two shapes are accepted:
+    //   { amount, couponId }  — the real checkout. The coupon's server-side
+    //                           price is authoritative and the supplied amount
+    //                           must agree with it, so a tampered body cannot
+    //                           buy a ₹999 coupon for ₹1.
+    //   { amount }            — a coupon-less payment for an arbitrary amount.
+    let coupon = null;
+    let amount = null;
+
+    if (couponId) {
+      coupon = await loadCoupon(couponId);
+      const verdict = evaluateCoupon(coupon, { userId, userEmail });
+
+      // A coupon that is already sold to THIS buyer is not an error — it means
+      // they already paid. Report that instead of refusing, so a refresh after
+      // a successful payment lands on the success state rather than a dead end.
+      if (!verdict.ok && verdict.code === 'COUPON_UNAVAILABLE') {
+        const existingPaid = await findPaidPaymentForBuyer({ userId, userEmail, couponId });
+        if (existingPaid) {
+          const presented = await presentPayment(existingPaid, { coupon });
+          return res.set(NO_STORE).json({ ...presented, already_paid: true });
+        }
+      }
+      if (!verdict.ok) {
+        return fail(res, verdict.status, verdict.code, verdict.error);
+      }
+
+      // The client's amount, when sent, must equal the coupon's real price to
+      // the paise. A mismatch is refused rather than silently corrected, so a
+      // stale page (the seller repriced the coupon mid-session) is surfaced
+      // instead of charging an amount the buyer did not agree to.
+      if (requestedAmount !== null && !store.moneyEquals(requestedAmount, verdict.amount)) {
+        return fail(
+          res,
+          409,
+          'AMOUNT_MISMATCH',
+          "The amount no longer matches this coupon's price. Please refresh and try again.",
+          { expected: Number(verdict.amount.toFixed(2)) }
+        );
+      }
+
+      amount = verdict.amount;
+    } else {
+      // No coupon referenced: the validated amount is the whole request.
+      amount = requestedAmount;
+    }
 
     // Reuse a live payment instead of starting a second window. This is what
     // makes a page refresh or a reopened modal keep the ORIGINAL expires_at,
     // and is what prevents two tabs from each minting a 10-minute timer.
-    const live = await store.findLivePaymentForUserCoupon(userId, couponId);
+    // Coupon-less payments have no coupon to key on, so they dedupe on the
+    // amount instead (see findLiveOpenPayment).
+    const live = couponId
+      ? await store.findLivePaymentForUserCoupon(userId, couponId)
+      : await store.findLiveOpenPayment(userId, amount);
     if (live) {
       if (new Date(live.expiresAt).getTime() > Date.now()) {
         const presented = await presentPayment(live, { coupon });
@@ -298,8 +361,8 @@ router.post('/create', createLimiter, authenticateToken, async (req, res) => {
       buyerName: String(req.body.buyerName || '').slice(0, 120),
       buyerEmail: String(req.body.buyerEmail || userEmail).slice(0, 160),
       buyerPhone: String(req.body.buyerPhone || '').slice(0, 20),
-      couponCode: coupon.code || '',
-      couponBrand: coupon.brand || '',
+      couponCode: (coupon && coupon.code) || '',
+      couponBrand: (coupon && coupon.brand) || '',
       expiresAt,
     });
 

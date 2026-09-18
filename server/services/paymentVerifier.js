@@ -319,6 +319,17 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
     return reject('IGNORED', 'No usable amount found in the notification.');
   }
 
+  // 1b) Only rupees settle a rupee order. Without this, a notification quoting
+  //     the right number in another currency would satisfy an INR payment —
+  //     ₹299 and 299 of something else are not the same amount of money.
+  const candidateCurrency = String(candidate.currency || 'INR').toUpperCase();
+  if (candidateCurrency !== 'INR') {
+    return reject(
+      'IGNORED',
+      `Notification is in ${candidateCurrency}, not INR — it cannot settle an INR order.`
+    );
+  }
+
   const payee = upi.getPayee();
   if (!payee.configured) {
     return reject('REVIEW', 'UPI_ID is not configured, so the payee could not be verified.');
