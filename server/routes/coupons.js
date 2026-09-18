@@ -238,15 +238,25 @@ router.post('/scan', authenticateToken, async (req, res) => {
     });
 
     if (!result.ok) {
-      // 422: the request was fine, the image was not usable.
+      // 422: the request was fine, the image was not usable — the seller has to
+      // change the screenshot. Capacity problems get their own statuses instead
+      // so the client can offer a plain retry: the same image will work.
       const status = result.reason === 'not_configured' ? 503
-        : result.reason === 'rate_limited' ? 429
-        : result.reason === 'ai_unavailable' ? 502
+        : result.reason === 'quota_exhausted' ? 429
+        : result.reason === 'overloaded' ? 503
+        : result.reason === 'timeout' ? 504
+        : result.reason === 'auth_error' ? 503
+        : result.reason === 'network_error' ? 503
+        : result.reason === 'bad_json' ? 502
         : 422;
+      if (result.retryAfterMs) {
+        res.set('Retry-After', String(Math.max(1, Math.ceil(result.retryAfterMs / 1000))));
+      }
       return res.status(status).json({
         error: result.message,
         reason: result.reason,
         quality: result.quality || undefined,
+        retryAfterMs: result.retryAfterMs || undefined,
       });
     }
 

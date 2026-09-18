@@ -11,8 +11,13 @@
 const DEFAULT_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 // gemini-2.5-flash was retired for new API keys (404 "no longer available
 // to new users") — 3.6-flash is the current recommended Flash model.
-// NOTE: 3.x Flash models REJECT generationConfig.thinkingConfig (400), so
-// the thinking-budget workaround below stays scoped to 2.5 models only.
+// NOTE: 3.x Flash models DO accept generationConfig.thinkingConfig
+// (thinkingBudget: 0 returns 200 with no thoughtsTokenCount — verified), so
+// the workaround below is scoped to 2.5 only as a deliberate choice, not
+// because 3.x rejects the parameter. Thinking is left ON for 3.x here because
+// this service also drives tool-calling, which has not been re-tested with
+// thinking disabled. See couponVision.js for the extraction path, where
+// thinking is turned off (no tools involved, and the output budget matters).
 const DEFAULT_MODEL = 'gemini-3.6-flash';
 
 function isConfigured() {

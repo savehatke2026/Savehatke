@@ -1680,8 +1680,12 @@ function setAiWorking(title, sub) {
 }
 
 /**
- * Rejection screen. `kind` picks the styling and the retry button's wording so a
- * "not a coupon" rejection doesn't read like a quality problem.
+ * Rejection screen. `kind` picks the styling, the retry button's wording AND
+ * what that button does:
+ *   • 'invalid' — the image is not a coupon, so a different file is needed
+ *   • 'quality' — the image was unreadable, so a different file is needed
+ *   • 'busy'    — nothing is wrong with the screenshot; the AI reader was
+ *                 unavailable, so the SAME file is retried
  */
 function showAiError(kind, title, sub) {
   const box = aiEl('aiErrorBox');
@@ -1691,7 +1695,15 @@ function showAiError(kind, title, sub) {
   const retry = aiEl('aiErrorRetry');
   if (t) t.textContent = title;
   if (s) s.textContent = sub;
-  if (retry) retry.textContent = kind === 'invalid' ? 'Upload Coupon Screenshot' : 'Upload Another Image';
+  if (retry) {
+    if (kind === 'busy') {
+      retry.textContent = '↻ Try Again';
+      retry.onclick = rescanAiScreenshot;
+    } else {
+      retry.textContent = kind === 'invalid' ? 'Upload Coupon Screenshot' : 'Upload Another Image';
+      retry.onclick = pickAiScreenshot;
+    }
+  }
   setAiState('StateError');
 }
 
@@ -1848,6 +1860,12 @@ async function runAiScan(file, opts = {}) {
     return;
   }
 
+  // Remembered this early so the "AI reader is busy" retry can re-run the SAME
+  // screenshot instead of sending the seller back to their files. It is only
+  // read by rescanAiScreenshot(); the autofill path below overwrites it with
+  // the same value once the scan succeeds.
+  aiScan.file = file;
+
   setAiWorking('🔍 Checking image...', 'Making sure the screenshot is readable...');
 
   // ── 2. Decode + local quality gate ──
@@ -1911,8 +1929,24 @@ async function runAiScan(file, opts = {}) {
       return;
     }
     const msg = (err && err.message) || 'Please try again.';
-    // A 422 from the server is a verdict about the image, not a failure.
-    if (/coupon or voucher/i.test(msg)) {
+    // The server sends a machine-readable `reason` beside the message. Trust it
+    // first — the message patterns below are only a fallback for responses that
+    // predate it. The distinction that matters: a verdict about the image needs
+    // a different screenshot, a capacity problem just needs another try.
+    const reason = (err && err.data && err.data.reason) || '';
+
+    if (reason === 'not_coupon') {
+      showAiError('invalid', '❌ Invalid Image', msg);
+    } else if (reason === 'too_dark' || reason === 'blurry' || reason === 'low_resolution' || reason === 'cropped') {
+      showAiError('quality', '⚠️ Image is too blurry', msg);
+    } else if (reason === 'insufficient_data') {
+      showAiError('quality', '⚠️ Not enough detail', msg);
+    } else if (reason === 'quota_exhausted' || reason === 'overloaded' || reason === 'timeout'
+      || reason === 'network_error' || reason === 'auth_error' || reason === 'not_configured'
+      || reason === 'bad_json' || reason === 'ai_unavailable'
+      || err.status === 429 || err.status === 503 || err.status === 504) {
+      showAiError('busy', '⏳ AI reader is busy', msg);
+    } else if (/coupon or voucher/i.test(msg)) {
       showAiError('invalid', '❌ Invalid Image', msg);
     } else if (/blurr|dark|resolution|cut off|corrupt/i.test(msg)) {
       showAiError('quality', '⚠️ Image is too blurry', msg);

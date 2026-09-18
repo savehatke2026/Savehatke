@@ -241,14 +241,70 @@ HARD RULES — follow them exactly:
 
 // ── Model call ─────────────────────────────────────────────────────────────
 
-/**
- * Send the image to Gemini Vision and return the raw parsed JSON object.
- * @returns {Promise<{ok:true, raw:object, model:string} | {ok:false, error:string, status?:number, model:string}>}
- */
-async function callVision(buffer, mimeType, opts = {}) {
-  const model = opts.model || getVisionModel();
-  const timeoutMs = Math.min(Math.max(Number(opts.timeoutMs) || 45000, 5000), 120000);
+// Google meters the Gemini free tier PER MODEL, so one model running out of
+// quota does not exhaust its siblings. Verified against this deployment's key:
+// with gemini-3.6-flash answering 429 RESOURCE_EXHAUSTED on every call,
+// gemini-3.5-flash and gemini-3.1-flash-lite still returned 200 in the same
+// minute. Trying a sibling model is therefore the cheapest way to keep a scan
+// alive instead of failing the seller outright.
+//
+// Order matters: these are the models measured to answer quickly. The 3.7/3.8
+// Flash models took longer than 20s per call on the same key, so they are not
+// useful as a fallback — a slow rescue still reads as a broken scanner.
+const DEFAULT_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
 
+// Statuses that mean "try again", not "this request is wrong".
+const TRANSIENT_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+
+// Extraction is deterministic, so a thinking budget buys nothing and costs
+// latency plus output tokens. 3.x models accept thinkingConfig; older ones
+// reject it, hence the guard (and the 400-retry below for anything else).
+const THINKING_MODEL_RE = /^gemini-3\.\d/;
+
+// Whole-call budget. Stays comfortably inside the serverless function limit.
+const VISION_TOTAL_BUDGET_MS = 45000;
+// Longest single stall between tries. A seller waiting longer than this is
+// better served by a clear "try again" than by a hung spinner.
+const VISION_MAX_WAIT_MS = 6000;
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function getFallbackModels() {
+  const raw = process.env.GEMINI_VISION_FALLBACK_MODELS;
+  const list = (raw ? String(raw).split(',') : DEFAULT_FALLBACK_MODELS)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return list;
+}
+
+/** Primary model first, then the fallbacks, with no duplicates. */
+function visionModelChain() {
+  return [...new Set([getVisionModel(), ...getFallbackModels()])].filter(Boolean);
+}
+
+/**
+ * Pull Google's own retry hint out of a 429/503 body, in milliseconds.
+ * The API returns both a structured `retryDelay` and a "Please retry in 29s"
+ * sentence; either is good enough.
+ */
+function parseRetryAfterMs(text) {
+  const s = String(text || '');
+  const m = s.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/i) ||
+    s.match(/retry in (\d+(?:\.\d+)?)s/i);
+  if (!m) return null;
+  const secs = Number(m[1]);
+  if (!Number.isFinite(secs) || secs <= 0) return null;
+  return Math.min(Math.round(secs * 1000), 120000);
+}
+
+/**
+ * One request to one model. Classifies the failure so the caller knows whether
+ * another model (or another minute) is worth trying.
+ * @returns {Promise<{ok:true, raw:object, model:string}
+ *   | {ok:false, error:string, status?:number, model:string, transient:boolean,
+ *      retryAfterMs:number|null, detail?:string}>}
+ */
+async function callVisionOnce(buffer, mimeType, model, { timeoutMs, thinking } = {}) {
   const payload = {
     contents: [{
       role: 'user',
@@ -259,10 +315,13 @@ async function callVision(buffer, mimeType, opts = {}) {
     }],
     generationConfig: {
       temperature: 0,                       // extraction, not creativity
-      maxOutputTokens: 2048,
+      // Thinking tokens are billed against this same budget on 3.x models, so
+      // a tight cap can truncate the JSON mid-object. Keep generous headroom.
+      maxOutputTokens: 4096,
       responseMimeType: 'application/json',
     },
   };
+  if (thinking) payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
 
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -285,11 +344,21 @@ async function callVision(buffer, mimeType, opts = {}) {
 
     if (!res.ok) {
       const errText = await res.text().catch(() => '');
+      const transient = TRANSIENT_STATUSES.has(res.status);
       let error = 'api_error';
-      if (res.status === 429) error = 'rate_limited';
+      if (res.status === 429) error = 'quota_exhausted';
+      else if (res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) error = 'overloaded';
       else if (res.status === 401 || res.status === 403 || /api key not valid/i.test(errText)) error = 'auth_error';
       // Detail is logged by the caller, never returned to the client.
-      return { ok: false, error, status: res.status, model, detail: errText.slice(0, 300) };
+      return {
+        ok: false,
+        error,
+        status: res.status,
+        model,
+        transient,
+        retryAfterMs: transient ? parseRetryAfterMs(errText) : null,
+        detail: errText.slice(0, 300),
+      };
     }
 
     const data = await res.json();
@@ -297,7 +366,7 @@ async function callVision(buffer, mimeType, opts = {}) {
     if (!candidate || !candidate.content) {
       const blocked = (data.promptFeedback && data.promptFeedback.blockReason) ||
         (candidate && candidate.finishReason) || 'empty_response';
-      return { ok: false, error: 'content_blocked', model, detail: String(blocked).slice(0, 120) };
+      return { ok: false, error: 'content_blocked', model, transient: false, retryAfterMs: null, detail: String(blocked).slice(0, 120) };
     }
 
     let text = '';
@@ -306,15 +375,97 @@ async function callVision(buffer, mimeType, opts = {}) {
     }
 
     const raw = parseJsonLoosely(text);
-    if (!raw) return { ok: false, error: 'bad_json', model, detail: text.slice(0, 200) };
+    if (!raw) {
+      // A thinking model that ran out of output budget truncates mid-object.
+      // That is a capacity problem, not a verdict about the image, so it is
+      // worth one more model rather than telling the seller their coupon is
+      // unreadable.
+      const truncated = String(candidate.finishReason || '').toUpperCase() === 'MAX_TOKENS';
+      return {
+        ok: false,
+        error: 'bad_json',
+        model,
+        transient: truncated,
+        retryAfterMs: null,
+        detail: text.slice(0, 200),
+      };
+    }
 
     return { ok: true, raw, model: data.modelVersion || model };
   } catch (err) {
-    if (err && err.name === 'AbortError') return { ok: false, error: 'timeout', model };
-    return { ok: false, error: 'network_error', model, detail: err && err.message };
+    if (err && err.name === 'AbortError') {
+      return { ok: false, error: 'timeout', model, transient: true, retryAfterMs: null };
+    }
+    return { ok: false, error: 'network_error', model, transient: true, retryAfterMs: null, detail: err && err.message };
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Send the image to Gemini Vision and return the raw parsed JSON object.
+ *
+ * Walks the model chain on any transient failure (quota, overload, timeout) so
+ * one busy model cannot take the scanner down. If every model is busy but the
+ * provider told us when to come back, it waits once — briefly — and tries the
+ * primary model again.
+ *
+ * @returns {Promise<{ok:true, raw:object, model:string}
+ *   | {ok:false, error:string, status?:number, model:string, retryAfterMs?:number|null}>}
+ */
+async function callVision(buffer, mimeType, opts = {}) {
+  const chain = opts.model
+    ? [...new Set([opts.model, ...getFallbackModels()])].filter(Boolean)
+    : visionModelChain();
+
+  const perCallTimeout = Math.min(Math.max(Number(opts.timeoutMs) || 45000, 5000), 120000);
+  const deadline = Date.now() + VISION_TOTAL_BUDGET_MS;
+
+  let last = null;
+  let retryHintMs = null;
+
+  for (const model of chain) {
+    // A rejected key is a verdict about the whole deployment — no sibling
+    // model will do better.
+    if (last && last.error === 'auth_error') break;
+
+    const thinkingSupported = THINKING_MODEL_RE.test(model);
+    // Try with the thinking budget disabled first; only a rejected parameter is
+    // worth a second attempt on the same model.
+    for (const thinking of thinkingSupported ? [true, false] : [false]) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 2000) break;
+
+      const r = await callVisionOnce(buffer, mimeType, model, {
+        timeoutMs: Math.min(perCallTimeout, remaining),
+        thinking,
+      });
+      if (r.ok) return r;
+
+      last = r;
+      if (r.retryAfterMs && (!retryHintMs || r.retryAfterMs < retryHintMs)) retryHintMs = r.retryAfterMs;
+      // 400 with the thinking flag set means the model rejects thinkingConfig.
+      if (!(r.status === 400 && thinking)) break;
+    }
+  }
+
+  // Everything was busy. Honour the provider's retry hint once, if it fits in
+  // the budget — one short wait beats handing the seller a failure.
+  if (last && last.transient && retryHintMs && retryHintMs <= VISION_MAX_WAIT_MS) {
+    const wait = Math.min(retryHintMs, deadline - Date.now() - 2000);
+    if (wait > 0) {
+      await sleep(wait);
+      const model = chain[0];
+      const r = await callVisionOnce(buffer, mimeType, model, {
+        timeoutMs: Math.min(perCallTimeout, Math.max(deadline - Date.now(), 5000)),
+        thinking: THINKING_MODEL_RE.test(model),
+      });
+      if (r.ok) return r;
+      last = r;
+    }
+  }
+
+  return last || { ok: false, error: 'api_error', model: chain[0], transient: false, retryAfterMs: null };
 }
 
 /** JSON mode should return clean JSON; tolerate a stray code fence anyway. */
@@ -594,18 +745,23 @@ async function analyzeCouponImage({ buffer, mimeType, model, timeoutMs } = {}) {
   const call = await callVision(buffer, pre.info.type, { model, timeoutMs });
   if (!call.ok) {
     // Log the provider detail server-side only.
-    console.warn(`[coupon-vision] Gemini call failed (${call.error}${call.status ? ' ' + call.status : ''})${call.detail ? ': ' + call.detail : ''}`);
+    console.warn(`[coupon-vision] Gemini call failed (${call.error}${call.status ? ' ' + call.status : ''}, model ${call.model})${call.detail ? ': ' + call.detail : ''}`);
+    // Capacity problems and image verdicts read very differently to a seller,
+    // so they keep separate reasons (and separate HTTP statuses upstream).
     const messages = {
-      rate_limited: 'AI scanning is busy right now. Please try again in a minute or enter the details manually.',
+      quota_exhausted: 'The AI reader has hit its usage limit for the moment. Please try again in a minute, or enter the details manually.',
+      overloaded: 'The AI reader is busy right now. Please try again in a moment, or enter the details manually.',
       auth_error: 'AI scanning is not available right now. Please enter the coupon details manually.',
-      timeout: 'Reading the coupon took too long. Please try again with a smaller screenshot.',
+      timeout: 'Reading the coupon took too long. Please try again, or enter the details manually.',
       content_blocked: "We couldn't analyse that image. Please upload a different coupon screenshot.",
       bad_json: "We couldn't read the coupon details from that image. Please try again or enter them manually.",
+      network_error: 'The AI reader could not be reached. Please try again in a moment, or enter the details manually.',
     };
     return {
       ok: false,
-      reason: call.error === 'rate_limited' ? 'rate_limited' : 'ai_unavailable',
+      reason: call.error,
       message: messages[call.error] || 'AI scanning failed. Please try again or enter the details manually.',
+      retryAfterMs: call.retryAfterMs || null,
     };
   }
 
@@ -626,6 +782,10 @@ module.exports = {
   isConfigured,
   analyzeCouponImage,
   // exported for tests / reuse
+  getVisionModel,
+  getFallbackModels,
+  visionModelChain,
+  parseRetryAfterMs,
   preflightImage,
   sniffImage,
   validateExtraction,
