@@ -242,17 +242,20 @@
     .upm-box { position:relative; width:100%; max-width:396px; border-radius:20px; background:#0c1835; border:1px solid rgba(0,230,118,.2); box-shadow:0 40px 110px rgba(0,0,0,.72); padding:22px 22px 20px; text-align:center; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
     .upm-overlay.show .upm-box { transform:scale(1) translateY(0); }
 
-    .upm-head { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:18px; }
-    .upm-ttl { font-weight:800; font-size:1.02rem; letter-spacing:-.01em; text-align:left; }
-    .upm-sub { font-size:.74rem; color:#6b88aa; margin-top:3px; text-align:left; }
-    /* The × that opens the "Cancel Payment?" panel. Same 32px square as the
-       page's other close buttons so it sits on the same rhythm. */
-    .upm-close { width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid rgba(79,195,247,.16); border-radius:9px; color:#8ba2c4; font-size:1.15rem; line-height:1; cursor:pointer; transition:all .22s; font-family:'Outfit',sans-serif; }
+    /* The × that opens the "Cancel Payment?" panel. Pinned to the corner so the
+       title can sit on the box's true centre line. */
+    .upm-close { position:absolute; top:15px; right:15px; z-index:2; width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid rgba(79,195,247,.16); border-radius:9px; color:#8ba2c4; font-size:1.15rem; line-height:1; cursor:pointer; transition:all .22s; font-family:'Outfit',sans-serif; }
     .upm-close:hover { background:rgba(255,107,107,.14); border-color:rgba(255,107,107,.4); color:#ff6b6b; }
     .upm-close:disabled { opacity:.4; cursor:not-allowed; }
 
-    .upm-amt-lbl { font-size:.7rem; font-weight:700; letter-spacing:.13em; text-transform:uppercase; color:#6b88aa; }
-    .upm-amt { font-family:'JetBrains Mono',monospace; font-size:2.3rem; font-weight:800; line-height:1.15; letter-spacing:-.02em; color:#00e676; font-variant-numeric:tabular-nums; margin-top:2px; }
+    /* Scrollable body: the box keeps a fixed frame so the × and the cancel
+       panel stay pinned, while the flow itself scrolls on a short viewport. */
+    .upm-body { overflow-y:auto; overscroll-behavior:contain; max-height:calc(100vh - 92px); padding:4px 2px 2px; }
+
+    .upm-ttl { font-weight:800; font-size:1.16rem; letter-spacing:-.01em; text-align:center; }
+    .upm-ttl .upm-green { color:#00e676; }
+    .upm-paysub { font-size:.82rem; color:#a8c0dc; margin-top:6px; text-align:center; }
+    .upm-paysub .upm-amt-inline { font-family:'JetBrains Mono',monospace; font-size:1.02rem; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; }
 
     /* QR area — a real matrix rendered server-side, so it needs a light plate
        to stay scannable on this dark box. */
@@ -261,8 +264,25 @@
     .upm-qr-empty { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
     .upm-qr-skel { width:26px; height:26px; border:3px solid rgba(6,13,31,.18); border-top-color:#00a152; border-radius:50%; animation:spin .7s linear infinite; }
 
-    .upm-scan { font-size:.78rem; color:#a8c0dc; margin-top:14px; }
-    .upm-vpa { display:inline-flex; align-items:center; gap:7px; margin-top:9px; padding:6px 12px; border-radius:9999px; background:rgba(0,230,118,.09); border:1px solid rgba(0,230,118,.22); font-family:'JetBrains Mono',monospace; font-size:.76rem; color:#00e676; }
+    .upm-scan { font-size:.8rem; color:#a8c0dc; margin-top:13px; text-align:center; }
+
+    /* Supported apps. Brand-coloured name chips rather than the official
+       trademarks: no UPI app logo assets ship with this project, and inventing
+       brand marks would be both inaccurate and a trademark problem. Each chip
+       is a single .upm-app-ico slot, so a licensed SVG can be dropped in later
+       without touching the layout. */
+    .upm-apps { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:13px; }
+    .upm-app { display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px; border-radius:10px; background:rgba(255,255,255,.035); border:1px solid rgba(79,195,247,.1); }
+    .upm-app-ico { width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:.72rem; font-weight:800; color:#fff; }
+    .upm-app-nm { font-size:.7rem; color:#a8c0dc; line-height:1.2; text-align:center; white-space:nowrap; }
+
+    /* UPI ID row with a copy affordance on the right. */
+    .upm-vpa { display:flex; align-items:center; gap:8px; margin-top:13px; padding:8px 9px 8px 13px; border-radius:11px; background:rgba(0,230,118,.07); border:1px solid rgba(0,230,118,.2); }
+    .upm-vpa-lbl { font-size:.7rem; color:#6b88aa; flex-shrink:0; }
+    .upm-vpa-id { font-family:'JetBrains Mono',monospace; font-size:.76rem; color:#00e676; flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .upm-copy { flex-shrink:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid rgba(0,230,118,.24); border-radius:8px; color:#00e676; font-size:.82rem; line-height:1; cursor:pointer; transition:all .22s; }
+    .upm-copy:hover { background:rgba(0,230,118,.16); }
+    .upm-copy.done { background:rgba(0,230,118,.22); border-color:rgba(0,230,118,.5); }
 
     /* Countdown — driven by the server's expires_at, never a local 10:00. */
     .upm-timer { display:flex; align-items:center; justify-content:center; gap:9px; margin-top:16px; padding:11px 0; border-top:1px solid rgba(79,195,247,.1); border-bottom:1px solid rgba(79,195,247,.1); }
@@ -272,7 +292,10 @@
     .upm-timer.warn .upm-timer-val { color:#ffd740; }
     .upm-timer.danger .upm-timer-val { color:#ff5252; }
 
-    .upm-note { font-size:.72rem; color:#6b88aa; margin-top:13px; line-height:1.55; }
+    .upm-timer-cap { font-size:.74rem; color:#6b88aa; margin-top:9px; }
+    /* Footer — the ONLY thing below the action buttons. */
+    .upm-foot { font-size:.72rem; color:#6b88aa; margin-top:15px; }
+    .upm-foot .upm-green { color:#00e676; font-weight:700; }
     .upm-check { width:100%; height:44px; margin-top:14px; border-radius:11px; border:1.5px solid rgba(79,195,247,.28); background:transparent; color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.86rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
     .upm-check:hover:not(:disabled) { border-color:rgba(79,195,247,.55); background:rgba(79,195,247,.08); }
     .upm-check:disabled { opacity:.5; cursor:not-allowed; }
@@ -319,9 +342,18 @@
     }
 
     @media (max-width:420px) {
-      .upm-box { padding:20px 17px 18px; border-radius:18px; }
-      .upm-amt { font-size:2rem; }
-      .upm-qr { width:190px; height:190px; }
+      .upm-box { padding:18px 15px 16px; border-radius:18px; }
+      .upm-qr { width:188px; height:188px; }
+      .upm-ttl { font-size:1.08rem; }
+      .upm-apps { gap:5px; }
+      .upm-app-ico { width:22px; height:22px; border-radius:6px; }
+      .upm-body { max-height:calc(100vh - 84px); }
+    }
+
+    /* Short viewports (landscape phones, small windows). The body already
+       scrolls, so trimming the QR just reduces how much scrolling is needed. */
+    @media (max-height:700px) {
+      .upm-qr { width:184px; height:184px; margin-top:14px; }
     }
 
     /* SUCCESS OVERLAY */
@@ -679,48 +711,57 @@
 <!-- UPI PAYMENT BOX -->
 <div class="upm-overlay" id="upiPayOverlay" role="dialog" aria-modal="true" aria-labelledby="upmTitle">
   <div class="upm-box" id="upiPayBox">
-    <div class="upm-head">
-      <div>
-        <div class="upm-ttl" id="upmTitle">Scan &amp; Pay</div>
-        <div class="upm-sub" id="upmOrderRef">Secure UPI payment</div>
+    <button class="upm-close" id="upmClose" type="button" onclick="askCancelPayment()" aria-label="Cancel payment">&times;</button>
+
+    <div class="upm-body">
+      <div class="upm-ttl" id="upmTitle">Complete <span class="upm-green">Payment</span></div>
+      <!-- Filled from the server's amount for this order, never from the URL.
+           formatRupees() keeps whole rupees free of a trailing ".00". -->
+      <div class="upm-paysub">Pay <span class="upm-amt-inline" id="upmPayAmt">—</span> using any UPI app</div>
+
+      <div class="upm-timer" id="upmTimer">
+        <span class="upm-timer-ico"></span>
+        <span class="upm-timer-val" id="upmTimerVal">--:--</span>
+        <span class="upm-timer-lbl">remaining</span>
       </div>
-      <button class="upm-close" id="upmClose" type="button" onclick="askCancelPayment()" aria-label="Cancel payment">&times;</button>
+      <div class="upm-timer-cap">Complete the payment within <span id="upmWindowMin">10</span> minutes</div>
+
+      <!-- QR AREA — a real matrix generated server-side from the UPI URI. It is
+           never constructed, edited, or stored as a pre-made image asset. -->
+      <div class="upm-qr" id="upmQr">
+        <div class="upm-qr-empty" id="upmQrEmpty"><div class="upm-qr-skel"></div></div>
+      </div>
+      <div class="upm-scan">Scan the QR code with any UPI app</div>
+
+      <div class="upm-apps" aria-label="Supported UPI apps">
+        <div class="upm-app"><span class="upm-app-ico" style="background:#5F259F">Pe</span><span class="upm-app-nm">PhonePe</span></div>
+        <div class="upm-app"><span class="upm-app-ico" style="background:#1A73E8">G</span><span class="upm-app-nm">Google Pay</span></div>
+        <div class="upm-app"><span class="upm-app-ico" style="background:#00B9F1">P</span><span class="upm-app-nm">Paytm</span></div>
+        <div class="upm-app"><span class="upm-app-ico" style="background:#F58220">B</span><span class="upm-app-nm">BHIM</span></div>
+      </div>
+
+      <div class="upm-vpa" id="upmVpa">
+        <span class="upm-vpa-lbl">UPI ID:</span>
+        <span class="upm-vpa-id" id="upmVpaText">—</span>
+        <button class="upm-copy" id="upmCopyBtn" type="button" onclick="copyUpiId()" aria-label="Copy UPI ID">
+          <span id="upmCopyIco">📋</span>
+        </button>
+      </div>
+
+      <!-- Opens the device's UPI app with the SAME server-generated URI the QR
+           encodes — payee, amount and currency are identical by construction.
+           Hidden until a pending payment exists. -->
+      <button class="upm-open hide" id="upmOpenApp" type="button" onclick="openUpiApp()">
+        <span>📲</span> <span id="upmOpenText">Open UPI App / Pay Now</span>
+      </button>
+
+      <!-- Manual nudge for the buyer; the server still decides. -->
+      <button class="upm-check" id="upmCheck" type="button" onclick="checkPaymentNow()">
+        <span id="upmCheckText">I've paid — Check status</span>
+      </button>
+
+      <div class="upm-foot">Secured by <span class="upm-green">SaveHatke</span></div>
     </div>
-
-    <div class="upm-amt-lbl">Amount to pay</div>
-    <!-- Filled from the server's amount for this order, never from the URL. -->
-    <div class="upm-amt" id="upmAmount">—</div>
-
-    <!-- QR AREA — the image is a real QR generated server-side from the UPI
-         URI. It is never constructed or edited in the browser. -->
-    <div class="upm-qr" id="upmQr">
-      <div class="upm-qr-empty" id="upmQrEmpty"><div class="upm-qr-skel"></div></div>
-    </div>
-
-    <div class="upm-scan">Scan with any UPI app — GPay, PhonePe, Paytm</div>
-    <div class="upm-vpa" id="upmVpa" style="display:none"><span>UPI</span><span id="upmVpaText">—</span></div>
-
-    <div class="upm-timer" id="upmTimer">
-      <span class="upm-timer-ico"></span>
-      <span class="upm-timer-val" id="upmTimerVal">--:--</span>
-      <span class="upm-timer-lbl">remaining</span>
-    </div>
-
-    <div class="upm-note">
-      Your coupon code unlocks automatically once the payment is verified by our server. Keep this window open.
-    </div>
-
-    <!-- Opens the device's UPI app with the SAME server-generated URI the QR
-         encodes — payee, amount and currency are identical by construction.
-         Hidden until a pending payment exists. -->
-    <button class="upm-open hide" id="upmOpenApp" type="button" onclick="openUpiApp()">
-      <span>📲</span> <span id="upmOpenText">Open UPI App / Pay Now</span>
-    </button>
-
-    <!-- Manual nudge for the buyer; the server still decides. -->
-    <button class="upm-check" id="upmCheck" type="button" onclick="checkPaymentNow()">
-      <span id="upmCheckText">I've paid — Check status</span>
-    </button>
 
     <!-- EXPIRED / REVIEW STATE -->
     <div class="upm-state" id="upmState">
@@ -737,8 +778,8 @@
       <div class="upm-cancel-ttl">Cancel Payment?</div>
       <div class="upm-cancel-sub">This payment request will be cancelled. You can start a new one anytime.</div>
       <div class="upm-cancel-row">
-        <button class="upm-btn upm-btn-keep" id="upmKeepBtn" type="button" onclick="dismissCancelPayment()">No, keep it</button>
-        <button class="upm-btn upm-btn-confirm" id="upmConfirmBtn" type="button" onclick="confirmCancelPayment()">Yes, cancel</button>
+        <button class="upm-btn upm-btn-keep" id="upmKeepBtn" type="button" onclick="dismissCancelPayment()">Cancel</button>
+        <button class="upm-btn upm-btn-confirm" id="upmConfirmBtn" type="button" onclick="confirmCancelPayment()">Confirm</button>
       </div>
     </div>
   </div>
@@ -938,6 +979,26 @@
     if (statusEl) { statusEl.textContent = reason.replace(/\.$/, ''); statusEl.style.color = '#ff5252'; }
   }
 
+  /**
+   * Format a rupee amount for the customer.
+   *
+   * Whole rupees are shown without decimals — ₹15, never ₹15.00 — while an
+   * amount that genuinely carries paise keeps exactly two places (₹15.50).
+   * The rule is applied at paise precision, so a float artefact like 14.999999
+   * still renders as ₹15 rather than ₹15.00 or ₹15.000001.
+   *
+   * This is DISPLAY ONLY. The UPI URI, the payment row and the database all
+   * keep the exact 2-decimal money format the server produces (am=15.00).
+   */
+  function formatRupees(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return '—';
+    const paise = Math.round(n * 100);
+    if (paise < 0) return '—';
+    const text = paise % 100 === 0 ? String(paise / 100) : (paise / 100).toFixed(2);
+    return '₹' + text;
+  }
+
   // ── Paint ──────────────────────────────────────────────────────────────
   /** Render everything that depends on the coupon. Safe to call repeatedly. */
   function paintCoupon() {
@@ -984,10 +1045,10 @@
     // The coupon's worth and its price are shown in both boxes: the details card
     // states the facts, the summary totals them up.
     set('csValue', currentCoupon.value ? '₹' + currentCoupon.value : '—');
-    set('csPrice', totalPrice ? '₹' + totalPrice : '—');
+    set('csPrice', totalPrice ? formatRupees(totalPrice) : '—');
     set('sumValue', currentCoupon.value ? '₹' + currentCoupon.value : '—');
-    set('sumPrice', totalPrice ? '₹' + totalPrice : '—');
-    set('sumTotal', totalPrice ? '₹' + totalPrice : '—');
+    set('sumPrice', totalPrice ? formatRupees(totalPrice) : '—');
+    set('sumTotal', totalPrice ? formatRupees(totalPrice) : '—');
 
     // "You Save" is the gap between the coupon's face value and its price. It is
     // only shown when both are real numbers — a value like "₹500 OFF" or a
@@ -1007,12 +1068,12 @@
     }
     const payBtn = document.getElementById('payBtn');
     if (payBtn && !payBtn.disabled) {
-      set('payBtnText', totalPrice ? '🔒 Pay ₹' + totalPrice + ' Securely' : '🔒 Pay Securely');
+      set('payBtnText', totalPrice ? '🔒 Pay ' + formatRupees(totalPrice) + ' Securely' : '🔒 Pay Securely');
     }
 
     set('succBrand', dash(currentCoupon.brand));
     set('succDiscount', dash(currentCoupon.title));
-    set('succAmount', totalPrice ? '₹' + totalPrice : '—');
+    set('succAmount', totalPrice ? formatRupees(totalPrice) : '—');
 
     paintExpiryTimer();
   }
@@ -1221,6 +1282,12 @@
         payeeName: data.payeeName || 'SaveHatke',
         windowMinutes: Number(data.windowMinutes) || 10,
       };
+      // Paint the UPI ID and the window length straight from config, so the
+      // buyer can copy the VPA before a payment even exists and the "within N
+      // minutes" caption can never drift from the server's real window.
+      showUpiId(window.UPI_CONFIG.upiId);
+      const min = upiEl('upmWindowMin');
+      if (min) min.textContent = String(window.UPI_CONFIG.windowMinutes);
     } catch (e) {
       console.warn('Could not load UPI config:', e);
       window.UPI_CONFIG.configured = false;
@@ -1312,22 +1379,16 @@
     if (data.order_id) upiState.orderId = data.order_id;
     if (data.expires_at) upiState.expiresAt = new Date(data.expires_at).getTime();
 
-    // The amount shown is the server's amount for this order.
-    if (data.amount !== undefined && upiEl('upmAmount')) {
+    // The amount shown is the server's amount for this order. formatRupees()
+    // keeps whole rupees free of a trailing ".00" — ₹15, never ₹15.00.
+    if (data.amount !== undefined && upiEl('upmPayAmt')) {
       upiState.amount = Number(data.amount);
-      upiEl('upmAmount').textContent = '₹' + Number(data.amount).toFixed(2);
+      upiEl('upmPayAmt').textContent = formatRupees(data.amount);
     }
 
-    if (data.upi_id && upiEl('upmVpa')) {
-      upiEl('upmVpaText').textContent = data.upi_id;
-      upiEl('upmVpa').style.display = 'inline-flex';
-    }
-
-    if (upiEl('upmOrderRef')) {
-      upiEl('upmOrderRef').textContent = data.order_id
-        ? 'Order ' + String(data.order_id).slice(0, 8).toUpperCase()
-        : 'Secure UPI payment';
-    }
+    // The receiving VPA is public configuration (it is printed inside the QR),
+    // and it arrives from /api/payment/config — never hard-coded here.
+    if (data.upi_id) showUpiId(data.upi_id);
 
     // The deep link is only actionable while the request is still payable, so
     // the button follows the status rather than the payload's presence.
@@ -1424,6 +1485,61 @@
         showToastLocal('No UPI app opened. Scan the QR code above with any UPI app.', 'info');
       }
     }, 1800);
+  }
+
+  /**
+   * Show the receiving UPI ID. It arrives from /api/payment/config rather than
+   * being hard-coded here, so changing the VPA is a config change, not a code
+   * change. It is not a secret — it is printed inside the QR the buyer scans.
+   */
+  function showUpiId(vpa) {
+    const clean = String(vpa || '').trim();
+    const row = upiEl('upmVpa');
+    const text = upiEl('upmVpaText');
+    if (!clean) { if (row) row.style.display = 'none'; return; }
+    if (text) text.textContent = clean;
+    if (row) row.style.display = 'flex';
+  }
+
+  /** Fallback clipboard write for non-secure contexts (plain-http local dev). */
+  function legacyCopy(text) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:absolute;left:-9999px;top:0;';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    } catch (e) {
+      showToastLocal('Could not copy — please note the UPI ID manually.', 'warning');
+    }
+  }
+
+  /** Copy the UPI ID, with a brief "Copied" confirmation on the button. */
+  function copyUpiId() {
+    const vpa = String((upiEl('upmVpaText') || {}).textContent || '').trim();
+    if (!vpa || vpa === '—') return;
+
+    const btn = upiEl('upmCopyBtn');
+    const ico = upiEl('upmCopyIco');
+    const done = () => {
+      if (ico) ico.textContent = '✅';
+      if (btn) btn.classList.add('done');
+      showToastLocal('UPI ID copied', 'success');
+      setTimeout(() => {
+        if (ico) ico.textContent = '📋';
+        if (btn) btn.classList.remove('done');
+      }, 2000);
+    };
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(vpa).then(done).catch(() => { legacyCopy(vpa); done(); });
+    } else {
+      legacyCopy(vpa);
+      done();
+    }
   }
 
   function showUpiState(kind) {
@@ -1566,7 +1682,7 @@
     }
     if (data.brand && upiEl('succBrand')) upiEl('succBrand').textContent = data.brand;
     if (data.amount !== undefined && upiEl('succAmount')) {
-      upiEl('succAmount').textContent = '₹' + Number(data.amount).toFixed(2);
+      upiEl('succAmount').textContent = formatRupees(data.amount);
     }
     const email = document.getElementById('buyerEmail');
     const confirm = upiEl('confirmEmail');
@@ -1633,7 +1749,7 @@
     hideUpiState();
     upiState.status = '';
     upiState.paymentId = '';
-    if (upiEl('upmAmount')) upiEl('upmAmount').textContent = '—';
+    if (upiEl('upmPayAmt')) upiEl('upmPayAmt').textContent = '—';
     const host = upiEl('upmQr');
     if (host) host.innerHTML = '<div class="upm-qr-empty"><div class="upm-qr-skel"></div></div>';
     await startUpiPayment();
@@ -1703,7 +1819,9 @@
 
     // Open the box immediately with its loading state, so the click feels
     // instant and there is never a second, competing interface.
-    upiEl('upmAmount').textContent = totalPrice ? '₹' + Number(totalPrice).toFixed(2) : '—';
+    if (upiEl('upmPayAmt')) {
+      upiEl('upmPayAmt').textContent = totalPrice ? formatRupees(totalPrice) : '—';
+    }
     openUpiBox();
 
     try {

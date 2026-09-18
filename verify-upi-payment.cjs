@@ -36,6 +36,7 @@
 
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const { PNG } = require('pngjs');
@@ -451,7 +452,9 @@ function decodeDataUrl(dataUrl) {
 
   // ─────────────────────────────────────────────────────────────────────
   head('2. QR encodes the real amount — ₹1 … ₹999 (requirement 30)');
-  const AMOUNTS = [1, 10, 37, 99, 149, 250, 299, 499, 500, 999];
+  // ₹1, ₹10, ₹15, ₹37, ₹100, ₹250 and ₹500 are the amounts the spec calls out
+  // explicitly; the rest guard the edges around them.
+  const AMOUNTS = [1, 10, 15, 37, 99, 100, 149, 250, 299, 499, 500, 999];
   for (const amount of AMOUNTS) {
     const built = upi.buildUpiUri({ amount, orderCode: 'SH-' + String(amount).padStart(3, '0') + '234', paymentId: 'pay_' + amount });
     let dataUrl;
@@ -1058,6 +1061,134 @@ function decodeDataUrl(dataUrl) {
   check('exactly one coupon row exists for it', couponDb.tables.coupons.filter((c) => c.id === dupCoupon.id).length === 1);
   check('the payment row is PAID exactly once', payRows().filter((p) => String(p.payment_id) === String(dupId)).length === 1);
   check('the payment carries the verified UTR', payRow(dupId)?.verified_utr === 'RACE-UTR-1', String(payRow(dupId)?.verified_utr));
+
+  // ─────────────────────────────────────────────────────────────────────
+  head('18. Customer-facing amount display — whole rupees never show ".00" (requirement 23)');
+
+  const checkoutHtml = fs.readFileSync(path.join(__dirname, 'public', 'checkout.html'), 'utf8');
+
+  /**
+   * Pull a single function out of the page's inline script by brace-matching,
+   * so the suite tests the REAL shipped implementation rather than a copy of it
+   * that could drift.
+   */
+  function extractFunction(source, name) {
+    const start = source.indexOf('function ' + name + '(');
+    if (start < 0) return null;
+    const braceStart = source.indexOf('{', start);
+    if (braceStart < 0) return null;
+    let depth = 0;
+    for (let i = braceStart; i < source.length; i++) {
+      if (source[i] === '{') depth++;
+      else if (source[i] === '}') { depth--; if (depth === 0) return source.slice(start, i + 1); }
+    }
+    return null;
+  }
+
+  const fmtSrc = extractFunction(checkoutHtml, 'formatRupees');
+  check('formatRupees() is present in the shipped page', !!fmtSrc);
+  const fmt = fmtSrc ? new Function(fmtSrc + '; return formatRupees;')() : () => null;
+
+  const wholeRupees = [1, 10, 15, 37, 100, 250, 500];
+  for (const n of wholeRupees) {
+    const shown = fmt(n);
+    check(`₹${n} renders as "₹${n}" with no decimals`, shown === '₹' + n, String(shown));
+  }
+  check('a string amount renders without decimals too', fmt('15') === '₹15', String(fmt('15')));
+  check('a float artefact still renders as ₹15', fmt(14.999999) === '₹15', String(fmt(14.999999)));
+  check('genuine paise keep exactly two places', fmt(15.5) === '₹15.50', String(fmt(15.5)));
+  check('a sub-rupee amount keeps two places', fmt(0.5) === '₹0.50', String(fmt(0.5)));
+  check('a non-numeric amount renders as a dash', fmt('abc') === '—', String(fmt('abc')));
+  check('undefined renders as a dash', fmt(undefined) === '—', String(fmt(undefined)));
+  check('NO whole-rupee output contains ".00"',
+    wholeRupees.every((n) => !String(fmt(n)).includes('.00')),
+    wholeRupees.map((n) => fmt(n)).join(' '));
+
+  // The display rule must not leak into the money format the server uses.
+  check('the UPI URI still carries the full 2-decimal amount for ₹15',
+    /[?&]am=15\.00(&|$)/.test(upi.buildUpiUri({ amount: 15 })),
+    upi.buildUpiUri({ amount: 15 }));
+
+  // A regression guard against reintroducing the old formatting anywhere.
+  check('no customer-facing amount is built with toFixed(2)',
+    !/textContent\s*=\s*'₹'\s*\+\s*Number\([^)]*\)\.toFixed\(2\)/.test(checkoutHtml));
+  check('the Pay button label uses formatRupees',
+    /'🔒 Pay ' \+ formatRupees\(totalPrice\)/.test(checkoutHtml));
+
+  // ─────────────────────────────────────────────────────────────────────
+  head('19. Payment modal — required content, in the required order (requirements 1-11, 22)');
+
+  const boxStart = checkoutHtml.indexOf('id="upiPayBox"');
+  const boxEnd = checkoutHtml.indexOf('<!-- SUCCESS OVERLAY -->');
+  const box = boxStart >= 0 && boxEnd > boxStart ? checkoutHtml.slice(boxStart, boxEnd) : '';
+  check('the payment box is present', box.length > 0);
+
+  const required = [
+    ['upmClose', 'the × close button'],
+    ['upmTitle', '"Complete Payment" title'],
+    ['upmPayAmt', 'the "Pay ₹X using any UPI app" amount'],
+    ['upmTimer', 'the countdown timer'],
+    ['upmWindowMin', 'the "within N minutes" caption'],
+    ['upmQr', 'the QR area'],
+    ['upm-scan', 'the scan instruction'],
+    ['upm-apps', 'the four UPI app options'],
+    ['upmVpa', 'the UPI ID row'],
+    ['upmOpenApp', 'the "Open UPI App / Pay Now" button'],
+    ['upmCheck', 'the "I\'ve paid — Check status" button'],
+    ['upm-foot', 'the "Secured by SaveHatke" footer'],
+  ];
+  let cursor = -1;
+  for (const [marker, label] of required) {
+    const at = box.indexOf(marker);
+    check(`${label} is present and in order`, at >= 0 && at > cursor, at < 0 ? 'missing' : 'at ' + at);
+    if (at >= 0) cursor = at;
+  }
+
+  check('the title reads "Complete Payment" with "Payment" in the green accent',
+    /upm-ttl"[^>]*>Complete <span class="upm-green">Payment<\/span>/.test(box));
+  check('the subtitle reads "Pay ₹X using any UPI app"',
+    /Pay <span class="upm-amt-inline" id="upmPayAmt">/.test(box) && /using any UPI app<\/div>/.test(box));
+  check('the scan instruction reads "Scan the QR code with any UPI app"',
+    /class="upm-scan">Scan the QR code with any UPI app</.test(box));
+  check('the timer caption reads "Complete the payment within N minutes"',
+    /Complete the payment within <span id="upmWindowMin">10<\/span> minutes/.test(box));
+  check('the footer reads "Secured by SaveHatke" with SaveHatke in green',
+    /upm-foot">Secured by <span class="upm-green">SaveHatke<\/span>/.test(box));
+
+  for (const app of ['PhonePe', 'Google Pay', 'Paytm', 'BHIM']) {
+    check(`the ${app} option is offered`, box.includes('>' + app + '</span>'));
+  }
+
+  check('the UPI ID row has a copy control',
+    /id="upmCopyBtn"[^>]*onclick="copyUpiId\(\)"/.test(box));
+  check('copyUpiId() is wired in the page', /function copyUpiId\(\)/.test(checkoutHtml));
+  check('the UPI ID is painted from server config, not hard-coded in the markup',
+    /function showUpiId\(vpa\)/.test(checkoutHtml) && !/810054436/.test(checkoutHtml));
+
+  check('the cancel panel is labelled Cancel / Confirm',
+    /upmKeepBtn[^>]*>Cancel</.test(box) && /upmConfirmBtn[^>]*>Confirm</.test(box));
+  check('the cancel panel is inside the box (slides up, not a browser dialog)',
+    box.includes('upmCancelPanel'));
+  check('no browser alert/confirm/prompt is used for cancellation',
+    !/\balert\s*\(|\bconfirm\s*\(|\bprompt\s*\(/.test(checkoutHtml));
+
+  // Requirement 10: nothing but the footer below the action buttons.
+  check('the old extra coupon paragraph is gone', !/upm-note/.test(box));
+  check('no Order ID is shown in the box', !/upmOrderRef/.test(box));
+  const afterCheck = box.slice(box.indexOf('id="upmCheckText"'));
+  check('the only content after the action buttons is the footer',
+    /<\/button>\s*<div class="upm-foot">/.test(afterCheck), afterCheck.slice(0, 120));
+
+  // Requirement 22: responsive, and the QR must stay large enough to scan.
+  const qrWide = Number((checkoutHtml.match(/\.upm-qr \{ width:(\d+)px/) || [])[1]);
+  const qrNarrow = Number((checkoutHtml.match(/\.upm-qr \{ width:(\d+)px; height:\d+px; \}\s*\.upm-ttl/) || [])[1]);
+  check('the QR is at least 180px on desktop', qrWide >= 180, String(qrWide));
+  check('a narrow-screen media query exists for the modal', /@media \(max-width:420px\)/.test(checkoutHtml));
+  check('a short-viewport guard exists for the modal', /@media \(max-height:700px\)/.test(checkoutHtml));
+  check('the modal body scrolls instead of overflowing the screen',
+    /\.upm-body \{ overflow-y:auto;/.test(checkoutHtml));
+  check('the four app chips share the row evenly (no overflow)',
+    /\.upm-apps \{ display:grid; grid-template-columns:repeat\(4,1fr\)/.test(checkoutHtml));
 
   // ─────────────────────────────────────────────────────────────────────
   stop();
