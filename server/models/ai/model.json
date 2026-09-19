@@ -1,0 +1,39 @@
+{
+  "name": "savehatke-ai",
+  "version": 1,
+  "architecture": "hybrid-deterministic",
+  "runtime": "cpu",
+  "components": [
+    "tokenizer",
+    "intent-classifier",
+    "entity-extractor",
+    "knowledge-retriever",
+    "context-memory",
+    "tool-router",
+    "response-composer",
+    "security-engine"
+  ],
+  "generatedAt": null,
+  "trainedAt": null,
+  "labels": [
+    "GREETING", "GOODBYE", "THANKS", "GENERAL_HELP",
+    "BUY_COUPON", "SEARCH_COUPON", "COUPON_DETAILS",
+    "SELL_COUPON", "SELL_ELIGIBILITY", "SUBMISSION_STATUS",
+    "EARNINGS", "PAYOUT_STATUS", "PAYOUT_LADDER",
+    "PURCHASE_HISTORY", "SUPPORT_TICKETS", "PRICE_TRACKER",
+    "ACCOUNT", "PROFILE", "SECURITY", "TWO_FACTOR_AUTH",
+    "MAINTENANCE", "REFUND", "HOW_IT_WORKS", "FAQ",
+    "WEBSITE_NAVIGATION", "UNKNOWN"
+  ],
+  "notes": "This file is the runtime manifest. A learned classifier, when trained by scripts/ai/train.js, is written to weights/classifier.json and loaded additionally. The engine runs on the deterministic rule scorer alone when no trained classifier exists — training is an optimisation, never a dependency.",
+  "confidence": {
+    "high": 0.8,
+    "medium": 0.55,
+    "belowMedium": "clarify"
+  },
+  "footprint": {
+    "externalServices": 0,
+    "gpuRequired": false,
+    "networkCallsPerMessage": 0
+  }
+}

@@ -1,0 +1,288 @@
+{"text":"where is the marketplace","intent":"WEBSITE_NAVIGATION"}
+{"text":"good morning","intent":"GREETING"}
+{"text":"refund kaise milega","intent":"REFUND"}
+{"text":"how do i sell a coupon","intent":"SELL_COUPON"}
+{"text":"what are my options","intent":"GENERAL_HELP"}
+{"text":"hello savehatke","intent":"GREETING"}
+{"text":"how do i set up two factor authentication","intent":"TWO_FACTOR_AUTH"}
+{"text":"why is the site not loading","intent":"MAINTENANCE"}
+{"text":"am i eligible for selling","intent":"SELL_ELIGIBILITY"}
+{"text":"good night","intent":"GOODBYE"}
+{"text":"payout status","intent":"PAYOUT_STATUS"}
+{"text":"nothing else, bye","intent":"GOODBYE"}
+{"text":"is there a refund policy","intent":"FAQ"}
+{"text":"how are earnings calculated","intent":"EARNINGS"}
+{"text":"can i change my email","intent":"ACCOUNT"}
+{"text":"am i allowed to sell","intent":"SELL_ELIGIBILITY"}
+{"text":"am i allowed to sell coupons","intent":"SELL_ELIGIBILITY"}
+{"text":"change my name","intent":"PROFILE"}
+{"text":"mere purchases dikhao","intent":"PURCHASE_HISTORY"}
+{"text":"check my earnings","intent":"EARNINGS"}
+{"text":"thanks a lot","intent":"THANKS"}
+{"text":"show me offers under 200 rupees","intent":"SEARCH_COUPON"}
+{"text":"how does the price tracker work","intent":"PRICE_TRACKER"}
+{"text":"where are the terms and conditions","intent":"FAQ"}
+{"text":"i want to buy a coupon","intent":"BUY_COUPON"}
+{"text":"how to file a support request","intent":"SUPPORT_TICKETS"}
+{"text":"how secure is savehatke","intent":"SECURITY"}
+{"text":"do coupons expire","intent":"FAQ"}
+{"text":"how much did i earn","intent":"EARNINGS"}
+{"text":"that is all","intent":"GOODBYE"}
+{"text":"how to sell my coupon","intent":"SELL_COUPON"}
+{"text":"are there any cheap coupons","intent":"SEARCH_COUPON"}
+{"text":"mera payout kab milega","intent":"PAYOUT_STATUS"}
+{"text":"where is the support page","intent":"WEBSITE_NAVIGATION"}
+{"text":"where are the terms","intent":"FAQ"}
+{"text":"what data do you collect","intent":"SECURITY"}
+{"text":"coupon validity","intent":"COUPON_DETAILS"}
+{"text":"search for nike coupons","intent":"SEARCH_COUPON"}
+{"text":"how do i get to the sell page","intent":"WEBSITE_NAVIGATION"}
+{"text":"link to my dashboard","intent":"WEBSITE_NAVIGATION"}
+{"text":"check my support tickets","intent":"SUPPORT_TICKETS"}
+{"text":"session expired","intent":"ACCOUNT"}
+{"text":"where do i find the price tracker","intent":"WEBSITE_NAVIGATION"}
+{"text":"enable 2fa on my account","intent":"TWO_FACTOR_AUTH"}
+{"text":"why is my payout pending","intent":"PAYOUT_STATUS"}
+{"text":"track a product price","intent":"PRICE_TRACKER"}
+{"text":"minimum withdrawal kitna hai","intent":"PAYOUT_LADDER"}
+{"text":"hey, are you there?","intent":"GREETING"}
+{"text":"i want to buy","intent":"BUY_COUPON"}
+{"text":"any rules i should know","intent":"FAQ"}
+{"text":"where are the security settings","intent":"WEBSITE_NAVIGATION"}
+{"text":"can i sell coupons?","intent":"SELL_ELIGIBILITY"}
+{"text":"is it under review","intent":"SUBMISSION_STATUS"}
+{"text":"refund policy","intent":"REFUND"}
+{"text":"how does buying work","intent":"BUY_COUPON"}
+{"text":"tell me about savehatke","intent":"HOW_IT_WORKS"}
+{"text":"bechna hai coupon","intent":"SELL_COUPON"}
+{"text":"madad chahiye","intent":"GENERAL_HELP"}
+{"text":"kaha hai marketplace","intent":"WEBSITE_NAVIGATION"}
+{"text":"my session expired","intent":"ACCOUNT"}
+{"text":"check my payout","intent":"PAYOUT_STATUS"}
+{"text":"how do i track a price drop","intent":"PRICE_TRACKER"}
+{"text":"money back guarantee","intent":"REFUND"}
+{"text":"how do i create an account","intent":"ACCOUNT"}
+{"text":"am i on the seller list","intent":"SELL_ELIGIBILITY"}
+{"text":"site not loading","intent":"MAINTENANCE"}
+{"text":"where is support","intent":"WEBSITE_NAVIGATION"}
+{"text":"I want food coupons","intent":"SEARCH_COUPON"}
+{"text":"track a price","intent":"PRICE_TRACKER"}
+{"text":"when will i get paid","intent":"PAYOUT_STATUS"}
+{"text":"hlo","intent":"GREETING"}
+{"text":"i cannot login","intent":"ACCOUNT"}
+{"text":"the site is offline","intent":"MAINTENANCE"}
+{"text":"which page has my purchases","intent":"WEBSITE_NAVIGATION"}
+{"text":"thank you so much","intent":"THANKS"}
+{"text":"account hacked","intent":"SECURITY"}
+{"text":"dhanyavad","intent":"THANKS"}
+{"text":"site down hai kya","intent":"MAINTENANCE"}
+{"text":"browse fashion deals","intent":"SEARCH_COUPON"}
+{"text":"hii","intent":"GREETING"}
+{"text":"check my tickets","intent":"SUPPORT_TICKETS"}
+{"text":"hello there","intent":"GREETING"}
+{"text":"show me coupons for myntra","intent":"SEARCH_COUPON"}
+{"text":"i need help","intent":"GENERAL_HELP"}
+{"text":"set up two factor","intent":"TWO_FACTOR_AUTH"}
+{"text":"talk later","intent":"GOODBYE"}
+{"text":"under maintenance","intent":"MAINTENANCE"}
+{"text":"payout kitna hai","intent":"PAYOUT_STATUS"}
+{"text":"login nahi ho raha","intent":"ACCOUNT"}
+{"text":"do i have sell access","intent":"SELL_ELIGIBILITY"}
+{"text":"what is the per coupon earning rate","intent":"PAYOUT_LADDER"}
+{"text":"sell karna hai coupon","intent":"SELL_COUPON"}
+{"text":"bye","intent":"GOODBYE"}
+{"text":"coupon sell kar sakta hu","intent":"SELL_ELIGIBILITY"}
+{"text":"show me coupons","intent":"SEARCH_COUPON"}
+{"text":"much appreciated","intent":"THANKS"}
+{"text":"what is the payout threshold","intent":"PAYOUT_LADDER"}
+{"text":"why cant i sell coupons","intent":"SELL_ELIGIBILITY"}
+{"text":"why is my earning different from the coupon price","intent":"EARNINGS"}
+{"text":"good evening","intent":"GREETING"}
+{"text":"see you","intent":"GOODBYE"}
+{"text":"did i get paid","intent":"PAYOUT_STATUS"}
+{"text":"how does this platform work","intent":"HOW_IT_WORKS"}
+{"text":"raise a complaint","intent":"SUPPORT_TICKETS"}
+{"text":"coupon chahiye","intent":"SEARCH_COUPON"}
+{"text":"is my data safe","intent":"SECURITY"}
+{"text":"price tracker list","intent":"PRICE_TRACKER"}
+{"text":"any beauty coupons","intent":"SEARCH_COUPON"}
+{"text":"namaste","intent":"GREETING"}
+{"text":"list all coupons","intent":"SEARCH_COUPON"}
+{"text":"how much do i need to withdraw","intent":"PAYOUT_LADDER"}
+{"text":"i dont see my purchase","intent":"PURCHASE_HISTORY"}
+{"text":"my payout is not received","intent":"PAYOUT_STATUS"}
+{"text":"which one expires first","intent":"COUPON_DETAILS"}
+{"text":"what is savehatke","intent":"HOW_IT_WORKS"}
+{"text":"where is my payout","intent":"PAYOUT_STATUS"}
+{"text":"what can i do here","intent":"FAQ"}
+{"text":"coupon sell kar sakta hu?","intent":"SELL_ELIGIBILITY"}
+{"text":"is this coupon still valid","intent":"COUPON_DETAILS"}
+{"text":"mera coupon approve hua kya","intent":"SUBMISSION_STATUS"}
+{"text":"how do i login","intent":"ACCOUNT"}
+{"text":"how do i add payout details","intent":"PAYOUT_STATUS"}
+{"text":"payout threshold","intent":"PAYOUT_LADDER"}
+{"text":"where are my purchased coupons","intent":"PURCHASE_HISTORY"}
+{"text":"hi savehatke","intent":"GREETING"}
+{"text":"coupon ki validity kya hai","intent":"COUPON_DETAILS"}
+{"text":"my submission status","intent":"SUBMISSION_STATUS"}
+{"text":"when do i get the coupon code","intent":"BUY_COUPON"}
+{"text":"how do i buy a coupon","intent":"BUY_COUPON"}
+{"text":"my coupon status","intent":"SUBMISSION_STATUS"}
+{"text":"submission status check karo","intent":"SUBMISSION_STATUS"}
+{"text":"how can i submit a coupon","intent":"SELL_COUPON"}
+{"text":"total earnings","intent":"EARNINGS"}
+{"text":"someone asked me for my otp","intent":"SECURITY"}
+{"text":"is maintenance on","intent":"MAINTENANCE"}
+{"text":"search coupons for flipkart","intent":"SEARCH_COUPON"}
+{"text":"what is the expiry date","intent":"COUPON_DETAILS"}
+{"text":"someone asked for my otp","intent":"SECURITY"}
+{"text":"support se baat karni hai","intent":"SUPPORT_TICKETS"}
+{"text":"can you submit a ticket for me","intent":"SUPPORT_TICKETS"}
+{"text":"is it still valid","intent":"COUPON_DETAILS"}
+{"text":"how does otp work","intent":"TWO_FACTOR_AUTH"}
+{"text":"can i see the code before buying","intent":"BUY_COUPON"}
+{"text":"meri kamai","intent":"EARNINGS"}
+{"text":"what can i do on savehatke","intent":"FAQ"}
+{"text":"i want to raise a complaint","intent":"SUPPORT_TICKETS"}
+{"text":"i want a refund","intent":"REFUND"}
+{"text":"thanks","intent":"THANKS"}
+{"text":"i want to sell","intent":"SELL_COUPON"}
+{"text":"what can you do","intent":"GENERAL_HELP"}
+{"text":"coupon kharidna hai","intent":"BUY_COUPON"}
+{"text":"find nike coupons","intent":"SEARCH_COUPON"}
+{"text":"what is the minimum payout","intent":"PAYOUT_LADDER"}
+{"text":"find coupons","intent":"SEARCH_COUPON"}
+{"text":"did my coupon get approved","intent":"SUBMISSION_STATUS"}
+{"text":"how can you help","intent":"GENERAL_HELP"}
+{"text":"talk to you later","intent":"GOODBYE"}
+{"text":"explain the payout process","intent":"PAYOUT_LADDER"}
+{"text":"why was i logged out","intent":"ACCOUNT"}
+{"text":"profile settings kaha hai","intent":"PROFILE"}
+{"text":"bechna hai","intent":"SELL_COUPON"}
+{"text":"price alert set karna hai","intent":"PRICE_TRACKER"}
+{"text":"coupon kaise sell karu","intent":"SELL_COUPON"}
+{"text":"what are the coupon rules","intent":"FAQ"}
+{"text":"what is an authenticator app","intent":"TWO_FACTOR_AUTH"}
+{"text":"report fraud","intent":"SECURITY"}
+{"text":"do you have any amazon coupons","intent":"SEARCH_COUPON"}
+{"text":"shikayat karni hai","intent":"SUPPORT_TICKETS"}
+{"text":"hello","intent":"GREETING"}
+{"text":"add payout details","intent":"PROFILE"}
+{"text":"is the site down","intent":"MAINTENANCE"}
+{"text":"mujhe coupons dikhao","intent":"SEARCH_COUPON"}
+{"text":"thank you so much for the help","intent":"THANKS"}
+{"text":"kitna kamaya maine","intent":"EARNINGS"}
+{"text":"is maintenance mode on","intent":"MAINTENANCE"}
+{"text":"list my orders","intent":"PURCHASE_HISTORY"}
+{"text":"savehatke safe hai kya","intent":"SECURITY"}
+{"text":"what all can you assist with","intent":"GENERAL_HELP"}
+{"text":"looking for swiggy coupons","intent":"SEARCH_COUPON"}
+{"text":"how does checkout work","intent":"BUY_COUPON"}
+{"text":"forgot my password","intent":"ACCOUNT"}
+{"text":"hi","intent":"GREETING"}
+{"text":"what did i buy","intent":"PURCHASE_HISTORY"}
+{"text":"tell me more about this coupon","intent":"COUPON_DETAILS"}
+{"text":"report a scam","intent":"SECURITY"}
+{"text":"i have a problem with my order","intent":"SUPPORT_TICKETS"}
+{"text":"thank you","intent":"THANKS"}
+{"text":"savehatke kaise kaam karta hai","intent":"HOW_IT_WORKS"}
+{"text":"earning kitni hui","intent":"EARNINGS"}
+{"text":"when does this coupon expire","intent":"COUPON_DETAILS"}
+{"text":"update my profile","intent":"PROFILE"}
+{"text":"is savehatke under maintenance","intent":"MAINTENANCE"}
+{"text":"what are the payout stages","intent":"PAYOUT_LADDER"}
+{"text":"payout aa gaya kya","intent":"PAYOUT_STATUS"}
+{"text":"what can i sell on savehatke","intent":"SELL_COUPON"}
+{"text":"how much have i earned","intent":"EARNINGS"}
+{"text":"can i sell more than one coupon","intent":"SELL_COUPON"}
+{"text":"does savehatke have 2fa","intent":"TWO_FACTOR_AUTH"}
+{"text":"how do i contact support","intent":"SUPPORT_TICKETS"}
+{"text":"what is my total earnings","intent":"EARNINGS"}
+{"text":"any discounts available on electronics","intent":"SEARCH_COUPON"}
+{"text":"price alert","intent":"PRICE_TRACKER"}
+{"text":"why was my coupon rejected","intent":"SUBMISSION_STATUS"}
+{"text":"explain savehatke","intent":"HOW_IT_WORKS"}
+{"text":"create an account","intent":"ACCOUNT"}
+{"text":"mere purchases","intent":"PURCHASE_HISTORY"}
+{"text":"what deals are available","intent":"SEARCH_COUPON"}
+{"text":"any coupons","intent":"SEARCH_COUPON"}
+{"text":"what does savehatke do","intent":"HOW_IT_WORKS"}
+{"text":"hey there","intent":"GREETING"}
+{"text":"how much money have i made","intent":"EARNINGS"}
+{"text":"show my earnings","intent":"EARNINGS"}
+{"text":"how does savehatke work","intent":"HOW_IT_WORKS"}
+{"text":"how do i get started","intent":"HOW_IT_WORKS"}
+{"text":"show my tracked products","intent":"PRICE_TRACKER"}
+{"text":"how do i sign up","intent":"ACCOUNT"}
+{"text":"payout stages","intent":"PAYOUT_LADDER"}
+{"text":"shukriya","intent":"THANKS"}
+{"text":"am i eligible to sell","intent":"SELL_ELIGIBILITY"}
+{"text":"enable 2fa","intent":"TWO_FACTOR_AUTH"}
+{"text":"see you later","intent":"GOODBYE"}
+{"text":"how do i update my profile","intent":"PROFILE"}
+{"text":"buy a coupon","intent":"BUY_COUPON"}
+{"text":"what are your capabilities","intent":"FAQ"}
+{"text":"was my coupon approved","intent":"SUBMISSION_STATUS"}
+{"text":"hey","intent":"GREETING"}
+{"text":"can i buy with upi","intent":"BUY_COUPON"}
+{"text":"what coupons are available right now","intent":"SEARCH_COUPON"}
+{"text":"how much do i earn selling a coupon","intent":"SELL_COUPON"}
+{"text":"how do i checkout","intent":"BUY_COUPON"}
+{"text":"are you a human","intent":"FAQ"}
+{"text":"cancel my purchase","intent":"REFUND"}
+{"text":"help","intent":"GENERAL_HELP"}
+{"text":"how do i report fraud","intent":"SECURITY"}
+{"text":"can i sell coupons","intent":"SELL_ELIGIBILITY"}
+{"text":"can you help me with something","intent":"GENERAL_HELP"}
+{"text":"show my purchases","intent":"PURCHASE_HISTORY"}
+{"text":"expiry date kya hai","intent":"COUPON_DETAILS"}
+{"text":"how to purchase coupons","intent":"BUY_COUPON"}
+{"text":"update my payout details","intent":"PROFILE"}
+{"text":"is savehatke safe","intent":"SECURITY"}
+{"text":"how much do i earn selling","intent":"SELL_COUPON"}
+{"text":"my order history","intent":"PURCHASE_HISTORY"}
+{"text":"open support ticket","intent":"SUPPORT_TICKETS"}
+{"text":"payout ladder","intent":"PAYOUT_LADDER"}
+{"text":"check my submissions","intent":"SUBMISSION_STATUS"}
+{"text":"what are the terms of this coupon","intent":"COUPON_DETAILS"}
+{"text":"what is the process to buy","intent":"BUY_COUPON"}
+{"text":"my ticket status","intent":"SUPPORT_TICKETS"}
+{"text":"how long does review take","intent":"SUBMISSION_STATUS"}
+{"text":"how can you help me","intent":"GENERAL_HELP"}
+{"text":"did my purchase go through","intent":"PURCHASE_HISTORY"}
+{"text":"can i sell a coupon","intent":"SELL_ELIGIBILITY"}
+{"text":"my profile details","intent":"PROFILE"}
+{"text":"when does this expire","intent":"COUPON_DETAILS"}
+{"text":"i think my account was hacked","intent":"SECURITY"}
+{"text":"i want to sell a coupon","intent":"SELL_COUPON"}
+{"text":"add my upi id","intent":"PROFILE"}
+{"text":"how to submit a coupon","intent":"SELL_COUPON"}
+{"text":"is my coupon under review","intent":"SUBMISSION_STATUS"}
+{"text":"my earning balance","intent":"EARNINGS"}
+{"text":"terms of this coupon","intent":"COUPON_DETAILS"}
+{"text":"can i cancel my purchase","intent":"REFUND"}
+{"text":"my coupon did not work","intent":"REFUND"}
+{"text":"show coupons under 100","intent":"SEARCH_COUPON"}
+{"text":"how do i add my upi id","intent":"PROFILE"}
+{"text":"what is the status of my submission","intent":"SUBMISSION_STATUS"}
+{"text":"can i list my coupon","intent":"SELL_ELIGIBILITY"}
+{"text":"how long is this coupon valid","intent":"COUPON_DETAILS"}
+{"text":"eligible hu sell ke liye","intent":"SELL_ELIGIBILITY"}
+{"text":"how to list a coupon for sale","intent":"SELL_COUPON"}
+{"text":"show me travel coupons under 500","intent":"SEARCH_COUPON"}
+{"text":"did support reply","intent":"SUPPORT_TICKETS"}
+{"text":"kitna kamaya","intent":"EARNINGS"}
+{"text":"coupons dikhao","intent":"SEARCH_COUPON"}
+{"text":"how long do payouts take","intent":"PAYOUT_STATUS"}
+{"text":"thanks, that's all","intent":"GOODBYE"}
+{"text":"do i have permission to sell","intent":"SELL_ELIGIBILITY"}
+{"text":"payout kaise hota hai","intent":"PAYOUT_LADDER"}
+{"text":"any nykaa coupons?","intent":"SEARCH_COUPON"}
+{"text":"where are my backup codes","intent":"TWO_FACTOR_AUTH"}
+{"text":"coupon did not work","intent":"REFUND"}
+{"text":"where can i find my earnings","intent":"WEBSITE_NAVIGATION"}
+{"text":"meri kamai kitni hai","intent":"EARNINGS"}
+{"text":"nothing else thanks","intent":"GOODBYE"}
+{"text":"change my email","intent":"ACCOUNT"}
+{"text":"how do refunds work","intent":"REFUND"}
+{"text":"goodbye","intent":"GOODBYE"}

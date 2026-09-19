@@ -1,0 +1,434 @@
+[
+  {
+    "id": "overview-001",
+    "category": "SaveHatke Overview",
+    "intent": "HOW_IT_WORKS",
+    "question": "What is SaveHatke?",
+    "answer": "SaveHatke is India's coupon marketplace — a place where people who have a coupon they won't use can list it, and people who want that discount can buy it. Sellers earn for every coupon of theirs that sells, and buyers get a real discount for less than its face value.",
+    "keywords": ["savehatke", "what is", "about", "platform", "marketplace", "overview", "explain"],
+    "enabled": true
+  },
+  {
+    "id": "overview-002",
+    "category": "How SaveHatke Works",
+    "intent": "HOW_IT_WORKS",
+    "question": "How does SaveHatke work?",
+    "answer": "It works in three steps:\n\n1. **Browse or list** — buyers browse live coupons on the marketplace; sellers submit a coupon they aren't going to use.\n2. **Review and buy** — a submitted coupon goes through a review, then appears on the marketplace where a buyer can purchase it.\n3. **Get paid or use it** — the buyer receives the coupon code and uses it on the brand's site; the seller earns for that sale and can withdraw once their balance builds up.",
+    "keywords": ["how works", "how does it work", "how it works", "process", "steps", "explain"],
+    "enabled": true
+  },
+  {
+    "id": "overview-003",
+    "category": "How SaveHatke Works",
+    "intent": "HOW_IT_WORKS",
+    "question": "What can I do on SaveHatke?",
+    "answer": "You can:\n\n• **Buy coupons** — real discounts at less than face value\n• **Sell coupons** — list a coupon you don't need and earn when it sells (currently invite-only)\n• **Track prices** — watch a product and get alerted when the price drops to your target\n• **Manage purchases and earnings** — everything you've bought, sold and earned in one dashboard\n• **Get support** — raise and track a support case",
+    "keywords": ["what can i do", "features", "options", "available", "help", "savehatke do"],
+    "enabled": true
+  },
+  {
+    "id": "buy-001",
+    "category": "Coupon Buying",
+    "intent": "BUY_COUPON",
+    "question": "How do I buy a coupon?",
+    "answer": "Find the coupon on the marketplace, open it, and complete checkout. Once your payment is confirmed, the coupon code is released to you immediately and the purchase appears in your dashboard. The code is what you redeem on the brand's own site or app.",
+    "keywords": ["how buy", "buy coupon", "purchase", "checkout", "payment", "get coupon", "kharidna"],
+    "enabled": true
+  },
+  {
+    "id": "buy-002",
+    "category": "Coupon Buying",
+    "intent": "BUY_COUPON",
+    "question": "When do I get the coupon code?",
+    "answer": "Immediately after your purchase is confirmed. The code is revealed to you and stored with your purchase, so you can open it any time from your dashboard. Codes are never shared before a purchase completes — that's what keeps the marketplace fair to sellers.",
+    "keywords": ["when code", "get code", "coupon code", "reveal code", "after purchase", "where code"],
+    "enabled": true
+  },
+  {
+    "id": "buy-003",
+    "category": "Coupon Buying",
+    "intent": "BUY_COUPON",
+    "question": "Can I see the coupon code before buying it?",
+    "answer": "No — the code stays hidden until your purchase completes. You get the brand, the discount, the value and the expiry up front so you can judge it, and the code itself is released the moment you buy. This is what stops a single coupon from being used by many people.",
+    "keywords": ["before buy", "preview code", "see code", "show code", "hidden code", "why hidden"],
+    "enabled": true
+  },
+  {
+    "id": "buy-004",
+    "category": "Coupon Buying",
+    "intent": "PURCHASE_HISTORY",
+    "question": "Where are my purchased coupons?",
+    "answer": "All of your purchases are in your dashboard under your purchases, with the coupon code for each one. If you can't see a recent purchase, give it a moment for the payment to confirm — it appears as soon as the payment is verified.",
+    "keywords": ["my purchases", "bought coupons", "purchase history", "where purchases", "my orders", "order history"],
+    "enabled": true
+  },
+  {
+    "id": "buy-005",
+    "category": "Coupon Buying",
+    "intent": "BUY_COUPON",
+    "question": "What happens if a coupon does not work?",
+    "answer": "If a coupon turns out to be invalid, report it through support with the coupon details. Our team reviews it, and when it's confirmed the amount is returned to you. SaveHatke reviews every listing, and this is the safety net for the ones that slip through.",
+    "keywords": ["not work", "invalid coupon", "doesn't work", "expired coupon", "bad coupon", "wrong coupon"],
+    "enabled": true
+  },
+  {
+    "id": "sell-001",
+    "category": "Coupon Selling",
+    "intent": "SELL_ELIGIBILITY",
+    "question": "Can I sell coupons?",
+    "answer": "Selling is currently invite-only — it isn't open to every account yet. If your account has been approved for it, you can submit coupons from the Sell page. If you'd like access, contact support and the team can review it.",
+    "keywords": ["can i sell", "sell coupon", "eligible sell", "selling", "sell eligible", "bechna", "allowed sell"],
+    "enabled": true
+  },
+  {
+    "id": "sell-002",
+    "category": "Coupon Selling",
+    "intent": "SELL_ELIGIBILITY",
+    "question": "Am I eligible to sell coupons?",
+    "answer": "Eligibility is checked against your account email. Selling is invite-only right now, so unless the SaveHatke team has approved your account, the Sell page will ask you to contact support. You can verify your own status any time by opening the Sell page while signed in.",
+    "keywords": ["am i eligible", "eligibility", "whitelist", "approved sell", "qualify sell", "sell access", "permission sell"],
+    "enabled": true
+  },
+  {
+    "id": "sell-003",
+    "category": "Coupon Selling",
+    "intent": "SELL_COUPON",
+    "question": "How do I sell a coupon?",
+    "answer": "Once your account has selling access, open the Sell page and submit the coupon: pick the brand and category, describe what the coupon gives, set your price, add the coupon details and a proof screenshot, then submit. It goes through a review, and once approved it appears on the marketplace. You earn for it when it sells.",
+    "keywords": ["how sell", "sell coupon", "submit coupon", "list coupon", "selling process", "bechna hai", "sell karna"],
+    "enabled": true
+  },
+  {
+    "id": "sell-004",
+    "category": "Coupon Selling",
+    "intent": "SELL_COUPON",
+    "question": "What can I sell on SaveHatke?",
+    "answer": "You can list genuine, unused coupons from supported brands — shopping, food, travel, beauty, electronics and more. The coupon needs a real brand, a clear value and a valid expiry, and it should be yours to give away. Coupons that are already used, already expired, or shared publicly elsewhere can't be listed.",
+    "keywords": ["what sell", "which coupons sell", "allowed coupons", "sell restrictions", "what can i list"],
+    "enabled": true
+  },
+  {
+    "id": "sell-005",
+    "category": "Coupon Selling",
+    "intent": "SELL_COUPON",
+    "question": "How much do I earn for selling a coupon?",
+    "answer": "You earn ₹10 for every coupon of yours that sells — it's a flat rate per sold coupon, and it doesn't depend on the coupon's price. So five sold coupons earn you ₹50. Your earnings build up in your account until you request a payout.",
+    "keywords": ["how much earn", "earning rate", "per coupon", "sell earning", "kitna milega", "commission", "₹10"],
+    "enabled": true
+  },
+  {
+    "id": "sell-006",
+    "category": "Coupon Selling",
+    "intent": "SELL_COUPON",
+    "question": "Can I sell more than one coupon?",
+    "answer": "Yes — there's no limit on how many coupons you can submit. Each one is reviewed on its own, and each one that sells earns you ₹10. Many sellers keep several live at once.",
+    "keywords": ["multiple coupons", "how many sell", "more than one", "limit sell", "several coupons"],
+    "enabled": true
+  },
+  {
+    "id": "submission-001",
+    "category": "Coupon Submission",
+    "intent": "SUBMISSION_STATUS",
+    "question": "How long does coupon review take?",
+    "answer": "Reviews are usually completed within a couple of days. You can track each submission's status on your dashboard — it moves from under review to live on the marketplace once it's approved.",
+    "keywords": ["review time", "how long review", "approval time", "pending review", "when approved", "verification time"],
+    "enabled": true
+  },
+  {
+    "id": "submission-002",
+    "category": "Coupon Submission",
+    "intent": "SUBMISSION_STATUS",
+    "question": "Why was my coupon rejected?",
+    "answer": "The most common reasons are a coupon that has already expired or is about to, a value or brand we couldn't verify, a proof screenshot that didn't clearly show the coupon, or a duplicate of something already listed. You can fix the issue and submit again — and if you're unsure, raise a support case and the team will explain what happened.",
+    "keywords": ["rejected", "why rejected", "declined", "not approved", "coupon rejected", "failed review"],
+    "enabled": true
+  },
+  {
+    "id": "submission-003",
+    "category": "Coupon Submission",
+    "intent": "SUBMISSION_STATUS",
+    "question": "Where can I see my submission status?",
+    "answer": "On your dashboard. Every coupon you've submitted shows where it stands — under review, live on the marketplace, sold, or rejected. It updates as the review progresses.",
+    "keywords": ["submission status", "my submissions", "check status", "where status", "submitted coupons status"],
+    "enabled": true
+  },
+  {
+    "id": "earnings-001",
+    "category": "Earnings",
+    "intent": "EARNINGS",
+    "question": "How much have I earned?",
+    "answer": "Your earnings are ₹10 for each coupon of yours that has sold. So if three of your coupons have sold, you've earned ₹30. Your dashboard shows the exact count and total for your account — and I can look it up for you while you're signed in.",
+    "keywords": ["how much earned", "my earnings", "total earned", "check earnings", "kamai", "earning balance", "how much made"],
+    "enabled": true
+  },
+  {
+    "id": "earnings-002",
+    "category": "Earnings",
+    "intent": "EARNINGS",
+    "question": "How are seller earnings calculated?",
+    "answer": "It's a flat ₹10 per coupon that sells — not a percentage of the coupon's price. A ₹500 coupon and a ₹100 coupon both earn the seller ₹10 when they sell. This keeps it simple and predictable no matter what you list.",
+    "keywords": ["how calculated", "earning calculation", "rate", "per sold coupon", "how earnings work", "formula"],
+    "enabled": true
+  },
+  {
+    "id": "earnings-003",
+    "category": "Earnings",
+    "intent": "EARNINGS",
+    "question": "Why is my earnings amount different from the coupon price?",
+    "answer": "Because your earning is a flat ₹10 per sold coupon, while the price you see on a coupon is what the buyer pays for it. Those are two different numbers by design — the coupon's price doesn't change what you earn for selling it.",
+    "keywords": ["different amount", "why not price", "earning vs price", "less than price", "earnings discrepancy", "why so low"],
+    "enabled": true
+  },
+  {
+    "id": "payout-001",
+    "category": "Earnings",
+    "intent": "PAYOUT_STATUS",
+    "question": "Where is my payout?",
+    "answer": "You can see where each payout stands in your dashboard. A payout moves through: Pending Review, Active, Eligible for Payout, Payout Processing, and finally Paid. If it's sitting at Eligible or Processing, it's in the queue and will be paid once the team completes the run. If you've reached the minimum, you can request a payout yourself.",
+    "keywords": ["where payout", "my payout", "payout status", "payout not received", "when paid", "payout kab", "pending payout"],
+    "enabled": true
+  },
+  {
+    "id": "payout-002",
+    "category": "Earnings",
+    "intent": "PAYOUT_LADDER",
+    "question": "What is the minimum payout?",
+    "answer": "The minimum payout request is ₹50, and a single request can be up to ₹100,000. Once your balance reaches ₹50 you can request a payout from your dashboard.",
+    "keywords": ["minimum payout", "min payout", "how much withdraw", "payout limit", "threshold payout", "minimum withdrawal"],
+    "enabled": true
+  },
+  {
+    "id": "payout-003",
+    "category": "Earnings",
+    "intent": "PAYOUT_LADDER",
+    "question": "What are the payout stages?",
+    "answer": "Each payout moves through five stages:\n\n1. **Pending Review** — the coupon is being checked\n2. **Active** — the coupon is live on the marketplace\n3. **Eligible for Payout** — it sold and the money is owed to you\n4. **Payout Processing** — payment is being prepared\n5. **Paid** — the money has reached you\n\nIf a coupon is found invalid during review, it's marked Validation Failed instead and the payment is withheld.",
+    "keywords": ["payout stages", "payout ladder", "payout steps", "payout process", "payout statuses"],
+    "enabled": true
+  },
+  {
+    "id": "payout-004",
+    "category": "Earnings",
+    "intent": "PAYOUT_STATUS",
+    "question": "How do I add my payout details?",
+    "answer": "Add a UPI ID or a payout QR code in your account settings. A payout needs a destination on file before it can be processed, so it's worth setting up early — otherwise your earnings stay in your balance until you add it.",
+    "keywords": ["add payout details", "payout details", "upi", "qr code", "payment method", "how receive money", "bank details"],
+    "enabled": true
+  },
+  {
+    "id": "payout-005",
+    "category": "Earnings",
+    "intent": "PAYOUT_STATUS",
+    "question": "How long do payouts take?",
+    "answer": "Once a payout reaches the processing stage, it's paid out in the next payout run. Coupon reviews and the payout batch both take a little time, so allow a few days between a coupon selling and the money reaching you. If a payout has been sitting at Processing for a while, raise a support case and we'll check it.",
+    "keywords": ["how long payout", "payout time", "when payout", "payout delay", "payout taking long", "processing payout"],
+    "enabled": true
+  },
+  {
+    "id": "account-001",
+    "category": "Account",
+    "intent": "ACCOUNT",
+    "question": "How do I log in to SaveHatke?",
+    "answer": "SaveHatke accounts are passwordless. Enter your email on the login page and we send you a one-time code to sign in, or use the Google button to sign in with your Google account. There's no password to remember or reset.",
+    "keywords": ["login", "log in", "sign in", "how login", "cant login", "cannot login", "login problem", "password"],
+    "enabled": true
+  },
+  {
+    "id": "account-002",
+    "category": "Account",
+    "intent": "ACCOUNT",
+    "question": "Why was I logged out?",
+    "answer": "Sessions expire automatically: 48 hours after you log in for regular accounts, and 2 hours for admin accounts. You'll also be signed out if the session is ended from another device. Just sign in again with a fresh code — nothing is lost from your account.",
+    "keywords": ["logged out", "session expired", "signed out", "why logout", "session timeout", "keep getting logged out"],
+    "enabled": true
+  },
+  {
+    "id": "account-003",
+    "category": "Account",
+    "intent": "ACCOUNT",
+    "question": "How do I create a SaveHatke account?",
+    "answer": "Use the Sign Up tab on the login page with your email address, or sign up with Google. Verification happens through the one-time code we send you. Once you're in, you can browse and buy coupons straight away.",
+    "keywords": ["create account", "sign up", "register", "new account", "how to join", "make account"],
+    "enabled": true
+  },
+  {
+    "id": "account-004",
+    "category": "Account",
+    "intent": "ACCOUNT",
+    "question": "Can I change my email address?",
+    "answer": "Your email is your sign-in identity, so it needs care — and because it's tied to your purchases, earnings and payout records, a change has to be verified rather than applied instantly. Raise a support case and the team will walk you through it.",
+    "keywords": ["change email", "update email", "new email", "email change", "wrong email"],
+    "enabled": true
+  },
+  {
+    "id": "profile-001",
+    "category": "Account",
+    "intent": "PROFILE",
+    "question": "How do I update my profile?",
+    "answer": "Your name and profile details are editable in your account settings. Your payout details — a UPI ID or QR code — live in the same place, and they need to be set before a payout can be processed.",
+    "keywords": ["update profile", "my profile", "change name", "profile settings", "edit profile", "account settings"],
+    "enabled": true
+  },
+  {
+    "id": "security-001",
+    "category": "Security",
+    "intent": "SECURITY",
+    "question": "Is SaveHatke safe?",
+    "answer": "SaveHatke is built with security in mind: sign-in uses a one-time email code or Google so there's no password to leak, sessions expire automatically, payments run through the payment provider's own secure flow, and payout destinations are stored on your account rather than typed per request.\n\nA practical rule that matters more than any feature: nobody from SaveHatke will ever ask you for an OTP, a 2FA code or a backup code. If someone does, it isn't us — report it.",
+    "keywords": ["is it safe", "is savehatke safe", "safe", "secure", "trust", "scam", "legit", "fraud"],
+    "enabled": true
+  },
+  {
+    "id": "security-002",
+    "category": "Security",
+    "intent": "SECURITY",
+    "question": "How does SaveHatke protect my data?",
+    "answer": "Your data is kept server-side and reached only through authenticated services. The assistant you're talking to now is deliberately limited: it can look up your own account details and explain how things work, but it cannot read another user's data, change your account settings, move money, or reveal coupon codes before purchase. Sensitive details like payout destinations are masked when displayed.",
+    "keywords": ["protect data", "privacy", "my data", "data safety", "how secure", "data protection"],
+    "enabled": true
+  },
+  {
+    "id": "security-003",
+    "category": "Security",
+    "intent": "SECURITY",
+    "question": "How do I report fraud or a suspicious message?",
+    "answer": "Raise a support case right away with as much detail as you have — a screenshot helps a lot. Report anything asking for your OTP, your bank details, or payment outside the SaveHatke checkout. We take these seriously and will act on the report.",
+    "keywords": ["report fraud", "report scam", "suspicious message", "someone asked otp", "phishing", "fake support", "report"],
+    "enabled": true
+  },
+  {
+    "id": "security-004",
+    "category": "Security",
+    "intent": "TWO_FACTOR_AUTH",
+    "question": "Does SaveHatke have two-factor authentication?",
+    "answer": "Yes. On top of passwordless sign-in, you can set up two-factor authentication with an authenticator app, and you'll get backup codes for when you can't use the app. Set it up from Security in your account settings. Keep your backup codes somewhere safe and offline — and never share an OTP, 2FA code or backup code with anyone, including support.",
+    "keywords": ["two factor", "2fa", "authenticator", "otp", "backup codes", "mfa", "two step", "security code"],
+    "enabled": true
+  },
+  {
+    "id": "privacy-001",
+    "category": "Privacy",
+    "intent": "SECURITY",
+    "question": "What data does SaveHatke collect?",
+    "answer": "Only what's needed to run the marketplace: your account details, your purchases and submissions, your earnings and payout records, and standard security logs like sign-in times. Full details are in the Privacy Policy, linked in the footer. Sensitive values like payout destinations are masked when shown, and secrets are never sent to any AI provider.",
+    "keywords": ["what data", "privacy policy", "data collect", "my information", "gdpr", "data usage"],
+    "enabled": true
+  },
+  {
+    "id": "tracker-001",
+    "category": "SaveHatke Overview",
+    "intent": "PRICE_TRACKER",
+    "question": "How does the price tracker work?",
+    "answer": "Add a product URL to the Price Tracker and set the price you'd like to pay. SaveHatke watches that product and alerts you when the price drops to your target, so you don't have to keep checking. You can manage your tracked products from your dashboard.",
+    "keywords": ["price tracker", "track price", "price alert", "track product", "price drop", "watch price", "tracker"],
+    "enabled": true
+  },
+  {
+    "id": "support-001",
+    "category": "Support",
+    "intent": "SUPPORT_TICKETS",
+    "question": "How do I contact support?",
+    "answer": "Open the Support page and submit the form — pick the category that fits, describe the issue, and attach a screenshot if it helps. You'll get a case you can track, and our team replies in the case thread. Support is available Monday to Saturday, 9 AM to 7 PM IST; the assistant here is available any time for general questions.",
+    "keywords": ["contact support", "support", "help", "raise ticket", "customer care", "complaint", "how to reach support"],
+    "enabled": true
+  },
+  {
+    "id": "support-002",
+    "category": "Support",
+    "intent": "SUPPORT_TICKETS",
+    "question": "How do I check my support ticket status?",
+    "answer": "Your support cases are on the Support page, each showing whether it's open, in progress or resolved. Replies from the team appear in the case thread. If you're signed in, I can check the status of your own cases for you.",
+    "keywords": ["ticket status", "check tickets", "my tickets", "support reply", "case status", "did support reply", "ticket open"],
+    "enabled": true
+  },
+  {
+    "id": "support-003",
+    "category": "Support",
+    "intent": "SUPPORT_TICKETS",
+    "question": "Can you submit a support request for me?",
+    "answer": "I can't submit it for you — the request needs to come from you, so the team has your own description of the issue and can follow up with you directly. What I can do is help you work out which category fits and what details to include, then point you at the form.",
+    "keywords": ["submit for me", "can you submit", "raise for me", "file ticket for me", "write ticket"],
+    "enabled": true
+  },
+  {
+    "id": "rules-001",
+    "category": "Coupon Rules",
+    "intent": "FAQ",
+    "question": "What are the coupon rules on SaveHatke?",
+    "answer": "A few rules keep the marketplace trustworthy:\n\n• Coupons must be genuine, unused and not expired\n• A coupon can only be sold once — the code stays hidden until purchase\n• Listings are reviewed before they go live\n• A coupon should be yours to give away, not copied from a public source\n• Your earning is ₹10 per coupon that sells, regardless of its price",
+    "keywords": ["rules", "coupon rules", "policy", "terms", "allowed", "guidelines", "what is not allowed"],
+    "enabled": true
+  },
+  {
+    "id": "rules-002",
+    "category": "Coupon Rules",
+    "intent": "COUPON_DETAILS",
+    "question": "Do coupons expire?",
+    "answer": "Yes — every coupon has an expiry, and each listing shows how long is left. If no explicit expiry is set, the listing runs on a two-week window from when it was added. An expired coupon can't be used, which is why it's worth checking the expiry before you buy.",
+    "keywords": ["expire", "expiry", "validity", "how long valid", "expiry date", "coupon validity", "expires"],
+    "enabled": true
+  },
+  {
+    "id": "refund-001",
+    "category": "Coupon Rules",
+    "intent": "REFUND",
+    "question": "How do refunds work?",
+    "answer": "If a coupon you bought turns out to be invalid, raise a support case with the coupon details and our team will review it. When it's confirmed, the amount is returned to you. Refunds go through that review rather than an instant reversal, so that they're applied fairly.",
+    "keywords": ["refund", "refunds", "money back", "cancel purchase", "refund policy", "get refund", "return"],
+    "enabled": true
+  },
+  {
+    "id": "refund-002",
+    "category": "Coupon Rules",
+    "intent": "REFUND",
+    "question": "Can I cancel a purchase?",
+    "answer": "A completed purchase can't be undone on its own, because the coupon code is released to you the moment payment confirms. If something went wrong with the purchase, raise a support case straight away and the team will look at it — the sooner you report it, the easier it is to resolve.",
+    "keywords": ["cancel purchase", "cancel order", "undo purchase", "changed my mind", "cancel buy"],
+    "enabled": true
+  },
+  {
+    "id": "terms-001",
+    "category": "Terms",
+    "intent": "FAQ",
+    "question": "Where can I read the terms and privacy policy?",
+    "answer": "Both are linked in the site footer: Terms of Service and Privacy Policy. They cover the rules of using SaveHatke, how the marketplace works, and how your data is handled.",
+    "keywords": ["terms", "terms of service", "privacy policy", "legal", "where terms", "policy page"],
+    "enabled": true
+  },
+  {
+    "id": "nav-001",
+    "category": "SaveHatke Overview",
+    "intent": "WEBSITE_NAVIGATION",
+    "question": "Where can I find my earnings and payouts?",
+    "answer": "Both are in your dashboard. Your earnings section shows how many coupons have sold and what you've earned at ₹10 each; your payouts section shows each payout and which stage it's reached. If you're signed in, just ask me and I'll look up your own numbers.",
+    "keywords": ["where earnings", "where payouts", "find earnings", "dashboard earnings", "where dashboard"],
+    "enabled": true
+  },
+  {
+    "id": "nav-002",
+    "category": "SaveHatke Overview",
+    "intent": "WEBSITE_NAVIGATION",
+    "question": "Where is the marketplace?",
+    "answer": "The marketplace is where all live coupons are listed — it's linked in the main navigation. You can browse by category or search for a brand, and each card shows the discount, the price and how long the coupon has left.",
+    "keywords": ["where marketplace", "find marketplace", "browse coupons", "where coupons", "marketplace page"],
+    "enabled": true
+  },
+  {
+    "id": "ai-001",
+    "category": "SaveHatke Overview",
+    "intent": "FAQ",
+    "question": "What can you help me with?",
+    "answer": "I can help with coupons, buying, selling, earnings, payouts, your account and security, the price tracker, and support — plus pointing you at the right page. I can look up your own purchases, earnings, submissions and support cases while you're signed in.\n\nWhat I can't do: I can't see anyone else's data, change your account settings, approve or process anything, or reveal a coupon code before you've bought it.",
+    "keywords": ["what can you do", "help me", "your capabilities", "what do you know", "can you help"],
+    "enabled": true
+  },
+  {
+    "id": "ai-002",
+    "category": "SaveHatke Overview",
+    "intent": "FAQ",
+    "question": "Are you a human?",
+    "answer": "I'm the SaveHatke AI Assistant — an automated assistant, not a person. I can help with coupons, your account questions and finding the right page. For anything that needs a decision or a manual review, like a refund, a rejected coupon or a payout issue, I'll point you to the support team.",
+    "keywords": ["are you human", "are you real", "bot", "robot", "who are you", "are you ai", "human or bot"],
+    "enabled": true
+  }
+]

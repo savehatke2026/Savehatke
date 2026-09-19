@@ -1,0 +1,251 @@
+{"text": "hi", "intent": "GREETING"}
+{"text": "hey there", "intent": "GREETING"}
+{"text": "hello", "intent": "GREETING"}
+{"text": "good morning", "intent": "GREETING"}
+{"text": "good evening", "intent": "GREETING"}
+{"text": "namaste", "intent": "GREETING"}
+{"text": "hii", "intent": "GREETING"}
+{"text": "hey, are you there?", "intent": "GREETING"}
+{"text": "hello savehatke", "intent": "GREETING"}
+
+{"text": "bye", "intent": "GOODBYE"}
+{"text": "goodbye", "intent": "GOODBYE"}
+{"text": "see you later", "intent": "GOODBYE"}
+{"text": "thanks, that's all", "intent": "GOODBYE"}
+{"text": "talk to you later", "intent": "GOODBYE"}
+{"text": "nothing else, bye", "intent": "GOODBYE"}
+{"text": "good night", "intent": "GOODBYE"}
+
+{"text": "thanks", "intent": "THANKS"}
+{"text": "thank you", "intent": "THANKS"}
+{"text": "thanks a lot", "intent": "THANKS"}
+{"text": "shukriya", "intent": "THANKS"}
+{"text": "dhanyavad", "intent": "THANKS"}
+{"text": "thank you so much for the help", "intent": "THANKS"}
+{"text": "much appreciated", "intent": "THANKS"}
+
+{"text": "help", "intent": "GENERAL_HELP"}
+{"text": "what can you do", "intent": "GENERAL_HELP"}
+{"text": "how can you help me", "intent": "GENERAL_HELP"}
+{"text": "i need help", "intent": "GENERAL_HELP"}
+{"text": "what are my options", "intent": "GENERAL_HELP"}
+{"text": "can you help me with something", "intent": "GENERAL_HELP"}
+{"text": "madad chahiye", "intent": "GENERAL_HELP"}
+{"text": "what all can you assist with", "intent": "GENERAL_HELP"}
+
+{"text": "show me coupons", "intent": "SEARCH_COUPON"}
+{"text": "find nike coupons", "intent": "SEARCH_COUPON"}
+{"text": "any nykaa coupons?", "intent": "SEARCH_COUPON"}
+{"text": "show coupons under 100", "intent": "SEARCH_COUPON"}
+{"text": "do you have any amazon coupons", "intent": "SEARCH_COUPON"}
+{"text": "I want food coupons", "intent": "SEARCH_COUPON"}
+{"text": "show me coupons for myntra", "intent": "SEARCH_COUPON"}
+{"text": "coupons dikhao", "intent": "SEARCH_COUPON"}
+{"text": "any discounts available on electronics", "intent": "SEARCH_COUPON"}
+{"text": "what coupons are available right now", "intent": "SEARCH_COUPON"}
+{"text": "list all coupons", "intent": "SEARCH_COUPON"}
+{"text": "coupon chahiye", "intent": "SEARCH_COUPON"}
+{"text": "show me offers under 200 rupees", "intent": "SEARCH_COUPON"}
+{"text": "looking for swiggy coupons", "intent": "SEARCH_COUPON"}
+{"text": "browse fashion deals", "intent": "SEARCH_COUPON"}
+{"text": "are there any cheap coupons", "intent": "SEARCH_COUPON"}
+{"text": "show me travel coupons under 500", "intent": "SEARCH_COUPON"}
+{"text": "search coupons for flipkart", "intent": "SEARCH_COUPON"}
+{"text": "mujhe coupons dikhao", "intent": "SEARCH_COUPON"}
+{"text": "any beauty coupons", "intent": "SEARCH_COUPON"}
+
+{"text": "when does this coupon expire", "intent": "COUPON_DETAILS"}
+{"text": "which one expires first", "intent": "COUPON_DETAILS"}
+{"text": "what are the terms of this coupon", "intent": "COUPON_DETAILS"}
+{"text": "how long is this coupon valid", "intent": "COUPON_DETAILS"}
+{"text": "tell me more about this coupon", "intent": "COUPON_DETAILS"}
+{"text": "what is the expiry date", "intent": "COUPON_DETAILS"}
+{"text": "coupon ki validity kya hai", "intent": "COUPON_DETAILS"}
+{"text": "is this coupon still valid", "intent": "COUPON_DETAILS"}
+
+{"text": "can i sell a coupon", "intent": "SELL_ELIGIBILITY"}
+{"text": "am i eligible to sell", "intent": "SELL_ELIGIBILITY"}
+{"text": "am i allowed to sell coupons", "intent": "SELL_ELIGIBILITY"}
+{"text": "can i list my coupon", "intent": "SELL_ELIGIBILITY"}
+{"text": "am i eligible for selling", "intent": "SELL_ELIGIBILITY"}
+{"text": "coupon sell kar sakta hu?", "intent": "SELL_ELIGIBILITY"}
+{"text": "can i sell coupons?", "intent": "SELL_ELIGIBILITY"}
+{"text": "am i on the seller list", "intent": "SELL_ELIGIBILITY"}
+{"text": "do i have permission to sell", "intent": "SELL_ELIGIBILITY"}
+{"text": "eligible hu sell ke liye", "intent": "SELL_ELIGIBILITY"}
+{"text": "why cant i sell coupons", "intent": "SELL_ELIGIBILITY"}
+
+{"text": "how do i sell a coupon", "intent": "SELL_COUPON"}
+{"text": "how to sell my coupon", "intent": "SELL_COUPON"}
+{"text": "coupon kaise sell karu", "intent": "SELL_COUPON"}
+{"text": "i want to sell a coupon", "intent": "SELL_COUPON"}
+{"text": "how can i submit a coupon", "intent": "SELL_COUPON"}
+{"text": "how to list a coupon for sale", "intent": "SELL_COUPON"}
+{"text": "bechna hai coupon", "intent": "SELL_COUPON"}
+{"text": "what can i sell on savehatke", "intent": "SELL_COUPON"}
+{"text": "how much do i earn selling a coupon", "intent": "SELL_COUPON"}
+{"text": "sell karna hai coupon", "intent": "SELL_COUPON"}
+{"text": "can i sell more than one coupon", "intent": "SELL_COUPON"}
+
+{"text": "how do i buy a coupon", "intent": "BUY_COUPON"}
+{"text": "how does buying work", "intent": "BUY_COUPON"}
+{"text": "i want to buy a coupon", "intent": "BUY_COUPON"}
+{"text": "how to purchase coupons", "intent": "BUY_COUPON"}
+{"text": "coupon kharidna hai", "intent": "BUY_COUPON"}
+{"text": "what is the process to buy", "intent": "BUY_COUPON"}
+{"text": "how do i checkout", "intent": "BUY_COUPON"}
+{"text": "can i buy with upi", "intent": "BUY_COUPON"}
+{"text": "when do i get the coupon code", "intent": "BUY_COUPON"}
+{"text": "can i see the code before buying", "intent": "BUY_COUPON"}
+
+{"text": "did my purchase go through", "intent": "PURCHASE_HISTORY"}
+{"text": "show my purchases", "intent": "PURCHASE_HISTORY"}
+{"text": "what did i buy", "intent": "PURCHASE_HISTORY"}
+{"text": "my order history", "intent": "PURCHASE_HISTORY"}
+{"text": "where are my purchased coupons", "intent": "PURCHASE_HISTORY"}
+{"text": "list my orders", "intent": "PURCHASE_HISTORY"}
+{"text": "mere purchases dikhao", "intent": "PURCHASE_HISTORY"}
+{"text": "i dont see my purchase", "intent": "PURCHASE_HISTORY"}
+
+{"text": "check my submissions", "intent": "SUBMISSION_STATUS"}
+{"text": "what is the status of my submission", "intent": "SUBMISSION_STATUS"}
+{"text": "was my coupon approved", "intent": "SUBMISSION_STATUS"}
+{"text": "why was my coupon rejected", "intent": "SUBMISSION_STATUS"}
+{"text": "is my coupon under review", "intent": "SUBMISSION_STATUS"}
+{"text": "how long does review take", "intent": "SUBMISSION_STATUS"}
+{"text": "mera coupon approve hua kya", "intent": "SUBMISSION_STATUS"}
+{"text": "submission status check karo", "intent": "SUBMISSION_STATUS"}
+{"text": "did my coupon get approved", "intent": "SUBMISSION_STATUS"}
+{"text": "my coupon status", "intent": "SUBMISSION_STATUS"}
+
+{"text": "how much have i earned", "intent": "EARNINGS"}
+{"text": "check my earnings", "intent": "EARNINGS"}
+{"text": "what is my total earnings", "intent": "EARNINGS"}
+{"text": "how much did i earn", "intent": "EARNINGS"}
+{"text": "meri kamai kitni hai", "intent": "EARNINGS"}
+{"text": "kitna kamaya maine", "intent": "EARNINGS"}
+{"text": "show my earnings", "intent": "EARNINGS"}
+{"text": "how are earnings calculated", "intent": "EARNINGS"}
+{"text": "my earning balance", "intent": "EARNINGS"}
+{"text": "how much money have i made", "intent": "EARNINGS"}
+{"text": "why is my earning different from the coupon price", "intent": "EARNINGS"}
+{"text": "earning kitni hui", "intent": "EARNINGS"}
+
+{"text": "where is my payout", "intent": "PAYOUT_STATUS"}
+{"text": "mera payout kab milega", "intent": "PAYOUT_STATUS"}
+{"text": "check my payout", "intent": "PAYOUT_STATUS"}
+{"text": "when will i get paid", "intent": "PAYOUT_STATUS"}
+{"text": "payout status", "intent": "PAYOUT_STATUS"}
+{"text": "did i get paid", "intent": "PAYOUT_STATUS"}
+{"text": "why is my payout pending", "intent": "PAYOUT_STATUS"}
+{"text": "payout kitna hai", "intent": "PAYOUT_STATUS"}
+{"text": "my payout is not received", "intent": "PAYOUT_STATUS"}
+{"text": "how do i add payout details", "intent": "PAYOUT_STATUS"}
+{"text": "how long do payouts take", "intent": "PAYOUT_STATUS"}
+{"text": "payout aa gaya kya", "intent": "PAYOUT_STATUS"}
+
+{"text": "what is the minimum payout", "intent": "PAYOUT_LADDER"}
+{"text": "how much do i need to withdraw", "intent": "PAYOUT_LADDER"}
+{"text": "what are the payout stages", "intent": "PAYOUT_LADDER"}
+{"text": "payout ladder", "intent": "PAYOUT_LADDER"}
+{"text": "payout kaise hota hai", "intent": "PAYOUT_LADDER"}
+{"text": "what is the payout threshold", "intent": "PAYOUT_LADDER"}
+{"text": "explain the payout process", "intent": "PAYOUT_LADDER"}
+{"text": "minimum withdrawal kitna hai", "intent": "PAYOUT_LADDER"}
+{"text": "what is the per coupon earning rate", "intent": "PAYOUT_LADDER"}
+
+{"text": "how do i contact support", "intent": "SUPPORT_TICKETS"}
+{"text": "did support reply", "intent": "SUPPORT_TICKETS"}
+{"text": "check my support tickets", "intent": "SUPPORT_TICKETS"}
+{"text": "my ticket status", "intent": "SUPPORT_TICKETS"}
+{"text": "i want to raise a complaint", "intent": "SUPPORT_TICKETS"}
+{"text": "support se baat karni hai", "intent": "SUPPORT_TICKETS"}
+{"text": "shikayat karni hai", "intent": "SUPPORT_TICKETS"}
+{"text": "how to file a support request", "intent": "SUPPORT_TICKETS"}
+{"text": "open support ticket", "intent": "SUPPORT_TICKETS"}
+{"text": "can you submit a ticket for me", "intent": "SUPPORT_TICKETS"}
+{"text": "i have a problem with my order", "intent": "SUPPORT_TICKETS"}
+
+{"text": "how does the price tracker work", "intent": "PRICE_TRACKER"}
+{"text": "track a product price", "intent": "PRICE_TRACKER"}
+{"text": "price alert set karna hai", "intent": "PRICE_TRACKER"}
+{"text": "show my tracked products", "intent": "PRICE_TRACKER"}
+{"text": "how do i track a price drop", "intent": "PRICE_TRACKER"}
+{"text": "price tracker list", "intent": "PRICE_TRACKER"}
+
+{"text": "how do i login", "intent": "ACCOUNT"}
+{"text": "why was i logged out", "intent": "ACCOUNT"}
+{"text": "i cannot login", "intent": "ACCOUNT"}
+{"text": "how do i create an account", "intent": "ACCOUNT"}
+{"text": "my session expired", "intent": "ACCOUNT"}
+{"text": "login nahi ho raha", "intent": "ACCOUNT"}
+{"text": "how do i sign up", "intent": "ACCOUNT"}
+{"text": "can i change my email", "intent": "ACCOUNT"}
+{"text": "forgot my password", "intent": "ACCOUNT"}
+
+{"text": "how do i update my profile", "intent": "PROFILE"}
+{"text": "my profile details", "intent": "PROFILE"}
+{"text": "change my name", "intent": "PROFILE"}
+{"text": "update my payout details", "intent": "PROFILE"}
+{"text": "profile settings kaha hai", "intent": "PROFILE"}
+{"text": "how do i add my upi id", "intent": "PROFILE"}
+
+{"text": "is savehatke safe", "intent": "SECURITY"}
+{"text": "is my data safe", "intent": "SECURITY"}
+{"text": "how secure is savehatke", "intent": "SECURITY"}
+{"text": "how do i report fraud", "intent": "SECURITY"}
+{"text": "someone asked me for my otp", "intent": "SECURITY"}
+{"text": "what data do you collect", "intent": "SECURITY"}
+{"text": "savehatke safe hai kya", "intent": "SECURITY"}
+{"text": "i think my account was hacked", "intent": "SECURITY"}
+{"text": "report a scam", "intent": "SECURITY"}
+
+{"text": "does savehatke have 2fa", "intent": "TWO_FACTOR_AUTH"}
+{"text": "how do i set up two factor authentication", "intent": "TWO_FACTOR_AUTH"}
+{"text": "where are my backup codes", "intent": "TWO_FACTOR_AUTH"}
+{"text": "what is an authenticator app", "intent": "TWO_FACTOR_AUTH"}
+{"text": "how does otp work", "intent": "TWO_FACTOR_AUTH"}
+{"text": "enable 2fa on my account", "intent": "TWO_FACTOR_AUTH"}
+
+{"text": "is the site down", "intent": "MAINTENANCE"}
+{"text": "is savehatke under maintenance", "intent": "MAINTENANCE"}
+{"text": "why is the site not loading", "intent": "MAINTENANCE"}
+{"text": "site down hai kya", "intent": "MAINTENANCE"}
+{"text": "the site is offline", "intent": "MAINTENANCE"}
+{"text": "is maintenance mode on", "intent": "MAINTENANCE"}
+
+{"text": "how do refunds work", "intent": "REFUND"}
+{"text": "i want a refund", "intent": "REFUND"}
+{"text": "can i cancel my purchase", "intent": "REFUND"}
+{"text": "refund kaise milega", "intent": "REFUND"}
+{"text": "my coupon did not work", "intent": "REFUND"}
+{"text": "refund policy", "intent": "REFUND"}
+{"text": "money back guarantee", "intent": "REFUND"}
+
+{"text": "how does savehatke work", "intent": "HOW_IT_WORKS"}
+{"text": "what is savehatke", "intent": "HOW_IT_WORKS"}
+{"text": "tell me about savehatke", "intent": "HOW_IT_WORKS"}
+{"text": "explain savehatke", "intent": "HOW_IT_WORKS"}
+{"text": "savehatke kaise kaam karta hai", "intent": "HOW_IT_WORKS"}
+{"text": "how does this platform work", "intent": "HOW_IT_WORKS"}
+{"text": "what does savehatke do", "intent": "HOW_IT_WORKS"}
+{"text": "how do i get started", "intent": "HOW_IT_WORKS"}
+
+{"text": "what are the coupon rules", "intent": "FAQ"}
+{"text": "do coupons expire", "intent": "FAQ"}
+{"text": "where are the terms and conditions", "intent": "FAQ"}
+{"text": "is there a refund policy", "intent": "FAQ"}
+{"text": "what can i do on savehatke", "intent": "FAQ"}
+{"text": "are you a human", "intent": "FAQ"}
+{"text": "what are your capabilities", "intent": "FAQ"}
+{"text": "any rules i should know", "intent": "FAQ"}
+
+{"text": "where is the marketplace", "intent": "WEBSITE_NAVIGATION"}
+{"text": "where can i find my earnings", "intent": "WEBSITE_NAVIGATION"}
+{"text": "how do i get to the sell page", "intent": "WEBSITE_NAVIGATION"}
+{"text": "which page has my purchases", "intent": "WEBSITE_NAVIGATION"}
+{"text": "where is the support page", "intent": "WEBSITE_NAVIGATION"}
+{"text": "where do i find the price tracker", "intent": "WEBSITE_NAVIGATION"}
+{"text": "kaha hai marketplace", "intent": "WEBSITE_NAVIGATION"}
+{"text": "link to my dashboard", "intent": "WEBSITE_NAVIGATION"}
+{"text": "where are the security settings", "intent": "WEBSITE_NAVIGATION"}

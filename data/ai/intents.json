@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "note": "Seed utterances per intent. Combined with data/ai/training/examples.jsonl by scripts/ai/prepareData.js. Hinglish and Indian-English variants are included deliberately: they are a large part of real traffic and the tokenizer normalises them into canonical English tokens.",
+  "intents": {
+    "GREETING": ["hi", "hello", "hey", "good morning", "namaste", "hlo", "hey there", "hello there", "hi savehatke"],
+    "GOODBYE": ["bye", "goodbye", "see you", "talk later", "good night", "that is all", "nothing else thanks"],
+    "THANKS": ["thanks", "thank you", "thanks a lot", "shukriya", "dhanyavad", "much appreciated", "thank you so much"],
+    "GENERAL_HELP": ["help", "what can you do", "how can you help", "i need help", "what are my options", "madad chahiye"],
+    "BUY_COUPON": ["how do i buy a coupon", "how to purchase coupons", "buy a coupon", "coupon kharidna hai", "how does checkout work", "i want to buy"],
+    "SEARCH_COUPON": ["show me coupons", "find coupons", "any coupons", "show coupons under 100", "coupons dikhao", "search for nike coupons", "what deals are available"],
+    "COUPON_DETAILS": ["when does this expire", "coupon validity", "terms of this coupon", "which one expires first", "expiry date kya hai", "is it still valid"],
+    "SELL_COUPON": ["how do i sell a coupon", "coupon kaise sell karu", "i want to sell", "how to submit a coupon", "bechna hai", "how much do i earn selling"],
+    "SELL_ELIGIBILITY": ["can i sell a coupon", "am i eligible to sell", "can i sell coupons", "coupon sell kar sakta hu", "am i allowed to sell", "do i have sell access"],
+    "SUBMISSION_STATUS": ["did my coupon get approved", "my submission status", "why was my coupon rejected", "is it under review", "submission status check karo"],
+    "EARNINGS": ["how much have i earned", "check my earnings", "meri kamai", "total earnings", "kitna kamaya", "my earning balance"],
+    "PAYOUT_STATUS": ["where is my payout", "mera payout kab milega", "payout status", "when will i get paid", "did i get paid", "payout aa gaya kya"],
+    "PAYOUT_LADDER": ["what is the minimum payout", "payout stages", "payout ladder", "payout threshold", "minimum withdrawal kitna hai"],
+    "PURCHASE_HISTORY": ["show my purchases", "what did i buy", "my order history", "did my purchase go through", "mere purchases"],
+    "SUPPORT_TICKETS": ["how do i contact support", "check my tickets", "did support reply", "raise a complaint", "shikayat karni hai", "my ticket status"],
+    "PRICE_TRACKER": ["how does the price tracker work", "track a price", "price alert", "show my tracked products", "price tracker list"],
+    "ACCOUNT": ["how do i login", "why was i logged out", "create an account", "session expired", "login nahi ho raha", "change my email"],
+    "PROFILE": ["update my profile", "my profile details", "change my name", "add payout details", "add my upi id"],
+    "SECURITY": ["is savehatke safe", "is my data safe", "report fraud", "someone asked for my otp", "what data do you collect", "account hacked"],
+    "TWO_FACTOR_AUTH": ["does savehatke have 2fa", "set up two factor", "where are my backup codes", "how does otp work", "enable 2fa"],
+    "MAINTENANCE": ["is the site down", "under maintenance", "site not loading", "site down hai kya", "is maintenance on"],
+    "REFUND": ["how do refunds work", "i want a refund", "cancel my purchase", "refund kaise milega", "coupon did not work"],
+    "HOW_IT_WORKS": ["how does savehatke work", "what is savehatke", "explain savehatke", "how does this platform work", "savehatke kaise kaam karta hai"],
+    "FAQ": ["what are the coupon rules", "do coupons expire", "where are the terms", "are you a human", "what can i do here"],
+    "WEBSITE_NAVIGATION": ["where is the marketplace", "where can i find my earnings", "how do i get to the sell page", "which page has my purchases", "where is support"]
+  }
+}

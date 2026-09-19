@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "note": "Fixed user-facing copy the response engine falls back to. The engine composes most replies from live tool data; these are the parts that must never vary, because they carry a security or honesty guarantee. Admins can override the welcome/fallback copy through the existing chatbot settings sheet.",
+  "fallbacks": {
+    "clarify": "I'm not fully sure what you mean. Could you rephrase that — or tell me whether you're asking about buying, selling, payouts, or your account?",
+    "clarifyDetailed": "I can help with that, but I need a little more detail. Are you asking about buying, selling, payouts, or your account?",
+    "retrievalFailed": "I couldn't retrieve that information right now. Please try again shortly.",
+    "noKnowledge": "I don't have a confirmed answer for that one, and I'd rather not guess. Could you rephrase it, or ask about buying, selling, earnings, payouts, your account or support?",
+    "noResults": "I couldn't find any coupons matching that right now. Availability changes often — try a different brand or category, or browse the marketplace for what's live.",
+    "unknownQuestion": "I didn't quite catch that. Could you rephrase or give me a bit more detail?",
+    "maintenance": "Our AI assistant is temporarily unavailable. Please check back soon or contact support."
+  },
+  "refusals": {
+    "promptInjection": "I can't share internal instructions or credentials. If you have a SaveHatke question, I'm happy to help!",
+    "crossUser": "I can only help with your own account. I'm not able to share anyone else's data. If you need something about your own details, make sure you're signed in and ask me again.",
+    "secretExtraction": "I can't share credentials, keys or internal system details — and I don't have access to them. Happy to help with anything about SaveHatke, coupons, payouts or your account.",
+    "privilegedAction": "I can explain how that works, but I can't approve, process or change anything on your behalf. Those actions go through the proper SaveHatke workflow — I can point you to it.",
+    "modeOverride": "I don't work in alternate modes. I'm the SaveHatke assistant — ask me anything about coupons, buying, selling, payouts or your account.",
+    "couponCodePrepurchase": "Coupon codes are shared only after a completed purchase — that's what keeps the marketplace fair. Once you buy a coupon it appears instantly in your purchased list. Want me to help you find one?",
+    "loginRequired": "That's account-specific, so I'll need you signed in first. Sign in and ask me again.",
+    "supportManual": "I can help you understand the issue, but support requests must be submitted through our Support Form. Please open the Support Center and fill in the form manually. Our support team will review your request and get back to you."
+  },
+  "suggestedChips": {
+    "default": ["Show me coupons", "How does SaveHatke work?", "Check my earnings", "Contact support"],
+    "coupons": ["Show more coupons", "Are there cheaper ones?", "How does buying work?"],
+    "selling": ["How does selling work?", "Check my submissions", "Check my earnings"],
+    "payouts": ["Where is my payout?", "Check my earnings", "How do payouts work?"],
+    "support": ["Raise a new ticket", "Check my earnings", "How does SaveHatke work?"],
+    "retry": ["Try again", "Contact support"]
+  }
+}

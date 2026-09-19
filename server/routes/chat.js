@@ -60,6 +60,12 @@ router.post('/', optionalAuth, async (req, res) => {
       conversationId: result.conversationId || null,
       requestId: result.requestId,
       loginRequired: result.loginRequired || false,
+      // Optional rich-turn fields. public/js/chatbot.js already renders these
+      // when present and ignores them when absent, so sending them is additive
+      // and the frontend needs no change.
+      ...(result.cards && result.cards.length ? { cards: result.cards } : {}),
+      ...(result.chips && result.chips.length ? { chips: result.chips } : {}),
+      ...(result.support ? { support: result.support } : {}),
     });
   } catch (err) {
     console.error('Chat handler error:', err.message);

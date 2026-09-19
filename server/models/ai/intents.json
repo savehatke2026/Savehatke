@@ -1,0 +1,214 @@
+{
+  "version": 1,
+  "description": "SaveHatke AI intent taxonomy. Runtime rule set (statically required so the engine works on a cold start) and the source taxonomy the training scripts expand into data/ai/training/intents.jsonl. Keywords are normalised tokens (weight 1), strong markers (weight 2) and regex patterns (weight 3).",
+  "intents": {
+    "GREETING": {
+      "description": "User opens the conversation.",
+      "tool": null,
+      "requiresAuth": false,
+      "keywords": ["hi", "hey", "hello", "yo", "namaste", "namaskar", "morning", "evening", "afternoon", "greetings", "hii", "hlo", "helo"],
+      "strong": ["good morning", "good evening", "good afternoon", "hey there"],
+      "patterns": ["^(hi|hey|hello|hlo|hii|yo|namaste)\\b", "\\b(good\\s+(morning|afternoon|evening))\\b"]
+    },
+    "GOODBYE": {
+      "description": "User ends the conversation.",
+      "tool": null,
+      "requiresAuth": false,
+      "keywords": ["bye", "goodbye", "cya", "later", "exit", "quit", "alvida"],
+      "strong": ["see you", "talk to you later", "good night", "that is all", "that's all", "thats all", "nothing else", "no more questions", "i am done", "im done"],
+      "patterns": ["\\b(bye|goodbye|good\\s+night)\\b", "\\b(see\\s+you|talk\\s+later)\\b", "\\b(that'?s|that\\s+is)\\s+all\\b"]
+    },
+    "THANKS": {
+      "description": "User expresses gratitude.",
+      "tool": null,
+      "requiresAuth": false,
+      "keywords": ["thanks", "thank", "thx", "ty", "shukriya", "dhanyavad", "dhanyawad", "appreciated"],
+      "strong": ["thank you", "thanks a lot", "thank you so much", "much appreciated"],
+      "patterns": ["\\b(thanks|thank\\s+you|thx|shukriya|dhanyavad)\\b"]
+    },
+    "GENERAL_HELP": {
+      "description": "User asks what the assistant can do or asks for help generically.",
+      "tool": null,
+      "requiresAuth": false,
+      "keywords": ["help", "support", "assist", "assistance", "guide", "options", "menu", "madad", "sahayata", "capabilities"],
+      "strong": ["what can you do", "how can you help", "what do you do", "i need help", "can you help"],
+      "patterns": ["\\b(what\\s+can\\s+you\\s+do|how\\s+can\\s+you\\s+help)\\b", "^help\\b"]
+    },
+    "BUY_COUPON": {
+      "description": "User wants to purchase a coupon, or asks how buying works.",
+      "tool": "search_coupons",
+      "requiresAuth": false,
+      "keywords": ["buy", "buying", "purchase", "purchasing", "kharid", "kharidna", "checkout", "payment", "pay", "order", "cart"],
+      "strong": ["how to buy", "buy a coupon", "buy coupon", "how do i buy", "purchase a coupon", "buy kar", "kharidna hai"],
+      "patterns": ["\\b(buy|purchase|kharid\\w*)\\b[^.?!]{0,20}\\bcoupon", "\\bhow\\s+(do\\s+i\\s+)?(buy|purchase)\\b", "\\bcoupon\\b[^.?!]{0,20}\\b(buy|kharid\\w*)\\b"]
+    },
+    "SEARCH_COUPON": {
+      "description": "User wants to find or browse available coupons.",
+      "tool": "search_coupons",
+      "requiresAuth": false,
+      "keywords": ["coupon", "coupons", "coupan", "cupon", "deal", "deals", "offer", "offers", "discount", "discounts", "show", "find", "search", "browse", "available", "list", "dikhao", "batao", "chahiye", "brand", "category", "cheap", "cheapest", "budget", "affordable", "lowcost"],
+      "strong": ["show me", "find me", "any coupons", "show coupons", "coupons for", "coupons under", "looking for", "show me coupons", "do you have", "coupon chahiye", "coupons chahiye", "coupon need", "list all coupons", "all coupons", "list coupons"],
+      "patterns": ["\\b(show|find|search|browse|dikhao|batao)\\b[^.?!]{0,30}\\b(coupon|coupons|deal|offer|discount)", "\\bcoupons?\\s+(for|under|below|from|in)\\b", "\\b(any|what|which)\\s+(\\w+\\s+){0,2}coupons?\\b", "\\b(are\\s+there|is\\s+there)\\s+any\\b[^.?!]{0,20}\\bcoupons?\\b"]
+    },
+    "COUPON_DETAILS": {
+      "description": "User asks about a specific coupon's terms, validity, discount or expiry.",
+      "tool": "search_coupons",
+      "requiresAuth": false,
+      "keywords": ["expiry", "expire", "expires", "validity", "minorder", "valid"],
+      "strong": ["when does it expire", "expiry date", "when does this expire", "how long is it valid", "which one expires", "tell me more about", "still valid", "validity kya hai", "coupon validity", "coupon ki validity", "is it valid", "how long valid"],
+      "patterns": ["\\bwhich\\s+one\\s+expir\\w*\\b", "\\b(this|that|the|these)\\s+coupons?\\b[^.?!]{0,25}\\b(expir\\w*|valid\\w*|terms)\\b", "\\b(expir\\w*|valid\\w*|terms|conditions)\\b[^.?!]{0,25}\\b(this|that|the)\\s+coupons?\\b", "\\bdetails?\\s+(of|about|for)\\s+(this|that|the)\\b"]
+    },
+    "SELL_COUPON": {
+      "description": "User wants to list or submit a coupon for sale.",
+      "tool": "check_sell_eligibility",
+      "requiresAuth": true,
+      "keywords": ["sell", "selling", "bech", "bechna", "list", "listing", "submit", "submission", "upload", "post", "bikri", "add"],
+      "strong": ["sell a coupon", "sell my coupon", "how to sell", "list a coupon", "submit a coupon", "sell kar", "bechna hai", "selling coupons", "how do i sell", "what can i sell", "what can i list", "how to submit", "how much do i earn selling", "sell on savehatke", "sell more than one"],
+      "patterns": ["\\b(how\\s+(do\\s+i\\s+)?(sell|list|submit))\\b", "\\b(sell|list|submit|bech\\w*)\\b[^.?!]{0,25}\\bcoupon", "\\bcoupon\\b[^.?!]{0,25}\\b(sell|bech\\w*)\\b", "\\bwhat\\b[^.?!]{0,20}\\b(can|may)\\b[^.?!]{0,10}\\b(sell|list)\\b"]
+    },
+    "SELL_ELIGIBILITY": {
+      "description": "User asks whether they are allowed to sell coupons.",
+      "tool": "check_sell_eligibility",
+      "requiresAuth": true,
+      "keywords": ["eligible", "eligibility", "allowed", "permission", "permitted", "qualify", "qualified", "whitelist", "access", "approved", "can"],
+      "strong": ["am i eligible", "can i sell", "can i sell a coupon", "can i sell coupons", "eligible to sell", "am i allowed", "can i list", "eligible hu", "sell kar sakta", "sell sakta", "do i have sell access", "do i have access", "why cant i sell", "why can i not sell", "why is selling not available", "am i on the seller list"],
+      "patterns": ["\\b(am|can)\\s+i\\b[^.?!]{0,25}\\b(sell|list|submit|eligible|allowed)\\b", "\\b(eligib\\w*|allowed|permitted)\\b[^.?!]{0,20}\\b(sell|list)", "\\b(sell|list)\\b[^.?!]{0,20}\\b(eligib\\w*|allowed|permitted|access)\\b", "\\bwhy\\b[^.?!]{0,20}\\b(cant|can'?t|cannot|can\\s+not)\\b[^.?!]{0,15}\\bsell\\b", "\\b(sell|bech\\w*)\\b[^.?!]{0,20}\\b(can|sakta|sakti|kar\\s+sakta|kar\\s+sakti)\\b", "\\b(can|sakta|sakti)\\b[^.?!]{0,20}\\b(sell|bech\\w*)\\b"]
+    },
+    "SUBMISSION_STATUS": {
+      "description": "User asks about the review status of coupons they submitted.",
+      "tool": "check_submissions",
+      "requiresAuth": true,
+      "keywords": ["submission", "submissions", "submitted", "status", "review", "reviewed", "pending", "approved", "approve", "rejected", "reject", "verification", "verified"],
+      "strong": ["my submissions", "submission status", "is it approved", "my coupon status", "did it get approved", "under review", "review status", "coupon approve hua", "approve hua", "mera coupon approve"],
+      "patterns": ["\\b(submission|submitted)\\b[^.?!]{0,25}\\bstatus", "\\bstatus\\b[^.?!]{0,25}\\b(submission|submitted|coupon)", "\\b(is|was)\\s+(it|my\\s+coupon)\\s+(approved|rejected|reviewed)\\b", "\\b(approved|rejected|under\\s+review)\\b"]
+    },
+    "EARNINGS": {
+      "description": "User asks how much they have earned from selling coupons.",
+      "tool": "check_earnings",
+      "requiresAuth": true,
+      "keywords": ["earning", "earnings", "earn", "earned", "income", "money", "kamai", "kamaya", "balance", "total", "revenue", "made"],
+      "strong": ["how much have i earned", "my earnings", "total earnings", "how much did i earn", "check my earnings", "kitna kamaya", "meri kamai"],
+      "patterns": ["\\b(earn\\w*|kamai|kamaya)\\b", "\\bhow\\s+much\\b[^.?!]{0,20}\\b(earn\\w*|made|money)\\b", "\\b(my|total)\\s+earnings?\\b"]
+    },
+    "PAYOUT_STATUS": {
+      "description": "User asks when or whether their payout will arrive.",
+      "tool": "check_payout_status",
+      "requiresAuth": true,
+      "keywords": ["payout", "payouts", "withdraw", "withdrawal", "transfer", "payment", "paid", "processing", "credit", "bhugtan", "nikalna", "bank", "upi"],
+      "strong": ["where is my payout", "when will i get paid", "payout status", "my payout", "did i get paid", "payout kab", "kitne payout", "payout milega"],
+      "patterns": ["\\b(payout|withdraw\\w*|bhugtan)\\b", "\\bwhen\\b[^.?!]{0,25}\\b(paid|payout|money|get\\s+paid)\\b", "\\bwhere\\s+is\\s+my\\b[^.?!]{0,20}\\b(payout|payment|money)\\b"]
+    },
+    "PAYOUT_LADDER": {
+      "description": "User asks about the payout status ladder / steps from submission to payment, or the minimum payout.",
+      "tool": "check_payout_ladder",
+      "requiresAuth": false,
+      "keywords": ["ladder", "steps", "stages", "progress", "threshold", "minimum", "min", "criteria", "withdraw"],
+      "strong": ["payout ladder", "minimum payout", "minimum withdrawal", "how much to withdraw", "payout steps", "payout stages", "eligibility for payout", "payout threshold", "payout process", "payout kaise hota", "per coupon rate", "per coupon earning"],
+      "patterns": ["\\b(minimum|min)\\b[^.?!]{0,20}\\b(payout|withdraw\\w*)\\b", "\\bpayout\\b[^.?!]{0,20}\\b(minimum|min|threshold|limit|steps?|stages?|process|ladder|kaise)\\b", "\\bhow\\s+(much|many)\\b[^.?!]{0,25}\\b(withdraw|minimum)\\b", "\\bper\\s+coupon\\b"]
+    },
+    "PURCHASE_HISTORY": {
+      "description": "User asks about coupons they have bought.",
+      "tool": "check_purchases",
+      "requiresAuth": true,
+      "keywords": ["purchase", "purchases", "purchased", "bought", "order", "orders", "history", "receipt", "invoice", "transactions"],
+      "strong": ["my purchases", "purchase history", "my orders", "what did i buy", "order history", "did my purchase", "my bought coupons"],
+      "patterns": ["\\b(my|purchase|order)\\b[^.?!]{0,20}\\b(purchases?|orders?|history|bought)\\b", "\\b(purchases?|orders?)\\s+history\\b", "\\bdid\\s+my\\s+purchase\\b"]
+    },
+    "SUPPORT_TICKETS": {
+      "description": "User asks about support tickets they raised, or how to contact support.",
+      "tool": "check_support_tickets",
+      "requiresAuth": false,
+      "keywords": ["support", "ticket", "tickets", "complaint", "shikayat", "case", "cases", "helpdesk", "contact", "reply", "responded", "issue", "problem", "escalate"],
+      "strong": ["support ticket", "my tickets", "check my tickets", "did support reply", "contact support", "raise a ticket", "talk to support", "file a complaint"],
+      "patterns": ["\\b(support|ticket|tickets|complaint|shikayat)\\b", "\\b(did|has)\\s+support\\s+(reply|respond|answer)\\b", "\\b(raise|create|open|file)\\b[^.?!]{0,20}\\b(ticket|complaint|request)\\b"]
+    },
+    "PRICE_TRACKER": {
+      "description": "User asks about the price tracker feature or tracking a product price.",
+      "tool": "get_price_tracker",
+      "requiresAuth": true,
+      "keywords": ["tracker", "tracking", "track", "alert", "alerts", "watch", "monitor", "price", "pricedrop", "notification"],
+      "strong": ["price tracker", "track a price", "price alert", "price drop alert", "track this product", "price tracking", "tracker list"],
+      "patterns": ["\\bprice\\s*track\\w*\\b", "\\b(track|monitor|watch)\\b[^.?!]{0,25}\\b(price|product|item)\\b", "\\bprice\\s+(alert|drop)\\b"]
+    },
+    "ACCOUNT": {
+      "description": "Account-level questions: sign-in, sessions, email/phone changes, deletion.",
+      "tool": "get_user_profile",
+      "requiresAuth": true,
+      "keywords": ["account", "acount", "login", "logout", "logged", "signin", "signup", "register", "session", "expired", "email", "phone", "mobile", "delete", "deactivate", "verify", "forgot", "password"],
+      "strong": ["my account", "log in", "sign in", "login problem", "cant login", "cannot login", "cant log in", "session expired", "change my email", "delete my account", "create an account", "logged out", "was i logged out", "forgot my password", "forgot password", "reset my password", "get logged out", "keep getting logged out", "login nahi"],
+      "patterns": ["\\b(my\\s+)?account\\b", "\\b(log\\s?in|sign\\s?in|log\\s?out|sign\\s?up|logged\\s+(in|out))\\b", "\\bsession\\s+(expired|timeout)\\b", "\\bforgot\\b[^.?!]{0,20}\\bpassword\\b"]
+    },
+    "PROFILE": {
+      "description": "Profile details and payout destination setup.",
+      "tool": "get_user_profile",
+      "requiresAuth": true,
+      "keywords": ["profile", "avatar", "photo", "payoutdetails", "upi", "beneficiary", "qr", "bankdetails"],
+      "strong": ["my profile", "update my profile", "profile details", "change my name", "payout details", "add upi", "add my upi", "update profile", "add payout details", "update my payout details", "where are my payout details", "profile settings"],
+      "patterns": ["\\b(my\\s+)?profile\\b", "\\b(payout|payment|bank)\\s+details\\b", "\\b(update|change|add|set)\\s+my\\s+(profile|details|name|upi|payout)\\b", "\\b(upi|qr)\\s*(id|code)?\\b[^.?!]{0,20}\\b(add|update|change|set)\\b"]
+    },
+    "SECURITY": {
+      "description": "Account security, privacy and safety questions.",
+      "tool": null,
+      "requiresAuth": false,
+      "keywords": ["security", "secure", "safe", "safety", "privacy", "private", "fraud", "scam", "hack", "hacked", "suraksha", "gupat", "protection", "data", "suspicious", "phishing"],
+      "strong": ["is it safe", "is savehatke safe", "how secure", "privacy policy", "my data safe", "report fraud", "account hacked", "security of my account", "report a scam", "report a suspicious", "someone asked me for my otp", "someone asked for my otp", "asked me for otp", "fake support", "is my data safe", "protect my data", "was hacked"],
+      "patterns": ["\\b(security|secure|safe|privacy|fraud|scam|hack\\w*|suspicious|phishing)\\b", "\\bis\\s+(it|savehatke|my\\s+data)\\s+(safe|secure)\\b", "\\b(someone|anyone)\\b[^.?!]{0,25}\\b(otp|password|bank\\s+detail|code)\\b"]
+    },
+    "TWO_FACTOR_AUTH": {
+      "description": "Two-factor authentication / backup codes / OTP questions.",
+      "tool": null,
+      "requiresAuth": false,
+      "keywords": ["twofactor", "2fa", "otp", "authenticator", "totp", "backup", "code", "codes", "mfa", "verification", "recovery"],
+      "strong": ["two factor", "2fa", "two-step", "authenticator app", "backup codes", "recovery codes", "setup 2fa", "enable 2fa"],
+      "patterns": ["\\b(2fa|two\\s*factor|two\\s*step|mfa)\\b", "\\b(backup|recovery)\\s+codes?\\b", "\\botp\\b"]
+    },
+    "MAINTENANCE": {
+      "description": "Site maintenance mode and availability questions.",
+      "tool": "get_maintenance_status",
+      "requiresAuth": false,
+      "keywords": ["maintenance", "downtime", "down", "offline", "unavailable", "outage", "broken", "notworking", "error", "loading"],
+      "strong": ["maintenance mode", "site down", "under maintenance", "why is the site down", "not loading", "site is down", "is the site up"],
+      "patterns": ["\\bmaintenance\\b", "\\bsite\\s+(down|offline|unavailable)\\b", "\\b(not|isn'?t)\\s+(loading|working)\\b"]
+    },
+    "REFUND": {
+      "description": "Refund and cancellation questions.",
+      "tool": null,
+      "requiresAuth": true,
+      "keywords": ["refund", "refunds", "cancel", "cancellation", "return", "moneyback", "reversal", "reversed", "invalid"],
+      "strong": ["refund policy", "get a refund", "how to refund", "cancel my order", "cancel my purchase", "money back", "refund status", "how do refunds work", "refund kaise", "coupon did not work", "coupon not working"],
+      "patterns": ["\\brefund\\w*\\b", "\\bcancel\\w*\\b[^.?!]{0,20}\\b(order|coupon|purchase|payment)\\b", "\\bmoney\\s*back\\b", "\\b(did\\s+not|didn'?t|does\\s+not|doesn'?t)\\s+work\\b"]
+    },
+    "HOW_IT_WORKS": {
+      "description": "User asks how SaveHatke or the marketplace works overall.",
+      "tool": "search_knowledge",
+      "requiresAuth": false,
+      "keywords": ["works", "work", "working", "about", "explain", "overview", "platform", "savehatke", "business", "model", "concept", "start"],
+      "strong": ["how does savehatke work", "how it works", "how does it work", "what is savehatke", "explain savehatke", "tell me about savehatke", "about savehatke", "how does this work"],
+      "patterns": ["\\bhow\\s+does\\s+(it|savehatke|this)\\s+work\\b", "\\bwhat\\s+is\\s+savehatke\\b", "\\b(how|what)\\b[^.?!]{0,25}\\bsavehatke\\b[^.?!]{0,25}\\b(work|about|is)\\b", "\\bhow\\s+it\\s+works\\b"]
+    },
+    "FAQ": {
+      "description": "A general product/policy question best answered from the knowledge base.",
+      "tool": "search_knowledge",
+      "requiresAuth": false,
+      "keywords": ["faq", "policy", "policies", "rule", "rules", "allowed", "guidelines", "refundpolicy"],
+      "strong": ["what is the policy", "is there a rule", "am i allowed to", "terms and conditions", "frequently asked", "terms of service", "privacy policy", "coupon rules", "where are the terms", "do coupons expire", "when do coupons expire"],
+      "patterns": ["\\b(faq|frequently\\s+asked)\\b", "\\b(terms\\s+(of\\s+service|and\\s+conditions)|privacy\\s+policy)\\b", "\\b(do|when\\s+do)\\s+coupons?\\s+(expire|have\\s+an?\\s+expiry)\\b"]
+    },
+    "WEBSITE_NAVIGATION": {
+      "description": "User asks where a page, feature or link is on the site.",
+      "tool": null,
+      "requiresAuth": false,
+      "keywords": ["where", "page", "link", "navigate", "navigation", "find", "locate", "open", "menu", "website", "section", "tab", "url"],
+      "strong": ["where is the", "where can i find", "which page", "how do i get to", "where do i go", "link to", "find the page", "where is my"],
+      "patterns": ["\\bwhere\\s+(is|are|can\\s+i\\s+find|do\\s+i\\s+(find|go|click))\\b", "\\bwhich\\s+page\\b", "\\bhow\\s+do\\s+i\\s+(get\\s+to|reach|open)\\b"]
+    },
+    "UNKNOWN": {
+      "description": "No intent reached the confidence floor. Handled by clarification, never by guessing.",
+      "tool": null,
+      "requiresAuth": false,
+      "keywords": [],
+      "strong": [],
+      "patterns": []
+    }
+  }
+}
