@@ -633,7 +633,12 @@ if (!process.env.VERCEL) {
       console.log('');
       // Echo the receiving VPA at boot. A wrong or truncated UPI_ID otherwise
       // stays invisible until a buyer scans the QR and their app refuses it.
-      upiService.logPayeeConfig();
+      //
+      // Guarded on purpose: logPayeeConfig() is a later addition to the UPI
+      // service, and this boot path must not depend on it. Calling it unguarded
+      // takes the entire app down — locally only, since the block is skipped
+      // when process.env.VERCEL is set — over a diagnostic log line.
+      if (typeof upiService.logPayeeConfig === 'function') upiService.logPayeeConfig();
       console.log('');
     });
   }).catch((err) => {
