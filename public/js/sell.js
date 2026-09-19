@@ -141,7 +141,7 @@ async function submitCoupon() {
   } catch (err) {
     showToast(err.message, 'error');
     btn.disabled = false;
-    btn.textContent = '✅ Submit & Earn ₹10';
+    btn.textContent = '✅ Submit & Earn';
   }
 }
 
@@ -171,6 +171,6 @@ function resetForm() {
   const btn = document.getElementById('submitSellBtn');
   if (btn) {
     btn.disabled = false;
-    btn.textContent = '✅ Submit & Earn ₹10';
+    btn.textContent = '✅ Submit & Earn';
   }
 }

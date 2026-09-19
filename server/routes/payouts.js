@@ -2,9 +2,9 @@
 // SaveHatke — Payouts Routes
 // ============================================
 // Admin pays sellers when their coupons are sold.
-// All sellers earn ₹10 per sold coupon. The platform tracks payouts
-// in a dedicated Google Sheet tab (Payouts) and exposes admin and
-// seller-facing endpoints.
+// A seller earns the price they set on each coupon that sells — there is no
+// flat per-coupon rate. The platform tracks payouts in a dedicated Google Sheet
+// tab (Payouts) and exposes admin and seller-facing endpoints.
 //
 // Where the money goes is stored once per seller in the SellerPayoutDetails tab
 // and copied onto a Payouts row when a request is made — a coupon row never
@@ -26,8 +26,55 @@ const { sniffImage, looksComplete } = require('../utils/imageSniff');
 
 const router = express.Router();
 
-// Per-coupon earning (matches the offer in /api/coupons/sell)
-const PER_COUPON_EARNING = 10;
+// ── Seller payout amount ─────────────────────────────────────────────────
+// A seller is paid the price THEY set for the coupon — the `sellingPrice`
+// captured on the Sell page and shown back to them before they submit. There is
+// deliberately no flat fallback: an unresolvable price must stop the payout and
+// shout, rather than quietly pay a figure the seller never agreed to. This is
+// real money leaving the account, so "no answer" beats a wrong answer.
+const PAYOUT_PRICING_MODEL = 'per-coupon';
+
+/** Coerce anything ("₹1,200", "1200.4", 1200) to a positive whole rupee amount. */
+function parseAmount(value) {
+  const n = Number(String(value == null ? '' : value).replace(/[^0-9.]/g, ''));
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
+
+/**
+ * Resolve what a sold coupon owes its seller.
+ * @returns {{ok: true, amount: number, source: 'coupon'|'supabase'|'sheet'}|{ok: false, reason: string}}
+ */
+async function resolveCouponPayoutAmount(coupon) {
+  // 1. Both call sites already hold the full coupon row; prefer it.
+  const direct = parseAmount(coupon && coupon.sellingPrice);
+  if (direct) return { ok: true, amount: direct, source: 'coupon' };
+
+  // 2. Both call sites pass a trimmed object (id/code/brand only), so fall back
+  //    to reading the coupon back. Supabase is the primary store and the Sheets
+  //    tab is a mirror, so try Supabase first — a coupon that only ever lived in
+  //    Supabase would otherwise look priceless and silently skip its payout.
+  const id = coupon && coupon.id;
+  if (!id) return { ok: false, reason: 'Coupon has neither an id nor a selling price.' };
+
+  if (supabase.isConfigured()) {
+    try {
+      const row = await supabase.findCouponById(id);
+      const fromSupabase = parseAmount(row && row.sellingPrice);
+      if (fromSupabase) return { ok: true, amount: fromSupabase, source: 'supabase' };
+    } catch (e) {
+      // Fall through to the Sheets mirror rather than giving up.
+    }
+  }
+
+  try {
+    const row = await db.findRow(db.SHEETS.COUPONS, 'id', id);
+    const fromSheet = parseAmount(row && row.sellingPrice);
+    if (fromSheet) return { ok: true, amount: fromSheet, source: 'sheet' };
+  } catch (e) {
+    return { ok: false, reason: `Coupon price lookup failed: ${e.message}` };
+  }
+  return { ok: false, reason: `Coupon ${id} has no usable selling price.` };
+}
 
 // Length caps for a stored payout destination — identical to the caps the payout
 // request used to apply when these were typed in per request, so a row written
@@ -746,8 +793,9 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
     const email = (req.user.email || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'User email not found.' });
 
-    // Each sold coupon auto-creates a ₹10 payout entry; a manual request is a
-    // separate row with sourceType='manual' that the admin settles by amount.
+    // Each sold coupon auto-creates a payout entry for the price the seller set;
+    // a manual request is a separate row with sourceType='manual' that the admin
+    // settles by amount.
     const requestedAmount = Number(amount);
     if (!Number.isFinite(requestedAmount) || requestedAmount < 50) {
       return res.status(400).json({ error: 'Minimum payout request is ₹50.' });
@@ -820,7 +868,11 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
 });
 
 module.exports = router;
-module.exports.PER_COUPON_EARNING = PER_COUPON_EARNING;
+// Pricing model + resolver are shared with the AI layer so the chatbot can
+// never quote a payout the ledger disagrees with. There is no flat per-coupon
+// rate to export any more — the amount depends on the coupon.
+module.exports.PAYOUT_PRICING_MODEL = PAYOUT_PRICING_MODEL;
+module.exports.resolveCouponPayoutAmount = resolveCouponPayoutAmount;
 // Shared with the admin routes so the post-review "mark invalid" action and the
 // seller ladder speak one vocabulary and apply one withholding rule.
 module.exports.SELLER_STATUS = SELLER_STATUS;
@@ -836,20 +888,32 @@ module.exports.payoutDetailsComplete = payoutDetailsComplete;
 // can see must go through the masked shape instead.
 module.exports.loadSellerPayoutDetails = loadSellerPayoutDetails;
 module.exports.createAutoPayout = async function createAutoPayout({ coupon, sellerEmail, sellerUserId }) {
-  // Called from /api/coupons/buy/:id when a coupon transitions to 'sold'.
-  // Creates a ₹10 pending payout to the seller. Idempotent per coupon id
-  // so a second buy attempt for the same coupon won't double-pay.
+  // Called from /api/coupons/buy/:id (and the Razorpay verify path) when a
+  // coupon transitions to 'sold'. Creates a pending payout to the seller for
+  // the price the seller set on that coupon. Idempotent per coupon id so a
+  // second buy attempt for the same coupon won't double-pay.
   if (!coupon || !sellerEmail) return null;
   try {
     const all = await getAllPayouts();
     const existing = all.find((p) => String(p.sourceCouponId) === String(coupon.id));
     if (existing) return sanitize(existing);
 
+    const resolved = await resolveCouponPayoutAmount(coupon);
+    if (!resolved.ok) {
+      // The sale itself stands — only the money step is skipped, loudly, so an
+      // admin can create the payout by hand from the panel.
+      console.error(
+        `[payouts] auto-payout SKIPPED for coupon ${coupon.id} (${coupon.code || 'no code'}): ${resolved.reason} ` +
+        'Set a selling price on the coupon, or create the payout manually.'
+      );
+      return null;
+    }
+
     const payout = {
       id: uuidv4(),
       sellerEmail: String(sellerEmail).toLowerCase().trim(),
       sellerUserId: String(sellerUserId || ''),
-      amount: PER_COUPON_EARNING,
+      amount: resolved.amount,
       currency: 'INR',
       method: 'UPI',
       upiId: '',

@@ -14,8 +14,15 @@
 
 const { v4: uuidv4 } = require('uuid');
 const db = require('./googleSheets');
+const supabaseService = require('./supabase');
 const gemini = require('./geminiService');
 const prompts = require('./chatbotPrompts');
+// The custom SaveHatke AI engine. provider.js is the single seam: this service
+// asks it for a reply and never talks to a reasoning layer directly, so
+// SAVEHATKE_AI and GEMINI stay interchangeable via the AI_PROVIDER env var.
+const aiProvider = require('./ai/provider');
+const aiConfig = require('./ai/config');
+const aiToolRouter = require('./ai/toolRouter');
 
 // ── Knowledge categories (fixed per product spec) ─────────────────────────
 const KNOWLEDGE_CATEGORIES = [
@@ -563,15 +570,39 @@ async function executeTool(name, args, settings, user) {
     }
 
     if (name === 'check_earnings' && settings.toolCheckEarnings && user) {
-      const sales = (await db.getRows(db.SHEETS.COUPONS).catch(() => []) || [])
-        .filter((c) => String(c.sellerEmail).toLowerCase() === String(user.email).toLowerCase());
-      const sold = sales.filter((c) => String(c.status) === 'sold');
-      const earnings = sold.reduce((sum, c) => sum + (parseFloat(c.sellingPrice) || 0), 0);
+      // ── EARNINGS CALCULATION ────────────────────────────────────────────
+      // A seller earns the price THEY set on each coupon that sold — there is no
+      // flat per-coupon rate. createAutoPayout (routes/payouts.js) credits
+      // exactly that coupon's sellingPrice, and the Sell page showed the seller
+      // that number before they submitted, so summing sellingPrice is what keeps
+      // the chatbot, the dashboard and the payout ledger telling one story.
+      //
+      // Data source: identical merge to GET /api/coupons — Supabase first, then
+      // the Google Sheets mirror — so the chatbot and the seller dashboard read
+      // the same set of coupons.
+      const email = String(user.email || '').toLowerCase().trim();
+      let sales = [];
+      if (supabaseService.isConfigured()) {
+        try {
+          sales = await supabaseService.getCoupons({ sellerEmail: email });
+        } catch (e) { /* fall through to the Sheets mirror */ }
+      }
+      if (!sales.length) {
+        const rows = await db.getRows(db.SHEETS.COUPONS).catch(() => []);
+        sales = (rows || []).filter((c) => String(c.sellerEmail || '').toLowerCase().trim() === email);
+      }
+
+      const amountOf = (v) => {
+        const n = Number(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
+        return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+      };
+      const sold = sales.filter((c) => String(c.status || '').toLowerCase() === 'sold');
       return {
         totalSubmitted: sales.length,
         soldCount: sold.length,
-        availableCount: sales.filter((c) => String(c.status) === 'available').length,
-        totalEarnings: earnings,
+        availableCount: sales.filter((c) => String(c.status || '').toLowerCase() === 'available').length,
+        pricingModel: aiToolRouter.PAYOUT_PRICING_MODEL,
+        totalEarnings: sold.reduce((sum, c) => sum + amountOf(c.sellingPrice), 0),
         currency: 'INR',
       };
     }
@@ -682,9 +713,89 @@ async function handleMessage({ message, conversationId, user, ip }) {
   const conv = await findOrCreateConversation(conversationId, user);
   await addMessage(conv.id, 'user', text);
 
-  // 7. Knowledge retrieval
+  // 7. Knowledge retrieval (admin-managed entries; the custom engine also
+  //    reads its own shipped knowledge base internally)
   const knowledgeEntries = await listKnowledge();
   const knowledgeMatches = scoreKnowledge(knowledgeEntries, text);
+
+  const providerName = aiProvider.getProviderName();
+  const useCustomEngine = providerName === 'SAVEHATKE_AI' && aiConfig.enabled;
+
+  // 7b. Custom SaveHatke AI engine.
+  //     The engine owns its own security scanning, tool dispatch and output
+  //     filtering. The surrounding service keeps the auth, rate limiting,
+  //     conversation persistence, logging and audit it already provided.
+  if (useCustomEngine) {
+    try {
+      const aiResult = await aiProvider.generate({
+        message: text,
+        conversationId: conv.id,
+        user, // identity ONLY from the verified session
+        adminKnowledge: knowledgeEntries,
+        log: (entry) => {
+          // Structured metadata only — never the message body.
+          writeLog({
+            requestId,
+            user: user ? user.email : `ip:${ip || 'unknown'}`,
+            conversationId: conv.id,
+            model: 'savehatke-ai',
+            responseTimeMs: entry.meta ? entry.meta.latencyMs : (Date.now() - started),
+            status: entry.status || 'ok',
+            errorType: entry.errorType || '',
+          }).catch(() => {});
+        },
+      });
+
+      // The engine refused the message (injection / secret probe / policy).
+      if (!aiResult.ok && aiResult.blocked) {
+        // A blocked attempt is a signal worth flagging the conversation for.
+        await db.updateRow(db.SHEETS.CHATBOT_CONVERSATIONS, 'id', conv.id, { flagged: true }).catch(() => {});
+        await addMessage(conv.id, 'assistant', aiResult.text, { model: 'savehatke-ai', status: 'blocked', responseTimeMs: Date.now() - started });
+        await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conv.id, model: 'savehatke-ai', responseTimeMs: Date.now() - started, status: 'blocked', errorType: aiResult.category || 'prompt_injection' });
+        return { ok: false, blocked: true, reply: aiResult.text, conversationId: conv.id, requestId, flagged: true };
+      }
+
+      const reply = sanitizeOutput(aiResult.text) || settings.unknownQuestionMessage;
+      const meta = aiResult.meta || {};
+
+      await addMessage(conv.id, 'assistant', reply, {
+        model: 'savehatke-ai',
+        status: 'ok',
+        responseTimeMs: Date.now() - started,
+      });
+      // Log useful metadata only: intent, confidence, tool, latency. No message
+      // body, no personal data, no coupon codes.
+      await writeLog({
+        requestId,
+        user: user ? user.email : `ip:${ip || 'unknown'}`,
+        conversationId: conv.id,
+        model: `savehatke-ai:${meta.intent || 'n/a'}:${meta.tool || 'none'}`,
+        responseTimeMs: Date.now() - started,
+        status: meta.degraded ? 'degraded' : 'ok',
+        errorType: meta.degraded ? 'groundedness_failure' : '',
+      });
+
+      return {
+        ok: true,
+        reply,
+        conversationId: conv.id,
+        requestId,
+        // Forwarded so the widget can render richer turns when present. The
+        // frontend already supports these; they are additive and optional.
+        cards: (aiResult.cards || []).slice(0, 3),
+        chips: (aiResult.chips || []).slice(0, 4),
+        support: aiResult.support,
+        intent: meta.intent || null,
+        loginRequired: Boolean(aiResult.loginRequired),
+      };
+    } catch (err) {
+      // Fail closed to the existing static fallback rather than leaking an error.
+      console.warn('SaveHatke AI engine error:', err.message);
+      await addMessage(conv.id, 'assistant', settings.fallbackMessage, { model: 'savehatke-ai', status: 'error', responseTimeMs: Date.now() - started });
+      await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conv.id, model: 'savehatke-ai', responseTimeMs: Date.now() - started, status: 'error', errorType: 'engine_error' });
+      return { ok: true, reply: settings.fallbackMessage, conversationId: conv.id, requestId };
+    }
+  }
 
   // If AI not configured, fall back
   if (!gemini.isConfigured()) {

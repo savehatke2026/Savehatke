@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Sell your unused reward coupons on SaveHatke and earn ₹10 instant cash per coupon. PhonePe, Paytm, Nykaa — we buy them all.">
+  <meta name="description" content="Sell your unused reward coupons on SaveHatke. Set your own price, and get paid within 24 hours of approval. PhonePe, Paytm, Nykaa — we buy them all.">
   <title>Sell Your Coupons — SaveHatke</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -571,7 +571,7 @@
     <div class="page-hero-inner fu in">
       <div class="page-hero-badge">🔥 Buy &amp; Sell Coupons — All in One Place!</div>
       <h1 class="page-hero-title">Sell Your <span class="gtext">Unused Coupons</span></h1>
-      <p class="page-hero-sub">Turn those dusty reward codes into instant cash. We pay <strong>₹10 per coupon</strong> — verified and paid within 24 hours. Submit up to 5 coupons at once!</p>
+      <p class="page-hero-sub">Have unused reward coupons? Turn them into money on SaveHatke. Offer prices vary by coupon and are shown before you submit. Once your coupon is verified and approved, payment is processed within 24 hours. Submit up to 5 coupons at a time.</p>
     </div>
   </div>
 </div>
@@ -731,7 +731,7 @@
 
         <div class="earn-pill">
           <div class="earn-icon">💰</div>
-          <div class="earn-amount" id="earnTotal">₹10</div>
+          <div class="earn-amount" id="earnTotal">₹0</div>
           <div class="earn-sub">Paid to your account after verification (within 24 hours)</div>
         </div>
 
@@ -1412,11 +1412,12 @@ function renderCouponCard(id, index) {
     }),
     // Price the coupon is listed at on the marketplace — seller-proposed and
     // server-validated (1…100000), defaulting to the same ₹15 as the admin form.
-    // It is not the seller's payout, which is a flat ₹10 per verified coupon.
+    // This IS the seller's payout: when the coupon sells, this exact amount is
+    // credited to them. There is no separate flat fee.
     makeField({
       id: 'price-' + id, label: 'Selling Price (₹)', type: 'number',
       value: '15', placeholder: 'e.g. 15',
-      hint: 'What a buyer pays for it. You earn ₹10 per verified coupon.',
+      hint: 'What a buyer pays for it — and what you get paid when it sells.',
     })
   ));
 
@@ -2628,6 +2629,18 @@ function collectCoupons() {
   });
 }
 
+/**
+ * What the seller will be paid for this batch: each coupon pays the price they
+ * set on it. Mirrors the server, where createAutoPayout credits the coupon's
+ * own sellingPrice — so the number shown here is the number that gets paid.
+ */
+function payoutTotal(coupons) {
+  return (coupons || []).reduce((sum, c) => {
+    const n = Number(c.sellingPrice);
+    return sum + (Number.isFinite(n) && n > 0 ? Math.round(n) : 0);
+  }, 0);
+}
+
 /* ── Validate all coupons ── */
 function validateCoupons() {
   const coupons = collectCoupons();
@@ -2795,11 +2808,11 @@ function buildReviewSummary() {
   // Update count and earn total
   const count = coupons.length;
   document.getElementById('reviewTotalCount').textContent = count;
-  document.getElementById('earnTotal').textContent = '₹' + (count * 10);
+  document.getElementById('earnTotal').textContent = '₹' + payoutTotal(coupons);
 
   // Update submit button label
   const submitBtn = document.getElementById('submitSellBtn');
-  if (submitBtn) submitBtn.innerHTML = '✅ Submit &amp; Earn ₹' + (count * 10);
+  if (submitBtn) submitBtn.innerHTML = '✅ Submit &amp; Earn ₹' + payoutTotal(coupons);
 }
 
 /* ── Step navigation (2 steps: 1 = details, 2 = review) ── */
@@ -2843,7 +2856,7 @@ async function submitCoupons() {
 
   const restoreBtn = () => {
     btn.disabled = false;
-    btn.innerHTML = '✅ Submit &amp; Earn ₹' + (collectCoupons().length * 10);
+    btn.innerHTML = '✅ Submit &amp; Earn ₹' + payoutTotal(collectCoupons());
   };
 
   btn.disabled = true;

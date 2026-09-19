@@ -3130,10 +3130,17 @@
     const activeListings = sales.filter(isAvailable).length;
     const totalPurchased = purchases.length;
 
-    // Earnings: ₹10 per sold coupon (matches the backend offer in /api/coupons/sell)
-    const PER_COUPON = 10;
-    const totalEarnings = soldCount * PER_COUPON;
-    const pendingEarnings = pendingCount * PER_COUPON;
+    // Earnings: a sold coupon pays the seller the price THEY set on it — there
+    // is no flat per-coupon rate. This mirrors createAutoPayout on the server,
+    // which credits the coupon's own sellingPrice, so the dashboard and the
+    // payout ledger agree.
+    const priceOf = (c) => {
+      const raw = c && (c.sellerEarning != null && c.sellerEarning !== '' ? c.sellerEarning : c.sellingPrice);
+      const n = Number(String(raw == null ? '' : raw).replace(/[^0-9.]/g, ''));
+      return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+    };
+    const totalEarnings = sales.filter(isSold).reduce((s, c) => s + priceOf(c), 0);
+    const pendingEarnings = sales.filter(isPending).reduce((s, c) => s + priceOf(c), 0);
     const availableBalance = totalEarnings; // no withdrawal flow wired yet
     const monthEarnings = sales
       .filter(isSold)
@@ -3142,7 +3149,8 @@
         if (isNaN(d.getTime())) return false;
         const now = new Date();
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      }).length * PER_COUPON;
+      })
+      .reduce((s, c) => s + priceOf(c), 0);
 
     // Overview cards — Coupons (active listings), Purchased, Sold, Wallet Balance
     setText('statCoupons', activeListings);
@@ -3486,7 +3494,7 @@
           type: 'Sale',
           icon: '💼',
           detail: `${c.brand || 'Coupon'}${c.originalValue ? ' ' + inr(c.originalValue) + ' Voucher' : ''}`,
-          amount: '+₹10',
+          amount: c.sellingPrice != null && c.sellingPrice !== '' ? `+${inr(c.sellingPrice)}` : '—',
           amountClass: 'text-green',
           date: c.soldAt || c.addedAt,
           status: 'sold',
@@ -3990,7 +3998,7 @@
         <div style="text-align:center;padding:24px 12px;color:#6b88aa">
           <div style="font-size:2rem;margin-bottom:8px">💸</div>
           <div style="font-size:.88rem;font-weight:600;color:#a8c0dc;margin-bottom:4px">No payouts yet</div>
-          <div style="font-size:.78rem">You'll see payouts here when your coupons are sold. Auto-payouts of ₹10 are created the moment a coupon is bought.</div>
+          <div style="font-size:.78rem">You'll see payouts here when your coupons are sold. A payout for the price you set is created the moment a coupon is bought.</div>
         </div>
       `;
       return;
@@ -4044,7 +4052,7 @@
     STATE.sales.filter(isSold).slice(0, 3).forEach((c) => {
       out.push({
         icon: '🎉',
-        text: `Your coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> was purchased! ₹10 added to wallet.`,
+        text: `Your coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> was purchased! ${c.sellingPrice != null && c.sellingPrice !== '' ? inr(c.sellingPrice) : 'Your payout'} added to wallet.`,
         time: timeAgo(c.soldAt || c.addedAt),
         unread: true,
       });
@@ -4203,6 +4211,13 @@
     const stored = Auth.getUser();
     if (stored) applyUserToUI(stored);
 
+    // Start the data fetch NOW and let the maintenance check below run
+    // alongside it. The two share no data, so awaiting the check first put the
+    // whole dashboard behind two sequential round-trips before anything could
+    // render. The redirect still wins when maintenance is on; one wasted fetch
+    // in that case is a fair trade for a fast normal load.
+    const dashboardFetch = refreshDashboard();
+
     // Maintenance mode guard — check server-side source of truth.
     // If maintenance is ON and the user is a normal user, redirect to the
     // maintenance page. Admins and whitelisted users are never affected
@@ -4230,7 +4245,7 @@
     // Review stars / buttons are delegated, so this only runs once
     initReviews();
 
-    await refreshDashboard();
+    await dashboardFetch;
     startAutoRefresh();
 
     // Device sessions (48-hour server-side sessions)

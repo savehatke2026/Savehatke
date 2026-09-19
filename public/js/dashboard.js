@@ -233,7 +233,7 @@ async function loadSales() {
         <div class="empty-state">
           <div class="empty-state-icon">💰</div>
           <h3>No coupons sold yet</h3>
-          <p>Have unused coupons? Sell them and earn ₹10 each!</p>
+          <p>Have unused coupons? Sell them and set your own price!</p>
           <a href="sell.html" class="btn btn-success">Sell Coupons</a>
         </div>
       `;
@@ -278,7 +278,7 @@ async function loadSales() {
       <div class="empty-state">
         <div class="empty-state-icon">💰</div>
         <h3>No coupons sold yet</h3>
-        <p>Have unused coupons? Sell them and earn ₹10 each!</p>
+        <p>Have unused coupons? Sell them and set your own price!</p>
         <a href="sell.html" class="btn btn-success">Sell Coupons</a>
       </div>
     `;

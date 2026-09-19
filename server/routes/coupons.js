@@ -645,10 +645,13 @@ const handleCouponSubmission = async (req, res) => {
       });
     }
 
-    const offer = `₹${submitted.length * 10}`;
+    // What the seller will be paid for this batch: each coupon pays the price
+    // the seller set on it.
+    const offerTotal = submitted.reduce((sum, c) => sum + Number(c.sellingPrice || 0), 0);
+    const offer = `₹${offerTotal}`;
     res.status(201).json({
       message: submitted.length === 1
-        ? 'Coupon submitted successfully! You will receive ₹10 once it is verified and sold.'
+        ? `Coupon submitted successfully! You will receive ${offer} once it is verified and sold.`
         : `${submitted.length} coupons submitted successfully! You will receive ${offer} once they are verified and sold.`,
       coupon: {
         id: submitted[0].id,
@@ -712,13 +715,14 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
       await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
     } catch (e) {}
 
-    // Auto-create a payout entry for the seller so the admin can pay them
-    // for this sale. Failure here never breaks the buy flow — payouts are
-    // best-effort and can be retried from the admin panel.
+    // Auto-create a payout entry for the seller so the admin can pay them for
+    // this sale — for the price the seller set on the coupon. Failure here
+    // never breaks the buy flow: payouts are best-effort and can be retried
+    // from the admin panel.
     try {
       const { createAutoPayout } = require('./payouts');
       await createAutoPayout({
-        coupon: { id: coupon.id, code: coupon.code, brand: coupon.brand },
+        coupon: { id: coupon.id, code: coupon.code, brand: coupon.brand, sellingPrice: coupon.sellingPrice },
         sellerEmail: coupon.sellerEmail,
         sellerUserId: coupon.sellerUserId,
       });
@@ -757,6 +761,11 @@ router.get('/my-sales', authenticateToken, async (req, res) => {
       coupons = await db.findRows(db.SHEETS.COUPONS, 'sellerEmail', req.user.email);
     }
 
+    const amountOf = (v) => {
+      const n = Number(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
+      return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+    };
+
     res.json({
       coupons: coupons.map((c) => ({
         id: c.id,
@@ -773,7 +782,8 @@ router.get('/my-sales', authenticateToken, async (req, res) => {
         addedAt: c.addedAt,
         soldAt: c.soldAt,
         buyerEmail: c.buyerEmail,
-        earning: c.status === 'sold' ? '₹10' : '—',
+        // A sold coupon pays the seller the price they set on it — no flat rate.
+        earning: c.status === 'sold' ? `₹${amountOf(c.sellingPrice)}` : '—',
       })),
     });
   } catch (err) {

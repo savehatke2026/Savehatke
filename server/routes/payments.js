@@ -245,11 +245,12 @@ router.post('/verify', authenticateToken, async (req, res) => {
       await db.updateRow(db.SHEETS.COUPONS, 'id', couponId, updates);
     } catch (e) {}
 
-    // Best-effort auto-payout for the seller
+    // Best-effort auto-payout for the seller, for the price they set on this
+    // coupon (createAutoPayout falls back to a sheet lookup if it's missing).
     try {
       const { createAutoPayout } = require('./payouts');
       await createAutoPayout({
-        coupon: { id: coupon.id, code: coupon.code, brand: coupon.brand },
+        coupon: { id: coupon.id, code: coupon.code, brand: coupon.brand, sellingPrice: coupon.sellingPrice },
         sellerEmail: coupon.sellerEmail,
         sellerUserId: coupon.sellerUserId,
       });
