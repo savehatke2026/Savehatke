@@ -28,10 +28,24 @@ const upi = require('./server/services/upi');
 const store = require('./server/services/paymentStore');
 const verifier = require('./server/services/paymentVerifier');
 
-let pass = 0, fail = 0;
+let pass = 0, fail = 0, advisory = 0;
 const check = (name, cond, detail = '') => {
   if (cond) { pass++; console.log('  \x1b[32mPASS\x1b[0m ' + name + (detail ? ' — ' + detail : '')); }
   else { fail++; console.log('  \x1b[31mFAIL\x1b[0m ' + name + (detail ? ' — ' + detail : '')); }
+};
+
+/**
+ * Something worth knowing that is NOT a defect in this codebase.
+ *
+ * The VPA advisory is the case that matters: the UPI ID is supplied by the
+ * operator and is outside the repo's control, so a format observation about it
+ * must be reported loudly without being counted as a failure of the payment
+ * implementation. It is printed with the same prominence as a failure so it
+ * cannot be missed.
+ */
+const advise = (name, detail = '') => {
+  advisory++;
+  console.log('  \x1b[33mADVISORY\x1b[0m ' + name + (detail ? ' — ' + detail : ''));
 };
 
 (async () => {
@@ -41,6 +55,11 @@ const check = (name, cond, detail = '') => {
   console.log('\n\x1b[1mEnvironment\x1b[0m');
   const payee = upi.getPayee();
   check('UPI_ID is set and well-formed', payee.configured, payee.upiId || '(empty)');
+  if (payee.warning) {
+    advise('UPI_ID format observation — ' + payee.warning.code, payee.warning.error);
+  } else {
+    check('UPI_ID has no format observation', true, 'clean');
+  }
   check('UPI_PAYEE_NAME is set', !!payee.payeeName, payee.payeeName);
   check('PAYMENT_MAX_AMOUNT is set', Number(process.env.PAYMENT_MAX_AMOUNT) > 0, String(process.env.PAYMENT_MAX_AMOUNT));
   check('PAYMENT_WEBHOOK_SECRET is set', verifier.getWebhookSecret().length > 0,
@@ -79,6 +98,18 @@ const check = (name, cond, detail = '') => {
     check('never returns the webhook secret',
       !JSON.stringify(body).includes(verifier.getWebhookSecret()));
 
+    // The config endpoint must always carry the advisory field, so an operator
+    // can see a VPA that is structurally valid but will not resolve at the PSP
+    // — the failure that otherwise only shows up as a buyer's "Couldn't verify
+    // UPI ID". Asserting the *contract* rather than a specific warning keeps
+    // this honest after the VPA is corrected.
+    check('config carries the advisory upiIdWarning field (null when clean)',
+      body.upiIdWarning === null || typeof body.upiIdWarning?.code === 'string',
+      JSON.stringify(body.upiIdWarning));
+    if (body.upiIdWarning) {
+      console.log(`\n  ⚠  VPA advisory: [${body.upiIdWarning.code}] ${body.upiIdWarning.message}\n`);
+    }
+
     // The URI the checkout would hand to a UPI app, built from live config.
     const uri = upi.buildUpiUri({ amount: 299 });
     console.log('\n  Payee sees: ' + uri);
@@ -90,7 +121,11 @@ const check = (name, cond, detail = '') => {
   }
 
   console.log('\n' + '─'.repeat(64));
-  console.log(pass + ' passed, ' + fail + ' failed');
+  console.log(pass + ' passed, ' + fail + ' failed' + (advisory ? ', ' + advisory + ' advisory' : ''));
+  if (advisory) {
+    console.log('\nAdvisories are observations about operator-supplied configuration, not');
+    console.log('defects in this codebase. They do not fail the run — but read them.');
+  }
   process.exit(fail ? 1 : 0);
 })().catch((e) => {
   console.error('\n\x1b[31mFATAL\x1b[0m ' + e.message);

@@ -397,6 +397,24 @@ function decodeDataUrl(dataUrl) {
   check('amount is formatted, not raw: 37.5 -> 37.50',
     /[?&]am=37\.50(&|$)/.test(upi.buildUpiUri({ amount: 37.5, orderCode: 'SH-ABC234' })));
 
+  // The spec says the QR must encode the four parameters ONLY. An order code
+  // must therefore NOT leak into the link as tr/tn, even though one exists.
+  const withOrder = upi.buildUpiUri({ amount: 37, orderCode: 'SH-ABC234', paymentId: 'pay_x' });
+  check('an existing order code does NOT add tr= to the link',
+    !/[?&]tr=/.test(withOrder), withOrder);
+  check('an existing order code does NOT add tn= to the link',
+    !/[?&]tn=/.test(withOrder), withOrder);
+  check('the link carries exactly the four spec parameters and nothing else',
+    /^upi:\/\/pay\?pa=[^&]+&pn=[^&]+&am=37\.00&cu=INR$/.test(withOrder), withOrder);
+
+  // The correlator is still reachable, but only when a caller asks for it and
+  // accepts that the payload is no longer the agreed four-parameter form.
+  const withRef = upi.buildUpiUri({ amount: 37, orderCode: 'SH-ABC234', includeReference: true });
+  check('includeReference:true restores the tr/tn correlator',
+    /[?&]tr=SH-ABC234(&|$)/.test(withRef) && /[?&]tn=/.test(withRef), withRef);
+  check('the correlator form still leads with the four spec parameters in order',
+    /^upi:\/\/pay\?pa=[^&]+&pn=[^&]+&am=37\.00&cu=INR&tr=/.test(withRef), withRef);
+
   // The four base parameters are the WHOLE link when no order context exists.
   // This is the exact shape the spec asks for, with no extra parameters.
   const bare299 = upi.buildUpiUri({ amount: 299 });
@@ -413,6 +431,21 @@ function decodeDataUrl(dataUrl) {
     check('₹99 matches the literal string given in the spec',
       upi.buildUpiUri({ amount: 99 }) === 'upi://pay?pa=810054436%40fam&pn=Rupayan%20Das&am=99.00&cu=INR',
       upi.buildUpiUri({ amount: 99 }));
+
+    // The four worked examples the spec spells out character by character. Each
+    // is asserted as an exact string, not a regex, because the whole point is
+    // that the payload is byte-identical to the agreed one.
+    const SPEC_EXAMPLES = [
+      [15, 'upi://pay?pa=810054436%40fam&pn=Rupayan%20Das&am=15.00&cu=INR'],
+      [10, 'upi://pay?pa=810054436%40fam&pn=Rupayan%20Das&am=10.00&cu=INR'],
+      [37, 'upi://pay?pa=810054436%40fam&pn=Rupayan%20Das&am=37.00&cu=INR'],
+      [100, 'upi://pay?pa=810054436%40fam&pn=Rupayan%20Das&am=100.00&cu=INR'],
+    ];
+    for (const [amt, expected] of SPEC_EXAMPLES) {
+      const actual = upi.buildUpiUri({ amount: amt });
+      check(`₹${amt} is byte-identical to the spec string`, actual === expected,
+        `\n         expected = ${expected}\n         actual   = ${actual}`);
+    }
   } else {
     skip('literal spec URI string', 'configured payee is ' + PAYEE.upiId + ' / ' + PAYEE.payeeName);
   }
@@ -508,6 +541,18 @@ function decodeDataUrl(dataUrl) {
   check('coupon code is NOT revealed while PENDING', !created.json?.coupon_code, String(created.json?.coupon_code));
   check('server_now returned for clock-skew correction', !!created.json?.server_now);
 
+  // The contract the frontend is allowed to depend on: the modal displays the
+  // QR and payment facts the server returned, and builds nothing itself. Every
+  // one of these must be present on a create response.
+  for (const field of ['payment_id', 'order_id', 'amount', 'upi_id', 'upi_uri', 'qr', 'expires_at']) {
+    check(`create response returns ${field}`, created.json?.[field] !== undefined && created.json[field] !== null,
+      JSON.stringify(created.json?.[field]));
+  }
+  check('the returned upi_uri is a upi:// deep link',
+    /^upi:\/\/pay\?/.test(created.json?.upi_uri || ''), created.json?.upi_uri);
+  check('the returned upi_id is the configured VPA, unmodified',
+    created.json?.upi_id === PAYEE.upiId, created.json?.upi_id);
+
   if (jsqr) {
     const decoded = decodeDataUrl(created.json?.qr);
     check('the QR in the create response carries am=37.00', /[?&]am=37\.00(&|$)/.test(decoded || ''), decoded || 'decode failed');
@@ -568,16 +613,17 @@ function decodeDataUrl(dataUrl) {
     String(openAmount.status) + ' ' + JSON.stringify(openAmount.json).slice(0, 140));
   check('the coupon-less payment carries the requested amount', openAmount.json?.amount === 299,
     JSON.stringify(openAmount.json?.amount));
-  // The route always attaches a reconciliation correlator: `tr` (and `tn`)
-  // carry the order code, which is what lets the verifier tie an incoming
-  // credit to THIS payment. Without it a coupon-less credit could only ever be
-  // flagged for review. The four spec parameters still lead the link, and
-  // payee / amount / currency are untouched by the extras.
+  // The route emits the four spec parameters and nothing more. The order code
+  // is NOT smuggled in as `tr`/`tn`: the spec fixes the payload, the minimal
+  // form is the one every UPI app accepts, and dropping ~40 characters makes
+  // the symbol noticeably easier to scan. Reconciliation falls back to
+  // amount + pending-window matching, which is the verifier's primary path
+  // anyway — see buildUpiUri() for the full trade-off.
   const openUri = openAmount.json?.upi_uri || '';
   check('the coupon-less UPI URI leads with exactly the 4 spec parameters in order',
     /^upi:\/\/pay\?pa=[^&]+&pn=[^&]+&am=299\.00&cu=INR(&|$)/.test(openUri), openUri);
-  check('the coupon-less URI adds nothing beyond the tr/tn correlator',
-    /^upi:\/\/pay\?pa=[^&]+&pn=[^&]+&am=299\.00&cu=INR(&tr=[^&]*&tn=[^&]*)?$/.test(openUri), openUri);
+  check('the coupon-less URI adds NOTHING beyond the 4 spec parameters',
+    /^upi:\/\/pay\?pa=[^&]+&pn=[^&]+&am=299\.00&cu=INR$/.test(openUri), openUri);
   check('the coupon-less URI carries am=299.00 exactly', /[?&]am=299\.00(&|$)/.test(openUri), openUri);
   check('the coupon-less URI carries cu=INR', /[?&]cu=INR/.test(openUri), openUri);
   check('the coupon-less request returns a real QR',
@@ -1164,6 +1210,28 @@ function decodeDataUrl(dataUrl) {
   check('copyUpiId() is wired in the page', /function copyUpiId\(\)/.test(checkoutHtml));
   check('the UPI ID is painted from server config, not hard-coded in the markup',
     /function showUpiId\(vpa\)/.test(checkoutHtml) && !/810054436/.test(checkoutHtml));
+
+  // "Open UPI App / Pay Now" must hand the device the SAME URI the QR encodes.
+  // The only way to guarantee that is for both to read one server-supplied
+  // string, so the page must never build a upi:// link of its own.
+  check('the Open UPI App button navigates to the server-supplied URI',
+    /window\.location\.href = upiState\.upiUri/.test(checkoutHtml));
+  check('the button URI is fed from the server response field upi_uri',
+    /updateOpenAppButton\([^)]*data\.upi_uri/.test(checkoutHtml));
+  check('the page never constructs its own upi:// link (QR and button cannot drift)',
+    !/['"`]upi:\/\/pay/.test(checkoutHtml));
+  check('the QR is rendered from the server-supplied qr field',
+    /renderUpiQr\(data\.qr\)/.test(checkoutHtml));
+
+  // The QR must stay completely unobstructed — no logo, caption, icon, border
+  // or amount text composited over the encoded modules. A logo punch-out is
+  // exactly what turns a scannable QR into an intermittent one.
+  check('nothing is painted over the QR (no ::before/::after on .upm-qr)',
+    !/\.upm-qr[a-z-]*::(?:before|after)/.test(checkoutHtml));
+  check('the QR plate contains only the image slot and its loading skeleton',
+    /<div class="upm-qr" id="upmQr">\s*<div class="upm-qr-empty" id="upmQrEmpty"><div class="upm-qr-skel"><\/div><\/div>\s*<\/div>/.test(checkoutHtml));
+  check('the QR image is swapped in as a single <img>, not an overlay stack',
+    /host\.innerHTML = '<img alt="UPI payment QR code" src="' \+ dataUrl \+ '">'/.test(checkoutHtml));
 
   check('the cancel panel is labelled Cancel / Confirm',
     /upmKeepBtn[^>]*>Cancel</.test(box) && /upmConfirmBtn[^>]*>Confirm</.test(box));

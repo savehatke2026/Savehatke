@@ -232,6 +232,12 @@ router.get('/config', (req, res) => {
     // The receiving VPA is not a secret — it is printed inside the QR the
     // buyer scans. The webhook secret and mailbox credentials are never here.
     upiId: payee.configured ? payee.upiId : '',
+    // A structurally valid VPA that will still not resolve at the PSP (a
+    // numeric handle that is not 10 digits, say) is surfaced to operators
+    // rather than left to be discovered by a buyer's "Couldn't verify UPI ID".
+    // Advisory only: the checkout keeps working, because blocking payments on
+    // a suspicion is worse than reporting it.
+    upiIdWarning: payee.warning ? { code: payee.warning.code, message: payee.warning.error } : null,
     windowMinutes: Math.round(store.PAYMENT_WINDOW_MS / 60000),
     platform: 'upi',
     currency: 'INR',
@@ -367,11 +373,17 @@ router.post('/create', createLimiter, authenticateToken, async (req, res) => {
     });
 
     const paymentId = store.newPaymentId();
-    const upiUri = upi.buildUpiUri({
-      amount,
-      orderCode: order.orderCode,
-      paymentId,
-    });
+    // Exactly the four spec parameters — pa / pn / am / cu. The order code is
+    // deliberately NOT smuggled in as `tr`/`tn`: see buildUpiUri() for why the
+    // extra parameters were dropped, and what reconciliation gives up. The
+    // order code still lives on the order row, so nothing is lost server-side.
+    const upiUri = upi.buildUpiUri({ amount });
+
+    // Development: the full URI, so a reported "couldn't verify UPI ID" scan
+    // can be reproduced exactly from the log. Production: same line with the
+    // VPA masked. Never the webhook secret or any mailbox credential.
+    upi.logUpiUri(upiUri, `create ${paymentId} amount=${amount.toFixed(2)} order=${order.orderCode}`);
+    if (payee.warning) console.warn(`[payment] WARNING ${payee.warning.code}: ${payee.warning.error}`);
 
     let payment;
     try {
@@ -430,6 +442,18 @@ router.post('/create', createLimiter, authenticateToken, async (req, res) => {
         expires_at: expiresAt,
       });
     }
+
+    // Development diagnostic: order, amount, VPA, the exact URI, and whether
+    // the QR that was really rendered decodes back to that URI. A failure here
+    // is logged as an error, not swallowed — a QR that does not decode to the
+    // intended URI is a payment-correctness bug, not a cosmetic one.
+    upi.logPaymentDiagnostics({
+      orderCode: order.orderCode,
+      amount,
+      upiId: payee.upiId,
+      upiUri: presented.upi_uri,
+      qr: presented.qr,
+    });
 
     res.set(NO_STORE).json(presented);
   } catch (err) {

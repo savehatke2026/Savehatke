@@ -5,7 +5,13 @@
   "description": "SaveHatke — India's Smartest Price Tracker & Coupon Marketplace",
   "scripts": {
     "start": "node server/server.js",
-    "dev": "node --watch server/server.js"
+    "dev": "node --watch server/server.js",
+    "ai:prepare": "node scripts/ai/prepareData.js",
+    "ai:vocab": "node scripts/ai/buildVocabulary.js",
+    "ai:train": "node scripts/ai/train.js",
+    "ai:eval": "node scripts/ai/evaluate.js",
+    "ai:test": "node scripts/ai/test.js",
+    "ai:build": "npm run ai:prepare && npm run ai:vocab && npm run ai:train && npm run ai:eval && npm run ai:test"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",
@@ -25,5 +31,9 @@
     "twilio": "^6.1.0",
     "ua-parser-js": "^2.0.10",
     "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "jsqr": "^1.4.0",
+    "pngjs": "^5.0.0"
   }
 }
