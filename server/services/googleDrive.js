@@ -372,6 +372,73 @@ async function uploadCouponProofScreenshot(input) {
   });
 }
 
+/**
+ * Refresh the OAuth access token purely to keep the refresh token alive.
+ *
+ * Google invalidates a refresh token that has not been used for six months, so
+ * a Drive integration that goes quiet for half a year dies silently. The only
+ * thing that resets that clock is a successful grant_type=refresh_token
+ * exchange against oauth2.googleapis.com/token — which is exactly what
+ * getAccessToken() performs here.
+ *
+ * Deliberately touches no file: no upload, no read, no side effect. Intended to
+ * be called by the monthly cron at GET /api/admin/drive/keepalive.
+ *
+ * @returns {Promise<{ok: boolean, configured: boolean, mode: string,
+ *                    skipped?: string, refreshed?: boolean,
+ *                    reason?: string, code?: string}>}
+ */
+async function keepAlive() {
+  const c = getCreds();
+
+  if (!c.configured) {
+    return {
+      ok: false,
+      configured: false,
+      mode: c.mode,
+      reason: 'Google Drive is not configured — no refresh token to keep alive.',
+    };
+  }
+
+  // A service account signs a fresh JWT for every request and holds no refresh
+  // token, so there is nothing here to keep alive.
+  if (c.mode !== 'oauth') {
+    return { ok: true, configured: true, mode: c.mode, skipped: 'service-account' };
+  }
+
+  try {
+    const auth = new google.auth.OAuth2(c.clientId, c.clientSecret);
+    auth.setCredentials({ refresh_token: c.refreshToken });
+
+    // Fresh client with no access token, so this always performs the exchange
+    // rather than serving a cached token.
+    const res = await auth.getAccessToken();
+    const token = typeof res === 'string' ? res : res && res.token;
+
+    if (!token) {
+      return {
+        ok: false,
+        configured: true,
+        mode: c.mode,
+        reason: 'Google returned no access token.',
+      };
+    }
+
+    return { ok: true, configured: true, mode: c.mode, refreshed: true };
+  } catch (err) {
+    // googleapis puts the useful text in response.data — "Token has been
+    // expired or revoked." beats a bare "invalid_grant" in a cron log.
+    const data = (err && err.response && err.response.data) || {};
+    return {
+      ok: false,
+      configured: true,
+      mode: c.mode,
+      reason: data.error_description || data.error || (err && err.message) || 'Token refresh failed.',
+      code: data.error || (err && err.code) || '',
+    };
+  }
+}
+
 module.exports = {
   isConfigured,
   uploadProofScreenshot,
@@ -380,6 +447,7 @@ module.exports = {
   uploadPayoutQrImage,
   downloadFile,
   getFileMeta,
+  keepAlive,
   // Exposed for diagnostics
   _getCreds: getCreds,
 };

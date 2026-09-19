@@ -12,6 +12,7 @@ const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const monthlyReports = require('../services/monthlyReports');
+const googleDrive = require('../services/googleDrive');
 // Payout withholding and the seller status vocabulary live with the Payouts tab,
 // so the invalidate action below reuses them instead of restating the rules.
 const payouts = require('./payouts');
@@ -281,10 +282,12 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
       .filter((c) => c.status === 'sold')
       .reduce((sum, c) => sum + Number(c.sellingPrice || 0), 0);
 
-    // Calculate costs (₹10 per user-submitted sold coupon)
+    // Calculate costs: a sold user-submitted coupon pays the seller the price
+    // they set on that coupon, so the cost is that coupon's own sellingPrice —
+    // not a flat per-coupon fee.
     const costs = allCoupons
       .filter((c) => c.status === 'sold' && c.source === 'user-submitted')
-      .length * 10;
+      .reduce((sum, c) => sum + Number(c.sellingPrice || 0), 0);
 
     let totalTracked = 0;
     let totalTickets = 0;
@@ -1550,6 +1553,53 @@ async function handleMonthlyRun(req, res) {
   } catch (err) {
     console.error('Admin monthly report run error:', err);
     res.status(500).json({ error: err.message || 'Failed to generate the report.' });
+  }
+}
+
+// GET|POST /api/admin/drive/keepalive — refresh the Drive OAuth token so
+// Google's six-month inactivity rule never invalidates it. vercel.json calls
+// this on the 1st of every month.
+//
+// Why a cron at all: Google expires a refresh token that has not been used to
+// mint an access token for six months. Normal operation refreshes it on every
+// upload, so this only matters when the marketplace goes quiet — which is
+// exactly the case nobody notices until a seller hits an upload error.
+//
+// Same auth contract as the monthly report run: Vercel Cron presents
+// `Authorization: Bearer <CRON_SECRET>`, the older `x-cron-key` header still
+// works for other schedulers, and an admin session is accepted as a fallback.
+router.all('/drive/keepalive', async (req, res, next) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
+  if (cronSecretMatches(req)) return handleDriveKeepAlive(req, res);
+  return authenticateToken(req, res, () => requireAdmin(req, res, () => handleDriveKeepAlive(req, res)));
+});
+
+async function handleDriveKeepAlive(req, res) {
+  try {
+    const result = await googleDrive.keepAlive();
+
+    // A dead token is a configuration problem, not a server fault. Report it
+    // as 200 with ok:false and log the real reason loudly, so the cron output
+    // says "token revoked" instead of a generic 5xx.
+    if (!result.ok) {
+      console.error(
+        `[drive/keepalive] refresh FAILED${result.code ? ' (' + result.code + ')' : ''}: ${result.reason} ` +
+        'Re-authorize with `cd server && node scripts/authorize-drive.js`.'
+      );
+    }
+
+    res.json({
+      ok: result.ok,
+      configured: result.configured,
+      mode: result.mode,
+      skipped: result.skipped || '',
+      refreshed: !!result.refreshed,
+      reason: result.reason || '',
+      ranAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('Drive keepalive error:', err);
+    res.status(500).json({ error: err.message || 'Keepalive failed.' });
   }
 }
 // ════════════════════════════════════════════════════════════════════════
