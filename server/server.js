@@ -36,6 +36,9 @@ const paymentRoutes = require('./routes/payments');
 // Custom UPI checkout — a separate module from the Razorpay routes above, on
 // the singular path so neither flow can disturb the other.
 const upiPaymentRoutes = require('./routes/payment');
+// The UPI primitives are imported here as well as inside the route, so the
+// receiving VPA can be echoed (and any problem with it reported) at boot.
+const upiService = require('./services/upi');
 const driveProxyRoutes = require('./routes/driveProxy');
 const backupCodeRoutes = require('./routes/backupCode');
 const sosRoutes = require('./routes/sos');
@@ -627,6 +630,10 @@ if (!process.env.VERCEL) {
       console.log(`📄 Landing page: http://localhost:${PORT}`);
       console.log(`🔧 Admin panel:  http://localhost:${PORT}/vault.html`);
       console.log(`💡 API health:   http://localhost:${PORT}/api/health`);
+      console.log('');
+      // Echo the receiving VPA at boot. A wrong or truncated UPI_ID otherwise
+      // stays invisible until a buyer scans the QR and their app refuses it.
+      upiService.logPayeeConfig();
       console.log('');
     });
   }).catch((err) => {
