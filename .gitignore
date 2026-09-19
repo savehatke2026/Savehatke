@@ -38,3 +38,15 @@ build/
 # Local scratch scripts and their captured output. Push-script logs can contain
 # credentials, so these must never be committed.
 .tmp_*
+
+# Agent working data. This directory holds memory notes AND
+# backups/env-drive-token-*.txt — a live Google Drive OAuth token. The repo is
+# public, so it must never be committed.
+.workbuddy-ai/
+
+# GUI test captures.
+gui-test-screenshots/
+
+# Local source assets awaiting upload. The Coupons.backgroundImage column stores
+# a hosted URL, not a repo path, so no code references these files.
+Coupon bg imgs/
