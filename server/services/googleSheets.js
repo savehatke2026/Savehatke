@@ -471,8 +471,11 @@ async function initialize() {
 
     sheetsClient = google.sheets({ version: 'v4', auth });
 
-    // Verify connection by reading spreadsheet metadata
-    await sheetsClient.spreadsheets.get({ spreadsheetId });
+    // Verify connection by reading spreadsheet metadata. The response is
+    // handed to ensureSheets(), which used to issue a second identical
+    // spreadsheets.get straight afterwards — one wasted round-trip (~1.4s) on
+    // every cold start.
+    const metaRes = await sheetsClient.spreadsheets.get({ spreadsheetId });
     // #region debug-point A:sheets-connected
     reportDebug('A', 'server/services/googleSheets.js:91', 'Connected to Google Sheets database', {
       spreadsheetIdSuffix: spreadsheetId.slice(-8),
@@ -481,7 +484,7 @@ async function initialize() {
     console.log('✅ Connected to Google Sheets database.');
 
     // Ensure all sheet tabs exist with headers
-    await ensureSheets();
+    await ensureSheets(metaRes);
     return true;
   } catch (err) {
     const looksLikeAccessOrMissingSheet = err.code === 404 || err.status === 404;
@@ -549,51 +552,117 @@ function columnToLetter(col) {
  * header row are appended as new columns on the right (existing data is
  * never moved or shifted).
  */
-async function ensureSheets() {
+async function ensureSheets(prefetched) {
   if (!sheetsClient) return;
 
   try {
-    const res = await sheetsClient.spreadsheets.get({ spreadsheetId });
-    const existingSheets = res.data.sheets.map((s) => s.properties.title);
+    // initialize() already fetched the spreadsheet metadata; reuse it instead
+    // of paying for a second identical call.
+    const res = prefetched || (await sheetsClient.spreadsheets.get({ spreadsheetId }));
 
+    // sheetId is needed to grow a grid, and columnCount tells us whether a
+    // missing header even fits before we try to write it.
+    const meta = {};
+    res.data.sheets.forEach((s) => {
+      meta[s.properties.title] = {
+        sheetId: s.properties.sheetId,
+        columnCount: (s.properties.gridProperties || {}).columnCount || 0,
+      };
+    });
+    const existingSheets = Object.keys(meta);
+
+    // 1. Create any tab that does not exist yet, with its header row. Only
+    //    ever runs on a fresh spreadsheet / after a new feature adds a tab.
+    const created = [];
     for (const [sheetName, headers] of Object.entries(HEADERS)) {
-      if (!existingSheets.includes(sheetName)) {
-        await sheetsClient.spreadsheets.batchUpdate({
-          spreadsheetId,
-          requestBody: {
-            requests: [{ addSheet: { properties: { title: sheetName } } }],
-          },
+      if (existingSheets.includes(sheetName)) continue;
+      await sheetsClient.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: [{ addSheet: { properties: { title: sheetName } } }],
+        },
+      });
+      await sheetsClient.spreadsheets.values.update({
+        spreadsheetId,
+        range: `${sheetName}!A1`,
+        valueInputOption: 'RAW',
+        requestBody: { values: [headers] },
+      });
+      created.push(sheetName);
+    }
+
+    // 2. Top up the header row of each EXISTING tab with columns added since it
+    //    was created. This used to be one values.get per tab — 24 sequential
+    //    round-trips, ~24s, paid on EVERY cold start because initServices()
+    //    runs on the first request of each serverless instance. That was the
+    //    "sometimes the dashboard is slow" delay. batchGet collapses all 24
+    //    reads into a single request.
+    const toCheck = Object.keys(HEADERS).filter(
+      (name) => existingSheets.includes(name) && !created.includes(name)
+    );
+    if (!toCheck.length) return;
+
+    const batch = await sheetsClient.spreadsheets.values.batchGet({
+      spreadsheetId,
+      ranges: toCheck.map((name) => `${name}!1:1`),
+    });
+    const valueRanges = batch.data.valueRanges || [];
+
+    const updates = [];
+    const expansions = [];
+
+    toCheck.forEach((sheetName, i) => {
+      const current = (valueRanges[i] && valueRanges[i].values && valueRanges[i].values[0]) || [];
+      const currentNorm = current.map((c) => normKey(c));
+      const missing = HEADERS[sheetName].filter((h) => !currentNorm.includes(normKey(h)));
+      if (!missing.length) return;
+
+      const startCol = current.length + 1;                 // 1-based column index
+      const lastNeeded = startCol + missing.length - 1;    // last column the header needs
+      const gridCols = meta[sheetName].columnCount;
+
+      // A grid that is full rejects the write outright ("Range (X!AF1) exceeds
+      // grid limits") and, in a batch, would take every other tab down with it.
+      // Grow the grid by the shortfall first — this is what the old per-tab
+      // code was reaching for, and why Coupons never got its `backgroundImage`
+      // header: the tab was already at its 31-column limit.
+      if (lastNeeded > gridCols) {
+        expansions.push({
+          sheetId: meta[sheetName].sheetId,
+          length: lastNeeded - gridCols,
+          sheetName,
         });
-        await sheetsClient.spreadsheets.values.update({
-          spreadsheetId,
-          range: `${sheetName}!A1`,
-          valueInputOption: 'RAW',
-          requestBody: { values: [headers] },
-        });
-      } else {
-        // Top up the header row of an existing tab with any missing columns
-        try {
-          const hdrRes = await sheetsClient.spreadsheets.values.get({
-            spreadsheetId,
-            range: `${sheetName}!1:1`,
-          });
-          const current = (hdrRes.data.values && hdrRes.data.values[0]) || [];
-          const currentNorm = current.map((c) => normKey(c));
-          const missing = headers.filter((h) => !currentNorm.includes(normKey(h)));
-          if (missing.length) {
-            const startCol = columnToLetter(current.length + 1);
-            await sheetsClient.spreadsheets.values.update({
-              spreadsheetId,
-              range: `${sheetName}!${startCol}1`,
-              valueInputOption: 'RAW',
-              requestBody: { values: [missing] },
-            });
-            console.log(`ensureSheets: added missing headers to ${sheetName}: ${missing.join(', ')}`);
-          }
-        } catch (e) {
-          // Header top-up is best-effort
-        }
       }
+
+      updates.push({
+        range: `${sheetName}!${columnToLetter(startCol)}1`,
+        values: [missing],
+      });
+    });
+
+    if (expansions.length) {
+      await sheetsClient.spreadsheets.batchUpdate({
+        spreadsheetId,
+        requestBody: {
+          requests: expansions.map((e) => ({
+            appendDimension: { sheetId: e.sheetId, dimension: 'COLUMNS', length: e.length },
+          })),
+        },
+      });
+      expansions.forEach((e) => {
+        console.log(`ensureSheets: grew ${e.sheetName} by ${e.length} column(s) to fit new headers.`);
+      });
+    }
+
+    if (updates.length) {
+      await sheetsClient.spreadsheets.values.batchUpdate({
+        spreadsheetId,
+        requestBody: { valueInputOption: 'RAW', data: updates },
+      });
+      console.log(
+        'ensureSheets: added missing headers to ' +
+        updates.map((u) => u.range.split('!')[0]).join(', ')
+      );
     }
   } catch (err) {
     console.warn('ensureSheets warning:', err.message);
