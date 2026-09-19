@@ -232,19 +232,22 @@
     .pay-secure-note { text-align:center; font-size:.75rem; color:#6b88aa; margin-top:10px; display:flex; align-items:center; justify-content:center; gap:5px; }
 
     /* ── UPI PAYMENT BOX ──────────────────────────────────────────────────
-       The payment box the "Pay ₹X Securely" button opens. It reuses this
-       page's own tokens — card #0c1835, the rgba(79,195,247,.1) hairline, the
-       #00e676 → #00c853 gradient, Outfit + JetBrains Mono — so it reads as
-       part of the existing Review & Pay surface rather than a second,
-       foreign interface. */
+       The payment box the "Pay ₹X Securely" button opens. Layout and palette
+       follow the agreed design: a #112747 → #0c1e35 card on the
+       rgba(0,230,118,.18) green hairline, with #00e676 as the single accent,
+       in Outfit + JetBrains Mono so it still reads as part of the existing
+       Review & Pay surface rather than a second, foreign interface.
+       Everything the buyer needs — amount, countdown, QR, UPI ID, both
+       actions — fits without scrolling on a normal screen; only a short
+       viewport scrolls, and the frame stays put while it does. */
     .upm-overlay { position:fixed; inset:0; z-index:340; background:rgba(6,13,31,.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .3s; }
     .upm-overlay.show { opacity:1; pointer-events:auto; }
-    .upm-box { position:relative; width:100%; max-width:396px; border-radius:20px; background:#0c1835; border:1px solid rgba(0,230,118,.2); box-shadow:0 40px 110px rgba(0,0,0,.72); padding:22px 22px 20px; text-align:center; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
+    .upm-box { position:relative; width:100%; max-width:440px; border-radius:24px; background:linear-gradient(160deg,#112747 0%,#0c1e35 100%); border:1px solid rgba(0,230,118,.18); box-shadow:0 0 60px rgba(0,230,118,.07),0 24px 64px rgba(0,0,0,.6); padding:32px 28px 28px; text-align:center; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
     .upm-overlay.show .upm-box { transform:scale(1) translateY(0); }
 
     /* The × that opens the "Cancel Payment?" panel. Pinned to the corner so the
        title can sit on the box's true centre line. */
-    .upm-close { position:absolute; top:15px; right:15px; z-index:2; width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid rgba(79,195,247,.16); border-radius:9px; color:#8ba2c4; font-size:1.15rem; line-height:1; cursor:pointer; transition:all .22s; font-family:'Outfit',sans-serif; }
+    .upm-close { position:absolute; top:20px; right:20px; z-index:2; width:36px; height:36px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); border-radius:10px; color:#8ba2c4; font-size:1.15rem; line-height:1; cursor:pointer; transition:all .22s; font-family:'Outfit',sans-serif; }
     .upm-close:hover { background:rgba(255,107,107,.14); border-color:rgba(255,107,107,.4); color:#ff6b6b; }
     .upm-close:disabled { opacity:.4; cursor:not-allowed; }
 
@@ -252,104 +255,141 @@
        panel stay pinned, while the flow itself scrolls on a short viewport. */
     .upm-body { overflow-y:auto; overscroll-behavior:contain; max-height:calc(100vh - 92px); padding:4px 2px 2px; }
 
-    .upm-ttl { font-weight:800; font-size:1.16rem; letter-spacing:-.01em; text-align:center; }
+    .upm-ttl { font-weight:800; font-size:1.75rem; letter-spacing:-.02em; text-align:center; }
     .upm-ttl .upm-green { color:#00e676; }
-    .upm-paysub { font-size:.82rem; color:#a8c0dc; margin-top:6px; text-align:center; }
-    .upm-paysub .upm-amt-inline { font-family:'JetBrains Mono',monospace; font-size:1.02rem; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; }
+    .upm-paysub { font-size:.906rem; color:#8ea8c3; margin-top:8px; text-align:center; }
+    .upm-paysub .upm-amt-inline { font-family:'JetBrains Mono',monospace; font-size:1.06rem; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; }
 
     /* QR area — a real matrix rendered server-side, so it needs a light plate
-       to stay scannable on this dark box. The plate is sized to keep the
-       *modules* large after the encoder's 4-module quiet zone is subtracted:
-       the image carries its own quiet zone (a spec requirement), so a plate
-       that only fits the data area would shrink every module. */
-    .upm-qr { width:244px; height:244px; margin:18px auto 0; border-radius:14px; background:#fff; display:flex; align-items:center; justify-content:center; padding:9px; position:relative; box-shadow:0 0 0 1px rgba(0,230,118,.28), 0 14px 34px rgba(0,0,0,.4); }
+       to stay scannable on this dark box. The plate is 244px and the image is
+       inset 14px, so the matrix renders at ~216px. That is the largest plate
+       that still keeps every module >= 4 CSS px at error-correction H: the
+       4-module quiet zone is baked into the image, so plate padding is a
+       second, redundant white border and every pixel of it comes straight out
+       of the module size. 14px reads as a deliberate frame without eating the
+       symbol. */
+    .upm-qr { width:244px; height:244px; margin:16px auto 0; border-radius:16px; background:#fff; display:flex; align-items:center; justify-content:center; padding:14px; position:relative; box-shadow:0 0 0 1px rgba(0,230,118,.28), 0 14px 34px rgba(0,0,0,.4); }
     .upm-qr img { width:100%; height:100%; display:block; }
     .upm-qr-empty { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
     .upm-qr-skel { width:26px; height:26px; border:3px solid rgba(6,13,31,.18); border-top-color:#00a152; border-radius:50%; animation:spin .7s linear infinite; }
 
-    .upm-scan { font-size:.8rem; color:#a8c0dc; margin-top:13px; text-align:center; }
+    .upm-scan { font-size:.8rem; color:#8ea8c3; margin-top:13px; text-align:center; }
 
-    /* Supported apps. Brand-coloured name chips rather than the official
-       trademarks: no UPI app logo assets ship with this project, and inventing
-       brand marks would be both inaccurate and a trademark problem. Each chip
-       is a single .upm-app-ico slot, so a licensed SVG can be dropped in later
-       without touching the layout. */
-    .upm-apps { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin-top:13px; }
-    .upm-app { display:flex; flex-direction:column; align-items:center; gap:5px; padding:8px 2px; border-radius:10px; background:rgba(255,255,255,.035); border:1px solid rgba(79,195,247,.1); }
-    .upm-app-ico { width:24px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center; font-family:'Outfit',sans-serif; font-size:.72rem; font-weight:800; color:#fff; }
-    .upm-app-nm { font-size:.7rem; color:#a8c0dc; line-height:1.2; text-align:center; white-space:nowrap; }
+    /* Supported apps — the real brand marks, served from /logos/.
+       A uniform white tile keeps the four on one visual footing: the marks
+       carry their own brand colours, so a per-app tile colour would fight them
+       (Paytm's wordmark is navy #233266, which is precisely the colour the old
+       text placeholder used as its tile). White is also the JPEGs' own
+       background, so `contain` can letterbox onto the tile with no seam.
+       object-fit is `cover` for the square marks and `contain` for the two that
+       are not square (Google Pay is 486x411, Paytm is a 3.19:1 wordmark) —
+       `cover` would crop the Google Pay G.
+       overflow:hidden is load-bearing: it is what stops a wide mark from
+       bleeding into its neighbour's tile.
+       Grid rather than a flex row, with the track capped at 296px and centred:
+       a flex row spaces the tiles by their *label* width, so "Google Pay" would
+       pull its tile off the even rhythm the other three sit on. Grid keeps all
+       four on one axis regardless of label length. */
+    .upm-apps { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; max-width:296px; margin:16px auto 0; }
+    .upm-app { display:flex; flex-direction:column; align-items:center; gap:7px; }
+    .upm-app-ico { width:52px; height:52px; border-radius:14px; background:#fff; overflow:hidden; display:flex; align-items:center; justify-content:center; transition:transform .15s; }
+    .upm-app-ico img { width:100%; height:100%; display:block; object-fit:cover; }
+    .upm-app-ico img.upm-app-fit { object-fit:contain; }
+    .upm-app:hover .upm-app-ico { transform:scale(1.06); }
+    .upm-app-nm { font-size:.7rem; color:#8ea8c3; line-height:1.2; text-align:center; white-space:nowrap; }
 
-    /* UPI ID row with a copy affordance on the right. */
-    .upm-vpa { display:flex; align-items:center; gap:8px; margin-top:13px; padding:8px 9px 8px 13px; border-radius:11px; background:rgba(0,230,118,.07); border:1px solid rgba(0,230,118,.2); }
-    .upm-vpa-lbl { font-size:.7rem; color:#6b88aa; flex-shrink:0; }
-    .upm-vpa-id { font-family:'JetBrains Mono',monospace; font-size:.76rem; color:#00e676; flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .upm-copy { flex-shrink:0; width:30px; height:30px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid rgba(0,230,118,.24); border-radius:8px; color:#00e676; font-size:.82rem; line-height:1; cursor:pointer; transition:all .22s; }
+    /* UPI ID row with a copy affordance on the right. The VPA stays in the mono
+       face: it is a machine-readable identifier the buyer may have to retype by
+       hand, and JetBrains Mono is the face this page already uses for anything
+       that must be transcribed exactly. */
+    .upm-vpa { display:flex; align-items:center; gap:8px; margin-top:16px; padding:14px 14px 14px 16px; border-radius:12px; background:#0a1a2e; border:1px solid rgba(255,255,255,.12); }
+    .upm-vpa-lbl { font-size:.844rem; color:#8ea8c3; flex-shrink:0; }
+    .upm-vpa-id { font-family:'JetBrains Mono',monospace; font-size:.875rem; font-weight:600; color:#fff; flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .upm-copy { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid rgba(0,230,118,.24); border-radius:9px; color:#00e676; font-size:.85rem; line-height:1; cursor:pointer; transition:all .22s; }
     .upm-copy:hover { background:rgba(0,230,118,.16); }
     .upm-copy.done { background:rgba(0,230,118,.22); border-color:rgba(0,230,118,.5); }
 
-    /* Countdown — driven by the server's expires_at, never a local 10:00. */
-    .upm-timer { display:flex; align-items:center; justify-content:center; gap:9px; margin-top:16px; padding:11px 0; border-top:1px solid rgba(79,195,247,.1); border-bottom:1px solid rgba(79,195,247,.1); }
-    .upm-timer-ico { font-size:.9rem; }
-    .upm-timer-val { font-family:'JetBrains Mono',monospace; font-size:1.22rem; font-weight:700; letter-spacing:.06em; color:#e2ecff; font-variant-numeric:tabular-nums; }
-    .upm-timer-lbl { font-size:.72rem; color:#6b88aa; }
-    .upm-timer.warn .upm-timer-val { color:#ffd740; }
-    .upm-timer.danger .upm-timer-val { color:#ff5252; }
+    /* Countdown — a full-width tinted pill, driven by the server's expires_at
+       and never by a local 10:00, so reopening the box resumes where it left
+       off rather than restarting the clock.
+       The glyph is white at rest (design intent: white mark, green digits) but
+       it is stroked in currentColor, so warn/danger tint the clock along with
+       the digits. A clock that stayed white while the digits went red would be
+       the one element on screen contradicting the warning. */
+    .upm-timer { display:flex; align-items:center; justify-content:center; gap:14px; width:100%; margin:16px 0 0; padding:14px 28px; border:1.5px solid rgba(0,230,118,.7); border-radius:50px; background:rgba(0,230,118,.05); box-shadow:0 0 24px rgba(0,230,118,.15), inset 0 0 20px rgba(0,230,118,.03); }
+    .upm-timer-ico { display:flex; align-items:center; flex-shrink:0; color:#fff; }
+    .upm-timer-val { font-family:'JetBrains Mono',monospace; font-size:1.875rem; font-weight:700; letter-spacing:.1em; color:#00e676; font-variant-numeric:tabular-nums; }
+    .upm-timer.warn { border-color:rgba(255,215,64,.7); background:rgba(255,215,64,.05); box-shadow:0 0 24px rgba(255,215,64,.15), inset 0 0 20px rgba(255,215,64,.03); }
+    .upm-timer.warn .upm-timer-val, .upm-timer.warn .upm-timer-ico { color:#ffd740; }
+    .upm-timer.danger { border-color:rgba(255,82,82,.75); background:rgba(255,82,82,.05); box-shadow:0 0 24px rgba(255,82,82,.16), inset 0 0 20px rgba(255,82,82,.03); }
+    .upm-timer.danger .upm-timer-val, .upm-timer.danger .upm-timer-ico { color:#ff5252; }
 
-    .upm-timer-cap { font-size:.74rem; color:#6b88aa; margin-top:9px; }
-    /* Footer — the ONLY thing below the action buttons. */
-    .upm-foot { font-size:.72rem; color:#6b88aa; margin-top:15px; }
+    .upm-timer-cap { font-size:.78rem; color:#8ea8c3; margin-top:10px; }
+
+    /* Footer — the ONLY thing below the action buttons. The flanking hairlines
+       are pseudo-elements on the footer itself; nothing is ever drawn over the
+       QR plate. */
+    .upm-foot { display:flex; align-items:center; justify-content:center; gap:6px; font-size:.75rem; color:#8ea8c3; margin-top:20px; }
+    .upm-foot::before, .upm-foot::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
     .upm-foot .upm-green { color:#00e676; font-weight:700; }
-    .upm-check { width:100%; height:44px; margin-top:14px; border-radius:11px; border:1.5px solid rgba(79,195,247,.28); background:transparent; color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.86rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
-    .upm-check:hover:not(:disabled) { border-color:rgba(79,195,247,.55); background:rgba(79,195,247,.08); }
-    .upm-check:disabled { opacity:.5; cursor:not-allowed; }
-    .upm-check .spinner { border-color:rgba(79,195,247,.28); border-top-color:#4fc3f7; }
+    .upm-foot-ico { display:inline-flex; align-items:center; flex-shrink:0; }
+
+    /* Secondary action: a nudge for the buyer; the server still decides. */
+    .upm-check { width:100%; height:48px; margin-top:12px; border-radius:12px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.04); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.9375rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
+    .upm-check:hover:not(:disabled) { background:rgba(255,255,255,.08); }
+    .upm-check:disabled { opacity:.55; cursor:not-allowed; }
+    .upm-check .spinner { border-color:rgba(255,255,255,.2); border-top-color:#fff; }
 
     /* Primary action: hand the SAME server-generated UPI URI to the device's
-       UPI app. Same 44px height, radius and palette as the rest of the box —
-       it is an addition to the existing design, not a redesign of it. */
-    .upm-open { width:100%; height:44px; margin-top:14px; border-radius:11px; border:none; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-size:.86rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
-    .upm-open:hover:not(:disabled) { transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,230,118,.4); }
+       UPI app. Same height, radius and palette as the rest of the box — it is
+       an addition to the existing design, not a redesign of it. */
+    .upm-open { width:100%; height:48px; margin-top:16px; border-radius:12px; border:none; background:#00e676; color:#000; font-family:'Outfit',sans-serif; font-size:1rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
+    .upm-open:hover:not(:disabled) { background:#1eff8a; transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,230,118,.34); }
+    .upm-open:active:not(:disabled) { transform:scale(.985); }
     .upm-open:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
     /* Hidden until a PENDING payment with a URI exists, so it is never a
        button that does nothing. */
     .upm-open.hide { display:none; }
 
     /* Expired / review state — covers the box and stops all interaction. */
-    .upm-state { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:26px; background:rgba(12,24,53,.975); border-radius:20px; z-index:4; }
+    .upm-state { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:26px; background:rgba(12,30,53,.98); border-radius:24px; z-index:4; }
     .upm-state.show { display:flex; }
     .upm-state-ico { font-size:2.1rem; }
     .upm-state-ttl { font-weight:800; font-size:1.02rem; }
     .upm-state-sub { font-size:.79rem; color:#8ba2c4; line-height:1.6; max-width:272px; }
-    .upm-state-btn { margin-top:6px; height:42px; padding:0 22px; border-radius:11px; border:none; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .22s; }
-    .upm-state-btn:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,230,118,.4); }
+    .upm-state-btn { margin-top:6px; height:44px; padding:0 22px; border-radius:12px; border:none; background:#00e676; color:#06131f; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .22s; }
+    .upm-state-btn:hover { background:#1eff8a; transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,230,118,.34); }
 
     /* "Cancel Payment?" confirmation — a panel inside the box, not a second
        modal, so the payment context stays visible behind it. */
-    .upm-cancel { position:absolute; left:0; right:0; bottom:0; z-index:6; padding:18px 20px 20px; background:#101f3f; border-top:1px solid rgba(255,107,107,.28); border-radius:0 0 20px 20px; transform:translateY(103%); transition:transform .3s cubic-bezier(.4,0,.2,1); }
+    .upm-cancel { position:absolute; left:0; right:0; bottom:0; z-index:6; padding:18px 20px 20px; background:#101f3f; border-top:1px solid rgba(255,107,107,.28); border-radius:0 0 24px 24px; transform:translateY(103%); transition:transform .3s cubic-bezier(.4,0,.2,1); }
     .upm-cancel.show { transform:translateY(0); }
     .upm-cancel-ttl { font-weight:800; font-size:.92rem; color:#ff8a8a; }
     .upm-cancel-sub { font-size:.75rem; color:#8ba2c4; margin-top:5px; line-height:1.55; }
     .upm-cancel-row { display:flex; gap:10px; margin-top:15px; }
-    .upm-btn { flex:1; height:43px; border-radius:11px; border:none; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .22s; }
-    .upm-btn-keep { background:transparent; border:1.5px solid rgba(79,195,247,.28); color:#e2ecff; }
-    .upm-btn-keep:hover { border-color:rgba(79,195,247,.55); background:rgba(79,195,247,.08); }
+    .upm-btn { flex:1; height:44px; border-radius:12px; border:none; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .22s; }
+    .upm-btn-keep { background:transparent; border:1px solid rgba(255,255,255,.18); color:#e2ecff; }
+    .upm-btn-keep:hover { background:rgba(255,255,255,.08); }
     .upm-btn-confirm { background:linear-gradient(135deg,#ff6b6b,#e53935); color:#fff; }
     .upm-btn-confirm:hover { transform:translateY(-2px); box-shadow:0 12px 28px rgba(229,57,53,.4); }
     .upm-btn:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; }
 
-    /* Tap targets — the × and the state buttons must clear 44px on touch
-       without changing how they look on desktop. */
+    /* Tap targets — the × must clear 44px on touch without changing how it
+       looks on desktop. The overlay is added by a pseudo-element on the button
+       itself; the button keeps its absolute corner position, so it never
+       becomes a flow item and never pushes the title off centre. */
     @media (hover:none) {
-      .upm-close { position:relative; }
       .upm-close::after { content:''; position:absolute; top:50%; left:50%; width:44px; height:44px; transform:translate(-50%,-50%); }
     }
 
     @media (max-width:420px) {
-      .upm-box { padding:18px 15px 16px; border-radius:18px; }
+      .upm-box { padding:24px 18px 20px; border-radius:20px; }
       .upm-qr { width:212px; height:212px; }
-      .upm-ttl { font-size:1.08rem; }
-      .upm-apps { gap:5px; }
-      .upm-app-ico { width:22px; height:22px; border-radius:6px; }
+      .upm-ttl { font-size:1.5rem; }
+      .upm-timer { padding:12px 18px; gap:11px; }
+      .upm-timer-val { font-size:1.6rem; }
+      .upm-apps { gap:6px; }
+      .upm-app-ico { width:46px; height:46px; border-radius:12px; }
       .upm-body { max-height:calc(100vh - 84px); }
     }
 
@@ -723,9 +763,12 @@
       <div class="upm-paysub">Pay <span class="upm-amt-inline" id="upmPayAmt">—</span> using any UPI app</div>
 
       <div class="upm-timer" id="upmTimer">
-        <span class="upm-timer-ico"></span>
+        <span class="upm-timer-ico" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+        </span>
         <span class="upm-timer-val" id="upmTimerVal">--:--</span>
-        <span class="upm-timer-lbl">remaining</span>
       </div>
       <div class="upm-timer-cap">Complete the payment within <span id="upmWindowMin">10</span> minutes</div>
 
@@ -736,11 +779,19 @@
       </div>
       <div class="upm-scan">Scan the QR code with any UPI app</div>
 
+      <!-- Real brand marks. The square marks (PhonePe, BHIM) fill their tile
+           edge to edge; the two that are not square (Google Pay, Paytm) are
+           contained instead, so they letterbox onto the tile's own white. The
+           tile background and the JPEGs' own background are both white, so
+           there is no seam where the image meets the tile.
+           alt="" is deliberate: the app name is already the visible label
+           directly beneath, and announcing "PhonePe" twice reads worse than not
+           announcing the logo at all. The label is the accessible name. -->
       <div class="upm-apps" aria-label="Supported UPI apps">
-        <div class="upm-app"><span class="upm-app-ico" style="background:#5F259F">Pe</span><span class="upm-app-nm">PhonePe</span></div>
-        <div class="upm-app"><span class="upm-app-ico" style="background:#1A73E8">G</span><span class="upm-app-nm">Google Pay</span></div>
-        <div class="upm-app"><span class="upm-app-ico" style="background:#00B9F1">P</span><span class="upm-app-nm">Paytm</span></div>
-        <div class="upm-app"><span class="upm-app-ico" style="background:#F58220">B</span><span class="upm-app-nm">BHIM</span></div>
+        <div class="upm-app"><span class="upm-app-ico"><img src="/logos/phone-pe.jpg" alt="" width="52" height="52" decoding="async"></span><span class="upm-app-nm">PhonePe</span></div>
+        <div class="upm-app"><span class="upm-app-ico"><img class="upm-app-fit" src="/logos/gpay.jpg" alt="" width="52" height="52" decoding="async"></span><span class="upm-app-nm">Google Pay</span></div>
+        <div class="upm-app"><span class="upm-app-ico"><img class="upm-app-fit" src="/logos/paytm.svg" alt="" width="52" height="52" decoding="async"></span><span class="upm-app-nm">Paytm</span></div>
+        <div class="upm-app"><span class="upm-app-ico"><img src="/logos/bhim.jpg" alt="" width="52" height="52" decoding="async"></span><span class="upm-app-nm">BHIM</span></div>
       </div>
 
       <div class="upm-vpa" id="upmVpa">
@@ -755,15 +806,25 @@
            encodes — payee, amount and currency are identical by construction.
            Hidden until a pending payment exists. -->
       <button class="upm-open hide" id="upmOpenApp" type="button" onclick="openUpiApp()">
-        <span>📲</span> <span id="upmOpenText">Open UPI App / Pay Now</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+        <span id="upmOpenText">Open UPI App / Pay Now</span>
       </button>
 
-      <!-- Manual nudge for the buyer; the server still decides. -->
+      <!-- Manual nudge for the buyer; the server still decides. The spinner is
+           a sibling of the label rather than a replacement for it, so the
+           button keeps its width and the row does not jump when it appears. -->
       <button class="upm-check" id="upmCheck" type="button" onclick="checkPaymentNow()">
         <span id="upmCheckText">I've paid — Check status</span>
+        <span class="spinner" id="upmCheckSpinner" hidden></span>
       </button>
 
-      <div class="upm-foot">Secured by <span class="upm-green">SaveHatke</span></div>
+      <div class="upm-foot">Secured by <span class="upm-green">SaveHatke</span><span class="upm-foot-ico" aria-hidden="true">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/>
+        </svg>
+      </span></div>
     </div>
 
     <!-- EXPIRED / REVIEW STATE -->
@@ -1762,11 +1823,13 @@
   async function checkPaymentNow() {
     const btn = upiEl('upmCheck');
     const label = upiEl('upmCheckText');
+    const spin = upiEl('upmCheckSpinner');
     const paymentId = upiState.paymentId;
     if (!paymentId) return;
 
     if (btn) btn.disabled = true;
     if (label) label.textContent = 'Checking with the server...';
+    if (spin) spin.hidden = false;
 
     try {
       const res = await fetch('/api/payment/verify', {
@@ -1799,6 +1862,7 @@
     } finally {
       if (btn) btn.disabled = false;
       if (label) label.textContent = "I've paid — Check status";
+      if (spin) spin.hidden = true;
     }
   }
 

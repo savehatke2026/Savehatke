@@ -1258,6 +1258,102 @@ function decodeDataUrl(dataUrl) {
   check('the four app chips share the row evenly (no overflow)',
     /\.upm-apps \{ display:grid; grid-template-columns:repeat\(4,1fr\)/.test(checkoutHtml));
 
+  // ── The design refresh ────────────────────────────────────────────────
+  // These pin the properties that carry a *reason*, not the whole stylesheet:
+  // the QR module budget, the timer's state wiring, and the check spinner.
+
+  // Plate padding is a second, redundant white border: the 4-module quiet zone
+  // is already baked into the image, so every pixel of plate padding comes
+  // straight out of the module size. 16px is the ceiling that still keeps the
+  // matrix above 4 CSS px per module at error-correction H.
+  const qrPad = Number((checkoutHtml.match(/\.upm-qr \{[^}]*padding:(\d+)px/) || [])[1]);
+  check('the QR plate padding stays inside the module budget (<=16px)',
+    qrPad > 0 && qrPad <= 16, String(qrPad) + 'px');
+
+  check('the countdown pill spans the box',
+    /\.upm-timer \{[^}]*width:100%/.test(checkoutHtml));
+  check('the clock glyph is white at rest',
+    /\.upm-timer-ico \{[^}]*color:#fff; \}/.test(checkoutHtml));
+  check('warn/danger still tint the clock along with the digits',
+    /\.upm-timer\.warn \.upm-timer-val, \.upm-timer\.warn \.upm-timer-ico \{ color:#ffd740; \}/.test(checkoutHtml)
+    && /\.upm-timer\.danger \.upm-timer-val, \.upm-timer\.danger \.upm-timer-ico \{ color:#ff5252; \}/.test(checkoutHtml));
+
+  check('the app grid is capped so the four tiles group rather than spread',
+    /\.upm-apps \{[^}]*max-width:296px/.test(checkoutHtml));
+
+  // ── The brand marks ───────────────────────────────────────────────────
+  // These are real image files now, so a wrong path is a silent failure: the
+  // tile just renders white and nothing anywhere reports it. The files are
+  // checked on disk rather than trusted from the markup.
+  const appsBlock = checkoutHtml.slice(
+    checkoutHtml.indexOf('class="upm-apps"'),
+    checkoutHtml.indexOf('class="upm-vpa"')
+  );
+  const logoSrcs = [...appsBlock.matchAll(/src="(\/logos\/[^"]+)"/g)].map((m) => m[1]);
+  const expectedLogos = ['/logos/phone-pe.jpg', '/logos/gpay.jpg', '/logos/paytm.svg', '/logos/bhim.jpg'];
+
+  check('the four tiles reference the four logo assets, in order',
+    logoSrcs.length === 4 && logoSrcs.every((s, i) => s === expectedLogos[i]),
+    logoSrcs.join(', ') || '(none found)');
+
+  for (const src of expectedLogos) {
+    const p = path.join(__dirname, 'public', src.replace(/^\//, ''));
+    let ok = false, detail = '';
+    try {
+      const st = fs.statSync(p);
+      ok = st.isFile() && st.size > 512;
+      detail = st.size + ' bytes';
+    } catch (e) {
+      detail = 'NOT FOUND at ' + p;
+    }
+    check('logo asset exists and is non-trivial: ' + src, ok, detail);
+  }
+
+  // The two marks that are not square must be contained. `cover` would crop the
+  // Google Pay G (486x411) and is meaningless on a 3.19:1 wordmark.
+  check('the Paytm wordmark is contained, not cropped',
+    /<img class="upm-app-fit" src="\/logos\/paytm\.svg"/.test(appsBlock));
+  check('the Google Pay mark is contained, not cropped',
+    /<img class="upm-app-fit" src="\/logos\/gpay\.jpg"/.test(appsBlock));
+
+  check('the tiles clip their contents, so a wide mark cannot bleed into a neighbour',
+    /\.upm-app-ico \{[^}]*overflow:hidden/.test(checkoutHtml));
+  check('the tiles are white, matching the JPEGs\' own background',
+    /\.upm-app-ico \{[^}]*background:#fff/.test(checkoutHtml));
+  check('the letter-mark placeholders are gone',
+    !/background:#5F259F|background:#002970/.test(appsBlock));
+
+  // The Paytm mark is the one asset fetched from a third party, so it is the
+  // one that could arrive carrying something. Served via <img> it cannot
+  // execute, but the file is asserted clean anyway rather than assumed.
+  try {
+    const svg = fs.readFileSync(path.join(__dirname, 'public', 'logos', 'paytm.svg'), 'utf8');
+    check('the third-party Paytm SVG carries no script or event handlers',
+      !/<script|onload\s*=|onclick\s*=|javascript:/i.test(svg));
+    check('the Paytm SVG declares the expected wide aspect (3.19:1)',
+      /viewBox="0 0 16\.83\d* 5\.28\d*"/.test(svg));
+  } catch (e) {
+    check('the Paytm SVG is readable', false, e.message);
+  }
+
+  check('"I\'ve paid" carries a spinner element',
+    /<span class="spinner" id="upmCheckSpinner" hidden><\/span>/.test(checkoutHtml));
+  check('the spinner is raised and cleared around the check',
+    /if \(spin\) spin\.hidden = false;/.test(checkoutHtml)
+    && /if \(spin\) spin\.hidden = true;/.test(checkoutHtml));
+  check('the check spinner is light, not the dark pay-button spinner',
+    /\.upm-check \.spinner \{ border-color:rgba\(255,255,255,\.2\); border-top-color:#fff; \}/.test(checkoutHtml));
+
+  // checkPaymentNow() returns early on RATE_LIMITED and on a non-status error.
+  // The spinner must be cleared in the finally, or those two paths strand it
+  // spinning forever on a button that is otherwise idle again.
+  const checkFn = checkoutHtml.slice(
+    checkoutHtml.indexOf('async function checkPaymentNow'),
+    checkoutHtml.indexOf('async function startUpiPayment')
+  );
+  check('the spinner is cleared in a finally, so an early return cannot strand it',
+    /finally \{[\s\S]*?if \(spin\) spin\.hidden = true;/.test(checkFn));
+
   // ─────────────────────────────────────────────────────────────────────
   stop();
 
