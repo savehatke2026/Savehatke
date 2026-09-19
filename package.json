@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
+    "preview:modal": "node scripts/preview-payment-modal.cjs",
     "ai:prepare": "node scripts/ai/prepareData.js",
     "ai:vocab": "node scripts/ai/buildVocabulary.js",
     "ai:train": "node scripts/ai/train.js",
