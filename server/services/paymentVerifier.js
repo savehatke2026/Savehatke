@@ -35,6 +35,11 @@
 const crypto = require('crypto');
 const store = require('./paymentStore');
 const upi = require('./upi');
+// Refund-record service for the mismatch (overpayment / underpayment)
+// path. Loaded eagerly so a circular-import somewhere never costs us the
+// first overpayment: processCandidate() only ever invokes it from a
+// server-verified code path, so the load itself is harmless.
+const refundsService = require('./refunds');
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -349,10 +354,38 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
   }
 
   // 3) Gather the payments this could plausibly be.
-  const pending = pendingPayments || (await store.findPendingPaymentsForAmount(candidate.amount));
-  const amountMatches = pending.filter((p) => moneyEquals(p.amount, candidate.amount));
+  //
+  // Two lookup strategies:
+  //   a) Exact-amount match — the original flow. The notification's verified
+  //      amount equals the payment's required amount, so the coupon unlock
+  //      happens with no refund record.
+  //   b) Order-code match — new path. The verified amount differs from the
+  //      payment's required amount (overpayment or underpayment), and the
+  //      order code is the only thing that ties the mismatch back to the
+  //      original payment. The verifier settles the payment AND surfaces a
+  //      refund record for the mismatch — see step 10 below.
+  const exactPending = pendingPayments || (await store.findPendingPaymentsForAmount(candidate.amount));
+  const amountMatches = exactPending.filter((p) => moneyEquals(p.amount, candidate.amount));
 
   if (!amountMatches.length) {
+    // No exact-amount match. If the notification carries an order code, see
+    // if there is a still-live pending payment for it — that is the only
+    // way an over/under payment can be attributed to a single order.
+    if (candidate.orderCode && store.findPendingPaymentByOrderCode) {
+      const byCode = await store.findPendingPaymentByOrderCode(candidate.orderCode);
+      if (byCode) {
+        // Single-candidate mismatch path. Step 10 below will compute the
+        // refund (or no-op when amounts still match) after settlement.
+        return await settleMatch({
+          payment: byCode,
+          candidate,
+          notification,
+          pendingPayments: [byCode],
+          mismatchPath: true,
+          reject,
+        });
+      }
+    }
     return reject('IGNORED', `No pending payment matches ₹${candidate.amount.toFixed(2)}.`);
   }
 
@@ -383,8 +416,28 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
     );
   }
 
-  const payment = candidates[0];
+  // Both the exact-amount path and the order-code mismatch path land here:
+  // a single candidate payment, narrowed by the strongest correlator. The
+  // mismatch path carries an extra `mismatchPath: true` flag so the
+  // settlement helper knows to create a refund record after the move.
+  return await settleMatch({
+    payment: candidates[0],
+    candidate,
+    notification,
+    pendingPayments: candidates,
+    mismatchPath: false,
+    reject,
+  });
+}
 
+/**
+ * Settle one candidate payment against the verified notification. This is
+ * shared between the exact-amount path (the original flow) and the new
+ * order-code mismatch path (overpayment / underpayment). The only
+ * difference is the post-settlement refund creation, gated on
+ * `mismatchPath`.
+ */
+async function settleMatch({ payment, candidate, notification, pendingPayments, mismatchPath, reject }) {
   // 6) Replay: this transaction must not already have settled something else.
   if (candidate.transactionId) {
     try {
@@ -393,8 +446,6 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
         utr: candidate.utr && candidate.utr !== candidate.transactionId ? candidate.utr : '',
       });
       if (used) {
-        // If it settled THIS payment already, finalizePayment will answer
-        // idempotently; anything else is a genuine replay attempt.
         const existing = await store.findPaymentByTransaction(candidate.transactionId);
         if (existing && existing.paymentId !== payment.paymentId) {
           return reject(
@@ -437,9 +488,10 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
       transactionId: candidate.transactionId || null,
       utr: candidate.utr || null,
       source: candidate.source,
-      notes: `Matched on ${candidate.orderCode ? 'order code' : 'transaction ID'}; amount ₹${candidate.amount.toFixed(2)}.`,
+      notes: `Matched on ${candidate.orderCode ? 'order code' : 'transaction ID'}; amount ₹${candidate.amount.toFixed(2)}${mismatchPath ? ' (mismatch — see refund record)' : ''}.`,
       paidAt: candidate.occurredAt,
       raw: candidate.raw,
+      receivedAmount: candidate.amount,
     });
   } catch (e) {
     return reject('REVIEW', 'Settlement failed: ' + e.message);
@@ -453,11 +505,40 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
     return reject('REVIEW', `Settlement refused by the database (${code}).`);
   }
 
+  // 10) Mismatch handling — only runs on the order-code path, after the
+  //     payment itself has been settled to PAID. The refund service is the
+  //     same writer the dashboard reads from, so the user sees the record
+  //     on the next refresh. The required amount comes from the payment
+  //     row (server-set), the received amount from the verified
+  //     notification — never from the request body.
+  let refundRecord = null;
+  if (mismatchPath) {
+    try {
+      const required = Number(payment.amount || 0);
+      const received = Number(candidate.amount || 0);
+      const created = await refundsService.createOrUpdateRefund({
+        paymentId: payment.paymentId,
+        userId: payment.userId || payment.userEmail || '',
+        userEmail: payment.userEmail || '',
+        couponId: payment.couponId || '',
+        orderCode: payment.orderCode || candidate.orderCode || '',
+        requiredAmount: required,
+        receivedAmount: received,
+        currency: payment.currency || 'INR',
+      });
+      if (created && created.ok && created.refund) {
+        refundRecord = created.refund;
+      }
+    } catch (e) {
+      console.warn('[paymentVerifier] refund record notice:', e.message);
+    }
+  }
+
   try {
     await store.updateNotification(notification.id, {
       status: 'MATCHED',
       matched_payment_id: payment.paymentId,
-      notes: `Settled payment ${payment.paymentId} (${result.code}).`,
+      notes: `Settled payment ${payment.paymentId} (${result.code})${refundRecord ? `; refund ${refundRecord.refundId} created for ${refundRecord.mismatchType}` : ''}.`,
     });
   } catch (e) {}
 
@@ -467,6 +548,12 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
     notification,
     payment,
     result,
+    refund: refundRecord,
+    mismatch: mismatchPath ? {
+      requiredAmount: payment.amount,
+      receivedAmount: candidate.amount,
+      delta: Number((Number(candidate.amount || 0) - Number(payment.amount || 0)).toFixed(2)),
+    } : null,
   };
 }
 
@@ -502,12 +589,37 @@ function verifyWebhookSignature(rawBody, signature, secret = getWebhookSecret())
 async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
   const cfg = getMailConfig();
 
-  let gmailService, gmail;
+  // The read helpers (listMessages / getMessageFull) live on gmailService and
+  // take a `gmail` client as their first argument, so they work against ANY
+  // authorized client. The client itself comes from the DEDICATED payment
+  // mailbox (rupayandas2024@gmail.com) when connected; the shared support
+  // mailbox is only a fallback so a half-configured deploy still degrades
+  // gracefully instead of going dark.
+  const gmailService = require('./gmailService');
+  const paymentMailbox = require('./paymentMailbox');
+
+  let gmail;
+  let mailboxSource = '';
   try {
-    gmailService = require('./gmailService');
-    const client = await gmailService.getAuthorizedClient();
+    let client = null;
+    try {
+      client = await paymentMailbox.getAuthorizedClient();
+      if (client) mailboxSource = 'payment';
+    } catch (e) {
+      console.warn('[paymentVerifier] dedicated payment mailbox open notice:', e.message);
+    }
     if (!client) {
-      return { ok: false, reason: 'The payment mailbox is not connected.', scanned: 0, settled: 0 };
+      client = await gmailService.getAuthorizedClient();
+      if (client) mailboxSource = 'support-fallback';
+    }
+    if (!client) {
+      return {
+        ok: false,
+        reason:
+          'The payment mailbox is not connected. Run `node server/scripts/authorize-payment-gmail.js` and set PAYMENT_GMAIL_REFRESH_TOKEN.',
+        scanned: 0,
+        settled: 0,
+      };
     }
     gmail = client.gmail;
   } catch (e) {
@@ -613,6 +725,7 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
     settled,
     results,
     sendersConfigured: cfg.explicit,
+    mailbox: mailboxSource, // 'payment' (dedicated) or 'support-fallback'
   };
 }
 

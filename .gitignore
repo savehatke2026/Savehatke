@@ -11,6 +11,10 @@ service-account*.json
 .gmail-token.json
 server/.gmail-token.json
 
+# Dedicated payment mailbox — its own Gmail OAuth refresh token
+.payment-gmail-token.json
+server/.payment-gmail-token.json
+
 # Logs
 *.log
 npm-debug.log*
