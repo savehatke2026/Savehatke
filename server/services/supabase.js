@@ -1,7 +1,17 @@
 // ============================================
 // SaveHatke — Supabase Database Service
 // ============================================
-// Handles user CRUD operations via Supabase (PostgreSQL)
+// Handles user CRUD operations via Supabase (PostgreSQL).
+//
+// Seller payout note: per the SaveHatke architecture, the Google Sheets
+// `Coupons` and `Payouts` tabs are the source of truth for seller payout
+// fields. Supabase stores coupon data only — it never holds a seller_payout
+// column, never recomputes a payout, and never validates the ₹100–₹10,000
+// eligibility range. The 7% rule lives in services/sellerPayout.js and is
+// applied at admin-approval time on the Sheets row, plus when an auto-payout
+// row is created in the Payouts tab. This module therefore does not import
+// or call that service — keeping Supabase strictly to the coupon data it
+// already owns.
 
 const { createClient } = require('@supabase/supabase-js');
 const { randomUUID } = require('crypto');
@@ -166,6 +176,11 @@ function isConfigured() {
 }
 
 // ── Coupon Mapping Helpers ──────────────────────────────────────────────
+// Supabase intentionally has NO seller_payout column — Google Sheets is the
+// source of truth for payout fields. The mapping therefore only carries the
+// coupon data Supabase already owns; payout is never read from or written to
+// a Supabase column.
+
 function toSupabaseCoupon(c) {
   return {
     // Omitted on purpose when the caller has no id yet — coupons.id defaults to
@@ -179,6 +194,7 @@ function toSupabaseCoupon(c) {
     description: c.description || '',
     discount: c.discount || '',
     original_value: String(c.originalValue || '0'),
+    // NOTE: no seller_payout column — Google Sheets is the source of truth.
     selling_price: String(c.sellingPrice || '15'),
     min_order_value: String(c.minOrderValue || ''),
     valid_from: c.validFrom || null,
@@ -225,6 +241,9 @@ function fromSupabaseCoupon(r) {
     description: r.description || '',
     discount: r.discount || '',
     originalValue: r.original_value || '0',
+    // Payout is sourced from Google Sheets, not Supabase — leave sellerPayout
+    // undefined here so callers don't accidentally treat a non-existent DB
+    // column as authoritative. The Sheets mirror always fills it in.
     sellingPrice: r.selling_price || '15',
     minOrderValue: r.min_order_value || '',
     validFrom: r.valid_from || '',
@@ -377,7 +396,11 @@ async function updateCoupon(id, updates) {
   if (updates.category) patch.category = updates.category.trim();
   if (updates.title !== undefined) patch.title = updates.title;
   if (updates.description !== undefined) patch.description = updates.description;
-  if (updates.originalValue !== undefined) patch.original_value = String(updates.originalValue);
+  if (updates.originalValue !== undefined) {
+    patch.original_value = String(updates.originalValue);
+    // Seller payout lives in Google Sheets; Supabase intentionally does NOT
+    // recompute or store it on the coupon row.
+  }
   if (updates.sellingPrice !== undefined) patch.selling_price = String(updates.sellingPrice);
   if (updates.status !== undefined) patch.status = updates.status.toLowerCase();
   if (updates.soldAt !== undefined) patch.sold_at = updates.soldAt;

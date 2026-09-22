@@ -885,19 +885,37 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, async
       status: transitions[action].status,
       adminNotes: String(notes || '').trim().slice(0, 500),
     };
+
+    // ── Duplicate-payout protection ────────────────────────────────────────
+    // If the coupon is already in the post-approval state (`available`), the
+    // 7% payout has already been written to the existing Sheets sellerPayout
+    // column. Refuse to re-write it on a duplicate Approve click — keeping
+    // verifiedAt stable and stopping the same seller payout from being
+    // "generated again" on every page refresh.
+    const alreadyApproved = String(coupon.status || '').toLowerCase() === 'available';
+    const willBeApproved = transitions[action].status === 'available';
+    const skipPayoutWrite = action === 'approve' && alreadyApproved;
+
     if (action === 'approve') {
       // A seller coupon cannot go live with a face value outside ₹100–₹10,000,
       // and its payout must be the 7% of that face value — never a stored or
-      // client-supplied figure.
+      // client-supplied figure. The face value is read from the coupon row,
+      // not from the request body, so a client cannot influence the payout.
       if (isSellerCoupon(coupon) && !isValidSellerFaceValue(coupon.originalValue)) {
         return res.status(400).json({
           error: 'This coupon has an invalid face value and cannot be approved. Correct the face value or reject it.',
           code: 'INVALID_FACE_VALUE',
         });
       }
-      updates.isVerified = true;
-      updates.verifiedAt = now;
-      if (isSellerCoupon(coupon)) {
+      // Always set the verification stamp on the first approval; leave it
+      // untouched on a duplicate click so the original approval time survives.
+      if (!alreadyApproved) {
+        updates.isVerified = true;
+        updates.verifiedAt = now;
+      }
+      if (isSellerCoupon(coupon) && !skipPayoutWrite) {
+        // 7% of the verified face value — written to the existing Sheets
+        // sellerPayout column (the only place this number is persisted).
         updates.sellerPayout = calculateSellerPayout(coupon.originalValue);
       }
     }

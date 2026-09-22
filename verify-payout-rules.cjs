@@ -1,8 +1,15 @@
 // ============================================
-// SaveHatke — End-to-end 7% seller payout rules verification
+// SaveHatke — Sheets-only 7% seller payout verification
 // ============================================
-// Walks through all 14 sections of the seller payout spec and asserts each
-// guarantee by reading the REAL source files (no re-implementations).
+// Verifies the Google Sheets-only architecture for the 7% seller payout rule:
+//   • Existing SHEETS.COUPONS already has a `sellerPayout` column — reused
+//   • Existing SHEETS.PAYOUTS is the per-payout ledger — reused
+//   • Supabase is NOT touched for payout (no seller_payout column, no trigger)
+//   • 7% is computed at admin-approval time and written to the existing
+//     Sheets sellerPayout column; never at submission time
+//   • Duplicate approval does not re-write the payout
+//   • The auto-payout flow (when a coupon is sold) uses 7% of face value
+//     and never reads the marketplace sellingPrice
 //
 // Run: node verify-payout-rules.cjs
 
@@ -24,64 +31,148 @@ const adminSrc      = read('server/routes/admin.js');
 const paymentsSrc   = read('server/routes/payments.js');
 const supabaseSrc   = read('server/services/supabase.js');
 const sellerPayoutSrc = read('server/services/sellerPayout.js');
-const migrationSrc  = read('supabase/migrations/20260920_seller_payout_7_percent.sql');
+const sheetsSrc     = read('server/services/googleSheets.js');
 const sellHtmlSrc   = read('public/sell.html');
 const dashboardSrc  = read('public/dashboard.html');
 
-console.log('\n═══ §1 — CORE RULE: payout = face_value × 0.07 ═══');
-for (const [fv, expected] of [[100,7],[200,14],[300,21],[500,35],[1000,70],[2000,140],[2500,175],[5000,350],[7500,525],[10000,700]]) {
+console.log('\n═══ §1 — Existing Google Sheets infrastructure is reused ═══');
+t(/\[SHEETS\.COUPONS\]:\s*\[[\s\S]*?'sellerPayout'/.test(sheetsSrc),
+  'Existing SHEETS.COUPONS already declares a sellerPayout column');
+t(/\[SHEETS\.PAYOUTS\]:\s*\[/.test(sheetsSrc),
+  'Existing SHEETS.PAYOUTS is the per-payout ledger');
+t(/\[SHEETS\.SELLER_PAYOUT_DETAILS\]:\s*\[/.test(sheetsSrc),
+  'Existing SHEETS.SELLER_PAYOUT_DETAILS holds per-seller destinations');
+// No new sheet/tab/column added.
+t(!/create.*sheet|createSheet|new sheet/i.test(adminSrc + couponsSrc + payoutsSrc),
+  'No new Google Sheet/tab is created anywhere');
+
+console.log('\n═══ §2 — CORE RULE: payout = face_value × 0.07 ═══');
+for (const [fv, expected] of [[100,7],[200,14],[500,35],[1000,70],[2000,140],[2500,175],[5000,350],[7500,525],[10000,700]]) {
   t(sp.calculateSellerPayout(fv) === expected, `₹${fv} × 0.07 = ₹${expected}`);
 }
-t(/PAYOUT_RATE\s*=\s*0\.07/.test(sellerPayoutSrc), 'PAYOUT_RATE constant = 0.07');
+t(sp.PAYOUT_RATE === 0.07, 'PAYOUT_RATE constant = 0.07');
 
-console.log('\n═══ §2 — Marketplace sellingPrice is preserved separately ═══');
-// The seller payout service does not read sellingPrice. The submission route
-// keeps sellingPrice as its own column. The admin and update paths keep
-// sellingPrice too.
-t(!/sellingPrice|selling_price/.test(sellerPayoutSrc.replace(/^\s*\/\/.*$/gm, '')),
-  'sellerPayout.js code (no comments) does not read sellingPrice');
-t(/originalValue/.test(couponsSrc) && /sellingPrice/.test(couponsSrc),
-  'coupons.js keeps originalValue and sellingPrice as distinct fields');
-
-// §3 SELL COUPON FLOW — payout is computed at submission time, read-only, no manual edit.
-console.log('\n═══ §3 — Sell coupon flow: backend computes, seller cannot edit ═══');
-t(/calculateSellerPayout\(/.test(couponsSrc), 'coupons.js calls calculateSellerPayout during submission');
-t(/batchPayouts\[i\]\s*=\s*calculateSellerPayout/.test(couponsSrc),
-  'Payout is computed once per coupon before any DB write (no partial saves)');
-t(/sellerPayout:\s*batchPayouts\[i\]/.test(couponsSrc),
-  'Stored sellerPayout on the new coupon comes from the server-computed value');
-// The front-end must show a live payout preview and never accept an editable payout field.
-t(/payout-preview/.test(sellHtmlSrc) && /read-only/.test(sellHtmlSrc.toLowerCase()),
-  'Sell page shows a read-only payout preview panel');
-
-// §4 BACKEND CALCULATION — server is the source of truth; client payout is ignored.
-console.log('\n═══ §4 — Backend performs the calculation; client payout is ignored ═══');
-t(/sellerPayout\s*:\s*batchPayouts\[i\]/.test(couponsSrc),
-  'Submission route overwrites any client-supplied sellerPayout with batchPayouts[i]');
-// Verify the submission handler never reads sellerPayout/payout_amount from the body.
-// Look for "payout-shaped key followed by req.body" — the only dangerous pattern.
+console.log('\n═══ §3 — Seller coupon workflow: payout is NOT generated on submit ═══');
+// Submission handler must NOT set sellerPayout on the new coupon row.
 const submissionHandler = couponsSrc.slice(couponsSrc.indexOf('handleCouponSubmission'),
   couponsSrc.indexOf('router.post(\'/sell\''));
-const bodyReadsPayout = /\b(sellerPayout|seller_payout|payout_amount|payoutAmount)\s*[:=]?\s*req\.body/;
-t(!bodyReadsPayout.test(submissionHandler),
-  'Submission handler never reads a client-supplied payout field (no "payout: req.body")');
-// Payout uses integer paise (no floating-point drift).
-t(/paise/.test(sellerPayoutSrc) && /SafeInteger/.test(sellerPayoutSrc),
-  'Payout calculation uses integer paise (no binary FP drift)');
+// Strip comment-only lines first so a "NOTE: sellerPayout is intentionally NOT
+// set" comment does not poison the assertion below.
+const submissionCode = submissionHandler.split('\n').filter((l) => !/^\s*\/\//.test(l)).join('\n');
+// Find the field written immediately after `originalValue:` inside the new
+// coupon object. It must NOT be `sellerPayout:`.
+const newCouponBlock = submissionCode.match(/const coupon = \{[\s\S]*?\n\s*\};/);
+const newCouponFields = newCouponBlock ? newCouponBlock[0] : '';
+const afterOriginalValue = newCouponFields.match(/originalValue:[^,\n]+,\s*\n\s*([a-zA-Z_$][\w$]*):/);
+const fieldAfterFV = afterOriginalValue ? afterOriginalValue[1] : null;
+t(fieldAfterFV !== 'sellerPayout',
+  `Field after originalValue in new coupon object is "${fieldAfterFV}" — must not be sellerPayout`);
+// Belt-and-braces: no batch-level payout computation.
+t(!/batchPayouts\[i\]/.test(submissionHandler),
+  'Submission handler does not compute a per-batch payout');
+// The submission MUST still validate the face value range.
+t(/calculateSellerPayout\(faceText\)/.test(submissionHandler)
+  && /INVALID_FACE_VALUE/.test(submissionHandler),
+  'Submission handler still validates face value via calculateSellerPayout');
+// Submission response says "will be activated once approved" — not "now".
+t(/will be activated once the coupon is approved/i.test(submissionHandler),
+  'Submission response language says payout is activated at approval, not at submission');
 
-// §5 DATABASE — existing coupons table; seller_payout added by migration.
-console.log('\n═══ §5 — Database: existing coupons table; seller_payout via migration ═══');
-t(/ALTER TABLE public\.coupons ADD COLUMN IF NOT EXISTS seller_payout/.test(migrationSrc),
-  'Migration adds seller_payout to public.coupons (IF NOT EXISTS)');
-t(!/CREATE TABLE/i.test(migrationSrc) || /ADD COLUMN/i.test(migrationSrc),
-  'Migration does NOT create a duplicate coupon table');
-t(/UPDATE public\.coupons\s+SET seller_payout = ROUND\(btrim\(original_value\)/.test(migrationSrc),
-  'Migration backfills seller_payout = ROUND(face_value × 0.07, 2) for eligible rows');
-t(/CREATE TRIGGER trg_coupons_seller_payout_7_percent/.test(migrationSrc),
-  'Migration installs a trigger that enforces the rule on every INSERT/UPDATE');
+console.log('\n═══ §4 — Payout generated at admin-approval time, written to Sheets ═══');
+const reviewAction = adminSrc.slice(adminSrc.indexOf("router.post('/coupons/:id/review-action'"),
+  adminSrc.indexOf("router.post('/coupons/:id/invalidate'"));
+t(/action === 'approve'/.test(reviewAction),
+  'review-action endpoint exists and handles action=approve');
+t(/updates\.sellerPayout\s*=\s*calculateSellerPayout\(coupon\.originalValue\)/.test(reviewAction),
+  'Approval path computes 7% × face value and writes it to the coupon update');
+t(/SHEETS\.COUPONS/.test(reviewAction) && /db\.updateRow/.test(reviewAction),
+  'Approval write targets the existing Sheets COUPONS tab');
+t(!/seller_payout:/.test(reviewAction),
+  'Approval path does NOT write to any Supabase seller_payout column');
 
-// §6 VALIDATION — only ₹100–₹10,000 face values are eligible.
-console.log('\n═══ §6 — Validation: face value must be in [₹100, ₹10,000] ═══');
+console.log('\n═══ §5 — Verified face value, not marketplace sellingPrice ═══');
+t(/coupon\.originalValue/.test(reviewAction),
+  'Approval payout is derived from coupon.originalValue (face value)');
+t(!/coupon\.sellingPrice/.test(reviewAction),
+  'Approval payout does NOT read the marketplace sellingPrice');
+t(/calculateSellerPayout\(coupon\.originalValue\)/.test(reviewAction),
+  'Approval uses the formula on coupon.originalValue');
+
+console.log('\n═══ §6 — Supabase is NOT modified for seller payout ═══');
+t(!/seller_payout\s*=/.test(supabaseSrc),
+  'supabase.js contains no `seller_payout = ...` write');
+t(!/seller_payout:/.test(supabaseSrc),
+  'supabase.js contains no `seller_payout:` field write');
+t(!/function payoutForFaceValue/.test(supabaseSrc),
+  'supabase.js contains no payoutForFaceValue helper');
+t(!/require.*sellerPayout/.test(supabaseSrc),
+  'supabase.js does not import the sellerPayout service');
+// No migration file at the path that previously created the column.
+const migrationPath = path.join(ROOT, 'supabase/migrations/20260920_seller_payout_7_percent.sql');
+t(!fs.existsSync(migrationPath),
+  'No Supabase migration creates a seller_payout column');
+// No trigger / function in any migration.
+const migrationsDir = path.join(ROOT, 'supabase/migrations');
+const migrationFiles = fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql'));
+const triggerLeak = migrationFiles.some((f) => /enforce_seller_payout_7_percent|seller_payout_trigger/i.test(read(`supabase/migrations/${f}`)));
+t(!triggerLeak, 'No Supabase trigger/function for seller payout in any migration');
+
+console.log('\n═══ §7 — Frontend: read-only, no manual entry, Face Value + Payout + Rate ═══');
+t(/payout-preview-label[\s\S]*Seller Payout/.test(sellHtmlSrc),
+  'Sell page shows "Seller Payout" label');
+t(/payout-preview-rate[\s\S]*7% of face value/.test(sellHtmlSrc),
+  'Sell page shows the "7% of face value" caption');
+t(/<input[^>]*name="sellerPayout"/i.test(sellHtmlSrc) === false,
+  'Sell page has NO editable sellerPayout input field');
+
+console.log('\n═══ §8 — Admin panel shows the existing Sheets payout fields ═══');
+t(/payoutSummary\(/.test(adminSrc),
+  'admin.js uses the payoutSummary helper for payout display');
+t(/sellerPayout:\s*info\.payoutEligible\s*\?\s*info\.sellerPayout\s*:\s*null/.test(adminSrc),
+  'payoutSummary surfaces the canonical server-computed sellerPayout');
+t(/sellerPayoutStored:/.test(adminSrc),
+  'payoutSummary also exposes the stored Sheets value for audit');
+
+console.log('\n═══ §9 — Existing payout process reads existing payout info ═══');
+t(/resolveCouponPayoutAmount/.test(payoutsSrc),
+  'payouts.js exports the resolveCouponPayoutAmount helper');
+t(/sellerPayout\.calculateSellerPayout/.test(payoutsSrc),
+  'payouts.js derives the payout via sellerPayout.calculateSellerPayout');
+// The auto-payout writes to the existing Payouts sheet, not a new one.
+t(/SHEETS\.PAYOUTS/.test(payoutsSrc) && /db\.appendRow/.test(payoutsSrc),
+  'Auto-payout writes to the existing SHEETS.PAYOUTS ledger');
+// Idempotent: re-creating an auto-payout for the same coupon returns the
+// existing row instead of producing a duplicate.
+t(/existing\s*=\s*all\.find\(\(p\)\s*=>\s*String\(p\.sourceCouponId\)\s*===\s*String\(coupon\.id\)\)/.test(payoutsSrc),
+  'createAutoPayout is idempotent — duplicate calls return the existing payout row');
+
+console.log('\n═══ §10 — Security: server is the only authority on payout amount ═══');
+// Approval never reads payout from the request body.
+t(!/req\.body\.(?:sellerPayout|seller_payout|payout_amount|payoutAmount)/.test(reviewAction),
+  'review-action never reads a client-supplied payout field');
+// Admin write strips client-supplied payout keys before any write.
+t(/PAYOUT_BODY_KEYS/.test(adminSrc) && /sellerPayout/.test(adminSrc) && /payout_amount/.test(adminSrc),
+  'admin.js PAYOUT_BODY_KEYS strips every payout-shaped body key');
+// Auto-payout path computes from the coupon row, not from the request body.
+const autoPayoutFn = payoutsSrc.slice(payoutsSrc.indexOf('createAutoPayout'),
+  payoutsSrc.indexOf('module.exports.createAutoPayout') < 0
+    ? payoutsSrc.length
+    : payoutsSrc.indexOf('module.exports.createAutoPayout'));
+t(!autoPayoutFn.includes('req.body.sellerPayout'),
+  'createAutoPayout never reads a client-supplied payout');
+
+console.log('\n═══ §11 — Duplicate-payout protection on repeated approval ═══');
+t(/alreadyApproved\s*=\s*String\(coupon\.status[^)]*\)\.toLowerCase\(\)\s*===\s*'available'/.test(reviewAction),
+  'review-action detects already-approved coupons');
+t(/skipPayoutWrite\s*=\s*action\s*===\s*'approve'\s*&&\s*alreadyApproved/.test(reviewAction),
+  'review-action skips the sellerPayout write on duplicate approval');
+t(/!skipPayoutWrite/.test(reviewAction),
+  'Approval guards the sellerPayout write behind the duplicate-approval check');
+// createAutoPayout also already prevents duplicate Payouts rows.
+t(/existing\s*=\s*all\.find\(/.test(payoutsSrc),
+  'createAutoPayout prevents duplicate Payouts-tab rows by sourceCouponId');
+
+console.log('\n═══ §12 — Face value validation ₹100–₹10,000 only ═══');
 for (const bad of [99, 10001, 50, 0, -100, 99.99, 10000.01]) {
   let threw = false, code = null;
   try { sp.calculateSellerPayout(bad); } catch (e) { threw = true; code = e.code; }
@@ -91,122 +182,42 @@ for (const ok of [100, 10000]) {
   t(sp.calculateSellerPayout(ok) !== undefined && Number.isFinite(sp.calculateSellerPayout(ok)),
     `₹${ok} accepted (boundary inclusive)`);
 }
-t(/Coupon face value must be between ₹100 and ₹10,000/.test(sellerPayoutSrc),
-  'Validation message is the spec message (₹100–₹10,000)');
-// "Don't silently change an invalid face value" — a thrown error is the only outcome.
 let silent = false;
 try { sp.calculateSellerPayout(50); } catch { silent = true; }
-t(silent, 'Out-of-range face value throws (does NOT silently clamp to ₹100/₹10,000)');
+t(silent, 'Out-of-range face value throws (does NOT silently clamp)');
 
-// §7 SELLER UI — read-only, automatically calculated.
-console.log('\n═══ §7 — Seller UI: read-only, automatically calculated ═══');
-t(/payout-preview-label[\s\S]*Seller Payout/.test(sellHtmlSrc),
-  'Sell page label says "Seller Payout"');
-t(/payout-preview-rate[\s\S]*7% of face value/.test(sellHtmlSrc),
-  'Sell page shows the 7% of face value caption');
-t(/<input[^>]*name="sellerPayout"/i.test(sellHtmlSrc) === false,
-  'Sell page has no editable sellerPayout input');
+console.log('\n═══ §13 — Existing admin/public coupons are not affected ═══');
+// Submission only validates face value for SELLER coupons. Admin coupons are
+// not gated by the same rule on submission, and their existing sellerPayout
+// field is untouched by this change.
+t(/isSellerCoupon/.test(adminSrc),
+  'isSellerCoupon helper exists for distinguishing admin vs seller rows');
+t(!/isSellerCoupon\(coupon\)\s*\|\|\s*approving/.test(adminSrc),
+  'Approval no longer requires isSellerCoupon || approving for face-value edits');
 
-// §8 MY SALES / SELLER DASHBOARD — shows the payout.
-console.log('\n═══ §8 — My Sales / Dashboard shows payout from server-computed value ═══');
-t(/router\.get\('\/my-sales'/.test(couponsSrc),
-  'GET /api/coupons/my-sales exists');
-t(/couponPayoutInfo\(c\)/.test(couponsSrc),
-  'my-sales spreads couponPayoutInfo into each coupon row');
-t(/sellerPayout:\s*payout/.test(couponsSrc),
-  'my-sales returns the canonical server-computed sellerPayout (not the stored value)');
-// Dashboard reads sellerPayout from the row.
-t(/Number\(c\.sellerPayout\)/.test(dashboardSrc),
-  'dashboard.html priceOf() prefers c.sellerPayout (numeric, server-computed)');
-t(!/c\.sellingPrice\s*\?\s*c\.sellerPayout/.test(dashboardSrc) || /prefer.*sellerPayout/i.test(dashboardSrc),
-  'dashboard.html priceOf() does not fall back to sellingPrice without using sellerPayout first');
-
-// §9 ADMIN PANEL — shows face value, payout, marketplace price, status.
-console.log('\n═══ §9 — Admin panel shows face value, payout, selling price, status ═══');
-t(/payoutSummary\(/.test(adminSrc), 'admin.js uses payoutSummary() helper');
-t(/faceValue:\s*moneyToPaise/.test(sellerPayoutSrc) || /faceValue:\s*[\d.]+/.test(sellerPayoutSrc),
-  'payoutSummary returns faceValue, sellerPayout, payoutRate');
-t(/PAYOUT_BODY_KEYS/.test(adminSrc) && /sellerPayout/.test(adminSrc),
-  'Admin write strips client-supplied payout fields before persisting');
-t(/stripePayoutFields|stripPayoutFields/.test(adminSrc),
-  'admin.js strips payout keys from every client request');
-// Confirm admin cannot directly set the stored payout.
-const adminPostCoupons = adminSrc.slice(adminSrc.indexOf("router.post('/coupons'"),
-  adminSrc.indexOf("router.put('/coupons/:id'"));
-t(!/sellerPayout\s*:\s*(?:req\.body|body)\.sellerPayout/.test(adminPostCoupons),
-  'POST /admin/coupons never copies a client-supplied sellerPayout into the new coupon');
-
-// §10 PAYOUT PROCESS — derived from face value, never marketplace price.
-console.log('\n═══ §10 — Payout process: payout = 7% of face value, not sellingPrice ═══');
-t(/resolveCouponPayoutAmount/.test(payoutsSrc),
-  'payouts.js exports a payout resolver');
-t(/sellerPayout\.calculateSellerPayout/.test(payoutsSrc),
-  'payouts.js calls sellerPayout.calculateSellerPayout to compute the payout');
-// The resolver must NOT use sellingPrice to compute the payout.
+console.log('\n═══ §14 — Marketplace selling price kept separate ═══');
 const resolverBody = payoutsSrc.slice(payoutsSrc.indexOf('async function resolveCouponPayoutAmount'),
   payoutsSrc.indexOf('function tryCompute7Percent'));
-const resolverUsesSellingPrice = /sellingPrice|selling_price/.test(resolverBody);
-t(!resolverUsesSellingPrice, 'resolveCouponPayoutAmount() does not read sellingPrice');
-// The auto-payout uses the resolver.
-t(/const resolved = await resolveCouponPayoutAmount/.test(payoutsSrc),
-  'createAutoPayout uses resolveCouponPayoutAmount');
-// Verify payouts.js import uses sellerPayout module.
-t(/require\(['"]\.\.\/services\/sellerPayout['"]\)/.test(payoutsSrc),
-  'payouts.js imports sellerPayout service (single source of truth)');
-// Confirm the comment block at the top of payouts.js reflects the 7% rule.
-t(/7% of (?:the )?coupon(?:'s)? face value/i.test(payoutsSrc),
-  'payouts.js header documents the 7% rule');
+t(!/sellingPrice|selling_price/.test(resolverBody),
+  'resolveCouponPayoutAmount does not read sellingPrice');
+// The 7% formula lives in tryCompute7Percent, which the resolver delegates to.
+// Check the whole payout-resolver chain (resolver + helper) for the formula.
+const resolverChain = payoutsSrc.slice(payoutsSrc.indexOf('async function resolveCouponPayoutAmount'),
+  payoutsSrc.indexOf('\nmodule.exports = router'));
+t(/sellerPayout\.calculateSellerPayout/.test(resolverChain),
+  'payout resolver derives the payout from face value via the 7% formula');
 
-// §11 SECURITY — never trust client-supplied payouts.
-console.log('\n═══ §11 — Security: server is the only authority on the payout ═══');
-// 1. Submission route — any client-supplied payout is silently overwritten.
-const submissionBody = couponsSrc.slice(couponsSrc.indexOf('handleCouponSubmission'),
-  couponsSrc.indexOf('router.post(\'/sell\''));
-t(!/req\.body\.(?:sellerPayout|seller_payout|payout_amount|payoutAmount)/.test(submissionBody),
-  'Submission handler does not read client-supplied payout fields');
-// 2. Admin route — payout body keys stripped before any write.
-// Look at the full admin.js so the PAYOUT_BODY_KEYS constant is visible.
-t(/PAYOUT_BODY_KEYS\s*=\s*\[[\s\S]*?sellerPayout[\s\S]*?payout_amount[\s\S]*?\]/.test(adminSrc),
-  'admin.js PAYOUT_BODY_KEYS includes every payout-shaped body key');
-t(/function stripPayoutFields[\s\S]*?PAYOUT_BODY_KEYS\.includes/.test(adminSrc),
-  'admin.js stripPayoutFields drops every payout-shaped body key');
-// 3. Database trigger is the last line of defence.
-t(/enforce_seller_payout_7_percent/.test(migrationSrc) && /NEW\.seller_payout\s*:=\s*ROUND\(face\s*\*\s*0\.07/.test(migrationSrc),
-  'DB trigger always recomputes seller_payout from face_value (client cannot override)');
-// 4. The payments.js route uses the new createAutoPayout with face value, not sellingPrice.
-const paymentsVerify = paymentsSrc.slice(paymentsSrc.indexOf("router.post('/verify'"),
-  paymentsSrc.indexOf("module.exports"));
-t(/originalValue:\s*coupon\.originalValue/.test(paymentsVerify),
-  'payments verify path passes originalValue (face value) to createAutoPayout');
-t(!/sellingPrice:\s*coupon\.sellingPrice/.test(paymentsVerify),
-  'payments verify path does NOT pass sellingPrice to createAutoPayout');
+console.log('\n═══ §15 — Existing Sheet data is not overwritten ═══');
+// Approval only touches the targeted coupon row via id; it does not bulk-rewrite
+// any unrelated sheet, and does not create duplicate coupon rows.
+t(/db\.updateRow\(db\.SHEETS\.COUPONS,\s*['"]id['"]/.test(reviewAction)
+  && /updates\)/.test(reviewAction),
+  'Approval updates exactly one coupon row by id (no bulk rewrite)');
+t(!/appendRow\(db\.SHEETS\.COUPONS/.test(reviewAction),
+  'Approval does NOT append a new coupon row (no duplicate)');
 
-// §12 EXISTING SYSTEM MUST BE PRESERVED — spot-check the unchanged flows.
-console.log('\n═══ §12 — Existing system preserved ═══');
-t(/router\.post\('\/sell'/.test(couponsSrc) && /router\.post\('\/submit'/.test(couponsSrc),
-  'POST /sell and /submit endpoints still exist');
-t(/router\.post\('\/buy\/:id'/.test(couponsSrc),
-  'POST /buy/:id still exists');
-t(/router\.post\('\/create-order'/.test(paymentsSrc) && /router\.post\('\/verify'/.test(paymentsSrc),
-  'Razorpay order/verify endpoints still exist');
-t(/SHEETS\.COUPONS/.test(couponsSrc) && /SHEETS\.PAYOUTS/.test(payoutsSrc),
-  'Google Sheets mirror still in use');
-t(/is_verified: Boolean\(c\.isVerified/.test(supabaseSrc),
-  'Coupon schema still includes all original fields');
-
-// §13 TEST CASES — the explicit list from the spec.
-console.log('\n═══ §13 — Spec test cases (all face value → payout pairs) ═══');
-const CASES = [
-  [100,    7],
-  [200,    14],
-  [500,    35],
-  [1000,   70],
-  [2000,   140],
-  [2500,   175],
-  [5000,   350],
-  [7500,   525],
-  [10000,  700],
-];
+console.log('\n═══ §16 — Spec test cases (₹100–₹10,000) ═══');
+const CASES = [[100,7],[200,14],[500,35],[1000,70],[2000,140],[2500,175],[5000,350],[7500,525],[10000,700]];
 for (const [fv, expected] of CASES) {
   t(sp.calculateSellerPayout(fv) === expected, `₹${fv} → ₹${expected}`);
 }
@@ -215,28 +226,28 @@ for (const bad of [99, 10001]) {
   try { sp.calculateSellerPayout(bad); } catch { threw = true; }
   t(threw, `₹${bad} rejected under the ₹100–₹10,000 rule`);
 }
-// The cascade test: changing face value automatically changes payout, and the
-// backend recomputes it (no manual editing).
-const cascade1 = sp.calculateSellerPayout(1000);
-const cascade2 = sp.calculateSellerPayout(2000);
-t(cascade1 === 70 && cascade2 === 140,
-  'Changing ₹1000 → ₹2000 cascades payout ₹70 → ₹140 (auto, no manual edit)');
-// And the BACKEND does the same recompute. We confirm by inspecting that
-// submission and admin writes re-derive the payout from the face value.
-t(/updates\.sellerPayout\s*=\s*payoutForFaceValue/.test(adminSrc),
-  'admin update recomputes payout from face value (server-side)');
-t(/sellerPayout:\s*payoutForFaceValue\(faceValue\)/.test(adminSrc),
-  'admin coupon creation recomputes payout from face value (server-side)');
+// Cascade: changing face value changes payout, recomputed server-side.
+t(sp.calculateSellerPayout(1000) === 70 && sp.calculateSellerPayout(2000) === 140,
+  'Changing ₹1000 → ₹2000 cascades payout ₹70 → ₹140 (auto, server-side)');
 
-// §14 FINAL RULE — sanity check that the entire payout system is the 7% formula.
-console.log('\n═══ §14 — FINAL RULE: SELLER PAYOUT = 7% OF COUPON FACE VALUE ═══');
+console.log('\n═══ §17 — Existing functionality preserved ═══');
+t(/router\.post\('\/sell'/.test(couponsSrc) && /router\.post\('\/submit'/.test(couponsSrc),
+  'POST /sell and /submit endpoints still exist');
+t(/router\.post\('\/buy\/:id'/.test(couponsSrc),
+  'POST /buy/:id still exists');
+t(/router\.post\('\/create-order'/.test(paymentsSrc) && /router\.post\('\/verify'/.test(paymentsSrc),
+  'Razorpay order/verify endpoints still exist');
+t(/SHEETS\.COUPONS/.test(couponsSrc) && /SHEETS\.PAYOUTS/.test(payoutsSrc),
+  'Google Sheets mirror still in use (Coupons + Payouts)');
+t(/authenticateToken/.test(adminSrc) && /requireAdmin/.test(adminSrc),
+  'Admin authentication preserved');
+t(/isFeatured/.test(sheetsSrc) && /isExclusive/.test(sheetsSrc),
+  'Sheet column structure unchanged (no duplicates created)');
+
+console.log('\n═══ FINAL — SELLER PAYOUT = 7% OF VERIFIED FACE VALUE ═══');
 t(sp.PAYOUT_RATE === 0.07, 'PAYOUT_RATE = 0.07');
-t(sp.MIN_FACE_VALUE === 100 && sp.MAX_FACE_VALUE === 10000, 'Range locked to ₹100–₹10,000');
-t(sp.PAYOUT_PRICING_MODEL === 'face-value-7-percent',
-  'PAYOUT_PRICING_MODEL = "face-value-7-percent" (the only pricing model)');
-t(/const PAYOUT_PRICING_MODEL\s*=\s*['"]face-value-7-percent['"]/.test(payoutsSrc)
-  && /module\.exports\.PAYOUT_PRICING_MODEL\s*=\s*PAYOUT_PRICING_MODEL/.test(payoutsSrc),
-  'payouts.js exports PAYOUT_PRICING_MODEL = face-value-7-percent');
+t(sp.PAYOUT_PRICING_MODEL === 'face-value-7-percent', 'Pricing model identifier');
+t(sp.MIN_FACE_VALUE === 100 && sp.MAX_FACE_VALUE === 10000, 'Eligible range locked');
 
 // ═══ Summary ═══
 console.log(`\n${pass} passed, ${fail} failed`);

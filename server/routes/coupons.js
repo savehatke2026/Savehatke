@@ -523,17 +523,24 @@ const handleCouponSubmission = async (req, res) => {
       }
     }
 
-    // ── Face value + seller payout — validated for the WHOLE batch first ──
-    // The seller payout is 7% of the face value (₹100–₹10,000 inclusive),
-    // rounded to the nearest paise. Validating every item before the write loop
-    // below means one bad coupon rejects the batch with nothing half-saved, and
-    // an empty or 0 face value is rejected rather than defaulting to something.
-    const batchPayouts = [];
+    // ── Face value validation — for the WHOLE batch first ──────────────────
+    // A seller-submitted coupon must carry a face value inside the
+    // ₹100–₹10,000 range; anything else cannot earn a 7% payout under this
+    // rule. Validating every item before the write loop means one bad coupon
+    // rejects the batch with nothing half-saved, and an empty or 0 face value
+    // is rejected rather than silently defaulting. Note: this validation
+    // applies ONLY to seller submissions — admin coupons can sit outside the
+    // range and still be valid marketplace listings.
     for (let i = 0; i < list.length; i++) {
       const raw = list[i].faceValue;
       const faceText = raw === undefined || raw === null ? '' : String(raw).trim();
       try {
-        batchPayouts[i] = calculateSellerPayout(faceText);
+        // calculateSellerPayout throws INVALID_FACE_VALUE for out-of-range or
+        // malformed inputs. We only need the side effect of validation here —
+        // the payout itself is NOT computed or stored at submission time
+        // (the existing Sheets sellerPayout field is filled at admin-approval
+        // time, and the Payouts tab's amount is set when the coupon is sold).
+        calculateSellerPayout(faceText);
       } catch (e) {
         if (e && e.code === 'INVALID_FACE_VALUE') {
           return res.status(400).json({ error: `Coupon ${i + 1}: ${e.message}` });
@@ -612,9 +619,11 @@ const handleCouponSubmission = async (req, res) => {
         type: itemType,
         discount: itemDiscount,
         originalValue: cleanFaceValue,
-        // Server-computed 7% payout, stored on the coupon. Client-supplied
-        // payout fields are never read.
-        sellerPayout: batchPayouts[i],
+        // NOTE: sellerPayout is intentionally NOT set at submission time.
+        // The 7% payout is generated when the coupon is accepted (see the
+        // admin review-action handler) and written to the existing Sheets
+        // sellerPayout column. While the coupon is pending the payout is
+        // "not yet generated" — exactly what the spec asks for.
         minOrderValue: itemMinOrder,
         validFrom: itemValidFrom,
         affiliateLink: itemAffiliate,
@@ -718,13 +727,20 @@ const handleCouponSubmission = async (req, res) => {
     }
 
     // What the seller will be paid for this batch is the 7% payout of each
-    // coupon — not the marketplace sellingPrice.
-    const offerTotal = submitted.reduce((sum, c) => sum + (Number(c.sellerPayout) || 0), 0);
+    // coupon — not the marketplace sellingPrice. At submission time the
+    // payout is not yet generated (it is set when the admin approves the
+    // coupon), but the response still reports what the payout WILL be so the
+    // seller sees a consistent figure. The numbers below are derived from
+    // the same face value the admin approval will use, so they cannot drift.
+    const offerTotal = submitted.reduce((sum, c) => {
+      const info = couponPayoutInfo(c);
+      return sum + (info.payoutEligible && Number.isFinite(info.sellerPayout) ? info.sellerPayout : 0);
+    }, 0);
     const offer = `₹${formatRupees(offerTotal) ?? '0'}`;
     res.status(201).json({
       message: submitted.length === 1
-        ? `Coupon submitted successfully! You will receive ${offer} once it is verified and sold.`
-        : `${submitted.length} coupons submitted successfully! You will receive ${offer} once they are verified and sold.`,
+        ? `Coupon submitted successfully! Payout of ${offer} (7% of face value) will be activated once the coupon is approved.`
+        : `${submitted.length} coupons submitted successfully! Payouts totalling ${offer} (7% of each face value) will be activated once the coupons are approved.`,
       coupon: {
         id: submitted[0].id,
         code: submitted[0].code,
@@ -732,17 +748,20 @@ const handleCouponSubmission = async (req, res) => {
         brand: submitted[0].brand,
         status: submitted[0].status,
         ...couponPayoutInfo(submitted[0]),
-        sellerPayout: submitted[0].sellerPayout,
+        sellerPayout: couponPayoutInfo(submitted[0]).payoutEligible ? couponPayoutInfo(submitted[0]).sellerPayout : null,
         offerAmount: offer,
       },
-      coupons: submitted.map((c) => ({
-        id: c.id,
-        code: c.code,
-        brand: c.brand,
-        status: c.status,
-        ...couponPayoutInfo(c),
-        sellerPayout: c.sellerPayout,
-      })),
+      coupons: submitted.map((c) => {
+        const info = couponPayoutInfo(c);
+        return {
+          id: c.id,
+          code: c.code,
+          brand: c.brand,
+          status: c.status,
+          ...info,
+          sellerPayout: info.payoutEligible ? info.sellerPayout : null,
+        };
+      }),
       submitted: submitted.length,
       skipped,
       offerAmount: offer,
@@ -858,8 +877,21 @@ router.get('/my-sales', authenticateToken, async (req, res) => {
         // value, never the (possibly stale) stored value. payoutVerified tells
         // the dashboard whether what is stored agrees with the formula — that
         // is a useful signal without it ever changing the number sent back.
+        //
+        // Payout gating: a coupon is in the "pending" state until the admin
+        // approves it. While pending, the spec says the payout is "Not yet
+        // generated", so the API only returns a numeric sellerPayout once
+        // the coupon has moved past 'pending'. The formula and eligibility
+        // info (info.faceValue / info.payoutRate / info.payoutEligible) are
+        // still returned so the seller can preview what the payout WILL be
+        // after acceptance — they just won't see a concrete number until then.
         const info = couponPayoutInfo(c);
         const payout = payoutAmountOf(c);
+        const status = String(c.status || '').toLowerCase();
+        const payoutGenerated = status !== 'pending' && status !== 'review'
+          && status !== 'submitted' && status !== 'awaiting' && status !== 'proof_requested'
+          && status !== 'rejected';
+        const displayPayout = payoutGenerated ? payout : null;
         return {
           id: c.id,
           code: c.code,
@@ -877,15 +909,20 @@ router.get('/my-sales', authenticateToken, async (req, res) => {
           buyerEmail: c.buyerEmail,
           // Computed payout info (faceValue, payoutRate, payoutEligible, …).
           ...info,
-          // Always the canonical server-computed value (or null when not
-          // eligible). Dashboard and chatbot read this number directly.
-          sellerPayout: payout,
+          // The seller-visible payout: null while pending, 7% × face value
+          // once approved/sold. Dashboard and chatbot read this number
+          // directly.
+          sellerPayout: displayPayout,
           // What is actually saved on the row (may be null for legacy admin
           // coupons). Lets a stale stored value be spotted without altering
           // what the dashboard displays.
           sellerPayoutStored: c.sellerPayout === undefined ? null : c.sellerPayout,
           // A sold coupon earns the seller its 7% payout, not the sellingPrice.
-          earning: c.status === 'sold' && payout !== null ? `₹${formatRupees(payout)}` : '—',
+          // Pending coupons show "Not yet generated" — the payout is computed
+          // at admin-approval time and lands on the row then.
+          earning: !payoutGenerated
+            ? 'Not yet generated'
+            : (displayPayout !== null ? `₹${formatRupees(displayPayout)}` : '—'),
         };
       }),
     });
