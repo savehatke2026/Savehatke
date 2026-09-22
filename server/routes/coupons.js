@@ -11,6 +11,9 @@ const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const googleDrive = require('../services/googleDrive');
 const couponVision = require('../services/couponVision');
+// The single seller-payout formula (7% of face value, rounded to the paise).
+// Marketplace sellingPrice is never an input to it.
+const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerPayout');
 
 const router = express.Router();
 
@@ -153,6 +156,11 @@ router.get('/', optionalAuth, async (req, res) => {
       // Empty string means none is set; the card then falls back to the
       // default SaveHatke background.
       backgroundImage: c.backgroundImage || '',
+      // Seller payout info (7% of face value). An admin marketplace coupon
+      // outside ₹100–₹10,000 stays listed and simply reports payoutEligible
+      // false with a null payout — it is not removed or restricted.
+      ...couponPayoutInfo(c),
+      sellerPayout: c.sellerPayout === undefined ? null : c.sellerPayout,
     }));
 
     res.json({ coupons: sanitized, total: sanitized.length });
@@ -362,6 +370,42 @@ router.post('/proof', authenticateToken, async (req, res) => {
   }
 });
 
+// ── Face value & seller payout (submission) ──────────────────────────────
+// The seller payout is 7% of the coupon's face value and is ALWAYS computed on
+// the server — any seller_payout / payout_amount / sellerPayout the client
+// sends is ignored. `??` (never `||`) is deliberate throughout: 0 and '' are
+// real answers that must fail validation, not missing values that silently fall
+// back to another alias.
+function firstPresent(...values) {
+  for (const v of values) {
+    if (v !== undefined && v !== null) return v;
+  }
+  return undefined;
+}
+
+// Resolve the face value from every accepted alias — the item's own value wins,
+// then the batch-level shared value. Both faceValue/face_value and the
+// authoritative originalValue/original_value are accepted.
+function faceValueInput(item, shared) {
+  return firstPresent(
+    item && item.faceValue, item && item.face_value,
+    item && item.originalValue, item && item.original_value,
+    shared && shared.faceValue, shared && shared.face_value,
+    shared && shared.originalValue, shared && shared.original_value,
+  );
+}
+
+// Earning is the seller payout, never the marketplace sellingPrice.
+function payoutAmountOf(coupon) {
+  const info = couponPayoutInfo(coupon);
+  return info.payoutEligible && Number.isFinite(info.sellerPayout) ? info.sellerPayout : null;
+}
+
+function formatRupees(value) {
+  if (!Number.isFinite(value)) return null;
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
 // POST /api/coupons/sell & /api/coupons/submit — Submit coupon(s) to sell
 // Accepts the multi-coupon format { category, coupons: [{code, brand, description, faceValue}] }
 // and the legacy single-coupon format { code, category, brand, ... }.
@@ -378,7 +422,7 @@ const handleCouponSubmission = async (req, res) => {
     }
 
     const {
-      code, category, brand, description, originalValue, faceValue, coupons,
+      code, category, brand, description, coupons,
       type, sellingPrice, expiryDate, proofUrl,
       title, discount, minOrderValue, validFrom, affiliateLink, terms,
     } = req.body;
@@ -427,7 +471,11 @@ const handleCouponSubmission = async (req, res) => {
         category: cleanStr(c && c.category, 60) || cleanCategory,
         brand: c && c.brand,
         description: (c && c.description) || '',
-        faceValue: (c && (c.faceValue || c.originalValue)) || faceValue || originalValue || '0',
+        // Face value is carried through raw from every accepted alias so the
+        // batch pre-pass below can validate it. Any client-supplied payout
+        // fields (sellerPayout / seller_payout / payout_amount) are ignored —
+        // the payout is computed from this value, never read from the request.
+        faceValue: faceValueInput(c, req.body),
         type: (c && c.type) || type,
         sellingPrice: (c && c.sellingPrice) !== undefined ? c.sellingPrice : sellingPrice,
         expiryDate: (c && c.expiryDate) || expiryDate,
@@ -441,7 +489,7 @@ const handleCouponSubmission = async (req, res) => {
         proofUrl: sanitizeProofUrl(c && c.proofUrl) || safeProofUrl,
       }));
     } else {
-      list = [{ code, category: cleanCategory, brand, description, faceValue: faceValue || originalValue, type, sellingPrice, expiryDate, title, discount, minOrderValue, validFrom, affiliateLink, terms, proofUrl: safeProofUrl }];
+      list = [{ code, category: cleanCategory, brand, description, faceValue: faceValueInput(req.body, req.body), type, sellingPrice, expiryDate, title, discount, minOrderValue, validFrom, affiliateLink, terms, proofUrl: safeProofUrl }];
     }
 
     const sellerEmail = req.user.email;
@@ -475,6 +523,25 @@ const handleCouponSubmission = async (req, res) => {
       }
     }
 
+    // ── Face value + seller payout — validated for the WHOLE batch first ──
+    // The seller payout is 7% of the face value (₹100–₹10,000 inclusive),
+    // rounded to the nearest paise. Validating every item before the write loop
+    // below means one bad coupon rejects the batch with nothing half-saved, and
+    // an empty or 0 face value is rejected rather than defaulting to something.
+    const batchPayouts = [];
+    for (let i = 0; i < list.length; i++) {
+      const raw = list[i].faceValue;
+      const faceText = raw === undefined || raw === null ? '' : String(raw).trim();
+      try {
+        batchPayouts[i] = calculateSellerPayout(faceText);
+      } catch (e) {
+        if (e && e.code === 'INVALID_FACE_VALUE') {
+          return res.status(400).json({ error: `Coupon ${i + 1}: ${e.message}` });
+        }
+        throw e;
+      }
+    }
+
     for (let i = 0; i < list.length; i++) {
       const c = list[i];
       if (!c.code || !c.category || !c.brand) {
@@ -485,7 +552,9 @@ const handleCouponSubmission = async (req, res) => {
       const cleanCode = String(c.code).toUpperCase().trim().slice(0, 60);
       const cleanBrand = cleanStr(c.brand, 80);
       const cleanDescription = cleanStr(c.description, 500) || cleanStr(c.title, 500);
-      const cleanFaceValue = cleanStr(c.faceValue || '0', 20);
+      // The validated face value is stored verbatim as the authoritative
+      // original value — never replaced by a fallback '0'.
+      const cleanFaceValue = cleanStr(c.faceValue === undefined || c.faceValue === null ? '' : c.faceValue, 20);
 
       // Extended listing fields submitted by the sell form (all optional, length-capped)
       const itemTitle = cleanStr(c.title, 120) || cleanBrand;
@@ -543,6 +612,9 @@ const handleCouponSubmission = async (req, res) => {
         type: itemType,
         discount: itemDiscount,
         originalValue: cleanFaceValue,
+        // Server-computed 7% payout, stored on the coupon. Client-supplied
+        // payout fields are never read.
+        sellerPayout: batchPayouts[i],
         minOrderValue: itemMinOrder,
         validFrom: itemValidFrom,
         affiliateLink: itemAffiliate,
@@ -645,10 +717,10 @@ const handleCouponSubmission = async (req, res) => {
       });
     }
 
-    // What the seller will be paid for this batch: each coupon pays the price
-    // the seller set on it.
-    const offerTotal = submitted.reduce((sum, c) => sum + Number(c.sellingPrice || 0), 0);
-    const offer = `₹${offerTotal}`;
+    // What the seller will be paid for this batch is the 7% payout of each
+    // coupon — not the marketplace sellingPrice.
+    const offerTotal = submitted.reduce((sum, c) => sum + (Number(c.sellerPayout) || 0), 0);
+    const offer = `₹${formatRupees(offerTotal) ?? '0'}`;
     res.status(201).json({
       message: submitted.length === 1
         ? `Coupon submitted successfully! You will receive ${offer} once it is verified and sold.`
@@ -659,9 +731,18 @@ const handleCouponSubmission = async (req, res) => {
         category: submitted[0].category,
         brand: submitted[0].brand,
         status: submitted[0].status,
+        ...couponPayoutInfo(submitted[0]),
+        sellerPayout: submitted[0].sellerPayout,
         offerAmount: offer,
       },
-      coupons: submitted.map((c) => ({ id: c.id, code: c.code, brand: c.brand, status: c.status })),
+      coupons: submitted.map((c) => ({
+        id: c.id,
+        code: c.code,
+        brand: c.brand,
+        status: c.status,
+        ...couponPayoutInfo(c),
+        sellerPayout: c.sellerPayout,
+      })),
       submitted: submitted.length,
       skipped,
       offerAmount: offer,
@@ -722,7 +803,17 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
     try {
       const { createAutoPayout } = require('./payouts');
       await createAutoPayout({
-        coupon: { id: coupon.id, code: coupon.code, brand: coupon.brand, sellingPrice: coupon.sellingPrice },
+        // Carry the authoritative face value and its 7% payout alongside the
+        // untouched marketplace sellingPrice, so the payout resolver never has
+        // to fall back to a price the seller did not agree to.
+        coupon: {
+          id: coupon.id,
+          code: coupon.code,
+          brand: coupon.brand,
+          sellingPrice: coupon.sellingPrice,
+          originalValue: coupon.originalValue,
+          sellerPayout: coupon.sellerPayout,
+        },
         sellerEmail: coupon.sellerEmail,
         sellerUserId: coupon.sellerUserId,
       });
@@ -761,30 +852,42 @@ router.get('/my-sales', authenticateToken, async (req, res) => {
       coupons = await db.findRows(db.SHEETS.COUPONS, 'sellerEmail', req.user.email);
     }
 
-    const amountOf = (v) => {
-      const n = Number(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
-      return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
-    };
-
     res.json({
-      coupons: coupons.map((c) => ({
-        id: c.id,
-        code: c.code,
-        category: c.category,
-        brand: c.brand,
-        title: c.title,
-        description: c.description,
-        discount: c.discount,
-        originalValue: c.originalValue,
-        sellingPrice: c.sellingPrice,
-        expiryDate: c.expiryDate,
-        status: c.status,
-        addedAt: c.addedAt,
-        soldAt: c.soldAt,
-        buyerEmail: c.buyerEmail,
-        // A sold coupon pays the seller the price they set on it — no flat rate.
-        earning: c.status === 'sold' ? `₹${amountOf(c.sellingPrice)}` : '—',
-      })),
+      coupons: coupons.map((c) => {
+        // The authoritative payout is always the recomputed 7% of the face
+        // value, never the (possibly stale) stored value. payoutVerified tells
+        // the dashboard whether what is stored agrees with the formula — that
+        // is a useful signal without it ever changing the number sent back.
+        const info = couponPayoutInfo(c);
+        const payout = payoutAmountOf(c);
+        return {
+          id: c.id,
+          code: c.code,
+          category: c.category,
+          brand: c.brand,
+          title: c.title,
+          description: c.description,
+          discount: c.discount,
+          originalValue: c.originalValue,
+          sellingPrice: c.sellingPrice,
+          expiryDate: c.expiryDate,
+          status: c.status,
+          addedAt: c.addedAt,
+          soldAt: c.soldAt,
+          buyerEmail: c.buyerEmail,
+          // Computed payout info (faceValue, payoutRate, payoutEligible, …).
+          ...info,
+          // Always the canonical server-computed value (or null when not
+          // eligible). Dashboard and chatbot read this number directly.
+          sellerPayout: payout,
+          // What is actually saved on the row (may be null for legacy admin
+          // coupons). Lets a stale stored value be spotted without altering
+          // what the dashboard displays.
+          sellerPayoutStored: c.sellerPayout === undefined ? null : c.sellerPayout,
+          // A sold coupon earns the seller its 7% payout, not the sellingPrice.
+          earning: c.status === 'sold' && payout !== null ? `₹${formatRupees(payout)}` : '—',
+        };
+      }),
     });
   } catch (err) {
     console.error('My sales error:', err);
@@ -904,6 +1007,10 @@ router.get('/:id', async (req, res) => {
         expiryDate: defaultExpiry(coupon.expiryDate, coupon.addedAt),
         onSale: coupon.onSale !== false,
         timerOn: coupon.timerOn !== false,
+        // Seller payout info (7% of face value); out-of-range admin coupons
+        // report payoutEligible false rather than being hidden.
+        ...couponPayoutInfo(coupon),
+        sellerPayout: coupon.sellerPayout === undefined ? null : coupon.sellerPayout,
         // Lets checkout say "Sold out" instead of quietly taking a payment for
         // a coupon that is no longer available.
         status: coupon.status,

@@ -245,12 +245,22 @@ router.post('/verify', authenticateToken, async (req, res) => {
       await db.updateRow(db.SHEETS.COUPONS, 'id', couponId, updates);
     } catch (e) {}
 
-    // Best-effort auto-payout for the seller, for the price they set on this
-    // coupon (createAutoPayout falls back to a sheet lookup if it's missing).
+    // Best-effort auto-payout for the seller — the payout amount is the 7% of
+    // the coupon's face value, derived inside createAutoPayout. We pass the
+    // authoritative face value (originalValue) plus the stored payout so the
+    // ledger never has to look it up.
     try {
       const { createAutoPayout } = require('./payouts');
       await createAutoPayout({
-        coupon: { id: coupon.id, code: coupon.code, brand: coupon.brand, sellingPrice: coupon.sellingPrice },
+        coupon: {
+          id: coupon.id,
+          code: coupon.code,
+          brand: coupon.brand,
+          originalValue: coupon.originalValue,
+          sellerPayout: coupon.sellerPayout,
+          // sellingPrice is intentionally NOT passed — the payout flow never
+          // reads it; passing it would only add noise.
+        },
         sellerEmail: coupon.sellerEmail,
         sellerUserId: coupon.sellerUserId,
       });

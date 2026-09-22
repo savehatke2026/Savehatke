@@ -2,9 +2,16 @@
 // SaveHatke — Payouts Routes
 // ============================================
 // Admin pays sellers when their coupons are sold.
-// A seller earns the price they set on each coupon that sells — there is no
-// flat per-coupon rate. The platform tracks payouts in a dedicated Google Sheet
-// tab (Payouts) and exposes admin and seller-facing endpoints.
+//
+// Seller payout rule (single source of truth): every payout equals 7% of the
+// coupon's face value (`originalValue`), rounded to the paise. There is no flat
+// fallback, no tiered rate, and no read of `sellingPrice` — the marketplace
+// selling price is a separate value and never feeds the payout. The arithmetic
+// lives in services/sellerPayout.js; this route only ever asks it for the
+// number, never recomputes it.
+//
+// The platform tracks payouts in a dedicated Google Sheet tab (Payouts) and
+// exposes admin and seller-facing endpoints.
 //
 // Where the money goes is stored once per seller in the SellerPayoutDetails tab
 // and copied onto a Payouts row when a request is made — a coupon row never
@@ -23,44 +30,49 @@ const emailService = require('../services/emailService');
 // A payout QR is an image upload, so it goes through the same content sniffing the
 // support screenshots use rather than trusting the browser's content type.
 const { sniffImage, looksComplete } = require('../utils/imageSniff');
+// The single seller-payout formula. We import the service module rather than
+// reinventing the 7% rule here so the auto-payout can never drift away from
+// what the submission flow stored on the coupon.
+const sellerPayout = require('../services/sellerPayout');
 
 const router = express.Router();
 
 // ── Seller payout amount ─────────────────────────────────────────────────
-// A seller is paid the price THEY set for the coupon — the `sellingPrice`
-// captured on the Sell page and shown back to them before they submit. There is
-// deliberately no flat fallback: an unresolvable price must stop the payout and
-// shout, rather than quietly pay a figure the seller never agreed to. This is
-// real money leaving the account, so "no answer" beats a wrong answer.
-const PAYOUT_PRICING_MODEL = 'per-coupon';
-
-/** Coerce anything ("₹1,200", "1200.4", 1200) to a positive whole rupee amount. */
-function parseAmount(value) {
-  const n = Number(String(value == null ? '' : value).replace(/[^0-9.]/g, ''));
-  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
-}
+// SELLER PAYOUT = 7% OF COUPON FACE VALUE. Period. Marketplace `sellingPrice`
+// is never an input. The face value comes from the coupon's own field, with
+// Supabase / Sheets as fallbacks for callers that pass a trimmed object.
+const PAYOUT_PRICING_MODEL = 'face-value-7-percent';
 
 /**
  * Resolve what a sold coupon owes its seller.
+ * Always returns the 7% payout of the face value, or { ok: false } when the
+ * face value is missing, out-of-range, or unreadable.
+ *
  * @returns {{ok: true, amount: number, source: 'coupon'|'supabase'|'sheet'}|{ok: false, reason: string}}
  */
 async function resolveCouponPayoutAmount(coupon) {
   // 1. Both call sites already hold the full coupon row; prefer it.
-  const direct = parseAmount(coupon && coupon.sellingPrice);
-  if (direct) return { ok: true, amount: direct, source: 'coupon' };
+  const direct = coupon && sellerPayout.faceValueOf(coupon);
+  if (direct !== undefined && direct !== null && String(direct).trim() !== '') {
+    const amount = tryCompute7Percent(direct);
+    if (amount !== null) return { ok: true, amount, source: 'coupon' };
+  }
 
   // 2. Both call sites pass a trimmed object (id/code/brand only), so fall back
   //    to reading the coupon back. Supabase is the primary store and the Sheets
   //    tab is a mirror, so try Supabase first — a coupon that only ever lived in
   //    Supabase would otherwise look priceless and silently skip its payout.
   const id = coupon && coupon.id;
-  if (!id) return { ok: false, reason: 'Coupon has neither an id nor a selling price.' };
+  if (!id) return { ok: false, reason: 'Coupon has neither an id nor a face value.' };
 
   if (supabase.isConfigured()) {
     try {
       const row = await supabase.findCouponById(id);
-      const fromSupabase = parseAmount(row && row.sellingPrice);
-      if (fromSupabase) return { ok: true, amount: fromSupabase, source: 'supabase' };
+      const face = row && sellerPayout.faceValueOf(row);
+      if (face !== undefined && face !== null && String(face).trim() !== '') {
+        const amount = tryCompute7Percent(face);
+        if (amount !== null) return { ok: true, amount, source: 'supabase' };
+      }
     } catch (e) {
       // Fall through to the Sheets mirror rather than giving up.
     }
@@ -68,12 +80,29 @@ async function resolveCouponPayoutAmount(coupon) {
 
   try {
     const row = await db.findRow(db.SHEETS.COUPONS, 'id', id);
-    const fromSheet = parseAmount(row && row.sellingPrice);
-    if (fromSheet) return { ok: true, amount: fromSheet, source: 'sheet' };
+    const face = row && sellerPayout.faceValueOf(row);
+    if (face !== undefined && face !== null && String(face).trim() !== '') {
+      const amount = tryCompute7Percent(face);
+      if (amount !== null) return { ok: true, amount, source: 'sheet' };
+    }
   } catch (e) {
     return { ok: false, reason: `Coupon price lookup failed: ${e.message}` };
   }
-  return { ok: false, reason: `Coupon ${id} has no usable selling price.` };
+  return { ok: false, reason: `Coupon ${id} has no face value eligible for a payout (must be ₹100–₹10,000).` };
+}
+
+// Wraps the sellerPayout service so callers only see "an integer rupee" or
+// "no answer". Returning null on invalid face values lets the caller fall
+// through to the next source without a try/catch.
+function tryCompute7Percent(faceValue) {
+  try {
+    const rupees = sellerPayout.calculateSellerPayout(faceValue);
+    // sellerPayout returns a paise-precise decimal (e.g. 7.04). The Payouts
+    // ledger stores integer rupees, so round to the nearest rupee.
+    return Math.round(rupees);
+  } catch (e) {
+    return null;
+  }
 }
 
 // Length caps for a stored payout destination — identical to the caps the payout

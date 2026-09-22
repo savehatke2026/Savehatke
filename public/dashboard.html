@@ -3130,14 +3130,30 @@
     const activeListings = sales.filter(isAvailable).length;
     const totalPurchased = purchases.length;
 
-    // Earnings: a sold coupon pays the seller the price THEY set on it — there
-    // is no flat per-coupon rate. This mirrors createAutoPayout on the server,
-    // which credits the coupon's own sellingPrice, so the dashboard and the
-    // payout ledger agree.
+    // Earnings: a sold coupon pays the seller 7% of its FACE VALUE — never the
+    // marketplace sellingPrice. This mirrors server/services/sellerPayout.js
+    // exactly, and mirrors createAutoPayout in server/routes/payouts.js which
+    // now resolves the payout from the coupon's originalValue. The server is
+    // the only authority on the payout amount; the dashboard only displays it.
+    //
+    // The my-sales endpoint returns the server-computed payout on every row
+    // (see server/routes/coupons.js — `sellerPayout` numeric field plus the
+    // `couponPayoutInfo` spread with payoutEligible). We always use that value
+    // and never recompute from sellingPrice.
     const priceOf = (c) => {
-      const raw = c && (c.sellerEarning != null && c.sellerEarning !== '' ? c.sellerEarning : c.sellingPrice);
-      const n = Number(String(raw == null ? '' : raw).replace(/[^0-9.]/g, ''));
-      return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+      if (!c) return 0;
+      // 1. Prefer the server-computed payout amount (7% of face value).
+      const serverPayout = Number(c.sellerPayout);
+      if (Number.isFinite(serverPayout) && serverPayout > 0) return Math.round(serverPayout);
+      // 2. Fall back to a client-side mirror of the same formula — paise-precise
+      //    so a 7.04 payout doesn't silently round to 7. The client never
+      //    decides the payout; this is purely so the dashboard renders
+      //    something useful while the server response is in flight.
+      const face = Number(c.originalValue);
+      if (Number.isFinite(face) && face >= 100 && face <= 10000) {
+        return Math.round(face * 7) / 100;
+      }
+      return 0;
     };
     const totalEarnings = sales.filter(isSold).reduce((s, c) => s + priceOf(c), 0);
     const pendingEarnings = sales.filter(isPending).reduce((s, c) => s + priceOf(c), 0);

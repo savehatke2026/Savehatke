@@ -16,8 +16,99 @@ const googleDrive = require('../services/googleDrive');
 // Payout withholding and the seller status vocabulary live with the Payouts tab,
 // so the invalidate action below reuses them instead of restating the rules.
 const payouts = require('./payouts');
+// The single seller-payout formula (7% of face value, rounded to the paise).
+// Admin writes never trust a client-supplied payout — it is always derived here.
+const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerPayout');
 
 const router = express.Router();
+
+// ── Seller payout helpers (admin) ────────────────────────────────────────
+// Every payout field a client might send. They are dropped from every admin
+// write so a raw request body can never set its own payout.
+const PAYOUT_BODY_KEYS = [
+  'sellerPayout', 'seller_payout', 'payout_amount', 'payoutAmount',
+  'payoutStatus', 'payout_status', 'payout',
+];
+
+function stripPayoutFields(body) {
+  const out = {};
+  Object.entries(body || {}).forEach(([k, v]) => {
+    if (PAYOUT_BODY_KEYS.includes(k)) return;
+    out[k] = v;
+  });
+  return out;
+}
+
+// Face value from any accepted alias. `??`-style precedence (never `||`) so a
+// 0 or '' is treated as a real answer to validate, not a missing value.
+function faceValueFromBody(body) {
+  for (const k of ['originalValue', 'original_value', 'faceValue', 'face_value']) {
+    if (body && body[k] !== undefined && body[k] !== null) return body[k];
+  }
+  return undefined;
+}
+
+function hasFaceValue(faceValue) {
+  return faceValue !== undefined && faceValue !== null && String(faceValue).trim() !== '';
+}
+
+// 7% of the face value, or null when it is not a valid seller face value.
+// Admin marketplace coupons may legitimately sit outside ₹100–₹10,000: they
+// stay usable and simply report no payout.
+function payoutForFaceValue(faceValue) {
+  if (!hasFaceValue(faceValue)) return null;
+  try {
+    return calculateSellerPayout(faceValue);
+  } catch (e) {
+    return null;
+  }
+}
+
+function isValidSellerFaceValue(faceValue) {
+  if (!hasFaceValue(faceValue)) return false;
+  try {
+    calculateSellerPayout(faceValue);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function isSellerCoupon(coupon) {
+  return String((coupon && coupon.source) || '').toLowerCase() === 'user-submitted';
+}
+
+// Existing Payouts rows indexed by the coupon they came from, so each coupon
+// can show its payout status without an N+1 read. A failed read behaves as "no
+// payouts", which is the safe direction for the lock checks below.
+async function payoutsByCouponId() {
+  const map = new Map();
+  try {
+    const rows = await db.getRows(db.SHEETS.PAYOUTS);
+    for (const p of rows || []) {
+      const key = String((p && p.sourceCouponId) || '');
+      if (key && !map.has(key)) map.set(key, p);
+    }
+  } catch (e) {
+    console.warn('[admin] Payouts read notice:', e.message);
+  }
+  return map;
+}
+
+function payoutSummary(coupon, payout) {
+  // The canonical sellerPayout is always the server-computed 7% of the face
+  // value (never the marketplace sellingPrice, never the stored value). The
+  // stored value is also returned so a discrepancy is visible — admin can see
+  // the row's stored payout next to the formula-correct one.
+  const info = couponPayoutInfo(coupon);
+  return {
+    ...info,
+    sellerPayout: info.payoutEligible ? info.sellerPayout : null,
+    sellerPayoutStored: coupon && coupon.sellerPayout !== undefined ? coupon.sellerPayout : null,
+    payoutStatus: payout ? String(payout.status || 'pending') : '',
+    payoutAmount: payout ? Number(payout.amount || 0) : null,
+  };
+}
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
 
@@ -282,12 +373,16 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
       .filter((c) => c.status === 'sold')
       .reduce((sum, c) => sum + Number(c.sellingPrice || 0), 0);
 
-    // Calculate costs: a sold user-submitted coupon pays the seller the price
-    // they set on that coupon, so the cost is that coupon's own sellingPrice —
-    // not a flat per-coupon fee.
+    // Calculate costs: a sold user-submitted coupon owes the seller its 7%
+    // payout of the coupon's face value — NOT the marketplace sellingPrice.
+    // couponPayoutInfo derives the payout from the authoritative face value, so
+    // a stale stored payout cannot understate or overstate the cost.
     const costs = allCoupons
       .filter((c) => c.status === 'sold' && c.source === 'user-submitted')
-      .reduce((sum, c) => sum + Number(c.sellingPrice || 0), 0);
+      .reduce((sum, c) => {
+        const info = couponPayoutInfo(c);
+        return sum + (info.payoutEligible && Number.isFinite(info.sellerPayout) ? info.sellerPayout : 0);
+      }, 0);
 
     let totalTracked = 0;
     let totalTickets = 0;
@@ -337,7 +432,6 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       title,
       type,
       description,
-      originalValue,
       discount,
       minOrderValue,
       validFrom,
@@ -361,6 +455,12 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
 
     const cleanCode = code.toUpperCase().trim();
     const sellerEmail = req.user?.email || 'admin@savehatke.com';
+
+    // Face value from any accepted alias; the seller payout is always derived
+    // from it here. An admin marketplace coupon may sit outside the ₹100–₹10,000
+    // seller range — it stays usable and simply carries a null payout. Any
+    // sellerPayout / seller_payout / payout_amount in the body is ignored.
+    const faceValue = faceValueFromBody(req.body) ?? discount ?? '0';
 
     // Check for duplicate code in Supabase & Sheets
     let existing = null;
@@ -387,7 +487,8 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
       brand: brand.trim(),
       description: title || description || discount || '',
       discount: discount ? discount.trim() : '',
-      originalValue: originalValue || discount || '0',
+      originalValue: String(faceValue),
+      sellerPayout: payoutForFaceValue(faceValue),
       sellingPrice: sellingPrice || '15',
       minOrderValue: minOrderValue || '',
       validFrom: validFrom || '',
@@ -513,7 +614,12 @@ router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
     // Newest first, so a fresh submission sits at the top of the pending queue.
     merged.sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
 
-    res.json({ coupons: merged, total: merged.length });
+    // Attach the derived payout info and the payout's current status (joined
+    // from the existing Payouts tab by sourceCouponId) to every coupon.
+    const payoutMap = await payoutsByCouponId();
+    const withPayout = merged.map((c) => payoutSummary(c, payoutMap.get(String(c.id)) || null));
+
+    res.json({ coupons: withPayout, total: withPayout.length });
   } catch (err) {
     console.error('Admin list coupons error:', err);
     res.status(500).json({ error: 'Internal server error.' });
@@ -521,10 +627,108 @@ router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // PUT /api/admin/coupons/:id — Update coupon (approve/edit)
+//
+// This is also the inline "status update" route the Coupon Management toggles
+// use. It used to forward the raw request body straight to the stores, which
+// let a caller write any column — including a payout. The body is now
+// whitelisted, payout fields are dropped outright, and the seller payout is
+// always recomputed from the authoritative face value.
 router.put('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const updates = req.body;
+    const body = req.body || {};
+
+    // Load the current coupon first: a face-value or seller change is only
+    // allowed while the coupon has not been sold / paid, and the payout must be
+    // recomputed from the face value that will actually be stored.
+    let coupon = null;
+    if (supabase.isConfigured()) {
+      try { coupon = await supabase.findCouponById(id); } catch (e) {}
+    }
+    if (!coupon) {
+      try { coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id); } catch (e) {}
+    }
+    if (!coupon) {
+      return res.status(404).json({ error: 'Coupon not found.' });
+    }
+
+    // Payout fields are never taken from the client.
+    const safe = stripPayoutFields(body);
+
+    const updates = {};
+    const COPYABLE = [
+      'code', 'brand', 'category', 'title', 'description', 'type', 'discount',
+      'sellingPrice', 'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
+      'terms', 'status', 'onSale', 'timerOn', 'backgroundImage', 'isFeatured',
+      'isExclusive', 'isVerified', 'adminNotes', 'proofUrl', 'soldAt', 'buyerEmail',
+    ];
+    for (const key of COPYABLE) {
+      if (safe[key] !== undefined) updates[key] = safe[key];
+    }
+
+    const sold = String(coupon.status || '').toLowerCase() === 'sold';
+    const payoutMap = await payoutsByCouponId();
+    const hasPayout = payoutMap.has(String(coupon.id));
+
+    // Seller identity can never be reassigned once money is in play.
+    const sellerChangeRequested =
+      (safe.sellerEmail !== undefined && String(safe.sellerEmail) !== String(coupon.sellerEmail || '')) ||
+      (safe.sellerUserId !== undefined && String(safe.sellerUserId) !== String(coupon.sellerUserId || ''));
+
+    if (sellerChangeRequested && (sold || hasPayout)) {
+      return res.status(409).json({
+        error: 'The seller cannot be changed after the coupon has been sold or a payout exists.',
+        code: 'COUPON_SELLER_LOCKED',
+      });
+    }
+    if (sellerChangeRequested) {
+      updates.sellerEmail = String(safe.sellerEmail || '').trim();
+      updates.sellerUserId = String(safe.sellerUserId || '');
+    }
+
+    const rawFace = faceValueFromBody(body);
+    const faceProvided = rawFace !== undefined;
+    const newFaceText = faceProvided ? String(rawFace).trim() : '';
+    const oldFaceText = String(coupon.originalValue == null ? '' : coupon.originalValue).trim();
+    const faceChanged = faceProvided && newFaceText !== oldFaceText;
+
+    if (faceChanged && (sold || hasPayout)) {
+      return res.status(409).json({
+        error: 'The face value cannot be changed after the coupon has been sold or a payout exists.',
+        code: 'COUPON_FACE_LOCKED',
+      });
+    }
+
+    const approving = String(updates.status || '').toLowerCase() === 'available';
+    const sellerCoupon = isSellerCoupon(coupon);
+
+    if (faceProvided) {
+      // A seller's coupon must keep a valid seller face value; an admin
+      // marketplace coupon may sit outside the range and stay usable.
+      if ((sellerCoupon || approving) && !isValidSellerFaceValue(newFaceText)) {
+        return res.status(400).json({
+          error: 'Face value must be between ₹100 and ₹10,000 to keep or approve a seller coupon.',
+          code: 'INVALID_FACE_VALUE',
+        });
+      }
+      updates.originalValue = newFaceText;
+      // Recompute the payout from the new face value; never trust a stored one.
+      updates.sellerPayout = payoutForFaceValue(newFaceText);
+    } else if (approving && sellerCoupon) {
+      // Approving a legacy seller coupon: refuse an invalid face value, and make
+      // sure the stored payout matches the face value before it goes live.
+      if (!isValidSellerFaceValue(coupon.originalValue)) {
+        return res.status(400).json({
+          error: 'This coupon has an invalid face value and cannot be approved.',
+          code: 'INVALID_FACE_VALUE',
+        });
+      }
+      updates.sellerPayout = calculateSellerPayout(coupon.originalValue);
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.json({ message: 'Nothing to update.', coupon });
+    }
 
     let updated = null;
     let supabaseError = null;
@@ -622,8 +826,11 @@ router.get('/coupons/:id/review', authenticateToken, requireAdmin, async (req, r
       }
     }
 
+    const payoutMap = await payoutsByCouponId();
+    const payout = payoutMap.get(String(coupon.id)) || null;
+
     res.json({
-      coupon,
+      coupon: payoutSummary(coupon, payout),
       duplicateCheck: {
         isDuplicate: !!duplicate,
         duplicateId: duplicate ? duplicate.id : null,
@@ -679,8 +886,20 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, async
       adminNotes: String(notes || '').trim().slice(0, 500),
     };
     if (action === 'approve') {
+      // A seller coupon cannot go live with a face value outside ₹100–₹10,000,
+      // and its payout must be the 7% of that face value — never a stored or
+      // client-supplied figure.
+      if (isSellerCoupon(coupon) && !isValidSellerFaceValue(coupon.originalValue)) {
+        return res.status(400).json({
+          error: 'This coupon has an invalid face value and cannot be approved. Correct the face value or reject it.',
+          code: 'INVALID_FACE_VALUE',
+        });
+      }
       updates.isVerified = true;
       updates.verifiedAt = now;
+      if (isSellerCoupon(coupon)) {
+        updates.sellerPayout = calculateSellerPayout(coupon.originalValue);
+      }
     }
 
     let saved = false;
