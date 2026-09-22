@@ -140,7 +140,7 @@ t(dec.price === 19.90 && dec.purchasable === true,
 console.log('\n═══ §8 — Server-side authority: payment routes recompute the price ═══');
 // Read the actual server source files and confirm the recompute + ignore.
 const paymentSrc = fs.readFileSync(path.join(ROOT, 'server/routes/payment.js'), 'utf8');
-const paymentsSrc = fs.readFileSync(path.join(ROOT, 'server/routes/payments.js'), 'utf8');
+const paymentsSrc = fs.readFileSync(path.join(ROOT, 'server/routes/payment.js'), 'utf8');
 const couponsSrc = fs.readFileSync(path.join(ROOT, 'server/routes/coupons.js'), 'utf8');
 
 t(/dynamicPricing\.getBuyerPrice\(coupon\)/.test(paymentSrc),
@@ -149,13 +149,11 @@ t(!/source\s*===\s*'admin'/.test(paymentSrc.split('evaluateCoupon')[1] || paymen
   'payment.js evaluateCoupon() does NOT branch pricing on source');
 
 t(/dynamicPricing\.getBuyerPrice\(coupon\)/.test(paymentsSrc),
-  'payments.js create-order recomputes the price via getBuyerPrice()');
-t(/dynamicPricing\.getBuyerPrice\(coupon\)/.test(paymentsSrc.split('/verify')[1] || ''),
-  'payments.js /verify path recomputes the price before marking the coupon sold');
-t(!/coupon\.sellingPrice/.test(paymentsSrc.split('/create-order')[1].split('/verify')[0] || ''),
-  'payments.js /create-order does NOT use the stored sellingPrice for the price');
+  'payment.js (UPI) recomputes the price via getBuyerPrice()');
+t(!/coupon\.sellingPrice/.test(paymentsSrc.split('/create')[1].split('/verify')[0] || ''),
+  'payment.js (UPI) create path does NOT use the stored sellingPrice for the price');
 t(!/coupon\.sellingPrice/.test(paymentsSrc.split('/verify')[1] || ''),
-  'payments.js /verify does NOT use the stored sellingPrice for the price');
+  'payment.js (UPI) verify path does NOT use the stored sellingPrice for the price');
 
 t(/dynamicPricing\.getBuyerPrice\(c\)/.test(couponsSrc),
   'coupons.js listing endpoint recomputes the price per coupon');
@@ -216,8 +214,8 @@ t(/router\.get\('\/:id'/.test(couponsSrc),
   'GET /api/coupons/:id detail still exists');
 t(/router\.post\('\/buy\/:id'/.test(couponsSrc),
   'POST /api/coupons/buy/:id still exists');
-t(/router\.post\('\/create-order'/.test(paymentsSrc) && /router\.post\('\/verify'/.test(paymentsSrc),
-  'Razorpay order/verify endpoints still exist');
+t(/router\.post\('\/create'/.test(paymentsSrc) && /router\.post\('\/verify'/.test(paymentsSrc),
+  'UPI payment create / verify endpoints still exist');
 t(/evaluateCoupon/.test(paymentSrc),
   'payment.js evaluateCoupon() still exists and gates purchases');
 

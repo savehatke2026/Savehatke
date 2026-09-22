@@ -917,9 +917,9 @@ module.exports.payoutDetailsComplete = payoutDetailsComplete;
 // can see must go through the masked shape instead.
 module.exports.loadSellerPayoutDetails = loadSellerPayoutDetails;
 module.exports.createAutoPayout = async function createAutoPayout({ coupon, sellerEmail, sellerUserId }) {
-  // Called from /api/coupons/buy/:id (and the Razorpay verify path) when a
+  // Called from /api/coupons/buy/:id and the UPI payment-verify path when a
   // coupon transitions to 'sold'. Creates a pending payout to the seller for
-  // the price the seller set on that coupon. Idempotent per coupon id so a
+  // 7% of the coupon's verified face value. Idempotent per coupon id so a
   // second buy attempt for the same coupon won't double-pay.
   if (!coupon || !sellerEmail) return null;
   try {

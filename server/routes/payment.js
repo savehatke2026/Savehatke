@@ -1,8 +1,8 @@
 // ============================================
 // SaveHatke — Custom UPI Payment Routes
 // ============================================
-// Mounted at /api/payment (singular), separate from the Razorpay flow at
-// /api/payments so neither can disturb the other.
+// Mounted at /api/payment (singular). This is the only payment gateway on the
+// platform — all buyer payments flow through this custom UPI/QR module.
 //
 //   GET  /config    public feature flags for the checkout modal (no secrets)
 //   POST /create    start a payment for an amount (+ optional coupon) (auth)
@@ -835,7 +835,6 @@ const webhookHandler = async (req, res) => {
     const signature =
       req.headers['x-payment-signature'] ||
       req.headers['x-signature'] ||
-      req.headers['x-razorpay-signature'] ||
       req.headers['x-webhook-signature'] ||
       '';
 

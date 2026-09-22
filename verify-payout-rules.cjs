@@ -28,7 +28,7 @@ const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const couponsSrc    = read('server/routes/coupons.js');
 const payoutsSrc    = read('server/routes/payouts.js');
 const adminSrc      = read('server/routes/admin.js');
-const paymentsSrc   = read('server/routes/payments.js');
+const paymentsSrc   = read('server/routes/payment.js');
 const supabaseSrc   = read('server/services/supabase.js');
 const sellerPayoutSrc = read('server/services/sellerPayout.js');
 const sheetsSrc     = read('server/services/googleSheets.js');
@@ -235,8 +235,8 @@ t(/router\.post\('\/sell'/.test(couponsSrc) && /router\.post\('\/submit'/.test(c
   'POST /sell and /submit endpoints still exist');
 t(/router\.post\('\/buy\/:id'/.test(couponsSrc),
   'POST /buy/:id still exists');
-t(/router\.post\('\/create-order'/.test(paymentsSrc) && /router\.post\('\/verify'/.test(paymentsSrc),
-  'Razorpay order/verify endpoints still exist');
+t(/router\.post\('\/create'/.test(paymentsSrc) && /router\.post\('\/verify'/.test(paymentsSrc),
+  'UPI payment create / verify endpoints still exist');
 t(/SHEETS\.COUPONS/.test(couponsSrc) && /SHEETS\.PAYOUTS/.test(payoutsSrc),
   'Google Sheets mirror still in use (Coupons + Payouts)');
 t(/authenticateToken/.test(adminSrc) && /requireAdmin/.test(adminSrc),

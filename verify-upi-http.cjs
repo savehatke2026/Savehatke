@@ -89,7 +89,7 @@ const advise = (name, detail = '') => {
     const body = await res.json();
 
     check('responds 200', res.status === 200, String(res.status));
-    check('configured === true (the checkout will use UPI, not Razorpay)', body.configured === true, JSON.stringify(body.configured));
+    check('configured === true (the checkout will use UPI)', body.configured === true, JSON.stringify(body.configured));
     check('upiConfigured === true', body.upiConfigured === true);
     check('reports the configured payee name', body.payeeName === payee.payeeName, body.payeeName);
     check('reports the configured VPA', body.upiId === payee.upiId, body.upiId);

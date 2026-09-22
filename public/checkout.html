@@ -705,7 +705,7 @@
             <span id="payBtnText">🔒 Pay Securely</span>
           </button>
 
-          <div class="pay-secure-note">🔒 Secure payment powered by Razorpay</div>
+          <div class="pay-secure-note">🔒 Secure UPI payment</div>
         </div>
       </div>
 
@@ -900,26 +900,10 @@
      must resolve the same logo and count down to the same deadline, so both
      load this one file instead of keeping private copies. -->
 <script src="js/coupon-meta.js"></script>
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
-  // Dynamic Razorpay Configuration (filled in by /api/payments/config)
-  window.RAZORPAY_KEY_ID = '';
-  window.RAZORPAY_CONFIGURED = false;
+  // The only payment gateway on the platform is the custom UPI flow mounted
+  // at /api/payment. There is no hosted-checkout script to load here.
 
-  // Fetch the public Razorpay config from the server. The secret key is
-  // never exposed to the browser; the server creates orders and verifies
-  // signatures. If the server isn't configured yet, we fall back to a demo
-  // flow so the UI is still usable while you set up Razorpay.
-  async function loadRazorpayConfig() {
-    try {
-      const res = await fetch('/api/payments/config', { credentials: 'include' });
-      const data = await res.json();
-      window.RAZORPAY_KEY_ID = data.keyId || '';
-      window.RAZORPAY_CONFIGURED = !!data.configured;
-    } catch (e) {
-      console.warn('Could not load Razorpay config:', e);
-    }
-  }
 
   // Read URL parameters. These are only a first paint so the page never flashes
   // sample data — everything here is re-read from /api/coupons/:id below and
@@ -1197,12 +1181,8 @@
     paintCoupon();
     loadCouponFromServer();
 
-    // Pull the public Razorpay key + config flag from the server before doing
-    // anything else that depends on it.
-    await loadRazorpayConfig();
-
-    // Pull the UPI config too. Checkout uses the custom UPI flow when the
-    // server has it configured, and the Razorpay path otherwise.
+    // Load the UPI payment-gateway config. Checkout uses the custom UPI flow
+    // exclusively — there is no hosted-checkout fallback on the platform.
     await loadUpiConfig();
 
     // ── Auto-fill buyer details from the logged-in user ────────────────
@@ -1220,7 +1200,7 @@
         const el = document.getElementById(id);
         if (!el || !value) return;
         // Only auto-fill if the field is still empty (don't clobber user edits
-        // that happened during the loadRazorpayConfig await)
+        // that happened during the loadUpiConfig await)
         if (el.value && el.value.trim()) return;
         el.value = value;
         el.classList.add('prefilled');
@@ -1944,8 +1924,10 @@
   }
 
   // --- PAYMENT ENTRY POINT ---
-  // The existing button leads here. UPI is used when it is configured;
-  // otherwise the previous Razorpay/demo path runs unchanged.
+  // The Pay button leads here. Checkout uses the custom UPI flow exclusively —
+  // there is no hosted-checkout gateway on the platform, so a UPI config that
+  // has not yet been wired up by the operator surfaces a clear, immediate
+  // message instead of silently falling through to a different processor.
   async function initiatePayment() {
     if (typeof Auth === 'object' && !Auth.isLoggedIn()) {
       showToastLocal('Please log in to complete your purchase.', 'warning');
@@ -1984,221 +1966,43 @@
       return;
     }
 
-    // Prefer the custom UPI flow. If the server has no UPI configured, fall
-    // through to the existing Razorpay path so checkout keeps working.
-    if (upiConfigLoaded && window.UPI_CONFIG.configured) {
-      const payBtn = upiEl('payBtn');
-      const payBtnText = upiEl('payBtnText');
-      if (payBtn) payBtn.disabled = true;
-      if (payBtnText) payBtnText.innerHTML = '<div class="spinner"></div> Creating secure payment...';
-
-      // Resume an existing live window instead of minting a second one: a
-      // refresh or a reopened modal must not restart the countdown.
-      try {
-        const res = await fetch('/api/payment/active?coupon_id=' + encodeURIComponent(currentCoupon.id), {
-          credentials: 'include', headers: authHeaders(),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (data && data.already_paid) { applyPaymentState(data); if (payBtn) payBtn.disabled = false; return; }
-        if (data && data.status && data.status !== 'NONE') {
-          applyPaymentState(data);
-          openUpiBox();
-          if (data.status === 'PENDING') subscribeToPayment(data.payment_id);
-          if (payBtn) payBtn.disabled = false;
-          return;
-        }
-      } catch (e) {
-        // Nothing live (or a transient failure) — start a new one below.
-      }
-
-      await startUpiPayment();
+    // Custom UPI flow is the only payment path. Refuse rather than fall
+    // through to a different processor when the operator hasn't wired up
+    // UPI yet — silent payment-method switching would be worse than a
+    // clear error.
+    if (!upiConfigLoaded || !window.UPI_CONFIG || !window.UPI_CONFIG.configured) {
+      showToastLocal(
+        'UPI payments are not configured on the server yet. Please contact support to complete this purchase.',
+        'error'
+      );
       return;
     }
 
-    // ── Fallback: the original Razorpay / demo flow ──
-    await initiateRazorpayPayment();
-  }
+    const payBtn = upiEl('payBtn');
+    const payBtnText = upiEl('payBtnText');
+    if (payBtn) payBtn.disabled = true;
+    if (payBtnText) payBtnText.innerHTML = '<div class="spinner"></div> Creating secure payment...';
 
-  async function initiateRazorpayPayment() {
-    const payBtn = document.getElementById('payBtn');
-    const payBtnText = document.getElementById('payBtnText');
-    const resetBtn = () => {
-      payBtn.disabled = false;
-      payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
-    };
-
-    const name = document.getElementById('buyerName').value.trim();
-    const email = document.getElementById('buyerEmail').value.trim();
-    const phone = document.getElementById('buyerPhone').value.trim();
-
-    // Make sure the config is loaded (in case the user clicks before the
-    // /api/payments/config call resolved)
-    if (!window.RAZORPAY_KEY_ID) await loadRazorpayConfig();
-
-    payBtn.disabled = true;
-    payBtnText.innerHTML = '<div class="spinner"></div> Creating secure order...';
-
-    // 1) Ask the server to create a Razorpay order. The amount is computed
-    //    server-side from the coupon's sellingPrice, so the client can't
-    //    tamper with the price.
-    let orderInfo;
+    // Resume an existing live window instead of minting a second one: a
+    // refresh or a reopened modal must not restart the countdown.
     try {
-      const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : '';
-      const res = await fetch('/api/payments/create-order', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: 'Bearer ' + token } : {}),
-        },
-        body: JSON.stringify({ couponId: currentCoupon.id }),
+      const res = await fetch('/api/payment/active?coupon_id=' + encodeURIComponent(currentCoupon.id), {
+        credentials: 'include', headers: authHeaders(),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        resetBtn();
-        showToastLocal(data.error || 'Could not start payment. Please try again.', 'error');
+      if (data && data.already_paid) { applyPaymentState(data); if (payBtn) payBtn.disabled = false; return; }
+      if (data && data.status && data.status !== 'NONE') {
+        applyPaymentState(data);
+        openUpiBox();
+        if (data.status === 'PENDING') subscribeToPayment(data.payment_id);
+        if (payBtn) payBtn.disabled = false;
         return;
       }
-      orderInfo = data;
     } catch (e) {
-      resetBtn();
-      showToastLocal('Network error. Please try again.', 'error');
-      return;
+      // Nothing live (or a transient failure) — start a new one below.
     }
 
-    // If the server hasn't been configured with Razorpay keys yet, fall back
-    // to a local demo flow so the page is still testable.
-    if (!window.RAZORPAY_CONFIGURED || !orderInfo.orderId) {
-      payBtnText.innerHTML = '<div class="spinner"></div> Opening Demo Checkout...';
-      simulateDemoPayment(email);
-      return;
-    }
-
-    payBtnText.innerHTML = '<div class="spinner"></div> Opening Secure Razorpay Checkout...';
-
-    // 2) Open Razorpay's hosted checkout with the order_id from the server.
-    const options = {
-      key: window.RAZORPAY_KEY_ID,
-      amount: orderInfo.amount,
-      currency: orderInfo.currency || 'INR',
-      name: 'SaveHatke',
-      description: `${currentCoupon.brand} ${currentCoupon.title} Coupon`,
-      image: 'https://savehatke.vercel.app/images/logo.png',
-      order_id: orderInfo.orderId,
-      prefill: {
-        name: name,
-        email: email,
-        contact: '+91' + phone,
-      },
-      notes: {
-        coupon_id: currentCoupon.id,
-        // No coupon_code here: the browser does not have it before payment, and
-        // the code must not be copied into a third party's order notes.
-        brand: currentCoupon.brand,
-        selling_price: currentCoupon.price,
-      },
-      theme: {
-        color: '#00e676',
-        backdrop_color: 'rgba(6,13,31,0.9)',
-      },
-      modal: {
-        ondismiss: function () {
-          resetBtn();
-          showToastLocal('Payment window closed. You can try again anytime.', 'info');
-        },
-      },
-      handler: function (response) {
-        // 3) The user paid. Verify the signature on the server before
-        //    revealing the coupon code.
-        verifyPaymentAndFulfill(response, email, payBtnText, payBtn, totalPrice);
-      },
-    };
-
-    if (typeof Razorpay === 'undefined') {
-      resetBtn();
-      showToastLocal('Razorpay SDK failed to load. Please refresh and try again.', 'error');
-      return;
-    }
-
-    try {
-      const rzp = new Razorpay(options);
-      rzp.on('payment.failed', function (response) {
-        resetBtn();
-        showToastLocal('Payment failed: ' + (response?.error?.description || 'Please try again.'), 'error');
-      });
-      rzp.open();
-    } catch (e) {
-      console.error('Razorpay open error:', e);
-      resetBtn();
-      showToastLocal('Could not open payment window. Please try again.', 'error');
-    }
-  }
-
-  async function verifyPaymentAndFulfill(razorpayResponse, email, payBtnText, payBtn, totalPrice) {
-    const resetBtn = () => {
-      payBtn.disabled = false;
-      payBtnText.innerHTML = '🔒 Pay ₹' + totalPrice + ' Securely';
-    };
-    payBtnText.innerHTML = '<div class="spinner"></div> Verifying payment…';
-
-    try {
-      const token = (typeof Auth !== 'undefined' && Auth.getToken) ? Auth.getToken() : '';
-      const res = await fetch('/api/payments/verify', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: 'Bearer ' + token } : {}),
-        },
-        body: JSON.stringify({
-          razorpay_order_id: razorpayResponse.razorpay_order_id,
-          razorpay_payment_id: razorpayResponse.razorpay_payment_id,
-          razorpay_signature: razorpayResponse.razorpay_signature,
-          couponId: currentCoupon.id,
-        }),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data.success) {
-        resetBtn();
-        showToastLocal(
-          (data && data.error) ||
-            'Payment verification failed. If money was deducted, please contact support.',
-          'error'
-        );
-        return;
-      }
-
-      // Server confirmed the payment. Reveal the unlocked code (if the
-      // server returned it) and the success screen.
-      if (data.coupon && data.coupon.code) {
-        currentCoupon.code = data.coupon.code;
-        const codeEl = document.getElementById('revealedCode');
-        if (codeEl) codeEl.textContent = data.coupon.code;
-      }
-      if (data.coupon && data.coupon.brand) {
-        const brandEl = document.getElementById('succBrand');
-        if (brandEl) brandEl.textContent = data.coupon.brand;
-      }
-      document.getElementById('confirmEmail').textContent = email;
-      showSuccessScreen();
-    } catch (e) {
-      console.error('Verify error:', e);
-      resetBtn();
-      showToastLocal('Could not verify payment. Please contact support if money was deducted.', 'error');
-    }
-  }
-
-  function simulateDemoPayment(email) {
-    const payBtn = document.getElementById('payBtn');
-    const payBtnText = document.getElementById('payBtnText');
-    payBtn.disabled = true;
-    payBtnText.innerHTML = '<div class="spinner"></div> Processing Payment…';
-
-    setTimeout(() => {
-      document.getElementById('confirmEmail').textContent = email || document.getElementById('buyerEmail').value;
-      showSuccessScreen();
-    }, 1200);
+    await startUpiPayment();
   }
 
   function showSuccessScreen() {

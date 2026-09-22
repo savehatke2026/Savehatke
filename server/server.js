@@ -32,9 +32,8 @@ const payoutRoutes = require('./routes/payouts');
 const reviewRoutes = require('./routes/reviews');
 const testimonialRoutes = require('./routes/testimonials');
 const twoFactorRoutes = require('./routes/twoFactor');
-const paymentRoutes = require('./routes/payments');
-// Custom UPI checkout — a separate module from the Razorpay routes above, on
-// the singular path so neither flow can disturb the other.
+// Custom UPI checkout — the only payment gateway on the platform. Mounted at
+// /api/payment (singular) so it cannot collide with any future payment path.
 const upiPaymentRoutes = require('./routes/payment');
 // The UPI primitives are imported here as well as inside the route, so the
 // receiving VPA can be echoed (and any problem with it reported) at boot.
@@ -427,7 +426,6 @@ app.use('/api/reviews', apiLimiter, maintenanceGuard, reviewRoutes); // buyer re
 app.use('/api/testimonials', apiLimiter, testimonialRoutes); // homepage testimonials — public read, admin CRUD
 app.use('/api/chatbot', apiLimiter, chatbotAdminRoutes);
 app.use('/api/chat', maintenanceGuard, chatRoutes); // /api/chat applies its own service-level rate limits
-app.use('/api/payments', apiLimiter, maintenanceGuard, paymentRoutes); // Razorpay: /api/payments/{config,create-order,verify}
 // The gateway webhook is mounted BEFORE the guarded mount below, so it stays
 // reachable while the site is in maintenance: a confirmation that arrives
 // during a maintenance window must still be processed, or a paid order would
@@ -436,7 +434,6 @@ app.use('/api/payments', apiLimiter, maintenanceGuard, paymentRoutes); // Razorp
 // the maintenance guard and the general limiter here is safe.
 app.use('/api/payment/webhook', upiPaymentRoutes.webhookHandler);
 // Custom UPI checkout: /api/payment/{config,create,status,active,verify,cancel,stream}.
-// Singular path on purpose — it must not collide with the Razorpay routes above.
 app.use('/api/payment', apiLimiter, maintenanceGuard, upiPaymentRoutes);
 app.use('/api/proxy/drive', apiLimiter, maintenanceGuard, driveProxyRoutes); // Auth-protected Google Drive file streaming
 // Read-only view of the visitor's cookie consent. Mounted before the generic
