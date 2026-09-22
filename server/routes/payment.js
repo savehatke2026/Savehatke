@@ -35,6 +35,7 @@ const supabase = require('../services/supabase');
 const store = require('../services/paymentStore');
 const upi = require('../services/upi');
 const verifier = require('../services/paymentVerifier');
+const dynamicPricing = require('../services/dynamicPricing');
 
 const router = express.Router();
 
@@ -89,6 +90,18 @@ async function loadCoupon(couponId) {
 /**
  * Validate a coupon for purchase and return the server's rupee amount.
  * Returns { ok, amount } or { ok:false, code, error }.
+ *
+ * IMPORTANT: this is the SINGLE source of truth for the buyer price — admin
+ * and seller coupons share the exact same formula:
+ *
+ *   expired       →  COUPON_EXPIRED (not purchasable)
+ *   ≤24h left     →  price = face_value × 10%
+ *   otherwise     →  price = face_value × 20%
+ *
+ * The browser NEVER supplies the price; it is recomputed server-side from
+ * the coupon's stored face value and expiry timestamp at every order/create
+ * request, so a stale client cache or a hand-edited request body cannot
+ * change what the buyer pays.
  */
 function evaluateCoupon(coupon, { userId, userEmail }) {
   if (!coupon) {
@@ -105,15 +118,6 @@ function evaluateCoupon(coupon, { userId, userEmail }) {
     };
   }
 
-  // The coupon's own validity date is a hard gate: a payment must never be
-  // collected for an offer that has already ended.
-  if (coupon.expiryDate) {
-    const at = new Date(coupon.expiryDate).getTime();
-    if (Number.isFinite(at) && at <= Date.now()) {
-      return { ok: false, status: 409, code: 'COUPON_EXPIRED', error: 'This offer has ended.' };
-    }
-  }
-
   // A seller must not buy their own listing.
   const sellerEmail = String(coupon.sellerEmail || '').toLowerCase();
   const sellerUserId = String(coupon.sellerUserId || '');
@@ -124,12 +128,30 @@ function evaluateCoupon(coupon, { userId, userEmail }) {
     return { ok: false, status: 403, code: 'OWN_COUPON', error: 'You cannot buy your own coupon.' };
   }
 
-  // Authoritative price. The browser never supplies this.
-  const priced = upi.validateAmount(coupon.sellingPrice);
+  // ══════════════════════════════════════════════════════════════════════════
+  // AUTHORITATIVE PRICE CALCULATION — applies to BOTH admin and seller rows.
+  // The price is derived from the coupon's face value and expiry timestamp
+  // every time a buyer creates an order; nothing on the request body or in
+  // the coupon's stored sellingPrice can override it.
+  // ══════════════════════════════════════════════════════════════════════════
+  const priceInfo = dynamicPricing.getBuyerPrice(coupon);
+  if (!priceInfo.purchasable) {
+    // Either the face value was unparseable (no positive number on the row)
+    // or the coupon has already passed its expiry. Both are buyer-facing
+    // failures that map to 409 — the offer can no longer be bought.
+    return {
+      ok: false,
+      status: 409,
+      code: 'COUPON_EXPIRED',
+      error: priceInfo.expired
+        ? 'This offer has ended.'
+        : 'This coupon has an invalid price and cannot be purchased. Please contact support.',
+    };
+  }
+
+  // Validate the calculated price is within the UPI payment ceiling.
+  const priced = upi.validateAmount(String(priceInfo.price));
   if (!priced.ok) {
-    // Distinguish "the seller typed nonsense" from "this exceeds the payment
-    // ceiling". With PAYMENT_MAX_AMOUNT set, an over-ceiling listing is a real
-    // and fixable state, not a corrupt row, so it must not claim to be one.
     if (priced.code === 'AMOUNT_TOO_LARGE') {
       return {
         ok: false,
@@ -146,7 +168,7 @@ function evaluateCoupon(coupon, { userId, userEmail }) {
     };
   }
 
-  return { ok: true, amount: priced.amount };
+  return { ok: true, amount: priced.amount, rate: priceInfo.rate, bandLabel: priceInfo.bandLabel };
 }
 
 /**

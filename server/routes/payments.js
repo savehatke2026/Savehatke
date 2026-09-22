@@ -53,8 +53,11 @@ function getRazorpay() {
   return _razorpay;
 }
 
-// Coupon pricing — total is the coupon's selling price as listed, no
-// platform fee added on top. Keep in sync with public/checkout.html.
+// Coupon pricing — server-side only. The total charged to the buyer is the
+// 20% / 10% buyer price computed by services/dynamicPricing.js — the same
+// number the marketplace card and checkout already display. Nothing on the
+// request body or in the stored sellingPrice can override it.
+const dynamicPricing = require('../services/dynamicPricing');
 const PLATFORM_FEE = 0;
 
 function buildAmount(couponPrice) {
@@ -119,7 +122,18 @@ router.post('/create-order', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'You cannot buy your own coupon.' });
     }
 
-    const amount = buildAmount(coupon.sellingPrice);
+    // Server-authoritative price — 20% / 10% rule from face value + expiry.
+    // The stored sellingPrice is intentionally NOT read here; the buyer pays
+    // whatever the formula says at this instant.
+    const priceInfo = dynamicPricing.getBuyerPrice(coupon);
+    if (!priceInfo.purchasable) {
+      return res.status(400).json({
+        error: priceInfo.expired
+          ? 'This offer has ended.'
+          : 'This coupon has an invalid price and cannot be purchased.',
+      });
+    }
+    const amount = buildAmount(priceInfo.price);
     if (!amount) {
       return res.status(400).json({ error: 'Invalid coupon price.' });
     }
@@ -150,10 +164,17 @@ router.post('/create-order', authenticateToken, async (req, res) => {
         brand: coupon.brand,
         title: coupon.title,
         category: coupon.category,
-        sellingPrice: Number(coupon.sellingPrice),
+        // The buyer-visible price — always the formula, never the stored
+        // sellingPrice — so the checkout summary matches the marketplace card.
+        sellingPrice: priceInfo.price,
         originalValue: coupon.originalValue,
         minOrderValue: coupon.minOrderValue,
         expiryDate: coupon.expiryDate,
+      },
+      pricing: {
+        rate: priceInfo.rate,
+        bandLabel: priceInfo.bandLabel,
+        faceValue: priceInfo.faceValue,
       },
       platformFee: PLATFORM_FEE,
     });
@@ -206,7 +227,10 @@ router.post('/verify', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Invalid payment signature.' });
     }
 
-    // Signature is valid. Now look up the coupon and mark it sold.
+    // Signature is valid. Now look up the coupon, RE-VERIFY the price, and
+    // mark it sold. The price is recomputed from the coupon's face value and
+    // expiry timestamp at this moment, not from the request body or the
+    // stored sellingPrice — a malicious client cannot pay a different amount.
     let coupon = null;
     if (supabase.isConfigured()) {
       try {
@@ -226,6 +250,18 @@ router.post('/verify', authenticateToken, async (req, res) => {
       // surface a clear error so the client can trigger a manual refund path.
       return res.status(409).json({
         error: 'Payment received but coupon is no longer available. Please contact support for a refund.',
+        paymentId: razorpay_payment_id,
+      });
+    }
+
+    // Final price authority check — reject the order if the formula now says
+    // the coupon is unbuyable (expired mid-checkout, etc).
+    const finalPrice = dynamicPricing.getBuyerPrice(coupon);
+    if (!finalPrice.purchasable) {
+      return res.status(409).json({
+        error: finalPrice.expired
+          ? 'This offer has ended. Please contact support for a refund.'
+          : 'This coupon has an invalid price and cannot be purchased. Please contact support for a refund.',
         paymentId: razorpay_payment_id,
       });
     }
@@ -279,7 +315,7 @@ router.post('/verify', authenticateToken, async (req, res) => {
         brand: coupon.brand,
         description: coupon.description,
         originalValue: coupon.originalValue,
-        pricePaid: coupon.sellingPrice,
+        pricePaid: finalPrice.price,
         expiryDate: coupon.expiryDate,
       },
     });

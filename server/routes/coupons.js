@@ -14,6 +14,10 @@ const couponVision = require('../services/couponVision');
 // The single seller-payout formula (7% of face value, rounded to the paise).
 // Marketplace sellingPrice is never an input to it.
 const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerPayout');
+// The single buyer-price formula (20% / 10% of face value, depending on time
+// remaining). Applied uniformly to admin and seller coupons, never stored on
+// the coupon row — every read site computes it from originalValue + expiryDate.
+const dynamicPricing = require('../services/dynamicPricing');
 
 const router = express.Router();
 
@@ -130,38 +134,55 @@ router.get('/', optionalAuth, async (req, res) => {
     }
 
     // Don't expose actual coupon codes to non-buyers
-    const sanitized = available.map((c) => ({
-      id: c.id,
-      category: c.category,
-      brand: c.brand,
-      title: c.title || '',
-      description: c.description,
-      discount: c.discount || '',
-      originalValue: c.originalValue,
-      sellingPrice: c.sellingPrice,
-      source: c.source,
-      addedAt: c.addedAt,
-      // Expiry is not sensitive (the code itself is still withheld) and the
-      // marketplace cards render a live "expires in" countdown from it.
-      // Every coupon's timer starts at 2 weeks: when no explicit expiry is
-      // set we anchor 14 days to addedAt (or to now if addedAt is missing),
-      // so every coupon always shows a live countdown timer.
-      expiryDate: defaultExpiry(c.expiryDate, c.addedAt),
-      // Admin-controlled sale switch — gates the "🔥 Sale" badge on the card.
-      onSale: c.onSale !== false,
-      // Admin-controlled timer switch — when off the card hides the countdown
-      // even though expiryDate is still set.
-      timerOn: c.timerOn !== false,
-      // Per-coupon hero image for the card — each coupon can carry its own.
-      // Empty string means none is set; the card then falls back to the
-      // default SaveHatke background.
-      backgroundImage: c.backgroundImage || '',
-      // Seller payout info (7% of face value). An admin marketplace coupon
-      // outside ₹100–₹10,000 stays listed and simply reports payoutEligible
-      // false with a null payout — it is not removed or restricted.
-      ...couponPayoutInfo(c),
-      sellerPayout: c.sellerPayout === undefined ? null : c.sellerPayout,
-    }));
+    const sanitized = available.map((c) => {
+      // Buyer price — same rule for admin and seller coupons, recomputed
+      // here from originalValue + the coupon's real expiryDate. The stored
+      // sellingPrice is intentionally NOT echoed back as the buyer price;
+      // the formula is the only source of truth so the marketplace card and
+      // the checkout always agree.
+      const buyerPrice = dynamicPricing.getBuyerPrice(c);
+      return {
+        id: c.id,
+        category: c.category,
+        brand: c.brand,
+        title: c.title || '',
+        description: c.description,
+        discount: c.discount || '',
+        originalValue: c.originalValue,
+        // The buyer-facing price (computed). The marketplace card, the
+        // checkout modal, and the order summary all render this same number.
+        sellingPrice: buyerPrice.price,
+        // Pricing details so the UI can show the rate and a sensible caption.
+        pricingRate: buyerPrice.rate,
+        pricingBand: buyerPrice.bandLabel,
+        pricingPurchasable: buyerPrice.purchasable,
+        // The legacy stored value, kept for diagnostics only — never used
+        // for the buyer price.
+        storedSellingPrice: c.sellingPrice,
+        source: c.source,
+        addedAt: c.addedAt,
+        // Expiry is not sensitive (the code itself is still withheld) and the
+        // marketplace cards render a live "expires in" countdown from it.
+        // Every coupon's timer starts at 2 weeks: when no explicit expiry is
+        // set we anchor 14 days to addedAt (or to now if addedAt is missing),
+        // so every coupon always shows a live countdown timer.
+        expiryDate: defaultExpiry(c.expiryDate, c.addedAt),
+        // Admin-controlled sale switch — gates the "🔥 Sale" badge on the card.
+        onSale: c.onSale !== false,
+        // Admin-controlled timer switch — when off the card hides the countdown
+        // even though expiryDate is still set.
+        timerOn: c.timerOn !== false,
+        // Per-coupon hero image for the card — each coupon can carry its own.
+        // Empty string means none is set; the card then falls back to the
+        // default SaveHatke background.
+        backgroundImage: c.backgroundImage || '',
+        // Seller payout info (7% of face value). An admin marketplace coupon
+        // outside ₹100–₹10,000 stays listed and simply reports payoutEligible
+        // false with a null payout — it is not removed or restricted.
+        ...couponPayoutInfo(c),
+        sellerPayout: c.sellerPayout === undefined ? null : c.sellerPayout,
+      };
+    });
 
     res.json({ coupons: sanitized, total: sanitized.length });
   } catch (err) {
@@ -840,6 +861,11 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
       console.warn('Auto-payout on buy notice:', e.message);
     }
 
+    // Authoritative price for the order summary — recomputed server-side so
+    // the receipt and the marketplace card cannot disagree. The stored
+    // sellingPrice is intentionally not echoed back.
+    const paidPrice = dynamicPricing.getBuyerPrice(coupon);
+
     res.json({
       message: 'Coupon purchased successfully!',
       coupon: {
@@ -849,7 +875,9 @@ router.post('/buy/:id', authenticateToken, async (req, res) => {
         brand: coupon.brand,
         description: coupon.description,
         originalValue: coupon.originalValue,
-        pricePaid: coupon.sellingPrice,
+        pricePaid: paidPrice.price,
+        pricingRate: paidPrice.rate,
+        pricingBand: paidPrice.bandLabel,
       },
     });
   } catch (err) {
@@ -1022,6 +1050,12 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Coupon not found.' });
     }
 
+    // Single source of truth for the buyer price — same formula as the
+    // listing endpoint, applied to the canonical coupon row. Checkout reads
+    // `sellingPrice` off this response, so the modal and the order summary
+    // always show the same number the marketplace card showed a moment ago.
+    const buyerPrice = dynamicPricing.getBuyerPrice(coupon);
+
     res.json({
       coupon: {
         id: coupon.id,
@@ -1031,7 +1065,12 @@ router.get('/:id', async (req, res) => {
         description: coupon.description || '',
         discount: coupon.discount || '',
         originalValue: coupon.originalValue,
-        sellingPrice: coupon.sellingPrice,
+        // The buyer-facing price (computed). NOT the stored sellingPrice.
+        sellingPrice: buyerPrice.price,
+        pricingRate: buyerPrice.rate,
+        pricingBand: buyerPrice.bandLabel,
+        pricingPurchasable: buyerPrice.purchasable,
+        storedSellingPrice: coupon.sellingPrice,
         // Checkout shows these two and had no way to learn them before.
         minOrderValue: coupon.minOrderValue || '',
         terms: coupon.terms || '',
