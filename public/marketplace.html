@@ -289,6 +289,12 @@
        ticking" signal, no whole-pill flash, no blinking colons. The pill never
        adds height to the card: one line, small type, rounded ends. */
     .cexpiry { display:flex; align-items:center; justify-content:center; gap:7px; padding:5px 10px; border-radius:999px; border:1px solid transparent; }
+    /* Subtle breathing room around the countdown pill only: a small gap above
+       it (Price/Category → timer) and below it (timer → Buy button). Added on
+       top of the card body's 9px flex gap, so each of these two gaps reads at
+       ~12px. margin-bottom is used for the lower gap so the button keeps its
+       margin-top:auto bottom-alignment across the equal-height grid. */
+    .c-body > .cexpiry { margin-top:3px; margin-bottom:3px; }
     .cexp-head { display:flex; align-items:center; gap:5px; min-width:0; }
     .cexp-icon { width:12px; height:12px; flex-shrink:0; animation:cexpBreathe 2.4s ease-in-out infinite; }
     @keyframes cexpBreathe { 0%,100% { opacity:.95; } 50% { opacity:.42; } }
