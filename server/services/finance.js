@@ -608,6 +608,287 @@ async function getAdminPayoutStats() {
   };
 }
 
+// ============================================================================
+//  MONTHLY REPORT DATA BUILDER (Phase 2 — feeds the master PDF template)
+// ============================================================================
+// ONE prepared, real-data object for a selected month. Reuses the SAME model as
+// the admin dashboard/overview/settlement (current SaveHatke rules: seller = 7%
+// of coupon FACE VALUE; platform fee = settled − seller revenue; gateway/other
+// fees are NOT recorded → reported as ₹0, recorded:false — never invented).
+// READ-ONLY: builds nothing, writes nothing.
+async function buildMonthlyReportData(year, month) {
+  const win = monthWindowYM(year, month);
+  if (!win) throw new Error('Invalid year/month.');
+  const y = parseInt(year, 10); const m = parseInt(month, 10);
+  const prevWin = monthWindowYM(m === 1 ? y - 1 : y, m === 1 ? 12 : m - 1);
+
+  const [orders, couponsRaw, refunds, payouts, adminPayoutsRaw] = await Promise.all([
+    fetchOrders(), fetchCoupons(), fetchRefunds(), fetchPayouts(), fetchAdminPayouts(),
+  ]);
+  const coupons = couponsRaw.map(normCoupon);
+  const couponRawById = new Map(couponsRaw.map((c) => [String(c.id), c]));
+
+  const overview = computeOverviewFromData({ orders, coupons: couponsRaw, refunds, payouts, admins: adminEmails() }, win);
+  const prevOverview = computeOverviewFromData({ orders, coupons: couponsRaw, refunds, payouts, admins: adminEmails() }, prevWin);
+
+  // ── Buyer-side orders in the month, by status ──
+  const monthOrders = orders.filter((o) => inWindow(timeOf(o.created_at), win));
+  const byStatus = (arr, set) => arr.filter((o) => set.has(upper(o.status)));
+  const paidOrders = byStatus(monthOrders, new Set([PAID]));
+  const pendingOrders = byStatus(monthOrders, new Set([PENDING]));
+  const cancelledOrders = byStatus(monthOrders, new Set(['CANCELLED', 'EXPIRED']));
+  const sumAmt = (arr) => round2(arr.reduce((s, o) => s + num(o.amount), 0));
+
+  // Refunds in month
+  const monthRefunds = refunds.filter((r) => inWindow(timeOf(r.created_at), win));
+  const refundsDone = monthRefunds.filter((r) => lower(r.status) === REFUND_DONE);
+  const refundsOpen = monthRefunds.filter((r) => REFUND_OPEN.has(lower(r.status)));
+  const refundsRejected = monthRefunds.filter((r) => lower(r.status) === 'rejected');
+  const refundAmount = round2(refundsDone.reduce((s, r) => s + paiseToRupees(r.refund_amount), 0));
+
+  // Sold coupons (seller-side) in month
+  const soldCoupons = coupons.filter((c) => c.status === 'sold' && inWindow(c.soldAt, win));
+
+  // ── Settled (PAID) orders joined to coupons for seller/brand/category/top ──
+  const enriched = paidOrders.map((o) => {
+    const c = couponRawById.get(String(o.coupon_id)) || {};
+    const nc = normCoupon(c);
+    return {
+      amount: num(o.amount),
+      sellerEmail: nc.sellerEmail || '',
+      sellerRevenue: sellerRevenueForCoupon(nc),
+      brand: c.brand || o.coupon_brand || 'Unknown',
+      category: c.category || 'Uncategorised',
+      couponId: String(o.coupon_id || ''),
+      couponTitle: c.title || c.code || o.coupon_code || String(o.coupon_id || ''),
+      createdMs: timeOf(o.created_at),
+    };
+  });
+
+  const groupAgg = (rows, keyFn, labelFn) => {
+    const map = new Map();
+    for (const r of rows) {
+      const k = keyFn(r); if (!k) continue;
+      if (!map.has(k)) map.set(k, { key: k, label: labelFn ? labelFn(r) : k, count: 0, salesValue: 0, sellerRevenue: 0 });
+      const g = map.get(k); g.count += 1; g.salesValue += r.amount; g.sellerRevenue += r.sellerRevenue;
+    }
+    return [...map.values()].map((g) => ({ ...g, salesValue: round2(g.salesValue), sellerRevenue: round2(g.sellerRevenue) }))
+      .sort((a, b) => b.salesValue - a.salesValue);
+  };
+
+  const sellerGroups = groupAgg(enriched, (r) => r.sellerEmail || '');
+  const brandGroups = groupAgg(enriched, (r) => r.brand);
+  const categoryGroups = groupAgg(enriched, (r) => r.category);
+  const couponGroups = groupAgg(enriched, (r) => r.couponId, (r) => r.couponTitle)
+    .map((g) => {
+      const first = enriched.find((e) => e.couponId === g.key) || {};
+      return { ...g, brand: first.brand || '', category: first.category || '' };
+    });
+
+  // Seller payout ledger position (PAYOUTS)
+  const payoutBy = (set, win2) => sumSellerPayouts(payouts, set, win2);
+  const sellerPaid = payoutBy(new Set(['paid']), win);
+  const sellerProcessing = payoutBy(new Set(['processing']), win);
+  const sellerPending = payoutBy(new Set(['pending']), win);
+  const sellerRejected = payoutBy(new Set(['rejected']), win);
+  const sellerFailed = payoutBy(new Set(['failed']), win);
+  const sellerRevenueTotal = overview.sellerRevenue;
+
+  // Admin payout ledger (all statuses) in month
+  const adminLedger = adminPayoutsRaw.map(normAdminPayout);
+  const adminIn = adminLedger.filter((p) => inWindow(p._ms, win));
+  const adminBy = (st) => {
+    const rows = adminIn.filter((p) => p.status === st);
+    return { count: rows.length, amount: round2(rows.reduce((s, p) => s + p.amount, 0)) };
+  };
+  const admins = adminEmails();
+  const adminAlloc = overview.distribution;
+
+  // ── Weekly buckets (IST) ──
+  const weeks = [];
+  for (let ws = win.from, wi = 1; ws < win.to; ws += 7 * DAY_MS, wi++) {
+    const we = Math.min(ws + 7 * DAY_MS, win.to);
+    const w = { from: ws, to: we };
+    const wOrders = monthOrders.filter((o) => { const t = timeOf(o.created_at); return t != null && t >= ws && t < we; });
+    const wPaid = wOrders.filter((o) => upper(o.status) === PAID);
+    const wSold = soldCoupons.filter((c) => c.soldAt >= ws && c.soldAt < we);
+    const wSellerRev = round2(wSold.reduce((s, c) => s + sellerRevenueForCoupon(c), 0));
+    const wGross = round2(wOrders.reduce((s, o) => s + num(o.amount), 0));
+    const wPaidVal = round2(wPaid.reduce((s, o) => s + num(o.amount), 0));
+    weeks.push({
+      week: wi,
+      couponsSold: wSold.length,
+      couponsBought: wOrders.length,
+      transactions: wPaid.length,
+      grossSales: wGross,
+      sellerRevenue: wSellerRev,
+      netRevenue: round2(wPaidVal - wSellerRev),
+    });
+  }
+
+  const pct = (a, b) => (b > 0 ? round2((a / b) * 100) : 0);
+  const grossSales = overview.grossSales;
+  const completedTxns = paidOrders.length;
+
+  return {
+    period: { key: win.key, label: win.label, start: new Date(win.from).toISOString(), end: new Date(win.to - 1).toISOString() },
+    previousPeriod: { key: prevWin.key, label: prevWin.label },
+    reportRef: `SH/FIN/${win.key.replace('-', '/')}`,
+    generatedAt: new Date().toISOString(),
+    currencyBasis: 'INR ₹ · Settled marketplace ledger',
+    model: 'seller=7% face value; platform fee = settled − seller; gateway/other fees NOT recorded',
+
+    summary: {
+      grossSales, netRevenue: overview.netDistributableRevenue,
+      couponsSold: soldCoupons.length, couponsBought: monthOrders.length,
+      completedTransactions: completedTxns,
+      sellerRevenue: overview.sellerRevenue, sellerPayoutsPaid: sellerPaid.amount,
+      adminRevenue: round2(adminAlloc.admin1.amount + adminAlloc.admin2.amount),
+      adminPayoutsPaid: adminBy('paid').amount,
+      refundAmount, paymentGatewayFees: 0,
+      avgCouponSaleValue: soldCoupons.length ? round2(round2(soldCoupons.reduce((s, c) => s + c.sellingPrice, 0)) / soldCoupons.length) : 0,
+      reconciliationVariance: overview.reconciliation.distributionVariance,
+    },
+
+    revenue: {
+      grossSales,
+      pendingValue: overview.pendingValue, cancelledValue: overview.cancelledValue, refundedValue: overview.refundedValue,
+      settledSales: overview.settledSales, sellerRevenue: overview.sellerRevenue,
+      platformServiceFeeRevenue: overview.platformServiceFeeRevenue,
+      gatewayFees: 0, otherCharges: 0, netDistributableRevenue: overview.netDistributableRevenue,
+      distribution: overview.distribution,
+    },
+
+    sales: {
+      totalSold: soldCoupons.length, completed: completedTxns,
+      pending: pendingOrders.length, cancelled: cancelledOrders.length, refunded: refundsDone.length,
+      totalSalesValue: sumAmt(monthOrders), completedSalesValue: sumAmt(paidOrders),
+      avgSaleValue: paidOrders.length ? round2(sumAmt(paidOrders) / paidOrders.length) : 0,
+      highestSale: monthOrders.reduce((mx, o) => Math.max(mx, num(o.amount)), 0),
+      completionRate: pct(paidOrders.length, monthOrders.length),
+    },
+    purchases: {
+      totalBought: monthOrders.length, completed: paidOrders.length,
+      pending: pendingOrders.length, cancelled: cancelledOrders.length, refunded: refundsDone.length,
+      totalPurchaseValue: sumAmt(monthOrders), completedPurchaseValue: sumAmt(paidOrders),
+      avgPurchaseValue: paidOrders.length ? round2(sumAmt(paidOrders) / paidOrders.length) : 0,
+      completionRate: pct(paidOrders.length, monthOrders.length),
+      refundRateByCount: pct(refundsDone.length, monthOrders.length),
+      refundRateByValue: pct(refundAmount, sumAmt(monthOrders)),
+    },
+
+    sellers: {
+      totalSalesValue: overview.settledSales, totalSellerRevenue: sellerRevenueTotal,
+      avgRevenuePerSale: completedTxns ? round2(sellerRevenueTotal / completedTxns) : 0,
+      revenueShare: pct(sellerRevenueTotal, overview.settledSales),
+      liability: {
+        total: sellerRevenueTotal, paid: sellerPaid.amount,
+        processing: sellerProcessing.amount, pending: sellerPending.amount,
+        closing: round2(sellerProcessing.amount + sellerPending.amount),
+      },
+      top10: sellerGroups.slice(0, 10),
+    },
+
+    sellerPayouts: {
+      totalRequests: sellerPaid.count + sellerProcessing.count + sellerPending.count + sellerRejected.count + sellerFailed.count,
+      paid: sellerPaid, processing: sellerProcessing, pending: sellerPending, rejected: sellerRejected, failed: sellerFailed,
+      completionByAmount: pct(sellerPaid.amount, sellerPaid.amount + sellerProcessing.amount + sellerPending.amount),
+      avgCompletedPayout: sellerPaid.count ? round2(sellerPaid.amount / sellerPaid.count) : 0,
+    },
+
+    topCoupons: couponGroups.slice(0, 10),
+    brands: brandGroups.slice(0, 20),
+    categories: categoryGroups,
+
+    adminRevenue: {
+      netDistributableRevenue: overview.netDistributableRevenue,
+      admin1: adminAlloc.admin1, admin2: adminAlloc.admin2, platform: adminAlloc.platform,
+      totalAdminRevenue: round2(adminAlloc.admin1.amount + adminAlloc.admin2.amount),
+    },
+    adminPayouts: {
+      totalRequests: adminIn.length,
+      paid: adminBy('paid'), processing: adminBy('processing'), pending: adminBy('pending'),
+      rejected: adminBy('rejected'), failed: adminBy('failed'),
+      admins: [
+        { key: 'admin1', email: admins[0] || '', allocated: adminAlloc.admin1.amount },
+        { key: 'admin2', email: admins[1] || '', allocated: adminAlloc.admin2.amount },
+      ],
+    },
+
+    refunds: {
+      requests: monthRefunds.length, completed: refundsDone.length, pending: refundsOpen.length, rejected: refundsRejected.length,
+      refundAmount,
+      cancelledCount: cancelledOrders.length, cancelledValue: sumAmt(cancelledOrders),
+      refundRate: pct(refundsDone.length, monthOrders.length),
+      cancellationRate: pct(cancelledOrders.length, monthOrders.length),
+      combinedReversalRate: pct(refundsDone.length + cancelledOrders.length, monthOrders.length),
+    },
+
+    fees: {
+      // Only fees actually recorded in SaveHatke financials. Current custom-UPI
+      // system records NONE — so these are ₹0 and flagged not-recorded (Task 14/28).
+      recorded: false,
+      paymentGatewayFees: 0,
+      couponVerificationCharges: 0,
+      settlementProcessingCharges: 0,
+      notificationDeliveryCharges: 0,
+      otherTransactionCharges: 0,
+      note: 'No gateway or marketplace charges are recorded in the current custom-UPI system.',
+    },
+
+    weekly: weeks,
+
+    comparison: {
+      current: { key: win.key, grossSales, netRevenue: overview.netDistributableRevenue, couponsSold: soldCoupons.length, sellerRevenue: overview.sellerRevenue },
+      previous: { key: prevWin.key, grossSales: prevOverview.grossSales, netRevenue: prevOverview.netDistributableRevenue, couponsSold: prevOverview.counts.soldCoupons, sellerRevenue: prevOverview.sellerRevenue },
+      grossGrowthPct: pct(grossSales - prevOverview.grossSales, prevOverview.grossSales || 1),
+      netGrowthPct: pct(overview.netDistributableRevenue - prevOverview.netDistributableRevenue, prevOverview.netDistributableRevenue || 1),
+    },
+
+    ratios: {
+      salesCompletionRate: pct(paidOrders.length, monthOrders.length),
+      sellerRevenueShare: pct(overview.sellerRevenue, overview.settledSales),
+      platformServiceFeeRate: pct(overview.platformServiceFeeRevenue, overview.settledSales),
+      netRevenueMargin: pct(overview.netDistributableRevenue, grossSales),
+      refundRate: pct(refundsDone.length, monthOrders.length),
+      cancellationRate: pct(cancelledOrders.length, monthOrders.length),
+      sellerPayoutRatio: pct(sellerPaid.amount, sellerRevenueTotal),
+      adminPayoutRatio: pct(adminBy('paid').amount, adminAlloc.admin1.amount + adminAlloc.admin2.amount),
+      netRevenuePerTransaction: completedTxns ? round2(overview.netDistributableRevenue / completedTxns) : 0,
+    },
+
+    reconciliation: {
+      revenue: {
+        reconciled: overview.reconciliation.reconciled,
+        variance: overview.reconciliation.distributionVariance,
+      },
+      seller: {
+        revenue: sellerRevenueTotal,
+        variance: round2(sellerRevenueTotal - sellerPaid.amount - sellerProcessing.amount - sellerPending.amount),
+      },
+      admin: {
+        allocated: round2(adminAlloc.admin1.amount + adminAlloc.admin2.amount),
+        variance: round2(adminAlloc.admin1.amount + adminAlloc.admin2.amount - adminBy('paid').amount - adminBy('processing').amount - adminBy('pending').amount),
+      },
+    },
+
+    monthEnd: {
+      grossSales, settledSales: overview.settledSales, sellerRevenue: overview.sellerRevenue,
+      platformServiceFee: overview.platformServiceFeeRevenue, totalFeesCharges: 0,
+      netDistributableRevenue: overview.netDistributableRevenue,
+      adminRevenue: round2(adminAlloc.admin1.amount + adminAlloc.admin2.amount),
+      platformRevenue: adminAlloc.platform.amount,
+      reconciliationVariance: overview.reconciliation.distributionVariance,
+      carried: {
+        sellerPayoutsProcessing: sellerProcessing.amount, sellerPayoutsPending: sellerPending.amount,
+        adminPayoutsProcessing: adminBy('processing').amount, adminPayoutsPending: adminBy('pending').amount,
+        refundsUnderReview: refundsOpen.length,
+        totalSettlementLiability: round2(sellerProcessing.amount + sellerPending.amount),
+      },
+    },
+  };
+}
+
 module.exports = {
   DISTRIBUTION,
   adminEmails,
@@ -622,6 +903,7 @@ module.exports = {
   getSettlement,
   getAdminBalances,
   getAdminPayoutStats,
+  buildMonthlyReportData,
   fetchAdminPayouts,
   monthWindowYM,
   normAdminPayout,

@@ -303,4 +303,26 @@ router.post('/admin-payouts/:id/reject', authenticateToken, requireAdmin, async 
   }
 });
 
+// GET /api/admin/finance/report?year=YYYY&month=M  — full monthly report DATA
+// object (the single prepared object the master-PDF generator consumes). Real,
+// read-only, same source of truth as the dashboard/overview/settlement.
+router.get('/report', authenticateToken, requireAdmin, async (req, res) => {
+  if (!storeReachable()) {
+    return res.status(503).json({ error: 'Unable to load financial data.', dataUnavailable: true });
+  }
+  try {
+    const now = new Date();
+    const year = req.query.year || now.getFullYear();
+    const month = req.query.month || (now.getMonth() + 1);
+    const report = await finance.buildMonthlyReportData(year, month);
+    res.json({ ok: true, report });
+  } catch (err) {
+    if (/Invalid year\/month/.test(err.message || '')) {
+      return res.status(400).json({ error: err.message });
+    }
+    console.error('Finance report error:', err);
+    res.status(503).json({ error: 'Unable to load financial data.', dataUnavailable: true });
+  }
+});
+
 module.exports = router;
