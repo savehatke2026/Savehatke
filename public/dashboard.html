@@ -289,6 +289,24 @@
     .cs-lbl{font-size:.72rem;font-weight:600;color:#6b88aa;text-transform:uppercase;letter-spacing:.06em}
 
     /* ===================================================
+       REFUNDS LIST
+       Same shape on every breakpoint — a 5-card summary on
+       top, then either a responsive table (desktop) or a
+       stack of compact cards (mobile). On narrow screens the
+       table hides and the cards show, so a long refund_id never
+       squashes the row.
+    =================================================== */
+    .refunds-tbl table{border-collapse:separate;border-spacing:0}
+    .refunds-tbl thead th{font-weight:600;border-bottom:1px solid rgba(79,195,247,.12)}
+    .refunds-tbl tbody tr{border-bottom:1px solid rgba(79,195,247,.06);transition:background .15s}
+    .refunds-tbl tbody tr:hover{background:rgba(0,230,118,.04)}
+    .refunds-cards{display:none}
+    @media (max-width:760px){
+      .refunds-tbl{display:none}
+      .refunds-cards{display:block}
+    }
+
+    /* ===================================================
        WALLET CARD
     =================================================== */
     .wallet-bal{font-family:'JetBrains Mono',monospace;font-size:2.2rem;font-weight:600;color:#00e676;line-height:1;margin-bottom:4px;animation:countUp .6s ease}
@@ -1106,6 +1124,7 @@
 
       <button class="sb-item" data-view="notifications" onclick="showView('notifications')"><span class="sb-item-ico">🔔</span> Notifications</button>
       <button class="sb-item" data-view="reviews" onclick="showView('reviews')"><span class="sb-item-ico">⭐</span> Reviews</button>
+      <button class="sb-item" data-view="refunds" onclick="showView('refunds')"><span class="sb-item-ico">↩️</span> Refunds</button>
 
       <!-- Account Settings holds profile and account identity only. Anything
            that protects the account — verification, 2FA, sessions, last login —
@@ -1572,6 +1591,66 @@
 
     </div><!-- /container -->
     </div><!-- /view-payouts -->
+
+    <!-- ═══════════════════════════════════════════════
+         VIEW: REFUNDS
+         Reads /api/refunds (auth-scoped server route) and paints a
+         five-card summary plus a responsive list of refund records.
+         Money fields are server-computed — the dashboard never reads
+         a refund_amount from anywhere except /api/refunds, and never
+         lets the buyer edit one. The status ladder, status badges, and
+         detail modal all reuse the same shape the payouts view uses,
+         so the dark-theme rhythm stays consistent across pages.
+    ═══════════════════════════════════════════════ -->
+    <div id="view-refunds" class="db-view">
+    <div class="container">
+
+      <div class="view-hdr">
+        <div>
+          <div class="view-title"><span class="gtext">Refunds</span></div>
+          <div class="view-subtitle">View and manage payment amount mismatches</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadRefunds({silent:true})" title="Refresh">↻ Refresh</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hdr">
+          <div class="card-title"><span class="ico">↩️</span> Refunds</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadRefunds()" title="Refresh">↻ Refresh</button>
+        </div>
+
+        <div class="cs-grid" style="margin-bottom:16px">
+          <div class="cs-item">
+            <div class="cs-num gtext" id="refundsTotal">₹0</div>
+            <div class="cs-lbl">Total Refunds</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#ffd08a" id="refundsPending">₹0</div>
+            <div class="cs-lbl">Pending</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#4fc3f7" id="refundsProcessing">₹0</div>
+            <div class="cs-lbl">Processing</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#00e676" id="refundsRefunded">₹0</div>
+            <div class="cs-lbl">Refunded</div>
+          </div>
+          <div class="cs-item">
+            <div class="cs-num" style="color:#ff8585" id="refundsRejected">₹0</div>
+            <div class="cs-lbl">Rejected</div>
+          </div>
+        </div>
+
+        <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Refund records</div>
+        <div id="refundsList"></div>
+      </div>
+
+    </div><!-- /container -->
+    </div><!-- /view-refunds -->
 
     <!-- ═══════════════════════════════════════════════
          VIEW: ACCOUNT SETTINGS
@@ -2524,6 +2603,47 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('payoutDetailsModal')">Cancel</button>
       <button class="btn btn-primary" style="flex:1" id="pdSaveBtn" onclick="savePayoutDetails()">Save Details</button>
+    </div>
+  </div>
+</div>
+
+<!-- Refund detail modal — opened from the Refunds view list. Money fields
+     and status come from /api/refunds/:id (server-set). The buyer sees the
+     timeline, the mismatch reason, and a Request Refund action only when
+     this is an underpayment refund that is still pending. -->
+<div class="modal-overlay" id="refundDetailModal" onclick="handleOverlayClick(event,'refundDetailModal')">
+  <div class="modal modal-lg">
+    <button class="modal-close-btn" onclick="closeModal('refundDetailModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Refund <span class="gtext">Detail</span></div>
+      <div class="modal-sub" id="refundDetailSub">Payment-amount mismatch record.</div>
+    </div>
+    <div class="modal-body" id="refundDetailBody">
+      <div class="cs-grid" style="margin-bottom:14px">
+        <div class="cs-item"><div class="cs-num" id="refundDetailRequired">₹0</div><div class="cs-lbl">Required</div></div>
+        <div class="cs-item"><div class="cs-num" id="refundDetailReceived">₹0</div><div class="cs-lbl">Received</div></div>
+        <div class="cs-item"><div class="cs-num gtext" id="refundDetailAmount">₹0</div><div class="cs-lbl">Refund Amount</div></div>
+      </div>
+      <div class="mc-sec-hdr" style="margin-top:6px"><div class="mc-sec-title">Details</div></div>
+      <div class="card" style="padding:14px">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;font-size:.84rem">
+          <div><span style="color:#6b88aa">Refund ID</span><div class="mono" id="refundDetailId">—</div></div>
+          <div><span style="color:#6b88aa">Purchase ID</span><div class="mono" id="refundDetailPaymentId">—</div></div>
+          <div><span style="color:#6b88aa">Coupon</span><div id="refundDetailCoupon">—</div></div>
+          <div><span style="color:#6b88aa">Status</span><div id="refundDetailStatus">—</div></div>
+          <div><span style="color:#6b88aa">Reason</span><div id="refundDetailReason">—</div></div>
+          <div><span style="color:#6b88aa">Requested</span><div id="refundDetailRequested">—</div></div>
+          <div><span style="color:#6b88aa">Processed</span><div id="refundDetailProcessed">—</div></div>
+          <div><span style="color:#6b88aa">Reference</span><div class="mono" id="refundDetailReference">—</div></div>
+          <div style="grid-column:1/-1"><span style="color:#6b88aa">Admin note</span><div id="refundDetailAdminNote">—</div></div>
+        </div>
+      </div>
+      <div class="mc-sec-hdr" style="margin-top:14px"><div class="mc-sec-title">Timeline</div></div>
+      <div id="refundDetailTimeline" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('refundDetailModal')">Close</button>
+      <button class="btn btn-primary" style="flex:1" id="refundDetailActionBtn" onclick="requestRefundFromDetail()">Request Refund</button>
     </div>
   </div>
 </div>
@@ -4271,7 +4391,7 @@
 
     // Handle URL hash on load
     const hash = window.location.hash.replace('#', '');
-    const validViews = ['my-coupons', 'wallet', 'payouts', 'security', 'account', 'notifications', 'reviews', 'support'];
+    const validViews = ['my-coupons', 'wallet', 'payouts', 'security', 'account', 'notifications', 'reviews', 'support', 'refunds'];
     if (validViews.includes(hash)) showView(hash);
   });
 
@@ -4959,6 +5079,206 @@
   // back and threw before any renderer ran.
   async function reloadPayoutsView() {
     return await refreshDashboard({ silent: true });
+  }
+
+  // ─── Refunds ──────────────────────────────────────────────────
+  // Loads the authenticated user's refund records from /api/refunds.
+  // Each number on the page comes from the server — no client-side
+  // recomputation, no client-supplied refund_amount. The status badge,
+  // timeline, and detail modal all read from the same server response.
+  const REFUND_STATUS_BADGE = {
+    pending:    { label: 'Pending',    cls: 'sec-status pending' },
+    processing: { label: 'Processing', cls: 'sec-status pending' },
+    refunded:   { label: 'Refunded',   cls: 'sec-status' },
+    rejected:   { label: 'Rejected',   cls: 'sec-status off' },
+  };
+
+  function refundBadge(status) {
+    const meta = REFUND_STATUS_BADGE[String(status || '').toLowerCase()] || { label: status || '—', cls: 'sec-status' };
+    return `<span class="${meta.cls}">${escapeHtml(meta.label)}</span>`;
+  }
+
+  function refundDate(iso) {
+    if (!iso) return '—';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+  }
+
+  // Single refund as a card (mobile) or table row (desktop).
+  function refundListItem(r) {
+    const status = String(r.status || '').toLowerCase();
+    const mismatchLabel = r.mismatchType === 'overpayment' ? 'Overpayment' : (r.mismatchType === 'underpayment' ? 'Underpayment' : '—');
+    return `
+      <tr class="refunds-row" data-refund-id="${escapeHtml(r.refundId || r.id)}" style="cursor:pointer">
+        <td class="mono" style="font-size:.78rem">${escapeHtml(r.refundId || r.id || '—')}</td>
+        <td class="mono" style="font-size:.78rem">${escapeHtml(r.paymentId || '—')}</td>
+        <td>${escapeHtml(r.couponId || '—')}</td>
+        <td style="text-align:right;font-weight:600">${inr(r.requiredAmount)}</td>
+        <td style="text-align:right">${inr(r.receivedAmount)}</td>
+        <td style="text-align:right;color:#00e676;font-weight:700">${inr(r.refundAmount)}</td>
+        <td>${escapeHtml(mismatchLabel)}</td>
+        <td style="font-size:.78rem;color:#8ea6c4">${refundDate(r.createdAt)}</td>
+        <td>${refundBadge(status)}</td>
+      </tr>`;
+  }
+
+  function refundCard(r) {
+    const status = String(r.status || '').toLowerCase();
+    const mismatchLabel = r.mismatchType === 'overpayment' ? 'Overpayment' : (r.mismatchType === 'underpayment' ? 'Underpayment' : '—');
+    return `
+      <div class="card" style="margin-bottom:10px;cursor:pointer" data-refund-id="${escapeHtml(r.refundId || r.id)}" onclick="openRefundDetail('${escapeHtml(r.refundId || r.id)}')">
+        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+          <div style="min-width:0;flex:1">
+            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
+              <div style="font-weight:700;color:#e2ecff">${escapeHtml(r.couponId || '—')}</div>
+              ${refundBadge(status)}
+            </div>
+            <div style="font-size:.74rem;color:#8ea6c4;margin-bottom:8px">Refund ID <span class="mono">${escapeHtml(r.refundId || r.id)}</span> · ${escapeHtml(mismatchLabel)}</div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.84rem">
+              <div><span style="color:#6b88aa">Required</span> ${inr(r.requiredAmount)}</div>
+              <div><span style="color:#6b88aa">Received</span> ${inr(r.receivedAmount)}</div>
+              <div><span style="color:#6b88aa">Refund</span> <span style="color:#00e676;font-weight:700">${inr(r.refundAmount)}</span></div>
+            </div>
+          </div>
+          <div style="text-align:right;font-size:.74rem;color:#6b88aa">${refundDate(r.createdAt)}</div>
+        </div>
+      </div>`;
+  }
+
+  async function loadRefunds(opts = {}) {
+    const silent = !!opts.silent;
+    if (!silent) showToast('Loading refunds…', 'info');
+    try {
+      const res = await fetch('/api/refunds', {
+        credentials: 'include',
+        headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (!silent) showToast(data.error || 'Could not load refunds.', 'error');
+        return;
+      }
+      const refunds = Array.isArray(data.refunds) ? data.refunds : [];
+      const summary = data.summary || {};
+      setText('refundsTotal',     '₹' + Number(summary.total    || 0).toLocaleString('en-IN'));
+      setText('refundsPending',   '₹' + Number(summary.pending  || 0).toLocaleString('en-IN'));
+      setText('refundsProcessing','₹' + Number(summary.processing || 0).toLocaleString('en-IN'));
+      setText('refundsRefunded',  '₹' + Number(summary.refunded  || 0).toLocaleString('en-IN'));
+      setText('refundsRejected',  '₹' + Number(summary.rejected  || 0).toLocaleString('en-IN'));
+
+      const container = document.getElementById('refundsList');
+      if (!container) return;
+      if (!refunds.length) {
+        container.innerHTML = '<div class="card" style="padding:18px;text-align:center;color:#8ea6c4">No refunds yet. Refunds appear here automatically when a payment amount differs from the required amount.</div>';
+        return;
+      }
+      const rowsHtml = refunds.map(refundListItem).join('');
+      // Desktop: table; mobile: cards. CSS media queries hide whichever is
+      // not appropriate.
+      container.innerHTML = `
+        <div class="tbl refunds-tbl">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="text-align:left;font-size:.7rem;color:#6b88aa;text-transform:uppercase;letter-spacing:.08em">
+                <th style="padding:10px 8px">Refund ID</th>
+                <th style="padding:10px 8px">Purchase ID</th>
+                <th style="padding:10px 8px">Coupon</th>
+                <th style="padding:10px 8px;text-align:right">Required</th>
+                <th style="padding:10px 8px;text-align:right">Received</th>
+                <th style="padding:10px 8px;text-align:right">Refund</th>
+                <th style="padding:10px 8px">Reason</th>
+                <th style="padding:10px 8px">Requested</th>
+                <th style="padding:10px 8px">Status</th>
+              </tr>
+            </thead>
+            <tbody>${rowsHtml}</tbody>
+          </table>
+        </div>
+        <div class="refunds-cards">${refunds.map(refundCard).join('')}</div>`;
+      // Click-to-detail on every row.
+      container.querySelectorAll('[data-refund-id]').forEach((el) => {
+        el.addEventListener('click', () => openRefundDetail(el.getAttribute('data-refund-id')));
+      });
+    } catch (e) {
+      if (!silent) showToast('Network error loading refunds.', 'error');
+    }
+  }
+
+  // The current detail record, kept on window so the action button can
+  // read it without an extra fetch.
+  let _refundDetail = null;
+
+  async function openRefundDetail(refundId) {
+    if (!refundId) return;
+    try {
+      const res = await fetch('/api/refunds/' + encodeURIComponent(refundId), {
+        credentials: 'include',
+        headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || 'Refund not found.', 'error');
+        return;
+      }
+      const r = data.refund || {};
+      const timeline = Array.isArray(data.timeline) ? data.timeline : [];
+      _refundDetail = r;
+      const mismatchLabel = r.mismatchType === 'overpayment' ? 'Overpayment' : (r.mismatchType === 'underpayment' ? 'Underpayment' : '—');
+      setText('refundDetailSub', `${mismatchLabel} · Status: ${String(r.status || '').toUpperCase()}`);
+      setText('refundDetailRequired', inr(r.requiredAmount));
+      setText('refundDetailReceived', inr(r.receivedAmount));
+      setText('refundDetailAmount',    inr(r.refundAmount));
+      setText('refundDetailId',        r.refundId || r.id || '—');
+      setText('refundDetailPaymentId', r.paymentId || '—');
+      setText('refundDetailCoupon',    r.couponId || '—');
+      setText('refundDetailStatus',    refundBadge(r.status));
+      setText('refundDetailReason',    r.refundReason || '—');
+      setText('refundDetailRequested', refundDate(r.createdAt));
+      setText('refundDetailProcessed', refundDate(r.processedAt));
+      setText('refundDetailReference', r.refundReference || '—');
+      setText('refundDetailAdminNote',  r.adminNote || '—');
+      const tl = document.getElementById('refundDetailTimeline');
+      if (tl) {
+        tl.innerHTML = timeline.map((step) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:12px;background:rgba(8,16,42,.55);border:1px solid ${step.state === 'current' ? 'rgba(0,230,118,.35)' : step.state === 'done' ? 'rgba(79,195,247,.25)' : 'rgba(107,136,170,.18)'};font-size:.82rem">
+            <div style="width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;background:${step.state === 'current' ? 'rgba(0,230,118,.18)' : step.state === 'done' ? 'rgba(79,195,247,.18)' : 'rgba(107,136,170,.16)'};color:${step.state === 'current' ? '#00e676' : step.state === 'done' ? '#4fc3f7' : '#8ea6c4'}">${step.state === 'done' ? '✓' : step.state === 'current' ? '●' : '○'}</div>
+            <div>${escapeHtml(step.label || step.id)}</div>
+          </div>`).join('');
+      }
+      // The footer action button only appears on underpayment + pending.
+      const btn = document.getElementById('refundDetailActionBtn');
+      if (btn) {
+        const isUnderpaymentPending = r.mismatchType === 'underpayment' && (r.status === 'pending' || r.status === 'processing');
+        btn.style.display = isUnderpaymentPending ? '' : 'none';
+        btn.textContent = r.status === 'processing' ? 'Refund Pending' : 'Request Refund';
+        btn.disabled = r.status === 'processing';
+      }
+      openModal('refundDetailModal');
+    } catch (e) {
+      showToast('Network error loading refund.', 'error');
+    }
+  }
+
+  async function requestRefundFromDetail() {
+    if (!_refundDetail || !_refundDetail.refundId) return;
+    try {
+      const res = await fetch('/api/refunds/' + encodeURIComponent(_refundDetail.refundId) + '/request', {
+        method: 'POST',
+        credentials: 'include',
+        headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data.error || 'Could not request refund.', 'error');
+        return;
+      }
+      showToast('Refund requested. We will process it shortly.', 'success');
+      closeModal('refundDetailModal');
+      loadRefunds({ silent: true });
+    } catch (e) {
+      showToast('Network error requesting refund.', 'error');
+    }
   }
 
   // ─── Toast ─────────────────────────────────────────────────────
@@ -6095,6 +6415,11 @@
     } else if (name === 'wallet') {
       // Transactions view — repaint the ledger with whatever data is loaded
       if (typeof renderTransactions === 'function') renderTransactions();
+    } else if (name === 'refunds') {
+      // Refunds view — fetch the auth-scoped list every time the page
+      // opens, so a payment-amount mismatch that landed between visits is
+      // never hidden behind a stale render.
+      if (typeof loadRefunds === 'function') loadRefunds({ silent: true });
     } else if (name === 'notifications') {
       // Fetched on first open; a previous load failure retries on re-entry.
       loadNotificationPrefs();

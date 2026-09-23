@@ -388,6 +388,22 @@ async function findPendingPaymentsForAmount(amount = null, { limit = 200 } = {})
     });
 }
 
+/**
+ * Look up one pending payment by the order code embedded in the UPI
+ * transaction's `tr` field. This is the lookup the verifier uses when a
+ * notification's verified amount does NOT equal the payment's required
+ * amount — the order code is the only thing that ties the mismatch back
+ * to the original payment. Returns the same row shape as
+ * findPendingPaymentsForAmount (with orderCode / couponCode / couponBrand
+ * attached), or null if no live payment matches.
+ */
+async function findPendingPaymentByOrderCode(orderCode) {
+  if (!orderCode) return null;
+  const code = String(orderCode).toUpperCase();
+  const candidates = await findPendingPaymentsForAmount(null, { limit: 500 });
+  return candidates.find((p) => String(p.orderCode || '').toUpperCase() === code) || null;
+}
+
 // ── Writes ─────────────────────────────────────────────────────────────────
 
 async function createOrder({
@@ -700,6 +716,11 @@ async function finalizePayment({
   notes = '',
   paidAt = null,
   raw = null,
+  // The verified rupee total the gateway or mailbox reported. Persisted on
+  // the Payments row so the refund service can see what actually arrived
+  // versus what was required. Defaults to the payment's required amount
+  // when callers don't supply it.
+  receivedAmount = null,
 }) {
   return withLock(async () => {
     const rows = await rowsFresh(PAYMENTS);
@@ -761,7 +782,7 @@ async function finalizePayment({
       const sameBuyer = String(unlock.buyerEmail || '').toLowerCase() === String(payment.userEmail || '').toLowerCase();
       if (String(unlock.status).toLowerCase() === 'sold' && sameBuyer) {
         // Already sold to this same buyer — a successful, idempotent unlock.
-        await markPaid({ payment, txn, reference, source, notes, settledAt });
+        await markPaid({ payment, txn, reference, source, notes, settledAt, receivedAmount });
         return {
           ok: true, code: 'OK_ALREADY_UNLOCKED', payment_status: 'PAID',
           coupon_code: unlock.code || '', idempotent: true,
@@ -790,8 +811,8 @@ async function finalizePayment({
 }
 
 /** Write the PAID state onto the payment and its order. */
-async function markPaid({ payment, txn, reference, source, notes, settledAt }) {
-  await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, {
+async function markPaid({ payment, txn, reference, source, notes, settledAt, receivedAmount }) {
+  const patch = {
     status: 'PAID',
     paid_at: settledAt,
     updated_at: new Date().toISOString(),
@@ -799,7 +820,16 @@ async function markPaid({ payment, txn, reference, source, notes, settledAt }) {
     verified_utr: reference || '',
     verification_source: source || '',
     verification_notes: notes || '',
-  });
+  };
+  // The verifier passes the verified amount it extracted from the
+  // notification/webhook; persisting it on the row lets the refund
+  // service and any later audit reconstruct the mismatch without
+  // re-reading the notification. Default to the required amount when
+  // callers don't pass it (legacy exact-amount callers).
+  if (receivedAmount !== undefined && receivedAmount !== null) {
+    patch.received_amount = money2(receivedAmount);
+  }
+  await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, patch);
   await db.updateRow(ORDERS, 'id', payment.orderId, {
     status: 'PAID',
     paid_at: settledAt,
@@ -953,6 +983,7 @@ module.exports = {
   findPaymentByTransaction,
   findPaidPaymentForBuyer,
   findPendingPaymentsForAmount,
+  findPendingPaymentByOrderCode,
   // writes
   createOrder,
   createPayment,

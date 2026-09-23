@@ -29,6 +29,7 @@ const chatbotAdminRoutes = require('./routes/chatbot');
 const chatRoutes = require('./routes/chat');
 const gmailRoutes = require('./routes/gmail');
 const payoutRoutes = require('./routes/payouts');
+const refundRoutes = require('./routes/refunds');
 const reviewRoutes = require('./routes/reviews');
 const testimonialRoutes = require('./routes/testimonials');
 const twoFactorRoutes = require('./routes/twoFactor');
@@ -497,6 +498,7 @@ app.get('/api/maintenance/status', async (req, res) => {
 });
 
 app.use('/api', apiLimiter, maintenanceGuard, payoutRoutes); // /api/payouts/* (seller)
+app.use('/api/refunds', apiLimiter, maintenanceGuard, refundRoutes); // /api/refunds/* (buyer + admin)
 
 // Public Turnstile site key for CAPTCHA widgets (secret stays in .env)
 app.get('/api/turnstile-config', (req, res) => {

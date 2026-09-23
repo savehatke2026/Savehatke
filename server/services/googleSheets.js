@@ -38,6 +38,7 @@ const SHEETS = {
   ORDERS: 'Orders',
   PAYMENTS: 'Payments',
   PAYMENT_NOTIFICATIONS: 'PaymentNotifications',
+  REFUNDS: 'Refunds',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -102,6 +103,10 @@ const HEADERS = {
     'whatsappSid',
     'whatsappLastAttempt',
     'whatsappError',
+    // Server-computed seller payout (7% of the coupon's face value, rounded to
+    // the paise). APPENDED AT THE END on purpose: ensureSheets() grows the
+    // header row to the right, so existing columns and their data never shift.
+    'sellerPayout',
   ],
   [SHEETS.COUPON_AUDIT]: [
     'id',
@@ -353,6 +358,10 @@ const HEADERS = {
   ],
   // One row per UPI payment attempt against an order. verified_transaction_id
   // / verified_utr are only ever written by the server-side verifier.
+  // received_amount is the verified rupee total the bank reported; it can
+  // differ from `amount` (the coupon's required price) and the difference
+  // drives the refund record. APPENDED AT THE END on purpose so existing
+  // rows and any older header positions keep lining up.
   [SHEETS.PAYMENTS]: [
     'payment_id',
     'order_id',
@@ -373,6 +382,7 @@ const HEADERS = {
     'verified_utr',
     'verification_source',
     'verification_notes',
+    'received_amount',
   ],
   // Every confirmation the server observes (gateway webhook or payment-mailbox
   // email), recorded before it is acted on. `fingerprint` is the identity that
@@ -396,6 +406,35 @@ const HEADERS = {
     'created_at',
     'processed_at',
     'raw',
+  ],
+  // One row per refund event triggered by a payment-amount mismatch (the buyer
+  // paid more or less than the coupon's required amount). Overpayments refund
+  // the excess; underpayments refund the partial amount actually received —
+  // never more than the verified received amount. refund_amount / received_amount
+  // / required_amount are stored as integer paise to avoid binary FP drift.
+  // Each refund also tracks its status lifecycle (pending → processing →
+  // refunded / rejected) so the seller-facing dashboard can render a real
+  // audit trail, not a single mutable flag.
+  [SHEETS.REFUNDS]: [
+    'id',
+    'user_id',
+    'user_email',
+    'payment_id',
+    'coupon_id',
+    'order_code',
+    'required_amount',
+    'received_amount',
+    'refund_amount',
+    'currency',
+    'mismatch_type',     // 'overpayment' | 'underpayment'
+    'refund_reason',     // human-readable reason assigned automatically
+    'status',            // 'pending' | 'processing' | 'refunded' | 'rejected'
+    'refund_reference',  // bank/UPI txn id once processed
+    'admin_note',
+    'processed_at',
+    'processed_by',
+    'created_at',
+    'updated_at',
   ],
 };
 
@@ -688,6 +727,7 @@ const memoryDB = {
   [SHEETS.ORDERS]: [],
   [SHEETS.PAYMENTS]: [],
   [SHEETS.PAYMENT_NOTIFICATIONS]: [],
+  [SHEETS.REFUNDS]: [],
 };
 
 function seedDemoData() {
@@ -705,6 +745,14 @@ function invalidateCache(sheetName) {
 /**
  * Get all rows from a sheet. Returns array of objects keyed by column header.
  */
+// The range a sheet is read with. The Coupons tab carries more columns than fit
+// in A:Z (and the sellerPayout column is appended at the very end), so reading
+// only A:Z would silently drop every column past Z — including the stored
+// payout. Reading it wider keeps stored values visible instead of masking them.
+function readRangeFor(sheetName) {
+  return sheetName === SHEETS.COUPONS ? 'A:BZ' : 'A:Z';
+}
+
 async function getRows(sheetName) {
   const now = Date.now();
   if (rowsCache[sheetName] && (now - rowsCache[sheetName].timestamp < CACHE_TTL_MS)) {
@@ -715,7 +763,7 @@ async function getRows(sheetName) {
     try {
       const res = await sheetsClient.spreadsheets.values.get({
         spreadsheetId,
-        range: `${sheetName}!A:Z`,
+        range: `${sheetName}!${readRangeFor(sheetName)}`,
       });
 
       const rows = res.data.values;
@@ -995,7 +1043,7 @@ async function updateRow(sheetName, field, value, updatedData) {
   try {
     const res = await sheetsClient.spreadsheets.values.get({
       spreadsheetId,
-      range: `${sheetName}!A:Z`,
+      range: `${sheetName}!${readRangeFor(sheetName)}`,
     });
 
     const rows = res.data.values;
