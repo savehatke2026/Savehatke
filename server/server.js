@@ -30,6 +30,8 @@ const chatRoutes = require('./routes/chat');
 const gmailRoutes = require('./routes/gmail');
 const payoutRoutes = require('./routes/payouts');
 const refundRoutes = require('./routes/refunds');
+// Read-only admin financial API (Phase 1 single source of truth — services/finance.js).
+const adminFinanceRoutes = require('./routes/adminFinance');
 const reviewRoutes = require('./routes/reviews');
 const testimonialRoutes = require('./routes/testimonials');
 const twoFactorRoutes = require('./routes/twoFactor');
@@ -396,6 +398,11 @@ app.use('/api/admin/gmail', gmailRoutes); // own rate limits; must precede /api/
 // limiter instead of the generous authenticated-admin one.
 app.use('/api/admin/sos', sosLimiter, sosRoutes);
 app.use('/api/admin/backup-code', sosLimiter, backupCodeRoutes); // code management + retired legacy pair
+
+// Read-only admin financial API. Mounted BEFORE the generic /api/admin router
+// so its /finance/* routes are matched first; it shares the admin limiter and
+// the same authenticateToken + requireAdmin gate the other admin routes use.
+app.use('/api/admin/finance', adminApiLimiter, adminFinanceRoutes);
 
 // Admin API — use a much more generous limiter than the public one. The admin
 // panel makes 5+ requests per page-load (users + sessions + coupons + stats

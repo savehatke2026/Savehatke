@@ -1251,13 +1251,13 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
         <div class="stat-card sc-green">
           <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend trend-up">↑ 18%</span></div>
-          <div class="stat-val gtext" id="statRevenue">₹84,290</div>
+          <div class="stat-val gtext" id="statRevenue">—</div>
           <div class="stat-lbl">Total Earnings</div>
           <div class="stat-sub">This month</div>
         </div>
         <div class="stat-card sc-teal">
           <div class="stat-card-top"><div class="stat-icon si-teal">💳</div><span class="stat-trend trend-up">↑ 5%</span></div>
-          <div class="stat-val" style="color:#80cbc4" id="kpi-txns">₹3,420</div>
+          <div class="stat-val" style="color:#80cbc4" id="kpi-txns">—</div>
           <div class="stat-lbl">Transactions Today</div>
           <div class="stat-sub">vs yesterday</div>
         </div>
@@ -1327,27 +1327,27 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <!-- Financial Summary -->
         <div class="card" style="margin-bottom:0">
           <div class="card-title"><span class="ct-icon">💰</span> Monthly Financial Summary
-            <span style="margin-left:auto;font-size:.75rem;color:#6b88aa;font-weight:400;font-family:'JetBrains Mono',monospace">August 2026</span>
+            <span style="margin-left:auto;font-size:.75rem;color:#6b88aa;font-weight:400;font-family:'JetBrains Mono',monospace" id="finMonthLabel">—</span>
           </div>
           <div class="fin-row">
             <span class="fin-lbl">Gross Sales</span>
-            <span class="fin-val green">₹2,00,000</span>
+            <span class="fin-val green" id="finGross">—</span>
           </div>
           <div class="fin-row">
             <span class="fin-lbl">Seller Payouts</span>
-            <span class="fin-val red">− ₹1,20,000</span>
+            <span class="fin-val red" id="finSeller">—</span>
           </div>
           <div class="fin-row">
             <span class="fin-lbl">Refunds</span>
-            <span class="fin-val red">− ₹5,000</span>
+            <span class="fin-val red" id="finRefunds">—</span>
           </div>
           <div class="fin-row">
             <span class="fin-lbl">Payment Gateway Fees</span>
-            <span class="fin-val red">− ₹3,000</span>
+            <span class="fin-val red" id="finGateway">—</span>
           </div>
           <div class="fin-row total-row">
             <span class="fin-lbl" style="color:#e2ecff;font-weight:700">Net Distributable Revenue</span>
-            <span class="fin-val green big">₹72,000</span>
+            <span class="fin-val green big" id="finNet">—</span>
           </div>
           <div style="margin-top:16px">
             <button class="btn btn-ghost btn-sm" onclick="showSection('settlements',null)">View Settlement →</button>
@@ -1371,19 +1371,19 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="dist-dot" style="background:#00e676"></div>
             <span class="dist-name">Admin 1</span>
             <span class="dist-pct">40%</span>
-            <span class="dist-amount" style="color:#00e676">₹28,800</span>
+            <span class="dist-amount" style="color:#00e676" id="finDistA1">—</span>
           </div>
           <div class="dist-item">
             <div class="dist-dot" style="background:#4fc3f7"></div>
             <span class="dist-name">Admin 2</span>
             <span class="dist-pct">40%</span>
-            <span class="dist-amount" style="color:#4fc3f7">₹28,800</span>
+            <span class="dist-amount" style="color:#4fc3f7" id="finDistA2">—</span>
           </div>
           <div class="dist-item">
             <div class="dist-dot" style="background:#ce93d8"></div>
             <span class="dist-name">SaveHatke</span>
             <span class="dist-pct">20%</span>
-            <span class="dist-amount" style="color:#ce93d8">₹14,400</span>
+            <span class="dist-amount" style="color:#ce93d8" id="finDistPlatform">—</span>
           </div>
           <div style="margin-top:14px">
             <button class="btn btn-ghost btn-sm" onclick="showSection('settlements',null)">View Settlement →</button>
@@ -1405,18 +1405,18 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="pending-item">
             <span class="pending-icon">🟡</span>
             <span class="pending-label">Refund Requests</span>
-            <span class="pending-count">4</span>
+            <span class="pending-count" id="attnRefundCount">—</span>
             <button class="btn btn-warning btn-sm" onclick="showSection('refunds',null)">Review</button>
           </div>
           <div class="pending-item">
             <span class="pending-icon">🟡</span>
             <span class="pending-label">Admin Payouts Pending</span>
-            <span class="pending-count">2</span>
+            <span class="pending-count" id="attnAdminPayoutCount" title="Admin payout ledger not implemented yet (Phase 2)">—</span>
             <button class="btn btn-warning btn-sm" onclick="showSection('admin-payouts',null)">Review</button>
           </div>
           <div class="pending-item">
             <span class="pending-icon">🟡</span>
-            <span class="pending-label">Monthly Settlement — August 2026</span>
+            <span class="pending-label">Monthly Settlement — <span id="attnSettlementLabel">—</span></span>
             <span class="pending-count"></span>
             <button class="btn btn-warning btn-sm" onclick="showSection('settlements',null)">Review</button>
           </div>
@@ -1457,51 +1457,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
               </tr>
             </thead>
             <tbody id="txnTableBody">
-              <tr>
-                <td><strong class="mono">#T-9920</strong></td>
-                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">PS</div>Priya Sharma</div></td>
-                <td>Nykaa 30% OFF</td>
-                <td><strong class="mono" style="color:#00e676">₹15</strong></td>
-                <td><span class="badge badge-blue">SELL</span></td>
-                <td>Aug 8, 2026</td>
-                <td><span class="badge badge-green">COMPLETED</span></td>
-              </tr>
-              <tr>
-                <td><strong class="mono">#T-9919</strong></td>
-                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">RK</div>Rahul Kumar</div></td>
-                <td>Myntra ₹500 OFF</td>
-                <td><strong class="mono" style="color:#00e676">₹20</strong></td>
-                <td><span class="badge badge-purple">BUY</span></td>
-                <td>Aug 8, 2026</td>
-                <td><span class="badge badge-green">COMPLETED</span></td>
-              </tr>
-              <tr>
-                <td><strong class="mono">#T-9918</strong></td>
-                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">AM</div>Aditya Mehta</div></td>
-                <td>Swiggy 50% OFF</td>
-                <td><strong class="mono" style="color:#00e676">₹10</strong></td>
-                <td><span class="badge badge-purple">BUY</span></td>
-                <td>Aug 7, 2026</td>
-                <td><span class="badge badge-orange">PENDING</span></td>
-              </tr>
-              <tr>
-                <td><strong class="mono">#T-9917</strong></td>
-                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">NP</div>Neha Patel</div></td>
-                <td>boAt ₹800 OFF</td>
-                <td><strong class="mono" style="color:#00e676">₹25</strong></td>
-                <td><span class="badge badge-blue">SELL</span></td>
-                <td>Aug 7, 2026</td>
-                <td><span class="badge badge-red">REFUNDED</span></td>
-              </tr>
-              <tr>
-                <td><strong class="mono">#T-9916</strong></td>
-                <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">KS</div>Kavya Singh</div></td>
-                <td>Amazon 15% OFF</td>
-                <td><strong class="mono" style="color:#00e676">₹12</strong></td>
-                <td><span class="badge badge-purple">BUY</span></td>
-                <td>Aug 7, 2026</td>
-                <td><span class="badge badge-teal">PROCESSING</span></td>
-              </tr>
+              <tr><td colspan="7" style="text-align:center;padding:24px;color:#6b88aa">Loading transactions…</td></tr>
             </tbody>
           </table>
         </div>
@@ -1844,7 +1800,68 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="page-title-row">
         <div><div class="page-title">Revenue <span class="gtext">Overview</span></div><div class="page-subtitle">Gross sales, net revenue, and trends</div></div>
       </div>
-      <div class="empty-state"><div class="es-icon">📈</div><div class="es-title">Revenue Overview</div><div class="es-sub">Connect your payment database to see live revenue data.</div></div>
+      <div class="card" style="margin-bottom:22px">
+        <div class="card-title" style="justify-content:space-between;flex-wrap:wrap;gap:10px">
+          <span style="display:flex;align-items:center;gap:8px"><span class="ct-icon">🗓️</span> Period</span>
+          <div class="chart-period-btns" id="roPeriodBtns">
+            <button class="period-btn" onclick="setRevenuePeriod('today',this)">Today</button>
+            <button class="period-btn" onclick="setRevenuePeriod('7d',this)">7 Days</button>
+            <button class="period-btn active" onclick="setRevenuePeriod('30d',this)">30 Days</button>
+            <button class="period-btn" onclick="setRevenuePeriod('thisMonth',this)">This Month</button>
+            <button class="period-btn" onclick="setRevenuePeriod('prevMonth',this)">Prev Month</button>
+            <button class="period-btn" onclick="setRevenuePeriod('3m',this)">3 Months</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="date" class="form-input btn-sm" id="roFrom" style="width:150px" title="Custom from">
+            <span style="color:#6b88aa;font-size:.78rem">→</span>
+            <input type="date" class="form-input btn-sm" id="roTo" style="width:150px" title="Custom to">
+            <button class="btn btn-ghost btn-sm" onclick="applyRevenueCustomRange()">Apply</button>
+          </div>
+        </div>
+        <div id="roPeriodLabel" style="font-size:.78rem;color:#6b88aa;font-family:'JetBrains Mono',monospace"></div>
+      </div>
+
+      <!-- Data-unavailable / error banner (shown only on API failure) -->
+      <div id="roError" class="card" style="display:none;border-color:rgba(255,133,133,.4)">
+        <div style="color:#ff8585;font-weight:600">⚠️ <span id="roErrorText">Unable to load financial data.</span></div>
+      </div>
+
+      <div class="two-col" style="margin-bottom:22px">
+        <!-- Revenue waterfall -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="ct-icon">🧮</span> Revenue Breakdown</div>
+          <div class="fin-row"><span class="fin-lbl">Gross Sales</span><span class="fin-val green" id="roGross">—</span></div>
+          <div class="fin-row"><span class="fin-lbl">− Pending Sales</span><span class="fin-val red" id="roPending">—</span></div>
+          <div class="fin-row"><span class="fin-lbl">− Cancelled Sales</span><span class="fin-val red" id="roCancelled">—</span></div>
+          <div class="fin-row"><span class="fin-lbl">− Refunds</span><span class="fin-val red" id="roRefunds">—</span></div>
+          <div class="fin-row total-row"><span class="fin-lbl" style="font-weight:700">Settled Sales</span><span class="fin-val" id="roSettled">—</span></div>
+          <div class="fin-row"><span class="fin-lbl">− Seller Revenue (payouts)</span><span class="fin-val red" id="roSeller">—</span></div>
+          <div class="fin-row total-row"><span class="fin-lbl" style="font-weight:700">Platform Service Fee Revenue</span><span class="fin-val" id="roPlatformFee">—</span></div>
+          <div class="fin-row"><span class="fin-lbl">− Payment Gateway Fees</span><span class="fin-val" id="roGateway">—</span></div>
+          <div class="fin-row"><span class="fin-lbl">− Other Recorded Charges</span><span class="fin-val" id="roOther">—</span></div>
+          <div class="fin-row total-row"><span class="fin-lbl" style="color:#e2ecff;font-weight:700">Net Distributable Revenue</span><span class="fin-val green big" id="roNet">—</span></div>
+          <div style="margin-top:10px;font-size:.72rem;color:#6b88aa">Gateway fees are ₹0 — SaveHatke settles UPI directly, so no gateway fee is recorded.</div>
+        </div>
+
+        <!-- Distribution + reconciliation -->
+        <div class="card" style="margin-bottom:0">
+          <div class="card-title"><span class="ct-icon">📊</span> Revenue Distribution <span id="roReconcile" style="margin-left:auto;font-size:.75rem"></span></div>
+          <div class="dist-bar">
+            <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#00e676,#00c853)"></div>
+            <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#4fc3f7,#0288d1)"></div>
+            <div class="dist-seg" style="width:20%;background:linear-gradient(90deg,#ce93d8,#9c27b0)"></div>
+          </div>
+          <div class="dist-labels" style="margin-bottom:14px">
+            <span style="color:#00e676">Admin 1 (40%)</span>
+            <span style="color:#4fc3f7">Admin 2 (40%)</span>
+            <span style="color:#ce93d8">SaveHatke (20%)</span>
+          </div>
+          <div class="dist-item"><div class="dist-dot" style="background:#00e676"></div><span class="dist-name" id="roA1Name">Admin 1</span><span class="dist-pct">40%</span><span class="dist-amount" style="color:#00e676" id="roA1">—</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#4fc3f7"></div><span class="dist-name" id="roA2Name">Admin 2</span><span class="dist-pct">40%</span><span class="dist-amount" style="color:#4fc3f7" id="roA2">—</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#ce93d8"></div><span class="dist-name">SaveHatke</span><span class="dist-pct">20%</span><span class="dist-amount" style="color:#ce93d8" id="roPlatform">—</span></div>
+          <div class="fin-row total-row" style="margin-top:10px"><span class="fin-lbl" style="font-weight:700">Total</span><span class="fin-val" id="roDistTotal">—</span></div>
+        </div>
+      </div>
     </div>
 
     <!-- ════════════════ PAYMENT TRANSACTIONS ════════════════ -->
@@ -3267,6 +3284,9 @@ function showSection(id, navEl) {
   if (id === 'reports' && typeof loadMonthlyReports === 'function') {
     loadMonthlyReports();
   }
+  if (id === 'revenue' && typeof loadRevenueOverview === 'function') {
+    loadRevenueOverview();
+  }
   if (id === 'users' && typeof loadUsers === 'function') {
     loadUsers();
   }
@@ -3395,40 +3415,77 @@ document.addEventListener('click', () => {
 /* ════════════════════════════
    REVENUE CHART
 ════════════════════════════ */
-const chartData = {
-  '7d': {
-    labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-    gross:   [28000, 34000, 22000, 41000, 31000, 38000, 45000],
-    payouts: [16000, 20000, 13000, 24000, 18000, 22000, 26000],
-    net:     [12000, 14000, 9000,  17000, 13000, 16000, 19000],
-  },
-  '30d': {
-    labels: ['W1','W2','W3','W4'],
-    gross:   [120000, 135000, 95000, 150000],
-    payouts: [72000,  81000,  57000, 90000],
-    net:     [48000,  54000,  38000, 60000],
-  },
-  '3m': {
-    labels: ['Jun','Jul','Aug'],
-    gross:   [380000, 420000, 200000],
-    payouts: [228000, 252000, 120000],
-    net:     [152000, 168000, 80000],
-  },
-};
-
 let currentPeriod = '7d';
+// Real chart data fetched from GET /api/admin/finance/series, keyed by period.
+// undefined = not loaded yet; {error:true} = load failed; otherwise a bucketed
+// {labels,gross,payouts,net}. No hardcoded/synthetic values remain.
+const chartSeries = {};
+
+function fmt(v) {
+  v = Number(v) || 0;
+  if (v >= 100000) return '₹' + (v / 100000).toFixed(1) + 'L';
+  if (v >= 1000)   return '₹' + (v / 1000).toFixed(1) + 'K';
+  return '₹' + Math.round(v);
+}
 
 function setPeriod(p, btn) {
   currentPeriod = p;
-  document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+  // Only toggle the sibling buttons in THIS control group, so the Revenue
+  // Overview period buttons (which share the .period-btn class) are untouched.
+  if (btn && btn.parentElement) btn.parentElement.querySelectorAll('.period-btn').forEach((b) => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  renderChart();
+  loadChartSeries(p);
 }
 
-function fmt(v) {
-  if (v >= 100000) return '₹' + (v/100000).toFixed(1) + 'L';
-  if (v >= 1000)   return '₹' + (v/1000).toFixed(1) + 'K';
-  return '₹' + v;
+// Bucket the real daily series into the few bars the chart is designed to show:
+// 7d → per day, 30d → weekly, 3m → monthly. Values stay real (summed); only the
+// grouping changes for presentation.
+function bucketSeries(period, series) {
+  const out = { labels: [], gross: [], payouts: [], net: [] };
+  if (period === '7d') {
+    const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    series.forEach((d) => {
+      const dt = new Date(d.date + 'T00:00:00');
+      out.labels.push(isNaN(dt) ? d.date.slice(5) : (WD[dt.getUTCDay()]));
+      out.gross.push(d.grossRevenue); out.payouts.push(d.sellerPayouts); out.net.push(d.netRevenue);
+    });
+  } else if (period === '3m') {
+    const MS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const map = new Map();
+    series.forEach((d) => {
+      const key = d.date.slice(0, 7);
+      if (!map.has(key)) map.set(key, { g: 0, p: 0, n: 0 });
+      const b = map.get(key); b.g += d.grossRevenue; b.p += d.sellerPayouts; b.n += d.netRevenue;
+    });
+    [...map.entries()].forEach(([key, b]) => {
+      out.labels.push(MS[Number(key.slice(5, 7)) - 1] || key);
+      out.gross.push(b.g); out.payouts.push(b.p); out.net.push(b.n);
+    });
+  } else { // 30d → weekly buckets of 7 days
+    for (let i = 0; i < series.length; i += 7) {
+      const chunk = series.slice(i, i + 7);
+      out.labels.push('W' + (Math.floor(i / 7) + 1));
+      out.gross.push(chunk.reduce((s, d) => s + d.grossRevenue, 0));
+      out.payouts.push(chunk.reduce((s, d) => s + d.sellerPayouts, 0));
+      out.net.push(chunk.reduce((s, d) => s + d.netRevenue, 0));
+    }
+  }
+  return out;
+}
+
+async function loadChartSeries(period) {
+  const bars = document.getElementById('chartBars');
+  const labelsEl = document.getElementById('chartLabels');
+  if (bars) bars.innerHTML = '<div style="padding:24px;color:#6b88aa;font-size:.8rem">Loading…</div>';
+  if (labelsEl) labelsEl.innerHTML = '';
+  try {
+    const res = await api('/admin/finance/series?period=' + encodeURIComponent(period), { useAdmin: true });
+    chartSeries[period] = bucketSeries(period, (res && res.series) || []);
+  } catch (err) {
+    const unavailable = err && err.data && err.data.dataUnavailable;
+    chartSeries[period] = { error: true, message: unavailable ? 'Unable to load financial data.' : (err.message || 'Failed to load chart data.') };
+  }
+  if (currentPeriod === period) renderChart();
 }
 
 function renderChart() {
@@ -3436,11 +3493,15 @@ function renderChart() {
   const labels = document.getElementById('chartLabels');
   if (!bars || !labels) return;
 
-  const data = chartData[currentPeriod];
-  const maxVal = Math.max(...data.gross);
-
+  const data = chartSeries[currentPeriod];
   bars.innerHTML = '';
   labels.innerHTML = '';
+
+  if (!data) { bars.innerHTML = '<div style="padding:24px;color:#6b88aa;font-size:.8rem">Loading…</div>'; return; }
+  if (data.error) { bars.innerHTML = `<div style="padding:24px;color:#ff8585;font-size:.85rem">⚠️ ${data.message}</div>`; return; }
+  if (!data.labels.length) { bars.innerHTML = '<div style="padding:24px;color:#6b88aa;font-size:.85rem">No transactions in this period.</div>'; return; }
+
+  const maxVal = Math.max(1, ...data.gross);
 
   data.labels.forEach((lbl, i) => {
     const gh = Math.round((data.gross[i] / maxVal) * 145);
@@ -3470,7 +3531,7 @@ function renderChart() {
   });
 }
 
-renderChart();
+renderChart(); // paints the "Loading…" placeholder; loadDashboardFinance() fetches real series
 
 /* ════════════════════════════
    DASHBOARD ACTIONS
@@ -3482,6 +3543,7 @@ function refreshDashboard() {
   btn.innerHTML = '<span class="spinning">↻</span> Refreshing…';
   btn.disabled = true;
   if (typeof loadAdminStats === 'function') loadAdminStats();
+  if (typeof loadDashboardFinance === 'function') loadDashboardFinance();
   setTimeout(() => {
     btn.textContent = orig;
     btn.disabled = false;
@@ -3492,6 +3554,186 @@ function refreshDashboard() {
 function exportReport() {
   showToast('Generating financial report…', 'info', 2000);
   setTimeout(() => showToast('Report exported successfully!', 'success'), 2200);
+}
+
+/* ════════════════════════════
+   FINANCE — real data (Phase 1)
+   Dashboard + Revenue Overview. Every value comes from
+   GET /api/admin/finance/* (services/finance.js). No hardcoded amounts.
+   dataUnavailable (HTTP 503) is shown as an explicit unavailable state,
+   never as a fake ₹0.
+════════════════════════════ */
+const MONTH_NAMES_UI = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+// Full Indian-grouped rupee, e.g. ₹1,20,000. Negative → "− ₹…".
+function inrFull(n) {
+  const v = Math.round(Number(n) || 0);
+  return (v < 0 ? '− ₹' : '₹') + Math.abs(v).toLocaleString('en-IN');
+}
+// Deduction rows: prefix a minus only for non-zero values.
+function inrSigned(n, sign) {
+  const v = Math.round(Number(n) || 0);
+  if (sign === '-' && v !== 0) return '− ₹' + Math.abs(v).toLocaleString('en-IN');
+  return '₹' + v.toLocaleString('en-IN');
+}
+function setTxt(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+function currentMonthLabelUI() { const d = new Date(); return MONTH_NAMES_UI[d.getMonth()] + ' ' + d.getFullYear(); }
+
+// ── Dashboard ────────────────────────────────────────────────────────────
+async function loadDashboardFinance() {
+  setTxt('finMonthLabel', currentMonthLabelUI());
+  setTxt('attnSettlementLabel', currentMonthLabelUI());
+
+  try {
+    const [monthRes, todayRes] = await Promise.all([
+      api('/admin/finance/overview?period=thisMonth', { useAdmin: true }),
+      api('/admin/finance/overview?period=today', { useAdmin: true }),
+    ]);
+    applyDashboardMonth(monthRes.overview);
+    applyDashboardToday(todayRes.overview);
+  } catch (err) {
+    const msg = (err && err.data && err.data.dataUnavailable) ? 'Data unavailable' : 'Error';
+    ['finGross', 'finSeller', 'finRefunds', 'finGateway', 'finNet',
+      'finDistA1', 'finDistA2', 'finDistPlatform', 'attnRefundCount',
+      'statRevenue', 'kpi-txns'].forEach((id) => setTxt(id, msg));
+  }
+
+  // Seller payouts pending count (Needs Attention) from the real payout stats.
+  try {
+    const ps = await api('/admin/payouts/stats', { useAdmin: true });
+    if (ps && typeof ps.pendingCount !== 'undefined') setTxt('pendingPayoutCount', String(ps.pendingCount));
+  } catch (e) { /* leave whatever loadPayouts set */ }
+
+  loadChartSeries(currentPeriod);
+  loadRecentTransactions();
+}
+
+function applyDashboardMonth(o) {
+  if (!o) return;
+  setTxt('statRevenue', inrFull(o.grossSales));          // Total Earnings — this month gross
+  setTxt('finGross', inrFull(o.grossSales));
+  setTxt('finSeller', inrSigned(o.sellerRevenue, '-'));
+  setTxt('finRefunds', inrSigned(o.refundedValue, '-'));
+  setTxt('finGateway', inrSigned(o.gatewayFees, '-'));   // ₹0 — no gateway fee recorded
+  setTxt('finNet', inrFull(o.netDistributableRevenue));
+  setTxt('finDistA1', inrFull(o.distribution.admin1.amount));
+  setTxt('finDistA2', inrFull(o.distribution.admin2.amount));
+  setTxt('finDistPlatform', inrFull(o.distribution.platform.amount));
+  setTxt('attnRefundCount', String(o.counts.refundsOpen));
+}
+
+function applyDashboardToday(o) {
+  if (!o) return;
+  setTxt('kpi-txns', inrFull(o.paidValue)); // Transactions Today = today's settled value
+}
+
+async function loadRecentTransactions() {
+  const tbody = document.getElementById('txnTableBody');
+  if (!tbody) return;
+  try {
+    const res = await api('/admin/finance/transactions?period=all&limit=8', { useAdmin: true });
+    const rows = (res && res.transactions) || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#6b88aa">No transactions yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(txnRowHtml).join('');
+  } catch (err) {
+    const unavailable = err && err.data && err.data.dataUnavailable;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${unavailable ? 'Unable to load financial data.' : escapeHtml(err.message || 'Failed to load transactions')}</td></tr>`;
+  }
+}
+
+function txnBadge(status) {
+  const s = String(status || '').toUpperCase();
+  const map = { PAID: 'badge-green', PENDING: 'badge-orange', CANCELLED: 'badge-red', EXPIRED: 'badge-red', REVIEW: 'badge-teal' };
+  return `<span class="badge ${map[s] || 'badge-blue'}">${escapeHtml(s || '—')}</span>`;
+}
+
+function txnRowHtml(t) {
+  const id = t.orderCode || t.id || '';
+  const user = t.user || '—';
+  const initials = (user || '?').split(/\s+/).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
+  const dt = t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  const refund = t.refundStatus ? ` <span class="badge badge-red" style="font-size:.6rem">${escapeHtml(t.refundStatus)}</span>` : '';
+  return `<tr>
+    <td><strong class="mono">${escapeHtml(String(id))}</strong></td>
+    <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">${escapeHtml(initials)}</div>${escapeHtml(user)}</div></td>
+    <td>${escapeHtml(t.coupon || '—')}</td>
+    <td><strong class="mono" style="color:#00e676">₹${(Math.round(Number(t.amount) || 0)).toLocaleString('en-IN')}</strong></td>
+    <td><span class="badge badge-purple">BUY</span></td>
+    <td>${dt}</td>
+    <td>${txnBadge(t.status)}${refund}</td>
+  </tr>`;
+}
+
+// ── Revenue Overview ───────────────────────────────────────────────────────
+let revenuePeriod = '30d';
+let revenueCustom = null;
+
+function setRevenuePeriod(p, btn) {
+  revenuePeriod = p; revenueCustom = null;
+  if (btn && btn.parentElement) btn.parentElement.querySelectorAll('.period-btn').forEach((b) => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadRevenueOverview();
+}
+
+function applyRevenueCustomRange() {
+  const from = (document.getElementById('roFrom') || {}).value;
+  const to = (document.getElementById('roTo') || {}).value;
+  if (!from || !to) { showToast('Pick both From and To dates.', 'warning'); return; }
+  revenuePeriod = 'custom'; revenueCustom = { from, to };
+  const grp = document.getElementById('roPeriodBtns');
+  if (grp) grp.querySelectorAll('.period-btn').forEach((b) => b.classList.remove('active'));
+  loadRevenueOverview();
+}
+
+async function loadRevenueOverview() {
+  const errBox = document.getElementById('roError');
+  let url = '/admin/finance/overview?period=' + encodeURIComponent(revenuePeriod);
+  if (revenuePeriod === 'custom' && revenueCustom) {
+    url += '&from=' + encodeURIComponent(revenueCustom.from) + '&to=' + encodeURIComponent(revenueCustom.to);
+  }
+  try {
+    const res = await api(url, { useAdmin: true });
+    if (errBox) errBox.style.display = 'none';
+    applyRevenueOverview(res.overview);
+  } catch (err) {
+    const unavailable = err && err.data && err.data.dataUnavailable;
+    if (errBox) { errBox.style.display = 'block'; setTxt('roErrorText', unavailable ? 'Unable to load financial data.' : (err.message || 'Failed to load revenue data.')); }
+    ['roGross', 'roPending', 'roCancelled', 'roRefunds', 'roSettled', 'roSeller',
+      'roPlatformFee', 'roGateway', 'roOther', 'roNet', 'roA1', 'roA2', 'roPlatform', 'roDistTotal']
+      .forEach((id) => setTxt(id, unavailable ? 'Data unavailable' : '—'));
+  }
+}
+
+function applyRevenueOverview(o) {
+  if (!o) return;
+  setTxt('roPeriodLabel', o.period ? (o.period.label + ' · ' + String(o.period.fromIso || '').slice(0, 10) + ' → ' + String(o.period.toIso || '').slice(0, 10)) : '');
+  setTxt('roGross', inrFull(o.grossSales));
+  setTxt('roPending', inrSigned(o.pendingValue, '-'));
+  setTxt('roCancelled', inrSigned(o.cancelledValue, '-'));
+  setTxt('roRefunds', inrSigned(o.refundedValue, '-'));
+  setTxt('roSettled', inrFull(o.settledSales));
+  setTxt('roSeller', inrSigned(o.sellerRevenue, '-'));
+  setTxt('roPlatformFee', inrFull(o.platformServiceFeeRevenue));
+  setTxt('roGateway', inrSigned(o.gatewayFees, '-'));
+  setTxt('roOther', inrSigned(o.otherCharges, '-'));
+  setTxt('roNet', inrFull(o.netDistributableRevenue));
+  setTxt('roA1', inrFull(o.distribution.admin1.amount));
+  setTxt('roA2', inrFull(o.distribution.admin2.amount));
+  setTxt('roPlatform', inrFull(o.distribution.platform.amount));
+  setTxt('roDistTotal', inrFull(o.distribution.total));
+  const a1n = document.getElementById('roA1Name');
+  if (a1n && o.distribution.admin1.email) a1n.textContent = 'Admin 1 · ' + o.distribution.admin1.email;
+  const a2n = document.getElementById('roA2Name');
+  if (a2n && o.distribution.admin2.email) a2n.textContent = 'Admin 2 · ' + o.distribution.admin2.email;
+  const rec = document.getElementById('roReconcile');
+  if (rec) {
+    if (o.reconciliation && o.reconciliation.reconciled) { rec.textContent = '✓ Reconciled'; rec.style.color = '#00e676'; }
+    else { rec.textContent = '⚠ Variance ' + inrFull(o.reconciliation ? o.reconciliation.distributionVariance : 0); rec.style.color = '#ffb74d'; }
+  }
 }
 
 /* ════════════════════════════

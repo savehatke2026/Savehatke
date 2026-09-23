@@ -36,6 +36,10 @@ function showAdminDashboard() {
   if (dash) dash.style.display = 'block';
 
   loadAdminStats();
+  // Dashboard financial values (Total Earnings, Transactions Today, Monthly
+  // Summary, Revenue Distribution, Needs Attention, chart, Recent Transactions)
+  // are owned by the finance module in vault.html, backed by /api/admin/finance.
+  if (typeof loadDashboardFinance === 'function') loadDashboardFinance();
 }
 
 function renderCurrentAdminProfile() {
@@ -145,8 +149,9 @@ async function loadAdminStats() {
     if (cEl) cEl.textContent = s.availableCoupons;
     const pEl = document.getElementById('statPending');
     if (pEl) pEl.textContent = s.pendingCoupons;
-    const rEl = document.getElementById('statRevenue');
-    if (rEl) rEl.textContent = s.revenue;
+    // Total Earnings (#statRevenue) is now owned by loadDashboardFinance()
+    // (this-month gross from /api/admin/finance/overview), so it is not set
+    // here anymore — that keeps the dashboard and Revenue Overview consistent.
   } catch (err) {
     console.warn('Stats warning:', err.message);
   }
