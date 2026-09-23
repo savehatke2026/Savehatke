@@ -289,21 +289,131 @@
     .cs-lbl{font-size:.72rem;font-weight:600;color:#6b88aa;text-transform:uppercase;letter-spacing:.06em}
 
     /* ===================================================
-       REFUNDS LIST
-       Same shape on every breakpoint — a 5-card summary on
-       top, then either a responsive table (desktop) or a
-       stack of compact cards (mobile). On narrow screens the
-       table hides and the cards show, so a long refund_id never
-       squashes the row.
+       REFUNDS PAGE — redesigned professional layout
+       Header · 5-card summary · one records container with a
+       tabs/search/filter toolbar and a responsive table.
+       Reuses the existing dark-navy + green/teal tokens — no
+       new design system, just tighter rhythm and hierarchy.
     =================================================== */
-    .refunds-tbl table{border-collapse:separate;border-spacing:0}
-    .refunds-tbl thead th{font-weight:600;border-bottom:1px solid rgba(79,195,247,.12)}
-    .refunds-tbl tbody tr{border-bottom:1px solid rgba(79,195,247,.06);transition:background .15s}
-    .refunds-tbl tbody tr:hover{background:rgba(0,230,118,.04)}
-    .refunds-cards{display:none}
+    /* Header */
+    .rf-header{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:26px;padding-bottom:20px;border-bottom:1px solid rgba(79,195,247,.08)}
+    .rf-header-left{display:flex;align-items:flex-start;gap:14px;min-width:0}
+    .rf-back-btn{flex:0 0 auto;width:40px;height:40px;border-radius:11px;background:rgba(255,255,255,.04);border:1px solid rgba(79,195,247,.18);color:#a8c0dc;font-size:1.15rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+    .rf-back-btn:hover{border-color:rgba(0,230,118,.32);background:rgba(0,230,118,.07);color:#00e676;transform:translateX(-2px)}
+    .rf-title{font-family:'DM Serif Display',serif;font-size:clamp(1.5rem,3vw,2.05rem);line-height:1.1;color:#e2ecff}
+    .rf-subtitle{font-size:.85rem;color:#6b88aa;margin-top:5px;max-width:540px;line-height:1.5}
+    .rf-header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .rf-datetime{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:6px 14px;border-radius:11px;background:rgba(15,30,58,.7);border:1px solid rgba(79,195,247,.12);min-width:128px}
+    .rf-dt-date{font-size:.8rem;font-weight:700;color:#e2ecff;line-height:1.2}
+    .rf-dt-time{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#4fc3f7;margin-top:2px}
+
+    /* Summary cards */
+    .rf-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:22px}
+    .rf-card{position:relative;background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.1);border-radius:15px;padding:16px 16px 15px;overflow:hidden;transition:transform .22s,border-color .22s,background .22s}
+    .rf-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:var(--rf-accent,#4fc3f7);opacity:.85}
+    .rf-card:hover{transform:translateY(-3px);border-color:var(--rf-accent,rgba(0,230,118,.3));background:rgba(17,34,66,.72)}
+    .rf-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+    .rf-card-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;background:var(--rf-accent-bg,rgba(79,195,247,.12));color:var(--rf-accent,#4fc3f7)}
+    .rf-card-count{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:600;color:#8ea6c4;background:rgba(255,255,255,.04);border:1px solid rgba(79,195,247,.1);border-radius:7px;padding:2px 8px;min-width:26px;text-align:center}
+    .rf-card-amt{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:600;line-height:1.05;color:#e2ecff;margin-bottom:7px;word-break:break-word}
+    .rf-card-name{font-size:.82rem;font-weight:700;color:#e2ecff;margin-bottom:2px}
+    .rf-card-desc{font-size:.72rem;color:#6b88aa;line-height:1.4}
+    .rf-card-total{--rf-accent:#00e676;--rf-accent-bg:rgba(0,230,118,.12)}
+    .rf-card-total .rf-card-amt{background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .rf-card-pending{--rf-accent:#ffb74d;--rf-accent-bg:rgba(255,183,77,.12)}
+    .rf-card-pending .rf-card-amt{color:#ffd08a}
+    .rf-card-processing{--rf-accent:#4fc3f7;--rf-accent-bg:rgba(79,195,247,.12)}
+    .rf-card-processing .rf-card-amt{color:#4fc3f7}
+    .rf-card-refunded{--rf-accent:#00e676;--rf-accent-bg:rgba(0,230,118,.12)}
+    .rf-card-refunded .rf-card-amt{color:#00e676}
+    .rf-card-rejected{--rf-accent:#ff8585;--rf-accent-bg:rgba(255,133,133,.12)}
+    .rf-card-rejected .rf-card-amt{color:#ff8585}
+
+    /* Records container */
+    .rf-records{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;padding:18px 20px 22px}
+    .rf-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+    .rf-tabs{display:flex;gap:4px;flex-wrap:wrap;background:rgba(0,0,0,.2);border:1px solid rgba(79,195,247,.08);border-radius:11px;padding:4px}
+    .rf-tab{background:transparent;border:none;color:#8ea6c4;font-family:'Outfit',sans-serif;font-size:.8rem;font-weight:600;padding:7px 14px;border-radius:8px;cursor:pointer;transition:all .18s;white-space:nowrap}
+    .rf-tab:hover{color:#e2ecff;background:rgba(79,195,247,.08)}
+    .rf-tab.active{color:#060d1f;background:linear-gradient(135deg,#00e676,#00c853);box-shadow:0 4px 14px rgba(0,230,118,.28)}
+    .rf-tools{display:flex;align-items:center;gap:10px;flex:1;justify-content:flex-end;min-width:210px}
+    .rf-search{position:relative;flex:1;max-width:340px;min-width:170px}
+    .rf-search-ico{position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:.85rem;color:#6b88aa;pointer-events:none}
+    .rf-search input{width:100%;height:40px;padding:0 12px 0 34px;border-radius:10px;background:rgba(6,13,31,.6);border:1px solid rgba(79,195,247,.15);color:#e2ecff;font-size:.83rem;transition:border-color .2s,background .2s}
+    .rf-search input::placeholder{color:#5f7c9e}
+    .rf-search input:focus{outline:none;border-color:rgba(0,230,118,.4);background:rgba(6,13,31,.85)}
+    .rf-filter-wrap{position:relative;flex:0 0 auto}
+    .rf-filter-btn{display:inline-flex;align-items:center;gap:7px;height:40px;padding:0 15px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid rgba(79,195,247,.15);color:#a8c0dc;font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:600;cursor:pointer;transition:all .2s}
+    .rf-filter-btn:hover,.rf-filter-btn.active{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.07);color:#00e676}
+    .rf-filter-menu{position:absolute;top:calc(100% + 8px);right:0;z-index:40;min-width:196px;background:rgba(12,24,53,.98);backdrop-filter:blur(18px);border:1px solid rgba(79,195,247,.2);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.55);padding:6px;display:none;flex-direction:column;gap:2px}
+    .rf-filter-menu.open{display:flex;animation:slideDown .18s ease-out}
+    .rf-filter-menu-lbl{font-size:.64rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:7px 10px 4px}
+    .rf-filter-opt{display:flex;align-items:center;justify-content:space-between;gap:8px;background:transparent;border:none;width:100%;text-align:left;color:#a8c0dc;font-family:'Outfit',sans-serif;font-size:.82rem;font-weight:500;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all .16s}
+    .rf-filter-opt:hover{background:rgba(0,230,118,.1);color:#00e676}
+    .rf-filter-opt.active{color:#00e676}
+    .rf-filter-opt .rf-check{opacity:0;font-size:.8rem}
+    .rf-filter-opt.active .rf-check{opacity:1}
+
+    /* Records table */
+    .rf-tbl-wrap{overflow-x:auto}
+    .rf-tbl{width:100%;border-collapse:collapse}
+    .rf-tbl thead th{font-size:.67rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#6b88aa;padding:11px 12px;text-align:left;background:rgba(0,0,0,.2);white-space:nowrap}
+    .rf-tbl thead th:first-child{border-radius:9px 0 0 9px}
+    .rf-tbl thead th:last-child{border-radius:0 9px 9px 0}
+    .rf-tbl tbody tr{border-bottom:1px solid rgba(79,195,247,.06);transition:background .15s;cursor:pointer}
+    .rf-tbl tbody tr:last-child{border-bottom:none}
+    .rf-tbl tbody tr:hover{background:rgba(0,230,118,.04)}
+    .rf-tbl tbody td{padding:13px 12px;font-size:.83rem;color:#a8c0dc;vertical-align:middle;white-space:nowrap}
+    .rf-idx{color:#5f7c9e;font-family:'JetBrains Mono',monospace;font-size:.78rem}
+    .rf-amt-diff{color:#00e676;font-weight:700;font-family:'JetBrains Mono',monospace}
+    .rf-view-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:30px;padding:0 13px;border-radius:8px;background:rgba(79,195,247,.1);border:1px solid rgba(79,195,247,.22);color:#4fc3f7;font-family:'Outfit',sans-serif;font-size:.76rem;font-weight:600;cursor:pointer;transition:all .18s}
+    .rf-view-btn:hover{background:rgba(0,230,118,.12);border-color:rgba(0,230,118,.3);color:#00e676}
+
+    /* Mobile refund cards */
+    .rf-cards{display:none}
+    .rf-mob-card{background:rgba(6,13,31,.5);border:1px solid rgba(79,195,247,.1);border-radius:13px;padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color .2s,background .2s}
+    .rf-mob-card:hover{border-color:rgba(0,230,118,.25);background:rgba(0,230,118,.03)}
+    .rf-mob-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:5px}
+    .rf-mob-order{display:flex;align-items:center;gap:8px;font-size:.86rem;font-weight:700;color:#e2ecff;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .rf-mob-hash{color:#5f7c9e;font-family:'JetBrains Mono',monospace;font-size:.76rem;flex-shrink:0}
+    .rf-mob-date{font-size:.74rem;color:#6b88aa;margin-bottom:11px}
+    .rf-mob-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;margin-bottom:13px}
+    .rf-mob-grid>div{display:flex;flex-direction:column;gap:2px;min-width:0}
+    .rf-mob-grid span{font-size:.66rem;color:#6b88aa;text-transform:uppercase;letter-spacing:.04em}
+    .rf-mob-grid b{font-size:.85rem;font-weight:600;color:#e2ecff;overflow:hidden;text-overflow:ellipsis}
+    .rf-mob-view{width:100%;height:36px}
+
+    /* Empty state */
+    .rf-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:52px 20px}
+    .rf-empty-ico{width:64px;height:64px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;background:rgba(79,195,247,.09);border:1px solid rgba(79,195,247,.16);color:#4fc3f7;margin-bottom:16px}
+    .rf-empty-title{font-size:1.05rem;font-weight:700;color:#e2ecff;margin-bottom:8px}
+    .rf-empty-sub{font-size:.85rem;color:#6b88aa;line-height:1.55;max-width:440px;margin-bottom:20px}
+
+    /* How Refunds Work modal */
+    .hrw-step{display:flex;gap:13px;padding:14px 0;border-bottom:1px solid rgba(79,195,247,.07)}
+    .hrw-step:last-child{border-bottom:none}
+    .hrw-ico{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.85rem;flex-shrink:0;color:#00e676;background:rgba(0,230,118,.12)}
+    .hrw-t{font-size:.9rem;font-weight:700;color:#e2ecff;margin-bottom:3px}
+    .hrw-d{font-size:.82rem;color:#8ea6c4;line-height:1.55}
+    .hrw-formula{font-family:'JetBrains Mono',monospace;font-size:.76rem;color:#4fc3f7;background:rgba(6,13,31,.55);border:1px solid rgba(79,195,247,.12);border-radius:8px;padding:7px 10px;margin-top:8px;display:inline-block}
+
+    /* Responsive breakpoints */
+    @media (max-width:1080px){
+      .rf-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    }
     @media (max-width:760px){
-      .refunds-tbl{display:none}
-      .refunds-cards{display:block}
+      .rf-header-right{width:100%;justify-content:flex-start}
+      .rf-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      .rf-toolbar{flex-direction:column;align-items:stretch}
+      .rf-tabs{overflow-x:auto;flex-wrap:nowrap}
+      .rf-tools{justify-content:space-between;width:100%}
+      .rf-search{max-width:none}
+      .rf-tbl-wrap{display:none}
+      .rf-cards{display:block}
+    }
+    @media (max-width:460px){
+      .rf-summary-grid{grid-template-columns:1fr}
+      .rf-datetime{align-items:flex-start}
     }
 
     /* ===================================================
@@ -1605,47 +1715,107 @@
     <div id="view-refunds" class="db-view">
     <div class="container">
 
-      <div class="view-hdr">
-        <div>
-          <div class="view-title"><span class="gtext">Refunds</span></div>
-          <div class="view-subtitle">View and manage payment amount mismatches</div>
+      <!-- 1. PAGE HEADER -->
+      <div class="rf-header">
+        <div class="rf-header-left">
+          <button class="rf-back-btn" onclick="showView('dashboard')" title="Back" aria-label="Back to dashboard">←</button>
+          <div>
+            <h1 class="rf-title">Refunds</h1>
+            <div class="rf-subtitle">View and manage payment amount mismatches, refund requests and their status.</div>
+          </div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="showView('dashboard')">← Back</button>
-          <button class="btn btn-ghost btn-sm" onclick="loadRefunds({silent:true})" title="Refresh">↻ Refresh</button>
+        <div class="rf-header-right">
+          <button class="btn btn-ghost btn-sm" onclick="openHowRefundsWork()">ℹ️ How Refunds Work?</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadRefunds()" title="Refresh refunds">↻ Refresh</button>
+          <div class="rf-datetime" id="refundsDateTime">
+            <span class="rf-dt-date">—</span>
+            <span class="rf-dt-time">—</span>
+          </div>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-hdr">
-          <div class="card-title"><span class="ico">↩️</span> Refunds</div>
-          <button class="btn btn-ghost btn-sm" onclick="loadRefunds()" title="Refresh">↻ Refresh</button>
+      <!-- 2. REFUND SUMMARY — five status cards. Amounts (₹) and counts come
+           straight from /api/refunds summary; only the layout changed. -->
+      <div class="rf-summary-grid">
+        <div class="rf-card rf-card-total">
+          <div class="rf-card-top">
+            <div class="rf-card-ico">🧾</div>
+            <span class="rf-card-count" id="refundsTotalCount">0</span>
+          </div>
+          <div class="rf-card-amt" id="refundsTotal">₹0</div>
+          <div class="rf-card-name">Total Refunds</div>
+          <div class="rf-card-desc">All refund records</div>
+        </div>
+        <div class="rf-card rf-card-pending">
+          <div class="rf-card-top">
+            <div class="rf-card-ico">⏳</div>
+            <span class="rf-card-count" id="refundsPendingCount">0</span>
+          </div>
+          <div class="rf-card-amt" id="refundsPending">₹0</div>
+          <div class="rf-card-name">Pending</div>
+          <div class="rf-card-desc">Awaiting review</div>
+        </div>
+        <div class="rf-card rf-card-processing">
+          <div class="rf-card-top">
+            <div class="rf-card-ico">🔄</div>
+            <span class="rf-card-count" id="refundsProcessingCount">0</span>
+          </div>
+          <div class="rf-card-amt" id="refundsProcessing">₹0</div>
+          <div class="rf-card-name">Processing</div>
+          <div class="rf-card-desc">Being processed</div>
+        </div>
+        <div class="rf-card rf-card-refunded">
+          <div class="rf-card-top">
+            <div class="rf-card-ico">✅</div>
+            <span class="rf-card-count" id="refundsRefundedCount">0</span>
+          </div>
+          <div class="rf-card-amt" id="refundsRefunded">₹0</div>
+          <div class="rf-card-name">Refunded</div>
+          <div class="rf-card-desc">Successfully settled</div>
+        </div>
+        <div class="rf-card rf-card-rejected">
+          <div class="rf-card-top">
+            <div class="rf-card-ico">⛔</div>
+            <span class="rf-card-count" id="refundsRejectedCount">0</span>
+          </div>
+          <div class="rf-card-amt" id="refundsRejected">₹0</div>
+          <div class="rf-card-name">Rejected</div>
+          <div class="rf-card-desc">Not approved</div>
+        </div>
+      </div>
+
+      <!-- 3. REFUND RECORDS — the main content area. Tabs + search + filter
+           only re-slice the already-fetched list client-side; the data,
+           amounts and status all remain server-authoritative. -->
+      <div class="rf-records">
+        <div class="rf-toolbar">
+          <div class="rf-tabs">
+            <button class="rf-tab active" data-status="all" onclick="filterRefunds('all', this)">All</button>
+            <button class="rf-tab" data-status="pending" onclick="filterRefunds('pending', this)">Pending</button>
+            <button class="rf-tab" data-status="processing" onclick="filterRefunds('processing', this)">Processing</button>
+            <button class="rf-tab" data-status="refunded" onclick="filterRefunds('refunded', this)">Refunded</button>
+            <button class="rf-tab" data-status="rejected" onclick="filterRefunds('rejected', this)">Rejected</button>
+          </div>
+          <div class="rf-tools">
+            <div class="rf-search">
+              <span class="rf-search-ico">🔍</span>
+              <input type="text" id="refundsSearch" autocomplete="off" placeholder="Search by order ID, payment ID, amount..." oninput="applyRefundFilters()">
+            </div>
+            <div class="rf-filter-wrap">
+              <button class="rf-filter-btn" id="refundsFilterBtn" onclick="toggleRefundFilterMenu()" title="Sort &amp; filter">
+                <span>⚙</span> Filter
+              </button>
+              <div class="rf-filter-menu" id="refundsFilterMenu">
+                <div class="rf-filter-menu-lbl">Sort by</div>
+                <button class="rf-filter-opt active" data-sort="newest" onclick="setRefundSort('newest', this)">Newest first <span class="rf-check">✓</span></button>
+                <button class="rf-filter-opt" data-sort="oldest" onclick="setRefundSort('oldest', this)">Oldest first <span class="rf-check">✓</span></button>
+                <button class="rf-filter-opt" data-sort="high" onclick="setRefundSort('high', this)">Highest difference <span class="rf-check">✓</span></button>
+                <button class="rf-filter-opt" data-sort="low" onclick="setRefundSort('low', this)">Lowest difference <span class="rf-check">✓</span></button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="cs-grid" style="margin-bottom:16px">
-          <div class="cs-item">
-            <div class="cs-num gtext" id="refundsTotal">₹0</div>
-            <div class="cs-lbl">Total Refunds</div>
-          </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#ffd08a" id="refundsPending">₹0</div>
-            <div class="cs-lbl">Pending</div>
-          </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#4fc3f7" id="refundsProcessing">₹0</div>
-            <div class="cs-lbl">Processing</div>
-          </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#00e676" id="refundsRefunded">₹0</div>
-            <div class="cs-lbl">Refunded</div>
-          </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#ff8585" id="refundsRejected">₹0</div>
-            <div class="cs-lbl">Rejected</div>
-          </div>
-        </div>
-
-        <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:10px">Refund records</div>
         <div id="refundsList"></div>
       </div>
 
@@ -2644,6 +2814,54 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('refundDetailModal')">Close</button>
       <button class="btn btn-primary" style="flex:1" id="refundDetailActionBtn" onclick="requestRefundFromDetail()">Request Refund</button>
+    </div>
+  </div>
+</div>
+
+<!-- How Refunds Work modal — explains the server-side refund rules. UI only;
+     no data is fetched here. Triggered from the Refunds header button so the
+     guidance stays out of the main page layout. -->
+<div class="modal-overlay" id="howRefundsWorkModal" onclick="handleOverlayClick(event,'howRefundsWorkModal')">
+  <div class="modal">
+    <button class="modal-close-btn" onclick="closeModal('howRefundsWorkModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">How Refunds <span class="gtext">Work</span></div>
+      <div class="modal-sub">Refunds are created automatically from verified payments.</div>
+    </div>
+    <div class="modal-body">
+      <div class="hrw-step">
+        <div class="hrw-ico">1</div>
+        <div>
+          <div class="hrw-t">Automatic detection</div>
+          <div class="hrw-d">When your payment amount differs from the coupon's required amount, SaveHatke creates a refund record for you automatically — you never have to file one manually.</div>
+        </div>
+      </div>
+      <div class="hrw-step">
+        <div class="hrw-ico">2</div>
+        <div>
+          <div class="hrw-t">Overpayment</div>
+          <div class="hrw-d">If you paid more than required, the extra amount is refunded back to you.</div>
+          <span class="hrw-formula">refund = received − required</span>
+        </div>
+      </div>
+      <div class="hrw-step">
+        <div class="hrw-ico">3</div>
+        <div>
+          <div class="hrw-t">Underpayment</div>
+          <div class="hrw-d">If you paid less than required, you get back exactly what you paid — then you can pay the correct amount or request the partial refund.</div>
+          <span class="hrw-formula">refund = amount you paid</span>
+        </div>
+      </div>
+      <div class="hrw-step">
+        <div class="hrw-ico">4</div>
+        <div>
+          <div class="hrw-t">Status ladder</div>
+          <div class="hrw-d">Every refund moves through <strong style="color:#ffd08a">Pending</strong> → <strong style="color:#4fc3f7">Processing</strong> → <strong style="color:#00e676">Refunded</strong>, or is marked <strong style="color:#ff8585">Rejected</strong>. All amounts are server-verified and cannot be edited.</div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-primary btn-full" onclick="closeModal('howRefundsWorkModal')">Got it</button>
     </div>
   </div>
 </div>
@@ -5105,49 +5323,219 @@
     return d.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
   }
 
-  // Single refund as a card (mobile) or table row (desktop).
-  function refundListItem(r) {
+  // ─── Refund list state ───────────────────────────────────────────
+  // Client-side view state only (tab / search / sort). It never mutates
+  // the fetched records and never re-derives any amount — it only decides
+  // which server-supplied rows are shown and in what order.
+  let _allRefunds = [];
+  let _refundTab = 'all';
+  let _refundSearch = '';
+  let _refundSort = 'newest';
+
+  // Order ID prefers the human order code, then the coupon it belongs to.
+  function refundOrderId(r) {
+    return r.orderCode || r.couponId || '';
+  }
+
+  // Single refund as a desktop table row. Columns match the redesigned
+  // header: #, Date & Time, Order ID, Payment ID, Expected, Received,
+  // Difference, Status, Action.
+  function refundListItem(r, idx) {
     const status = String(r.status || '').toLowerCase();
-    const mismatchLabel = r.mismatchType === 'overpayment' ? 'Overpayment' : (r.mismatchType === 'underpayment' ? 'Underpayment' : '—');
+    const id = r.refundId || r.id;
+    const orderId = refundOrderId(r);
     return `
-      <tr class="refunds-row" data-refund-id="${escapeHtml(r.refundId || r.id)}" style="cursor:pointer">
-        <td class="mono" style="font-size:.78rem">${escapeHtml(r.refundId || r.id || '—')}</td>
+      <tr class="refunds-row" data-refund-id="${escapeHtml(id)}">
+        <td class="rf-idx">${idx}</td>
+        <td style="color:#c3d4ec">${refundDate(r.createdAt)}</td>
+        <td class="mono" style="font-size:.78rem">${escapeHtml(orderId || '—')}</td>
         <td class="mono" style="font-size:.78rem">${escapeHtml(r.paymentId || '—')}</td>
-        <td>${escapeHtml(r.couponId || '—')}</td>
         <td style="text-align:right;font-weight:600">${inr(r.requiredAmount)}</td>
         <td style="text-align:right">${inr(r.receivedAmount)}</td>
-        <td style="text-align:right;color:#00e676;font-weight:700">${inr(r.refundAmount)}</td>
-        <td>${escapeHtml(mismatchLabel)}</td>
-        <td style="font-size:.78rem;color:#8ea6c4">${refundDate(r.createdAt)}</td>
+        <td style="text-align:right" class="rf-amt-diff">${inr(r.refundAmount)}</td>
         <td>${refundBadge(status)}</td>
+        <td style="text-align:right"><button class="rf-view-btn" data-refund-id="${escapeHtml(id)}">View</button></td>
       </tr>`;
   }
 
-  function refundCard(r) {
+  // Mobile card variant of a single refund row (same data as the table).
+  function refundCard(r, idx) {
     const status = String(r.status || '').toLowerCase();
-    const mismatchLabel = r.mismatchType === 'overpayment' ? 'Overpayment' : (r.mismatchType === 'underpayment' ? 'Underpayment' : '—');
+    const id = r.refundId || r.id;
+    const orderId = refundOrderId(r);
     return `
-      <div class="card" style="margin-bottom:10px;cursor:pointer" data-refund-id="${escapeHtml(r.refundId || r.id)}" onclick="openRefundDetail('${escapeHtml(r.refundId || r.id)}')">
-        <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-          <div style="min-width:0;flex:1">
-            <div style="display:flex;gap:8px;align-items:center;margin-bottom:6px">
-              <div style="font-weight:700;color:#e2ecff">${escapeHtml(r.couponId || '—')}</div>
-              ${refundBadge(status)}
-            </div>
-            <div style="font-size:.74rem;color:#8ea6c4;margin-bottom:8px">Refund ID <span class="mono">${escapeHtml(r.refundId || r.id)}</span> · ${escapeHtml(mismatchLabel)}</div>
-            <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.84rem">
-              <div><span style="color:#6b88aa">Required</span> ${inr(r.requiredAmount)}</div>
-              <div><span style="color:#6b88aa">Received</span> ${inr(r.receivedAmount)}</div>
-              <div><span style="color:#6b88aa">Refund</span> <span style="color:#00e676;font-weight:700">${inr(r.refundAmount)}</span></div>
-            </div>
-          </div>
-          <div style="text-align:right;font-size:.74rem;color:#6b88aa">${refundDate(r.createdAt)}</div>
+      <div class="rf-mob-card" data-refund-id="${escapeHtml(id)}">
+        <div class="rf-mob-top">
+          <div class="rf-mob-order"><span class="rf-mob-hash">#${idx}</span> <span class="mono">${escapeHtml(orderId || id || '—')}</span></div>
+          ${refundBadge(status)}
         </div>
+        <div class="rf-mob-date">${refundDate(r.createdAt)}</div>
+        <div class="rf-mob-grid">
+          <div><span>Expected</span><b>${inr(r.requiredAmount)}</b></div>
+          <div><span>Received</span><b>${inr(r.receivedAmount)}</b></div>
+          <div><span>Difference</span><b class="text-green">${inr(r.refundAmount)}</b></div>
+          <div><span>Payment ID</span><b class="mono" style="font-size:.74rem">${escapeHtml(r.paymentId || '—')}</b></div>
+        </div>
+        <button class="rf-view-btn rf-mob-view" data-refund-id="${escapeHtml(id)}">View details</button>
       </div>`;
+  }
+
+  // Centered empty state — one for "no refunds at all", one for "nothing
+  // matched the current tab/search".
+  function refundsEmptyState(filtered) {
+    if (filtered) {
+      return `
+        <div class="rf-empty">
+          <div class="rf-empty-ico">🔍</div>
+          <div class="rf-empty-title">No matching refunds</div>
+          <div class="rf-empty-sub">No refunds match the current tab or search. Try a different status or clear your search.</div>
+          <button class="btn btn-ghost btn-sm" onclick="clearRefundFilters()">Clear filters</button>
+        </div>`;
+    }
+    return `
+      <div class="rf-empty">
+        <div class="rf-empty-ico">🧾</div>
+        <div class="rf-empty-title">No refunds yet</div>
+        <div class="rf-empty-sub">Refund requests will appear here automatically when a payment amount differs from the required amount.</div>
+        <button class="btn btn-ghost btn-sm" onclick="loadRefunds()">↻ Refresh</button>
+      </div>`;
+  }
+
+  // Apply the active tab + search + sort to the fetched list and paint the
+  // table (desktop) and cards (mobile). Pure view logic.
+  function renderRefundsList() {
+    const container = document.getElementById('refundsList');
+    if (!container) return;
+
+    const q = _refundSearch.trim().toLowerCase();
+    let rows = _allRefunds.slice();
+
+    if (_refundTab !== 'all') {
+      rows = rows.filter((r) => String(r.status || '').toLowerCase() === _refundTab);
+    }
+    if (q) {
+      rows = rows.filter((r) => {
+        const hay = [
+          refundOrderId(r), r.paymentId, r.refundId, r.id, r.couponId,
+          r.requiredAmount, r.receivedAmount, r.refundAmount,
+        ].map((v) => String(v == null ? '' : v).toLowerCase()).join(' ');
+        return hay.includes(q);
+      });
+    }
+    if (_refundSort === 'oldest') {
+      rows.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    } else if (_refundSort === 'high') {
+      rows.sort((a, b) => Number(b.refundAmount || 0) - Number(a.refundAmount || 0));
+    } else if (_refundSort === 'low') {
+      rows.sort((a, b) => Number(a.refundAmount || 0) - Number(b.refundAmount || 0));
+    } else {
+      rows.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    }
+
+    if (!_allRefunds.length) { container.innerHTML = refundsEmptyState(false); return; }
+    if (!rows.length)        { container.innerHTML = refundsEmptyState(true);  return; }
+
+    const rowsHtml  = rows.map((r, i) => refundListItem(r, i + 1)).join('');
+    const cardsHtml = rows.map((r, i) => refundCard(r, i + 1)).join('');
+    container.innerHTML = `
+      <div class="rf-tbl-wrap">
+        <table class="rf-tbl">
+          <thead>
+            <tr>
+              <th style="width:44px">#</th>
+              <th>Date &amp; Time</th>
+              <th>Order ID</th>
+              <th>Payment ID</th>
+              <th style="text-align:right">Expected Amount</th>
+              <th style="text-align:right">Received Amount</th>
+              <th style="text-align:right">Difference</th>
+              <th>Status</th>
+              <th style="text-align:right">Action</th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>
+      <div class="rf-cards">${cardsHtml}</div>`;
+
+    // Click-to-detail on every row / card / View button. stopPropagation on
+    // the inner button keeps the row handler from firing twice.
+    container.querySelectorAll('[data-refund-id]').forEach((el) => {
+      el.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        openRefundDetail(el.getAttribute('data-refund-id'));
+      });
+    });
+  }
+
+  function filterRefunds(status, btn) {
+    _refundTab = status;
+    document.querySelectorAll('#view-refunds .rf-tab').forEach((t) => t.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    renderRefundsList();
+  }
+
+  function applyRefundFilters() {
+    const input = document.getElementById('refundsSearch');
+    _refundSearch = input ? input.value : '';
+    renderRefundsList();
+  }
+
+  function clearRefundFilters() {
+    _refundTab = 'all';
+    _refundSearch = '';
+    const input = document.getElementById('refundsSearch');
+    if (input) input.value = '';
+    document.querySelectorAll('#view-refunds .rf-tab').forEach((t) => t.classList.toggle('active', t.getAttribute('data-status') === 'all'));
+    renderRefundsList();
+  }
+
+  function toggleRefundFilterMenu() {
+    const menu = document.getElementById('refundsFilterMenu');
+    const btn = document.getElementById('refundsFilterBtn');
+    if (!menu) return;
+    const open = menu.classList.toggle('open');
+    if (btn) btn.classList.toggle('active', open);
+  }
+
+  function setRefundSort(sort, btn) {
+    _refundSort = sort;
+    document.querySelectorAll('#refundsFilterMenu .rf-filter-opt').forEach((o) => o.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    const menu = document.getElementById('refundsFilterMenu');
+    const fbtn = document.getElementById('refundsFilterBtn');
+    if (menu) menu.classList.remove('open');
+    if (fbtn) fbtn.classList.remove('active');
+    renderRefundsList();
+  }
+
+  // Close the sort/filter menu on an outside click.
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('refundsFilterMenu');
+    if (!menu || !menu.classList.contains('open')) return;
+    if (e.target.closest && e.target.closest('.rf-filter-wrap')) return;
+    menu.classList.remove('open');
+    const fbtn = document.getElementById('refundsFilterBtn');
+    if (fbtn) fbtn.classList.remove('active');
+  });
+
+  function updateRefundsDateTime() {
+    const el = document.getElementById('refundsDateTime');
+    if (!el) return;
+    const now = new Date();
+    const d = el.querySelector('.rf-dt-date');
+    const t = el.querySelector('.rf-dt-time');
+    if (d) d.textContent = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    if (t) t.textContent = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function openHowRefundsWork() {
+    openModal('howRefundsWorkModal');
   }
 
   async function loadRefunds(opts = {}) {
     const silent = !!opts.silent;
+    updateRefundsDateTime();
     if (!silent) showToast('Loading refunds…', 'info');
     try {
       const res = await fetch('/api/refunds', {
@@ -5166,40 +5554,15 @@
       setText('refundsProcessing','₹' + Number(summary.processing || 0).toLocaleString('en-IN'));
       setText('refundsRefunded',  '₹' + Number(summary.refunded  || 0).toLocaleString('en-IN'));
       setText('refundsRejected',  '₹' + Number(summary.rejected  || 0).toLocaleString('en-IN'));
+      // Count pills (server-supplied) for the card headers.
+      setText('refundsTotalCount',      String(summary.totalCount      || refunds.length || 0));
+      setText('refundsPendingCount',    String(summary.pendingCount    || 0));
+      setText('refundsProcessingCount', String(summary.processingCount || 0));
+      setText('refundsRefundedCount',   String(summary.refundedCount   || 0));
+      setText('refundsRejectedCount',   String(summary.rejectedCount   || 0));
 
-      const container = document.getElementById('refundsList');
-      if (!container) return;
-      if (!refunds.length) {
-        container.innerHTML = '<div class="card" style="padding:18px;text-align:center;color:#8ea6c4">No refunds yet. Refunds appear here automatically when a payment amount differs from the required amount.</div>';
-        return;
-      }
-      const rowsHtml = refunds.map(refundListItem).join('');
-      // Desktop: table; mobile: cards. CSS media queries hide whichever is
-      // not appropriate.
-      container.innerHTML = `
-        <div class="tbl refunds-tbl">
-          <table style="width:100%;border-collapse:collapse">
-            <thead>
-              <tr style="text-align:left;font-size:.7rem;color:#6b88aa;text-transform:uppercase;letter-spacing:.08em">
-                <th style="padding:10px 8px">Refund ID</th>
-                <th style="padding:10px 8px">Purchase ID</th>
-                <th style="padding:10px 8px">Coupon</th>
-                <th style="padding:10px 8px;text-align:right">Required</th>
-                <th style="padding:10px 8px;text-align:right">Received</th>
-                <th style="padding:10px 8px;text-align:right">Refund</th>
-                <th style="padding:10px 8px">Reason</th>
-                <th style="padding:10px 8px">Requested</th>
-                <th style="padding:10px 8px">Status</th>
-              </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-          </table>
-        </div>
-        <div class="refunds-cards">${refunds.map(refundCard).join('')}</div>`;
-      // Click-to-detail on every row.
-      container.querySelectorAll('[data-refund-id]').forEach((el) => {
-        el.addEventListener('click', () => openRefundDetail(el.getAttribute('data-refund-id')));
-      });
+      _allRefunds = refunds;
+      renderRefundsList();
     } catch (e) {
       if (!silent) showToast('Network error loading refunds.', 'error');
     }
