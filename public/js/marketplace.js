@@ -144,12 +144,12 @@ function renderCouponGrid(gridId, coupons) {
           <div class="c-body">
             <div class="ctitle">${escapeCoupon(title)}</div>
             ${desc ? `<div class="cdesc">${escapeCoupon(desc)}</div>` : ''}
-            <div class="c-catrow">
-              <span class="ccat" data-cat="${escapeCoupon(c.category)}">${escapeCoupon(c.category)}</span>
-            </div>
             <div class="c-price">
-              <span class="clbl">Price</span>
-              <span class="cval">${escapeCoupon(priceText)}</span>
+              <div class="c-price-main">
+                <span class="clbl">Price</span>
+                <span class="cval">${escapeCoupon(priceText)}</span>
+              </div>
+              ${c.category ? `<span class="ccat" data-cat="${escapeCoupon(c.category)}"><span class="ccat-ico" aria-hidden="true">${categoryIconFor(c.category)}</span>${escapeCoupon(c.category)}</span>` : ''}
             </div>
             ${renderExpiryTimer(c.expiryDate, c.timerOn)}
             <button class="cbuy-btn" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">
@@ -595,6 +595,48 @@ function escapeCoupon(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]
   ));
+}
+
+// ── Category icon ───────────────────────────────────────────────────────
+// Purely presentational: maps the coupon's EXISTING category value (already
+// stored/derived by SaveHatke) to the same emoji the category filter pills
+// use in marketplace.html. It never assigns or changes a category — it only
+// picks an icon to render in front of the category text the card displays.
+// Matching is case-insensitive and covers the wider admin category set;
+// anything unmapped falls back to the neutral tag icon.
+const CATEGORY_ICONS = {
+  'e-commerce': '🛒',
+  'fashion': '👗',
+  'beauty & personal care': '💄',
+  'beauty': '💄',
+  'food & delivery': '🍔',
+  'food & dining': '🍔',
+  'food': '🍔',
+  'travel & transport': '✈️',
+  'travel': '✈️',
+  'hotels & stays': '🏨',
+  'electronics & gadgets': '📱',
+  'mobiles & electronics': '📱',
+  'electronics': '📱',
+  'gaming & entertainment': '🎮',
+  'gaming': '🎮',
+  'entertainment': '🎬',
+  'fitness & sports': '🏋️',
+  'fitness': '🏋️',
+  'education': '📚',
+  'health & pharmacy': '💊',
+  'health & fitness': '💊',
+  'health': '💊',
+  'finance & payments': '💰',
+  'furniture & home': '🛋️',
+  'home & living': '🏠',
+  'automotive': '🚗',
+  'general': '🏷️',
+};
+
+function categoryIconFor(category) {
+  const key = String(category || '').trim().toLowerCase();
+  return CATEGORY_ICONS[key] || '🏷️';
 }
 
 function showCouponModal(coupon) {
