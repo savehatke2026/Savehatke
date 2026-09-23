@@ -39,6 +39,10 @@ const SHEETS = {
   PAYMENTS: 'Payments',
   PAYMENT_NOTIFICATIONS: 'PaymentNotifications',
   REFUNDS: 'Refunds',
+  // Admin revenue-share payouts (40/40/20). One row per admin payout event.
+  ADMIN_PAYOUTS: 'AdminPayouts',
+  // One row per reconciled calendar month (upserted by `month`, never appended).
+  MONTHLY_SETTLEMENTS: 'MonthlySettlements',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
@@ -436,6 +440,51 @@ const HEADERS = {
     'created_at',
     'updated_at',
   ],
+  // Admin revenue-share payout ledger (40/40/20). One row per payout event; the
+  // acting admin, amount, status and references are the audit trail. Amounts are
+  // rupees. status ∈ pending|processing|paid|rejected|failed.
+  [SHEETS.ADMIN_PAYOUTS]: [
+    'id',
+    'admin_email',
+    'admin_name',
+    'amount',
+    'currency',
+    'status',
+    'payment_reference',
+    'note',
+    'rejection_reason',
+    'requested_at',
+    'processed_at',
+    'processed_by',
+    'created_by',
+    'created_at',
+    'updated_at',
+  ],
+  // One row per reconciled calendar month. UPSERTED by `month` (YYYY-MM) — never
+  // appended twice — so re-opening a month updates its row in place. Figures are
+  // the ones services/finance.js computed for that month (rupees).
+  [SHEETS.MONTHLY_SETTLEMENTS]: [
+    'id',
+    'month',            // YYYY-MM — the unique key
+    'monthLabel',       // "August 2026"
+    'periodStart',
+    'periodEnd',
+    'grossSales',
+    'pendingSales',
+    'cancelledSales',
+    'refundedSales',
+    'settledSales',
+    'sellerRevenue',
+    'platformServiceFeeRevenue',
+    'gatewayFees',
+    'otherCharges',
+    'netDistributableRevenue',
+    'admin1Allocation',
+    'admin2Allocation',
+    'platformAllocation',
+    'reconciliationVariance',
+    'updatedAt',
+  ],
 };
 
 let sheetsClient = null;
@@ -728,6 +777,8 @@ const memoryDB = {
   [SHEETS.PAYMENTS]: [],
   [SHEETS.PAYMENT_NOTIFICATIONS]: [],
   [SHEETS.REFUNDS]: [],
+  [SHEETS.ADMIN_PAYOUTS]: [],
+  [SHEETS.MONTHLY_SETTLEMENTS]: [],
 };
 
 function seedDemoData() {
@@ -863,6 +914,8 @@ const NATURAL_KEYS = {
   [SHEETS.ORDERS]: ['id', 'order_code'],
   [SHEETS.PAYMENTS]: ['payment_id'],
   [SHEETS.PAYMENT_NOTIFICATIONS]: ['id', 'fingerprint'],
+  [SHEETS.ADMIN_PAYOUTS]: ['id'],
+  [SHEETS.MONTHLY_SETTLEMENTS]: ['id', 'month'],
 };
 
 const DEFAULT_NATURAL_KEYS = ['id', 'code'];

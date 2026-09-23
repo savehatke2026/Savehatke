@@ -423,6 +423,7 @@ async function getTransactions(period, opts = {}) {
   const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 20, 1), 200);
   const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
   const statusFilter = opts.status ? upper(opts.status) : '';
+  const search = String(opts.search || '').trim().toLowerCase();
 
   const [payments, orders, coupons, refunds] = await Promise.all([
     fetchPayments(), fetchOrders(), fetchCoupons(), fetchRefunds(),
@@ -464,11 +465,147 @@ async function getTransactions(period, opts = {}) {
 
   if (win.key !== 'all') rows = rows.filter((r) => inWindow(r._ms, win));
   if (statusFilter) rows = rows.filter((r) => r.status === statusFilter);
+  if (search) {
+    rows = rows.filter((r) =>
+      String(r.id).toLowerCase().includes(search) ||
+      String(r.orderCode).toLowerCase().includes(search) ||
+      String(r.user).toLowerCase().includes(search) ||
+      String(r.userEmail).toLowerCase().includes(search) ||
+      String(r.coupon).toLowerCase().includes(search) ||
+      String(r.gatewayReference).toLowerCase().includes(search));
+  }
   rows.sort((a, b) => (b._ms || 0) - (a._ms || 0));
 
   const total = rows.length;
   const page = rows.slice(offset, offset + limit).map((r) => { delete r._ms; return r; });
   return { period: { key: win.key, label: win.label }, total, limit, offset, transactions: page };
+}
+
+// ============================================================================
+//  MONTHLY SETTLEMENT + ADMIN PAYOUT LEDGER (Phase 1 next increment)
+// ============================================================================
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December'];
+
+async function fetchAdminPayouts() {
+  try { return (await db.getRows(db.SHEETS.ADMIN_PAYOUTS)) || []; } catch (e) { return []; }
+}
+
+// Normalise one AdminPayouts ledger row.
+function normAdminPayout(p) {
+  return {
+    id: p.id || '',
+    adminEmail: lower(p.admin_email),
+    adminName: p.admin_name || '',
+    amount: num(p.amount),
+    currency: p.currency || 'INR',
+    status: lower(p.status) || 'pending',
+    paymentReference: p.payment_reference || '',
+    note: p.note || '',
+    rejectionReason: p.rejection_reason || '',
+    requestedAt: p.requested_at || '',
+    processedAt: p.processed_at || '',
+    processedBy: p.processed_by || '',
+    createdBy: p.created_by || '',
+    createdAt: p.created_at || '',
+    updatedAt: p.updated_at || '',
+    _ms: timeOf(p.processed_at || p.requested_at || p.created_at),
+  };
+}
+
+// IST calendar-month window from an explicit year + month (1-12).
+function monthWindowYM(year, month) {
+  const y = parseInt(year, 10);
+  const m = parseInt(month, 10);
+  if (!Number.isInteger(y) || m < 1 || m > 12) return null;
+  const from = Date.UTC(y, m - 1, 1, 0, 0, 0, 0) - IST_OFFSET_MIN * 60000;
+  const to = Date.UTC(y, m, 1, 0, 0, 0, 0) - IST_OFFSET_MIN * 60000;
+  return { key: `${y}-${String(m).padStart(2, '0')}`, label: `${MONTH_NAMES[m - 1]} ${y}`, from, to };
+}
+
+// Sum seller PAYOUTS rows by status within a window (by processed/requested date).
+function sumSellerPayouts(payouts, statusSet, win) {
+  let amount = 0, count = 0;
+  for (const p of payouts || []) {
+    if (!statusSet.has(lower(p.status))) continue;
+    const t = timeOf(p.processedAt || p.processed_at || p.requestedAt || p.requested_at);
+    if (win && !inWindow(t, win)) continue;
+    amount += num(p.amount); count += 1;
+  }
+  return { amount: round2(amount), count };
+}
+
+// Full monthly settlement for a specific year/month, from the central model.
+async function getSettlement(year, month) {
+  const win = monthWindowYM(year, month);
+  if (!win) throw new Error('Invalid year/month.');
+  const [orders, coupons, refunds, payouts, adminPayoutsRaw] = await Promise.all([
+    fetchOrders(), fetchCoupons(), fetchRefunds(), fetchPayouts(), fetchAdminPayouts(),
+  ]);
+  const overview = computeOverviewFromData({ orders, coupons, refunds, payouts, admins: adminEmails() }, win);
+  const sellerPaid = sumSellerPayouts(payouts, new Set(['paid']), win);
+  const sellerPending = sumSellerPayouts(payouts, new Set(['pending', 'processing']), win);
+
+  const ledger = adminPayoutsRaw.map(normAdminPayout);
+  const admins = adminEmails();
+  const perAdmin = [
+    { key: 'admin1', email: admins[0] || '', allocated: overview.distribution.admin1.amount },
+    { key: 'admin2', email: admins[1] || '', allocated: overview.distribution.admin2.amount },
+  ].map((a) => {
+    const mine = ledger.filter((p) => a.email && p.adminEmail === a.email && inWindow(p._ms, win));
+    const by = (st) => round2(mine.filter((p) => p.status === st).reduce((s, p) => s + p.amount, 0));
+    return { ...a, paid: by('paid'), processing: by('processing'), pending: by('pending') };
+  });
+
+  return {
+    month: win.key,
+    monthLabel: win.label,
+    periodStart: new Date(win.from).toISOString(),
+    periodEnd: new Date(win.to - 1).toISOString(),
+    overview,
+    sellerPayouts: { paid: sellerPaid.amount, paidCount: sellerPaid.count, pending: sellerPending.amount },
+    adminPayouts: perAdmin,
+    platformAllocated: overview.distribution.platform.amount,
+  };
+}
+
+// Per-admin balances from ALL-TIME net distributable minus ledger commitments.
+// Rejected/failed payouts never reduce the balance; the same payout cannot be
+// counted twice because each ledger row has a unique id and one status.
+async function getAdminBalances() {
+  const [overviewAll, adminPayoutsRaw] = await Promise.all([getOverview('all'), fetchAdminPayouts()]);
+  const admins = adminEmails();
+  const ledger = adminPayoutsRaw.map(normAdminPayout);
+  const build = (email, name, allocated) => {
+    const mine = ledger.filter((p) => email && p.adminEmail === email);
+    const by = (st) => round2(mine.filter((p) => p.status === st).reduce((s, p) => s + p.amount, 0));
+    const paid = by('paid'), processing = by('processing'), pending = by('pending');
+    return { email, name, allocated, paid, processing, pending, available: round2(allocated - paid - processing - pending) };
+  };
+  return {
+    netDistributableRevenue: overviewAll.netDistributableRevenue,
+    percentages: { ...DISTRIBUTION },
+    admins: {
+      admin1: build(admins[0] || '', 'Admin 1', overviewAll.distribution.admin1.amount),
+      admin2: build(admins[1] || '', 'Admin 2', overviewAll.distribution.admin2.amount),
+      platform: { name: 'SaveHatke', allocated: overviewAll.distribution.platform.amount },
+    },
+    ledger: ledger.sort((a, b) => (b._ms || 0) - (a._ms || 0)).map((p) => { const q = { ...p }; delete q._ms; return q; }),
+  };
+}
+
+async function getAdminPayoutStats() {
+  const ledger = (await fetchAdminPayouts()).map(normAdminPayout);
+  const pending = ledger.filter((p) => p.status === 'pending');
+  const processing = ledger.filter((p) => p.status === 'processing');
+  const paid = ledger.filter((p) => p.status === 'paid');
+  return {
+    pendingCount: pending.length,
+    pendingAmount: round2(pending.reduce((s, p) => s + p.amount, 0)),
+    processingCount: processing.length,
+    paidTotal: round2(paid.reduce((s, p) => s + p.amount, 0)),
+    total: ledger.length,
+  };
 }
 
 module.exports = {
@@ -482,6 +619,12 @@ module.exports = {
   getOverview,
   getRevenueSeries,
   getTransactions,
+  getSettlement,
+  getAdminBalances,
+  getAdminPayoutStats,
+  fetchAdminPayouts,
+  monthWindowYM,
+  normAdminPayout,
   // exposed for reuse/testing
   _internals: { normCoupon, isSellerListing, sellerRevenueForCoupon, inWindow, paiseToRupees },
 };

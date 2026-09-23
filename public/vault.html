@@ -1867,9 +1867,46 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ PAYMENT TRANSACTIONS ════════════════ -->
     <div class="section-view" id="sec-transactions">
       <div class="page-title-row">
-        <div><div class="page-title">Payment <span class="gtext">Transactions</span></div><div class="page-subtitle">All buy/sell transactions</div></div>
+        <div><div class="page-title">Payment <span class="gtext">Transactions</span></div><div class="page-subtitle">Real payment records from the marketplace</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadTransactions(0)">↻ Refresh</button>
       </div>
-      <div class="empty-state"><div class="es-icon">💳</div><div class="es-title">Transaction History</div><div class="es-sub">Full transaction table loads from database.</div></div>
+      <div id="txnError" class="card" style="display:none;border-color:rgba(255,133,133,.4)">
+        <div style="color:#ff8585;font-weight:600">⚠️ <span id="txnErrorText">Unable to load financial data.</span></div>
+      </div>
+      <div class="table-card">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid rgba(79,195,247,.08)">
+          <input type="search" class="form-input btn-sm" id="txnSearch" placeholder="Search ID, user, coupon, ref…" style="width:230px" onkeydown="if(event.key==='Enter')loadTransactions(0)">
+          <select class="form-select btn-sm" id="txnStatus" style="width:150px" onchange="loadTransactions(0)">
+            <option value="">All Status</option>
+            <option value="PAID">Paid</option>
+            <option value="PENDING">Pending</option>
+            <option value="CANCELLED">Cancelled</option>
+            <option value="EXPIRED">Expired</option>
+            <option value="REVIEW">Review</option>
+          </select>
+          <select class="form-select btn-sm" id="txnPeriod" style="width:150px" onchange="loadTransactions(0)">
+            <option value="all">All time</option>
+            <option value="today">Today</option>
+            <option value="7d">7 Days</option>
+            <option value="30d">30 Days</option>
+            <option value="thisMonth">This Month</option>
+            <option value="prevMonth">Prev Month</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="loadTransactions(0)">Apply</button>
+          <span style="margin-left:auto;font-size:.78rem;color:#6b88aa"><span id="txnTotal">0</span> records</span>
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead><tr><th>Transaction ID</th><th>User</th><th>Coupon</th><th>Amount</th><th>Method</th><th>Gateway Ref</th><th>Date</th><th>Status</th></tr></thead>
+            <tbody id="txnPageBody"><tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">Loading…</td></tr></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px">
+          <button class="btn btn-ghost btn-sm" id="txnPrev" onclick="txnPage(-1)">← Prev</button>
+          <span style="font-size:.8rem;color:#6b88aa">Page <span id="txnPageNum">1</span> of <span id="txnPages">1</span></span>
+          <button class="btn btn-ghost btn-sm" id="txnNext" onclick="txnPage(1)">Next →</button>
+        </div>
+      </div>
     </div>
 
     <!-- ════════════════ ADMIN PAYOUTS — Revenue & Payouts (frontend demo) ════════════════ -->
@@ -1881,62 +1918,62 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
           <button class="btn btn-ghost btn-sm" onclick="refreshAdminPayouts()">↻ Refresh</button>
-          <button class="btn btn-primary btn-lg" onclick="showToast('Payout run scheduled (demo).','info')">💸 Run Payout</button>
+          <button class="btn btn-primary btn-lg" onclick="createAdminPayout()">💸 New Payout</button>
         </div>
       </div>
 
       <!-- Top summary cards -->
       <div class="stats-grid">
         <div class="stat-card sc-green">
-          <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend trend-up">↑ 12%</span></div>
-          <div class="stat-val gtext">₹10,000</div>
-          <div class="stat-lbl">Total Revenue</div>
-          <div class="stat-sub">August 2026 · distributable</div>
+          <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend" style="background:rgba(0,230,118,.12);color:#00e676">Net</span></div>
+          <div class="stat-val gtext" id="apTotalRev">—</div>
+          <div class="stat-lbl">Net Distributable Revenue</div>
+          <div class="stat-sub" id="apTotalRevSub">All-time · distributable</div>
         </div>
         <div class="stat-card sc-green">
           <div class="stat-card-top"><div class="stat-icon si-green">👤</div><span class="stat-trend" style="background:rgba(0,230,118,.12);color:#00e676">Share</span></div>
           <div class="stat-val" style="color:#00e676">40%</div>
-          <div class="stat-lbl">Rupayan</div>
-          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace">₹4,000</div>
+          <div class="stat-lbl" id="apCardA1Name">Rupayan</div>
+          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace"><span id="apCardA1">—</span> · avail <span id="apCardA1Avail">—</span></div>
         </div>
         <div class="stat-card sc-blue">
           <div class="stat-card-top"><div class="stat-icon si-blue">👤</div><span class="stat-trend" style="background:rgba(79,195,247,.12);color:#4fc3f7">Share</span></div>
           <div class="stat-val" style="color:#4fc3f7">40%</div>
-          <div class="stat-lbl">Jaggik</div>
-          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace">₹4,000</div>
+          <div class="stat-lbl" id="apCardA2Name">Jaggik</div>
+          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace"><span id="apCardA2">—</span> · avail <span id="apCardA2Avail">—</span></div>
         </div>
         <div class="stat-card sc-purple">
           <div class="stat-card-top"><div class="stat-icon si-purple">🏦</div><span class="stat-trend" style="background:rgba(206,147,216,.12);color:#ce93d8">Share</span></div>
           <div class="stat-val" style="color:#ce93d8">20%</div>
           <div class="stat-lbl">SaveHatke Website</div>
-          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace">₹2,000</div>
+          <div class="stat-sub" style="font-family:'JetBrains Mono',monospace" id="apCardPlat">—</div>
         </div>
       </div>
 
       <!-- Revenue Distribution: table + visual breakdown -->
       <div class="two-col" style="margin-bottom:22px">
         <div class="card" style="margin-bottom:0">
-          <div class="card-title"><span class="ct-icon">📊</span> Revenue Distribution</div>
+          <div class="card-title"><span class="ct-icon">📊</span> Revenue Distribution (all-time)</div>
           <div class="overflow-x">
             <table>
-              <thead><tr><th>Recipient</th><th>Share</th><th>Amount</th><th>Status</th></tr></thead>
+              <thead><tr><th>Recipient</th><th>Share</th><th>Allocated</th><th>Available</th></tr></thead>
               <tbody>
                 <tr>
-                  <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:#00e676"></div><strong>Rupayan</strong></div></td>
+                  <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:#00e676"></div><strong id="apTblA1Name">Rupayan</strong></div></td>
                   <td><strong style="color:#00e676">40%</strong></td>
-                  <td><strong class="mono">₹4,000</strong></td>
-                  <td><span class="badge badge-orange">Pending</span></td>
+                  <td><strong class="mono" id="apTblA1">—</strong></td>
+                  <td><strong class="mono" style="color:#00e676" id="apTblA1Avail">—</strong></td>
                 </tr>
                 <tr>
-                  <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:#4fc3f7"></div><strong>Jaggik</strong></div></td>
+                  <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:#4fc3f7"></div><strong id="apTblA2Name">Jaggik</strong></div></td>
                   <td><strong style="color:#4fc3f7">40%</strong></td>
-                  <td><strong class="mono">₹4,000</strong></td>
-                  <td><span class="badge badge-orange">Pending</span></td>
+                  <td><strong class="mono" id="apTblA2">—</strong></td>
+                  <td><strong class="mono" style="color:#4fc3f7" id="apTblA2Avail">—</strong></td>
                 </tr>
                 <tr>
                   <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:#ce93d8"></div><strong>SaveHatke Website</strong></div></td>
                   <td><strong style="color:#ce93d8">20%</strong></td>
-                  <td><strong class="mono">₹2,000</strong></td>
+                  <td><strong class="mono" id="apTblPlat">—</strong></td>
                   <td><span class="badge badge-teal">Retained</span></td>
                 </tr>
               </tbody>
@@ -1956,9 +1993,9 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <span style="color:#4fc3f7">Jaggik</span>
             <span style="color:#ce93d8">Website</span>
           </div>
-          <div class="dist-item"><div class="dist-dot" style="background:#00e676"></div><span class="dist-name">Rupayan</span><span class="dist-pct"><strong>40%</strong></span><span class="dist-amount" style="color:#00e676">₹4,000</span></div>
-          <div class="dist-item"><div class="dist-dot" style="background:#4fc3f7"></div><span class="dist-name">Jaggik</span><span class="dist-pct"><strong>40%</strong></span><span class="dist-amount" style="color:#4fc3f7">₹4,000</span></div>
-          <div class="dist-item"><div class="dist-dot" style="background:#ce93d8"></div><span class="dist-name">SaveHatke Website</span><span class="dist-pct"><strong>20%</strong></span><span class="dist-amount" style="color:#ce93d8">₹2,000</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#00e676"></div><span class="dist-name">Rupayan</span><span class="dist-pct"><strong>40%</strong></span><span class="dist-amount" style="color:#00e676" id="apBrkA1">—</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#4fc3f7"></div><span class="dist-name">Jaggik</span><span class="dist-pct"><strong>40%</strong></span><span class="dist-amount" style="color:#4fc3f7" id="apBrkA2">—</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#ce93d8"></div><span class="dist-name">SaveHatke Website</span><span class="dist-pct"><strong>20%</strong></span><span class="dist-amount" style="color:#ce93d8" id="apBrkPlat">—</span></div>
         </div>
       </div>
 
@@ -1980,7 +2017,9 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <select class="form-select btn-sm" id="apFilterStatus" style="width:130px" onchange="renderAdminPayoutsTable()">
             <option value="">All Status</option>
             <option value="Pending">Pending</option>
+            <option value="Processing">Processing</option>
             <option value="Paid">Paid</option>
+            <option value="Rejected">Rejected</option>
             <option value="Failed">Failed</option>
           </select>
           <div style="display:flex;align-items:center;gap:6px">
@@ -2003,26 +2042,43 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ MONTHLY SETTLEMENTS ════════════════ -->
     <div class="section-view" id="sec-settlements">
       <div class="page-title-row">
-        <div><div class="page-title">Monthly <span class="gtext">Settlements</span></div><div class="page-subtitle">August 2026 — pending review</div></div>
-        <button class="btn btn-primary btn-lg">✅ Mark as Settled</button>
+        <div><div class="page-title">Monthly <span class="gtext">Settlements</span></div><div class="page-subtitle" id="stlSubtitle">Select a month to reconcile</div></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <select class="form-select btn-sm" id="stlMonth" style="width:140px" onchange="loadSettlement()"></select>
+          <select class="form-select btn-sm" id="stlYear" style="width:100px" onchange="loadSettlement()"></select>
+          <button class="btn btn-ghost btn-sm" onclick="loadSettlement()">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="stlError" class="card" style="display:none;border-color:rgba(255,133,133,.4)">
+        <div style="color:#ff8585;font-weight:600">⚠️ <span id="stlErrorText">Unable to load financial data.</span></div>
       </div>
       <div class="card">
-        <div class="card-title"><span class="ct-icon">📊</span> August 2026 Settlement Preview</div>
-        <div class="fin-row"><span class="fin-lbl">Gross Sales</span><span class="fin-val green">₹2,00,000</span></div>
-        <div class="fin-row"><span class="fin-lbl">Seller Payouts</span><span class="fin-val red">− ₹1,20,000</span></div>
-        <div class="fin-row"><span class="fin-lbl">Refunds</span><span class="fin-val red">− ₹5,000</span></div>
-        <div class="fin-row"><span class="fin-lbl">Payment Gateway Fees</span><span class="fin-val red">− ₹3,000</span></div>
-        <div class="fin-row total-row"><span class="fin-lbl" style="color:#e2ecff;font-weight:700">Net Distributable Revenue</span><span class="fin-val green big">₹72,000</span></div>
+        <div class="card-title"><span class="ct-icon">📊</span> <span id="stlTitle">Settlement</span> <span id="stlReconcile" style="margin-left:auto;font-size:.8rem"></span></div>
+        <div class="fin-row"><span class="fin-lbl">Gross Sales</span><span class="fin-val green" id="stlGross">—</span></div>
+        <div class="fin-row"><span class="fin-lbl">− Pending Sales</span><span class="fin-val red" id="stlPending">—</span></div>
+        <div class="fin-row"><span class="fin-lbl">− Cancelled Sales</span><span class="fin-val red" id="stlCancelled">—</span></div>
+        <div class="fin-row"><span class="fin-lbl">− Refunded Sales</span><span class="fin-val red" id="stlRefunded">—</span></div>
+        <div class="fin-row total-row"><span class="fin-lbl" style="font-weight:700">Settled Sales</span><span class="fin-val" id="stlSettled">—</span></div>
+        <div class="fin-row"><span class="fin-lbl">− Seller Revenue</span><span class="fin-val red" id="stlSeller">—</span></div>
+        <div class="fin-row total-row"><span class="fin-lbl" style="font-weight:700">Platform Service Fee Revenue</span><span class="fin-val" id="stlPlatformFee">—</span></div>
+        <div class="fin-row"><span class="fin-lbl">− Payment Gateway Fees</span><span class="fin-val" id="stlGateway">—</span></div>
+        <div class="fin-row"><span class="fin-lbl">− Other Recorded Charges</span><span class="fin-val" id="stlOther">—</span></div>
+        <div class="fin-row total-row"><span class="fin-lbl" style="color:#e2ecff;font-weight:700">Net Distributable Revenue</span><span class="fin-val green big" id="stlNet">—</span></div>
         <div style="margin-top:18px">
           <div class="dist-bar">
             <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#00e676,#00c853)"></div>
             <div class="dist-seg" style="width:40%;background:linear-gradient(90deg,#4fc3f7,#0288d1)"></div>
             <div class="dist-seg" style="width:20%;background:linear-gradient(90deg,#ce93d8,#9c27b0)"></div>
           </div>
-          <div class="dist-item"><div class="dist-dot" style="background:#00e676"></div><span class="dist-name">Admin 1 (40%)</span><span class="dist-amount" style="color:#00e676">₹28,800</span></div>
-          <div class="dist-item"><div class="dist-dot" style="background:#4fc3f7"></div><span class="dist-name">Admin 2 (40%)</span><span class="dist-amount" style="color:#4fc3f7">₹28,800</span></div>
-          <div class="dist-item"><div class="dist-dot" style="background:#ce93d8"></div><span class="dist-name">SaveHatke (20%)</span><span class="dist-amount" style="color:#ce93d8">₹14,400</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#00e676"></div><span class="dist-name" id="stlA1Name">Admin 1 (40%)</span><span class="dist-amount" style="color:#00e676" id="stlA1">—</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#4fc3f7"></div><span class="dist-name" id="stlA2Name">Admin 2 (40%)</span><span class="dist-amount" style="color:#4fc3f7" id="stlA2">—</span></div>
+          <div class="dist-item"><div class="dist-dot" style="background:#ce93d8"></div><span class="dist-name">SaveHatke (20%)</span><span class="dist-amount" style="color:#ce93d8" id="stlPlatform">—</span></div>
         </div>
+        <div class="card-title" style="margin-top:20px"><span class="ct-icon">💸</span> Payouts in this month</div>
+        <div class="fin-row"><span class="fin-lbl">Seller Payouts Paid</span><span class="fin-val" id="stlSellerPaid">—</span></div>
+        <div class="fin-row"><span class="fin-lbl">Admin 1 — Paid / Pending</span><span class="fin-val" id="stlA1Pay">—</span></div>
+        <div class="fin-row"><span class="fin-lbl">Admin 2 — Paid / Pending</span><span class="fin-val" id="stlA2Pay">—</span></div>
+        <div id="stlSync" style="margin-top:12px;font-size:.72rem;color:#6b88aa"></div>
       </div>
     </div>
 
@@ -3287,6 +3343,15 @@ function showSection(id, navEl) {
   if (id === 'revenue' && typeof loadRevenueOverview === 'function') {
     loadRevenueOverview();
   }
+  if (id === 'transactions' && typeof loadTransactions === 'function') {
+    loadTransactions(0);
+  }
+  if (id === 'settlements' && typeof loadSettlement === 'function') {
+    loadSettlement();
+  }
+  if (id === 'admin-payouts' && typeof loadAdminPayouts === 'function') {
+    loadAdminPayouts();
+  }
   if (id === 'users' && typeof loadUsers === 'function') {
     loadUsers();
   }
@@ -3604,6 +3669,9 @@ async function loadDashboardFinance() {
     const ps = await api('/admin/payouts/stats', { useAdmin: true });
     if (ps && typeof ps.pendingCount !== 'undefined') setTxt('pendingPayoutCount', String(ps.pendingCount));
   } catch (e) { /* leave whatever loadPayouts set */ }
+
+  // Admin payouts pending count (Needs Attention) from the real admin-payout ledger.
+  if (typeof refreshAdminPayoutBadge === 'function') refreshAdminPayoutBadge();
 
   loadChartSeries(currentPeriod);
   loadRecentTransactions();
@@ -3930,96 +3998,302 @@ function openSupportCases() {
    Fixed split: Rupayan 40% · Jaggik 40% ·
    SaveHatke Website 20%.
 ══════════════════════════════════════════ */
-const AP_PAYOUTS = [
-  { id: 'PO-2026-0852', recipient: 'Rupayan',          share: '40%', amount: 4000, date: '2026-08-21', method: 'Bank Transfer', methodDetail: '•••• 4417 · HDFC', txn: 'UTR884529011',   status: 'Pending' },
-  { id: 'PO-2026-0853', recipient: 'Jaggik',           share: '40%', amount: 4000, date: '2026-08-21', method: 'UPI',          methodDetail: 'jaggik@okaxis',   txn: 'UPI-412398820114', status: 'Pending' },
-  { id: 'PO-2026-0854', recipient: 'SaveHatke Website', share: '20%', amount: 2000, date: '2026-08-21', method: 'Internal',      methodDetail: 'Business account', txn: 'INT-2026-0854',  status: 'Retained' },
-  { id: 'PO-2026-0847', recipient: 'Rupayan',          share: '40%', amount: 4000, date: '2026-08-14', method: 'UPI',          methodDetail: 'rupayan@okhdfc',  txn: 'UPI-412390876521', status: 'Paid' },
-  { id: 'PO-2026-0848', recipient: 'Jaggik',           share: '40%', amount: 4000, date: '2026-08-14', method: 'UPI',          methodDetail: 'jaggik@okaxis',   txn: 'UPI-412390876522', status: 'Paid' },
-  { id: 'PO-2026-0849', recipient: 'SaveHatke Website', share: '20%', amount: 2000, date: '2026-08-14', method: 'Internal',      methodDetail: 'Business account', txn: 'INT-2026-0849',  status: 'Paid' },
-  { id: 'PO-2026-0841', recipient: 'Rupayan',          share: '40%', amount: 4000, date: '2026-08-07', method: 'UPI',          methodDetail: 'rupayan@okhdfc',  txn: 'UPI-412388110239', status: 'Paid' },
-  { id: 'PO-2026-0842', recipient: 'Jaggik',           share: '40%', amount: 4000, date: '2026-08-07', method: 'Bank Transfer', methodDetail: '•••• 9032 · ICICI', txn: 'UTR884521437', status: 'Failed' },
-  { id: 'PO-2026-0843', recipient: 'SaveHatke Website', share: '20%', amount: 2000, date: '2026-08-07', method: 'Internal',      methodDetail: 'Business account', txn: 'INT-2026-0843',  status: 'Retained' },
-];
+/* ════════════════════════════
+   ADMIN PAYOUTS — real ledger (40/40/20)
+   Backed by /api/admin/finance/admin-payouts. No demo data.
+════════════════════════════ */
+const AP_STATE = { ledger: [], balances: null, loaded: false };
+
+function apRecipientLabel(email) {
+  const b = AP_STATE.balances;
+  if (b && email) {
+    if (b.admins.admin1.email === email) return 'Rupayan';
+    if (b.admins.admin2.email === email) return 'Jaggik';
+  }
+  return email || '—';
+}
+function apRecipientColor(label) { return label === 'Rupayan' ? '#00e676' : label === 'Jaggik' ? '#4fc3f7' : '#ce93d8'; }
 
 function apFmtDate(iso) {
-  const d = new Date(iso + 'T00:00:00');
+  if (!iso) return '—';
+  const d = new Date(iso);
   if (isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 function apStatusBadge(status) {
-  if (status === 'Paid') return '<span class="badge badge-green">✅ Paid</span>';
-  if (status === 'Failed') return '<span class="badge badge-red">❌ Failed</span>';
-  if (status === 'Retained') return '<span class="badge badge-teal">🏦 Retained</span>';
+  const s = String(status || '').toLowerCase();
+  if (s === 'paid') return '<span class="badge badge-green">✅ Paid</span>';
+  if (s === 'processing') return '<span class="badge badge-teal">⏳ Processing</span>';
+  if (s === 'rejected') return '<span class="badge badge-red">✋ Rejected</span>';
+  if (s === 'failed') return '<span class="badge badge-red">❌ Failed</span>';
   return '<span class="badge badge-orange">⏳ Pending</span>';
 }
 
-function apRecipientDot(recipient) {
-  const color = recipient === 'Rupayan' ? '#00e676' : recipient === 'Jaggik' ? '#4fc3f7' : '#ce93d8';
-  return `<div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:${color}"></div><strong>${esc(recipient)}</strong></div>`;
+async function loadAdminPayouts() {
+  const tbody = document.getElementById('apPayoutsBody');
+  if (tbody && !AP_STATE.loaded) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#6b88aa">Loading…</td></tr>';
+  try {
+    const res = await api('/admin/finance/admin-payouts', { useAdmin: true });
+    AP_STATE.balances = res; AP_STATE.ledger = res.ledger || []; AP_STATE.loaded = true;
+    applyAdminPayoutBalances(res);
+    renderAdminPayoutsTable();
+  } catch (err) {
+    const unavailable = err && err.data && err.data.dataUnavailable;
+    ['apTotalRev', 'apCardA1', 'apCardA1Avail', 'apCardA2', 'apCardA2Avail', 'apCardPlat',
+      'apTblA1', 'apTblA1Avail', 'apTblA2', 'apTblA2Avail', 'apTblPlat',
+      'apBrkA1', 'apBrkA2', 'apBrkPlat'].forEach((id) => setTxt(id, unavailable ? 'Data unavailable' : '—'));
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${unavailable ? 'Unable to load financial data.' : escapeHtml(err.message || 'Failed to load payouts')}</td></tr>`;
+  }
+}
+
+function applyAdminPayoutBalances(b) {
+  const a1 = b.admins.admin1, a2 = b.admins.admin2, pl = b.admins.platform;
+  setTxt('apTotalRev', inrFull(b.netDistributableRevenue));
+  setTxt('apCardA1', inrFull(a1.allocated)); setTxt('apCardA1Avail', inrFull(a1.available));
+  setTxt('apCardA2', inrFull(a2.allocated)); setTxt('apCardA2Avail', inrFull(a2.available));
+  setTxt('apCardPlat', inrFull(pl.allocated));
+  setTxt('apTblA1', inrFull(a1.allocated)); setTxt('apTblA1Avail', inrFull(a1.available));
+  setTxt('apTblA2', inrFull(a2.allocated)); setTxt('apTblA2Avail', inrFull(a2.available));
+  setTxt('apTblPlat', inrFull(pl.allocated));
+  setTxt('apBrkA1', inrFull(a1.allocated)); setTxt('apBrkA2', inrFull(a2.allocated)); setTxt('apBrkPlat', inrFull(pl.allocated));
 }
 
 function renderAdminPayoutsTable() {
   const tbody = document.getElementById('apPayoutsBody');
   if (!tbody) return;
+  const recipient = (document.getElementById('apFilterRecipient') || {}).value || '';
+  const status = (document.getElementById('apFilterStatus') || {}).value || '';
+  const from = (document.getElementById('apFilterFrom') || {}).value || '';
+  const to = (document.getElementById('apFilterTo') || {}).value || '';
 
-  const recipient = document.getElementById('apFilterRecipient')?.value || '';
-  const status = document.getElementById('apFilterStatus')?.value || '';
-  const from = document.getElementById('apFilterFrom')?.value || '';
-  const to = document.getElementById('apFilterTo')?.value || '';
-
-  const rows = AP_PAYOUTS.filter((p) => {
-    if (recipient && !(recipient === 'SaveHatke Website' ? p.recipient === 'SaveHatke Website' : p.recipient === recipient)) return false;
-    if (status && p.status.toLowerCase() !== status.toLowerCase()) return false;
-    if (from && p.date < from) return false;
-    if (to && p.date > to) return false;
+  const rows = (AP_STATE.ledger || []).filter((p) => {
+    const label = apRecipientLabel(p.adminEmail);
+    if (recipient === 'SaveHatke Website') return false; // platform share is retained, never paid out
+    if (recipient && label !== recipient) return false;
+    if (status && String(p.status).toLowerCase() !== status.toLowerCase()) return false;
+    const day = String(p.requestedAt || p.createdAt || '').slice(0, 10);
+    if (from && day && day < from) return false;
+    if (to && day && day > to) return false;
     return true;
   });
 
   const visibleEl = document.getElementById('apPayoutsVisible');
   if (visibleEl) visibleEl.textContent = rows.length;
 
-  if (!rows.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:#6b88aa">No payouts match the selected filters.</td></tr>';
-    return;
-  }
+  if (!AP_STATE.loaded) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:24px;color:#6b88aa">Loading…</td></tr>'; return; }
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;padding:28px;color:#6b88aa">No admin payouts yet.</td></tr>'; return; }
 
-  tbody.innerHTML = rows.map((p) => `
-    <tr>
-      <td><strong class="mono">#${esc(p.id)}</strong></td>
-      <td>${apRecipientDot(p.recipient)}</td>
-      <td><strong style="color:${p.recipient === 'Rupayan' ? '#00e676' : p.recipient === 'Jaggik' ? '#4fc3f7' : '#ce93d8'}">${esc(p.share)}</strong></td>
-      <td><strong class="mono" style="color:#00e676">₹${p.amount.toLocaleString('en-IN')}</strong></td>
-      <td style="font-size:.8rem;color:#a8c0dc">${apFmtDate(p.date)}</td>
-      <td>${esc(p.method)}<div style="font-size:.7rem;color:#6b88aa;margin-top:2px" class="mono">${esc(p.methodDetail)}</div></td>
-      <td class="mono" style="font-size:.76rem">${esc(p.txn)}</td>
-      <td>${apStatusBadge(p.status)}</td>
-      <td><button class="btn btn-ghost btn-sm" onclick="adminPayoutAction('${esc(p.id)}', '${esc(p.status)}')">View</button></td>
-    </tr>
-  `).join('');
+  tbody.innerHTML = rows.map((p) => {
+    const label = apRecipientLabel(p.adminEmail);
+    const color = apRecipientColor(label);
+    const s = String(p.status || '').toLowerCase();
+    let action = '<span style="color:#6b88aa;font-size:.75rem">—</span>';
+    if (s === 'pending' || s === 'processing') {
+      action = `<button class="btn btn-primary btn-sm" onclick="adminPayoutMarkPaid('${escapeHtml(p.id)}')">Mark Paid</button> <button class="btn btn-ghost btn-sm" onclick="adminPayoutReject('${escapeHtml(p.id)}')">Reject</button>`;
+    }
+    return `<tr>
+      <td><strong class="mono">${escapeHtml(p.id)}</strong></td>
+      <td><div style="display:flex;align-items:center;gap:8px"><div class="dist-dot" style="background:${color}"></div><strong>${escapeHtml(label)}</strong></div></td>
+      <td><strong style="color:${color}">40%</strong></td>
+      <td><strong class="mono" style="color:#00e676">₹${(Math.round(Number(p.amount) || 0)).toLocaleString('en-IN')}</strong></td>
+      <td style="font-size:.8rem;color:#a8c0dc">${apFmtDate(p.requestedAt || p.createdAt)}</td>
+      <td>UPI<div style="font-size:.7rem;color:#6b88aa;margin-top:2px" class="mono">${escapeHtml(p.processedBy || p.createdBy || '')}</div></td>
+      <td class="mono" style="font-size:.76rem">${escapeHtml(p.paymentReference || '—')}</td>
+      <td>${apStatusBadge(p.status)}${p.rejectionReason ? `<div style="font-size:.65rem;color:#ff8585">${escapeHtml(p.rejectionReason)}</div>` : ''}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
 }
 
 function resetAdminPayoutFilters() {
-  ['apFilterRecipient', 'apFilterStatus', 'apFilterFrom', 'apFilterTo'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.value = '';
-  });
+  ['apFilterRecipient', 'apFilterStatus', 'apFilterFrom', 'apFilterTo'].forEach((id) => { const el = document.getElementById(id); if (el) el.value = ''; });
   renderAdminPayoutsTable();
-  showToast('Filters cleared.', 'info');
 }
 
-function adminPayoutAction(payoutId, status) {
-  showToast(`Payout #${payoutId} — ${status} (demo view)`, 'info');
+async function createAdminPayout() {
+  if (!AP_STATE.balances) await loadAdminPayouts();
+  const b = AP_STATE.balances;
+  if (!b) { showToast('Balances unavailable.', 'warning'); return; }
+  const choice = window.prompt('Create admin payout for:\n1 = Rupayan (available ' + inrFull(b.admins.admin1.available) + ')\n2 = Jaggik (available ' + inrFull(b.admins.admin2.available) + ')\n\nEnter 1 or 2:');
+  if (choice !== '1' && choice !== '2') { if (choice !== null) showToast('Enter 1 or 2.', 'warning'); return; }
+  const who = choice === '1' ? b.admins.admin1 : b.admins.admin2;
+  const amtStr = window.prompt(`Payout amount for ${apRecipientLabel(who.email)} (available ${inrFull(who.available)}):`, String(who.available));
+  if (amtStr === null) return;
+  const amount = Number(amtStr);
+  if (!isFinite(amount) || amount <= 0) { showToast('Invalid amount.', 'warning'); return; }
+  try {
+    await api('/admin/finance/admin-payouts', { method: 'POST', useAdmin: true, body: { adminEmail: who.email, amount } });
+    showToast('Admin payout created (pending).', 'success');
+    await loadAdminPayouts();
+    refreshAdminPayoutBadge();
+  } catch (err) { showToast(err.message || 'Could not create payout.', 'error'); }
 }
 
-function refreshAdminPayouts() {
-  renderAdminPayoutsTable();
-  showToast('Revenue & payouts refreshed (demo data).', 'success');
+async function adminPayoutMarkPaid(id) {
+  const ref = window.prompt('Payment reference / UTR for this payout:');
+  if (ref === null) return;
+  try {
+    await api(`/admin/finance/admin-payouts/${encodeURIComponent(id)}/approve`, { method: 'POST', useAdmin: true, body: { paymentReference: ref } });
+    showToast('Payout marked as paid.', 'success');
+    await loadAdminPayouts();
+    refreshAdminPayoutBadge();
+  } catch (err) { showToast(err.message || 'Could not update payout.', 'error'); }
 }
 
-// Initial render (section is hidden until opened; rendering is cheap and safe)
+async function adminPayoutReject(id) {
+  const reason = window.prompt('Reason for rejecting this payout:');
+  if (reason === null) return;
+  try {
+    await api(`/admin/finance/admin-payouts/${encodeURIComponent(id)}/reject`, { method: 'POST', useAdmin: true, body: { reason } });
+    showToast('Payout rejected.', 'success');
+    await loadAdminPayouts();
+    refreshAdminPayoutBadge();
+  } catch (err) { showToast(err.message || 'Could not update payout.', 'error'); }
+}
+
+function refreshAdminPayoutBadge() {
+  api('/admin/finance/admin-payouts/stats', { useAdmin: true })
+    .then((s) => { if (s && typeof s.pendingCount !== 'undefined') setTxt('attnAdminPayoutCount', String(s.pendingCount)); })
+    .catch(() => {});
+}
+
+function refreshAdminPayouts() { loadAdminPayouts(); }
+
+// Initial paint (loading state); real data loads when the section is opened.
 renderAdminPayoutsTable();
+
+/* ════════════════════════════
+   PAYMENT TRANSACTIONS — real records
+════════════════════════════ */
+const TXN_STATE = { offset: 0, limit: 25, total: 0 };
+
+async function loadTransactions(offset) {
+  if (typeof offset === 'number') TXN_STATE.offset = Math.max(0, offset);
+  const body = document.getElementById('txnPageBody');
+  const err = document.getElementById('txnError');
+  if (body) body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">Loading…</td></tr>';
+  const q = new URLSearchParams();
+  q.set('period', (document.getElementById('txnPeriod') || {}).value || 'all');
+  q.set('limit', String(TXN_STATE.limit));
+  q.set('offset', String(TXN_STATE.offset));
+  const st = (document.getElementById('txnStatus') || {}).value; if (st) q.set('status', st);
+  const s = ((document.getElementById('txnSearch') || {}).value || '').trim(); if (s) q.set('search', s);
+  try {
+    const res = await api('/admin/finance/transactions?' + q.toString(), { useAdmin: true });
+    if (err) err.style.display = 'none';
+    TXN_STATE.total = res.total || 0;
+    renderTxnPage(res.transactions || []);
+  } catch (e) {
+    const unavailable = e && e.data && e.data.dataUnavailable;
+    if (err) { err.style.display = 'block'; setTxt('txnErrorText', unavailable ? 'Unable to load financial data.' : (e.message || 'Failed to load transactions')); }
+    if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${unavailable ? 'Unable to load financial data.' : escapeHtml(e.message || 'Error')}</td></tr>`;
+  }
+}
+
+function renderTxnPage(rows) {
+  const body = document.getElementById('txnPageBody');
+  setTxt('txnTotal', String(TXN_STATE.total));
+  const pages = Math.max(1, Math.ceil(TXN_STATE.total / TXN_STATE.limit));
+  const cur = Math.floor(TXN_STATE.offset / TXN_STATE.limit) + 1;
+  setTxt('txnPageNum', String(cur)); setTxt('txnPages', String(pages));
+  const prev = document.getElementById('txnPrev'), next = document.getElementById('txnNext');
+  if (prev) prev.disabled = TXN_STATE.offset <= 0;
+  if (next) next.disabled = cur >= pages;
+  if (!body) return;
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">No transactions found.</td></tr>'; return; }
+  body.innerHTML = rows.map((t) => {
+    const dt = t.createdAt ? new Date(t.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+    const refund = t.refundStatus ? ` <span class="badge badge-red" style="font-size:.6rem">${escapeHtml(t.refundStatus)}</span>` : '';
+    const idCell = (t.orderCode && t.id) ? `<strong class="mono">${escapeHtml(String(t.orderCode))}</strong><div class="mono" style="font-size:.65rem;color:#6b88aa">${escapeHtml(String(t.id))}</div>` : `<strong class="mono">${escapeHtml(String(t.orderCode || t.id || '—'))}</strong>`;
+    return `<tr>
+      <td>${idCell}</td>
+      <td>${escapeHtml(t.user || '—')}${t.userEmail ? `<div style="font-size:.65rem;color:#6b88aa">${escapeHtml(t.userEmail)}</div>` : ''}</td>
+      <td>${escapeHtml(t.coupon || '—')}</td>
+      <td><strong class="mono" style="color:#00e676">₹${(Math.round(Number(t.amount) || 0)).toLocaleString('en-IN')}</strong></td>
+      <td>${escapeHtml(t.method || 'UPI')}</td>
+      <td class="mono" style="font-size:.72rem">${escapeHtml(t.gatewayReference || '—')}</td>
+      <td style="font-size:.78rem;color:#a8c0dc">${dt}</td>
+      <td>${txnBadge(t.status)}${refund}</td>
+    </tr>`;
+  }).join('');
+}
+
+function txnPage(dir) {
+  const n = TXN_STATE.offset + dir * TXN_STATE.limit;
+  if (n < 0) return;
+  TXN_STATE.offset = n;
+  loadTransactions();
+}
+
+/* ════════════════════════════
+   MONTHLY SETTLEMENTS — real, per month
+════════════════════════════ */
+function initSettlementSelectors() {
+  const mSel = document.getElementById('stlMonth');
+  const ySel = document.getElementById('stlYear');
+  if (mSel && !mSel.options.length) {
+    MONTH_NAMES_UI.forEach((nm, i) => { const o = document.createElement('option'); o.value = String(i + 1); o.textContent = nm; mSel.appendChild(o); });
+  }
+  if (ySel && !ySel.options.length) {
+    const y = new Date().getFullYear();
+    for (let yy = y; yy >= y - 3; yy--) { const o = document.createElement('option'); o.value = String(yy); o.textContent = String(yy); ySel.appendChild(o); }
+  }
+  const now = new Date();
+  if (mSel && !mSel.dataset.init) { mSel.value = String(now.getMonth() + 1); mSel.dataset.init = '1'; }
+  if (ySel && !ySel.dataset.init) { ySel.value = String(now.getFullYear()); ySel.dataset.init = '1'; }
+}
+
+async function loadSettlement() {
+  initSettlementSelectors();
+  const month = (document.getElementById('stlMonth') || {}).value;
+  const year = (document.getElementById('stlYear') || {}).value;
+  const err = document.getElementById('stlError');
+  try {
+    const res = await api(`/admin/finance/settlement?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`, { useAdmin: true });
+    if (err) err.style.display = 'none';
+    applySettlement(res.settlement, res.synced);
+  } catch (e) {
+    const unavailable = e && e.data && e.data.dataUnavailable;
+    if (err) { err.style.display = 'block'; setTxt('stlErrorText', unavailable ? 'Unable to load financial data.' : (e.message || 'Failed to load settlement')); }
+    ['stlGross', 'stlPending', 'stlCancelled', 'stlRefunded', 'stlSettled', 'stlSeller',
+      'stlPlatformFee', 'stlGateway', 'stlOther', 'stlNet', 'stlA1', 'stlA2', 'stlPlatform',
+      'stlSellerPaid', 'stlA1Pay', 'stlA2Pay'].forEach((id) => setTxt(id, unavailable ? 'Data unavailable' : '—'));
+  }
+}
+
+function applySettlement(s, synced) {
+  if (!s) return;
+  const o = s.overview;
+  setTxt('stlTitle', s.monthLabel + ' Settlement');
+  setTxt('stlSubtitle', s.monthLabel + ' — reconciliation');
+  setTxt('stlGross', inrFull(o.grossSales));
+  setTxt('stlPending', inrSigned(o.pendingValue, '-'));
+  setTxt('stlCancelled', inrSigned(o.cancelledValue, '-'));
+  setTxt('stlRefunded', inrSigned(o.refundedValue, '-'));
+  setTxt('stlSettled', inrFull(o.settledSales));
+  setTxt('stlSeller', inrSigned(o.sellerRevenue, '-'));
+  setTxt('stlPlatformFee', inrFull(o.platformServiceFeeRevenue));
+  setTxt('stlGateway', inrSigned(o.gatewayFees, '-'));
+  setTxt('stlOther', inrSigned(o.otherCharges, '-'));
+  setTxt('stlNet', inrFull(o.netDistributableRevenue));
+  setTxt('stlA1', inrFull(o.distribution.admin1.amount));
+  setTxt('stlA2', inrFull(o.distribution.admin2.amount));
+  setTxt('stlPlatform', inrFull(o.distribution.platform.amount));
+  if (o.distribution.admin1.email) setTxt('stlA1Name', 'Admin 1 (40%) · ' + o.distribution.admin1.email);
+  if (o.distribution.admin2.email) setTxt('stlA2Name', 'Admin 2 (40%) · ' + o.distribution.admin2.email);
+  setTxt('stlSellerPaid', inrFull(s.sellerPayouts.paid));
+  const a1 = (s.adminPayouts || []).find((a) => a.key === 'admin1') || {};
+  const a2 = (s.adminPayouts || []).find((a) => a.key === 'admin2') || {};
+  setTxt('stlA1Pay', inrFull(a1.paid || 0) + ' / ' + inrFull(a1.pending || 0));
+  setTxt('stlA2Pay', inrFull(a2.paid || 0) + ' / ' + inrFull(a2.pending || 0));
+  const rec = document.getElementById('stlReconcile');
+  if (rec) {
+    if (o.reconciliation.reconciled) { rec.textContent = '✓ Reconciled'; rec.style.color = '#00e676'; }
+    else { rec.textContent = '⚠ Variance Detected ' + inrFull(o.reconciliation.distributionVariance); rec.style.color = '#ffb74d'; }
+  }
+  setTxt('stlSync', synced ? 'Synced to Google Sheets (MonthlySettlements tab).' : 'Sheet sync unavailable — figures are live from the database.');
+}
 
 /* ══════════════════════════════════════════
    ADMIN SESSIONS — live Supabase data
