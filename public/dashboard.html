@@ -303,14 +303,10 @@
     .rf-title{font-family:'DM Serif Display',serif;font-size:clamp(1.5rem,3vw,2.05rem);line-height:1.1;color:#e2ecff}
     .rf-subtitle{font-size:.85rem;color:#6b88aa;margin-top:5px;max-width:540px;line-height:1.5}
     .rf-header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-    .rf-datetime{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;padding:6px 14px;border-radius:11px;background:rgba(15,30,58,.7);border:1px solid rgba(79,195,247,.12);min-width:128px}
-    .rf-dt-date{font-size:.8rem;font-weight:700;color:#e2ecff;line-height:1.2}
-    .rf-dt-time{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#4fc3f7;margin-top:2px}
 
     /* Summary cards */
     .rf-summary-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:22px}
     .rf-card{position:relative;background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.1);border-radius:15px;padding:16px 16px 15px;overflow:hidden;transition:transform .22s,border-color .22s,background .22s}
-    .rf-card::before{content:'';position:absolute;top:0;left:0;bottom:0;width:3px;background:var(--rf-accent,#4fc3f7);opacity:.85}
     .rf-card:hover{transform:translateY(-3px);border-color:var(--rf-accent,rgba(0,230,118,.3));background:rgba(17,34,66,.72)}
     .rf-card-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
     .rf-card-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1rem;background:var(--rf-accent-bg,rgba(79,195,247,.12));color:var(--rf-accent,#4fc3f7)}
@@ -413,7 +409,6 @@
     }
     @media (max-width:460px){
       .rf-summary-grid{grid-template-columns:1fr}
-      .rf-datetime{align-items:flex-start}
     }
 
     /* ===================================================
@@ -1727,10 +1722,6 @@
         <div class="rf-header-right">
           <button class="btn btn-ghost btn-sm" onclick="openHowRefundsWork()">ℹ️ How Refunds Work?</button>
           <button class="btn btn-ghost btn-sm" onclick="loadRefunds()" title="Refresh refunds">↻ Refresh</button>
-          <div class="rf-datetime" id="refundsDateTime">
-            <span class="rf-dt-date">—</span>
-            <span class="rf-dt-time">—</span>
-          </div>
         </div>
       </div>
 
@@ -5519,23 +5510,12 @@
     if (fbtn) fbtn.classList.remove('active');
   });
 
-  function updateRefundsDateTime() {
-    const el = document.getElementById('refundsDateTime');
-    if (!el) return;
-    const now = new Date();
-    const d = el.querySelector('.rf-dt-date');
-    const t = el.querySelector('.rf-dt-time');
-    if (d) d.textContent = now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-    if (t) t.textContent = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-  }
-
   function openHowRefundsWork() {
     openModal('howRefundsWorkModal');
   }
 
   async function loadRefunds(opts = {}) {
     const silent = !!opts.silent;
-    updateRefundsDateTime();
     if (!silent) showToast('Loading refunds…', 'info');
     try {
       const res = await fetch('/api/refunds', {
