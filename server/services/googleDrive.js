@@ -393,6 +393,13 @@ async function getFileMeta(fileId) {
   }
 }
 
+// Fixed destination for support screenshots ("Support Screenshots" folder in
+// the payment/database Drive). Shipped as a default — matching the QR and
+// coupon-proof folders below — so support uploads work even when
+// GOOGLE_DRIVE_SUPPORT_FOLDER_ID is not set in the environment, and never fall
+// back to the general GOOGLE_DRIVE_FOLDER_ID (which may be stale/invalid).
+const DEFAULT_SUPPORT_FOLDER_ID = '1_EYCJNWZVaCsKB9g2c-PqWnIBImUfTkq';
+
 async function uploadSupportScreenshot(input) {
   const { buffer, ext, mimeType, ticketRef, uploaderEmail } = input || {};
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -404,7 +411,7 @@ async function uploadSupportScreenshot(input) {
     buffer,
     filename: `support-${ref}-${stamp}-${unique}${safeExt}`,
     mimeType,
-    folderId: clean(process.env.GOOGLE_DRIVE_SUPPORT_FOLDER_ID) || undefined,
+    folderId: clean(process.env.GOOGLE_DRIVE_SUPPORT_FOLDER_ID) || DEFAULT_SUPPORT_FOLDER_ID,
     description: `SaveHatke support screenshot${uploaderEmail ? ` from ${uploaderEmail}` : ''} on ${new Date().toISOString()}`,
     forcePrivate: true,
   });
