@@ -3459,7 +3459,26 @@ function showSection(id, navEl) {
 var PG_STATE = { estimatedExpiresAt: null, serverLevel: null, timer: null };
 
 function pgToken() {
-  return (window.Auth && (Auth.getAdminToken() || Auth.getToken())) || '';
+  // `Auth` is a top-level const in js/app.js (classic script), so it is NOT a
+  // property of window — reference it bare (as every other admin section does),
+  // with a localStorage fallback to the exact keys Auth uses. This is what makes
+  // the already-authenticated admin session recognised here.
+  try {
+    if (typeof Auth !== 'undefined' && Auth) {
+      var t = Auth.getAdminToken() || Auth.getToken();
+      if (t) return t;
+    }
+  } catch (e) { /* Auth not ready yet */ }
+  try { return localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token') || ''; }
+  catch (e) { return ''; }
+}
+// Map an HTTP status to a safe, human-readable message (never a raw DB error).
+function credErrorMsg(status) {
+  if (status === 401) return 'Admin authentication required.';
+  if (status === 403) return 'You do not have permission to view security credentials.';
+  if (status === 404) return 'Status endpoint not found.';
+  if (status >= 500) return 'Unable to load security credential status.';
+  return 'Unable to load status.';
 }
 function pgEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function pgFmt(ts){ if(!ts) return '—'; try { return new Date(ts).toLocaleString(); } catch(e){ return String(ts); } }
@@ -3538,11 +3557,17 @@ async function loadPaymentGmailStatus(){
   var btn = document.getElementById('pgReconnectBtn');
   if (!rows) return;
   var token = pgToken();
-  if (!token) { rows.innerHTML = '<div class="info-row"><span class="irl">Not signed in</span><span class="irv"><a href="admin-login.html">Admin login</a></span></div>'; return; }
+  if (!token) { rows.innerHTML = '<div class="info-row"><span class="irl">Admin authentication required</span><span class="irv"><a href="admin-login.html">Admin login</a></span></div>'; return; }
   try {
     var res = await fetch('/api/admin/gmail/payment-status', { headers: { Authorization: 'Bearer ' + token } });
-    var data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to load status');
+    var data = {};
+    try { data = await res.json(); } catch (e) { data = {}; }
+    if (!res.ok) {
+      var msg = (data && data.error) || credErrorMsg(res.status);
+      rows.innerHTML = '<div class="info-row"><span class="irl">' + (res.status === 401 ? 'Not signed in' : 'Error') + '</span><span class="irv">' + pgEsc(msg) + ' <a href="javascript:void(0)" onclick="loadPaymentGmailStatus()">Retry</a></span></div>';
+      if (btn) btn.disabled = true;
+      return;
+    }
 
     PG_STATE.estimatedExpiresAt = data.estimatedExpiresAt || null;
     PG_STATE.serverLevel = data.warning ? data.warning.level : null;
@@ -3569,7 +3594,7 @@ async function loadPaymentGmailStatus(){
     if (PG_STATE.timer) clearInterval(PG_STATE.timer);
     if (PG_STATE.estimatedExpiresAt) PG_STATE.timer = setInterval(pgTick, 60000);
   } catch (e) {
-    rows.innerHTML = '<div class="info-row"><span class="irl">Error</span><span class="irv">' + pgEsc(e.message) + '</span></div>';
+    rows.innerHTML = '<div class="info-row"><span class="irl">Error</span><span class="irv">Unable to connect to SaveHatke. <a href="javascript:void(0)" onclick="loadPaymentGmailStatus()">Retry</a></span></div>';
   }
 }
 
@@ -3653,11 +3678,17 @@ async function loadDriveStatus(){
   var btn = document.getElementById('gdReconnectBtn');
   if (!rows) return;
   var token = pgToken();
-  if (!token) { rows.innerHTML = '<div class="info-row"><span class="irl">Not signed in</span><span class="irv"><a href="admin-login.html">Admin login</a></span></div>'; return; }
+  if (!token) { rows.innerHTML = '<div class="info-row"><span class="irl">Admin authentication required</span><span class="irv"><a href="admin-login.html">Admin login</a></span></div>'; return; }
   try {
     var res = await fetch('/api/admin/security-credentials', { headers: { Authorization: 'Bearer ' + token } });
-    var data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Failed to load status');
+    var data = {};
+    try { data = await res.json(); } catch (e) { data = {}; }
+    if (!res.ok) {
+      var msg = (data && data.error) || credErrorMsg(res.status);
+      rows.innerHTML = '<div class="info-row"><span class="irl">' + (res.status === 401 ? 'Not signed in' : 'Error') + '</span><span class="irv">' + pgEsc(msg) + ' <a href="javascript:void(0)" onclick="loadDriveStatus()">Retry</a></span></div>';
+      if (btn) btn.disabled = true;
+      return;
+    }
     var list = (data && data.credentials) || [];
     var d = list.filter(function(c){ return c.service === 'google_drive'; })[0] || {};
     var email = d.email || 'database.savehatke@gmail.com';
@@ -3674,7 +3705,7 @@ async function loadDriveStatus(){
     gdRenderBanner(d.warning, d.exists, d.connected);
     if (btn) btn.disabled = false;
   } catch (e) {
-    rows.innerHTML = '<div class="info-row"><span class="irl">Error</span><span class="irv">' + pgEsc(e.message) + '</span></div>';
+    rows.innerHTML = '<div class="info-row"><span class="irl">Error</span><span class="irv">Unable to connect to SaveHatke. <a href="javascript:void(0)" onclick="loadDriveStatus()">Retry</a></span></div>';
   }
 }
 async function gdReconnect(){
@@ -3953,7 +3984,7 @@ async function exportReport() {
   // rendered onto the approved master template, generated server-side.
   showToast('Generating financial report…', 'info', 2500);
   try {
-    const token = (window.Auth && (Auth.getAdminToken() || Auth.getToken())) || '';
+    const token = (typeof Auth !== 'undefined' && Auth && (Auth.getAdminToken() || Auth.getToken())) || (function(){ try { return localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token') || ''; } catch(e){ return ''; } })();
     const res = await fetch('/api/admin/finance/report/pdf', {
       headers: token ? { Authorization: 'Bearer ' + token } : {},
     });
