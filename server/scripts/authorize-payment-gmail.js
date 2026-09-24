@@ -36,7 +36,8 @@ require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 const { google } = require('googleapis');
 
 const SCOPES = [
-  'https://www.googleapis.com/auth/gmail.modify',
+  // Least-privilege: the payment verifier only READS payment emails.
+  'https://www.googleapis.com/auth/gmail.readonly',
   'openid',
   'https://www.googleapis.com/auth/userinfo.email',
 ];

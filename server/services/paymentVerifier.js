@@ -607,6 +607,10 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
       if (client) mailboxSource = 'payment';
     } catch (e) {
       console.warn('[paymentVerifier] dedicated payment mailbox open notice:', e.message);
+      // A failure to even open the dedicated mailbox is recorded against the
+      // Supabase row so the admin panel can show reauthorization_required. This
+      // NEVER settles or marks any order as paid — verification simply stops.
+      try { await paymentMailbox.reportGmailError(e); } catch (_) {}
     }
     if (!client) {
       client = await gmailService.getAuthorizedClient();
@@ -616,7 +620,7 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
       return {
         ok: false,
         reason:
-          'The payment mailbox is not connected. Run `node server/scripts/authorize-payment-gmail.js` and set PAYMENT_GMAIL_REFRESH_TOKEN.',
+          'The payment mailbox is not connected or its authorization expired. Reconnect it from the admin panel (Payment Gmail → Reconnect).',
         scanned: 0,
         settled: 0,
       };
@@ -633,8 +637,23 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
   try {
     const list = await gmailService.listMessages(gmail, { q, maxResults: maxMessages });
     messages = list.messages || [];
+    // The token just proved good against the live Gmail API — clear any stale
+    // reauthorization/error flag on the dedicated payment mailbox row.
+    if (mailboxSource === 'payment') {
+      try { await paymentMailbox.reportVerified(); } catch (_) {}
+    }
   } catch (e) {
-    return { ok: false, reason: 'Mailbox search failed: ' + e.message, scanned: 0, settled: 0 };
+    // A clear auth/revocation error (invalid_grant, testing-mode expiry) flags
+    // the connection for re-authorization instead of retrying forever. Gmail
+    // verification stops gracefully; the webhook path is unaffected and no
+    // order is ever marked paid because email verification failed.
+    if (mailboxSource === 'payment') {
+      try { await paymentMailbox.reportGmailError(e); } catch (_) {}
+    }
+    const reason = paymentMailbox.isAuthError(e)
+      ? 'Payment Gmail authorization expired. Reconnect Gmail from the admin panel.'
+      : 'Mailbox search failed: ' + e.message;
+    return { ok: false, reason, scanned: 0, settled: 0 };
   }
 
   const pending = await store.findPendingPaymentsForAmount(null);

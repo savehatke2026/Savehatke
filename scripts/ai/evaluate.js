@@ -205,7 +205,7 @@ function main() {
   const responseMisses = [];
   const sampleResults = {
     search_coupons: { ok: true, results: [{ brand: 'Nike', title: 'Nike 500 off', sellingPrice: '150', expiresInDays: 9, category: 'Fashion', discount: '500 OFF' }], totalMatches: 1, totalAvailable: 10 },
-    check_earnings: { ok: true, soldCoupons: 5, ratePerCoupon: 10, totalEarned: 50, paidAmount: 20, processingAmount: 30, formatted: { totalEarned: '₹50', ratePerCoupon: '₹10', paidAmount: '₹20', processingAmount: '₹30' } },
+    check_earnings: { ok: true, soldCoupons: 5, countedCoupons: 5, pricingModel: 'face-value-7-percent', payoutRate: 0.07, averagePerCoupon: 35, totalEarned: 175, paidAmount: 70, processingAmount: 105, formatted: { totalEarned: '₹175', averagePerCoupon: '₹35', paidAmount: '₹70', processingAmount: '₹105' } },
     check_submissions: { ok: true, total: 2, counts: { pending: 1, available: 1, sold: 0, rejected: 0 }, submissions: [{ brand: 'Nykaa', title: 'Nykaa 200 off', status: 'pending', submitted: '2026-01-01' }] },
     check_payout_status: { ok: true, hasPayouts: true, owedAmount: 30, paidAmount: 20, availableToWithdraw: 30, canRequestPayout: false, minPayoutRequest: 50, maxPayoutRequest: 100000, hasDestination: true, recent: [{ amount: 30, amountFormatted: '₹30', status: 'pending', requestedAt: '2026-01-01' }], formatted: { owedAmount: '₹30', paidAmount: '₹20', minPayoutRequest: '₹50' } },
     check_payout_ladder: { ok: true, ladder: ['Pending Review', 'Active', 'Eligible for Payout', 'Payout Processing', 'Paid'], ratePerCoupon: 10, ratePerCouponFormatted: '₹10', minPayoutRequest: 50, minPayoutRequestFormatted: '₹50', maxPayoutRequest: 100000, maxPayoutRequestFormatted: '₹1,00,000' },

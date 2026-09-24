@@ -22,7 +22,9 @@ const prompts = require('./chatbotPrompts');
 // SAVEHATKE_AI and GEMINI stay interchangeable via the AI_PROVIDER env var.
 const aiProvider = require('./ai/provider');
 const aiConfig = require('./ai/config');
-const aiToolRouter = require('./ai/toolRouter');
+// The ONE seller payout formula: 7% of a coupon's face value. Shared with the
+// custom AI engine so the chatbot and the dashboard never disagree.
+const sellerPayout = require('./sellerPayout');
 
 // ── Knowledge categories (fixed per product spec) ─────────────────────────
 const KNOWLEDGE_CATEGORIES = [
@@ -571,11 +573,10 @@ async function executeTool(name, args, settings, user) {
 
     if (name === 'check_earnings' && settings.toolCheckEarnings && user) {
       // ── EARNINGS CALCULATION ────────────────────────────────────────────
-      // A seller earns the price THEY set on each coupon that sold — there is no
-      // flat per-coupon rate. createAutoPayout (routes/payouts.js) credits
-      // exactly that coupon's sellingPrice, and the Sell page showed the seller
-      // that number before they submitted, so summing sellingPrice is what keeps
-      // the chatbot, the dashboard and the payout ledger telling one story.
+      // A seller earns 7% of a coupon's FACE VALUE when it sells — never the
+      // marketplace selling price, and never a flat per-coupon rate. The
+      // resolver in services/sellerPayout.js is the single source of truth, so
+      // the chatbot, the dashboard and the payout ledger tell one story.
       //
       // Data source: identical merge to GET /api/coupons — Supabase first, then
       // the Google Sheets mirror — so the chatbot and the seller dashboard read
@@ -592,17 +593,20 @@ async function executeTool(name, args, settings, user) {
         sales = (rows || []).filter((c) => String(c.sellerEmail || '').toLowerCase().trim() === email);
       }
 
-      const amountOf = (v) => {
-        const n = Number(String(v == null ? '' : v).replace(/[^0-9.]/g, ''));
-        return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
-      };
+      const roundMoney = (v) => Math.round((Number(v) || 0) * 100) / 100;
       const sold = sales.filter((c) => String(c.status || '').toLowerCase() === 'sold');
+      // Only coupons whose payout resolves to a valid amount are counted; a face
+      // value outside ₹100–₹10,000 is excluded rather than guessed at.
+      const payoutsForSold = sold
+        .map((c) => sellerPayout.couponPayoutInfo(c))
+        .filter((info) => info.payoutEligible && Number.isFinite(info.sellerPayout));
       return {
         totalSubmitted: sales.length,
         soldCount: sold.length,
         availableCount: sales.filter((c) => String(c.status || '').toLowerCase() === 'available').length,
-        pricingModel: aiToolRouter.PAYOUT_PRICING_MODEL,
-        totalEarnings: sold.reduce((sum, c) => sum + amountOf(c.sellingPrice), 0),
+        pricingModel: sellerPayout.PAYOUT_PRICING_MODEL,
+        payoutRate: sellerPayout.PAYOUT_RATE,
+        totalEarnings: roundMoney(payoutsForSold.reduce((sum, info) => sum + info.sellerPayout, 0)),
         currency: 'INR',
       };
     }

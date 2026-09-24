@@ -25,6 +25,9 @@ const config = require('./config');
 const security = require('./securityEngine');
 const db = require('../googleSheets');
 const supabase = require('../supabase');
+// The ONE seller payout formula. Imported, never re-declared: a seller is paid
+// 7% of a coupon's face value, and the marketplace selling price is not an input.
+const sellerPayout = require('../sellerPayout');
 
 // Permission levels. Only the first two are reachable from chat.
 const LEVEL = {
@@ -35,20 +38,22 @@ const LEVEL = {
 
 // ── Authoritative business constants ──────────────────────────────────────
 // Pricing model + the payout resolver are read from the module that actually
-// pays, rather than re-declared, so the chatbot can never drift from what a
-// seller is really owed. A seller is paid the price they set on each coupon, so
-// there is no single "rate per coupon" to import — only the model name and the
-// resolver. The try/catch exists because requiring the payouts router pulls in
-// Express route wiring; if that ever fails the model name alone still keeps the
-// phrasing correct, because nothing here quotes a numeric rate any more.
-let PAYOUT_PRICING_MODEL = 'per-coupon';
+// pays (services/sellerPayout.js), rather than re-declared, so the chatbot can
+// never drift from what a seller is really owed: 7% of a coupon's face value.
+// The seller status ladder is a separate concern and still comes from the
+// payouts router. The try/catch exists because requiring the payouts router
+// pulls in Express route wiring; if that ever fails the pricing constants below
+// remain in force.
+let PAYOUT_PRICING_MODEL = sellerPayout.PAYOUT_PRICING_MODEL || 'face-value-7-percent';
+let PAYOUT_RATE = sellerPayout.PAYOUT_RATE || 0.07;
+let MIN_FACE_VALUE = sellerPayout.MIN_FACE_VALUE || 100;
+let MAX_FACE_VALUE = sellerPayout.MAX_FACE_VALUE || 10000;
 let SELLER_STATUS_LADDER = ['Pending Review', 'Active', 'Eligible for Payout', 'Payout Processing', 'Paid'];
 let SELLER_STATUS = {};
 let deriveSellerStatus = null;
 try {
   // eslint-disable-next-line global-require
   const payouts = require('../../routes/payouts');
-  if (payouts.PAYOUT_PRICING_MODEL) PAYOUT_PRICING_MODEL = payouts.PAYOUT_PRICING_MODEL;
   if (Array.isArray(payouts.SELLER_STATUS_LADDER) && payouts.SELLER_STATUS_LADDER.length) SELLER_STATUS_LADDER = payouts.SELLER_STATUS_LADDER;
   if (payouts.SELLER_STATUS) SELLER_STATUS = payouts.SELLER_STATUS;
   if (typeof payouts.deriveSellerStatus === 'function') deriveSellerStatus = payouts.deriveSellerStatus;
@@ -56,10 +61,11 @@ try {
   // Fail-safe constants above remain in force.
 }
 
-/** Coerce anything ("₹1,200", "1200.4", 1200) to a positive whole rupee amount. */
-function amountOf(value) {
-  const n = Number(String(value == null ? '' : value).replace(/[^0-9.]/g, ''));
-  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+/** Round a monetary amount to the nearest paise (2 dp), avoiding binary drift. */
+function roundMoney(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round((n + Number.EPSILON) * 100) / 100;
 }
 
 const MIN_PAYOUT_REQUEST = 50;
@@ -320,7 +326,7 @@ async function searchCoupons(args = {}) {
   };
 }
 
-/** AUTHENTICATED_USER — earnings, summed from the price set on each sold coupon. */
+/** AUTHENTICATED_USER — earnings, summed from 7% of each sold coupon's face value. */
 async function checkEarnings(args = {}, ctx) {
   const email = normEmail(ctx.user && ctx.user.email);
   if (!email) return { ok: false, error: 'no_identity' };
@@ -330,13 +336,18 @@ async function checkEarnings(args = {}, ctx) {
   const available = coupons.filter((c) => String(c.status || '').toLowerCase() === 'available');
   const pending = coupons.filter((c) => ['', 'pending', 'review', 'awaiting', 'submitted', 'proof_requested'].includes(String(c.status || '').toLowerCase()));
 
-  // Seller earnings are the sum of the price the seller set on each coupon that
-  // actually sold. There is no flat per-coupon rate: createAutoPayout credits
-  // that coupon's own sellingPrice, and the Sell page showed the seller that
-  // number before they submitted. Averaging here is only for phrasing — the
-  // total is the figure that matters and it matches the ledger line by line.
-  const totalEarned = sold.reduce((sum, c) => sum + amountOf(c.sellingPrice), 0);
-  const averagePerCoupon = sold.length ? Math.round(totalEarned / sold.length) : 0;
+  // A seller earns 7% of a coupon's FACE VALUE when it sells — never the
+  // marketplace selling price, and never a flat per-coupon rate. The resolver
+  // in services/sellerPayout.js is the single source of truth, so the chatbot,
+  // the dashboard and the payout ledger all tell one story. Only coupons whose
+  // payout resolves to a valid amount are counted; a face value outside
+  // ₹100–₹10,000 is excluded rather than guessed at. Totals are monetary, so
+  // they are rounded to the nearest paise.
+  const payoutsForSold = sold
+    .map((c) => sellerPayout.couponPayoutInfo(c))
+    .filter((info) => info.payoutEligible && Number.isFinite(info.sellerPayout));
+  const totalEarned = roundMoney(payoutsForSold.reduce((sum, info) => sum + info.sellerPayout, 0));
+  const averagePerCoupon = payoutsForSold.length ? roundMoney(totalEarned / payoutsForSold.length) : 0;
 
   // Cross-check against the payout ledger so a discrepancy is visible rather
   // than silently reported as fact.
@@ -352,7 +363,9 @@ async function checkEarnings(args = {}, ctx) {
   return {
     ok: true,
     soldCoupons: sold.length,
+    countedCoupons: payoutsForSold.length,
     pricingModel: PAYOUT_PRICING_MODEL,
+    payoutRate: PAYOUT_RATE,
     averagePerCoupon,
     totalEarned,
     currency: 'INR',
@@ -479,7 +492,9 @@ async function checkPayoutLadder() {
     minPayoutRequestFormatted: formatINR(MIN_PAYOUT_REQUEST),
     maxPayoutRequest: MAX_PAYOUT_REQUEST,
     maxPayoutRequestFormatted: formatINR(MAX_PAYOUT_REQUEST),
-    howItWorks: `The price you set on each coupon is credited to you when it sells. Once your balance reaches ${formatINR(MIN_PAYOUT_REQUEST)} you can request a payout, which moves through the ladder until it is paid.`,
+    payoutRate: PAYOUT_RATE,
+    payoutModel: PAYOUT_PRICING_MODEL,
+    howItWorks: `Each coupon of yours that sells earns you 7% of its face value — separate from the marketplace price a buyer pays. Once your balance reaches ${formatINR(MIN_PAYOUT_REQUEST)} you can request a payout, which moves through the ladder until it is paid.`,
   };
 }
 
@@ -781,13 +796,20 @@ module.exports = {
   execute,
   listToolDefs,
   PAYOUT_PRICING_MODEL,
+  PAYOUT_RATE,
+  MIN_FACE_VALUE,
+  MAX_FACE_VALUE,
   MIN_PAYOUT_REQUEST,
   MAX_PAYOUT_REQUEST,
   SELLER_STATUS_LADDER,
   // exported for tests and for the response engine's phrasing
+  roundMoney,
   formatINR,
   daysUntil,
   effectiveExpiry,
   maskEmail,
   readAvailableCoupons,
+  // the authoritative resolver, re-exported so tests can assert against it
+  couponPayoutInfo: sellerPayout.couponPayoutInfo,
+  calculateSellerPayout: sellerPayout.calculateSellerPayout,
 };

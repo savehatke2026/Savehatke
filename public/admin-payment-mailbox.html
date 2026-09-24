@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Gmail — SaveHatke Admin</title>
+<style>
+  :root { color-scheme: dark; }
+  *{box-sizing:border-box}
+  body{background:#060d1f;color:#e2ecff;font-family:system-ui,-apple-system,Segoe UI,sans-serif;margin:0;padding:24px;line-height:1.6}
+  .card{max-width:640px;margin:40px auto;background:#0b1730;border:1px solid #1c2b50;border-radius:14px;padding:28px 30px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{opacity:.6;font-size:13px;margin-bottom:22px}
+  .row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid #14213f}
+  .row:last-of-type{border-bottom:none}
+  .k{opacity:.7}
+  .v{text-align:right;word-break:break-word}
+  /* Status banner (State A/B/C/D) */
+  .banner{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-radius:11px;margin:0 0 18px;border:1px solid transparent}
+  .banner .dot{font-size:16px;line-height:1.4}
+  .banner .btxt{flex:1}
+  .banner .bttl{font-weight:700;font-size:15px;margin-bottom:2px}
+  .banner .bmsg{font-size:13px;opacity:.9}
+  .banner.green{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3);color:#8ff0be}
+  .banner.yellow{background:rgba(255,187,51,.09);border-color:rgba(255,187,51,.35);color:#ffd98a}
+  .banner.red{background:rgba(255,85,85,.09);border-color:rgba(255,85,85,.35);color:#ff9c9c}
+  .banner.grey{background:rgba(80,110,150,.12);border-color:rgba(80,110,150,.3);color:#c7d6ee}
+  .badge{display:inline-block;padding:3px 12px;border-radius:999px;font-size:12px;font-weight:600}
+  .b-connected{background:#0b3;color:#031}
+  .b-reauth{background:#fb3;color:#311}
+  .b-error{background:#f55;color:#300}
+  .b-off{background:#345;color:#cde}
+  button{margin-top:22px;width:100%;padding:12px 16px;border:none;border-radius:10px;background:#00e676;color:#042;font-weight:700;font-size:15px;cursor:pointer}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  .msg{margin:0 0 18px;padding:11px 14px;border-radius:9px;font-size:14px;display:none}
+  .msg.ok{background:#0b331f;color:#8f8;display:block}
+  .msg.err{background:#3a1414;color:#f99;display:block}
+  .hint{opacity:.55;font-size:12px;margin-top:16px}
+  a{color:#00e676}
+  code{background:#101d3a;padding:1px 6px;border-radius:5px}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Payment Gmail</h1>
+  <div class="sub">Dedicated payment mailbox (<code>rupayandas2024@gmail.com</code>) read by the payment verifier for UPI / bank credit notifications. The refresh token is stored AES-256-GCM encrypted in Supabase and never leaves the server.</div>
+
+  <div id="msg" class="msg"></div>
+  <div id="banner" class="banner grey" style="display:none">
+    <span class="dot" id="bannerDot">⚪</span>
+    <span class="btxt"><span class="bttl" id="bannerTitle">Loading…</span><span class="bmsg" id="bannerMsg"></span></span>
+  </div>
+
+  <div id="rows">
+    <div class="row"><span class="k">Loading…</span><span class="v"></span></div>
+  </div>
+
+  <button id="reconnect" disabled>Reconnect Gmail</button>
+
+  <div class="hint">
+    The reconnect flow signs in with the payment account and mints a fresh refresh token, then updates the existing Supabase record. The token, Google access tokens, and client secret are never shown here.
+    <div style="margin-top:8px"><a href="vault.html#mailbox">← Back to Admin Panel</a></div>
+  </div>
+</div>
+
+<script>
+  // ── The estimated expiry is refreshed locally (no backend polling). ──
+  var STATE = { estimatedExpiresAt: null, level: null };
+  var countdownTimer = null;
+
+  function getAdminToken() {
+    return localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token') || '';
+  }
+  function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+  function fmt(ts){ if(!ts) return '—'; try { return new Date(ts).toLocaleString(); } catch(e){ return String(ts); } }
+
+  // Convert remaining milliseconds → "5 days remaining" / "2 days 6 hours remaining"
+  // / "1 day 12 hours remaining" / "6 hours remaining" / "Expires soon" / "Expired".
+  function formatRemaining(ms){
+    if (ms == null || isNaN(ms)) return '—';
+    if (ms <= 0) return 'Expired';
+    var totalMin = Math.floor(ms / 60000);
+    var days = Math.floor(totalMin / (60*24));
+    var hours = Math.floor((totalMin % (60*24)) / 60);
+    if (days >= 1) {
+      var d = days + (days === 1 ? ' day' : ' days');
+      if (hours > 0) return d + ' ' + hours + (hours === 1 ? ' hour' : ' hours') + ' remaining';
+      return d + ' remaining';
+    }
+    if (hours >= 1) return hours + (hours === 1 ? ' hour' : ' hours') + ' remaining';
+    return 'Expires soon';
+  }
+
+  function remainingMs(){
+    if (!STATE.estimatedExpiresAt) return null;
+    var t = Date.parse(STATE.estimatedExpiresAt);
+    if (isNaN(t)) return null;
+    return t - Date.now();
+  }
+
+  function statusBadge(status, connected){
+    if (status === 'active' && connected) return '<span class="badge b-connected">Connected</span>';
+    if (status === 'reauthorization_required') return '<span class="badge b-reauth">Reauthorization Required</span>';
+    if (status === 'error') return '<span class="badge b-error">Error</span>';
+    if (status === 'disconnected') return '<span class="badge b-off">Disconnected</span>';
+    return '<span class="badge b-off">Not Connected</span>';
+  }
+
+  // Map the server warning level → the four admin states (A/B/C/D).
+  function renderBanner(warning, exists){
+    var banner = document.getElementById('banner');
+    var dot = document.getElementById('bannerDot');
+    var title = document.getElementById('bannerTitle');
+    var bmsg = document.getElementById('bannerMsg');
+    var btn = document.getElementById('reconnect');
+    banner.style.display = 'flex';
+
+    var level = warning ? warning.level : (exists ? 'connected' : 'not_connected');
+    var rem = remainingMs();
+
+    if (level === 'connected') {
+      banner.className = 'banner green';
+      dot.textContent = '🟢';
+      title.textContent = 'Connected';
+      bmsg.textContent = STATE.estimatedExpiresAt
+        ? 'Authorization active · ' + formatRemaining(rem)
+        : 'Authorization active.';
+      btn.textContent = 'Reconnect Gmail';
+    } else if (level === 'reconnect_soon') {
+      banner.className = 'banner yellow';
+      dot.textContent = '🟡';
+      title.textContent = 'Reconnect Soon';
+      bmsg.textContent = 'Authorization expires in: ' + formatRemaining(rem) +
+        ' — reconnect now to prevent payment email verification from stopping.';
+      btn.textContent = 'Reconnect Gmail';
+    } else if (level === 'expired' || level === 'reauth' || level === 'error') {
+      banner.className = 'banner red';
+      dot.textContent = '🔴';
+      title.textContent = 'Reconnect Required';
+      bmsg.textContent = (warning && warning.message)
+        ? warning.message
+        : 'Payment Gmail authorization has expired or was revoked. Reconnect Gmail to resume payment email verification.';
+      btn.textContent = 'Reconnect Gmail';
+    } else {
+      banner.className = 'banner grey';
+      dot.textContent = '⚪';
+      title.textContent = 'Not Connected';
+      bmsg.textContent = 'No payment Gmail account is connected.';
+      btn.textContent = 'Connect Gmail';
+    }
+  }
+
+  function tickCountdown(){
+    // Local-only recompute of the remaining-time labels. No network call.
+    if (!STATE.estimatedExpiresAt) return;
+    var rem = remainingMs();
+    var el = document.getElementById('remainingCell');
+    if (el) el.textContent = formatRemaining(rem);
+    // If the client-side clock crosses a threshold, refresh the banner text too.
+    renderBanner({ level: deriveLevel(rem), message: null }, true);
+  }
+
+  // Client-side threshold derivation mirrors the server (2-day window) so the
+  // banner stays correct between page loads without hammering the backend.
+  function deriveLevel(rem){
+    if (STATE.serverLevel === 'reauth' || STATE.serverLevel === 'error' || STATE.serverLevel === 'not_connected') {
+      return STATE.serverLevel;
+    }
+    if (rem == null) return 'connected';
+    if (rem <= 0) return 'expired';
+    if (rem <= 2*24*60*60*1000) return 'reconnect_soon';
+    return 'connected';
+  }
+
+  function showToastFromQuery(){
+    var p = new URLSearchParams(window.location.search);
+    var box = document.getElementById('msg');
+    if (p.get('payment_gmail') === 'connected') {
+      box.className = 'msg ok';
+      box.textContent = '🟢 Gmail Connected — Payment Gmail authorization renewed successfully.';
+    } else if (p.get('payment_gmail') === 'error') {
+      box.className = 'msg err';
+      box.textContent = '⚠️ ' + (p.get('msg') || 'Connection failed. Please try again.');
+    }
+  }
+
+  function row(k, vHtml, id){
+    return '<div class="row"><span class="k">' + k + '</span><span class="v"' + (id ? ' id="'+id+'"' : '') + '>' + vHtml + '</span></div>';
+  }
+
+  async function loadStatus(){
+    var token = getAdminToken();
+    var rows = document.getElementById('rows');
+    var btn = document.getElementById('reconnect');
+    if (!token) {
+      rows.innerHTML = '<div class="row"><span class="k">Not signed in</span><span class="v"><a href="admin-login.html">Admin login</a></span></div>';
+      return;
+    }
+    try {
+      var res = await fetch('/api/admin/gmail/payment-status', {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to load status');
+
+      STATE.estimatedExpiresAt = data.estimatedExpiresAt || null;
+      STATE.serverLevel = data.warning ? data.warning.level : null;
+
+      var email = data.email || data.expectedEmail || 'rupayandas2024@gmail.com';
+      var rem = remainingMs();
+
+      rows.innerHTML = [
+        row('Email', esc(email)),
+        row('Status', statusBadge(data.status, data.connected)),
+        row('Authorization', data.connected ? 'Active' : (data.status === 'reauthorization_required' ? 'Expired / revoked' : '—')),
+        row('Connected', fmt(data.connectedAt)),
+        row('Authorized', fmt(data.authorizedAt)),
+        row('Estimated expiry', fmt(data.estimatedExpiresAt)),
+        row('Authorization status', formatRemaining(rem), 'remainingCell'),
+        row('Last checked', fmt(data.lastUsedAt)),
+        row('Last verified', fmt(data.lastVerifiedAt)),
+        row('Last error', data.lastError ? esc(data.lastError) : '—')
+      ].join('');
+
+      renderBanner(data.warning, data.exists);
+
+      if (!data.configured) {
+        var box = document.getElementById('msg');
+        box.className = 'msg err';
+        box.textContent = 'Google OAuth is not configured on the server.';
+      }
+      btn.disabled = false;
+
+      // Start a slow LOCAL countdown (60s) — recomputes labels only, no fetch.
+      if (countdownTimer) clearInterval(countdownTimer);
+      if (STATE.estimatedExpiresAt) countdownTimer = setInterval(tickCountdown, 60000);
+    } catch (e) {
+      rows.innerHTML = '<div class="row"><span class="k">Error</span><span class="v">' + esc(e.message) + '</span></div>';
+    }
+  }
+
+  async function reconnect(){
+    var token = getAdminToken();
+    var btn = document.getElementById('reconnect');
+    if (!token) { window.location.href = 'admin-login.html'; return; }
+    btn.disabled = true; var label = btn.textContent; btn.textContent = 'Starting…';
+    try {
+      var res = await fetch('/api/admin/gmail/payment-connect', {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
+      });
+      var data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || 'Could not start the connection.');
+      window.location.href = data.url;
+    } catch (e) {
+      btn.disabled = false; btn.textContent = label;
+      var box = document.getElementById('msg');
+      box.className = 'msg err';
+      box.textContent = '⚠️ ' + e.message;
+    }
+  }
+
+  document.getElementById('reconnect').addEventListener('click', reconnect);
+  showToastFromQuery();
+  loadStatus();
+</script>
+</body>
+</html>

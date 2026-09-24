@@ -111,7 +111,8 @@ async function testSellEligibility() {
 
     const how = await ask('how do i sell a coupon', { conversationId: 't-sell2' });
     check('sell how-to classified', how.meta.intent === 'SELL_COUPON');
-    check('sell answer mentions the ₹10 rate', /₹10/.test(how.text));
+    check('sell answer no longer quotes a flat ₹10 rate', !/₹10/.test(how.text));
+    check('sell answer states the 7%-of-face-value model', /7%/.test(how.text));
 
     const guest = await ask('can i sell a coupon', { conversationId: 't-sell3', user: GUEST });
     check('guest is asked to sign in', guest.loginRequired === true || /sign in/i.test(guest.text));
@@ -119,12 +120,12 @@ async function testSellEligibility() {
 }
 
 async function testEarnings() {
-  await section('Earnings (₹10 × sold, never sellingPrice)', async () => {
+  await section('Earnings (7% of face value, never sellingPrice)', async () => {
     const r = await ask('how much have i earned', { conversationId: 't-earn' });
     check('earnings responds ok', r.ok === true);
     check('earnings intent classified', r.meta.intent === 'EARNINGS');
     check('earnings tool used', r.meta.toolsUsed.includes('check_earnings'));
-    check('answer states the ₹10 rate', /₹10/.test(r.text));
+    check('answer states the 7%-of-face-value model', /7%/.test(r.text));
 
     // The critical regression: earnings must never be described as the sum of
     // selling prices. Guard against the old bug reappearing in the phrasing.
@@ -281,20 +282,34 @@ async function testMemory() {
 }
 
 async function testEarningsRegression() {
-  await section('Earnings regression (the original inconsistency)', async () => {
-    // Direct unit check of the authoritative rate the tool exposes, so this
-    // test fails loudly if anyone reintroduces sellingPrice summation.
-    check('per-coupon rate is ₹10', toolRouter.PER_COUPON_EARNING === 10, `got ${toolRouter.PER_COUPON_EARNING}`);
+  await section('Earnings regression (7% of face value, never sellingPrice)', async () => {
+    // Direct unit checks of the authoritative model the tool exposes, so this
+    // test fails loudly if anyone reintroduces a flat rate or sellingPrice
+    // summation.
+    check('pricing model is face-value-7-percent', toolRouter.PAYOUT_PRICING_MODEL === 'face-value-7-percent', `got ${toolRouter.PAYOUT_PRICING_MODEL}`);
+    check('payout rate is 7%', toolRouter.PAYOUT_RATE === 0.07, `got ${toolRouter.PAYOUT_RATE}`);
 
-    const mod = require(path.join(ROOT, 'server', 'routes', 'payouts.js'));
-    check('payouts module agrees on ₹10', mod.PER_COUPON_EARNING === 10);
+    // 7% of face value, with NO clamp at either end of the ₹100–₹10,000 range.
+    check('₹100 face value pays ₹7 (no clamp)', toolRouter.calculateSellerPayout(100) === 7, `got ${toolRouter.calculateSellerPayout(100)}`);
+    check('₹10,000 face value pays ₹700', toolRouter.calculateSellerPayout(10000) === 700, `got ${toolRouter.calculateSellerPayout(10000)}`);
+    check('₹500 face value pays ₹35', toolRouter.calculateSellerPayout(500) === 35, `got ${toolRouter.calculateSellerPayout(500)}`);
 
-    // The chatbot's own tool must compute sold × rate, not a price sum.
+    // Out-of-range face values are rejected, never clamped to a min/max payout.
+    const rejects = (v) => { try { toolRouter.calculateSellerPayout(v); return false; } catch (e) { return true; } };
+    check('₹99 face value is rejected', rejects(99));
+    check('₹10,001 face value is rejected', rejects(10001));
+
+    // The payout is derived from the FACE VALUE, never the marketplace price.
+    const info = toolRouter.couponPayoutInfo({ originalValue: 500, sellingPrice: 999 });
+    check('payout uses face value, not sellingPrice', info.sellerPayout === 35, `got ${info.sellerPayout}`);
+
+    // The chatbot's own tool must sum the resolver, not a price sum.
     const src = require('fs').readFileSync(
       path.join(ROOT, 'server', 'services', 'ai', 'toolRouter.js'), 'utf8'
     );
-    check('toolRouter computes soldCount * rate', /sold\.length \* PER_COUPON_EARNING/.test(src));
-    check('toolRouter does not sum sellingPrice for earnings', !/reduce\(\(sum, c\) => sum \+ \(parseFloat\(c\.sellingPrice\)/.test(src));
+    check('toolRouter sums couponPayoutInfo for earnings', /couponPayoutInfo/.test(src));
+    check('toolRouter does not sum sellingPrice for earnings', !/sum \+ amountOf\(c\.sellingPrice\)/.test(src));
+    check('toolRouter defines no flat per-coupon rate', !/PER_COUPON_EARNING/.test(src));
   });
 }
 

@@ -159,7 +159,7 @@ function composeEarnings(result) {
     if (availableCount) parts.push(`${plural(availableCount, 'coupon')} live on the marketplace`);
     const suffix = parts.length ? ` You have ${listPhrase(parts)} right now.` : '';
     return {
-      text: `You haven't sold a coupon yet, so there's nothing earned so far.${suffix}\n\nEach coupon that sells earns you the price you set for it.`,
+      text: `You haven't sold a coupon yet, so there's nothing earned so far.${suffix}\n\nEach coupon that sells earns you 7% of its face value — separate from the marketplace price a buyer pays.`,
       chips: ['Check my submissions', 'Can I sell a coupon?', 'How do payouts work?'],
     };
   }
@@ -248,7 +248,7 @@ function composePayoutStatus(result) {
 
   if (!result.hasPayouts) {
     return {
-      text: `There's no payout on your account yet. You earn the price you set for each coupon that sells, and once your balance reaches ${result.formatted.minPayoutRequest} you can request a payout.` +
+      text: `There's no payout on your account yet. Each coupon that sells earns you 7% of its face value, and once your balance reaches ${result.formatted.minPayoutRequest} you can request a payout.` +
         (result.hasDestination ? '' : "\n\nOne thing to set up first: add your payout details (UPI or QR) in your account settings, since payouts need a destination on file."),
       chips: ['Check my earnings', 'How do payouts work?', 'Add payout details'],
     };
@@ -295,7 +295,7 @@ function composePayoutLadder(result) {
   if (!result.ok) return { text: RETRIEVAL_FAILED, chips: ['Try again', 'Contact support'] };
 
   const steps = result.ladder.map((s, i) => `${i + 1}. ${s}`).join('\n');
-  const text = `Here's how payouts work:\n\n• You're credited the price you set on each coupon of yours that sells\n• Your payout balance builds up from those sales\n• Once it reaches **${result.minPayoutRequestFormatted}** you can request a payout\n• The maximum for a single request is ${result.maxPayoutRequestFormatted}\n\nEach payout moves through these stages:\n\n${steps}`;
+  const text = `Here's how payouts work:\n\n• Each coupon of yours that sells earns you 7% of its face value\n• Your payout balance builds up from those sales\n• Once it reaches **${result.minPayoutRequestFormatted}** you can request a payout\n• The maximum for a single request is ${result.maxPayoutRequestFormatted}\n\nEach payout moves through these stages:\n\n${steps}`;
 
   return {
     text,
@@ -404,13 +404,13 @@ function composeSellEligibility(result, plan) {
   // intent decides which question is actually being answered — otherwise a
   // how-to question would only ever be told "you can't sell".
   const isHowTo = plan && plan.intent === 'SELL_COUPON';
-  // There is no flat rate to quote — a seller is paid whatever price they set
-  // on each coupon, so the label states the model rather than a number.
-  const earningLabel = 'The price you set';
+  // Earnings are 7% of the coupon's face value — never a flat rate, and never
+  // the marketplace price a buyer pays — so the label states the model.
+  const earningLabel = '7% of face value';
 
   const explainProcess = () => [
     `Here's how selling works: open the Sell page and submit the coupon — pick the brand and category, describe what it gives, set your price, add the coupon details and a proof screenshot, then submit.`,
-    `It goes through a review, and once it's approved it appears on the marketplace. You're paid the price you set for every coupon of yours that sells.`,
+    `It goes through a review, and once it's approved it appears on the marketplace. Each coupon of yours that sells earns you 7% of its face value — separate from the marketplace price.`,
   ].join('\n\n');
 
   if (result.canSell && result.reason === 'admin_role') {

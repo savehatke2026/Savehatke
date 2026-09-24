@@ -15,6 +15,8 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const tokenStore = require('../services/gmailTokenStore');
 const { buildRawMessage, parseAddressList, htmlToText } = require('../services/gmailMime');
 const gmailService = require('../services/gmailService');
+const paymentMailbox = require('../services/paymentMailbox');
+const paymentStore = require('../services/paymentMailboxStore');
 
 const router = express.Router();
 
@@ -260,6 +262,51 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
       return done(false, 'OAuth state validation failed. Please try again.');
     }
     if (!decoded.adminId) return done(false, 'Invalid OAuth state.');
+
+    // ── Payment mailbox flow ────────────────────────────────────────────────
+    // The dedicated payment mailbox reuses THIS registered redirect URI. It is
+    // told apart from the support flow purely by the signed state's `flow`
+    // claim, so the support path below is left completely untouched. The
+    // payment refresh token is encrypted and stored in Supabase — it is never
+    // returned to the browser and never placed in the redirect URL.
+    if (decoded.flow === 'payment') {
+      const paymentDone = (ok, message = '') => {
+        const qs = ok
+          ? '?payment_gmail=connected'
+          : `?payment_gmail=error&msg=${encodeURIComponent(message || 'Connection failed')}`;
+        return res.redirect(`${reqBase}/admin-payment-mailbox.html${qs}`);
+      };
+      try {
+        const ptokens = await paymentMailbox.exchangeCode(String(code), reqBase);
+        if (!ptokens.refresh_token) {
+          return paymentDone(false, 'Google did not return a refresh token. Remove SaveHatke from your Google account permissions and reconnect.');
+        }
+        const { google } = require('googleapis');
+        const poauth2 = paymentMailbox.getOAuth2Client(reqBase);
+        poauth2.setCredentials({ access_token: ptokens.access_token, refresh_token: ptokens.refresh_token });
+        const pgmail = google.gmail({ version: 'v1', auth: poauth2 });
+        const pprofile = await pgmail.users.getProfile({ userId: 'me' });
+        const paymentEmail = String(pprofile.data.emailAddress || '').toLowerCase();
+        if (!paymentEmail) return paymentDone(false, 'Could not read the Gmail address.');
+
+        // Guard against connecting the wrong inbox when the expected address is set.
+        const expected = paymentMailbox.expectedMailbox();
+        if (expected && paymentEmail !== expected) {
+          return paymentDone(false, `You authorized ${paymentEmail}, but the payment mailbox is ${expected}. Reconnect with the payment account.`);
+        }
+
+        const saved = await paymentMailbox.saveConnection({
+          refresh_token: ptokens.refresh_token,
+          gmail_email: paymentEmail,
+        });
+        req.user = { id: decoded.adminId, email: decoded.email };
+        audit(req, 'payment-gmail.connect', paymentEmail, `token stored in ${saved.source}`);
+        return paymentDone(true);
+      } catch (e) {
+        console.error('Payment Gmail callback error:', e.message);
+        return paymentDone(false, 'Token exchange failed. Please try again.');
+      }
+    }
 
     const tokens = await gmailService.exchangeCode(String(code), reqBase);
     if (!tokens.refresh_token) {
@@ -860,6 +907,106 @@ router.get('/audit', authenticateToken, requireAdmin, async (req, res) => {
     res.json({ logs: auditLog.slice(0, AUDIT_LIMIT), ephemeral: true });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load audit logs.' });
+  }
+});
+
+// ── Payment Gmail (security_credentials) — admin-only status + reconnect ─────
+// These are the spec-named aliases for the dedicated payment mailbox
+// (rupayandas2024@gmail.com). They live alongside the equivalent
+// /api/admin/payment-mailbox/* routes and share the SAME Supabase-backed store
+// and the SAME registered OAuth callback (/api/admin/gmail/callback, told apart
+// by a signed `flow:'payment'` state claim). No new OAuth client is created.
+// The refresh token is NEVER returned here.
+
+// GET /api/admin/gmail/payment-status — safe connection status + expiry warning.
+router.get('/payment-status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const configured = paymentMailbox.isOAuthConfigured();
+    const supabaseReady = paymentStore.isReady();
+    const safe = await paymentStore.getSafeStatus(paymentMailbox.expectedMailbox() || undefined);
+
+    // Reflect a working-but-not-yet-migrated env/file fallback so the panel is honest.
+    let source = 'supabase';
+    if (!safe.exists) {
+      try {
+        const conn = await paymentMailbox.getConnection();
+        if (conn && conn.source && conn.source !== 'supabase') source = conn.source;
+      } catch (_) { /* ignore */ }
+    }
+
+    // Return ONLY the documented safe fields — never the (encrypted) token.
+    res.json({
+      configured,
+      supabaseReady,
+      source,
+      expectedEmail: paymentMailbox.expectedMailbox() || null,
+      email: safe.email || paymentMailbox.expectedMailbox() || null,
+      connected: Boolean(safe.connected),
+      exists: Boolean(safe.exists),
+      status: safe.status || (safe.exists ? undefined : 'not_connected'),
+      connectedAt: safe.connectedAt || null,
+      authorizedAt: safe.authorizedAt || null,
+      estimatedExpiresAt: safe.estimatedExpiresAt || null,
+      lastVerifiedAt: safe.lastVerifiedAt || null,
+      lastUsedAt: safe.lastUsedAt || null,
+      lastError: safe.lastError || null,
+      warning: safe.warning || null,
+    });
+  } catch (err) {
+    console.error('Payment Gmail status error:', err.message);
+    res.status(500).json({ error: 'Failed to load Payment Gmail status.' });
+  }
+});
+
+// POST /api/admin/gmail/payment-connect — returns a short-lived signed start URL.
+// Browser redirects cannot carry an Authorization header, so the admin session
+// is exchanged for a 5-minute single-purpose token carried in the query string.
+router.post('/payment-connect', gmailAuthLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (!paymentMailbox.isOAuthConfigured()) {
+      return res.status(503).json({ error: 'Google OAuth is not configured on the server.' });
+    }
+    const ot = jwt.sign(
+      { adminId: req.user.id, email: req.user.email, purpose: 'payment-gmail-oauth-start' },
+      getJwtSecret(),
+      { expiresIn: '5m' }
+    );
+    res.json({ url: `/api/admin/gmail/payment-connect?ot=${encodeURIComponent(ot)}` });
+  } catch (err) {
+    console.error('Payment Gmail connect prepare error:', err.message);
+    res.status(500).json({ error: 'Failed to prepare the Payment Gmail connection.' });
+  }
+});
+
+// GET /api/admin/gmail/payment-connect?ot=… — redirect the admin to Google's
+// consent screen with a signed, short-lived, CSRF-proof state (flow:'payment').
+// The shared /api/admin/gmail/callback exchanges the code, encrypts the refresh
+// token, upserts security_credentials, and returns to the admin panel.
+router.get('/payment-connect', gmailAuthLimiter, async (req, res) => {
+  try {
+    let admin = req.user;
+    if (!admin && req.query.ot) {
+      try {
+        const decoded = jwt.verify(String(req.query.ot), getJwtSecret());
+        if (decoded.purpose === 'payment-gmail-oauth-start' && decoded.adminId) {
+          admin = { id: decoded.adminId, email: decoded.email };
+        }
+      } catch (e) { /* invalid/expired start token */ }
+    }
+    if (!admin) return res.status(401).json({ error: 'Admin authentication required.' });
+    if (!paymentMailbox.isOAuthConfigured()) {
+      return res.status(503).send('Google OAuth is not configured on the server.');
+    }
+    const state = jwt.sign(
+      { adminId: admin.id, email: admin.email, flow: 'payment', nonce: crypto.randomBytes(8).toString('hex') },
+      getJwtSecret(),
+      { expiresIn: '10m' }
+    );
+    const url = paymentMailbox.buildAuthUrl(state, requestBase(req));
+    res.redirect(url);
+  } catch (err) {
+    console.error('Payment Gmail connect redirect error:', err.message);
+    res.status(500).json({ error: 'Failed to start the Payment Gmail connection.' });
   }
 });
 

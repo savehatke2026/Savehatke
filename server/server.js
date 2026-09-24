@@ -28,6 +28,7 @@ const supportRoutes = require('./routes/support');
 const chatbotAdminRoutes = require('./routes/chatbot');
 const chatRoutes = require('./routes/chat');
 const gmailRoutes = require('./routes/gmail');
+const paymentMailboxRoutes = require('./routes/paymentMailbox');
 const payoutRoutes = require('./routes/payouts');
 const refundRoutes = require('./routes/refunds');
 // Read-only admin financial API (Phase 1 single source of truth — services/finance.js).
@@ -394,6 +395,7 @@ app.use('/api/coupons/scan', couponScanLimiter);
 app.use('/api/coupons', apiLimiter, maintenanceGuard, couponRoutes);
 app.use('/api/tracker', apiLimiter, maintenanceGuard, trackerRoutes);
 app.use('/api/admin/gmail', gmailRoutes); // own rate limits; must precede /api/admin to avoid the generic limiter
+app.use('/api/admin/payment-mailbox', paymentMailboxRoutes); // own rate limits; must precede /api/admin
 // SOS backup access. Mounted before /api/admin so it keeps its own tight
 // limiter instead of the generous authenticated-admin one.
 app.use('/api/admin/sos', sosLimiter, sosRoutes);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Sell your unused reward coupons on SaveHatke. Set your own price, and get paid within 24 hours of approval. PhonePe, Paytm, Nykaa — we buy them all.">
+  <meta name="description" content="Sell your unused reward coupons on SaveHatke. Enter the coupon's face value and earn 7% of it, paid within 24 hours of approval. PhonePe, Paytm, Nykaa — we buy them all.">
   <title>Sell Your Coupons — SaveHatke</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -409,6 +409,23 @@
     .finput[type=date], .finput[type=datetime-local] { color-scheme:dark; }
     .fhint { font-size:.75rem; color:#6b88aa; margin-top:6px; }
 
+    /* ── Live seller payout preview (read-only, under the face-value input) ──
+       Payout is always 7% of the coupon's face value. This panel only ever
+       mirrors the server's own formula; it is never an input and never a
+       source of truth. */
+    .payout-preview {
+      margin-top:10px; padding:12px 14px; border-radius:10px;
+      background:rgba(0,230,118,.06); border:1px solid rgba(0,230,118,.22);
+    }
+    .payout-preview.invalid { background:rgba(248,113,113,.06); border-color:rgba(248,113,113,.28); }
+    .payout-preview-head { display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+    .payout-preview-label { font-size:.76rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#8fd6b0; }
+    .payout-preview-amount { font-size:1.25rem; font-weight:800; color:#00e676; font-family:'JetBrains Mono',monospace; }
+    .payout-preview.invalid .payout-preview-amount { color:#f87171; }
+    .payout-preview-rate { font-size:.75rem; color:#8fa8c8; margin-top:2px; }
+    .payout-preview-note { font-size:.74rem; color:#f87171; margin-top:6px; display:none; }
+    .payout-preview.invalid .payout-preview-note { display:block; }
+
     /* Selects and the terms box match .finput so the card reads as one form. */
     .fselect {
       width:100%; padding:12px 16px; border-radius:10px; color-scheme:dark;
@@ -761,7 +778,7 @@
         <div class="earn-pill">
           <div class="earn-icon">💰</div>
           <div class="earn-amount" id="earnTotal">₹0</div>
-          <div class="earn-sub">Paid to your account after verification (within 24 hours)</div>
+          <div class="earn-sub">Your payout — 7% of each coupon's face value — paid to your account after verification (within 24 hours)</div>
         </div>
 
         <div class="step-actions">
@@ -942,6 +959,60 @@ const PROOF_MAX_BYTES = 3 * 1024 * 1024;
    scanner already has its screenshot in Drive, so that scan counts as the proof
    and only a manually typed coupon needs an upload here. */
 const PROOF_ENABLED = true;
+
+/* ══════════════════════════════════════
+   SELLER PAYOUT — face value × 7%
+   ──────────────────────────────────────
+   The seller's payout is always 7% of the coupon's face value. There is no
+   clamp, floor, cap or tier: a ₹100 coupon pays ₹7, a ₹10,000 coupon pays ₹700.
+   This mirrors server/services/sellerPayout.js exactly — integer paise, rounded
+   half-up to the nearest paise — so the number shown here is the number the
+   server computes. The client never decides a payout; it only previews it.
+══════════════════════════════════════ */
+const PAYOUT_RATE = 0.07;
+const MIN_FACE_VALUE = 100;
+const MAX_FACE_VALUE = 10000;
+const FACE_VALUE_RULE_TEXT = `₹${MIN_FACE_VALUE} to ₹${MAX_FACE_VALUE}, up to 2 decimals`;
+
+/* Parse a rupee amount into integer paise. Rejects anything that is not a plain
+   number with at most two decimals, so "1e3", "1,000", "500.123" and "abc" are
+   all refused rather than silently coerced. */
+function faceValueToPaise(value) {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+  const text = String(value).trim();
+  if (!/^\d+(?:\.\d{1,2})?$/.test(text)) return null;
+  const [whole, fraction = ''] = text.split('.');
+  const paise = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  return Number.isSafeInteger(paise) ? paise : null;
+}
+
+/** Seller payout for a face value, or null when the face value is not valid. */
+function sellerPayoutFor(faceValue) {
+  const paise = faceValueToPaise(faceValue);
+  if (paise === null || paise < MIN_FACE_VALUE * 100 || paise > MAX_FACE_VALUE * 100) return null;
+  // Rounded to the nearest paise only — no clamp, floor or cap.
+  return Math.floor((paise * 7 + 50) / 100) / 100;
+}
+
+/** Why a face value is not acceptable, or '' when it is. */
+function faceValueProblem(raw) {
+  const text = String(raw == null ? '' : raw).trim();
+  if (!text) return 'Coupon Face Value is required.';
+  if (!/^\d+(?:\.\d{1,2})?$/.test(text)) {
+    return 'Coupon Face Value must be a number with at most 2 decimal places.';
+  }
+  const paise = faceValueToPaise(text);
+  if (paise === null || paise < MIN_FACE_VALUE * 100 || paise > MAX_FACE_VALUE * 100) {
+    return `Coupon Face Value must be between ₹${MIN_FACE_VALUE} and ₹${MAX_FACE_VALUE}.`;
+  }
+  return '';
+}
+
+/** Money for the payout panel: always two decimals, so paise are never hidden. */
+function formatPayout(amount) {
+  const n = Number(amount);
+  return '₹' + (Number.isFinite(n) ? (Math.round(n * 100) / 100).toFixed(2) : '0.00');
+}
 
 /* ══════════════════════════════════════
    MINIMUM SHELF LIFE
@@ -1441,25 +1512,30 @@ function renderCouponCard(id, index) {
     }),
     // Price the coupon is listed at on the marketplace — seller-proposed and
     // server-validated (1…100000), defaulting to the same ₹15 as the admin form.
-    // This IS the seller's payout: when the coupon sells, this exact amount is
-    // credited to them. There is no separate flat fee.
+    // This is what a buyer pays; it is NOT the seller's payout.
     makeField({
       id: 'price-' + id, label: 'Selling Price (₹)', type: 'number',
       value: '15', placeholder: 'e.g. 15',
-      hint: 'What a buyer pays for it — and what you get paid when it sells.',
+      hint: 'What a buyer pays for it on the marketplace. This is not your payout.',
     })
   ));
 
-  card.appendChild(fieldRow(
-    makeField({
-      id: 'minorder-' + id, label: 'Minimum Order Value (₹)', type: 'number',
-      placeholder: 'e.g. 999',
-    }),
-    makeField({
-      id: 'value-' + id, label: 'Original Value / Max Discount (₹)', type: 'number',
-      placeholder: 'e.g. 500',
-    })
-  ));
+  // ── Coupon Face Value ──
+  // The one number the payout is calculated from: payout = face value × 7%.
+  // Required, ₹100–₹10,000, at most 2 decimals. The read-only panel underneath
+  // mirrors the server's formula live and never accepts input of its own.
+  card.appendChild(makeField({
+    id: 'value-' + id, label: 'Coupon Face Value (₹)', type: 'number', required: true,
+    min: MIN_FACE_VALUE, max: MAX_FACE_VALUE, step: '0.01', inputMode: 'decimal',
+    placeholder: 'e.g. 500',
+    hint: `The coupon's face value — ₹${MIN_FACE_VALUE} to ₹${MAX_FACE_VALUE}, up to 2 decimals.`,
+  }));
+  card.appendChild(createPayoutPreview(id));
+
+  card.appendChild(makeField({
+    id: 'minorder-' + id, label: 'Minimum Order Value (₹)', type: 'number',
+    placeholder: 'e.g. 999',
+  }));
 
   // Valid From, Coupon Source and Status are no longer shown to the seller:
   // the source and status are fixed server-side (user-submitted / pending
@@ -1494,6 +1570,62 @@ function fieldRow(left, right) {
   row.appendChild(left);
   row.appendChild(right);
   return row;
+}
+
+/* ── Live seller payout panel (read-only) ──
+   Sits directly under the face-value input and repaints on every keystroke and
+   on an AI fill. It shows the payout the server will compute — 7% of face value
+   — and nothing else; there is no payout input anywhere on this form. */
+function createPayoutPreview(id) {
+  // One delegated listener for the whole page: a coupon card is built while it
+  // is still detached from the document, so binding directly to the input here
+  // would silently do nothing. Events bubble to document once the card is in
+  // the page, which also covers every coupon added later.
+  if (!createPayoutPreview.bound) {
+    createPayoutPreview.bound = true;
+    document.addEventListener('input', (e) => {
+      const el = e.target;
+      if (el && el.id && el.id.indexOf('value-') === 0) {
+        refreshPayoutPreview(el.id.slice('value-'.length));
+      }
+    });
+  }
+
+  const box = document.createElement('div');
+  box.className = 'payout-preview';
+  box.id = 'payout-preview-' + id;
+  box.setAttribute('aria-live', 'polite');
+  box.innerHTML = `
+    <div class="payout-preview-head">
+      <span class="payout-preview-label">Seller Payout</span>
+      <span class="payout-preview-amount" id="payout-amount-${id}">₹0.00</span>
+    </div>
+    <div class="payout-preview-rate">7% of face value</div>
+    <div class="payout-preview-note" id="payout-note-${id}"></div>`;
+  return box;
+}
+
+/** Repaint one coupon's payout panel from its current face value. */
+function refreshPayoutPreview(id) {
+  const box = document.getElementById('payout-preview-' + id);
+  const amountEl = document.getElementById('payout-amount-' + id);
+  const noteEl = document.getElementById('payout-note-' + id);
+  if (!box || !amountEl) return;
+
+  const raw = document.getElementById('value-' + id)?.value ?? '';
+  const problem = faceValueProblem(raw);
+  const payout = sellerPayoutFor(raw);
+
+  if (problem || payout === null) {
+    box.classList.add('invalid');
+    amountEl.textContent = '—';
+    if (noteEl) noteEl.textContent = problem || `Enter a face value between ${FACE_VALUE_RULE_TEXT}.`;
+    return;
+  }
+
+  box.classList.remove('invalid');
+  amountEl.textContent = formatPayout(payout);
+  if (noteEl) noteEl.textContent = '';
 }
 
 /* ── Screenshot upload field (one per coupon card) ── */
@@ -1675,7 +1807,7 @@ const AI_FIELD_LABELS = {
   coupon_type: 'Coupon Type',
   discount_value: 'Discount Value',
   minimum_order_value: 'Minimum Order',
-  original_value_or_max_discount: 'Original / Max Discount',
+  original_value_or_max_discount: 'Coupon Face Value',
   expiry_date: 'Expiry Date',
   expiry_time: 'Expiry Time',
   terms_and_conditions: 'Terms & Conditions',
@@ -2127,8 +2259,10 @@ function applyAiFields(fields) {
   }
 
   // Selling Price is deliberately left as the form's own default — the AI never
-  // sets it, and the seller confirms or changes it.
+  // sets it, and the seller confirms or changes it. The face value may be filled
+  // by the scan, so its live payout panel is repainted from the AI's number.
   updateCategoryChip(id);
+  refreshPayoutPreview(id);
 }
 
 /**
@@ -2489,6 +2623,9 @@ function makeField(cfg) {
   if (cfg.placeholder && cfg.kind !== 'select') control.placeholder = cfg.placeholder;
   if (cfg.value !== undefined) control.value = cfg.value;
   if (cfg.min !== undefined) control.min = cfg.min;
+  if (cfg.max !== undefined) control.max = cfg.max;
+  if (cfg.step !== undefined) control.step = cfg.step;
+  if (cfg.inputMode) control.inputMode = cfg.inputMode;
   if (cfg.required) control.required = true;
   if (cfg.readOnly) control.readOnly = true;
   if (cfg.disabled) control.disabled = true;
@@ -2518,6 +2655,9 @@ function addCoupon() {
   const container = document.getElementById('couponCardsContainer');
   const card = renderCouponCard(id, couponIds.length);
   container.appendChild(card);
+
+  // Paint the new card's payout panel now that it is in the document.
+  refreshPayoutPreview(id);
 
   updateCouponNumbers();
   updateAddButton();
@@ -2659,15 +2799,19 @@ function collectCoupons() {
 }
 
 /**
- * What the seller will be paid for this batch: each coupon pays the price they
- * set on it. Mirrors the server, where createAutoPayout credits the coupon's
- * own sellingPrice — so the number shown here is the number that gets paid.
+ * What the seller will be paid for this batch: the sum of 7% of each coupon's
+ * face value, rounded per coupon to the nearest paise. This is an estimate of
+ * the server's own calculation — the server is the only authority on payout —
+ * and it is deliberately never derived from sellingPrice.
  */
 function payoutTotal(coupons) {
-  return (coupons || []).reduce((sum, c) => {
-    const n = Number(c.sellingPrice);
-    return sum + (Number.isFinite(n) && n > 0 ? Math.round(n) : 0);
+  const paise = (coupons || []).reduce((sum, c) => {
+    const payout = sellerPayoutFor(c.faceValue);
+    // An invalid face value contributes nothing here; validateCoupons() blocks
+    // submission before this number could ever be shown as final.
+    return sum + (payout === null ? 0 : Math.round(payout * 100));
   }, 0);
+  return paise / 100;
 }
 
 /* ── Validate all coupons ── */
@@ -2710,6 +2854,12 @@ function validateCoupons() {
     if (!c.sellingPrice || !Number.isFinite(price) || price <= 0 || price > 100000) {
       return fail('Selling Price must be between ₹1 and ₹100000.', 'price-' + c.id);
     }
+
+    // Face value drives the payout, so it is required and strictly validated:
+    // ₹100–₹10,000 with at most 2 decimals. The server re-checks this and is
+    // the only party that decides the payout.
+    const faceProblem = faceValueProblem(c.faceValue);
+    if (faceProblem) return fail(faceProblem, 'value-' + c.id);
 
     if (!c.expiryDate) return fail('Expiry Date & Time is required.', 'expiry-' + c.id);
     const expiryAt = Date.parse(c.expiryDate);
@@ -2791,6 +2941,9 @@ function buildReviewSummary() {
     title.textContent = 'Coupon ' + (i + 1);
     block.appendChild(title);
 
+    // Payout is always 7% of face value — computed here purely as an estimate
+    // for the seller to read. The server recomputes and stores the real value.
+    const payout = sellerPayoutFor(c.faceValue);
     const rows = [
       ['Store / Brand', c.brand],
       ['Category (auto)', c.category || '—'],
@@ -2798,9 +2951,10 @@ function buildReviewSummary() {
       ['Coupon Code', c.code],
       ['Coupon Type', c.type || '—'],
       ['Discount Value', c.discount || '—'],
+      ['Coupon Face Value', c.faceValue ? '₹' + c.faceValue : '—'],
+      ['Seller Payout (7% of face value)', payout === null ? '—' : formatPayout(payout)],
       ['Selling Price', c.sellingPrice ? '₹' + c.sellingPrice : '—'],
       ['Minimum Order', c.minOrderValue ? '₹' + c.minOrderValue : '—'],
-      ['Original Value / Max Discount', c.faceValue ? '₹' + c.faceValue : '—'],
       ['Expiry', c.expiryDate ? formatReviewDate(c.expiryDate) : '—'],
       ['Affiliate Link', c.affiliateLink || '—'],
       ['Terms & Conditions', c.terms || '—'],
@@ -2837,11 +2991,11 @@ function buildReviewSummary() {
   // Update count and earn total
   const count = coupons.length;
   document.getElementById('reviewTotalCount').textContent = count;
-  document.getElementById('earnTotal').textContent = '₹' + payoutTotal(coupons);
+  document.getElementById('earnTotal').textContent = formatPayout(payoutTotal(coupons));
 
   // Update submit button label
   const submitBtn = document.getElementById('submitSellBtn');
-  if (submitBtn) submitBtn.innerHTML = '✅ Submit &amp; Earn ₹' + payoutTotal(coupons);
+  if (submitBtn) submitBtn.innerHTML = '✅ Submit &amp; Earn ' + formatPayout(payoutTotal(coupons));
 }
 
 /* ── Step navigation (2 steps: 1 = details, 2 = review) ── */
@@ -2885,7 +3039,7 @@ async function submitCoupons() {
 
   const restoreBtn = () => {
     btn.disabled = false;
-    btn.innerHTML = '✅ Submit &amp; Earn ₹' + payoutTotal(collectCoupons());
+    btn.innerHTML = '✅ Submit &amp; Earn ' + formatPayout(payoutTotal(collectCoupons()));
   };
 
   btn.disabled = true;

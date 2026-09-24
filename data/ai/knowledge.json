@@ -112,8 +112,8 @@
     "category": "Coupon Selling",
     "intent": "SELL_COUPON",
     "question": "How much do I earn for selling a coupon?",
-    "answer": "You earn ₹10 for every coupon of yours that sells — it's a flat rate per sold coupon, and it doesn't depend on the coupon's price. So five sold coupons earn you ₹50. Your earnings build up in your account until you request a payout.",
-    "keywords": ["how much earn", "earning rate", "per coupon", "sell earning", "kitna milega", "commission", "₹10"],
+    "answer": "You earn 7% of a coupon's face value for every coupon of yours that sells. It's a percentage of the face value — not the marketplace price a buyer pays, and not a flat rate. So a ₹500 coupon earns you ₹35 and a ₹1,000 coupon earns you ₹70. Your earnings build up in your account until you request a payout.",
+    "keywords": ["how much earn", "earning rate", "per coupon", "sell earning", "kitna milega", "commission", "7%", "face value"],
     "enabled": true
   },
   {
@@ -121,7 +121,7 @@
     "category": "Coupon Selling",
     "intent": "SELL_COUPON",
     "question": "Can I sell more than one coupon?",
-    "answer": "Yes — there's no limit on how many coupons you can submit. Each one is reviewed on its own, and each one that sells earns you ₹10. Many sellers keep several live at once.",
+    "answer": "Yes — there's no limit on how many coupons you can submit. Each one is reviewed on its own, and each one that sells earns you 7% of its face value. Many sellers keep several live at once.",
     "keywords": ["multiple coupons", "how many sell", "more than one", "limit sell", "several coupons"],
     "enabled": true
   },
@@ -157,7 +157,7 @@
     "category": "Earnings",
     "intent": "EARNINGS",
     "question": "How much have I earned?",
-    "answer": "Your earnings are ₹10 for each coupon of yours that has sold. So if three of your coupons have sold, you've earned ₹30. Your dashboard shows the exact count and total for your account — and I can look it up for you while you're signed in.",
+    "answer": "Your earnings are 7% of the face value of each coupon of yours that has sold. So three sold coupons with a ₹500 face value each would earn you ₹105. Your dashboard shows the exact count and total for your account — and I can look it up for you while you're signed in.",
     "keywords": ["how much earned", "my earnings", "total earned", "check earnings", "kamai", "earning balance", "how much made"],
     "enabled": true
   },
@@ -166,7 +166,7 @@
     "category": "Earnings",
     "intent": "EARNINGS",
     "question": "How are seller earnings calculated?",
-    "answer": "It's a flat ₹10 per coupon that sells — not a percentage of the coupon's price. A ₹500 coupon and a ₹100 coupon both earn the seller ₹10 when they sell. This keeps it simple and predictable no matter what you list.",
+    "answer": "Earnings are 7% of a coupon's face value when it sells. A coupon with a ₹500 face value earns the seller ₹35, and a ₹100 coupon earns ₹7. The marketplace price a buyer pays is a separate number and doesn't change what you earn.",
     "keywords": ["how calculated", "earning calculation", "rate", "per sold coupon", "how earnings work", "formula"],
     "enabled": true
   },
@@ -175,7 +175,7 @@
     "category": "Earnings",
     "intent": "EARNINGS",
     "question": "Why is my earnings amount different from the coupon price?",
-    "answer": "Because your earning is a flat ₹10 per sold coupon, while the price you see on a coupon is what the buyer pays for it. Those are two different numbers by design — the coupon's price doesn't change what you earn for selling it.",
+    "answer": "Because your earning is 7% of the coupon's face value, while the price you see on the marketplace is what the buyer pays for it. Those are two different numbers by design — the marketplace price doesn't change what you earn for selling it.",
     "keywords": ["different amount", "why not price", "earning vs price", "less than price", "earnings discrepancy", "why so low"],
     "enabled": true
   },
@@ -355,7 +355,7 @@
     "category": "Coupon Rules",
     "intent": "FAQ",
     "question": "What are the coupon rules on SaveHatke?",
-    "answer": "A few rules keep the marketplace trustworthy:\n\n• Coupons must be genuine, unused and not expired\n• A coupon can only be sold once — the code stays hidden until purchase\n• Listings are reviewed before they go live\n• A coupon should be yours to give away, not copied from a public source\n• Your earning is ₹10 per coupon that sells, regardless of its price",
+    "answer": "A few rules keep the marketplace trustworthy:\n\n• Coupons must be genuine, unused and not expired\n• A coupon can only be sold once — the code stays hidden until purchase\n• Listings are reviewed before they go live\n• A coupon should be yours to give away, not copied from a public source\n• Your earning is 7% of a coupon's face value when it sells",
     "keywords": ["rules", "coupon rules", "policy", "terms", "allowed", "guidelines", "what is not allowed"],
     "enabled": true
   },
@@ -400,7 +400,7 @@
     "category": "SaveHatke Overview",
     "intent": "WEBSITE_NAVIGATION",
     "question": "Where can I find my earnings and payouts?",
-    "answer": "Both are in your dashboard. Your earnings section shows how many coupons have sold and what you've earned at ₹10 each; your payouts section shows each payout and which stage it's reached. If you're signed in, just ask me and I'll look up your own numbers.",
+    "answer": "Both are in your dashboard. Your earnings section shows how many coupons have sold and what you've earned at 7% of face value each; your payouts section shows each payout and which stage it's reached. If you're signed in, just ask me and I'll look up your own numbers.",
     "keywords": ["where earnings", "where payouts", "find earnings", "dashboard earnings", "where dashboard"],
     "enabled": true
   },
