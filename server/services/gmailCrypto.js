@@ -45,6 +45,43 @@ function getCredentialEncryptionKey() {
   );
 }
 
+// The three key names above are meant to be aliases for the SAME secret, and a
+// value encrypted under one is supposed to decrypt under any. In practice a
+// deployment may have set them to DIFFERENT secret strings and stored a token
+// under one of them (e.g. the google_drive token encrypted with
+// GMAIL_TOKEN_ENCRYPTION_KEY while PAYMENT_GMAIL_TOKEN_ENCRYPTION_KEY — which
+// wins the precedence above — holds a different value). Encryption always uses
+// the single preferred key, but DECRYPTION must try every configured key so an
+// existing, still-valid token keeps round-tripping instead of silently
+// returning null (which drops the whole integration to a broken fallback).
+function getCredentialKeyCandidates() {
+  const raws = [
+    process.env.SECURITY_CREDENTIALS_ENCRYPTION_KEY,
+    process.env.PAYMENT_GMAIL_TOKEN_ENCRYPTION_KEY,
+    process.env.GMAIL_TOKEN_ENCRYPTION_KEY,
+  ];
+  const seen = new Set();
+  const keys = [];
+  for (const raw of raws) {
+    const s = String(raw || '');
+    if (!s || seen.has(s)) continue; // skip empty and duplicate secrets
+    seen.add(s);
+    const key = deriveKey(s);
+    if (key) keys.push(key);
+  }
+  return keys;
+}
+
+// Try each candidate key in turn; the AES-GCM auth tag guarantees only the
+// correct key yields a value, so a wrong key just returns null and we move on.
+function decryptWithAnyKey(keys, payload) {
+  for (const key of keys) {
+    const out = decryptWithKey(key, payload);
+    if (out) return out;
+  }
+  return null;
+}
+
 // Core AES-256-GCM primitives, parameterised by the derived key buffer.
 function encryptWithKey(key, plaintext) {
   const iv = crypto.randomBytes(12);
@@ -106,9 +143,11 @@ function encryptPaymentSecret(plaintext) {
 
 /**
  * Decrypt a value produced by encryptPaymentSecret(). Returns null on failure.
+ * Tries every configured credential key so a token encrypted under any accepted
+ * alias still round-trips.
  */
 function decryptPaymentSecret(payload) {
-  return decryptWithKey(getPaymentEncryptionKey(), payload);
+  return decryptWithAnyKey(getCredentialKeyCandidates(), payload);
 }
 
 /** True when the payment mailbox encryption key is configured. */
@@ -131,7 +170,7 @@ function encryptCredentialSecret(plaintext) {
 }
 
 function decryptCredentialSecret(payload) {
-  return decryptWithKey(getCredentialEncryptionKey(), payload);
+  return decryptWithAnyKey(getCredentialKeyCandidates(), payload);
 }
 
 /** True when the generic credential encryption key is configured. */

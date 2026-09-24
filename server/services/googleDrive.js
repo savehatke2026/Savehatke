@@ -169,7 +169,14 @@ async function getDriveClient() {
   return null;
 }
 
-// ── Auth-error classification + reporting (google_drive row ONLY) ────────────
+/** Build an OAuth Drive client from an explicit refresh token (used for the
+ *  env-token fallback retry when the Supabase credential fails a live call). */
+function buildClientFromToken(refreshToken) {
+  const c = getCreds();
+  const auth = new google.auth.OAuth2(c.clientId, c.clientSecret);
+  auth.setCredentials({ refresh_token: refreshToken });
+  return google.drive({ version: 'v3', auth });
+}
 function isDriveAuthError(err) {
   const status = err?.response?.status || err?.code;
   const msg = String(
@@ -234,6 +241,7 @@ async function uploadProofScreenshot(input) {
     err.code = 'DRIVE_NOT_CONFIGURED';
     throw err;
   }
+  const primarySource = _lastSource;
 
   const safeName = String(filename)
     .replace(/[^a-zA-Z0-9._\- ]/g, '_')
@@ -247,21 +255,19 @@ async function uploadProofScreenshot(input) {
       : `SaveHatke coupon proof uploaded on ${new Date().toISOString()}`),
   };
 
-  let createRes;
-  try {
-    createRes = await drive.files.create({
-      requestBody: metadata,
-      media: {
-        mimeType: mimeType || 'application/octet-stream',
-        body: Readable.from(buffer),
-      },
-      fields: 'id, name, mimeType, size, webViewLink',
-      supportsAllDrives: true,
-    });
-  } catch (e) {
-    // Flag a real authorization/revocation failure on the google_drive row so
-    // the admin panel can prompt a reconnect (never affects payment_gmail).
-    if (isDriveAuthError(e)) { try { await reportDriveError(e); } catch (_) {} }
+  const doCreate = (driveClient) => driveClient.files.create({
+    requestBody: metadata,
+    media: {
+      mimeType: mimeType || 'application/octet-stream',
+      body: Readable.from(buffer),
+    },
+    fields: 'id, name, mimeType, size, webViewLink',
+    supportsAllDrives: true,
+  });
+
+  // Translate the two failures that actually happen in practice into something
+  // the operator can act on, instead of a bare API message the caller swallows.
+  const translate = (e) => {
     const reason = (e.errors && e.errors[0] && e.errors[0].reason) || '';
     const mode = getCreds().mode;
     if (reason === 'storageQuotaExceeded' || /storage quota/i.test(e.message || '')) {
@@ -271,7 +277,7 @@ async function uploadProofScreenshot(input) {
         'section (or move GOOGLE_DRIVE_FOLDER_ID into a Workspace Shared Drive).'
       );
       err.code = 'DRIVE_NO_QUOTA';
-      throw err;
+      return err;
     }
     if (e.code === 404 || /File not found/i.test(e.message || '')) {
       const err = new Error(
@@ -279,9 +285,42 @@ async function uploadProofScreenshot(input) {
         'Check GOOGLE_DRIVE_FOLDER_ID and make sure that account can edit the folder.'
       );
       err.code = 'DRIVE_FOLDER_NOT_FOUND';
-      throw err;
+      return err;
     }
-    throw e;
+    return e;
+  };
+
+  // A create failure is "recoverable" via the legacy env token when it looks
+  // like the Supabase credential is bad (revoked/expired) OR authorized the
+  // wrong Google account (folder invisible / no permission). This keeps uploads
+  // working even if an admin reconnect stored a bad Drive credential — the
+  // known-good GOOGLE_DRIVE_REFRESH_TOKEN (while still present) is used as a
+  // one-time fallback, and the google_drive row is flagged for attention.
+  const isRecoverable = (e) => {
+    const msg = String(e && e.message || '').toLowerCase();
+    return isDriveAuthError(e) || e?.code === 404 || /file not found|insufficient permission|permission|storagequota/i.test(msg);
+  };
+
+  let createRes;
+  try {
+    createRes = await doCreate(drive);
+  } catch (e) {
+    const envTok = envRefreshToken();
+    if (primarySource === 'supabase' && envTok && isRecoverable(e)) {
+      // Flag the Supabase row so the admin sees it needs a (correct) reconnect.
+      try { await reportDriveError(e); } catch (_) {}
+      try {
+        console.warn('[googleDrive] Supabase Drive credential failed the upload; falling back to GOOGLE_DRIVE_REFRESH_TOKEN for this request.');
+        const envDrive = buildClientFromToken(envTok);
+        _lastSource = 'env-deprecated';
+        createRes = await doCreate(envDrive);
+      } catch (e2) {
+        throw translate(e2);
+      }
+    } else {
+      if (isDriveAuthError(e)) { try { await reportDriveError(e); } catch (_) {} }
+      throw translate(e);
+    }
   }
 
   const file = createRes.data;

@@ -332,21 +332,47 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
         const { google } = require('googleapis');
         const doauth2 = googleDrive.getOAuth2Client(reqBase);
         doauth2.setCredentials({ access_token: dtokens.access_token, refresh_token: dtokens.refresh_token });
+        const drive = google.drive({ version: 'v3', auth: doauth2 });
+
+        // Resolve the authorized account: prefer userinfo, else the Drive
+        // about.user owner. This MUST succeed — storing a credential whose
+        // account we could not verify is exactly what silently broke uploads.
         let driveAccount = '';
         try {
           const oauth2api = google.oauth2({ version: 'v2', auth: doauth2 });
           const info = await oauth2api.userinfo.get();
           driveAccount = String(info.data.email || '').toLowerCase();
-        } catch (e) { /* identity is advisory; proceed with the expected address */ }
+        } catch (e) { /* fall back to Drive about.user below */ }
+        if (!driveAccount) {
+          try {
+            const about = await drive.about.get({ fields: 'user(emailAddress)' });
+            driveAccount = String(about.data.user && about.data.user.emailAddress || '').toLowerCase();
+          } catch (e) { /* leave empty → rejected below */ }
+        }
 
         const expected = googleDrive.expectedDriveEmail();
-        if (driveAccount && expected && driveAccount !== expected) {
-          return driveDone(false, `You authorized ${driveAccount}, but the Drive account is ${expected}. Reconnect with the Drive account.`);
+        if (!driveAccount) {
+          return driveDone(false, 'Could not confirm which Google account you authorized. Please reconnect and grant the requested permissions.');
+        }
+        if (expected && driveAccount !== expected) {
+          return driveDone(false, `You authorized ${driveAccount}, but the Drive account must be ${expected}. Reconnect and pick that account.`);
+        }
+
+        // Verify the token can actually reach the configured Drive folder BEFORE
+        // saving — this is the definitive "uploads will work" check and prevents
+        // storing a credential that lacks folder access.
+        const folderId = String(process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim().replace(/^["']|["']$/g, '');
+        if (folderId) {
+          try {
+            await drive.files.get({ fileId: folderId, fields: 'id', supportsAllDrives: true });
+          } catch (e) {
+            return driveDone(false, `Authorized as ${driveAccount}, but that account cannot access the SaveHatke Drive folder. Reconnect with the account that owns it.`);
+          }
         }
 
         const saved = await googleDrive.saveConnection({
           refresh_token: dtokens.refresh_token,
-          drive_email: driveAccount || expected,
+          drive_email: driveAccount,
         });
         req.user = { id: decoded.adminId, email: decoded.email };
         audit(req, 'google-drive.connect', saved.email, `token stored in ${saved.source}`);
