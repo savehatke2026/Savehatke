@@ -138,10 +138,13 @@
     .coupon-card { border-radius:18px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); transition:all .3s; cursor:pointer; position:relative; overflow:hidden; display:flex; flex-direction:column; }
     .coupon-card:hover { border-color:rgba(0,230,118,.28); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.35); }
 
-    /* HERO — fixed height, cover-cropped, so different image aspect ratios
-       never change the card's shape. */
-    .c-hero { position:relative; height:112px; overflow:hidden; background:#0a1226; flex-shrink:0; }
-    .c-hero-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; }
+    /* HERO — the coupon's own background image sets the height. The picture is
+       shown in full at its natural aspect ratio (width fills the card, height
+       follows it), so no artwork is cropped, zoomed, stretched or distorted —
+       the image section simply extends downward to reveal the whole banner.
+       Overlays (badges, info icons, discount) still sit on top of it. */
+    .c-hero { position:relative; overflow:hidden; background:#0a1226; flex-shrink:0; }
+    .c-hero-img { display:block; width:100%; height:auto; }
     /* Readability gradient — darkest where the logo/discount sit, lighter in
        the middle so the image itself stays clearly visible. */
     .c-hero-shade { position:absolute; inset:0; background:linear-gradient(180deg, rgba(6,13,31,.55) 0%, rgba(6,13,31,.14) 32%, rgba(6,13,31,.55) 70%, rgba(6,13,31,.88) 100%); }
@@ -220,9 +223,10 @@
     .cbuy-btn:focus-visible { outline:2px solid rgba(0,230,118,.75); outline-offset:2px; }
 
     /* Narrow phones in the 2-column band: shrink type slightly instead of
-       letting the card grow taller or the discount clip. */
+       letting the discount clip. The hero keeps its natural height so the full
+       coupon image stays visible here too. */
     @media(max-width:700px){
-      .c-hero { height:96px; }
+      .c-hero { height:auto; }
       .coff { font-size:.95rem; }
       .ctitle { font-size:.85rem; }
     }
