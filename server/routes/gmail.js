@@ -17,6 +17,7 @@ const { buildRawMessage, parseAddressList, htmlToText } = require('../services/g
 const gmailService = require('../services/gmailService');
 const paymentMailbox = require('../services/paymentMailbox');
 const paymentStore = require('../services/paymentMailboxStore');
+const googleDrive = require('../services/googleDrive');
 
 const router = express.Router();
 
@@ -308,6 +309,51 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
       } catch (e) {
         console.error('Payment Gmail callback error:', e.message);
         return paymentDone(false, 'Token exchange failed. Please try again.');
+      }
+    }
+
+    // ── Google Drive flow ───────────────────────────────────────────────────
+    // Reuses THIS registered redirect URI, told apart by flow:'drive'. Uses the
+    // Google Drive OAuth client; the refresh token is encrypted and stored in
+    // Supabase (service = google_drive). It is never returned to the browser or
+    // placed in the redirect URL, and it never touches the payment_gmail row.
+    if (decoded.flow === 'drive') {
+      const driveDone = (ok, message = '') => {
+        const qs = ok
+          ? '?drive=connected'
+          : `?drive=error&msg=${encodeURIComponent(message || 'Connection failed')}`;
+        return res.redirect(`${reqBase}/vault.html${qs}#security`);
+      };
+      try {
+        const dtokens = await googleDrive.exchangeCode(String(code), reqBase);
+        if (!dtokens.refresh_token) {
+          return driveDone(false, 'Google did not return a refresh token. Remove SaveHatke from your Google account permissions and reconnect.');
+        }
+        const { google } = require('googleapis');
+        const doauth2 = googleDrive.getOAuth2Client(reqBase);
+        doauth2.setCredentials({ access_token: dtokens.access_token, refresh_token: dtokens.refresh_token });
+        let driveAccount = '';
+        try {
+          const oauth2api = google.oauth2({ version: 'v2', auth: doauth2 });
+          const info = await oauth2api.userinfo.get();
+          driveAccount = String(info.data.email || '').toLowerCase();
+        } catch (e) { /* identity is advisory; proceed with the expected address */ }
+
+        const expected = googleDrive.expectedDriveEmail();
+        if (driveAccount && expected && driveAccount !== expected) {
+          return driveDone(false, `You authorized ${driveAccount}, but the Drive account is ${expected}. Reconnect with the Drive account.`);
+        }
+
+        const saved = await googleDrive.saveConnection({
+          refresh_token: dtokens.refresh_token,
+          drive_email: driveAccount || expected,
+        });
+        req.user = { id: decoded.adminId, email: decoded.email };
+        audit(req, 'google-drive.connect', saved.email, `token stored in ${saved.source}`);
+        return driveDone(true);
+      } catch (e) {
+        console.error('Google Drive callback error:', e.message);
+        return driveDone(false, 'Token exchange failed. Please try again.');
       }
     }
 
@@ -1010,6 +1056,56 @@ router.get('/payment-connect', gmailAuthLimiter, async (req, res) => {
   } catch (err) {
     console.error('Payment Gmail connect redirect error:', err.message);
     res.status(500).json({ error: 'Failed to start the Payment Gmail connection.' });
+  }
+});
+
+// ── Google Drive (security_credentials) — admin-only reconnect ───────────────
+// POST returns a short-lived signed start URL; GET redirects to Google consent
+// with a flow:'drive' state. The shared /callback stores the encrypted token in
+// Supabase (service = google_drive). No new OAuth client is created here — it
+// reuses the existing Google Drive OAuth client + this registered redirect URI.
+router.post('/drive-connect', gmailAuthLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    if (!googleDrive.isOAuthConfigured()) {
+      return res.status(503).json({ error: 'Google Drive OAuth is not configured on the server.' });
+    }
+    const ot = jwt.sign(
+      { adminId: req.user.id, email: req.user.email, purpose: 'drive-oauth-start' },
+      getJwtSecret(),
+      { expiresIn: '5m' }
+    );
+    res.json({ url: `/api/admin/gmail/drive-connect?ot=${encodeURIComponent(ot)}` });
+  } catch (err) {
+    console.error('Google Drive connect prepare error:', err.message);
+    res.status(500).json({ error: 'Failed to prepare the Google Drive connection.' });
+  }
+});
+
+router.get('/drive-connect', gmailAuthLimiter, async (req, res) => {
+  try {
+    let admin = req.user;
+    if (!admin && req.query.ot) {
+      try {
+        const decoded = jwt.verify(String(req.query.ot), getJwtSecret());
+        if (decoded.purpose === 'drive-oauth-start' && decoded.adminId) {
+          admin = { id: decoded.adminId, email: decoded.email };
+        }
+      } catch (e) { /* invalid/expired start token */ }
+    }
+    if (!admin) return res.status(401).json({ error: 'Admin authentication required.' });
+    if (!googleDrive.isOAuthConfigured()) {
+      return res.status(503).send('Google Drive OAuth is not configured on the server.');
+    }
+    const state = jwt.sign(
+      { adminId: admin.id, email: admin.email, flow: 'drive', nonce: crypto.randomBytes(8).toString('hex') },
+      getJwtSecret(),
+      { expiresIn: '10m' }
+    );
+    const url = googleDrive.buildAuthUrl(state, requestBase(req));
+    res.redirect(url);
+  } catch (err) {
+    console.error('Google Drive connect redirect error:', err.message);
+    res.status(500).json({ error: 'Failed to start the Google Drive connection.' });
   }
 });
 

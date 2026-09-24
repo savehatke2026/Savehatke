@@ -13,6 +13,8 @@ const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const monthlyReports = require('../services/monthlyReports');
 const googleDrive = require('../services/googleDrive');
+const securityStore = require('../services/securityCredentialsStore');
+const paymentMailbox = require('../services/paymentMailbox');
 // Payout withholding and the seller status vocabulary live with the Payouts tab,
 // so the invalidate action below reuses them instead of restating the rules.
 const payouts = require('./payouts');
@@ -1792,6 +1794,50 @@ async function handleMonthlyRun(req, res) {
     res.status(500).json({ error: err.message || 'Failed to generate the report.' });
   }
 }
+
+// GET /api/admin/security-credentials — admin-only. Returns the SAFE status of
+// every server-side OAuth credential in public.security_credentials (Payment
+// Gmail + Google Drive). NEVER returns any refresh token / encrypted blob /
+// access token / client secret / encryption key.
+router.get('/security-credentials', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const paymentEmail = paymentMailbox.expectedMailbox() || 'rupayandas2024@gmail.com';
+    const driveEmail = googleDrive.expectedDriveEmail();
+
+    const [payment, drive] = await Promise.all([
+      securityStore.getSafeStatus(securityStore.SERVICES.PAYMENT_GMAIL, paymentEmail),
+      securityStore.getSafeStatus(securityStore.SERVICES.GOOGLE_DRIVE, driveEmail),
+    ]);
+
+    // Shape each into the documented safe payload (no secrets).
+    const shape = (s, service, fallbackEmail, configured) => ({
+      service,
+      email: (s && s.email) || fallbackEmail,
+      status: s && s.exists ? s.status : 'not_connected',
+      connected: Boolean(s && s.connected),
+      exists: Boolean(s && s.exists),
+      connectedAt: (s && s.connectedAt) || null,
+      authorizedAt: (s && s.authorizedAt) || null,
+      estimatedExpiresAt: (s && s.estimatedExpiresAt) || null,
+      lastVerifiedAt: (s && s.lastVerifiedAt) || null,
+      lastUsedAt: (s && s.lastUsedAt) || null,
+      lastError: (s && s.lastError) || null,
+      warning: (s && s.warning) || null,
+      configured,
+    });
+
+    res.json({
+      supabaseReady: securityStore.isReady(),
+      credentials: [
+        shape(payment, securityStore.SERVICES.PAYMENT_GMAIL, paymentEmail, paymentMailbox.isOAuthConfigured()),
+        shape(drive, securityStore.SERVICES.GOOGLE_DRIVE, driveEmail, googleDrive.isOAuthConfigured()),
+      ],
+    });
+  } catch (err) {
+    console.error('security-credentials status error:', err.message);
+    res.status(500).json({ error: 'Failed to load security credentials.' });
+  }
+});
 
 // GET|POST /api/admin/drive/keepalive — refresh the Drive OAuth token so
 // Google's six-month inactivity rule never invalidates it. vercel.json calls

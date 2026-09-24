@@ -25,8 +25,23 @@ function getEncryptionKey() {
 // working. The key lives ONLY in the server env — never in Supabase, the
 // browser, or Git.
 function getPaymentEncryptionKey() {
+  return getCredentialEncryptionKey();
+}
+
+// ── Generic security-credentials key ────────────────────────────────────────
+// public.security_credentials now stores MORE than the payment mailbox (also
+// the Google Drive OAuth credential), so the encryption key has a generic,
+// non-payment-specific preferred name: SECURITY_CREDENTIALS_ENCRYPTION_KEY.
+// For backward compatibility (and to avoid breaking a live deploy) it falls
+// back to the existing PAYMENT_GMAIL_TOKEN_ENCRYPTION_KEY, then to the shared
+// GMAIL_TOKEN_ENCRYPTION_KEY. All three derive the SAME 32-byte AES key from
+// the same secret string, so a value set under any name decrypts the same data.
+// The key lives ONLY in the server env — never in Supabase, the browser, or Git.
+function getCredentialEncryptionKey() {
   return deriveKey(
-    process.env.PAYMENT_GMAIL_TOKEN_ENCRYPTION_KEY || process.env.GMAIL_TOKEN_ENCRYPTION_KEY
+    process.env.SECURITY_CREDENTIALS_ENCRYPTION_KEY ||
+    process.env.PAYMENT_GMAIL_TOKEN_ENCRYPTION_KEY ||
+    process.env.GMAIL_TOKEN_ENCRYPTION_KEY
   );
 }
 
@@ -98,7 +113,30 @@ function decryptPaymentSecret(payload) {
 
 /** True when the payment mailbox encryption key is configured. */
 function isPaymentKeyConfigured() {
-  return Boolean(getPaymentEncryptionKey());
+  return Boolean(getCredentialEncryptionKey());
+}
+
+// ── Generic security-credentials encrypt/decrypt ────────────────────────────
+// Preferred names for the multi-service security_credentials table. They are
+// exact aliases of encryptPaymentSecret/decryptPaymentSecret (same key, same
+// AES-256-GCM format) so a value encrypted under either name round-trips.
+function encryptCredentialSecret(plaintext) {
+  const key = getCredentialEncryptionKey();
+  if (!key) {
+    throw new Error(
+      'SECURITY_CREDENTIALS_ENCRYPTION_KEY (or PAYMENT_GMAIL_TOKEN_ENCRYPTION_KEY / GMAIL_TOKEN_ENCRYPTION_KEY) is not configured.'
+    );
+  }
+  return encryptWithKey(key, plaintext);
+}
+
+function decryptCredentialSecret(payload) {
+  return decryptWithKey(getCredentialEncryptionKey(), payload);
+}
+
+/** True when the generic credential encryption key is configured. */
+function isCredentialKeyConfigured() {
+  return Boolean(getCredentialEncryptionKey());
 }
 
 /**
@@ -115,5 +153,8 @@ module.exports = {
   encryptPaymentSecret,
   decryptPaymentSecret,
   isPaymentKeyConfigured,
+  encryptCredentialSecret,
+  decryptCredentialSecret,
+  isCredentialKeyConfigured,
   generateKey,
 };

@@ -2311,6 +2311,36 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
         <div class="pg-note">The reconnect flow signs in with the payment account and mints a fresh refresh token, then updates the existing Supabase record. The token, Google access tokens, and client secret are never shown here.</div>
       </div>
+
+      <!-- ── Google Drive (security_credentials) ── -->
+      <style>
+        #gdBanner{display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:10px;margin:2px 0 16px;border:1px solid transparent}
+        #gdBanner .pg-dot{font-size:15px;line-height:1.5}
+        #gdBanner .pg-ttl{font-weight:700;font-size:.95rem;margin-bottom:2px}
+        #gdBanner .pg-msg{font-size:.82rem;opacity:.92}
+        #gdBanner.pg-green{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3);color:#8ff0be}
+        #gdBanner.pg-yellow{background:rgba(255,183,77,.1);border-color:rgba(255,183,77,.35);color:#ffd18a}
+        #gdBanner.pg-red{background:rgba(239,154,154,.1);border-color:rgba(239,154,154,.35);color:#ef9a9a}
+        #gdBanner.pg-grey{background:rgba(79,195,247,.07);border-color:rgba(79,195,247,.2);color:#bcd6f2}
+      </style>
+      <div class="card">
+        <div class="card-title">🗂️ Google Drive — Screenshot &amp; Proof Uploads</div>
+        <div style="opacity:.6;font-size:.8rem;margin:-6px 0 14px">Drive account used to store coupon proofs, support screenshots and payout QR images. The refresh token is stored AES‑256‑GCM encrypted in Supabase and never leaves the server.</div>
+
+        <div id="gdBanner" class="pg-grey">
+          <span class="pg-dot" id="gdDot">⚪</span>
+          <span style="flex:1"><span class="pg-ttl" id="gdTitle">Loading…</span><span class="pg-msg" id="gdMsg"></span></span>
+        </div>
+
+        <div id="gdRows">
+          <div class="info-row"><span class="irl">Loading…</span><span class="irv"></span></div>
+        </div>
+
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" id="gdReconnectBtn" disabled onclick="gdReconnect()">Reconnect Google Drive</button>
+        </div>
+        <div class="pg-note">Reconnect signs in with the Drive account and mints a fresh refresh token, then updates the existing Supabase record. Google Drive has no fixed expiry countdown — it is monitored via real authorization errors.</div>
+      </div>
     </div>
 
     <!-- ════════════════ SETTINGS ════════════════ -->
@@ -3411,6 +3441,9 @@ function showSection(id, navEl) {
   if (id === 'security' && typeof loadPaymentGmailStatus === 'function') {
     loadPaymentGmailStatus();
   }
+  if (id === 'security' && typeof loadDriveStatus === 'function') {
+    loadDriveStatus();
+  }
 
   // Close mobile sidebar
   closeSidebar();
@@ -3575,6 +3608,107 @@ window.addEventListener('load', function(){
     if (window.history && window.history.replaceState) {
       var clean = window.location.pathname + '#security';
       window.history.replaceState({}, document.title, clean);
+    }
+  } catch (e) { /* no-op */ }
+});
+
+/* ════════════════════════════
+   GOOGLE DRIVE (security_credentials) — admin Security section
+   Reads the google_drive credential from /api/admin/security-credentials.
+   Google Drive has NO Testing-mode countdown, so no remaining-time is shown;
+   a 🔴 state only appears on a real invalid_grant / revocation. The refresh
+   token is never received here.
+   ════════════════════════════ */
+function gdBadge(status, connected){
+  if (status === 'active' && connected) return '<span class="badge badge-green">Connected</span>';
+  if (status === 'reauthorization_required') return '<span class="badge badge-amber">Reauthorization Required</span>';
+  if (status === 'error') return '<span class="badge badge-red">Error</span>';
+  if (status === 'disconnected') return '<span class="badge badge-red">Disconnected</span>';
+  return '<span class="badge badge-red">Not Connected</span>';
+}
+function gdRenderBanner(warning, exists, connected){
+  var banner = document.getElementById('gdBanner');
+  var dot = document.getElementById('gdDot');
+  var title = document.getElementById('gdTitle');
+  var msg = document.getElementById('gdMsg');
+  var btn = document.getElementById('gdReconnectBtn');
+  if (!banner) return;
+  var level = warning ? warning.level : (exists ? (connected ? 'connected' : 'reauth') : 'not_connected');
+  if (level === 'connected') {
+    banner.className = 'pg-green'; dot.textContent = '🟢'; title.textContent = 'Connected';
+    msg.textContent = 'Authorization active.';
+    if (btn) btn.textContent = 'Reconnect Google Drive';
+  } else if (level === 'expired' || level === 'reauth' || level === 'error') {
+    banner.className = 'pg-red'; dot.textContent = '🔴'; title.textContent = 'Reconnect Required';
+    msg.textContent = (warning && warning.message) ? warning.message : 'Google Drive authorization has expired or was revoked. Reconnect Google Drive.';
+    if (btn) btn.textContent = 'Reconnect Google Drive';
+  } else {
+    banner.className = 'pg-grey'; dot.textContent = '⚪'; title.textContent = 'Not Connected';
+    msg.textContent = 'No Google Drive account is connected.';
+    if (btn) btn.textContent = 'Connect Google Drive';
+  }
+}
+async function loadDriveStatus(){
+  var rows = document.getElementById('gdRows');
+  var btn = document.getElementById('gdReconnectBtn');
+  if (!rows) return;
+  var token = pgToken();
+  if (!token) { rows.innerHTML = '<div class="info-row"><span class="irl">Not signed in</span><span class="irv"><a href="admin-login.html">Admin login</a></span></div>'; return; }
+  try {
+    var res = await fetch('/api/admin/security-credentials', { headers: { Authorization: 'Bearer ' + token } });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to load status');
+    var list = (data && data.credentials) || [];
+    var d = list.filter(function(c){ return c.service === 'google_drive'; })[0] || {};
+    var email = d.email || 'database.savehatke@gmail.com';
+    rows.innerHTML = [
+      '<div class="info-row"><span class="irl">Email</span><span class="irv">' + pgEsc(email) + '</span></div>',
+      '<div class="info-row"><span class="irl">Status</span><span class="irv">' + gdBadge(d.status, d.connected) + '</span></div>',
+      '<div class="info-row"><span class="irl">Authorization</span><span class="irv">' + (d.connected ? 'Active' : (d.status === 'reauthorization_required' ? 'Expired / revoked' : '—')) + '</span></div>',
+      '<div class="info-row"><span class="irl">Connected</span><span class="irv">' + pgFmt(d.connectedAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Authorized</span><span class="irv">' + pgFmt(d.authorizedAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Last checked</span><span class="irv">' + pgFmt(d.lastUsedAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Last verified</span><span class="irv">' + pgFmt(d.lastVerifiedAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Last error</span><span class="irv">' + (d.lastError ? pgEsc(d.lastError) : '—') + '</span></div>'
+    ].join('');
+    gdRenderBanner(d.warning, d.exists, d.connected);
+    if (btn) btn.disabled = false;
+  } catch (e) {
+    rows.innerHTML = '<div class="info-row"><span class="irl">Error</span><span class="irv">' + pgEsc(e.message) + '</span></div>';
+  }
+}
+async function gdReconnect(){
+  var btn = document.getElementById('gdReconnectBtn');
+  var token = pgToken();
+  if (!token) { window.location.href = 'admin-login.html'; return; }
+  var label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting…'; }
+  try {
+    var res = await fetch('/api/admin/gmail/drive-connect', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
+    });
+    var data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || 'Could not start the connection.');
+    window.location.href = data.url;
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    if (typeof showToast === 'function') showToast('⚠️ ' + e.message, 'error');
+  }
+}
+// When Google redirects back with ?drive=…, open Security + toast.
+window.addEventListener('load', function(){
+  try {
+    var p = new URLSearchParams(window.location.search);
+    var v = p.get('drive');
+    if (!v) return;
+    if (typeof showSection === 'function') showSection('security', null);
+    if (typeof showToast === 'function') {
+      if (v === 'connected') showToast('🟢 Google Drive connected — authorization renewed successfully.', 'success', 5000);
+      else if (v === 'error') showToast('⚠️ ' + (p.get('msg') || 'Google Drive connection failed.'), 'error', 6000);
+    }
+    if (window.history && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname + '#security');
     }
   } catch (e) { /* no-op */ }
 });
