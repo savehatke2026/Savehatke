@@ -2279,6 +2279,38 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div class="info-row"><span class="irl">SSL/TLS Connection</span><span class="badge badge-green">Enabled (MongoDB Atlas Driver)</span></div>
         <div class="info-row"><span class="irl">Admin Sign-in</span><span class="badge badge-green">Passwordless (Google / Backup Code)</span></div>
       </div>
+
+      <!-- ── Payment Gmail (security_credentials) ── -->
+      <style>
+        #pgBanner{display:flex;align-items:flex-start;gap:12px;padding:13px 15px;border-radius:10px;margin:2px 0 16px;border:1px solid transparent}
+        #pgBanner .pg-dot{font-size:15px;line-height:1.5}
+        #pgBanner .pg-ttl{font-weight:700;font-size:.95rem;margin-bottom:2px}
+        #pgBanner .pg-msg{font-size:.82rem;opacity:.92}
+        #pgBanner.pg-green{background:rgba(0,230,118,.08);border-color:rgba(0,230,118,.3);color:#8ff0be}
+        #pgBanner.pg-yellow{background:rgba(255,183,77,.1);border-color:rgba(255,183,77,.35);color:#ffd18a}
+        #pgBanner.pg-red{background:rgba(239,154,154,.1);border-color:rgba(239,154,154,.35);color:#ef9a9a}
+        #pgBanner.pg-grey{background:rgba(79,195,247,.07);border-color:rgba(79,195,247,.2);color:#bcd6f2}
+        .badge-amber{background:rgba(255,183,77,.14);color:#ffb74d}
+        #sec-security .pg-note{opacity:.55;font-size:.74rem;margin-top:12px}
+      </style>
+      <div class="card">
+        <div class="card-title">📧 Payment Gmail — Payment Email Verification</div>
+        <div style="opacity:.6;font-size:.8rem;margin:-6px 0 14px">Dedicated payment mailbox read by the payment verifier for UPI / bank credit notifications. The refresh token is stored AES‑256‑GCM encrypted in Supabase and never leaves the server.</div>
+
+        <div id="pgBanner" class="pg-grey">
+          <span class="pg-dot" id="pgDot">⚪</span>
+          <span style="flex:1"><span class="pg-ttl" id="pgTitle">Loading…</span><span class="pg-msg" id="pgMsg"></span></span>
+        </div>
+
+        <div id="pgRows">
+          <div class="info-row"><span class="irl">Loading…</span><span class="irv"></span></div>
+        </div>
+
+        <div style="margin-top:16px">
+          <button class="btn btn-primary" id="pgReconnectBtn" disabled onclick="pgReconnect()">Reconnect Gmail</button>
+        </div>
+        <div class="pg-note">The reconnect flow signs in with the payment account and mints a fresh refresh token, then updates the existing Supabase record. The token, Google access tokens, and client secret are never shown here.</div>
+      </div>
     </div>
 
     <!-- ════════════════ SETTINGS ════════════════ -->
@@ -3376,10 +3408,176 @@ function showSection(id, navEl) {
     if (typeof GmailApp.loadStatus === 'function') GmailApp.loadStatus();
     if (typeof GmailApp.refresh === 'function') GmailApp.refresh();
   }
+  if (id === 'security' && typeof loadPaymentGmailStatus === 'function') {
+    loadPaymentGmailStatus();
+  }
 
   // Close mobile sidebar
   closeSidebar();
 }
+
+/* ════════════════════════════
+   PAYMENT GMAIL (security_credentials) — admin Security section
+   Renders states 🟢 Connected / 🟡 Reconnect Soon / 🔴 Reconnect Required /
+   ⚪ Not Connected from /api/admin/gmail/payment-status. The 2-day warning is
+   computed server-side; the browser only recomputes the remaining-time label
+   locally (60s, no polling). The refresh token is never received here.
+   ════════════════════════════ */
+var PG_STATE = { estimatedExpiresAt: null, serverLevel: null, timer: null };
+
+function pgToken() {
+  return (window.Auth && (Auth.getAdminToken() || Auth.getToken())) || '';
+}
+function pgEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function pgFmt(ts){ if(!ts) return '—'; try { return new Date(ts).toLocaleString(); } catch(e){ return String(ts); } }
+
+function pgFormatRemaining(ms){
+  if (ms == null || isNaN(ms)) return '—';
+  if (ms <= 0) return 'Expired';
+  var totalMin = Math.floor(ms / 60000);
+  var days = Math.floor(totalMin / (60*24));
+  var hours = Math.floor((totalMin % (60*24)) / 60);
+  if (days >= 1) {
+    var d = days + (days === 1 ? ' day' : ' days');
+    if (hours > 0) return d + ' ' + hours + (hours === 1 ? ' hour' : ' hours') + ' remaining';
+    return d + ' remaining';
+  }
+  if (hours >= 1) return hours + (hours === 1 ? ' hour' : ' hours') + ' remaining';
+  return 'Expires soon';
+}
+function pgRemainingMs(){
+  if (!PG_STATE.estimatedExpiresAt) return null;
+  var t = Date.parse(PG_STATE.estimatedExpiresAt);
+  return isNaN(t) ? null : t - Date.now();
+}
+function pgBadge(status, connected){
+  if (status === 'active' && connected) return '<span class="badge badge-green">Connected</span>';
+  if (status === 'reauthorization_required') return '<span class="badge badge-amber">Reauthorization Required</span>';
+  if (status === 'error') return '<span class="badge badge-red">Error</span>';
+  if (status === 'disconnected') return '<span class="badge badge-red">Disconnected</span>';
+  return '<span class="badge badge-red">Not Connected</span>';
+}
+function pgDeriveLevel(rem){
+  if (PG_STATE.serverLevel === 'reauth' || PG_STATE.serverLevel === 'error' || PG_STATE.serverLevel === 'not_connected') return PG_STATE.serverLevel;
+  if (rem == null) return 'connected';
+  if (rem <= 0) return 'expired';
+  if (rem <= 2*24*60*60*1000) return 'reconnect_soon';
+  return 'connected';
+}
+function pgRenderBanner(warning, exists){
+  var banner = document.getElementById('pgBanner');
+  var dot = document.getElementById('pgDot');
+  var title = document.getElementById('pgTitle');
+  var msg = document.getElementById('pgMsg');
+  var btn = document.getElementById('pgReconnectBtn');
+  if (!banner) return;
+  var level = warning ? warning.level : (exists ? 'connected' : 'not_connected');
+  var rem = pgRemainingMs();
+
+  if (level === 'connected') {
+    banner.className = 'pg-green'; dot.textContent = '🟢'; title.textContent = 'Connected';
+    msg.textContent = PG_STATE.estimatedExpiresAt ? ('Authorization active · ' + pgFormatRemaining(rem)) : 'Authorization active.';
+    if (btn) btn.textContent = 'Reconnect Gmail';
+  } else if (level === 'reconnect_soon') {
+    banner.className = 'pg-yellow'; dot.textContent = '🟡'; title.textContent = 'Reconnect Soon';
+    msg.textContent = 'Authorization expires in: ' + pgFormatRemaining(rem) + ' — reconnect now to prevent payment email verification from stopping.';
+    if (btn) btn.textContent = 'Reconnect Gmail';
+  } else if (level === 'expired' || level === 'reauth' || level === 'error') {
+    banner.className = 'pg-red'; dot.textContent = '🔴'; title.textContent = 'Reconnect Required';
+    msg.textContent = (warning && warning.message) ? warning.message : 'Payment Gmail authorization has expired or was revoked. Reconnect Gmail to resume payment email verification.';
+    if (btn) btn.textContent = 'Reconnect Gmail';
+  } else {
+    banner.className = 'pg-grey'; dot.textContent = '⚪'; title.textContent = 'Not Connected';
+    msg.textContent = 'No payment Gmail account is connected.';
+    if (btn) btn.textContent = 'Connect Gmail';
+  }
+}
+function pgTick(){
+  if (!PG_STATE.estimatedExpiresAt) return;
+  var rem = pgRemainingMs();
+  var el = document.getElementById('pgRemainingCell');
+  if (el) el.textContent = pgFormatRemaining(rem);
+  pgRenderBanner({ level: pgDeriveLevel(rem), message: null }, true);
+}
+
+async function loadPaymentGmailStatus(){
+  var rows = document.getElementById('pgRows');
+  var btn = document.getElementById('pgReconnectBtn');
+  if (!rows) return;
+  var token = pgToken();
+  if (!token) { rows.innerHTML = '<div class="info-row"><span class="irl">Not signed in</span><span class="irv"><a href="admin-login.html">Admin login</a></span></div>'; return; }
+  try {
+    var res = await fetch('/api/admin/gmail/payment-status', { headers: { Authorization: 'Bearer ' + token } });
+    var data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to load status');
+
+    PG_STATE.estimatedExpiresAt = data.estimatedExpiresAt || null;
+    PG_STATE.serverLevel = data.warning ? data.warning.level : null;
+
+    var email = data.email || data.expectedEmail || 'rupayandas2024@gmail.com';
+    var rem = pgRemainingMs();
+    rows.innerHTML = [
+      '<div class="info-row"><span class="irl">Email</span><span class="irv">' + pgEsc(email) + '</span></div>',
+      '<div class="info-row"><span class="irl">Status</span><span class="irv">' + pgBadge(data.status, data.connected) + '</span></div>',
+      '<div class="info-row"><span class="irl">Authorization</span><span class="irv">' + (data.connected ? 'Active' : (data.status === 'reauthorization_required' ? 'Expired / revoked' : '—')) + '</span></div>',
+      '<div class="info-row"><span class="irl">Connected</span><span class="irv">' + pgFmt(data.connectedAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Authorized</span><span class="irv">' + pgFmt(data.authorizedAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Estimated expiry</span><span class="irv">' + pgFmt(data.estimatedExpiresAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Authorization status</span><span class="irv" id="pgRemainingCell">' + pgFormatRemaining(rem) + '</span></div>',
+      '<div class="info-row"><span class="irl">Last checked</span><span class="irv">' + pgFmt(data.lastUsedAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Last verified</span><span class="irv">' + pgFmt(data.lastVerifiedAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Last error</span><span class="irv">' + (data.lastError ? pgEsc(data.lastError) : '—') + '</span></div>'
+    ].join('');
+
+    pgRenderBanner(data.warning, data.exists);
+    if (btn) btn.disabled = false;
+    if (!data.configured && typeof showToast === 'function') showToast('Google OAuth is not configured on the server.', 'error');
+
+    if (PG_STATE.timer) clearInterval(PG_STATE.timer);
+    if (PG_STATE.estimatedExpiresAt) PG_STATE.timer = setInterval(pgTick, 60000);
+  } catch (e) {
+    rows.innerHTML = '<div class="info-row"><span class="irl">Error</span><span class="irv">' + pgEsc(e.message) + '</span></div>';
+  }
+}
+
+async function pgReconnect(){
+  var btn = document.getElementById('pgReconnectBtn');
+  var token = pgToken();
+  if (!token) { window.location.href = 'admin-login.html'; return; }
+  var label = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Starting…'; }
+  try {
+    var res = await fetch('/api/admin/gmail/payment-connect', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
+    });
+    var data = await res.json();
+    if (!res.ok || !data.url) throw new Error(data.error || 'Could not start the connection.');
+    window.location.href = data.url;
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = label; }
+    if (typeof showToast === 'function') showToast('⚠️ ' + e.message, 'error');
+  }
+}
+
+// When Google redirects back with ?payment_gmail=…, open Security + toast.
+window.addEventListener('load', function(){
+  try {
+    var p = new URLSearchParams(window.location.search);
+    var v = p.get('payment_gmail');
+    if (!v) return;
+    if (typeof showSection === 'function') showSection('security', null);
+    if (typeof showToast === 'function') {
+      if (v === 'connected') showToast('🟢 Gmail Connected — Payment Gmail authorization renewed successfully.', 'success', 5000);
+      else if (v === 'error') showToast('⚠️ ' + (p.get('msg') || 'Payment Gmail connection failed.'), 'error', 6000);
+    }
+    // Clean the query string so a refresh doesn't re-toast.
+    if (window.history && window.history.replaceState) {
+      var clean = window.location.pathname + '#security';
+      window.history.replaceState({}, document.title, clean);
+    }
+  } catch (e) { /* no-op */ }
+});
 
 /* ── Collapsible sidebar sub-menus ── */
 function toggleSubMenu(subId, navEl) {

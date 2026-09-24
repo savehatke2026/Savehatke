@@ -274,7 +274,10 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
         const qs = ok
           ? '?payment_gmail=connected'
           : `?payment_gmail=error&msg=${encodeURIComponent(message || 'Connection failed')}`;
-        return res.redirect(`${reqBase}/admin-payment-mailbox.html${qs}`);
+        // Return to the admin panel's Security section (the load handler there
+        // opens #security and shows the result toast). The standalone
+        // admin-payment-mailbox.html remains a working alias if visited directly.
+        return res.redirect(`${reqBase}/vault.html${qs}#security`);
       };
       try {
         const ptokens = await paymentMailbox.exchangeCode(String(code), reqBase);
