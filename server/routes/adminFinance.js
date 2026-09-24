@@ -21,6 +21,7 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const finance = require('../services/finance');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const { generateMonthlyReportPdf } = require('../utils/monthlyReportPdf');
 
 const router = express.Router();
 
@@ -322,6 +323,32 @@ router.get('/report', authenticateToken, requireAdmin, async (req, res) => {
     }
     console.error('Finance report error:', err);
     res.status(503).json({ error: 'Unable to load financial data.', dataUnavailable: true });
+  }
+});
+
+// GET /api/admin/finance/report/pdf?year=YYYY&month=M  — the monthly report
+// rendered onto the approved master template with REAL data. READ-ONLY.
+router.get('/report/pdf', authenticateToken, requireAdmin, async (req, res) => {
+  if (!storeReachable()) {
+    return res.status(503).json({ error: 'Unable to generate report — financial data is unavailable.', dataUnavailable: true });
+  }
+  try {
+    const now = new Date();
+    const year = req.query.year || now.getFullYear();
+    const month = req.query.month || (now.getMonth() + 1);
+    const report = await finance.buildMonthlyReportData(year, month);
+    const { buffer } = await generateMonthlyReportPdf(report);
+    const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const [yy, mm] = String(report.period.key).split('-').map(Number);
+    const fname = `SaveHatke_Monthly_Revenue_Report_${MON[mm - 1]}${yy}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(buffer);
+  } catch (err) {
+    if (/Invalid year\/month/.test(err.message || '')) return res.status(400).json({ error: err.message });
+    console.error('Finance report PDF error:', err);
+    res.status(503).json({ error: 'Unable to generate report — financial data is unavailable.', dataUnavailable: true });
   }
 });
 

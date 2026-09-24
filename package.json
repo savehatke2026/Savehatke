@@ -15,6 +15,7 @@
     "ai:build": "npm run ai:prepare && npm run ai:vocab && npm run ai:train && npm run ai:eval && npm run ai:test"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@supabase/supabase-js": "^2.48.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
@@ -27,13 +28,16 @@
     "mongoose": "^9.9.1",
     "nodemailer": "^9.0.5",
     "otpauth": "9.5.1",
+    "pdf-lib": "^1.17.1",
     "qrcode": "1.5.4",
     "twilio": "^6.1.0",
     "ua-parser-js": "^2.0.10",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "dejavu-fonts-ttf": "^2.37.3",
     "jsqr": "^1.4.0",
+    "pdfjs-dist": "^4.0.379",
     "pngjs": "^5.0.0"
   }
 }

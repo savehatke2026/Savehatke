@@ -3616,9 +3616,33 @@ function refreshDashboard() {
   }, 1200);
 }
 
-function exportReport() {
-  showToast('Generating financial report…', 'info', 2000);
-  setTimeout(() => showToast('Report exported successfully!', 'success'), 2200);
+async function exportReport() {
+  // Downloads the Monthly Revenue Report PDF (current month) — real data
+  // rendered onto the approved master template, generated server-side.
+  showToast('Generating financial report…', 'info', 2500);
+  try {
+    const token = (window.Auth && (Auth.getAdminToken() || Auth.getToken())) || '';
+    const res = await fetch('/api/admin/finance/report/pdf', {
+      headers: token ? { Authorization: 'Bearer ' + token } : {},
+    });
+    if (!res.ok) {
+      let msg = 'Unable to generate report.';
+      try { const j = await res.json(); if (j && j.error) msg = j.error; } catch (e) {}
+      showToast(msg, 'error');
+      return;
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get('Content-Disposition') || '';
+    const m = /filename="?([^"]+)"?/.exec(cd);
+    const name = m ? m[1] : 'SaveHatke_Monthly_Revenue_Report.pdf';
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    a.remove(); URL.revokeObjectURL(url);
+    showToast('Report downloaded.', 'success');
+  } catch (e) {
+    showToast('Unable to generate report. ' + (e.message || ''), 'error');
+  }
 }
 
 /* ════════════════════════════
