@@ -165,6 +165,66 @@
     .cc-expiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.20); }
     @media (prefers-reduced-motion: reduce) { .cc-exp-icon { animation:none; opacity:.9; } }
 
+    /* ── COUPON HERO + INFO BOXES (marketplace-consistent redesign) ────────
+       The hero shows the SAME per-coupon image the marketplace card uses, just
+       larger; the two boxes carry the dynamic category and the live shared
+       countdown. Palette, radius and type match the rest of the dark surface. */
+    .cc-hero { position:relative; height:190px; border-radius:16px; overflow:hidden; background:#0a1226; margin:4px 0 18px; box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 0 0 1px rgba(79,195,247,.12); }
+    .cc-hero-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; }
+    .cc-hero-shade { position:absolute; inset:0; background:linear-gradient(180deg, rgba(6,13,31,.55) 0%, rgba(6,13,31,.12) 32%, rgba(6,13,31,.55) 70%, rgba(6,13,31,.9) 100%); }
+    .cc-hero-badges { position:absolute; top:12px; left:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; max-width:calc(100% - 24px); }
+    .cc-verified { display:inline-flex; align-items:center; gap:4px; font-size:.64rem; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:#9ad9ff; padding:4px 9px; border-radius:6px; background:rgba(6,13,31,.6); border:1px solid rgba(79,195,247,.28); backdrop-filter:blur(8px); }
+    .cc-hero .cc-sale-badge { display:inline-flex; align-items:center; gap:4px; font-size:.64rem; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:4px 9px; border-radius:6px; background:linear-gradient(135deg,#ff6b35,#ff3d00); color:#fff; box-shadow:0 2px 10px rgba(255,61,0,.32); }
+    .cc-hero-foot { position:absolute; left:12px; right:14px; bottom:12px; display:flex; justify-content:flex-end; align-items:flex-end; }
+    .cc-hero-off { font-family:'JetBrains Mono',monospace; font-size:1.35rem; font-weight:800; color:#00e676; white-space:nowrap; text-shadow:0 2px 14px rgba(0,230,118,.45),0 1px 3px rgba(0,0,0,.6); }
+    .cc-hero-off:empty { display:none; }
+
+    .cc-desc { font-size:.86rem; color:#a8c0dc; line-height:1.55; margin-top:8px; }
+
+    .cc-boxes { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0 4px; }
+    .cc-box { flex:1 1 140px; min-width:132px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:5px; padding:14px 12px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid rgba(79,195,247,.14); }
+    .cc-box-ico { font-size:1.4rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; }
+    .cc-box-ico .cc-exp-icon { width:20px; height:20px; }
+    .cc-box-label { font-size:.63rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#8ea8c3; opacity:1; }
+    .cc-box-val { font-size:.96rem; font-weight:800; color:#e2ecff; line-height:1.25; }
+
+    /* Category accent — same per-category hues as the marketplace pills. */
+    .cc-box.cc-cat { --cat-rgb:79,195,247; border-color:rgba(var(--cat-rgb),.30); background:rgba(var(--cat-rgb),.07); }
+    .cc-box.cc-cat .cc-box-val { color:rgb(var(--cat-rgb)); }
+    .cc-box.cc-cat[data-cat="E-Commerce" i]{--cat-rgb:34,211,238}
+    .cc-box.cc-cat[data-cat="Fashion" i]{--cat-rgb:251,113,133}
+    .cc-box.cc-cat[data-cat="Beauty & Personal Care" i],.cc-box.cc-cat[data-cat="Beauty" i]{--cat-rgb:167,139,250}
+    .cc-box.cc-cat[data-cat="Food & Delivery" i],.cc-box.cc-cat[data-cat="Food & Dining" i],.cc-box.cc-cat[data-cat="Food" i]{--cat-rgb:251,146,60}
+    .cc-box.cc-cat[data-cat="Travel & Transport" i],.cc-box.cc-cat[data-cat="Travel" i]{--cat-rgb:56,189,248}
+    .cc-box.cc-cat[data-cat="Hotels & Stays" i]{--cat-rgb:232,121,249}
+    .cc-box.cc-cat[data-cat="Electronics & Gadgets" i],.cc-box.cc-cat[data-cat="Mobiles & Electronics" i]{--cat-rgb:96,165,250}
+    .cc-box.cc-cat[data-cat="Electronics" i]{--cat-rgb:59,130,246}
+    .cc-box.cc-cat[data-cat="Gaming & Entertainment" i],.cc-box.cc-cat[data-cat="Gaming" i]{--cat-rgb:129,140,248}
+    .cc-box.cc-cat[data-cat="Entertainment" i]{--cat-rgb:248,113,113}
+    .cc-box.cc-cat[data-cat="Fitness & Sports" i],.cc-box.cc-cat[data-cat="Fitness" i]{--cat-rgb:163,230,53}
+    .cc-box.cc-cat[data-cat="Education" i]{--cat-rgb:250,204,21}
+    .cc-box.cc-cat[data-cat="Health & Pharmacy" i],.cc-box.cc-cat[data-cat="Health & Fitness" i],.cc-box.cc-cat[data-cat="Health" i]{--cat-rgb:52,211,153}
+    .cc-box.cc-cat[data-cat="Finance & Payments" i]{--cat-rgb:0,230,118}
+    .cc-box.cc-cat[data-cat="Furniture & Home" i]{--cat-rgb:192,132,252}
+    .cc-box.cc-cat[data-cat="Home & Living" i]{--cat-rgb:244,114,182}
+    .cc-box.cc-cat[data-cat="Automotive" i]{--cat-rgb:148,163,184}
+    .cc-box.cc-cat[data-cat="General" i]{--cat-rgb:157,184,212}
+
+    /* Timer box overrides — vertical layout, centred clock, larger digits. The
+       colour bands (green/yellow/red/expired) are re-declared here at a higher
+       specificity so they win over the neutral .cc-box background + border. */
+    .cc-box.cc-expiry { margin:0; }
+    .cc-box.cc-expiry .cc-exp-clock { margin-left:0; justify-content:center; gap:7px; }
+    .cc-box.cc-expiry .cc-exp-tile b { font-size:1.15rem; }
+    .cc-box.cc-expiry .cc-exp-over { margin-left:0; }
+    .cc-box.cc-expiry-green   { color:#00e676; background:rgba(0,230,118,.08);   border-color:rgba(0,230,118,.30); }
+    .cc-box.cc-expiry-yellow  { color:#ffd740; background:rgba(255,215,64,.09);  border-color:rgba(255,215,64,.34); }
+    .cc-box.cc-expiry-red     { color:#ff5252; background:rgba(255,82,82,.11);   border-color:rgba(255,82,82,.42); }
+    .cc-box.cc-expiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.24); }
+
+    /* Availability notice (expired / sold out). Hidden until blockPurchase(). */
+    .cc-status { margin-top:16px; padding:11px 14px; border-radius:10px; font-size:.85rem; font-weight:700; color:#ff5252; background:rgba(255,82,82,.1); border:1px solid rgba(255,82,82,.32); text-align:center; }
+
     /* COMPACT NOTE */
     .compact-note { font-size:.78rem; color:#6b88aa; display:flex; align-items:flex-start; gap:7px; padding:10px 14px; border-radius:9px; background:rgba(79,195,247,.04); border:1px solid rgba(79,195,247,.08); line-height:1.55; }
 
@@ -595,46 +655,87 @@
             </div>
           </div>
 
-          <!-- No inner panel: the card itself is the box, so the facts sit
-               directly on it instead of inside a second bordered surface. -->
+          <!-- HERO — the SAME per-coupon background image the marketplace card
+               shows, resolved by the identical three-layer rule (coupon
+               backgroundImage → brand background → SaveHatke default). Never a
+               separate checkout banner and never brand-hardcoded. -->
+          <div class="cc-hero">
+            <img class="cc-hero-img" id="csHeroImg" src="/images/coupons/default.svg" alt="" decoding="async" aria-hidden="true">
+            <div class="cc-hero-shade" aria-hidden="true"></div>
+            <div class="cc-hero-badges">
+              <span class="cc-verified">✓ VERIFIED DEAL</span>
+              <span class="cc-sale-badge" id="csSaleBadge" style="display:none">🔥 Sale</span>
+            </div>
+            <div class="cc-hero-foot">
+              <div class="cc-hero-off" id="csHeroOff"></div>
+            </div>
+          </div>
+
+          <!-- Name + short description (dynamic; description hides when empty). -->
           <div class="cc-top">
             <div class="cc-brand">
               <div class="cc-brand-ico" id="csBrandIco"></div>
               <div class="cc-brand-name" id="csBrandName">—</div>
             </div>
-            <!-- Admin-controlled per-coupon sale switch, carried over from the
-                 marketplace card and re-confirmed by /api/coupons/:id. -->
-            <span class="cc-sale-badge" id="csSaleBadge" style="display:none">🔥 Sale</span>
+          </div>
+          <div class="cc-desc" id="csDesc" style="display:none"></div>
+
+          <!-- Category + live marketplace timer, side by side. The timer reads
+               the SAME expiry the marketplace uses; it is not a second clock. -->
+          <div class="cc-boxes">
+            <div class="cc-box cc-cat" id="csCategoryBox" style="display:none">
+              <span class="cc-box-ico" id="csCatIco" aria-hidden="true">🏷️</span>
+              <span class="cc-box-label">Category</span>
+              <span class="cc-box-val" id="csCategory">—</span>
+            </div>
+            <div class="cc-box cc-expiry" id="csExpiryTimer" style="display:none">
+              <span class="cc-box-ico" aria-hidden="true">
+                <svg class="cc-exp-icon" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                  <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              <span class="cc-box-label cc-exp-label">Ends In</span>
+              <span class="cc-exp-clock">
+                <span class="cc-exp-tile cc-exp-tile-d"><b class="cc-exp-d">0</b><i>d</i></span>
+                <span class="cc-exp-tile"><b class="cc-exp-h">00</b><i>h</i></span>
+                <span class="cc-exp-tile"><b class="cc-exp-m">00</b><i>m</i></span>
+                <span class="cc-exp-tile"><b class="cc-exp-s">00</b><i>s</i></span>
+              </span>
+              <span class="cc-exp-over">Offer ended</span>
+            </div>
           </div>
 
           <div class="cc-divider"></div>
 
           <dl class="ck-list">
             <div class="ck-row">
-              <dt>Coupon value</dt>
+              <dt>Coupon Value</dt>
               <dd class="green" id="csValue">—</dd>
             </div>
             <div class="ck-row">
-              <dt>Price</dt>
+              <dt>Your Price</dt>
               <dd id="csPrice">—</dd>
             </div>
             <!-- Hidden by paintCoupon when the coupon has no minimum, so no
                  minimum is ever invented for it. -->
             <div class="ck-row" id="csMinOrderItem">
-              <dt>Minimum order</dt>
+              <dt>Minimum Order</dt>
               <dd id="csMinOrder">—</dd>
             </div>
-            <div class="ck-row">
-              <dt>Valid until</dt>
-              <dd id="csExpiry">—</dd>
-            </div>
-            <!-- blockPurchase() overwrites this with the reason a coupon cannot
-                 be bought (expired, sold out), so it must keep this id. -->
-            <div class="ck-row">
-              <dt>Status</dt>
-              <dd class="green" id="csStatus">✓ Verified</dd>
+            <!-- "Applicable On" only appears when the coupon actually carries
+                 that data; otherwise it stays hidden rather than showing a
+                 placeholder. -->
+            <div class="ck-row" id="csApplicableItem" style="display:none">
+              <dt>Applicable On</dt>
+              <dd id="csApplicable">—</dd>
             </div>
           </dl>
+
+          <!-- Availability notice. Hidden while the coupon is buyable; blockPurchase()
+               reveals it (expired / sold out) and also disables the pay button. This
+               replaces the old always-on "Verified by SaveHatke" status line. -->
+          <div class="cc-status" id="csStatus" style="display:none"></div>
         </div>
 
         <!-- BUYER DETAILS -->
@@ -929,6 +1030,13 @@
     minOrder: '',
     onSale: urlParams.get('onSale') !== '0',
     timerOn: urlParams.get('timerOn') !== '0',
+    // Filled by /api/coupons/:id below. These drive the marketplace-consistent
+    // hero image, the description line and the discount headline — none of them
+    // arrive over the URL, so they stay empty until the authoritative read.
+    backgroundImage: '',
+    description: '',
+    discount: '',
+    originalValue: urlParams.get('value') || '',
   };
 
   // Total is the coupon's price as listed (no platform fee). Display only —
@@ -970,6 +1078,44 @@
     }
   }
 
+  // ── Marketplace-consistent hero, discount headline and category icon ─────
+  // heroImageFor mirrors the marketplace card's exact three-layer rule so the
+  // checkout centrepiece is the SAME image the buyer just clicked:
+  //   1. coupon.backgroundImage (admin/per-coupon)  2. the brand background
+  //   (getBrandBackground, from coupon-meta.js)     3. the SaveHatke default.
+  const COUPON_DEFAULT_BG = '/images/coupons/default.svg';
+  function heroImageFor(c) {
+    const raw = String(c.backgroundImage || '').trim();
+    if (/^https?:\/\/\S+$/i.test(raw)) return raw;
+    if (/^\/[\w\-./~%#?=&+]*$/.test(raw) && !raw.includes('"') && !raw.includes("'")) return raw;
+    const brandBg = (typeof getBrandBackground === 'function') ? getBrandBackground(c.brand) : '';
+    if (brandBg) return brandBg;
+    return COUPON_DEFAULT_BG;
+  }
+
+  // The green figure over the hero, mirroring the marketplace card's `.coff`:
+  // an explicit discount wins, otherwise the face value framed as "₹X OFF".
+  function heroDiscountText(c) {
+    const d = String(c.discount || '').trim();
+    if (d) return (d.includes('%') || d.includes('₹')) ? d : ('₹' + d + ' OFF');
+    const v = String(c.originalValue || c.value || '').replace(/[^\d.]/g, '');
+    return v ? ('₹' + v + ' OFF') : '';
+  }
+
+  // Same category → emoji map the marketplace pills use. Presentational only;
+  // it never assigns or changes a coupon's category.
+  const CATEGORY_ICONS = {
+    'e-commerce':'🛒','fashion':'👗','beauty & personal care':'💄','beauty':'💄',
+    'food & delivery':'🍔','food & dining':'🍔','food':'🍔','travel & transport':'✈️','travel':'✈️',
+    'hotels & stays':'🏨','electronics & gadgets':'📱','mobiles & electronics':'📱','electronics':'📱',
+    'gaming & entertainment':'🎮','gaming':'🎮','entertainment':'🎬','fitness & sports':'🏋️','fitness':'🏋️',
+    'education':'📚','health & pharmacy':'💊','health & fitness':'💊','health':'💊',
+    'finance & payments':'💰','furniture & home':'🛋️','home & living':'🏠','automotive':'🚗','general':'🏷️',
+  };
+  function categoryIconFor(cat) {
+    return CATEGORY_ICONS[String(cat || '').trim().toLowerCase()] || '🏷️';
+  }
+
   // ── Countdown ──────────────────────────────────────────────────────────
   // parseExpiry / expiryBand / expiryParts also come from js/coupon-meta.js, so
   // this clock and the marketplace card's clock agree on the deadline and on
@@ -1007,7 +1153,7 @@
       setText('.cc-exp-h', p.hh);
       setText('.cc-exp-m', p.mm);
       setText('.cc-exp-s', p.ss);
-      const cls = 'cc-expiry cc-expiry-' + expiryBand(msLeft) + (p.dd ? '' : ' cc-exp-no-days');
+      const cls = 'cc-box cc-expiry cc-expiry-' + expiryBand(msLeft) + (p.dd ? '' : ' cc-exp-no-days');
       if (box.className !== cls) box.className = cls;
       // An expired coupon can't be honoured, so stop the sale rather than take
       // the money. The server is the real gate; this is the honest UI.
@@ -1025,7 +1171,7 @@
     const statusEl = document.getElementById('csStatus');
     if (payBtn) payBtn.disabled = true;
     if (payBtnText) payBtnText.textContent = reason;
-    if (statusEl) { statusEl.textContent = reason.replace(/\.$/, ''); statusEl.style.color = '#ff5252'; }
+    if (statusEl) { statusEl.textContent = reason.replace(/\.$/, ''); statusEl.style.display = 'block'; }
   }
 
   /**
@@ -1064,6 +1210,41 @@
     renderBrandIcon(document.getElementById('csBrandIco'), currentCoupon.brand);
 
     set('csBrandName', dash(currentCoupon.brand));
+
+    // Hero — the exact marketplace coupon image, resolved identically.
+    const heroEl = document.getElementById('csHeroImg');
+    if (heroEl) {
+      const src = heroImageFor(currentCoupon);
+      if (heroEl.getAttribute('src') !== src) heroEl.setAttribute('src', src);
+    }
+    set('csHeroOff', heroDiscountText(currentCoupon));
+
+    // Short description — shown only when it adds something the name doesn't.
+    const descEl = document.getElementById('csDesc');
+    if (descEl) {
+      const d = String(currentCoupon.description || '').trim();
+      if (d && d !== currentCoupon.brand && d !== currentCoupon.title) {
+        descEl.textContent = d;
+        descEl.style.display = 'block';
+      } else {
+        descEl.style.display = 'none';
+      }
+    }
+
+    // Category box — dynamic label + icon + accent hue (via data-cat); hidden
+    // when the coupon carries no category rather than inventing one.
+    const catBox = document.getElementById('csCategoryBox');
+    const cat = String(currentCoupon.category || '').trim();
+    if (catBox) {
+      if (cat) {
+        catBox.style.display = 'flex';
+        catBox.setAttribute('data-cat', cat);
+        set('csCategory', cat);
+        set('csCatIco', categoryIconFor(cat));
+      } else {
+        catBox.style.display = 'none';
+      }
+    }
 
     // "Valid Till" is a real formatted date now, not a hardcoded sample string.
     const at = (typeof parseExpiry === 'function') ? parseExpiry(currentCoupon.expiry) : null;
@@ -1151,6 +1332,12 @@
       currentCoupon.category = c.category || currentCoupon.category;
       currentCoupon.title = c.title || c.discount || c.description || currentCoupon.title;
       currentCoupon.value = c.originalValue || c.discount || currentCoupon.value;
+      currentCoupon.originalValue = (c.originalValue != null && c.originalValue !== '') ? c.originalValue : currentCoupon.originalValue;
+      currentCoupon.discount = c.discount || currentCoupon.discount;
+      currentCoupon.description = c.description || currentCoupon.description;
+      // Same per-coupon hero the marketplace card uses; empty means fall back to
+      // the brand background / SaveHatke default in heroImageFor().
+      currentCoupon.backgroundImage = c.backgroundImage || currentCoupon.backgroundImage || '';
       currentCoupon.minOrder = c.minOrderValue || '';
       currentCoupon.expiry = c.expiryDate || currentCoupon.expiry;
       currentCoupon.terms = c.terms || '';
