@@ -1333,7 +1333,7 @@ async function sendSignInAlertEmail({
     };
   }
 
-  const subject_ = `SaveHatke Security — New device detected on your ${isAdminAccount ? 'admin account' : 'account'}`;
+  const subject_ = 'New sign-in to your SaveHatke account';
 
   const textBody =
 `SaveHatke
@@ -1607,7 +1607,7 @@ Team SaveHatke
         <p class="detail-label">Sign-in details</p>
 
         <ul class="case-list">
-          <li><strong>Account:</strong> ${safeAccount}</li>
+          <li><strong>Account:</strong> <span style="color:#00de6d;">${safeAccount}</span></li>
           <li><strong>Account type:</strong> ${safeAccountType}</li>
           <li><strong>Date and time:</strong> <span class="mono">${escapeHtml(signInDate)} IST</span></li>
           <li><strong>Device type:</strong> ${safeDeviceLine}</li>
@@ -1623,7 +1623,7 @@ Team SaveHatke
         <p class="warn-line"><strong>If this wasn't you, secure your account immediately.</strong> Sign out every other device and review your recent sign-in activity.</p>
 
         <div class="cta-wrap">
-          <a href="${secureUrl}" class="cta-btn">🔒 Secure My Account</a>
+          <a href="${secureUrl}" class="cta-btn" style="background:#00de6d;background-color:#00de6d;">Secure My Account</a>
         </div>
 
         <p class="line">If this was you, no action is needed — this device is now recognised and you will not be alerted for it again.</p>
