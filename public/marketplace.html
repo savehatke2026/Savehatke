@@ -138,14 +138,14 @@
     .coupon-card { border-radius:18px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); transition:all .3s; cursor:pointer; position:relative; overflow:hidden; display:flex; flex-direction:column; }
     .coupon-card:hover { border-color:rgba(0,230,118,.28); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.35); }
 
-    /* HERO — one uniform image area for every card. The box holds a fixed
-       aspect ratio (~3.2:1, the common coupon-banner shape) so all cards line
-       up no matter how tall or wide the source image is, and object-fit:contain
-       shows the WHOLE image inside it — nothing is cropped, zoomed, stretched or
-       distorted. Images whose ratio differs simply sit centred, with the card's
-       own dark hero colour filling the small margin. Overlays (badges, info
-       icons, discount) still sit on top. */
-    .c-hero { position:relative; aspect-ratio:16/5; overflow:hidden; background:#0a1226; flex-shrink:0; }
+    /* HERO — one uniform image area for every card. The box is intentionally
+       tall (4:3) so the coupon's full background image is fully visible inside
+       the card, not cropped at the top of a wide banner band. object-fit:contain
+       shows the WHOLE image inside it — nothing is zoomed, stretched or
+       distorted; differing source ratios sit centred with the card's own dark
+       hero colour filling the small margin. Overlays (badges, info icons) still
+       sit on top, unchanged. The body section below is unaffected. */
+    .c-hero { position:relative; aspect-ratio:4/3; overflow:hidden; background:#0a1226; flex-shrink:0; }
     .c-hero-img { display:block; width:100%; height:100%; object-fit:contain; object-position:center; }
     /* Readability gradient — darkest where the logo/discount sit, lighter in
        the middle so the image itself stays clearly visible. */
