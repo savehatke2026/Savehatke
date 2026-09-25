@@ -187,150 +187,236 @@ async function sendWelcomeEmail(to, userName) {
   }
 
   const subject = 'Welcome to SaveHatke!';
-  const year = new Date().getFullYear();
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
-  // Mail clients cannot load a localhost image, so the logo always points at a
-  // publicly reachable URL. Override with EMAIL_LOGO_URL if the asset moves.
-  const logoUrl = (process.env.EMAIL_LOGO_URL || 'https://savehatke.vercel.app/logo.png').trim();
-  const exploreUrl = `${siteUrl}/marketplace.html`;
+  const dashboardUrl = `${siteUrl}/dashboard.html`;
   const safeEmail = escapeHtml(cleanEmail);
   const displayName = userName && String(userName).trim() ? String(userName).trim() : 'there';
+  // The welcome mail is sent at signup time (fire-and-forget), so "now" is the
+  // moment the account was created. Formatted in IST for our India audience.
+  const signupDate = new Date().toLocaleDateString('en-IN', {
+    day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Kolkata',
+  });
 
   const textBody =
 `Welcome to SaveHatke!
 
 Hi ${displayName},
 
-Welcome to SaveHatke — a simple and convenient platform to buy and sell unused coupons.
-We're excited to have you with us.
+Your account has been successfully created. You can now use your SaveHatke account to explore the coupon marketplace, purchase available coupons, and manage your coupons from your dashboard.
 
-With SaveHatke, you can:
+Your account details:
+- Email: ${cleanEmail}
+- Account created: ${signupDate}
 
-* Buy coupons at great prices
-* Sell coupons you don't need
-* Discover available coupons and offers
-* Save more on your favourite brands
+You can access your account anytime from the SaveHatke website.
 
-Your account has been successfully created. You can now explore SaveHatke and start saving.
-
-Explore SaveHatke: ${exploreUrl}
-
-Happy Saving!
+Go to Dashboard: ${dashboardUrl}
 
 Regards,
-Team SaveHatke
+SaveHatke Team
+India's Coupon Marketplace
 
-This email was sent to ${cleanEmail} because you created an account with SaveHatke. You may receive emails related to your account, purchases, coupon submissions, sales, payments, security, support requests, and important service updates.
-
-© ${year} SaveHatke. All rights reserved.`;
+If you did not create this account, please contact SaveHatke Support immediately.`;
 
   const htmlContent = `
-  <!DOCTYPE html>
-  <html lang="en">
-  <head>
-    <meta charset="utf-8">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light">
     <title>Welcome to SaveHatke</title>
-  </head>
-  <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
-    <!-- Preheader (hidden inbox preview line) -->
-    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your SaveHatke account is ready — start buying and selling coupons.</div>
-
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;padding:40px 15px;">
-      <tr>
-        <td align="center">
-
-          <!-- Brand logo -->
-          <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:24px;">
-            <tr>
-              <td align="center">
-                <a href="${siteUrl}/index.html" style="text-decoration:none;">
-                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="display:inline-table;">
-                    <tr>
-                      <td style="vertical-align:middle;padding-right:10px;">
-                        <img src="${logoUrl}" alt="SaveHatke" width="40" height="40" style="width:40px;height:40px;border-radius:10px;object-fit:contain;display:block;">
-                      </td>
-                      <td style="vertical-align:middle;">
-                        <span style="font-size:1.35rem;font-weight:800;color:#0f1e3a;white-space:nowrap;">Save<span style="color:#10b981;">Hatke</span></span>
-                      </td>
-                    </tr>
-                  </table>
-                </a>
-              </td>
-            </tr>
-          </table>
-
-          <table role="presentation" width="100%" style="max-width:580px;background:#ffffff;border:1px solid #e5e7eb;border-radius:20px;overflow:hidden;box-shadow:0 8px 28px rgba(15,30,58,0.08);" cellspacing="0" cellpadding="0" border="0">
-
-            <!-- Heading -->
-            <tr>
-              <td align="center" style="padding:34px 36px 0;text-align:center;">
-                <h1 style="margin:0;font-size:1.6rem;font-weight:800;color:#0f1e3a;line-height:1.3;text-align:center;">Welcome to SaveHatke!</h1>
-              </td>
-            </tr>
-            <!-- Greeting + intro (centred) -->
-            <tr>
-              <td align="center" style="padding:18px 36px 0;text-align:center;">
-                <p style="margin:0 0 14px;font-size:1rem;color:#0f1e3a;line-height:1.6;text-align:center;">Hi <strong style="color:#10b981;">${safeName}</strong>,</p>
-                <p style="margin:0 0 12px;font-size:0.95rem;color:#374151;line-height:1.7;text-align:center;">Welcome to <strong style="color:#0f1e3a;">SaveHatke</strong> — a simple and convenient platform to buy and sell unused coupons.</p>
-                <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.7;text-align:center;">We're excited to have you with us.</p>
-              </td>
-            </tr>
-
-            <!-- What you can do -->
-            <tr>
-              <td align="center" style="padding:22px 36px 0;text-align:center;">
-                <p style="margin:0 0 12px;font-size:0.76rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;text-align:center;">With SaveHatke, you can:</p>
-                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;">
-                  <tr>
-                    <td align="center" style="padding:18px 20px;text-align:center;">
-                      <p style="margin:0 0 10px;font-size:0.95rem;color:#374151;line-height:1.5;text-align:center;">🏷️ Buy coupons at great prices</p>
-                      <p style="margin:0 0 10px;font-size:0.95rem;color:#374151;line-height:1.5;text-align:center;">💰 Sell coupons you don't need</p>
-                      <p style="margin:0 0 10px;font-size:0.95rem;color:#374151;line-height:1.5;text-align:center;">🔎 Discover available coupons and offers</p>
-                      <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.5;text-align:center;">💸 Save more on your favourite brands</p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-
-            <!-- Account ready -->
-            <tr>
-              <td align="center" style="padding:22px 36px 0;text-align:center;">
-                <p style="margin:0;font-size:0.95rem;color:#374151;line-height:1.7;text-align:center;">Your account has been successfully created. You can now explore SaveHatke and start saving.</p>
-              </td>
-            </tr>
-
-            <!-- CTA — website green -->
-            <tr>
-              <td align="center" style="padding:26px 36px 4px;text-align:center;">
-                <a href="${exploreUrl}" style="display:inline-block;background:#10b981;background-image:linear-gradient(135deg,#10b981,#059669);color:#ffffff !important;text-decoration:none;font-weight:800;font-size:0.95rem;padding:14px 30px;border-radius:12px;">Explore SaveHatke →</a>
-              </td>
-            </tr>
-
-            <!-- Sign-off -->
-            <tr>
-              <td align="center" style="padding:26px 36px 0;text-align:center;">
-                <p style="margin:0 0 14px;font-size:1rem;font-weight:700;color:#059669;text-align:center;">Happy Saving! 💙</p>
-                <p style="margin:0;font-size:0.88rem;color:#6b7280;line-height:1.6;text-align:center;">Regards,<br><strong style="color:#0f1e3a;">Team SaveHatke</strong></p>
-              </td>
-            </tr>
-
-            <!-- Footer -->
-            <tr>
-              <td align="center" style="padding:26px 36px 22px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
-                <p style="margin:0 0 8px;font-size:0.72rem;color:#9ca3af;line-height:1.6;text-align:center;">This email was sent to <span style="color:#6b7280;">${safeEmail}</span> because you created an account with SaveHatke. You may receive emails related to your account, purchases, coupon submissions, sales, payments, security, support requests, and important service updates.</p>
-                <p style="margin:0;font-size:0.78rem;color:#6b7280;text-align:center;">© ${year} SaveHatke. All rights reserved.</p>
-              </td>
-            </tr>
-
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-  </html>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f4f5;
+            color: #3f3f46;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+            background-color: #ffffff;
+            padding: 32px 40px;
+            text-align: center;
+            border-bottom: 1px solid #f4f4f5;
+        }
+        .header h1 {
+            margin: 0;
+            color: #18181b;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header span {
+            color: #2563eb;
+        }
+        .content {
+            padding: 40px;
+        }
+        .greeting {
+            font-size: 18px;
+            font-weight: 600;
+            color: #18181b;
+            margin-top: 0;
+            margin-bottom: 24px;
+        }
+        .message {
+            margin-bottom: 24px;
+            font-size: 16px;
+        }
+        .details-box {
+            background-color: #fafafa;
+            border: 1px solid #f4f4f5;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .details-title {
+            font-weight: 600;
+            color: #18181b;
+            margin-top: 0;
+            margin-bottom: 16px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .details-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .details-list li {
+            margin-bottom: 12px;
+            font-size: 15px;
+            display: flex;
+        }
+        .details-list li:last-child {
+            margin-bottom: 0;
+        }
+        .details-list strong {
+            color: #18181b;
+            width: 130px;
+            display: inline-block;
+        }
+        .cta-container {
+            text-align: center;
+            margin: 32px 0;
+        }
+        .cta-button {
+            display: inline-block;
+            background-color: #1cd067;
+            color: #18181b !important;
+            text-decoration: none;
+            padding: 14px 28px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 16px;
+            transition: background-color 0.2s;
+        }
+        .cta-button:hover {
+            background-color: #16a351;
+        }
+        .footer {
+            padding: 32px 40px;
+            background-color: #fafafa;
+            border-top: 1px solid #f4f4f5;
+            font-size: 14px;
+            color: #71717a;
+        }
+        .footer p {
+            margin: 0 0 16px 0;
+        }
+        .footer p:last-child {
+            margin: 0;
+        }
+        .signature {
+            font-weight: 600;
+            color: #18181b;
+        }
+        .tagline {
+            font-size: 13px;
+            color: #a1a1aa;
+        }
+        .warning {
+            font-size: 13px;
+            color: #71717a;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #e4e4e7;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            .container {
+                margin: 0;
+                border-radius: 0;
+                width: 100%;
+            }
+            .header, .content, .footer {
+                padding: 24px;
+            }
+            .details-list strong {
+                width: auto;
+                margin-right: 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Save<span>Hatke</span></h1>
+        </div>
+        
+        <div class="content">
+            <h2 class="greeting">Hi ${safeName},</h2>
+            
+            <p class="message">
+                Welcome to <strong>SaveHatke!</strong>
+            </p>
+            
+            <p class="message">
+                Your account has been successfully created. You can now use your SaveHatke account to explore the coupon marketplace, purchase available coupons, and manage your coupons from your dashboard.
+            </p>
+            
+            <div class="details-box">
+                <h3 class="details-title">Your account details</h3>
+                <ul class="details-list">
+                    <li><strong>Email:</strong> <span style="color: #1cd067; font-weight: 600;">${safeEmail}</span></li>
+                    <li><strong>Account created:</strong> ${signupDate}</li>
+                </ul>
+            </div>
+            
+            <p class="message">
+                You can access your account anytime from the SaveHatke website.
+            </p>
+            
+            <div class="cta-container">
+                <a href="${dashboardUrl}" class="cta-button">Go to Dashboard</a>
+            </div>
+        </div>
+        
+        <div class="footer">
+            <p class="signature">
+                Regards,<br>
+                SaveHatke Team
+            </p>
+            <p class="tagline">India's Coupon Marketplace</p>
+            
+            <div class="warning">
+                If you did not create this account, please contact SaveHatke Support immediately.
+            </div>
+        </div>
+    </div>
+</body>
+</html>
   `;
 
   try {
