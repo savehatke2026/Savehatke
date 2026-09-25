@@ -11,6 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+ <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Share+Tech+Mono&display=swap" rel="stylesheet">
   <link rel="preconnect" href="https://accounts.google.com" crossorigin>
   <link rel="preconnect" href="https://www.googleapis.com" crossorigin>
   <link rel="dns-prefetch" href="https://accounts.google.com">
@@ -293,122 +294,80 @@
        viewport scrolls, and the frame stays put while it does. */
     .upm-overlay { position:fixed; inset:0; z-index:340; background:rgba(6,13,31,.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .3s; }
     .upm-overlay.show { opacity:1; pointer-events:auto; }
-    .upm-box { position:relative; width:100%; max-width:440px; border-radius:24px; background:linear-gradient(160deg,#112747 0%,#0c1e35 100%); border:1px solid rgba(0,230,118,.18); box-shadow:0 0 60px rgba(0,230,118,.07),0 24px 64px rgba(0,0,0,.6); padding:32px 28px 28px; text-align:center; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
+    .upm-box { position:relative; width:100%; max-width:440px; border-radius:24px; background:#0c1628; border:1px solid rgba(0,210,110,.25); box-shadow:0 0 0 1px rgba(0,210,110,.08),0 0 60px rgba(0,210,110,.06),0 30px 80px rgba(0,0,0,.6); padding:36px 28px 28px; text-align:center; font-family:'Inter',sans-serif; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
     .upm-overlay.show .upm-box { transform:scale(1) translateY(0); }
 
     /* The × that opens the "Cancel Payment?" panel. Pinned to the corner so the
        title can sit on the box's true centre line. */
-    .upm-close { position:absolute; top:20px; right:20px; z-index:2; width:36px; height:36px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.1); border-radius:10px; color:#8ba2c4; font-size:1.15rem; line-height:1; cursor:pointer; transition:all .22s; font-family:'Outfit',sans-serif; }
-    .upm-close:hover { background:rgba(255,107,107,.14); border-color:rgba(255,107,107,.4); color:#ff6b6b; }
+    .upm-close { position:absolute; top:20px; right:20px; z-index:2; width:36px; height:36px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:10px; color:#fff; font-size:1.15rem; line-height:1; cursor:pointer; transition:background .2s; font-family:'Inter',sans-serif; }
+    .upm-close:hover { background:rgba(255,255,255,.14); }
     .upm-close:disabled { opacity:.4; cursor:not-allowed; }
 
     /* Scrollable body: the box keeps a fixed frame so the × and the cancel
        panel stay pinned, while the flow itself scrolls on a short viewport. */
     .upm-body { overflow-y:auto; overscroll-behavior:contain; max-height:calc(100vh - 92px); padding:4px 2px 2px; }
 
-    .upm-ttl { font-weight:800; font-size:1.75rem; letter-spacing:-.02em; text-align:center; }
-    .upm-ttl .upm-green { color:#00e676; }
-    .upm-paysub { font-size:.906rem; color:#8ea8c3; margin-top:8px; text-align:center; }
-    .upm-paysub .upm-amt-inline { font-family:'JetBrains Mono',monospace; font-size:1.06rem; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; }
+    .upm-ttl { font-weight:800; font-size:26px; letter-spacing:-.3px; text-align:center; }
+    .upm-ttl .upm-green { color:#00d46a; }
+    .upm-paysub { font-size:14px; color:#8a9dc0; margin-top:6px; text-align:center; }
+    .upm-paysub .upm-amt-inline { font-weight:700; color:#00d46a; }
 
-    /* QR area — a real matrix rendered server-side, so it needs a light plate
-       to stay scannable on this dark box. The plate is 244px and the image is
-       inset 14px, so the matrix renders at ~216px. That is the largest plate
-       that still keeps every module >= 4 CSS px at error-correction H: the
-       4-module quiet zone is baked into the image, so plate padding is a
-       second, redundant white border and every pixel of it comes straight out
-       of the module size. 14px reads as a deliberate frame without eating the
-       symbol. */
-    .upm-qr { width:244px; height:244px; margin:16px auto 0; border-radius:16px; background:#fff; display:flex; align-items:center; justify-content:center; padding:14px; position:relative; box-shadow:0 0 0 1px rgba(0,230,118,.28), 0 14px 34px rgba(0,0,0,.4); }
-    .upm-qr img { width:100%; height:100%; display:block; }
-    .upm-qr-empty { width:100%; height:100%; display:flex; align-items:center; justify-content:center; }
+    /* QR area — a real matrix rendered server-side into #upmQr. White rounded
+       plate, sized to the image, exactly like the reference. */
+    .upm-qr { background:#fff; border-radius:16px; padding:16px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; width:fit-content; }
+    .upm-qr img { display:block; width:230px; height:230px; border-radius:4px; }
+    .upm-qr-empty { width:230px; height:230px; display:flex; align-items:center; justify-content:center; }
     .upm-qr-skel { width:26px; height:26px; border:3px solid rgba(6,13,31,.18); border-top-color:#00a152; border-radius:50%; animation:spin .7s linear infinite; }
 
-    .upm-scan { font-size:.8rem; color:#8ea8c3; margin-top:13px; text-align:center; }
+    .upm-scan { font-size:13px; color:#8a9dc0; margin-bottom:20px; text-align:center; }
 
-    /* Supported apps — the real brand marks, served from /logos/.
-       A uniform white tile keeps the four on one visual footing: the marks
-       carry their own brand colours, so a per-app tile colour would fight them
-       (Paytm's wordmark is navy #233266, which is precisely the colour the old
-       text placeholder used as its tile). White is also the JPEGs' own
-       background, so `contain` can letterbox onto the tile with no seam.
-       object-fit is `cover` for the square marks and `contain` for the two that
-       are not square (Google Pay is 486x411, Paytm is a 3.19:1 wordmark) —
-       `cover` would crop the Google Pay G.
-       overflow:hidden is load-bearing: it is what stops a wide mark from
-       bleeding into its neighbour's tile.
-       Grid rather than a flex row, with the track capped at 296px and centred:
-       a flex row spaces the tiles by their *label* width, so "Google Pay" would
-       pull its tile off the even rhythm the other three sit on. Grid keeps all
-       four on one axis regardless of label length. */
-    .upm-apps { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; max-width:296px; margin:16px auto 0; }
-    .upm-app { display:flex; flex-direction:column; align-items:center; gap:7px; }
-    .upm-app-ico { width:52px; height:52px; border-radius:14px; background:#fff; overflow:hidden; display:flex; align-items:center; justify-content:center; transition:transform .15s; }
+    /* Supported apps — real brand marks from /logos/ on 58px tiles in a centred
+       row (design matches the reference). Square marks (PhonePe, BHIM) fill the
+       tile; the two non-square marks (Google Pay, Paytm) are contained. */
+    .upm-apps { display:flex; justify-content:center; gap:28px; margin-bottom:22px; }
+    .upm-app { display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; }
+    .upm-app-ico { width:58px; height:58px; border-radius:16px; background:#fff; overflow:hidden; display:flex; align-items:center; justify-content:center; transition:transform .15s, box-shadow .15s; }
     .upm-app-ico img { width:100%; height:100%; display:block; object-fit:cover; }
     .upm-app-ico img.upm-app-fit { object-fit:contain; }
-    .upm-app:hover .upm-app-ico { transform:scale(1.06); }
-    .upm-app-nm { font-size:.7rem; color:#8ea8c3; line-height:1.2; text-align:center; white-space:nowrap; }
+    .upm-app:hover .upm-app-ico { transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.4); }
+    .upm-app-nm { font-size:11px; color:#8a9dc0; font-weight:500; line-height:1.2; text-align:center; white-space:nowrap; }
 
-    /* UPI ID row with a copy affordance on the right. The VPA stays in the mono
-       face: it is a machine-readable identifier the buyer may have to retype by
-       hand, and JetBrains Mono is the face this page already uses for anything
-       that must be transcribed exactly. */
-    .upm-vpa { display:flex; align-items:center; gap:8px; margin-top:16px; padding:14px 14px 14px 16px; border-radius:12px; background:#0a1a2e; border:1px solid rgba(255,255,255,.12); }
-    .upm-vpa-lbl { font-size:.844rem; color:#8ea8c3; flex-shrink:0; }
-    .upm-vpa-id { font-family:'JetBrains Mono',monospace; font-size:.875rem; font-weight:600; color:#fff; flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .upm-copy { flex-shrink:0; width:32px; height:32px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.05); border:1px solid rgba(0,230,118,.24); border-radius:9px; color:#00e676; font-size:.85rem; line-height:1; cursor:pointer; transition:all .22s; }
-    .upm-copy:hover { background:rgba(0,230,118,.16); }
-    .upm-copy.done { background:rgba(0,230,118,.22); border-color:rgba(0,230,118,.5); }
+    /* UPI ID row with a plain green copy icon on the right (reference design). */
+    .upm-vpa { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; padding:14px 16px; border-radius:14px; background:#101e34; border:1px solid rgba(255,255,255,.1); }
+    .upm-vpa-lbl { font-size:13px; color:#8a9dc0; margin-right:8px; flex-shrink:0; }
+    .upm-vpa-id { font-size:14px; font-weight:600; color:#fff; flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .upm-copy { background:none; border:none; cursor:pointer; padding:4px; margin-left:8px; flex-shrink:0; color:#00d46a; display:flex; align-items:center; transition:opacity .2s; }
+    .upm-copy:hover { opacity:.75; }
+    .upm-copy svg { width:20px; height:20px; stroke:#00d46a; stroke-width:2; fill:none; display:block; }
+    .upm-copy .upm-copy-k { display:none; }
+    .upm-copy.done .upm-copy-c { display:none; }
+    .upm-copy.done .upm-copy-k { display:block; }
 
-    /* Countdown — a full-width tinted pill, driven by the server's expires_at
-       and never by a local 10:00, so reopening the box resumes where it left
-       off rather than restarting the clock.
-       The glyph is white at rest (design intent: white mark, green digits) but
-       it is stroked in currentColor, so warn/danger tint the clock along with
-       the digits. A clock that stayed white while the digits went red would be
-       the one element on screen contradicting the warning. */
-    .upm-timer { display:flex; align-items:center; justify-content:center; gap:14px; width:100%; margin:16px 0 0; padding:14px 28px; border:1.5px solid rgba(0,230,118,.7); border-radius:50px; background:rgba(0,230,118,.05); box-shadow:0 0 24px rgba(0,230,118,.15), inset 0 0 20px rgba(0,230,118,.03); }
-    .upm-timer-ico { display:flex; align-items:center; flex-shrink:0; color:#fff; }
-    .upm-timer-val { font-family:'JetBrains Mono',monospace; font-size:1.875rem; font-weight:700; letter-spacing:.1em; color:#00e676; font-variant-numeric:tabular-nums; }
-    .upm-timer.warn { border-color:rgba(255,215,64,.7); background:rgba(255,215,64,.05); box-shadow:0 0 24px rgba(255,215,64,.15), inset 0 0 20px rgba(255,215,64,.03); }
+    /* Countdown — a rounded box (reference design), driven by the server's
+       expires_at (never a local 10:00), so reopening resumes where it left off.
+       Digits in Share Tech Mono; warn/danger tint the border, icon and digits. */
+    .upm-timer { display:flex; align-items:center; justify-content:center; gap:10px; width:fit-content; max-width:100%; margin:20px auto 8px; padding:10px 24px; border:2px solid #00d46a; border-radius:14px; background:rgba(0,212,106,.12); }
+    .upm-timer-ico { display:flex; align-items:center; flex-shrink:0; color:#00d46a; }
+    .upm-timer-val { font-family:'Share Tech Mono',monospace; font-size:30px; line-height:1; letter-spacing:3px; color:#00d46a; font-variant-numeric:tabular-nums; }
+    .upm-timer.warn { border-color:#ffd740; background:rgba(255,215,64,.1); }
     .upm-timer.warn .upm-timer-val, .upm-timer.warn .upm-timer-ico { color:#ffd740; }
-    .upm-timer.danger { border-color:rgba(255,82,82,.75); background:rgba(255,82,82,.05); box-shadow:0 0 24px rgba(255,82,82,.16), inset 0 0 20px rgba(255,82,82,.03); }
+    .upm-timer.danger { border-color:#ff5252; background:rgba(255,82,82,.1); }
     .upm-timer.danger .upm-timer-val, .upm-timer.danger .upm-timer-ico { color:#ff5252; }
 
-    .upm-timer-cap { font-size:.78rem; color:#8ea8c3; margin-top:10px; }
+    .upm-timer-cap { font-size:12px; color:#8a9dc0; margin-bottom:22px; text-align:center; }
 
-    /* Footer — the ONLY thing below the action buttons. The flanking hairlines
-       are pseudo-elements on the footer itself; nothing is ever drawn over the
-       QR plate. */
-    .upm-foot { display:flex; align-items:center; justify-content:center; gap:6px; font-size:.75rem; color:#8ea8c3; margin-top:20px; }
-    .upm-foot::before, .upm-foot::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.08); }
-    .upm-foot .upm-green { color:#00e676; font-weight:700; }
+    /* Footer — flanking hairlines + a centred shield/"Secured by SaveHatke". */
+    .upm-foot { display:flex; align-items:center; gap:12px; font-size:12px; color:#8a9dc0; margin-top:4px; }
+    .upm-foot::before, .upm-foot::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.1); }
+    .upm-foot-content { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+    .upm-foot .upm-green { color:#00d46a; font-weight:700; }
     .upm-foot-ico { display:inline-flex; align-items:center; flex-shrink:0; }
+    .upm-foot-ico svg { width:16px; height:16px; fill:#00d46a; }
 
-    /* Secondary action: a nudge for the buyer; the server still decides. */
-    .upm-check { width:100%; height:48px; margin-top:12px; border-radius:12px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.04); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.9375rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
-    .upm-check:hover:not(:disabled) { background:rgba(255,255,255,.08); }
-    .upm-check:disabled { opacity:.55; cursor:not-allowed; }
-    .upm-check .spinner { border-color:rgba(255,255,255,.2); border-top-color:#fff; }
-
-    /* Primary action: hand the SAME server-generated UPI URI to the device's
-       UPI app. Same height, radius and palette as the rest of the box — it is
-       an addition to the existing design, not a redesign of it. */
-    .upm-open { width:100%; height:48px; margin-top:16px; border-radius:12px; border:none; background:#00e676; color:#000; font-family:'Outfit',sans-serif; font-size:1rem; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; transition:all .22s; }
-    .upm-open:hover:not(:disabled) { background:#1eff8a; transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,230,118,.34); }
-    .upm-open:active:not(:disabled) { transform:scale(.985); }
-    .upm-open:disabled { opacity:.5; cursor:not-allowed; transform:none; box-shadow:none; }
-    /* Hidden until a PENDING payment with a URI exists, so it is never a
-       button that does nothing. */
-    .upm-open.hide { display:none; }
-
-    /* Height-preservation shim. The two action buttons were removed on request;
-       this reserves the exact vertical footprint they held so the box does not
-       get shorter. open = 16px margin-top + 48px height; check = 12px margin-top
-       + 48px height => 124px. margin:0 keeps the footer's own 20px margin-top,
-       so the vpa→footer gap stays 16+48+12+48+20 = 144px, identical to before.
-       It draws nothing and receives no pointer input. */
-    .upm-btnspace { height:124px; margin:0; pointer-events:none; }
+    /* (Reference design has no in-card action buttons — the app tiles above are
+       the tap-to-open affordance and the server auto-confirms via the live
+       stream/poll. The former .upm-open / .upm-check / .upm-btnspace styles were
+       removed; their handlers remain in JS but are simply not rendered.) */
 
     /* Expired / review state — covers the box and stops all interaction. */
     .upm-state { position:absolute; inset:0; display:none; flex-direction:column; align-items:center; justify-content:center; gap:11px; padding:26px; background:rgba(12,30,53,.98); border-radius:24px; z-index:4; }
@@ -443,19 +402,19 @@
 
     @media (max-width:420px) {
       .upm-box { padding:24px 18px 20px; border-radius:20px; }
-      .upm-qr { width:212px; height:212px; }
-      .upm-ttl { font-size:1.5rem; }
-      .upm-timer { padding:12px 18px; gap:11px; }
-      .upm-timer-val { font-size:1.6rem; }
-      .upm-apps { gap:6px; }
-      .upm-app-ico { width:46px; height:46px; border-radius:12px; }
+      .upm-qr img, .upm-qr-empty { width:200px; height:200px; }
+      .upm-ttl { font-size:22px; }
+      .upm-timer { padding:9px 20px; gap:8px; }
+      .upm-timer-val { font-size:26px; }
+      .upm-apps { gap:16px; }
+      .upm-app-ico { width:52px; height:52px; border-radius:14px; }
       .upm-body { max-height:calc(100vh - 84px); }
     }
 
     /* Short viewports (landscape phones, small windows). The body already
        scrolls, so trimming the QR just reduces how much scrolling is needed. */
     @media (max-height:700px) {
-      .upm-qr { width:208px; height:208px; margin-top:14px; }
+      .upm-qr img, .upm-qr-empty { width:190px; height:190px; }
     }
 
     /* SUCCESS OVERLAY */
@@ -661,15 +620,6 @@
               <div class="cc-hero-off" id="csHeroOff"></div>
             </div>
           </div>
-
-          <!-- Name + short description (dynamic; description hides when empty). -->
-          <div class="cc-top">
-            <div class="cc-brand">
-              <div class="cc-brand-ico" id="csBrandIco"></div>
-              <div class="cc-brand-name" id="csBrandName">—</div>
-            </div>
-          </div>
-          <div class="cc-desc" id="csDesc" style="display:none"></div>
 
           <!-- Category + live marketplace timer, side by side. The timer reads
                the SAME expiry the marketplace uses; it is not a second clock. -->
@@ -878,26 +828,21 @@
       </div>
       <div class="upm-scan">Scan the QR code with any UPI app</div>
 
-      <!-- Real brand marks. The square marks (PhonePe, BHIM) fill their tile
-           edge to edge; the two that are not square (Google Pay, Paytm) are
-           contained instead, so they letterbox onto the tile's own white. The
-           tile background and the JPEGs' own background are both white, so
-           there is no seam where the image meets the tile.
-           alt="" is deliberate: the app name is already the visible label
-           directly beneath, and announcing "PhonePe" twice reads worse than not
-           announcing the logo at all. The label is the accessible name. -->
+      <!-- Real brand marks from /logos/ on 58px tiles (reference layout).
+           Tapping a tile opens the device's UPI app with the same server URI. -->
       <div class="upm-apps" aria-label="Supported UPI apps">
-        <div class="upm-app"><span class="upm-app-ico"><img src="/logos/phone-pe.jpg" alt="" width="52" height="52" decoding="async"></span><span class="upm-app-nm">PhonePe</span></div>
-        <div class="upm-app"><span class="upm-app-ico"><img class="upm-app-fit" src="/logos/gpay.jpg" alt="" width="52" height="52" decoding="async"></span><span class="upm-app-nm">Google Pay</span></div>
-        <div class="upm-app"><span class="upm-app-ico"><img class="upm-app-fit" src="/logos/paytm.svg" alt="" width="52" height="52" decoding="async"></span><span class="upm-app-nm">Paytm</span></div>
-        <div class="upm-app"><span class="upm-app-ico"><img src="/logos/bhim.jpg" alt="" width="52" height="52" decoding="async"></span><span class="upm-app-nm">BHIM</span></div>
+        <div class="upm-app" onclick="openUpiApp()"><span class="upm-app-ico"><img src="/logos/phone-pe.jpg" alt="" width="58" height="58" decoding="async"></span><span class="upm-app-nm">PhonePe</span></div>
+        <div class="upm-app" onclick="openUpiApp()"><span class="upm-app-ico"><img class="upm-app-fit" src="/logos/gpay.jpg" alt="" width="58" height="58" decoding="async"></span><span class="upm-app-nm">Google Pay</span></div>
+        <div class="upm-app" onclick="openUpiApp()"><span class="upm-app-ico"><img class="upm-app-fit" src="/logos/paytm.svg" alt="" width="58" height="58" decoding="async"></span><span class="upm-app-nm">Paytm</span></div>
+        <div class="upm-app" onclick="openUpiApp()"><span class="upm-app-ico"><img src="/logos/bhim.jpg" alt="" width="58" height="58" decoding="async"></span><span class="upm-app-nm">BHIM</span></div>
       </div>
 
       <div class="upm-vpa" id="upmVpa">
         <span class="upm-vpa-lbl">UPI ID:</span>
         <span class="upm-vpa-id" id="upmVpaText">—</span>
         <button class="upm-copy" id="upmCopyBtn" type="button" onclick="copyUpiId()" aria-label="Copy UPI ID">
-          <span id="upmCopyIco">📋</span>
+          <svg class="upm-copy-c" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <svg class="upm-copy-k" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
         </button>
       </div>
 
