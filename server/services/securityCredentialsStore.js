@@ -3,7 +3,7 @@
 // ============================================
 // ONE table, public.security_credentials, holds every server-side OAuth
 // credential, discriminated by `service`:
-//   * service = 'payment_gmail'  → payment mailbox   (rupayandas2024@gmail.com)
+//   * service = 'payment_gmail'  → payment mailbox   (rupayandas2025@gmail.com)
 //   * service = 'google_drive'   → Drive uploads acct (database.savehatke@gmail.com)
 //
 // Every lookup is scoped by (service, email) so a Google Drive error can never

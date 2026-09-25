@@ -20,7 +20,7 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_KEY
 //   PAYMENT_GMAIL_TOKEN_ENCRYPTION_KEY (or GMAIL_TOKEN_ENCRYPTION_KEY)
 //   PAYMENT_GMAIL_REFRESH_TOKEN        (the token being migrated)
-//   PAYMENT_MAILBOX_EMAIL              (defaults to rupayandas2024@gmail.com)
+//   PAYMENT_MAILBOX_EMAIL              (defaults to rupayandas2025@gmail.com)
 
 const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -29,7 +29,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 const { decryptSecret, isPaymentKeyConfigured } = require('../services/gmailCrypto');
 const store = require('../services/paymentMailboxStore');
 
-const DEFAULT_EMAIL = 'rupayandas2024@gmail.com';
+const DEFAULT_EMAIL = 'rupayandas2025@gmail.com';
 
 function clean(v) {
   return String(v || '').trim().replace(/^["']|["']$/g, '');

@@ -592,7 +592,7 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
   // The read helpers (listMessages / getMessageFull) live on gmailService and
   // take a `gmail` client as their first argument, so they work against ANY
   // authorized client. The client itself comes from the DEDICATED payment
-  // mailbox (rupayandas2024@gmail.com) when connected; the shared support
+  // mailbox (rupayandas2025@gmail.com) when connected; the shared support
   // mailbox is only a fallback so a half-configured deploy still degrades
   // gracefully instead of going dark.
   const gmailService = require('./gmailService');

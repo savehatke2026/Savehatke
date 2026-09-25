@@ -3,7 +3,7 @@
 // ============================================
 // Mints PAYMENT_GMAIL_REFRESH_TOKEN so the payment verifier
 // (services/paymentVerifier.js → services/paymentMailbox.js) can read the
-// DEDICATED payment inbox (rupayandas2024@gmail.com) for UPI / bank credit
+// DEDICATED payment inbox (rupayandas2025@gmail.com) for UPI / bank credit
 // notifications. This is SEPARATE from the support mailbox
 // (support.savehatke@gmail.com / GMAIL_REFRESH_TOKEN); running this does not
 // touch the support connection.
@@ -17,7 +17,7 @@
 // GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET) and a redirect URI registered in
 // Google Cloud Console (APIs & Services → Credentials → your OAuth client).
 //
-// Set PAYMENT_MAILBOX_EMAIL=rupayandas2024@gmail.com so this script can warn
+// Set PAYMENT_MAILBOX_EMAIL=rupayandas2025@gmail.com so this script can warn
 // you if you accidentally sign in with the wrong account.
 //
 // NOTE: stop the dev server first if it occupies the redirect port, otherwise

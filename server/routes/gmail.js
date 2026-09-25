@@ -996,7 +996,7 @@ router.get('/audit', authenticateToken, requireAdmin, async (req, res) => {
 
 // ── Payment Gmail (security_credentials) — admin-only status + reconnect ─────
 // These are the spec-named aliases for the dedicated payment mailbox
-// (rupayandas2024@gmail.com). They live alongside the equivalent
+// (rupayandas2025@gmail.com). They live alongside the equivalent
 // /api/admin/payment-mailbox/* routes and share the SAME Supabase-backed store
 // and the SAME registered OAuth callback (/api/admin/gmail/callback, told apart
 // by a signed `flow:'payment'` state claim). No new OAuth client is created.

@@ -10,7 +10,7 @@
 // (public.security_credentials) without ever colliding.
 //
 // Payment Gmail specifics preserved here:
-//   * email = rupayandas2024@gmail.com (passed by the caller),
+//   * email = rupayandas2025@gmail.com (passed by the caller),
 //   * Google "Testing" refresh-token window (~7 days) → estimated_expires_at,
 //     which drives the 2-day reconnect warning in the admin panel.
 

@@ -2,7 +2,7 @@
 // SaveHatke — Payment Mailbox Admin Routes
 // Mounted at /api/admin/payment-mailbox behind JWT admin auth.
 // ============================================
-// Manages the DEDICATED payment mailbox (rupayandas2024@gmail.com) Gmail OAuth
+// Manages the DEDICATED payment mailbox (rupayandas2025@gmail.com) Gmail OAuth
 // connection whose encrypted refresh token lives in Supabase
 // (services/paymentMailboxStore.js). This is SEPARATE from the support mailbox
 // routes in routes/gmail.js.

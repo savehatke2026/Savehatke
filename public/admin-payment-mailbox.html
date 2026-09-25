@@ -43,7 +43,7 @@
 <body>
 <div class="card">
   <h1>Payment Gmail</h1>
-  <div class="sub">Dedicated payment mailbox (<code>rupayandas2024@gmail.com</code>) read by the payment verifier for UPI / bank credit notifications. The refresh token is stored AES-256-GCM encrypted in Supabase and never leaves the server.</div>
+  <div class="sub">Dedicated payment mailbox (<code>rupayandas2025@gmail.com</code>) read by the payment verifier for UPI / bank credit notifications. The refresh token is stored AES-256-GCM encrypted in Supabase and never leaves the server.</div>
 
   <div id="msg" class="msg"></div>
   <div id="banner" class="banner grey" style="display:none">
@@ -206,7 +206,7 @@
       STATE.estimatedExpiresAt = data.estimatedExpiresAt || null;
       STATE.serverLevel = data.warning ? data.warning.level : null;
 
-      var email = data.email || data.expectedEmail || 'rupayandas2024@gmail.com';
+      var email = data.email || data.expectedEmail || 'rupayandas2025@gmail.com';
       var rem = remainingMs();
 
       rows.innerHTML = [

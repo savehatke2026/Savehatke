@@ -4,7 +4,7 @@
 // A SEPARATE inbox from the support mailbox (services/gmailService.js).
 //
 //   * Support mailbox  → support.savehatke@gmail.com   (GMAIL_REFRESH_TOKEN env)
-//   * Payment mailbox  → rupayandas2024@gmail.com        (Supabase-backed)
+//   * Payment mailbox  → rupayandas2025@gmail.com        (Supabase-backed)
 //
 // The payment verifier (services/paymentVerifier.js) reads THIS mailbox for
 // UPI / bank credit notifications. Keeping it separate means:
