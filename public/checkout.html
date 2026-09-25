@@ -420,78 +420,65 @@
     /* SUCCESS OVERLAY */
     .success-overlay { position:fixed; inset:0; z-index:300; background:rgba(6,13,31,.96); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .35s; }
     .success-overlay.show { opacity:1; pointer-events:auto; }
-    .success-box { max-width:480px; width:100%; border-radius:22px; padding:44px 36px; background:#0c1835; border:1px solid rgba(0,230,118,.22); box-shadow:0 48px 120px rgba(0,0,0,.7); text-align:center; transform:scale(.94); transition:transform .35s; }
+    .success-box { position:relative; max-width:440px; width:100%; border-radius:24px; padding:40px 32px 32px; background:#0c1628; border:1px solid rgba(0,210,110,.25); box-shadow:0 0 0 1px rgba(0,210,110,.08),0 0 60px rgba(0,210,110,.06),0 30px 80px rgba(0,0,0,.6); text-align:center; font-family:'Inter',sans-serif; transform:scale(.94); transition:transform .35s; }
     .success-overlay.show .success-box { transform:scale(1); }
-    .success-ico { font-size:3rem; margin-bottom:16px; display:block; animation:checkPop .5s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
-    .success-title { font-family:'DM Serif Display',serif; font-size:1.85rem; margin-bottom:8px; }
-    .success-sub { font-size:.9rem; color:#a8c0dc; line-height:1.65; margin-bottom:24px; }
-    .success-code-reveal { background:rgba(0,0,0,.3); border:1px solid rgba(0,230,118,.28); border-radius:12px; padding:18px 22px; margin:0 auto 24px; max-width:320px; }
-    .scr-label { font-size:.68rem; color:#6b88aa; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:8px; }
-    .scr-code { font-family:'JetBrains Mono',monospace; font-size:1.45rem; font-weight:700; letter-spacing:.14em; background:linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-    .scr-copy { margin-top:10px; display:flex; align-items:center; justify-content:center; gap:6px; font-size:.76rem; color:#6b88aa; cursor:pointer; transition:color .2s; background:none; border:none; font-family:'Outfit',sans-serif; }
-    .scr-copy:hover { color:#00e676; }
-    .success-meta { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:24px; text-align:left; }
-    .sm-item { background:rgba(255,255,255,.03); border-radius:9px; padding:12px; }
-    .sm-label { font-size:.68rem; color:#6b88aa; font-weight:600; text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
-    .sm-val { font-size:.88rem; font-weight:600; }
+
+    /* Close */
+    .succ-close { position:absolute; top:20px; right:20px; width:36px; height:36px; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.1); border-radius:10px; cursor:pointer; transition:background .2s; }
+    .succ-close:hover { background:rgba(255,255,255,.1); }
+    .succ-close svg { width:14px; height:14px; stroke:#fff; stroke-width:2.5; fill:none; }
+
+    /* Animated success check + ripples + confetti (reference design) */
+    .succ-anim { position:relative; width:140px; height:140px; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; }
+    .succ-check { position:relative; width:80px; height:80px; background:#00d46a; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:2; box-shadow:0 0 30px rgba(0,212,106,.4); animation:checkPop .5s cubic-bezier(.175,.885,.32,1.275) both; }
+    .succ-check svg { width:36px; height:36px; stroke:#070d1c; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; fill:none; }
+    .succ-ripple { position:absolute; inset:-15px; border:1px solid #00d46a; border-radius:50%; opacity:.3; z-index:1; }
+    .succ-ripple-2 { position:absolute; inset:-35px; border:1px solid #00d46a; border-radius:50%; opacity:.1; z-index:1; }
+    .succ-ripple-3 { position:absolute; inset:-55px; background:radial-gradient(circle, rgba(0,212,106,.1) 0%, transparent 70%); border-radius:50%; z-index:0; }
+    .succ-confetti { position:absolute; background:#00d46a; z-index:1; }
+    .scf1{width:10px;height:10px;border-radius:50%;top:15px;left:10px}
+    .scf2{width:6px;height:6px;border-radius:50%;top:5px;right:40px}
+    .scf3{width:8px;height:8px;border-radius:50%;bottom:25px;left:-5px}
+    .scf4{width:12px;height:12px;border-radius:50%;bottom:45px;right:-15px}
+    .scf5{width:7px;height:7px;bottom:5px;right:25px;transform:rotate(45deg)}
+    .scf6{width:8px;height:8px;top:10px;right:10px;transform:rotate(15deg)}
+    .scf7{width:8px;height:8px;bottom:10px;left:25px;transform:rotate(30deg)}
+    .scf8{width:5px;height:5px;border-radius:50%;top:40px;left:-15px}
+    .scf9{width:6px;height:6px;border-radius:50%;top:50px;right:-25px}
+
+    .succ-title { font-size:28px; font-weight:800; letter-spacing:-.5px; margin-bottom:8px; }
+    .succ-title span { color:#00d46a; }
+    .succ-subtitle { font-size:15px; color:#8a9dc0; margin-bottom:28px; }
+
+    /* Details rows (Amount / Coupon Code / Order ID) */
+    .succ-details { display:flex; flex-direction:column; gap:16px; margin-bottom:24px; }
+    .succ-row { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .succ-label { font-size:14px; color:#8a9dc0; flex-shrink:0; }
+    .succ-value { font-size:16px; font-weight:700; color:#fff; }
+    .succ-value.large { font-size:20px; }
+    .succ-mono { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; word-break:break-all; text-align:right; }
+    .succ-divider { height:1px; background:rgba(255,255,255,.1); width:100%; }
+    .succ-code-wrap { display:flex; align-items:center; gap:10px; }
+    .succ-code { font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:800; letter-spacing:1px; color:#00d46a; }
+    .succ-copy { display:inline-flex; align-items:center; gap:5px; background:rgba(0,212,106,.1); border:1px solid rgba(0,212,106,.35); color:#00d46a; border-radius:8px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; transition:background .2s; }
+    .succ-copy:hover { background:rgba(0,212,106,.2); }
+    .succ-emailnote { font-size:13px; color:#8a9dc0; margin-bottom:20px; }
+    .succ-emailnote strong { color:#c8d8f2; }
+
+    /* Footer — shield + Secured by SaveHatke with flanking lines */
+    .succ-foot { display:flex; align-items:center; gap:12px; color:#8a9dc0; font-size:13px; margin-top:22px; }
+    .succ-foot-line { flex:1; height:1px; background:rgba(255,255,255,.1); }
+    .succ-foot-content { display:flex; align-items:center; gap:6px; white-space:nowrap; }
+    .succ-foot-brand { color:#00d46a; font-weight:700; }
+    .succ-shield { width:16px; height:16px; display:flex; align-items:center; justify-content:center; background:#00d46a; clip-path:polygon(50% 0%,100% 20%,100% 70%,50% 100%,0% 70%,0% 20%); }
+    .succ-shield svg { width:10px; height:10px; stroke:#070d1c; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; fill:none; }
     .success-actions { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
 
-    /* ── POST-PAYMENT SCRATCH COUPON CARD ────────────────────────────────
-       Shown inside the success overlay after a verified payment. The card
-       background is the SAME per-coupon image the marketplace card and the
-       checkout hero use (coupon.backgroundImage → brand background → the
-       SaveHatke default), set inline by paintCoupon(). A dark scrim keeps the
-       badges, brand logo, discount and the scratch panel readable over any
-       brand image, light or dark. */
-    .sc-card { position:relative; width:100%; max-width:420px; margin:0 auto 20px; min-height:300px;
-      border-radius:16px; padding:22px; box-sizing:border-box; background-color:#0b1121;
-      background-size:cover; background-position:center; background-repeat:no-repeat;
-      border:1px solid rgba(255,255,255,.12);
-      box-shadow:0 20px 44px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.05);
-      overflow:hidden; display:flex; flex-direction:column; gap:14px; text-align:left; }
-    .sc-card::before { content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
-      background:linear-gradient(135deg, rgba(7,13,28,.74) 0%, rgba(7,13,28,.48) 42%, rgba(7,13,28,.85) 100%); }
-    .sc-card > * { position:relative; z-index:1; }
-
-    .sc-top-row { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
-    .sc-badge-green { display:inline-flex; align-items:center; gap:6px; background:rgba(0,230,118,.16);
-      border:1px solid rgba(0,230,118,.7); color:#fff; padding:5px 13px; border-radius:9999px;
-      font-size:.76rem; font-weight:700; white-space:nowrap; }
-    .sc-badge-orange { display:inline-flex; align-items:center; gap:8px; background:rgba(255,153,0,.16);
-      border:1px solid rgba(255,153,0,.7); color:#fff; padding:5px 12px; border-radius:10px; text-align:left; }
-    .sc-badge-orange svg { color:#ff9900; flex-shrink:0; }
-    .sc-bo-content { display:flex; flex-direction:column; line-height:1.2; }
-    .sc-bo-label { font-size:.6rem; color:rgba(255,255,255,.75); text-transform:uppercase; letter-spacing:.5px; }
-    .sc-bo-date { font-size:.82rem; font-weight:700; }
-
-    .sc-middle { margin-top:2px; }
-    .sc-brand-logo { display:flex; align-items:center; min-height:40px; margin-bottom:8px; }
-    .sc-brand-logo img { max-height:38px; max-width:160px; width:auto; height:auto; object-fit:contain;
-      filter:drop-shadow(0 2px 6px rgba(0,0,0,.5)); }
-    .sc-brand-logo .brand-initial { width:40px; height:40px; border-radius:10px; display:flex;
-      align-items:center; justify-content:center; font-size:1.2rem; font-weight:800; color:#fff;
-      background:linear-gradient(135deg, rgba(0,230,118,.4), rgba(79,195,247,.4)); }
-    .sc-offer-amount { font-size:2rem; font-weight:800; color:#00e676; line-height:1; margin:4px 0;
-      text-shadow:0 2px 10px rgba(0,0,0,.55); }
-    .sc-offer-desc { font-size:.9rem; color:#e2ecff; margin:0; text-shadow:0 1px 6px rgba(0,0,0,.65); }
-
-    /* Scratch panel — a white code strip covered by a silver canvas layer. */
-    .sc-scratch-container { position:relative; width:100%; height:64px; border-radius:9px; overflow:hidden;
-      margin-top:auto; border:2px solid rgba(255,255,255,.85); box-shadow:0 4px 14px rgba(0,0,0,.35); }
-    .sc-code-under { position:absolute; inset:0; background:#fff; display:flex; align-items:center;
-      justify-content:center; z-index:1; }
-    .sc-secret-code { font-family:'JetBrains Mono',monospace; font-size:1.5rem; font-weight:800;
-      color:#0b1121; letter-spacing:3px; }
-    #scCanvas { position:absolute; inset:0; width:100%; height:100%; z-index:2; cursor:pointer; touch-action:none; }
-    .sc-overlay-text { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-      gap:6px; z-index:3; pointer-events:none; color:#333; font-weight:700; font-size:.82rem;
-      opacity:1; transition:opacity .3s; }
-    .sc-overlay-text.sc-hidden { opacity:0; }
-
+    /* Success card — small-screen tuning. */
     @media (max-width:500px) {
-      .sc-card { max-width:100%; min-height:280px; padding:18px; }
-      .sc-offer-amount { font-size:1.7rem; }
-      .sc-secret-code { font-size:1.25rem; letter-spacing:2px; }
+      .success-box { padding:32px 20px 24px; border-radius:20px; }
+      .succ-title { font-size:24px; }
+      .succ-code { font-size:16px; }
     }
 
     /* CONFETTI */
@@ -942,63 +929,75 @@
 <!-- SUCCESS OVERLAY -->
 <div class="success-overlay" id="successOverlay">
   <div class="success-box">
-    <span class="success-ico">🎉</span>
-    <h2 class="success-title" style="background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent">Payment Successful!</h2>
-    <p class="success-sub">Scratch the card below to reveal your coupon code 👇</p>
-
-    <!-- SCRATCH COUPON — the SAME per-coupon background image the marketplace
-         card and the checkout hero show (coupon.backgroundImage → brand
-         background → SaveHatke default, set inline by paintCoupon). Brand,
-         discount and validity are the purchased coupon's real values; the code
-         stays hidden under the scratch layer until /api/payment/status hands
-         back the real code on a verified payment. -->
-    <div class="sc-card" id="scCard">
-      <div class="sc-top-row">
-        <span class="sc-badge-green">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          Your Coupon
-        </span>
-        <span class="sc-badge-orange">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-          <span class="sc-bo-content">
-            <span class="sc-bo-label">Valid until</span>
-            <span class="sc-bo-date" id="scValidDate">—</span>
-          </span>
-        </span>
-      </div>
-
-      <div class="sc-middle">
-        <div class="sc-brand-logo" id="scBrandLogo"></div>
-        <div class="sc-offer-amount" id="scOfferAmount">—</div>
-        <p class="sc-offer-desc" id="scOfferDesc">on selected items</p>
-      </div>
-
-      <div class="sc-scratch-container" id="scScratchContainer">
-        <div class="sc-code-under">
-          <!-- id kept as revealedCode so the verified-payment handler and the
-               Copy button keep working unchanged. -->
-          <div class="sc-secret-code" id="revealedCode">••••••••</div>
-        </div>
-        <canvas id="scCanvas"></canvas>
-        <div class="sc-overlay-text" id="scOverlayText">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v-8m0 0V4M12 12l4-4m-4 4l-4-4"></path></svg>
-          Scratch to reveal code
-        </div>
-      </div>
-    </div>
-
-    <!-- Copy appears only once the code has been scratched off. -->
-    <button class="scr-copy" id="scCopyBtn" onclick="copyCode()" style="display:none;margin:2px auto 14px">
-      <span id="copyIcon">📋</span> <span id="copyText">Copy Code</span>
+    <!-- Close -->
+    <button class="succ-close" onclick="closeSuccess()" aria-label="Close">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
 
-    <p class="success-sub" style="margin-bottom:20px">Amount paid <strong style="color:#e2ecff" id="succAmount">—</strong></p>
+    <!-- Animated success check + ripples + confetti (reference design) -->
+    <div class="succ-anim">
+      <div class="succ-ripple-3"></div>
+      <div class="succ-ripple-2"></div>
+      <div class="succ-ripple"></div>
+      <div class="succ-check">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <span class="succ-confetti scf1"></span>
+      <span class="succ-confetti scf2"></span>
+      <span class="succ-confetti scf3"></span>
+      <span class="succ-confetti scf4"></span>
+      <span class="succ-confetti scf5"></span>
+      <span class="succ-confetti scf6"></span>
+      <span class="succ-confetti scf7"></span>
+      <span class="succ-confetti scf8"></span>
+      <span class="succ-confetti scf9"></span>
+    </div>
 
-    <p style="font-size:.78rem;color:#6b88aa;margin-bottom:22px">📧 A confirmation email has been sent to <strong style="color:#a8c0dc" id="confirmEmail">your email</strong></p>
+    <h2 class="succ-title">Payment <span>Successful!</span></h2>
+    <p class="succ-subtitle">Your payment has been received.</p>
+
+    <!-- Amount / Coupon Code / Order ID -->
+    <div class="succ-details">
+      <div class="succ-row">
+        <span class="succ-label">Amount Paid</span>
+        <span class="succ-value large" id="succAmount">—</span>
+      </div>
+      <div class="succ-divider"></div>
+      <div class="succ-row">
+        <span class="succ-label">Coupon Code</span>
+        <span class="succ-code-wrap">
+          <!-- id kept as revealedCode so the verified-payment handler and the
+               Copy button keep working unchanged. Never populated before a
+               verified payment. -->
+          <span class="succ-code" id="revealedCode">••••••••</span>
+          <button class="succ-copy" onclick="copyCode()" aria-label="Copy coupon code">
+            <span id="copyIcon">📋</span> <span id="copyText">Copy</span>
+          </button>
+        </span>
+      </div>
+      <div class="succ-divider"></div>
+      <div class="succ-row">
+        <span class="succ-label">Order ID</span>
+        <span class="succ-value succ-mono" id="succOrderId">—</span>
+      </div>
+      <div class="succ-divider"></div>
+    </div>
+
+    <p class="succ-emailnote">📧 A confirmation email has been sent to <strong id="confirmEmail">your email</strong></p>
 
     <div class="success-actions">
       <a href="marketplace" class="btn btn-primary">🏷️ Browse More Coupons</a>
       <a href="dashboard" class="btn btn-ghost">📊 My Orders</a>
+    </div>
+
+    <!-- Footer -->
+    <div class="succ-foot">
+      <div class="succ-foot-line"></div>
+      <div class="succ-foot-content">
+        <span class="succ-shield"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+        Secured by <span class="succ-foot-brand">SaveHatke</span>
+      </div>
+      <div class="succ-foot-line"></div>
     </div>
   </div>
 </div>
@@ -1939,6 +1938,12 @@
     if (data.amount !== undefined && upiEl('succAmount')) {
       upiEl('succAmount').textContent = formatRupees(data.amount);
     }
+    // Order ID for the success details row (server-owned, captured on create).
+    const orderEl = upiEl('succOrderId');
+    if (orderEl) {
+      const oid = (data && data.order_id) || upiState.orderId || '';
+      orderEl.textContent = oid || '—';
+    }
     const email = document.getElementById('buyerEmail');
     const confirm = upiEl('confirmEmail');
     if (confirm) confirm.textContent = (email && email.value) || 'your email';
@@ -2220,10 +2225,14 @@
     document.getElementById('successOverlay').classList.add('show');
     document.body.style.overflow = 'hidden';
     launchConfetti();
-    // Size + paint the silver scratch layer now that the card is on screen and
-    // has its final width. Two rAFs wait for the overlay's fade/scale-in to
-    // settle so the canvas backing store matches the panel's real pixel size.
-    requestAnimationFrame(() => requestAnimationFrame(initScratchCard));
+  }
+
+  // Close the success overlay (reference design × button). The code is already
+  // in the buyer's hands (shown + copyable) and also emailed / in My Orders.
+  function closeSuccess() {
+    const ov = document.getElementById('successOverlay');
+    if (ov) ov.classList.remove('show');
+    document.body.style.overflow = '';
   }
 
   function copyCode() {
