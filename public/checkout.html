@@ -901,16 +901,21 @@
         </button>
       </div>
 
-      <!-- The "Open UPI App / Pay Now" and "I've paid — Check status" buttons
-           were removed on request. This is NOT a replacement button or a new UI
-           element: it is an invisible, non-interactive spacer that reserves the
-           exact vertical space the two removed buttons occupied (open: 16px
-           margin + 48px; check: 12px margin + 48px = 124px), so the box keeps
-           its original width, height, radius, padding and position with nothing
-           shifting up. Payment still confirms automatically via the live
-           stream/poll; the underlying openUpiApp()/checkPaymentNow() handlers
-           are left intact and simply no longer have a trigger. -->
-      <div class="upm-btnspace" aria-hidden="true"></div>
+      <!-- Payment actions — restored to match the approved reference:
+           a bright-green "Open UPI App / Pay Now" (revealed only while a payable
+           upi:// deep link exists) and an outlined "I've paid — Check status"
+           that re-verifies against the server. Handlers openUpiApp() /
+           checkPaymentNow() are unchanged; auto stream/poll still confirms too. -->
+      <button class="upm-open hide" id="upmOpenApp" type="button" onclick="openUpiApp()" disabled>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+        Open UPI App / Pay Now
+      </button>
+      <button class="upm-check" id="upmCheck" type="button" onclick="checkPaymentNow()">
+        <span class="spinner" id="upmCheckSpinner" hidden></span>
+        <span id="upmCheckText">I've paid — Check status</span>
+      </button>
 
       <div class="upm-foot">Secured by <span class="upm-green">SaveHatke</span><span class="upm-foot-ico" aria-hidden="true">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
