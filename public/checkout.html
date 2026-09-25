@@ -145,21 +145,21 @@
        both pages count down to the identical deadline and change colour band on
        the identical thresholds (green >2wks / yellow ≤2wks / red ≤1wk). The
        ticker only rewrites the digit spans, so the icon's breathe never restarts. */
-    .cc-expiry { display:flex; align-items:center; gap:10px; margin:14px 0 0; padding:8px 12px; border-radius:9px; border:1px solid transparent; }
-    .cc-exp-head { display:flex; align-items:center; gap:6px; min-width:0; }
-    .cc-exp-icon { width:14px; height:14px; flex-shrink:0; animation:ccExpBreathe 2.4s ease-in-out infinite; }
+    .cc-expiry { display:flex; align-items:center; justify-content:center; gap:7px; padding:5px 10px; border-radius:999px; border:1px solid transparent; }
+    .cc-exp-head { display:flex; align-items:center; gap:5px; min-width:0; }
+    .cc-exp-icon { width:12px; height:12px; flex-shrink:0; animation:ccExpBreathe 2.4s ease-in-out infinite; }
     @keyframes ccExpBreathe { 0%,100% { opacity:.95; } 50% { opacity:.42; } }
-    .cc-exp-label { font-size:.63rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.75; white-space:nowrap; }
-    .cc-exp-clock { margin-left:auto; display:flex; align-items:baseline; gap:7px; }
+    .cc-exp-label { font-size:.6rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.75; white-space:nowrap; }
+    .cc-exp-clock { display:flex; align-items:baseline; gap:4px; }
     .cc-exp-tile { display:inline-flex; align-items:baseline; }
-    .cc-exp-tile b { font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; font-size:.9rem; font-weight:700; line-height:1; min-width:2ch; text-align:right; }
-    .cc-exp-tile i { font-style:normal; font-size:.6rem; font-weight:700; text-transform:lowercase; opacity:.55; line-height:1; margin-left:1px; }
+    .cc-exp-tile b { font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; font-size:.76rem; font-weight:700; line-height:1; min-width:2ch; text-align:right; }
+    .cc-exp-tile i { font-style:normal; font-size:.56rem; font-weight:700; text-transform:lowercase; opacity:.55; line-height:1; margin-left:1px; }
     .cc-exp-no-days .cc-exp-tile-d { display:none; }
-    .cc-exp-over { display:none; font-size:.72rem; font-weight:700; margin-left:auto; }
+    .cc-exp-over { display:none; font-size:.66rem; font-weight:700; letter-spacing:.04em; }
     .cc-expiry-expired .cc-exp-label, .cc-expiry-expired .cc-exp-clock { display:none; }
     .cc-expiry-expired .cc-exp-over { display:block; }
     .cc-expiry-expired .cc-exp-icon { opacity:.55; animation:none; }
-    .cc-expiry-green   { color:#00e676; background:rgba(0,230,118,.08);   border-color:rgba(0,230,118,.22); }
+    .cc-expiry-green   { color:#00e676; background:rgba(0,230,118,.08);   border-color:rgba(0,230,118,.22); box-shadow:0 0 14px rgba(0,230,118,.10); }
     .cc-expiry-yellow  { color:#ffd740; background:rgba(255,215,64,.09);  border-color:rgba(255,215,64,.30); }
     .cc-expiry-red     { color:#ff5252; background:rgba(255,82,82,.11);   border-color:rgba(255,82,82,.40); }
     .cc-expiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.20); }
@@ -181,46 +181,37 @@
 
     .cc-desc { font-size:.86rem; color:#a8c0dc; line-height:1.55; margin-top:8px; }
 
-    .cc-boxes { display:flex; flex-wrap:wrap; gap:12px; margin:16px 0 4px; }
-    .cc-box { flex:1 1 140px; min-width:132px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:5px; padding:14px 12px; border-radius:12px; background:rgba(255,255,255,.03); border:1px solid rgba(79,195,247,.14); }
-    .cc-box-ico { font-size:1.4rem; line-height:1; display:inline-flex; align-items:center; justify-content:center; }
-    .cc-box-ico .cc-exp-icon { width:20px; height:20px; }
-    .cc-box-label { font-size:.63rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#8ea8c3; opacity:1; }
-    .cc-box-val { font-size:.96rem; font-weight:800; color:#e2ecff; line-height:1.25; }
+    /* Compact marketplace-style badges: the category pill and the countdown
+       strip sit side by side directly under the hero, sized and styled to match
+       the small .ccat / .cexpiry elements on the Buy Coupons cards — small
+       pills, never large information cards. */
+    .cc-boxes { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:14px 0 4px; }
+    /* Category badge — mirrors the marketplace card's .ccat exactly. */
+    .cc-cat { display:inline-flex; align-items:center; gap:5px; font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:4px 10px; border-radius:6px; background:rgba(var(--cat-rgb,79,195,247),.11); color:rgb(var(--cat-rgb,79,195,247)); border:1px solid rgba(var(--cat-rgb,79,195,247),.28); box-shadow:0 0 9px rgba(var(--cat-rgb,79,195,247),.16); text-shadow:0 0 9px rgba(var(--cat-rgb,79,195,247),.32); max-width:60%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:0 0 auto; }
+    .cc-cat-ico { flex:0 0 auto; text-shadow:none; }
 
     /* Category accent — same per-category hues as the marketplace pills. */
-    .cc-box.cc-cat { --cat-rgb:79,195,247; border-color:rgba(var(--cat-rgb),.30); background:rgba(var(--cat-rgb),.07); }
-    .cc-box.cc-cat .cc-box-val { color:rgb(var(--cat-rgb)); }
-    .cc-box.cc-cat[data-cat="E-Commerce" i]{--cat-rgb:34,211,238}
-    .cc-box.cc-cat[data-cat="Fashion" i]{--cat-rgb:251,113,133}
-    .cc-box.cc-cat[data-cat="Beauty & Personal Care" i],.cc-box.cc-cat[data-cat="Beauty" i]{--cat-rgb:167,139,250}
-    .cc-box.cc-cat[data-cat="Food & Delivery" i],.cc-box.cc-cat[data-cat="Food & Dining" i],.cc-box.cc-cat[data-cat="Food" i]{--cat-rgb:251,146,60}
-    .cc-box.cc-cat[data-cat="Travel & Transport" i],.cc-box.cc-cat[data-cat="Travel" i]{--cat-rgb:56,189,248}
-    .cc-box.cc-cat[data-cat="Hotels & Stays" i]{--cat-rgb:232,121,249}
-    .cc-box.cc-cat[data-cat="Electronics & Gadgets" i],.cc-box.cc-cat[data-cat="Mobiles & Electronics" i]{--cat-rgb:96,165,250}
-    .cc-box.cc-cat[data-cat="Electronics" i]{--cat-rgb:59,130,246}
-    .cc-box.cc-cat[data-cat="Gaming & Entertainment" i],.cc-box.cc-cat[data-cat="Gaming" i]{--cat-rgb:129,140,248}
-    .cc-box.cc-cat[data-cat="Entertainment" i]{--cat-rgb:248,113,113}
-    .cc-box.cc-cat[data-cat="Fitness & Sports" i],.cc-box.cc-cat[data-cat="Fitness" i]{--cat-rgb:163,230,53}
-    .cc-box.cc-cat[data-cat="Education" i]{--cat-rgb:250,204,21}
-    .cc-box.cc-cat[data-cat="Health & Pharmacy" i],.cc-box.cc-cat[data-cat="Health & Fitness" i],.cc-box.cc-cat[data-cat="Health" i]{--cat-rgb:52,211,153}
-    .cc-box.cc-cat[data-cat="Finance & Payments" i]{--cat-rgb:0,230,118}
-    .cc-box.cc-cat[data-cat="Furniture & Home" i]{--cat-rgb:192,132,252}
-    .cc-box.cc-cat[data-cat="Home & Living" i]{--cat-rgb:244,114,182}
-    .cc-box.cc-cat[data-cat="Automotive" i]{--cat-rgb:148,163,184}
-    .cc-box.cc-cat[data-cat="General" i]{--cat-rgb:157,184,212}
+    .cc-cat[data-cat="E-Commerce" i]{--cat-rgb:34,211,238}
+    .cc-cat[data-cat="Fashion" i]{--cat-rgb:251,113,133}
+    .cc-cat[data-cat="Beauty & Personal Care" i],.cc-cat[data-cat="Beauty" i]{--cat-rgb:167,139,250}
+    .cc-cat[data-cat="Food & Delivery" i],.cc-cat[data-cat="Food & Dining" i],.cc-cat[data-cat="Food" i]{--cat-rgb:251,146,60}
+    .cc-cat[data-cat="Travel & Transport" i],.cc-cat[data-cat="Travel" i]{--cat-rgb:56,189,248}
+    .cc-cat[data-cat="Hotels & Stays" i]{--cat-rgb:232,121,249}
+    .cc-cat[data-cat="Electronics & Gadgets" i],.cc-cat[data-cat="Mobiles & Electronics" i]{--cat-rgb:96,165,250}
+    .cc-cat[data-cat="Electronics" i]{--cat-rgb:59,130,246}
+    .cc-cat[data-cat="Gaming & Entertainment" i],.cc-cat[data-cat="Gaming" i]{--cat-rgb:129,140,248}
+    .cc-cat[data-cat="Entertainment" i]{--cat-rgb:248,113,113}
+    .cc-cat[data-cat="Fitness & Sports" i],.cc-cat[data-cat="Fitness" i]{--cat-rgb:163,230,53}
+    .cc-cat[data-cat="Education" i]{--cat-rgb:250,204,21}
+    .cc-cat[data-cat="Health & Pharmacy" i],.cc-cat[data-cat="Health & Fitness" i],.cc-cat[data-cat="Health" i]{--cat-rgb:52,211,153}
+    .cc-cat[data-cat="Finance & Payments" i]{--cat-rgb:0,230,118}
+    .cc-cat[data-cat="Furniture & Home" i]{--cat-rgb:192,132,252}
+    .cc-cat[data-cat="Home & Living" i]{--cat-rgb:244,114,182}
+    .cc-cat[data-cat="Automotive" i]{--cat-rgb:148,163,184}
+    .cc-cat[data-cat="General" i]{--cat-rgb:157,184,212}
 
-    /* Timer box overrides — vertical layout, centred clock, larger digits. The
-       colour bands (green/yellow/red/expired) are re-declared here at a higher
-       specificity so they win over the neutral .cc-box background + border. */
-    .cc-box.cc-expiry { margin:0; }
-    .cc-box.cc-expiry .cc-exp-clock { margin-left:0; justify-content:center; gap:7px; }
-    .cc-box.cc-expiry .cc-exp-tile b { font-size:1.15rem; }
-    .cc-box.cc-expiry .cc-exp-over { margin-left:0; }
-    .cc-box.cc-expiry-green   { color:#00e676; background:rgba(0,230,118,.08);   border-color:rgba(0,230,118,.30); }
-    .cc-box.cc-expiry-yellow  { color:#ffd740; background:rgba(255,215,64,.09);  border-color:rgba(255,215,64,.34); }
-    .cc-box.cc-expiry-red     { color:#ff5252; background:rgba(255,82,82,.11);   border-color:rgba(255,82,82,.42); }
-    .cc-box.cc-expiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.24); }
+    /* The countdown strip renders at the marketplace card's compact scale from
+       the base .cc-expiry / .cc-exp-* rules above; no large-box override. */
 
     /* Availability notice (expired / sold out). Hidden until blockPurchase(). */
     .cc-status { margin-top:16px; padding:11px 14px; border-radius:10px; font-size:.85rem; font-weight:700; color:#ff5252; background:rgba(255,82,82,.1); border:1px solid rgba(255,82,82,.32); text-align:center; }
@@ -683,26 +674,25 @@
           <!-- Category + live marketplace timer, side by side. The timer reads
                the SAME expiry the marketplace uses; it is not a second clock. -->
           <div class="cc-boxes">
-            <div class="cc-box cc-cat" id="csCategoryBox" style="display:none">
-              <span class="cc-box-ico" id="csCatIco" aria-hidden="true">🏷️</span>
-              <span class="cc-box-label">Category</span>
-              <span class="cc-box-val" id="csCategory">—</span>
-            </div>
-            <div class="cc-box cc-expiry" id="csExpiryTimer" style="display:none">
-              <span class="cc-box-ico" aria-hidden="true">
+            <span class="cc-cat" id="csCategoryBox" data-cat="" style="display:none">
+              <span class="cc-cat-ico" id="csCatIco" aria-hidden="true">🏷️</span>
+              <span id="csCategory">—</span>
+            </span>
+            <div class="cc-expiry" id="csExpiryTimer" style="display:none">
+              <span class="cc-exp-head">
                 <svg class="cc-exp-icon" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
                   <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
+                <span class="cc-exp-label">Ends In</span>
               </span>
-              <span class="cc-box-label cc-exp-label">Ends In</span>
               <span class="cc-exp-clock">
                 <span class="cc-exp-tile cc-exp-tile-d"><b class="cc-exp-d">0</b><i>d</i></span>
                 <span class="cc-exp-tile"><b class="cc-exp-h">00</b><i>h</i></span>
                 <span class="cc-exp-tile"><b class="cc-exp-m">00</b><i>m</i></span>
                 <span class="cc-exp-tile"><b class="cc-exp-s">00</b><i>s</i></span>
               </span>
-              <span class="cc-exp-over">Offer ended</span>
+              <span class="cc-exp-over">◷ Offer ended</span>
             </div>
           </div>
 
@@ -1153,7 +1143,7 @@
       setText('.cc-exp-h', p.hh);
       setText('.cc-exp-m', p.mm);
       setText('.cc-exp-s', p.ss);
-      const cls = 'cc-box cc-expiry cc-expiry-' + expiryBand(msLeft) + (p.dd ? '' : ' cc-exp-no-days');
+      const cls = 'cc-expiry cc-expiry-' + expiryBand(msLeft) + (p.dd ? '' : ' cc-exp-no-days');
       if (box.className !== cls) box.className = cls;
       // An expired coupon can't be honoured, so stop the sale rather than take
       // the money. The server is the real gate; this is the honest UI.
@@ -1237,7 +1227,7 @@
     const cat = String(currentCoupon.category || '').trim();
     if (catBox) {
       if (cat) {
-        catBox.style.display = 'flex';
+        catBox.style.display = 'inline-flex';
         catBox.setAttribute('data-cat', cat);
         set('csCategory', cat);
         set('csCatIco', categoryIconFor(cat));
