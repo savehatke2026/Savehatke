@@ -48,6 +48,26 @@ const DRIVE_CONSENT_SCOPES = [
 
 const DEFAULT_DRIVE_EMAIL = 'database.savehatke@gmail.com';
 
+// Defaults for the known SaveHatke Drive folders. The platform uploads into
+// more than one folder (Support, Coupon Proofs, QR Codes), each with an
+// optional env-var override. Folder IDs are not secrets; we keep the IDs
+// defaulted here so the platform keeps working when the env vars are absent,
+// and the reconnect guard can list them as "known good folders" for per-folder
+// reachability verification.
+const DEFAULT_SUPPORT_FOLDER_ID = '1_EYCJNWZVaCsKB9g2c-PqWnIBImUfTkq';
+const DEFAULT_COUPON_PROOF_FOLDER_ID = '1mjodbeSPtbzZHUxr6o9w2m6H95aSIyyH';
+const DEFAULT_QR_FOLDER_ID = '1qykqVyUtk4OFRVuoTum4_t-1ZHkhx-02';
+
+// Known valid SaveHatke Drive folders. The reconnect guard only requires access
+// to ONE of these to store the credential (because the platform uploads into
+// more than one folder). Each entry carries the override env key so the spec
+// of `GOOGLE_DRIVE_*_FOLDER_ID` overrides continues to work.
+const KNOWN_FOLDER_IDS = [
+  { id: DEFAULT_SUPPORT_FOLDER_ID,        name: 'Support Images',  envKey: 'GOOGLE_DRIVE_SUPPORT_FOLDER_ID' },
+  { id: DEFAULT_COUPON_PROOF_FOLDER_ID,   name: 'Coupon Proofs',   envKey: 'GOOGLE_DRIVE_COUPON_PROOF_FOLDER_ID' },
+  { id: DEFAULT_QR_FOLDER_ID,             name: 'QR Code Images',  envKey: 'GOOGLE_DRIVE_QR_FOLDER_ID' },
+];
+
 function clean(value) {
   return String(value || '').trim().replace(/^["']|["']$/g, '');
 }
@@ -398,7 +418,6 @@ async function getFileMeta(fileId) {
 // coupon-proof folders below — so support uploads work even when
 // GOOGLE_DRIVE_SUPPORT_FOLDER_ID is not set in the environment, and never fall
 // back to the general GOOGLE_DRIVE_FOLDER_ID (which may be stale/invalid).
-const DEFAULT_SUPPORT_FOLDER_ID = '1_EYCJNWZVaCsKB9g2c-PqWnIBImUfTkq';
 
 async function uploadSupportScreenshot(input) {
   const { buffer, ext, mimeType, ticketRef, uploaderEmail } = input || {};
@@ -417,8 +436,6 @@ async function uploadSupportScreenshot(input) {
   });
 }
 
-const DEFAULT_QR_FOLDER_ID = '1qykqVyUtk4OFRVuoTum4_t-1ZHkhx-02';
-
 async function uploadPayoutQrImage(input) {
   const { buffer, ext, mimeType, sellerEmail } = input || {};
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -435,8 +452,6 @@ async function uploadPayoutQrImage(input) {
     forcePrivate: true,
   });
 }
-
-const DEFAULT_COUPON_PROOF_FOLDER_ID = '1mjodbeSPtbzZHUxr6o9w2m6H95aSIyyH';
 
 async function uploadCouponProofScreenshot(input) {
   const { buffer, ext, mimeType, sellerEmail } = input || {};
@@ -532,6 +547,59 @@ async function exchangeCode(code, requestBase) {
 function expectedDriveEmail() {
   return driveEmail();
 }
+
+/**
+ * Probe access to every known SaveHatke Drive folder using the provided auth
+ * (DOAuth client). Returns the same shape for every folder:
+ *   { id, name, accessible: boolean, name: <live displayName?> }
+ * Used by the reconnect guard (≥1 accessible → OK) and by the status API so
+ * the admin panel can show per-folder reachability. Folder IDs are not
+ * secrets; plaintext tokens / access tokens are NEVER returned.
+ */
+async function probeKnownFolders(driveClient) {
+  const out = [];
+  for (const f of KNOWN_FOLDER_IDS) {
+    let entry = { id: f.id, key: f.name.toLowerCase().replace(/\s+/g, ''), name: f.name, accessible: false };
+    try {
+      const m = await driveClient.files.get({ fileId: f.id, fields: 'id,name', supportsAllDrives: true });
+      entry.accessible = true;
+      entry.name = m.data.name || f.name;
+    } catch (e) {
+      entry.accessible = false;
+      entry.error = (e && (e.code || (e.response && e.response.status))) || 'error';
+    }
+    out.push(entry);
+  }
+  return out;
+}
+
+/**
+ * Same helper but uses an explicit refresh token (used by the status API when
+ * the token is already on file — Supabase OR env fallback). Returns the folder
+ * access list; if no token resolves, returns all entries marked inaccessible.
+ */
+async function probeKnownFoldersWithTokens() {
+  const entries = [{ id: DEFAULT_SUPPORT_FOLDER_ID, name: 'Support Images' }, { id: DEFAULT_COUPON_PROOF_FOLDER_ID, name: 'Coupon Proofs' }, { id: DEFAULT_QR_FOLDER_ID, name: 'QR Code Images' }];
+  const c = getCreds();
+  const token = c.oauthClientReady ? await resolveRefreshToken() : null;
+  if (!token) return entries.map(e => ({ id: e.id, key: e.name.toLowerCase().replace(/\s+/g, ''), name: e.name, accessible: false, error: 'no_token' }));
+  try {
+    const auth = new google.auth.OAuth2(c.clientId, c.clientSecret);
+    auth.setCredentials({ refresh_token: token });
+    return await probeKnownFolders(google.drive({ version: 'v3', auth }));
+  } catch (e) {
+    return entries.map(e => ({ id: e.id, key: e.name.toLowerCase().replace(/\s+/g, ''), name: e.name, accessible: false, error: 'auth_failed' }));
+  }
+}
+
+/**
+ * At least one of the known folders is reachable with the supplied Drive
+ * client. Returns the first accessible entry, or null when none are reachable.
+ */
+async function findReachableKnownFolder(driveClient) {
+  const probed = await probeKnownFolders(driveClient);
+  return probed.find(p => p.accessible) || null;
+}
 /**
  * Persist a fresh Drive refresh token to Supabase (service = google_drive).
  * estimated_expires_at is intentionally NULL — the Drive credential has no
@@ -571,6 +639,10 @@ module.exports = {
   reportDriveError,
   reportVerified,
   isDriveAuthError,
+  KNOWN_FOLDER_IDS,
+  probeKnownFolders,
+  probeKnownFoldersWithTokens,
+  findReachableKnownFolder,
   DRIVE_SCOPES,
   DRIVE_CONSENT_SCOPES,
   // Exposed for diagnostics

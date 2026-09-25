@@ -358,24 +358,33 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
           return driveDone(false, `You authorized ${driveAccount}, but the Drive account must be ${expected}. Reconnect and pick that account.`);
         }
 
-        // Verify the token can actually reach the configured Drive folder BEFORE
-        // saving — this is the definitive "uploads will work" check and prevents
-        // storing a credential that lacks folder access.
-        const folderId = String(process.env.GOOGLE_DRIVE_FOLDER_ID || '').trim().replace(/^["']|["']$/g, '');
-        if (folderId) {
-          try {
-            await drive.files.get({ fileId: folderId, fields: 'id', supportsAllDrives: true });
-          } catch (e) {
-            return driveDone(false, `Authorized as ${driveAccount}, but that account cannot access the SaveHatke Drive folder. Reconnect with the account that owns it.`);
-          }
+        // Verify the token can actually reach AT LEAST ONE known valid SaveHatke
+        // Drive folder BEFORE saving — this is the "uploads will work" check and
+        // prevents storing a credential that lacks folder access. SaveHatke has
+        // more than one Drive folder (Support Images + Coupon Proofs + QR Codes),
+        // so reaching any single one is enough to prove the credential is usable.
+        // Token / secret material is NEVER returned; only folder reachability.
+        const probed = await googleDrive.probeKnownFolders(drive);
+        const reached = probed.filter(p => p.accessible).map(p => p.name);
+        if (!reached.length) {
+          return driveDone(
+            false,
+            'Google account authorized, but it cannot access any configured SaveHatke Drive folder.',
+          );
         }
+        console.log('[google-drive.connect] folder access:', reached.join(', '));
 
         const saved = await googleDrive.saveConnection({
           refresh_token: dtokens.refresh_token,
           drive_email: driveAccount,
         });
         req.user = { id: decoded.adminId, email: decoded.email };
-        audit(req, 'google-drive.connect', saved.email, `token stored in ${saved.source}`);
+        audit(
+          req,
+          'google-drive.connect',
+          saved.email,
+          `token stored in ${saved.source}; folders reachable: ${reached.join(', ')}`,
+        );
         return driveDone(true);
       } catch (e) {
         console.error('Google Drive callback error:', e.message);

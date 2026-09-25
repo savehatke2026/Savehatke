@@ -1809,6 +1809,13 @@ router.get('/security-credentials', authenticateToken, requireAdmin, async (req,
       securityStore.getSafeStatus(securityStore.SERVICES.GOOGLE_DRIVE, driveEmail),
     ]);
 
+    // Probe Drive folder reachability using the stored (or env-fallback) token.
+    // This is best-effort and never blocks the status response; failures just
+    // mark the folders as inaccessible with a safe reason.
+    let driveFolders = [];
+    try { driveFolders = await googleDrive.probeKnownFoldersWithTokens(); }
+    catch (_) { driveFolders = []; }
+
     // Shape each into the documented safe payload (no secrets).
     const shape = (s, service, fallbackEmail, configured) => ({
       service,
@@ -1832,6 +1839,7 @@ router.get('/security-credentials', authenticateToken, requireAdmin, async (req,
         shape(payment, securityStore.SERVICES.PAYMENT_GMAIL, paymentEmail, paymentMailbox.isOAuthConfigured()),
         shape(drive, securityStore.SERVICES.GOOGLE_DRIVE, driveEmail, googleDrive.isOAuthConfigured()),
       ],
+      driveFolders,
     });
   } catch (err) {
     console.error('security-credentials status error:', err.message);
