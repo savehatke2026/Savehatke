@@ -47,6 +47,9 @@ const upi = require('./upi');
 // first overpayment: processCandidate() only ever invokes it from a
 // server-verified code path, so the load itself is harmless.
 const refundsService = require('./refunds');
+// Buyer receipt email. Sent best-effort AFTER a payment is genuinely settled;
+// it never affects the settlement result (see deliverPaymentSuccessEmail).
+const emailService = require('./emailService');
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -575,6 +578,13 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
     });
   } catch (e) {}
 
+  // Payment is genuinely settled to PAID — send the buyer their confirmation
+  // receipt. Skipped for idempotent replays so a redelivered webhook never
+  // double-sends, and isolated so an email failure can't undo the settlement.
+  if (result && result.ok && !result.idempotent) {
+    await deliverPaymentSuccessEmail(payment);
+  }
+
   return {
     action: 'settled',
     reason: `Payment ${payment.paymentId} settled (${result.code}).`,
@@ -762,6 +772,12 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
 
   console.log(`${tag} Payment verified: ${payment.paymentId} (order ${payment.orderCode || payment.orderId})`);
   console.log(`${tag} Verification stopped for ${payment.paymentId}`);
+
+  // Genuinely settled — send the buyer their confirmation receipt (best-effort,
+  // skipped on idempotent replays so a re-read FamApp email never double-sends).
+  if (result && result.ok && !result.idempotent) {
+    await deliverPaymentSuccessEmail(payment);
+  }
 
   return {
     action: 'settled',
@@ -972,6 +988,51 @@ async function triggerMailboxScan(opts = {}) {
     }
   })();
   return _scanInFlight;
+}
+
+// ── Buyer receipt email ──────────────────────────────────────────────────────
+// Fired ONLY after a payment is genuinely settled to PAID (server-verified via
+// the HMAC webhook or the FamApp mailbox — never anything the browser reports).
+// Fully isolated from settlement: it reads the order for the receipt fields,
+// sends the confirmation, and can neither throw into nor stall (beyond a short
+// cap) the settlement path that calls it.
+async function deliverPaymentSuccessEmail(payment) {
+  try {
+    if (!payment || !payment.paymentId) return;
+    const order = payment.orderId
+      ? await store.findOrderById(payment.orderId).catch(() => null)
+      : null;
+    const to = (order && (order.buyerEmail || order.userEmail)) || payment.userEmail || '';
+    if (!to) {
+      console.warn('[Payment Email] Settled payment has no recipient address; confirmation skipped.');
+      return;
+    }
+    const sendPromise = emailService.sendPaymentSuccessEmail({
+      to,
+      buyerName: (order && order.buyerName) || '',
+      amount: (order && order.amount) || payment.amount || 0,
+      orderCode: (order && order.orderCode) || '',
+      couponBrand: (order && order.couponBrand) || '',
+      couponCode: (order && order.couponCode) || '',
+      paidAt: (order && order.paidAt) || payment.paidAt || new Date().toISOString(),
+      transactionId: payment.verifiedTransactionId || payment.verifiedUtr || '',
+    });
+    // A hung SMTP call must never stall settlement reporting; cap the wait.
+    // sendPaymentSuccessEmail swallows its own errors, so this never rejects.
+    const res = await Promise.race([
+      sendPromise,
+      new Promise((resolve) => setTimeout(() => resolve({ success: false, error: 'send timed out' }), 12000)),
+    ]);
+    if (res && res.success) {
+      console.log(`[Payment Email] Confirmation sent to ${to} (order ${(order && order.orderCode) || payment.paymentId}).`);
+    } else if (res && res.isSimulated) {
+      console.warn('[Payment Email] SMTP not configured — payment confirmation not sent.');
+    } else {
+      console.warn(`[Payment Email] Payment confirmation not sent: ${(res && res.error) || 'unknown error'}.`);
+    }
+  } catch (e) {
+    console.warn('[Payment Email] Payment confirmation send failed:', e.message);
+  }
 }
 
 module.exports = {

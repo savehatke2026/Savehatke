@@ -126,6 +126,50 @@ function getNoreplyTransporter() {
 }
 
 /**
+ * Transporter that authenticates AS the dedicated payment mailbox, so the
+ * payment-confirmation email is sent FROM the payment email (not no-reply).
+ *
+ * Configure with PAYMENT_SMTP_USER + PAYMENT_SMTP_PASS — a Gmail App Password
+ * for the payment account (PAYMENT_MAILBOX_EMAIL, e.g. rupayandas2025@gmail.com).
+ * The payment mailbox's own Gmail OAuth token is least-privilege read-only
+ * (gmail.readonly), so it cannot send; a dedicated App Password is the send
+ * path. Returns null when unconfigured, so the caller can fall back to the
+ * no-reply transport.
+ *
+ * @returns {{transporter: import('nodemailer').Transporter, fromEmail: string}|null}
+ */
+function getPaymentTransporter() {
+  const user = (process.env.PAYMENT_SMTP_USER || process.env.PAYMENT_MAILBOX_EMAIL || '').trim();
+  const pass = (process.env.PAYMENT_SMTP_PASS || '').trim();
+  if (!user || !pass) return null;
+
+  const host = (process.env.PAYMENT_SMTP_HOST || '').trim();
+  const service = (process.env.PAYMENT_EMAIL_SERVICE || '').trim();
+  // The payment mailbox is a Gmail account, so default to the Gmail service
+  // when no explicit host/service is configured.
+  const isGmail = service.toLowerCase() === 'gmail' || host.includes('gmail') || (!host && !service);
+  // App Passwords are shown with spaces in the Google UI; strip them for Gmail.
+  const passClean = isGmail ? pass.replace(/\s+/g, '') : pass;
+
+  if (isGmail && !host) {
+    return {
+      transporter: nodemailer.createTransport({ service: 'gmail', auth: { user, pass: passClean } }),
+      fromEmail: user,
+    };
+  }
+
+  const port = parseInt(process.env.PAYMENT_SMTP_PORT, 10) || 465;
+  const isSecure = process.env.PAYMENT_SMTP_SECURE === 'true' || port === 465;
+  return {
+    transporter: nodemailer.createTransport({
+      host, port, secure: isSecure, auth: { user, pass: passClean },
+      tls: { rejectUnauthorized: false },
+    }),
+    fromEmail: user,
+  };
+}
+
+/**
  * Send a Welcome Email to a newly registered user.
  * Sent only for first-time sign-ups (the auth code guards on isNewSignup
  * before calling this). Uses the no-reply account by default so replies
@@ -2629,7 +2673,408 @@ async function sendCustomEmail({ to, subject, html, text, headers } = {}) {
   }
 }
 
+/**
+ * Send the Payment Confirmation email to the buyer after a payment is REALLY
+ * settled (server-verified PAID) — fired from the payment verifier's webhook
+ * and FamApp-mailbox settle paths, never from anything the browser reports.
+ *
+ * Uses the no-reply account (transactional/account comms) exactly like the
+ * welcome email, so SPF/DKIM stays aligned and replies route to support. The
+ * header shows the real website brand lockup — logo.png + the "SaveHatke"
+ * wordmark — matching public/index.html's nav-brand. Everything else is the
+ * template that was provided, rebuilt around live order data.
+ *
+ * @param {Object} p
+ * @param {string} p.to              Buyer email (recipient)
+ * @param {string} [p.buyerName]     Name to greet
+ * @param {number} p.amount          Amount paid (INR)
+ * @param {string} [p.orderCode]     Human order id shown on the receipt
+ * @param {string} [p.couponBrand]   Brand of the purchased coupon (if any)
+ * @param {string} [p.couponTitle]   Optional coupon title/discount label
+ * @param {string} [p.couponCode]    Reserved; not shown by default
+ * @param {string} [p.paidAt]        ISO timestamp the payment settled
+ * @param {string} [p.transactionId] Reserved; not shown by default
+ * @param {string} [p.currency]      Currency code (default INR)
+ * @returns {Promise<{success:boolean, messageId?:string, isSimulated?:boolean, error?:string, isPreview?:boolean, html?:string, text?:string, subject?:string}>}
+ */
+async function sendPaymentSuccessEmail({
+  to, buyerName, amount, orderCode, couponBrand, couponTitle, couponCode,
+  paidAt, transactionId, currency = 'INR',
+} = {}, opts = {}) {
+  const cleanEmail = String(to || '').toLowerCase().trim();
+  const displayName = buyerName && String(buyerName).trim() ? String(buyerName).trim() : 'there';
+  const safeName = escapeHtml(displayName);
+
+  // ── Sender: send FROM the payment mailbox ────────────────────────────────
+  // The payment confirmation is sent from the dedicated payment account
+  // (PAYMENT_MAILBOX_EMAIL, e.g. rupayandas2025@gmail.com) whenever its SMTP
+  // credentials — PAYMENT_SMTP_USER + PAYMENT_SMTP_PASS (a Gmail App Password
+  // for that account) — are configured. If they are not, we fall back to the
+  // no-reply transport so the receipt still goes out. We never send AS an
+  // address we are not authenticated for (that breaks SPF/DKIM), so the From
+  // always follows the transport we actually log in with.
+  const replyTo = process.env.SUPPORT_EMAIL || 'support@savehatke.com';
+  const paymentSender = getPaymentTransporter();
+  let t;
+  let fromEmail;
+  let fromName;
+  if (paymentSender) {
+    t = paymentSender.transporter;
+    fromEmail = (process.env.PAYMENT_FROM_EMAIL || paymentSender.fromEmail).trim();
+    fromName = (process.env.PAYMENT_FROM_NAME || 'SaveHatke').trim();
+  } else {
+    // Fallback — no-reply "from" resolution, identical policy to the welcome
+    // email so the confirmation stays SPF/DKIM-aligned.
+    const noreplyAuthUser = (process.env.NOREPLY_SMTP_USER
+      || process.env.SMTP_USER
+      || process.env.EMAIL_USER
+      || '').trim();
+    const desiredNoreply = (process.env.NOREPLY_EMAIL
+      || process.env.NOREPLY_SMTP_USER
+      || 'noreply@savehatke.com').trim();
+    const hasDedicatedNoreply = Boolean(
+      (process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim()
+    );
+    const domainOf = (addr) => (String(addr).split('@')[1] || '').toLowerCase();
+    const canSendAsNoreply = hasDedicatedNoreply
+      || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+      || Boolean(desiredNoreply && noreplyAuthUser && domainOf(desiredNoreply) === domainOf(noreplyAuthUser));
+    t = getNoreplyTransporter();
+    fromEmail = canSendAsNoreply ? desiredNoreply : (noreplyAuthUser || desiredNoreply);
+    fromName = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
+    if (t && !opts.renderOnly) {
+      console.warn(`⚠️ [EmailService] PAYMENT_SMTP_USER/PASS not set — payment confirmation for ${cleanEmail} will send from ${fromEmail}, not the payment mailbox (${process.env.PAYMENT_MAILBOX_EMAIL || 'rupayandas2025@gmail.com'}). Set PAYMENT_SMTP_USER + PAYMENT_SMTP_PASS to send from the payment email.`);
+    }
+  }
+
+  // The website serves logo.png at the web root (express.static → public/), so
+  // the email header can reference the exact same brand image the site uses.
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const logoUrl = `${siteUrl}/logo.png`;
+  const year = new Date().getFullYear();
+  const subject = 'Payment Successful — SaveHatke';
+
+  // Money formatted for the India audience.
+  const amountNum = Number(amount);
+  const amountStr = '₹' + (Number.isFinite(amountNum) ? amountNum : 0)
+    .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const safeOrder = escapeHtml(orderCode || '—');
+  // {{utr}} — the gateway transaction id / UTR. The FamApp mailbox path does
+  // not capture a UTR, so this falls back to a dash when none was recorded.
+  const txnRef = String(transactionId || '').trim() || '—';
+  const safeTxn = escapeHtml(txnRef);
+
+  if (!t && !opts.renderOnly) {
+    console.warn(`⚠️ [EmailService] SMTP not configured. Payment confirmation for ${cleanEmail} was NOT sent.`);
+    return { success: false, isSimulated: true, error: 'SMTP credentials not configured on server.' };
+  }
+
+  const textBody =
+`Payment Successful — SaveHatke
+
+Hello ${displayName},
+
+We have received your payment successfully.
+
+Amount: ${amountStr}
+Order ID: ${orderCode || '—'}
+Transaction ID: ${txnRef}
+
+Thank you for choosing SaveHatke.
+
+Regards,
+SaveHatke Team
+
+© ${year} SaveHatke. All rights reserved. This is an automated payment confirmation.`;
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment Confirmation – SaveHatke</title>
+  <style>
+    /* ── Reset ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: #f2f4f6;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    /* ── Email wrapper ── */
+    .email-wrapper { width: 100%; max-width: 560px; }
+
+    /* ── Card ── */
+    .email-card {
+      background: #ffffff;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    /* ── Header ── */
+    .email-header {
+      background: #ffffff;
+      border-bottom: 1px solid #f0f0f0;
+      padding: 28px 40px 24px;
+      text-align: center;
+    }
+
+    .logo-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    /* SaveHatke "S" icon */
+    .logo-icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: #22c55e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .logo-icon svg { width: 24px; height: 24px; fill: #ffffff; }
+
+    /* Website brand logo (logo.png) — replaces the placeholder icon box */
+    .logo-img { width: 42px; height: 42px; object-fit: contain; display: block; flex-shrink: 0; }
+
+    .logo-text {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a2e;
+      letter-spacing: -0.3px;
+    }
+
+    .logo-text span { color: #22c55e; }
+
+    /* ── Success banner ── */
+    .success-banner {
+      background: #ffffff;
+      padding: 36px 40px 32px;
+      text-align: center;
+    }
+
+    .tick-circle {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: #22c55e;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.12);
+    }
+
+    .tick-circle svg {
+      width: 32px;
+      height: 32px;
+      stroke: #ffffff;
+      stroke-width: 2.5;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .success-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a2e;
+      margin-bottom: 4px;
+    }
+
+    .success-sub {
+      font-size: 14px;
+      color: #6b7280;
+      font-weight: 500;
+    }
+
+    /* ── Body ── */
+    .email-body { padding: 32px 40px; }
+
+    .greeting { font-size: 16px; color: #374151; margin-bottom: 6px; }
+    .greeting strong { color: #22c55e; font-weight: 700; }
+
+    .intro {
+      font-size: 15px;
+      color: #6b7280;
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    /* ── Details table ── */
+    .details-card { margin-bottom: 28px; }
+
+    .details-header {
+      padding: 12px 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #9ca3af;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .detail-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+
+    .detail-row:last-child { border-bottom: none; }
+
+    .detail-label { font-size: 13px; color: #9ca3af; font-weight: 500; }
+
+    .detail-value {
+      font-size: 13px;
+      color: #1a1a2e;
+      font-weight: 600;
+      font-family: 'Courier New', Courier, monospace;
+    }
+
+    .detail-value.amount {
+      font-size: 17px;
+      color: #1a1a2e;
+      font-family: inherit;
+      font-weight: 800;
+    }
+
+    /* ── Thank you block ── */
+    .thankyou {
+      font-size: 15px;
+      color: #374151;
+      margin-bottom: 6px;
+      line-height: 1.6;
+    }
+
+    .brand-name { font-weight: 700; color: #1a1a2e; }
+
+    /* ── Footer ── */
+    .email-footer {
+      background: #ffffff;
+      padding: 0 40px 32px;
+      text-align: left;
+    }
+
+    .regards { font-size: 14px; color: #374151; margin-bottom: 2px; }
+    .team-name { font-size: 15px; font-weight: 700; color: #1a1a2e; }
+    .footer-copy { margin-top: 24px; font-size: 11px; color: #9ca3af; }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .email-header,
+      .success-banner,
+      .email-body,
+      .email-footer { padding-left: 24px; padding-right: 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="email-wrapper">
+    <div class="email-card">
+
+      <!-- HEADER: SaveHatke logo + wordmark (same as the website) -->
+      <div class="email-header">
+        <div class="logo-wrap">
+          <img src="${logoUrl}" alt="SaveHatke" class="logo-img" width="42" height="42" />
+          <span class="logo-text">Save<span>Hatke</span></span>
+        </div>
+      </div>
+
+      <!-- SUCCESS BANNER -->
+      <div class="success-banner">
+        <div class="tick-circle">
+          <svg viewBox="0 0 24 24">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+        </div>
+        <div class="success-title">Payment Successful</div>
+        <div class="success-sub">Your transaction is complete</div>
+      </div>
+
+      <!-- BODY -->
+      <div class="email-body">
+        <p class="greeting">Hello <strong>${safeName}</strong>,</p>
+        <p class="intro">We have received your payment successfully.</p>
+
+        <div class="details-card">
+          <div class="detail-row">
+            <span class="detail-label">Amount</span>
+            <span class="detail-value amount">${amountStr}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Order ID</span>
+            <span class="detail-value">${safeOrder}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Transaction ID</span>
+            <span class="detail-value">${safeTxn}</span>
+          </div>
+        </div>
+
+        <p class="thankyou">Thank you for choosing <span class="brand-name">SaveHatke</span>.</p>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="email-footer">
+        <p class="regards">Regards,</p>
+        <p class="team-name">SaveHatke Team</p>
+        <p class="footer-copy">© ${year} SaveHatke. All rights reserved. This is an automated payment confirmation — please do not reply.</p>
+      </div>
+
+    </div>
+  </div>
+
+</body>
+</html>`;
+
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
+  try {
+    const info = await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: cleanEmail,
+      replyTo,
+      subject,
+      text: textBody,
+      html: htmlContent,
+      // Pin the envelope sender to the header From so the return-path cannot
+      // drift to the authenticated login and break SPF/DKIM alignment.
+      envelope: { from: fromEmail, to: cleanEmail },
+      headers: {
+        'X-Entity-Ref-ID': `payment-${orderCode || Date.now()}`,
+        'Auto-Submitted': 'auto-generated',
+      },
+    });
+    console.log(`✅ [EmailService] Payment confirmation sent to ${cleanEmail} from ${fromEmail} (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send payment confirmation to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
+  sendPaymentSuccessEmail,
   sendOTPEmail,
   sendTwoFactorSecurityEmail,
   sendWelcomeEmail,
