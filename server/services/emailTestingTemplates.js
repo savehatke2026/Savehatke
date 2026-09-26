@@ -31,6 +31,24 @@ const NOW_ISO = () => new Date().toISOString();
 // { success:false, error } when SMTP is not configured on the server).
 const TEMPLATES = [
   {
+    id: 'payment_success',
+    name: 'Payment Successful',
+    description: 'Test the buyer payment-confirmation (receipt) email.',
+    category: 'Payment',
+    render: (to) => emailService.sendPaymentSuccessEmail({
+      to,
+      buyerName: 'SaveHatke Test User',
+      amount: 499,
+      orderCode: 'SH-TEST-1001',
+      couponBrand: 'Test Brand',
+      couponTitle: 'Test Coupon',
+      couponCode: 'TESTCODE10',
+      transactionId: 'TESTUTR1234567890',
+      paidAt: NOW_ISO(),
+      currency: 'INR',
+    }, { renderOnly: true }),
+  },
+  {
     id: 'welcome',
     name: 'Welcome Email',
     description: 'Test the new user welcome email.',
