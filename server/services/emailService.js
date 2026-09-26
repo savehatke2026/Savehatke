@@ -135,7 +135,7 @@ function getNoreplyTransporter() {
  * @param {string} userName - Display name to greet the user with
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
-async function sendWelcomeEmail(to, userName) {
+async function sendWelcomeEmail(to, userName, opts = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
 
@@ -419,6 +419,10 @@ If you did not create this account, please contact SaveHatke Support immediately
 </html>
   `;
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
   try {
     const info = await t.sendMail({
       from: `"${noreplyName}" <${noreplyEmail}>`,
@@ -450,7 +454,7 @@ If you did not create this account, please contact SaveHatke Support immediately
  * @param {string} otp - 6-digit OTP code
  * @returns {Promise<{success: boolean, messageId?: string, error?: string}>}
  */
-async function sendOTPEmail(to, otp) {
+async function sendOTPEmail(to, otp, opts = {}) {
   const cleanEmail = to.toLowerCase().trim();
 
   // Both the OTP and the "new sign-in" security alert send from the SAME
@@ -557,6 +561,16 @@ async function sendOTPEmail(to, otp) {
     'Importance': 'Normal',
   };
 
+  if (opts.renderOnly) {
+    return {
+      success: true,
+      isPreview: true,
+      subject: `${otp} is your SaveHatke verification code`,
+      text: `Your SaveHatke verification code is: ${otp}. It expires in 5 minutes. Do not share this code with anyone.`,
+      html: htmlContent,
+    };
+  }
+
   try {
     const info = await t.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
@@ -628,7 +642,7 @@ function isSupportEmailConfigured() {
  * @param {string} params.message - The user's submitted message
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
-async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, message }) {
+async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, message }, opts = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
   const safeCaseId = escapeHtml(caseId);
@@ -893,6 +907,10 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
     };
   }
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject: subject_, text: textBody, html: htmlContent };
+  }
+
   try {
     const info = await t.sendMail(mailOptions);
 
@@ -918,7 +936,7 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
  * @param {string} params.resolution - Admin-typed resolution message
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
-async function sendSupportResolvedEmail({ to, userName, caseId, subject, resolvedAt, userMessage, resolution }) {
+async function sendSupportResolvedEmail({ to, userName, caseId, subject, resolvedAt, userMessage, resolution }, opts = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
   const safeCaseId = escapeHtml(caseId);
@@ -1307,6 +1325,10 @@ SaveHatke Support Team
     };
   }
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject: subject_, text: textBody, html: htmlContent };
+  }
+
   try {
     const info = await t.sendMail(mailOptions);
     console.log(`✅ [EmailService] Support resolution notice sent to ${cleanEmail} for case #${safeCaseId} (Message ID: ${info.messageId})`);
@@ -1347,7 +1369,7 @@ async function sendSignInAlertEmail({
   to, userName, userEmail, signInTime,
   ip, device, browser, os,
   city, state, country, loginMethod, accountType,
-}) {
+}, opts = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   if (!cleanEmail) {
     return { success: false, error: 'No recipient address provided.' };
@@ -1781,6 +1803,10 @@ Team SaveHatke
     };
   }
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject: subject_, text: textBody, html: htmlContent };
+  }
+
   try {
     const info = await t.sendMail(mailOptions);
     console.log(`✅ [EmailService] New-device alert sent to ${cleanEmail} (${accountTypeText}, IP: ${ipText}, ${deviceText} / ${browserText} / ${osText}) (Message ID: ${info.messageId})`);
@@ -1827,7 +1853,7 @@ const TWO_FACTOR_CHANGE_COPY = {
 
 async function sendTwoFactorSecurityEmail({
   to, userName, change, ip, device, when, recoveryCodesRemaining,
-}) {
+}, opts = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   if (!cleanEmail) return { success: false, error: 'No recipient address provided.' };
 
@@ -1947,6 +1973,10 @@ ${lowCodes === null ? '' : `
   const emailHash = crypto.createHash('sha256').update(cleanEmail).digest('hex').slice(0, 16);
   const ref = `2fa-${change}-${emailHash}-${Date.now()}`;
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject: copy.subject, text: textBody, html: htmlContent };
+  }
+
   const mailOptions = {
     from: `"${fromName}" <${fromEmail}>`,
     to: cleanEmail,
@@ -2010,7 +2040,7 @@ ${lowCodes === null ? '' : `
  * @param {string} p.auditRef
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
-async function sendSosAccessAlertEmail(p) {
+async function sendSosAccessAlertEmail(p, opts = {}) {
   const cleanEmail = String((p && p.to) || '').toLowerCase().trim();
   if (!cleanEmail) return { success: false, error: 'No recipient address.' };
 
@@ -2108,6 +2138,10 @@ If you did not authorize this activity, immediately review the security logs and
     </table>
   </body></html>`;
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
   try {
     const info = await t.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
@@ -2148,7 +2182,7 @@ If you did not authorize this activity, immediately review the security logs and
  * @param {{filename: string, content: Buffer}} p.pdf
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
-async function sendMonthlyReportEmail(p) {
+async function sendMonthlyReportEmail(p, opts = {}) {
   const cleanEmail = String((p && p.to) || '').toLowerCase().trim();
   if (!cleanEmail) return { success: false, error: 'No recipient address.' };
 
@@ -2223,6 +2257,10 @@ async function sendMonthlyReportEmail(p) {
     </table>
   </body></html>`;
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
   try {
     const info = await t.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
@@ -2259,7 +2297,7 @@ async function sendMonthlyReportEmail(p) {
  *          submittedAt?: Date|string, reviewUrl?: string}} p
  * @returns {Promise<{success: boolean, delivered: string[], failed: Array<{to: string, error: string}>}>}
  */
-async function sendCouponSubmissionAdminEmail(p) {
+async function sendCouponSubmissionAdminEmail(p, opts = {}) {
   const recipients = String(process.env.ADMIN_ALERT_EMAILS || 'rupayandas2024@gmail.com,jaggik8888@gmail.com')
     .split(',')
     .map((x) => x.trim().toLowerCase())
@@ -2353,6 +2391,10 @@ ${reviewUrl}`;
     </table>
   </body></html>`;
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
   const delivered = [];
   const failed = [];
 
@@ -2393,7 +2435,7 @@ ${reviewUrl}`;
  * @param {{userName:string, userEmail:string, amount:number, paymentMethod:string, requestedAt:string|Date}} p
  * @returns {Promise<{success:boolean, delivered:string[], failed:{to:string,error:string}[]}>}
  */
-async function sendPayoutRequestAdminEmail(p) {
+async function sendPayoutRequestAdminEmail(p, opts = {}) {
   const recipients = String(process.env.ADMIN_ALERT_EMAILS || 'rupayandas2024@gmail.com,jaggik8888@gmail.com')
     .split(',')
     .map((x) => x.trim().toLowerCase())
@@ -2502,6 +2544,10 @@ Status: Pending Payment
     </table>
   </body></html>`;
 
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
   const delivered = [];
   const failed = [];
 
@@ -2533,6 +2579,56 @@ Status: Pending Payment
   return { success: delivered.length > 0, delivered, failed };
 }
 
+/**
+ * Send a fully-rendered email through the main authenticated SMTP transport.
+ * Used by the Admin Email Testing tool to dispatch a test copy of a production
+ * template (already rendered via each sender's renderOnly path) to the admin's
+ * saved test address. It never touches any real user/order/coupon/refund data —
+ * the caller supplies the finished subject/html/text — and it reuses the same
+ * Nodemailer transport as the production security/transactional mail.
+ *
+ * @param {{to:string, subject:string, html:string, text?:string, headers?:object}} p
+ * @returns {Promise<{success:boolean, messageId?:string, isSimulated?:boolean, error?:string}>}
+ */
+async function sendCustomEmail({ to, subject, html, text, headers } = {}) {
+  const cleanEmail = String(to || '').toLowerCase().trim();
+  if (!cleanEmail) return { success: false, error: 'No recipient address provided.' };
+  if (!html && !text) return { success: false, error: 'Nothing to send: empty email body.' };
+
+  const t = getTransporter();
+  if (!t || !isEmailConfigured()) {
+    return {
+      success: false,
+      isSimulated: true,
+      error: 'SMTP credentials not configured on server. Please add SMTP details to .env.',
+    };
+  }
+
+  const fromEmail = resolveMainFromAddress();
+  const fromName = (process.env.EMAIL_FROM_NAME || 'SaveHatke').trim();
+
+  try {
+    const info = await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: cleanEmail,
+      subject: String(subject || '(no subject)'),
+      text: text || undefined,
+      html: html || undefined,
+      envelope: { from: fromEmail, to: cleanEmail },
+      headers: {
+        'Auto-Submitted': 'auto-generated',
+        'X-Mailer': 'SaveHatke Email Testing',
+        ...(headers || {}),
+      },
+    });
+    console.log(`✅ [EmailService] Test email sent to ${cleanEmail} (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send test email to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendOTPEmail,
   sendTwoFactorSecurityEmail,
@@ -2546,4 +2642,5 @@ module.exports = {
   sendMonthlyReportEmail,
   isEmailConfigured,
   isSupportEmailConfigured,
+  sendCustomEmail,
 };

@@ -1127,6 +1127,9 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="nav-item" onclick="showSection('security',this)">
       <span class="ni">🔐</span> Security
     </div>
+    <div class="nav-item" onclick="showSection('email-testing',this)">
+      <span class="ni">✉️</span> Email Testing
+    </div>
     <div class="nav-item" onclick="showSection('settings',this)">
       <span class="ni">⚙️</span> Settings
     </div>
@@ -3090,6 +3093,78 @@ tbody td strong{color:#e2ecff;font-weight:600}
       </div>
     </div>
 
+    <!-- ═══════════════════════ EMAIL TESTING ═══════════════════════ -->
+    <div class="section-view" id="sec-email-testing">
+      <style>
+        #sec-email-testing .et-sub{color:#6b88aa;font-size:.85rem;margin:0 0 20px}
+        #sec-email-testing .et-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+        #sec-email-testing .et-row .form-inp{flex:1;min-width:220px}
+        #sec-email-testing .et-msg{font-size:.8rem;margin-top:10px;min-height:1.1em}
+        #sec-email-testing .et-msg.ok{color:#00e676}
+        #sec-email-testing .et-msg.err{color:#ef9a9a}
+        #sec-email-testing .et-note{font-size:.78rem;color:#6b88aa;margin-top:10px;line-height:1.55}
+        #sec-email-testing .et-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+        #sec-email-testing .et-chip{background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.15);color:#a8c0dc;border-radius:999px;padding:6px 14px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .18s}
+        #sec-email-testing .et-chip:hover{border-color:rgba(79,195,247,.4);color:#e2ecff}
+        #sec-email-testing .et-chip.active{background:rgba(0,230,118,.12);border-color:rgba(0,230,118,.4);color:#00e676}
+        #sec-email-testing .et-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+        #sec-email-testing .et-tile{background:rgba(12,24,52,.6);border:1px solid rgba(79,195,247,.1);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:8px}
+        #sec-email-testing .et-tile .et-cat{font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#4fc3f7;background:rgba(79,195,247,.1);border-radius:5px;padding:2px 7px;align-self:flex-start}
+        #sec-email-testing .et-tile h4{font-size:.9rem;font-weight:700;color:#e2ecff;margin:0}
+        #sec-email-testing .et-tile p{font-size:.8rem;color:#8ba6c4;line-height:1.5;margin:0;flex:1}
+        #sec-email-testing .et-tile-actions{display:flex;gap:8px;margin-top:6px}
+        #sec-email-testing .et-tile-actions .btn{flex:1;justify-content:center}
+        #sec-email-testing table th{ text-align:left;padding:12px 20px;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b88aa;border-bottom:1px solid rgba(79,195,247,.08)}
+        #sec-email-testing table td{padding:12px 20px;font-size:.82rem;color:#c9d8ee;border-bottom:1px solid rgba(79,195,247,.05)}
+        #sec-email-testing table tr:last-child td{border-bottom:none}
+      </style>
+
+      <p class="et-sub">Test and preview SaveHatke email templates using safe dummy data.</p>
+
+      <!-- Test Email Address -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">📧</span> Test Email Address</div>
+        <div class="et-row">
+          <input type="email" class="form-inp" id="etTestEmail" placeholder="test@example.com" autocomplete="off" spellcheck="false">
+          <button class="btn btn-primary" id="etSaveBtn" onclick="saveEmailTestAddress()">Save Test Email</button>
+        </div>
+        <div class="et-msg" id="etEmailMsg"></div>
+        <div class="et-note">The saved address is the recipient for every manually triggered test email. Test emails use safe dummy data and never affect any real user, order, coupon, payment, refund, or account.</div>
+      </div>
+
+      <!-- Templates -->
+      <div class="card">
+        <div class="search-bar" style="margin-bottom:14px">
+          <span style="color:#6b88aa">🔍</span>
+          <input type="text" id="etSearch" placeholder="Search email templates..." oninput="renderEmailTemplates()" autocomplete="off">
+        </div>
+        <div class="et-filters" id="etFilters"></div>
+        <div class="et-grid" id="etGrid">
+          <div class="empty-state" style="grid-column:1/-1"><div class="es-icon">⏳</div><div class="es-title">Loading templates…</div></div>
+        </div>
+      </div>
+
+      <!-- Recent Test Emails -->
+      <div class="table-card">
+        <div class="table-header">
+          <h3>Recent Test Emails</h3>
+          <div class="table-header-actions">
+            <button class="btn btn-ghost btn-sm" onclick="loadEmailTestHistory()">↻ Refresh</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr><th>Template</th><th>Recipient</th><th>Sent By</th><th>Date &amp; Time</th><th>Status</th></tr>
+            </thead>
+            <tbody id="etHistoryTable">
+              <tr><td colspan="5" style="color:#6b88aa">No test emails yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div> <!-- /content -->
 </div> <!-- /main -->
 
@@ -3291,6 +3366,45 @@ tbody td strong{color:#e2ecff;font-weight:600}
   </div>
 </div>
 
+<!-- ── MODAL: EMAIL PREVIEW (renders template with dummy data — no send) ── -->
+<div class="modal-overlay" id="emailPreviewModal">
+  <div class="modal" style="max-width:840px;width:96%">
+    <button class="modal-close" onclick="closeModal('emailPreviewModal')">✕</button>
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title" id="etPreviewTitle">Email Preview</div>
+        <div class="modal-sub">Rendered with safe dummy test data — nothing is sent from this screen.</div>
+      </div>
+    </div>
+    <div id="etPreviewSubject" style="font-size:.82rem;color:#a8c0dc;margin-bottom:10px;word-break:break-word"></div>
+    <iframe id="etPreviewFrame" title="Email preview" sandbox="" style="width:100%;height:60vh;border:1px solid rgba(79,195,247,.15);border-radius:10px;background:#fff"></iframe>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('emailPreviewModal')">Close</button>
+      <button class="btn btn-primary" style="flex:1" id="etPreviewSendBtn" onclick="confirmSendFromPreview()">Send Test Email</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MODAL: CONFIRM SEND TEST EMAIL ── -->
+<div class="modal-overlay" id="emailSendConfirmModal">
+  <div class="modal" style="max-width:460px">
+    <button class="modal-close" onclick="closeModal('emailSendConfirmModal')">✕</button>
+    <div class="modal-hdr">
+      <div class="modal-title">Send Test Email?</div>
+    </div>
+    <div style="font-size:.86rem;color:#a8c0dc;line-height:1.6">
+      This email will be sent to:
+      <div style="margin:10px 0;padding:11px 14px;background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.2);border-radius:9px;color:#e2ecff;font-weight:700;word-break:break-word" id="etConfirmEmail">—</div>
+      <div style="color:#8ba6c4">Template: <strong style="color:#e2ecff" id="etConfirmTemplate">—</strong></div>
+      <div style="margin-top:12px;font-size:.8rem;color:#6b88aa">This is a testing email and will not affect any real user, order, coupon, payment, refund, or account.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('emailSendConfirmModal')">Cancel</button>
+      <button class="btn btn-primary" style="flex:1" id="etConfirmSendBtn" onclick="doSendTestEmail()">Send Test</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast-container" id="toastContainer"></div>
 
 <script src="js/app.js"></script>
@@ -3352,6 +3466,7 @@ const sectionTitles = {
   security:      ['Security', '/ Settings'],
   settings:      ['Settings', '/ Configuration'],
   audit:         ['Audit Logs', '/ History'],
+  'email-testing': ['Email Testing', '/ Templates & Preview'],
 };
 
 function showSection(id, navEl) {
@@ -3422,6 +3537,9 @@ function showSection(id, navEl) {
   }
   if (id === 'support' && typeof loadSupportCases === 'function') {
     loadSupportCases();
+  }
+  if (id === 'email-testing' && typeof initEmailTesting === 'function') {
+    initEmailTesting();
   }
   if (id === 'chatbot' && typeof initChatbotSection === 'function') {
     initChatbotSection();

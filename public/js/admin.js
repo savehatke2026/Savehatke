@@ -3331,3 +3331,264 @@ function applyMaintenanceUI(data) {
     updatedBy.style.display = 'block';
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// EMAIL TESTING — preview & send TEST copies of real email templates.
+// Reuses the production templates (dummy data only) via /api/admin/email-testing.
+// Never affects real users, orders, coupons, payments, refunds or accounts.
+// ══════════════════════════════════════════════════════════════════════════
+let etTemplates = [];
+let etCategories = ['All'];
+let etActiveCategory = 'All';
+let etSavedEmail = '';
+let etPendingSendId = null;
+let etTemplatesLoaded = false;
+
+function etEscape(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+  });
+}
+
+function etIsValidEmail(v) {
+  const s = String(v || '').trim();
+  return s.length > 0 && s.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+
+function etSetEmailMsg(text, kind) {
+  const el = document.getElementById('etEmailMsg');
+  if (!el) return;
+  el.textContent = text || '';
+  el.className = 'et-msg' + (kind ? ' ' + kind : '');
+}
+
+async function initEmailTesting() {
+  loadEmailTestConfig();
+  if (!etTemplatesLoaded) {
+    await loadEmailTestTemplates();
+  } else {
+    renderEmailTemplateFilters();
+    renderEmailTemplates();
+  }
+  loadEmailTestHistory();
+}
+
+async function loadEmailTestConfig() {
+  try {
+    const data = await api('/admin/email-testing/config', { useAdmin: true });
+    etSavedEmail = (data && data.testEmail) || '';
+    const inp = document.getElementById('etTestEmail');
+    if (inp) inp.value = etSavedEmail;
+    etSetEmailMsg('', '');
+  } catch (err) {
+    if (!err.sessionExpired) etSetEmailMsg(err.message || 'Could not load the test email address.', 'err');
+  }
+}
+
+async function saveEmailTestAddress() {
+  const inp = document.getElementById('etTestEmail');
+  const email = (inp ? inp.value : '').trim();
+  if (!email) { etSetEmailMsg('Please enter a test email address.', 'err'); return; }
+  if (!etIsValidEmail(email)) { etSetEmailMsg('Please enter a valid email address.', 'err'); return; }
+  const btn = document.getElementById('etSaveBtn');
+  if (btn) btn.disabled = true;
+  try {
+    const data = await api('/admin/email-testing/config', {
+      useAdmin: true, method: 'POST', body: { testEmail: email },
+    });
+    etSavedEmail = (data && data.testEmail) || email.toLowerCase();
+    if (inp) inp.value = etSavedEmail;
+    etSetEmailMsg(data && data.message ? data.message : 'Test email address saved successfully.', 'ok');
+  } catch (err) {
+    if (!err.sessionExpired) etSetEmailMsg(err.message || 'Could not save the test email address.', 'err');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function loadEmailTestTemplates() {
+  const grid = document.getElementById('etGrid');
+  try {
+    const data = await api('/admin/email-testing/templates', { useAdmin: true });
+    etTemplates = (data && data.templates) || [];
+    etCategories = (data && data.categories && data.categories.length) ? data.categories : ['All'];
+    etTemplatesLoaded = true;
+    renderEmailTemplateFilters();
+    renderEmailTemplates();
+  } catch (err) {
+    if (err.sessionExpired) return;
+    if (grid) {
+      grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">⚠️</div>'
+        + '<div class="es-title">Could not load templates</div>'
+        + '<div class="es-sub">' + etEscape(err.message || '') + '</div></div>';
+    }
+  }
+}
+
+function renderEmailTemplateFilters() {
+  const wrap = document.getElementById('etFilters');
+  if (!wrap) return;
+  wrap.innerHTML = etCategories.map(function (c) {
+    const active = c === etActiveCategory ? ' active' : '';
+    return '<button class="et-chip' + active + '" onclick="setEmailTestCategory(\'' + etEscape(c) + '\')">'
+      + etEscape(c) + '</button>';
+  }).join('');
+}
+
+function setEmailTestCategory(cat) {
+  etActiveCategory = cat;
+  renderEmailTemplateFilters();
+  renderEmailTemplates();
+}
+
+function renderEmailTemplates() {
+  const grid = document.getElementById('etGrid');
+  if (!grid) return;
+  const searchEl = document.getElementById('etSearch');
+  const query = (searchEl ? searchEl.value : '').trim().toLowerCase();
+  const list = etTemplates.filter(function (t) {
+    const catOk = etActiveCategory === 'All' || t.category === etActiveCategory;
+    const hay = (t.name + ' ' + t.description + ' ' + t.category).toLowerCase();
+    return catOk && (!query || hay.indexOf(query) > -1);
+  });
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="es-icon">📭</div>'
+      + '<div class="es-title">No templates found</div>'
+      + '<div class="es-sub">Try a different search or filter.</div></div>';
+    return;
+  }
+  grid.innerHTML = list.map(function (t) {
+    const id = etEscape(t.id);
+    return '<div class="et-tile">'
+      + '<span class="et-cat">' + etEscape(t.category) + '</span>'
+      + '<h4>' + etEscape(t.name) + '</h4>'
+      + '<p>' + etEscape(t.description) + '</p>'
+      + '<div class="et-tile-actions">'
+      + '<button class="btn btn-ghost btn-sm" onclick="openEmailPreview(\'' + id + '\')">Preview</button>'
+      + '<button class="btn btn-primary btn-sm" onclick="confirmSendTest(\'' + id + '\')">Send Test Email</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+async function openEmailPreview(id) {
+  const tpl = etTemplates.find(function (t) { return t.id === id; });
+  const titleEl = document.getElementById('etPreviewTitle');
+  const subjEl = document.getElementById('etPreviewSubject');
+  const frame = document.getElementById('etPreviewFrame');
+  const sendBtn = document.getElementById('etPreviewSendBtn');
+  if (titleEl) titleEl.textContent = tpl ? ('Preview — ' + tpl.name) : 'Email Preview';
+  if (subjEl) subjEl.innerHTML = 'Loading preview…';
+  if (frame) frame.srcdoc = '';
+  if (sendBtn) sendBtn.setAttribute('data-template', id);
+  openModal('emailPreviewModal');
+  try {
+    const data = await api('/admin/email-testing/preview', {
+      useAdmin: true, method: 'POST', body: { template: id },
+    });
+    if (subjEl) subjEl.innerHTML = '<strong>Subject:</strong> ' + etEscape(data.subject || '');
+    if (frame) frame.srcdoc = data.html || '';
+  } catch (err) {
+    if (err.sessionExpired) return;
+    if (subjEl) subjEl.innerHTML = '';
+    if (frame) {
+      frame.srcdoc = '<div style="font-family:Arial,sans-serif;padding:24px;color:#b91c1c">'
+        + 'Could not render preview: ' + etEscape(err.message || '') + '</div>';
+    }
+  }
+}
+
+function confirmSendFromPreview() {
+  const sendBtn = document.getElementById('etPreviewSendBtn');
+  const id = sendBtn ? sendBtn.getAttribute('data-template') : null;
+  closeModal('emailPreviewModal');
+  if (id) confirmSendTest(id);
+}
+
+function confirmSendTest(id) {
+  const inp = document.getElementById('etTestEmail');
+  const current = String((inp ? inp.value : '') || '').trim();
+  if (!etIsValidEmail(current)) {
+    showToast('Please enter and save a valid test email address first.', 'warning');
+    etSetEmailMsg('Please enter a valid email address.', 'err');
+    return;
+  }
+  // The backend only ever sends to the SAVED address — make the admin save it
+  // first so the confirmation shows exactly where the mail will go.
+  if (current.toLowerCase() !== String(etSavedEmail || '').toLowerCase()) {
+    showToast('Please click "Save Test Email" before sending.', 'warning');
+    etSetEmailMsg('Click "Save Test Email" to store this address before sending.', 'err');
+    return;
+  }
+  const tpl = etTemplates.find(function (t) { return t.id === id; });
+  etPendingSendId = id;
+  const emEl = document.getElementById('etConfirmEmail');
+  const tEl = document.getElementById('etConfirmTemplate');
+  if (emEl) emEl.textContent = etSavedEmail;
+  if (tEl) tEl.textContent = tpl ? tpl.name : id;
+  openModal('emailSendConfirmModal');
+}
+
+async function doSendTestEmail() {
+  const id = etPendingSendId;
+  if (!id) { closeModal('emailSendConfirmModal'); return; }
+  const btn = document.getElementById('etConfirmSendBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  try {
+    const data = await api('/admin/email-testing/send', {
+      useAdmin: true, method: 'POST', body: { template: id },
+    });
+    closeModal('emailSendConfirmModal');
+    showToast(data && data.message ? data.message : 'Test email sent successfully.', 'success');
+    loadEmailTestHistory();
+  } catch (err) {
+    if (err.sessionExpired) return;
+    closeModal('emailSendConfirmModal');
+    if (err.status === 429 || err.isRateLimited) {
+      showToast(err.message || 'Too many test emails. Please wait before sending another test email.', 'warning', 6000);
+    } else {
+      showToast(err.message || 'Test email could not be sent. Please check the email configuration and try again.', 'error', 6000);
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Send Test'; }
+    etPendingSendId = null;
+  }
+}
+
+function etFmtDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleString('en-IN', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
+}
+
+async function loadEmailTestHistory() {
+  const body = document.getElementById('etHistoryTable');
+  if (!body) return;
+  try {
+    const data = await api('/admin/email-testing/history', { useAdmin: true });
+    const rows = (data && data.history) || [];
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5" style="color:#6b88aa">No test emails yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map(function (r) {
+      const ok = r.status === 'sent';
+      const badge = ok
+        ? '<span class="badge badge-green">Sent</span>'
+        : '<span class="badge badge-red">Failed</span>';
+      return '<tr>'
+        + '<td>' + etEscape(r.templateName || r.template) + '</td>'
+        + '<td>' + etEscape(r.recipient || '') + '</td>'
+        + '<td>' + etEscape(r.sentByName || 'Admin') + '</td>'
+        + '<td>' + etEscape(etFmtDateTime(r.createdAt)) + '</td>'
+        + '<td>' + badge + '</td>'
+        + '</tr>';
+    }).join('');
+  } catch (err) {
+    if (err.sessionExpired) return;
+    body.innerHTML = '<tr><td colspan="5" style="color:#ef9a9a">'
+      + etEscape(err.message || 'Could not load the recent test emails.') + '</td></tr>';
+  }
+}
