@@ -3049,6 +3049,23 @@ SaveHatke Team
     return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
   }
 
+  // ── Deliverability headers ─────────────────────────────────────────
+  // The SAME transactional signals the OTP / support mail use to stay out of
+  // Spam. RFC 3834 Auto-Submitted marks this as automated transactional mail
+  // (not bulk); a Message-ID whose domain matches the From keeps DKIM/SPF
+  // alignment intact; Priority stays Normal (High-importance on a money
+  // subject reads as phishy to some filters). No List-Unsubscribe — a payment
+  // receipt is transactional, not a subscription. This does NOT touch the
+  // email's visible template — headers only.
+  const fromDomain = (String(fromEmail).split('@')[1] || 'savehatke.com').toLowerCase();
+  const headers = {
+    'X-Entity-Ref-ID': `payment-${orderCode || Date.now()}`,
+    'Auto-Submitted': 'auto-generated',
+    'X-Mailer': 'SaveHatke Payments',
+    'X-Priority': '3',
+    'Importance': 'Normal',
+  };
+
   try {
     const info = await t.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
@@ -3060,10 +3077,9 @@ SaveHatke Team
       // Pin the envelope sender to the header From so the return-path cannot
       // drift to the authenticated login and break SPF/DKIM alignment.
       envelope: { from: fromEmail, to: cleanEmail },
-      headers: {
-        'X-Entity-Ref-ID': `payment-${orderCode || Date.now()}`,
-        'Auto-Submitted': 'auto-generated',
-      },
+      // Explicit Message-ID on the sender's own domain (parity with OTP mail).
+      messageId: `<payment-${Date.now()}-${crypto.randomBytes(6).toString('hex')}@${fromDomain}>`,
+      headers,
     });
     console.log(`✅ [EmailService] Payment confirmation sent to ${cleanEmail} from ${fromEmail} (Message ID: ${info.messageId})`);
     return { success: true, messageId: info.messageId };
