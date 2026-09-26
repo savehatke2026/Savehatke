@@ -2967,12 +2967,15 @@ SaveHatke Team
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payment Confirmation – SaveHatke</title>
   <style>
+    /* ── Web font: Inter (only the weights this email uses: 400 / 600 / 700) ── */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
     /* ── Reset ── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
       background-color: #f2f4f6;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      font-family: 'Inter', Arial, Helvetica, sans-serif;
       color: #1a1a2e;
       min-height: 100vh;
       display: flex;
@@ -3012,7 +3015,7 @@ SaveHatke Team
       width: 42px;
       height: 42px;
       border-radius: 10px;
-      background: #22c55e;
+      background: #00E272;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -3031,7 +3034,7 @@ SaveHatke Team
       letter-spacing: -0.3px;
     }
 
-    .logo-text span { color: #22c55e; }
+    .logo-text span { color: #00E272; }
 
     /* ── Success banner ── */
     .success-banner {
@@ -3044,12 +3047,12 @@ SaveHatke Team
       width: 64px;
       height: 64px;
       border-radius: 50%;
-      background: #22c55e;
+      background: #00E272;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       margin-bottom: 16px;
-      box-shadow: 0 0 0 8px rgba(34, 197, 94, 0.12);
+      box-shadow: 0 0 0 8px rgba(0, 226, 114, 0.12);
     }
 
     .tick-circle svg {
@@ -3063,29 +3066,32 @@ SaveHatke Team
     }
 
     .success-title {
-      font-size: 22px;
+      font-size: 28px;
       font-weight: 700;
+      line-height: 34px;
       color: #1a1a2e;
       margin-bottom: 4px;
     }
 
     .success-sub {
-      font-size: 14px;
+      font-size: 16px;
       color: #6b7280;
-      font-weight: 500;
+      font-weight: 400;
+      line-height: 24px;
     }
 
     /* ── Body ── */
     .email-body { padding: 32px 40px; }
 
-    .greeting { font-size: 16px; color: #374151; margin-bottom: 6px; }
-    .greeting strong { color: #22c55e; font-weight: 700; }
+    .greeting { font-size: 16px; font-weight: 600; line-height: 24px; color: #374151; margin-bottom: 6px; }
+    .greeting strong { color: #00E272; font-weight: 700; }
 
     .intro {
-      font-size: 15px;
+      font-size: 16px;
       color: #6b7280;
+      font-weight: 400;
       margin-bottom: 28px;
-      line-height: 1.6;
+      line-height: 25px;
     }
 
     /* ── Details table ── */
@@ -3093,8 +3099,9 @@ SaveHatke Team
 
     .details-header {
       padding: 12px 0;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 700;
+      line-height: 18px;
       letter-spacing: 0.8px;
       text-transform: uppercase;
       color: #9ca3af;
@@ -3111,28 +3118,31 @@ SaveHatke Team
 
     .detail-row:last-child { border-bottom: none; }
 
-    .detail-label { font-size: 13px; color: #9ca3af; font-weight: 500; }
+    .detail-label { font-size: 15px; color: #9ca3af; font-weight: 400; line-height: 22px; }
 
     .detail-value {
-      font-size: 13px;
+      font-size: 15px;
       color: #1a1a2e;
       font-weight: 600;
-      font-family: 'Courier New', Courier, monospace;
+      line-height: 22px;
+      font-family: 'Inter', Arial, Helvetica, sans-serif;
     }
 
     .detail-value.amount {
-      font-size: 17px;
+      font-size: 18px;
       color: #1a1a2e;
       font-family: inherit;
-      font-weight: 800;
+      font-weight: 700;
+      line-height: 24px;
     }
 
     /* ── Thank you block ── */
     .thankyou {
       font-size: 15px;
       color: #374151;
+      font-weight: 400;
       margin-bottom: 6px;
-      line-height: 1.6;
+      line-height: 24px;
     }
 
     .brand-name { font-weight: 700; color: #1a1a2e; }
@@ -3144,8 +3154,8 @@ SaveHatke Team
       text-align: left;
     }
 
-    .regards { font-size: 14px; color: #374151; margin-bottom: 2px; }
-    .team-name { font-size: 15px; font-weight: 700; color: #1a1a2e; }
+    .regards { font-size: 15px; color: #374151; font-weight: 400; margin-bottom: 2px; }
+    .team-name { font-size: 15px; font-weight: 600; color: #1a1a2e; }
     .footer-copy { margin-top: 24px; font-size: 11px; color: #9ca3af; }
 
     /* ── Responsive ── */
