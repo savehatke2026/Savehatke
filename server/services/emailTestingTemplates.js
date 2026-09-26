@@ -261,15 +261,35 @@ function withTestText(text) {
 }
 
 /**
+ * Force the preview to a specific colour scheme, independent of the admin's own
+ * OS/browser theme. The production emails gate their dark styles behind
+ * `@media (prefers-color-scheme: dark)`; here we rewrite that query so the
+ * preview iframe shows exactly what was asked for:
+ *   • 'dark'  → make the dark rules always apply (`@media all`)
+ *   • 'light' → make them never apply (an impossible condition)
+ *   • anything else → leave the email exactly as a real client would get it.
+ */
+function applyPreviewMode(html, mode) {
+  const media = emailService.EMAIL_DARK_MEDIA || '@media (prefers-color-scheme: dark)';
+  const raw = String(html || '');
+  if (mode === 'dark') return raw.split(media).join('@media all');
+  if (mode === 'light') return raw.split(media).join(media + ' and (min-width:2000000px)');
+  return raw;
+}
+
+/**
  * Render a template with safe dummy data, ready to preview or send. Applies the
- * [TEST] subject prefix and the in-body TEST banner. Returns:
+ * [TEST] subject prefix and the in-body TEST banner. `mode` ('light'|'dark')
+ * only affects the PREVIEW; a real/test send passes no mode so the email keeps
+ * its automatic prefers-color-scheme behaviour. Returns:
  *   { ok:true, name, category, subject, html, text }
  *   { ok:false, error }   (unknown template, render failure, or SMTP not set up)
  *
  * @param {string} id        allowlisted template id
  * @param {string} testEmail recipient shown inside the rendered email
+ * @param {string} [mode]    'light' | 'dark' — preview-only colour scheme force
  */
-async function renderTemplate(id, testEmail) {
+async function renderTemplate(id, testEmail, mode) {
   const tpl = getTemplate(id);
   if (!tpl) return { ok: false, error: 'Unknown email template.' };
 
@@ -294,7 +314,7 @@ async function renderTemplate(id, testEmail) {
     category: tpl.category,
     sender: tpl.sender || 'main',
     subject: withTestSubject(r.subject),
-    html: injectTestBanner(r.html),
+    html: applyPreviewMode(injectTestBanner(r.html), mode),
     text: withTestText(r.text),
   };
 }

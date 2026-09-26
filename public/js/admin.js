@@ -3592,20 +3592,53 @@ function renderEmailTemplates() {
   }).join('');
 }
 
+// Email preview state. `etPreviewMode` is preview-only (light = the original
+// design); it never changes what a real/test send delivers.
+let etPreviewMode = 'light';
+let etPreviewId = null;
+
 async function openEmailPreview(id) {
   const tpl = etTemplates.find(function (t) { return t.id === id; });
   const titleEl = document.getElementById('etPreviewTitle');
-  const subjEl = document.getElementById('etPreviewSubject');
-  const frame = document.getElementById('etPreviewFrame');
   const sendBtn = document.getElementById('etPreviewSendBtn');
+  etPreviewId = id;
+  etPreviewMode = 'light';           // always open on the original/light view
+  etUpdateModeButtons();
   if (titleEl) titleEl.textContent = tpl ? ('Preview — ' + tpl.name) : 'Email Preview';
-  if (subjEl) subjEl.innerHTML = 'Loading preview…';
-  if (frame) frame.srcdoc = '';
   if (sendBtn) sendBtn.setAttribute('data-template', id);
   openModal('emailPreviewModal');
+  await etRenderPreview();
+}
+
+function etSetPreviewMode(mode) {
+  const next = mode === 'dark' ? 'dark' : 'light';
+  if (next === etPreviewMode) return;
+  etPreviewMode = next;
+  etUpdateModeButtons();
+  etRenderPreview();
+}
+
+function etUpdateModeButtons() {
+  const l = document.getElementById('etModeLight');
+  const d = document.getElementById('etModeDark');
+  if (l) l.classList.toggle('active', etPreviewMode === 'light');
+  if (d) d.classList.toggle('active', etPreviewMode === 'dark');
+}
+
+async function etRenderPreview() {
+  const id = etPreviewId;
+  const subjEl = document.getElementById('etPreviewSubject');
+  const frame = document.getElementById('etPreviewFrame');
+  if (!id) return;
+  if (subjEl) subjEl.innerHTML = 'Loading preview…';
+  if (frame) {
+    frame.srcdoc = '';
+    // Match the letterbox behind the email to the chosen scheme.
+    frame.style.background = etPreviewMode === 'dark' ? '#0f172a' : '#fff';
+  }
   try {
     const data = await api('/admin/email-testing/preview', {
-      useAdmin: true, method: 'POST', body: { template: id },
+      useAdmin: true, method: 'POST', body: { template: id, mode: etPreviewMode },
     });
     if (subjEl) subjEl.innerHTML = '<strong>Subject:</strong> ' + etEscape(data.subject || '');
     if (frame) frame.srcdoc = data.html || '';

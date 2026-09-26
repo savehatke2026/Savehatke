@@ -134,11 +134,16 @@ router.post('/preview', async (req, res) => {
       if (isValidEmail(saved)) previewTo = saved;
     } catch (_) { /* use placeholder */ }
 
-    const rendered = await templates.renderTemplate(id, previewTo);
+    // Preview colour scheme — 'light' (the original design) or 'dark'. Preview
+    // only; it never changes what a real/test send delivers.
+    const rawMode = String((req.body && req.body.mode) || 'light').toLowerCase();
+    const mode = rawMode === 'dark' ? 'dark' : 'light';
+
+    const rendered = await templates.renderTemplate(id, previewTo, mode);
     if (!rendered.ok) {
       return res.status(502).json({ error: rendered.error });
     }
-    res.json({ success: true, template: id, name: rendered.name, subject: rendered.subject, html: rendered.html });
+    res.json({ success: true, template: id, mode, name: rendered.name, subject: rendered.subject, html: rendered.html });
   } catch (err) {
     console.error('[email-testing] preview failed:', err.message);
     res.status(500).json({ error: 'Could not render the email preview.' });

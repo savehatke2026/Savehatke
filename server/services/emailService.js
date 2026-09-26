@@ -179,6 +179,80 @@ function getPaymentTransporter() {
  * @param {string} userName - Display name to greet the user with
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
+// ── Dark-mode support for ALL email templates ───────────────────────────────
+// The templates are authored light (white surfaces, dark text) and that stays
+// the untouched original/light design. Rather than maintain a second dark copy
+// of each, this ONE <style> block is injected into every template's HEAD
+// (see the head-closing-tag injection below). On clients that honour
+// prefers-color-scheme
+// (Apple Mail, iOS Mail, Outlook.com, etc.) it repaints the shared palette for
+// dark mode. Overrides use [style*="..."] attribute selectors + !important so
+// they beat the inline styles without needing a class on every element, and
+// cover both "prop:#hex" and "prop: #hex" spacing variants the templates use.
+//
+// The Email Testing preview toggles this by rewriting the media query
+// (services/emailTestingTemplates.js → renderTemplate), so the exact text
+// "@media (prefers-color-scheme: dark)" below must stay in sync with that.
+// NOTE: Gmail ignores prefers-color-scheme and does its own partial darkening —
+// a client limitation, not something CSS here can override.
+const EMAIL_DARK_MEDIA = '@media (prefers-color-scheme: dark)';
+const EMAIL_DARK_STYLE = `
+    <style>
+    ${EMAIL_DARK_MEDIA} {
+      /* Page + card surfaces → dark */
+      [style*="background-color:#ffffff"],[style*="background-color: #ffffff"],
+      [style*="background:#ffffff"],[style*="background: #ffffff"]{background-color:#0f172a !important;background:#0f172a !important;}
+      /* Subtle grey panels / footers → lifted dark */
+      [style*="background:#f9fafb"],[style*="background: #f9fafb"],
+      [style*="background-color:#f9fafb"],[style*="background-color: #f9fafb"],
+      [style*="background:#f3f4f6"],[style*="background: #f3f4f6"],
+      [style*="background:#f4f4f5"],[style*="background: #f4f4f5"],
+      [style*="background:#fafafa"],[style*="background: #fafafa"],
+      [style*="background:#f2f4f6"],[style*="background: #f2f4f6"],
+      [style*="background:#f4f7fb"],[style*="background: #f4f7fb"],
+      [style*="background:#f7fafd"],[style*="background: #f7fafd"],
+      [style*="background:#e9eff7"],[style*="background: #e9eff7"],
+      [style*="background:#e3eaf4"],[style*="background: #e3eaf4"],
+      [style*="background:#f0f0f0"],[style*="background: #f0f0f0"]{background-color:#1e293b !important;background:#1e293b !important;}
+      /* Green tint chips → dark green */
+      [style*="background:#f0fdf4"],[style*="background: #f0fdf4"],
+      [style*="background:#d1fae5"],[style*="background: #d1fae5"],
+      [style*="background:#dcfce7"],[style*="background: #dcfce7"],
+      [style*="background:#bbf7d0"],[style*="background: #bbf7d0"]{background-color:#0b2a1b !important;background:#0b2a1b !important;}
+      /* Amber tint chips → dark amber */
+      [style*="background:#fffbeb"],[style*="background: #fffbeb"],
+      [style*="background:#fff8e6"],[style*="background: #fff8e6"]{background-color:#2a1f06 !important;background:#2a1f06 !important;}
+      /* Red tint chips → dark red */
+      [style*="background:#fef2f2"],[style*="background: #fef2f2"]{background-color:#2a0f0f !important;background:#2a0f0f !important;}
+      /* Primary / strong text → light */
+      [style*="color:#0f1e3a"],[style*="color: #0f1e3a"],
+      [style*="color:#111827"],[style*="color: #111827"],
+      [style*="color:#000000"],[style*="color: #000000"]{color:#e5e7eb !important;}
+      /* Secondary text → soft light */
+      [style*="color:#374151"],[style*="color: #374151"],
+      [style*="color:#4b5563"],[style*="color: #4b5563"],
+      [style*="color:#3c5372"],[style*="color: #3c5372"]{color:#cbd5e1 !important;}
+      /* Muted text → grey */
+      [style*="color:#6b7280"],[style*="color: #6b7280"],
+      [style*="color:#9ca3af"],[style*="color: #9ca3af"],
+      [style*="color:#71717a"],[style*="color: #71717a"],
+      [style*="color:#6b88aa"],[style*="color: #6b88aa"],
+      [style*="color:#a1a1aa"],[style*="color: #a1a1aa"],
+      [style*="color:#7d93ad"],[style*="color: #7d93ad"],
+      [style*="color:#8ea6c4"],[style*="color: #8ea6c4"]{color:#94a3b8 !important;}
+      /* Status text: amber + red kept readable on dark */
+      [style*="color:#92400e"],[style*="color: #92400e"],
+      [style*="color:#b45309"],[style*="color: #b45309"],
+      [style*="color:#6b5312"],[style*="color: #6b5312"]{color:#fbbf24 !important;}
+      [style*="color:#991b1b"],[style*="color: #991b1b"],
+      [style*="color:#b91c1c"],[style*="color: #b91c1c"],
+      [style*="color:#7f1d1d"],[style*="color: #7f1d1d"]{color:#fca5a5 !important;}
+      /* Light borders → dark (bare hex → only affects border-color) */
+      [style*="#e5e7eb"],[style*="#e4e4e7"],[style*="#e9eff7"],[style*="#e3eaf4"],
+      [style*="#f0f0f0"],[style*="#3f3f46"]{border-color:#334155 !important;}
+    }
+    </style>`;
+
 async function sendWelcomeEmail(to, userName, opts = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
@@ -412,7 +486,8 @@ If you did not create this account, please contact SaveHatke Support immediately
             }
         }
     </style>
-</head>
+${EMAIL_DARK_STYLE}
+  </head>
 <body>
     <div class="container">
         <div class="header">
@@ -528,8 +603,10 @@ async function sendOTPEmail(to, otp, opts = {}) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>Your SaveHatke Verification Code</title>
+  ${EMAIL_DARK_STYLE}
   </head>
   <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
     <!-- Preheader (hidden) -->
@@ -773,8 +850,10 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>Support Request Received — SaveHatke</title>
+  ${EMAIL_DARK_STYLE}
   </head>
   <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
 
@@ -1062,7 +1141,8 @@ SaveHatke Support Team
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>Support Case Resolved — SaveHatke</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1259,6 +1339,7 @@ SaveHatke Support Team
         .email-footer { padding: 20px 24px; }
       }
     </style>
+  ${EMAIL_DARK_STYLE}
   </head>
   <body>
 
@@ -1530,7 +1611,8 @@ Team SaveHatke
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
     <title>New Device Detected — SaveHatke Security</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1726,6 +1808,7 @@ Team SaveHatke
         .email-footer { padding: 20px 24px; }
       }
     </style>
+  ${EMAIL_DARK_STYLE}
   </head>
   <body>
 
@@ -1971,8 +2054,10 @@ Team SaveHatke
   const htmlContent = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="light">
-<title>${safe.heading} — SaveHatke Security</title></head>
+<meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+<title>${safe.heading} — SaveHatke Security</title>${EMAIL_DARK_STYLE}
+  </head>
 <body style="margin:0;padding:0;background:#f4f7fb;font-family:'Outfit',Segoe UI,Arial,sans-serif;color:#0f1e3a">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:28px 12px">
     <tr><td align="center">
@@ -2144,7 +2229,8 @@ If you did not authorize this activity, immediately review the security logs and
     </tr>`).join('');
 
   const htmlContent = `<!DOCTYPE html>
-  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${EMAIL_DARK_STYLE}
+  </head>
   <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
       <tr><td align="center">
@@ -2402,7 +2488,8 @@ ${reviewUrl}`;
     </tr>`).join('');
 
   const htmlContent = `<!DOCTYPE html>
-  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${EMAIL_DARK_STYLE}
+  </head>
   <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
       <tr><td align="center">
@@ -2547,7 +2634,8 @@ Status: Pending Payment
     </tr>`).join('');
 
   const htmlContent = `<!DOCTYPE html>
-  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${EMAIL_DARK_STYLE}
+  </head>
   <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
       <tr><td align="center">
@@ -3068,7 +3156,8 @@ SaveHatke Team
       .email-footer { padding-left: 24px; padding-right: 24px; }
     }
   </style>
-</head>
+${EMAIL_DARK_STYLE}
+  </head>
 <body>
 
   <div class="email-wrapper">
@@ -3193,4 +3282,7 @@ module.exports = {
   isEmailConfigured,
   isSupportEmailConfigured,
   sendCustomEmail,
+  // Exact media string the dark-mode <style> is gated on. The Email Testing
+  // preview rewrites this to force light/dark; keep them in sync.
+  EMAIL_DARK_MEDIA,
 };
