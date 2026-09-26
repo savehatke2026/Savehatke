@@ -352,8 +352,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cm2-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:20px}
 @media(max-width:1100px){.cm2-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:640px){.cm2-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.cm2-card{background:#121626;border:1px solid rgba(99,102,241,.2);border-radius:16px;padding:18px 20px;transition:transform .2s,border-color .2s}
+.cm2-card{background:#121626;border:1px solid rgba(99,102,241,.2);border-radius:16px;padding:18px 20px;transition:transform .2s,border-color .2s;position:relative;overflow:hidden}
+.cm2-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .3s;pointer-events:none;background:linear-gradient(135deg,rgba(99,102,241,.06),transparent)}
 .cm2-card:hover{transform:translateY(-2px)}
+.cm2-card:hover::before{opacity:1}
+.cm2-card-top,.cm2-card-lbl{position:relative;z-index:1}
 .cm2-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
 .cm2-card-ico{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}
 .cm2-card-ico svg{width:20px;height:20px}
@@ -364,6 +367,10 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cm2-card.c-purple{border-color:rgba(168,85,247,.25)}.cm2-card.c-purple .cm2-card-ico{background:rgba(168,85,247,.1);color:#c084fc}
 .cm2-card.c-amber{border-color:rgba(245,158,11,.25)}.cm2-card.c-amber .cm2-card-ico{background:rgba(245,158,11,.1);color:#fbbf24}
 .cm2-card.c-rose{border-color:rgba(244,63,94,.25)}.cm2-card.c-rose .cm2-card-ico{background:rgba(244,63,94,.1);color:#fb7185}
+.cm2-card.c-emerald::before{background:linear-gradient(135deg,rgba(16,185,129,.06),transparent)}
+.cm2-card.c-purple::before{background:linear-gradient(135deg,rgba(168,85,247,.06),transparent)}
+.cm2-card.c-amber::before{background:linear-gradient(135deg,rgba(245,158,11,.06),transparent)}
+.cm2-card.c-rose::before{background:linear-gradient(135deg,rgba(244,63,94,.06),transparent)}
 
 .cm2-controls{display:flex;flex-direction:column;gap:14px;background:#121626;border:1px solid #1f2740;border-radius:16px;padding:14px;margin-bottom:20px}
 @media(min-width:1024px){.cm2-controls{flex-direction:row;align-items:center;justify-content:space-between}}
@@ -491,6 +498,14 @@ tbody td strong{color:#e2ecff;font-weight:600}
 #sec-coupons .appr-table thead th{background:#161a2d;color:#94a3b8}
 #sec-coupons .appr-table th:last-child,#sec-coupons .appr-table td:last-child{background:#121626}
 #sec-coupons .appr-table thead th:last-child{background:#161a2d}
+/* Coupon Management header — the mockup uses a clean sans-serif semibold title
+   (not the panel's serif), a slate subtitle, and an emerald pill "Add Coupon"
+   button with a soft glow. Scoped so other admin sections keep their serif titles. */
+#sec-coupons .page-title{font-family:'Outfit',sans-serif;font-weight:600;font-size:2rem;line-height:1.15;letter-spacing:-.02em;color:#fff}
+#sec-coupons .page-subtitle{color:#94a3b8;font-size:.9rem}
+#sec-coupons .page-title-row .btn-primary.cm2-add{background:#10b981;color:#0f172a;font-weight:600;height:auto;padding:10px 20px;border-radius:12px;box-shadow:0 0 20px rgba(16,185,129,.3)}
+#sec-coupons .page-title-row .btn-primary.cm2-add:hover{background:#34d399;transform:translateY(-1px);box-shadow:0 0 24px rgba(16,185,129,.4);opacity:1}
+#sec-coupons .cm2-add svg{width:18px;height:18px}
 
 /* ── COUPON MANAGEMENT: ⏳ Pending + ✅ Approved/Active tables ── */
 /* `.main` is a flex item with min-width:auto, so a wide table used to push the
@@ -1729,7 +1744,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="section-view" id="sec-coupons">
       <div class="page-title-row">
         <div><div class="page-title">Coupon <span class="gtext">Management</span></div><div class="page-subtitle">Manage inventory, pending submissions, and categories</div></div>
-        <button class="btn btn-primary btn-lg" style="background:#00e676;color:#0a0e1a;font-weight:700" onclick="showCouponTab('add')">➕ Add Coupon</button>
+        <button class="btn btn-primary btn-lg cm2-add" onclick="showCouponTab('add')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Add Coupon</button>
       </div>
 
       <div class="tab-row">
@@ -3287,6 +3302,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
         #sec-email-testing table th{ text-align:left;padding:12px 20px;font-size:.72rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b88aa;border-bottom:1px solid rgba(79,195,247,.08)}
         #sec-email-testing table td{padding:12px 20px;font-size:.82rem;color:#c9d8ee;border-bottom:1px solid rgba(79,195,247,.05)}
         #sec-email-testing table tr:last-child td{border-bottom:none}
+        /* Light/Dark preview toggle (used inside the Email Preview modal). */
+        .et-mode-toggle{display:inline-flex;background:#0a0c16;border:1px solid #1f2740;border-radius:9px;padding:3px}
+        .et-mode-btn{display:inline-flex;align-items:center;gap:5px;background:none;border:none;color:#8ba2c4;font-size:.76rem;font-weight:600;padding:5px 12px;border-radius:7px;cursor:pointer;transition:all .15s}
+        .et-mode-btn:hover{color:#e2ecff}
+        .et-mode-btn.active{background:rgba(0,230,118,.14);color:#00e676}
       </style>
 
       <p class="et-sub">Test and preview SaveHatke email templates using safe dummy data.</p>
@@ -3547,6 +3567,14 @@ tbody td strong{color:#e2ecff;font-weight:600}
       </div>
     </div>
     <div id="etPreviewSubject" style="font-size:.82rem;color:#a8c0dc;margin-bottom:10px;word-break:break-word"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+      <span style="font-size:.72rem;color:#6b88aa;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Preview mode</span>
+      <div class="et-mode-toggle">
+        <button type="button" class="et-mode-btn active" id="etModeLight" onclick="etSetPreviewMode('light')">☀️ Light</button>
+        <button type="button" class="et-mode-btn" id="etModeDark" onclick="etSetPreviewMode('dark')">🌙 Dark</button>
+      </div>
+      <span style="font-size:.72rem;color:#6b88aa">How the email looks on a light vs dark mail client.</span>
+    </div>
     <iframe id="etPreviewFrame" title="Email preview" sandbox="" style="width:100%;height:60vh;border:1px solid rgba(79,195,247,.15);border-radius:10px;background:#fff"></iframe>
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('emailPreviewModal')">Close</button>
