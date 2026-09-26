@@ -107,6 +107,14 @@ function fromPayment(r) {
     userEmail: r.user_email || '',
     couponId: r.coupon_id || '',
     amount: toNumber(r.amount),
+    // The verified rupee total that actually arrived. Blank on a normal
+    // exact-amount payment; set when the verifier recorded a mismatch
+    // (over/underpayment). Kept null (not 0) when absent so callers can tell
+    // "not recorded" apart from a genuine zero.
+    receivedAmount:
+      r.received_amount === '' || r.received_amount === undefined || r.received_amount === null
+        ? null
+        : toNumber(r.received_amount),
     currency: r.currency || 'INR',
     status: r.status || '',
     createdAt: r.created_at || '',
@@ -805,7 +813,7 @@ async function finalizePayment({
       };
     }
 
-    await markPaid({ payment, txn, reference, source, notes, settledAt });
+    await markPaid({ payment, txn, reference, source, notes, settledAt, receivedAmount });
     return { ok: true, code: 'OK', payment_status: 'PAID', coupon_code: unlock.code || '' };
   });
 }

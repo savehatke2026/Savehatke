@@ -193,6 +193,15 @@ async function presentPayment(payment, { coupon = null } = {}) {
     order_id: payment.orderId,
     status: payment.status,
     amount: Number(payment.amount.toFixed(2)),
+    // The verified amount actually received. Present only when the server
+    // recorded it (mismatch, or any settlement the verifier priced); null on a
+    // legacy exact-amount row. The checkout compares it against `amount` to
+    // surface the overpayment refund notice — the refund record stays
+    // authoritative for the actual money movement.
+    received_amount:
+      payment.receivedAmount === undefined || payment.receivedAmount === null
+        ? null
+        : Number(Number(payment.receivedAmount).toFixed(2)),
     currency: payment.currency,
     expires_at: payment.expiresAt,
     created_at: payment.createdAt,

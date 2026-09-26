@@ -481,6 +481,22 @@
       .succ-code { font-size:16px; }
     }
 
+    /* EXTRA-AMOUNT (OVERPAYMENT) OVERLAY
+       Reuses .success-overlay / .success-box / .succ-* so it sits inside the
+       exact same payment-window styling; only the refund-specific bits are new.
+       Shown when the buyer paid more than the required amount, just before the
+       coupon reveal. */
+    .xa-icon { position:relative; width:64px; height:64px; margin:4px auto 20px; border-radius:50%; background:rgba(0,212,106,.08); border:2px solid rgba(0,212,106,.35); display:flex; align-items:center; justify-content:center; }
+    .xa-icon svg { width:30px; height:30px; stroke:#00d46a; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    .xa-icon::after { content:'₹'; position:absolute; bottom:-5px; right:-5px; width:24px; height:24px; background:#f59e0b; color:#5a2b06; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; border:2px solid #0c1628; }
+    .xa-row-refund .succ-label, .xa-row-refund .succ-value { color:#00d46a; }
+    .xa-info { display:flex; align-items:flex-start; gap:10px; text-align:left; background:rgba(79,195,247,.07); border:1px solid rgba(79,195,247,.24); border-radius:12px; padding:12px 14px; margin:4px 0 16px; }
+    .xa-info svg { width:20px; height:20px; flex-shrink:0; margin-top:1px; stroke:#4fc3f7; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    .xa-info-text { font-size:13.5px; line-height:1.5; color:#c8d8f2; }
+    .xa-info-text b { color:#00d46a; font-weight:700; }
+    .xa-note { font-size:13px; color:#8a9dc0; line-height:1.45; margin-bottom:8px; }
+    .xa-redirect { font-size:12.5px; color:#00d46a; font-weight:600; margin:0; }
+
     /* CONFETTI */
     .confetti-piece { position:fixed; width:10px; height:10px; border-radius:2px; animation:confettiFall linear forwards; pointer-events:none; z-index:400; }
 
@@ -922,6 +938,60 @@
         <button class="upm-btn upm-btn-keep" id="upmKeepBtn" type="button" onclick="dismissCancelPayment()">Cancel</button>
         <button class="upm-btn upm-btn-confirm" id="upmConfirmBtn" type="button" onclick="confirmCancelPayment()">Confirm</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- EXTRA-AMOUNT (OVERPAYMENT) OVERLAY
+     Surfaced between PAID and the coupon reveal when the server reports the
+     buyer paid more than the coupon's price. The coupon is still unlocked; this
+     only explains the refund the server has already recorded, then hands off to
+     the success overlay so the code is always revealed. -->
+<div class="success-overlay" id="extraAmountOverlay">
+  <div class="success-box">
+    <button class="succ-close" onclick="continueFromExtraAmount()" aria-label="Continue to coupon">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div class="xa-icon">
+      <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+    </div>
+
+    <h2 class="succ-title">Extra Amount <span>Received</span></h2>
+    <p class="succ-subtitle">You paid more than the required amount.</p>
+
+    <div class="succ-details">
+      <div class="succ-row">
+        <span class="succ-label">Required Amount</span>
+        <span class="succ-value" id="xaRequired">—</span>
+      </div>
+      <div class="succ-divider"></div>
+      <div class="succ-row">
+        <span class="succ-label">Amount Paid</span>
+        <span class="succ-value" id="xaPaid">—</span>
+      </div>
+      <div class="succ-divider"></div>
+      <div class="succ-row xa-row-refund">
+        <span class="succ-label">Refund Amount</span>
+        <span class="succ-value large" id="xaRefund">—</span>
+      </div>
+    </div>
+
+    <div class="xa-info">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div class="xa-info-text">The extra amount of <b id="xaRefundInline">₹0</b> will be refunded to your <b>original payment method</b> automatically.</div>
+    </div>
+
+    <p class="xa-note">We'll process the refund shortly and notify you once it's completed.</p>
+    <p class="xa-redirect" id="xaRedirect">Revealing your coupon in 5s…</p>
+
+    <div class="succ-foot">
+      <div class="succ-foot-line"></div>
+      <div class="succ-foot-content">
+        <span class="succ-shield"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+        Secured by <span class="succ-foot-brand">SaveHatke</span>
+      </div>
+      <div class="succ-foot-line"></div>
     </div>
   </div>
 </div>
@@ -1947,6 +2017,21 @@
     const email = document.getElementById('buyerEmail');
     const confirm = upiEl('confirmEmail');
     if (confirm) confirm.textContent = (email && email.value) || 'your email';
+
+    // Overpayment: the buyer paid more than the coupon's price. The coupon is
+    // still unlocked (that is what PAID means), so we show the refund notice
+    // first and then reveal the code. `received_amount` is server-set and is
+    // null on a normal exact-amount payment, so the check is a no-op there.
+    const requiredAmt = Number(data.amount);
+    const receivedAmt = (data.received_amount === undefined || data.received_amount === null)
+      ? null
+      : Number(data.received_amount);
+    if (receivedAmt !== null && Number.isFinite(receivedAmt) && Number.isFinite(requiredAmt)
+        && receivedAmt > requiredAmt + 0.005) {
+      showExtraAmountThenSuccess(requiredAmt, receivedAmt);
+      return;
+    }
+
     showSuccessScreen();
   }
 
@@ -2233,6 +2318,50 @@
     const ov = document.getElementById('successOverlay');
     if (ov) ov.classList.remove('show');
     document.body.style.overflow = '';
+  }
+
+  // ── Overpayment ("Extra Amount Received") ──────────────────────────────
+  // Shown between PAID and the coupon reveal when the server reports the buyer
+  // paid more than the required amount. The refund is created and owned by the
+  // server (refunds service); this is purely the buyer-facing notice. It always
+  // hands off to the success overlay, so the coupon code is still revealed.
+  let xaTimer = null;
+
+  function showExtraAmountThenSuccess(required, received) {
+    const refund = Math.max(0, Math.round((received - required) * 100) / 100);
+    const set = (id, txt) => { const el = upiEl(id); if (el) el.textContent = txt; };
+    set('xaRequired', formatRupees(required));
+    set('xaPaid', formatRupees(received));
+    set('xaRefund', formatRupees(refund));
+    set('xaRefundInline', formatRupees(refund));
+
+    const overlay = upiEl('extraAmountOverlay');
+    if (!overlay) { showSuccessScreen(); return; } // fail safe: still reveal the code
+
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+
+    let secs = 5;
+    const redirectEl = upiEl('xaRedirect');
+    const paint = () => {
+      if (redirectEl) redirectEl.textContent = secs > 0
+        ? ('Revealing your coupon in ' + secs + 's…')
+        : 'Revealing your coupon…';
+    };
+    paint();
+    clearInterval(xaTimer);
+    xaTimer = setInterval(function () {
+      secs -= 1;
+      paint();
+      if (secs <= 0) continueFromExtraAmount();
+    }, 1000);
+  }
+
+  function continueFromExtraAmount() {
+    clearInterval(xaTimer); xaTimer = null;
+    const overlay = upiEl('extraAmountOverlay');
+    if (overlay) overlay.classList.remove('show');
+    showSuccessScreen();
   }
 
   function copyCode() {
