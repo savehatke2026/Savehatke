@@ -46,6 +46,16 @@ const supabase = require('./supabase');
 
 const PAYMENT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes, per the checkout UI
 
+// Backend checking deadline — how long a payment stays matchable/settleable
+// AFTER it was created, independent of the 10-minute frontend window. A buyer
+// who pays a few minutes (up to this long) after the on-screen timer hit 0:00
+// is still detected and processed. Kept short enough that an abandoned order is
+// swept eventually (see expireOverduePayments). Overridable via env.
+const PAYMENT_CHECK_WINDOW_MS = (() => {
+  const n = Number(process.env.PAYMENT_CHECK_WINDOW_MS);
+  return Number.isFinite(n) && n > 0 ? n : 6 * 60 * 60 * 1000; // 6 hours
+})();
+
 const ORDERS = db.SHEETS.ORDERS;
 const PAYMENTS = db.SHEETS.PAYMENTS;
 const NOTIFICATIONS = db.SHEETS.PAYMENT_NOTIFICATIONS;
@@ -71,6 +81,19 @@ function toTime(v) {
 /** Compare two money values exactly, at paise precision. */
 function moneyEquals(a, b) {
   return Math.round(toNumber(a) * 100) === Math.round(toNumber(b) * 100);
+}
+
+/**
+ * The moment a payment stops being matchable by the backend checker. Prefers
+ * the explicit 6-hour `check_expires_at`; falls back to the 10-minute
+ * `expires_at` for legacy rows written before that column existed, so their
+ * behaviour is unchanged.
+ */
+function checkDeadline(row) {
+  const raw = row && (row.check_expires_at || row.checkExpiresAt);
+  if (raw) return toTime(raw);
+  const legacy = row && (row.expires_at || row.expiresAt);
+  return toTime(legacy);
 }
 
 // ── Mapping (sheet row → application shape) ────────────────────────────────
@@ -120,6 +143,9 @@ function fromPayment(r) {
     createdAt: r.created_at || '',
     updatedAt: r.updated_at || '',
     expiresAt: r.expires_at || '',
+    // Backend checking deadline (6h). Empty on legacy rows; callers fall back
+    // to expires_at via checkDeadline().
+    checkExpiresAt: r.check_expires_at || '',
     paidAt: r.paid_at || '',
     upiId: r.upi_id || '',
     payeeName: r.payee_name || '',
@@ -365,13 +391,15 @@ async function findPaidPaymentForBuyer({ userId = '', userEmail = '', couponId }
 }
 
 /**
- * Live payments whose window has not yet closed, joined with the order code
- * the confirmation will quote back. Pass an amount to narrow to that exact
- * figure (the common case: we only care about money we are currently waiting
- * on).
+ * Live payments still inside their BACKEND checking window (check_expires_at,
+ * 6h by default), joined with the order code the confirmation will quote back.
+ * Pass an amount to narrow to that exact figure (the common case: we only care
+ * about money we are currently waiting on).
  *
- * Only payments inside their window are returned — an expired attempt must
- * never be settled by a late confirmation.
+ * Note: this deliberately spans the 6-hour backend window, NOT the 10-minute
+ * frontend timer — a buyer who pays shortly after the on-screen countdown hit
+ * 0:00 is still matched and settled. Only a payment past the 6h deadline (or a
+ * superseded/cancelled window) is excluded.
  */
 async function findPendingPaymentsForAmount(amount = null, { limit = 200 } = {}) {
   const now = Date.now();
@@ -380,7 +408,7 @@ async function findPendingPaymentsForAmount(amount = null, { limit = 200 } = {})
   const orderById = new Map(orders.map((o) => [String(o.id), o]));
 
   return payments
-    .filter((r) => r.status === 'PENDING' && toTime(r.expires_at) > now)
+    .filter((r) => r.status === 'PENDING' && checkDeadline(r) > now)
     .filter((r) => (amount === null || amount === undefined ? true : moneyEquals(r.amount, amount)))
     .sort((a, b) => toTime(b.created_at) - toTime(a.created_at))
     .slice(0, limit)
@@ -476,6 +504,7 @@ async function createPayment({
   couponId,
   amount,
   expiresAt,
+  checkExpiresAt = '',
   upiId,
   payeeName,
   upiUri,
@@ -514,6 +543,7 @@ async function createPayment({
       created_at: now,
       updated_at: now,
       expires_at: expiresAt,
+      check_expires_at: checkExpiresAt || '',
       paid_at: '',
       upi_id: upiId,
       payee_name: payeeName,
@@ -612,7 +642,10 @@ async function transitionOrder(orderId, fromStatus, toStatus, extra = {}) {
 async function expireIfDue(paymentId, { now = new Date().toISOString() } = {}) {
   const current = await findPaymentById(paymentId);
   if (!current || current.status !== 'PENDING') return null;
-  if (toTime(current.expiresAt) > toTime(now)) return null;
+  // Only retire once the BACKEND checking window (6h) has closed — NOT at the
+  // 10-minute frontend timer. Until then the payment stays PENDING so a late
+  // credit can still settle it.
+  if (checkDeadline(current) > toTime(now)) return null;
 
   const expired = await transitionPayment(paymentId, 'PENDING', 'EXPIRED', { updated_at: now });
   if (expired) {
@@ -875,15 +908,17 @@ async function flagForReview(paymentId, { notes = '', source = '', raw = null } 
 // ── Maintenance ────────────────────────────────────────────────────────────
 
 /**
- * Sweep PENDING payments whose window has closed. Called opportunistically so
- * a buyer who closes the tab still leaves an EXPIRED (not PENDING) row, and a
- * later real payment cannot settle a stale window.
+ * Sweep PENDING payments whose BACKEND checking window (6h) has closed. Called
+ * opportunistically (and by the cron reconciler) so an abandoned order still
+ * leaves an EXPIRED (not PENDING) row eventually, and a very-late payment cannot
+ * settle a long-dead window. Payments inside the 6h window are left PENDING so
+ * the checker keeps watching them.
  */
 async function expireOverduePayments({ limit = 50 } = {}) {
   const now = Date.now();
   const rows = await rowsFresh(PAYMENTS);
   const overdue = rows
-    .filter((r) => r.status === 'PENDING' && toTime(r.expires_at) <= now)
+    .filter((r) => r.status === 'PENDING' && checkDeadline(r) <= now)
     .slice(0, limit);
 
   let expired = 0;
@@ -896,6 +931,46 @@ async function expireOverduePayments({ limit = 50 } = {}) {
     }
   }
   return expired;
+}
+
+/**
+ * Enforce "one active payment-checking session per user". Any OTHER live
+ * (PENDING) payment this user holds is retired to CANCELLED so it can no longer
+ * be matched or settled — this is what makes opening a new payment window
+ * immediately deactivate the previous one, even for a different coupon, and
+ * prevents an old window from processing a payment meant for the new order.
+ *
+ * `keepPaymentId` is the session that should stay live (the one just
+ * created/reused); pass null to retire every live session for the user.
+ * CANCELLED (not a new status) is reused so finance/dashboard/admin readers,
+ * which already understand CANCELLED, need no changes.
+ */
+async function supersedeLivePaymentsForUser(userId, { keepPaymentId = null, reason = 'Superseded: a newer payment window was opened.' } = {}) {
+  if (!userId) return 0;
+  const rows = await rowsFresh(PAYMENTS);
+  const targets = rows.filter((r) =>
+    r.status === 'PENDING' &&
+    String(r.user_id) === String(userId) &&
+    (!keepPaymentId || String(r.payment_id) !== String(keepPaymentId)));
+
+  let superseded = 0;
+  for (const row of targets) {
+    try {
+      const moved = await transitionPayment(row.payment_id, 'PENDING', 'CANCELLED', {
+        verification_notes: reason,
+        updated_at: new Date().toISOString(),
+      });
+      if (moved) {
+        superseded++;
+        try {
+          await transitionOrder(moved.orderId, 'PENDING', 'CANCELLED', { updated_at: new Date().toISOString() });
+        } catch (e) { /* best effort: a stale order row is harmless */ }
+      }
+    } catch (e) {
+      console.warn('[paymentStore] supersede failed for', row.payment_id, e.message);
+    }
+  }
+  return superseded;
 }
 
 // ── Notification inbox ─────────────────────────────────────────────────────
@@ -974,6 +1049,7 @@ async function updateNotification(id, updates = {}) {
 
 module.exports = {
   PAYMENT_WINDOW_MS,
+  PAYMENT_CHECK_WINDOW_MS,
   ensureReady,
   isConfigured,
   // ids
@@ -1002,6 +1078,7 @@ module.exports = {
   finalizePayment,
   flagForReview,
   expireOverduePayments,
+  supersedeLivePaymentsForUser,
   unlockCoupon,
   readCoupon,
   // notification inbox

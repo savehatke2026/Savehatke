@@ -354,6 +354,76 @@ async function getInboxUnread(gmail) {
   }
 }
 
+// ── Gmail push (watch) + incremental history ────────────────────────────────
+// These power the "instant detection" path: Google pushes a Pub/Sub message
+// the moment a new mail arrives, and history.list then tells us exactly which
+// message ids are new so we never re-scan the whole inbox.
+
+/**
+ * Start (or refresh) a Gmail push watch on this mailbox. Google publishes to
+ * `topicName` (a Cloud Pub/Sub topic the operator created and granted
+ * gmail-api-push@system.gserviceaccount.com the Publisher role on) whenever the
+ * mailbox changes. A watch lasts ~7 days; calling this again just resets the
+ * clock. Returns { historyId, expiration } (expiration is epoch-ms as a string).
+ */
+async function watchMailbox(gmail, { topicName, labelIds = ['INBOX'] } = {}) {
+  if (!topicName) throw new Error('watchMailbox: topicName is required.');
+  const r = await gmail.users.watch({
+    userId: 'me',
+    requestBody: { topicName, labelIds, labelFilterBehavior: 'INCLUDE' },
+  });
+  return {
+    historyId: String((r.data && r.data.historyId) || ''),
+    expiration: String((r.data && r.data.expiration) || ''),
+  };
+}
+
+/** Stop any active push watch on this mailbox. Best-effort. */
+async function stopWatch(gmail) {
+  try {
+    await gmail.users.stop({ userId: 'me' });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Incremental change feed since `startHistoryId`. Returns the message ids added
+ * since then (deduped) plus the newest historyId to persist. When Gmail says
+ * the start id is too old (404 — the historyId aged out), we signal
+ * `expired: true` so the caller falls back to a bounded query scan.
+ */
+async function listHistory(gmail, { startHistoryId, maxResults = 100 } = {}) {
+  if (!startHistoryId) return { messageIds: [], historyId: '', expired: true };
+  const added = new Set();
+  let pageToken;
+  let latestHistoryId = String(startHistoryId);
+  try {
+    do {
+      const r = await gmail.users.history.list({
+        userId: 'me',
+        startHistoryId: String(startHistoryId),
+        historyTypes: ['messageAdded'],
+        maxResults: Math.min(Number(maxResults) || 100, 500),
+        ...(pageToken ? { pageToken } : {}),
+      });
+      if (r.data && r.data.historyId) latestHistoryId = String(r.data.historyId);
+      for (const h of (r.data && r.data.history) || []) {
+        for (const m of h.messagesAdded || []) {
+          if (m.message && m.message.id) added.add(m.message.id);
+        }
+      }
+      pageToken = r.data && r.data.nextPageToken;
+    } while (pageToken);
+  } catch (e) {
+    const code = Number(e && (e.code || e.status || (e.response && e.response.status)));
+    if (code === 404) return { messageIds: [], historyId: '', expired: true };
+    throw e;
+  }
+  return { messageIds: [...added], historyId: latestHistoryId, expired: false };
+}
+
 module.exports = {
   GMAIL_SCOPES,
   isOAuthConfigured,
@@ -369,6 +439,9 @@ module.exports = {
   summarizeMessage,
   listMessages,
   getMessageFull,
+  watchMailbox,
+  stopWatch,
+  listHistory,
   listLabels,
   getUnreadCounts,
   getInboxUnread,

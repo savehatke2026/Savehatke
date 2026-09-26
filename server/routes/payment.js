@@ -12,6 +12,20 @@
 //   GET  /active    existing live payment, if any (auth)
 //   GET  /stream    live status push (SSE)        (auth)
 //   POST /webhook   gateway confirmation          (HMAC, no user auth)
+//   POST /gmail-push          Gmail Pub/Sub push  (shared-secret, no user auth)
+//   GET/POST /cron/scan       reconciler sweep+scan            (CRON_SECRET)
+//   GET/POST /cron/gmail-watch renew the Gmail push watch      (CRON_SECRET)
+//   GET/POST /gmail-watch/start arm the Gmail push watch once  (CRON_SECRET)
+//
+// Continuous checking (see paymentStore.PAYMENT_CHECK_WINDOW_MS)
+//   * The 10-minute `expires_at` is only the on-screen countdown. A payment
+//     stays PENDING and matchable until `check_expires_at` (6h), so a credit
+//     that lands AFTER the timer hits 0:00 is still detected and settled.
+//   * Detection is instant via Gmail push (/gmail-push) with a cron reconciler
+//     (/cron/scan) as a safety net; while a tab is open the SSE/poll paths also
+//     drive the same coalesced scan.
+//   * One active checker per user: opening a new payment window supersedes the
+//     user's previous PENDING session (paymentStore.supersedeLivePaymentsForUser).
 //
 // Security posture
 //   * /create accepts the amount the checkout is displaying, but treats it as
@@ -48,6 +62,34 @@ function fail(res, status, code, error, extra = {}) {
 }
 
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
+
+// The instant a payment stops being matchable by the backend checker: the
+// 6-hour check_expires_at when present, else the legacy 10-minute expires_at.
+// This is what lets verification continue after the on-screen timer hits 0:00.
+function checkDeadlineMs(payment) {
+  const raw = payment && (payment.checkExpiresAt || payment.check_expires_at);
+  if (raw) {
+    const t = new Date(raw).getTime();
+    if (Number.isFinite(t)) return t;
+  }
+  const legacy = payment && (payment.expiresAt || payment.expires_at);
+  const t = new Date(legacy).getTime();
+  return Number.isFinite(t) ? t : 0;
+}
+
+// Cron/operator authorization for the push-independent endpoints. Mirrors the
+// contract the existing crons use (admin.js): Vercel Cron presents
+// `Authorization: Bearer <CRON_SECRET>`; `x-cron-key` is accepted for any other
+// scheduler. Returns false when CRON_SECRET is unset, so these endpoints stay
+// closed by default rather than open.
+function cronAuthorized(req) {
+  const secret = String(process.env.CRON_SECRET || '').trim();
+  if (!secret) return false;
+  const bearer = String(req.get('authorization') || '').trim();
+  const fromBearer = bearer.toLowerCase().startsWith('bearer ') ? bearer.slice(7).trim() : '';
+  const fromHeader = String(req.get('x-cron-key') || '').trim();
+  return fromBearer === secret || fromHeader === secret;
+}
 
 // ── Rate limiters ──────────────────────────────────────────────────────────
 
@@ -204,6 +246,13 @@ async function presentPayment(payment, { coupon = null } = {}) {
         : Number(Number(payment.receivedAmount).toFixed(2)),
     currency: payment.currency,
     expires_at: payment.expiresAt,
+    // The 10-minute countdown above is only the on-screen window. The backend
+    // keeps checking (and can still settle) until check_expires_at (6h). This
+    // flag lets the modal switch to its "expired" visual at 0:00 WITHOUT the
+    // frontend telling the backend to stop — status stays PENDING until it is
+    // paid, superseded, or the 6h deadline passes.
+    window_expired: payment.status === 'PENDING' && Date.now() >= new Date(payment.expiresAt).getTime(),
+    check_expires_at: payment.checkExpiresAt || null,
     created_at: payment.createdAt,
     paid_at: payment.paidAt,
     // Server clock, so the countdown can be drift-corrected against the
@@ -376,19 +425,30 @@ router.post('/create', createLimiter, authenticateToken, async (req, res) => {
     const live = couponId
       ? await store.findLivePaymentForUserCoupon(userId, couponId)
       : await store.findLiveOpenPayment(userId, amount);
-    if (live) {
-      if (new Date(live.expiresAt).getTime() > Date.now()) {
-        const presented = await presentPayment(live, { coupon });
-        return res.set(NO_STORE).json({ ...presented, reused: true });
-      }
-      // Window closed — retire it, then start fresh below.
+    if (live && new Date(live.expiresAt).getTime() > Date.now()) {
+      // Still inside the 10-minute on-screen window: a refresh / reopened modal
+      // resumes the SAME window (same QR, same countdown). Enforce one active
+      // checker per user by retiring any OTHER live session this user holds.
       try {
-        await store.expireIfDue(live.paymentId);
+        await store.supersedeLivePaymentsForUser(userId, { keepPaymentId: live.paymentId });
       } catch (e) {}
+      const presented = await presentPayment(live, { coupon });
+      return res.set(NO_STORE).json({ ...presented, reused: true });
     }
+
+    // Either there is no live payment, or the previous one's 10-minute window
+    // has closed — opening the modal now is a NEW payment window. Immediately
+    // deactivate every prior live session for this user (one active checker per
+    // user, and the old window can no longer settle the new order). This also
+    // clears createPayment's one-live-per-buyer+coupon precheck.
+    try {
+      await store.supersedeLivePaymentsForUser(userId, { keepPaymentId: null });
+    } catch (e) {}
 
     const now = Date.now();
     const expiresAt = new Date(now + store.PAYMENT_WINDOW_MS).toISOString();
+    // How long the backend keeps checking after the on-screen timer hits 0:00.
+    const checkExpiresAt = new Date(now + store.PAYMENT_CHECK_WINDOW_MS).toISOString();
 
     const order = await store.createOrder({
       userId,
@@ -426,6 +486,7 @@ router.post('/create', createLimiter, authenticateToken, async (req, res) => {
         couponId,
         amount,
         expiresAt,
+        checkExpiresAt,
         upiId: payee.upiId,
         payeeName: payee.payeeName,
         upiUri,
@@ -526,12 +587,11 @@ router.get('/status', authenticateToken, async (req, res) => {
       }
       const userId = String(req.user.userId || '');
       const live = await store.findLivePaymentForUserCoupon(userId, couponId);
-      if (live && new Date(live.expiresAt).getTime() <= Date.now()) {
-        await store.expireIfDue(live.paymentId);
-        const refreshed = await store.findPaymentById(live.paymentId);
-        return res.set(NO_STORE).json(await presentPayment(refreshed));
-      }
-      if (live) {
+      // Only auto-resume inside the 10-minute on-screen window. A window whose
+      // countdown already hit 0:00 is left PENDING (the backend keeps checking
+      // it for up to 6h), but it is NOT auto-reopened on a page load — the buyer
+      // starts a fresh window by clicking Pay (which supersedes the old one).
+      if (live && new Date(live.expiresAt).getTime() > Date.now()) {
         return res.set(NO_STORE).json(await presentPayment(live));
       }
       return res.set(NO_STORE).json({ status: 'NONE' });
@@ -556,17 +616,20 @@ router.get('/status', authenticateToken, async (req, res) => {
     }
 
     // Poll-fallback verification: when the browser cannot hold an SSE stream
-    // open it polls /status while PENDING. Drive the same on-demand FamApp
-    // scan from here so those buyers also get near-instant verification. The
-    // scan is globally coalesced, so this never multiplies Gmail calls.
-    if (payment.status === 'PENDING' && new Date(payment.expiresAt).getTime() > Date.now()) {
+    // open it polls /status. Drive the same on-demand FamApp scan from here so
+    // those buyers also get near-instant verification. This now runs for the
+    // whole 6-hour backend window (checkDeadlineMs), NOT just the 10-minute
+    // on-screen timer, so a tab left open past 0:00 keeps verifying. The scan is
+    // globally coalesced, so this never multiplies Gmail calls.
+    if (payment.status === 'PENDING' && checkDeadlineMs(payment) > Date.now()) {
       try { await verifier.triggerMailboxScan(); } catch (e) {}
       payment = (await store.findPaymentById(payment.paymentId)) || payment;
     }
 
-    // The server owns expiry. A payment past its deadline is retired the
-    // moment anyone asks, so the frontend never has to decide it.
-    if (payment.status === 'PENDING' && new Date(payment.expiresAt).getTime() <= Date.now()) {
+    // The server owns expiry — but only at the 6-hour backend deadline, never
+    // at the 10-minute on-screen timer. Until then the payment stays PENDING so
+    // a late credit can still settle it.
+    if (payment.status === 'PENDING' && checkDeadlineMs(payment) <= Date.now()) {
       await store.expireIfDue(payment.paymentId);
       payment = await store.findPaymentById(payment.paymentId);
     }
@@ -600,13 +663,14 @@ router.get('/active', authenticateToken, async (req, res) => {
     const live = await store.findLivePaymentForUserCoupon(userId, couponId);
     if (!live) return res.set(NO_STORE).json({ status: 'NONE' });
 
-    if (new Date(live.expiresAt).getTime() <= Date.now()) {
-      await store.expireIfDue(live.paymentId);
-      const refreshed = await store.findPaymentById(live.paymentId);
-      return res.set(NO_STORE).json(await presentPayment(refreshed));
+    // Only auto-resume inside the 10-minute on-screen window. Past that the
+    // window is left PENDING (the backend keeps checking it for up to 6h) but is
+    // NOT auto-reopened on a page load; the buyer starts a fresh window via Pay,
+    // which supersedes the old one.
+    if (new Date(live.expiresAt).getTime() > Date.now()) {
+      return res.set(NO_STORE).json(await presentPayment(live));
     }
-
-    res.set(NO_STORE).json(await presentPayment(live));
+    return res.set(NO_STORE).json({ status: 'NONE' });
   } catch (err) {
     console.error('[payment] active error:', err);
     return fail(res, 500, 'ACTIVE_FAILED', 'Could not read the active payment.');
@@ -776,12 +840,17 @@ router.get('/stream', authenticateToken, async (req, res) => {
       // automatically once the payment leaves PENDING or the window closes (the
       // stream ends below). The scan is globally coalesced across all concurrent
       // streams, so simultaneous buyers never multiply Gmail calls.
-      if (payment.status === 'PENDING' && new Date(payment.expiresAt).getTime() > Date.now()) {
+      // Opening the payment window starts verification: while this stream is
+      // live and the payment is still inside its 6-hour backend window, check
+      // the FamApp mailbox each tick and settle the instant a matching credit
+      // arrives — even after the 10-minute on-screen timer has hit 0:00. The
+      // scan is globally coalesced across all concurrent streams.
+      if (payment.status === 'PENDING' && checkDeadlineMs(payment) > Date.now()) {
         try { await verifier.triggerMailboxScan(); } catch (e) {}
         payment = (await store.findPaymentById(payment.paymentId)) || payment;
       }
 
-      if (payment.status === 'PENDING' && new Date(payment.expiresAt).getTime() <= Date.now()) {
+      if (payment.status === 'PENDING' && checkDeadlineMs(payment) <= Date.now()) {
         await store.expireIfDue(payment.paymentId);
         payment = await store.findPaymentById(payment.paymentId);
       }
@@ -827,6 +896,105 @@ router.get('/stream', authenticateToken, async (req, res) => {
     closed = true;
     clearInterval(interval);
   });
+});
+
+// ── /gmail-push — Gmail push notification (Google Cloud Pub/Sub) ────────────
+// Google Pub/Sub POSTs here the instant the payment mailbox changes — the
+// "instant detection" path. There is no user session (Google is the caller),
+// so it is protected by a shared secret in the URL that ONLY the push
+// subscription knows (PAYMENT_GMAIL_PUSH_SECRET, presented as ?token= or the
+// x-goog-channel-token header). It NEVER trusts the payload as proof of
+// payment: it only triggers the same server-side FamApp scan the browser paths
+// use, so detection stays server-authoritative and duplicate-safe (the
+// notification-fingerprint guard prevents any double-settle on redelivery).
+router.post('/gmail-push', async (req, res) => {
+  const expected = String(process.env.PAYMENT_GMAIL_PUSH_SECRET || '').trim();
+  if (!expected) {
+    return res.status(503).json({ error: 'Push endpoint not configured.', code: 'PUSH_NOT_CONFIGURED' });
+  }
+  const presented = String(req.query.token || req.get('x-goog-channel-token') || '').trim();
+  if (presented !== expected) {
+    return res.status(403).json({ error: 'Forbidden.', code: 'BAD_PUSH_TOKEN' });
+  }
+
+  // Decode the Pub/Sub envelope best-effort: { message: { data: base64(JSON) } }.
+  let decoded = {};
+  try {
+    const data = req.body && req.body.message && req.body.message.data;
+    if (data) decoded = JSON.parse(Buffer.from(String(data), 'base64').toString('utf8')) || {};
+  } catch (e) { decoded = {}; }
+
+  // Run the scan, but cap the wait so a slow Gmail call can't hold the ack open
+  // (Pub/Sub only needs a prompt 2xx or it redelivers — which is harmless here).
+  try {
+    await Promise.race([
+      verifier.handleGmailPush({ emailAddress: decoded.emailAddress || '', historyId: decoded.historyId || '' }),
+      new Promise((resolve) => setTimeout(resolve, 20000)),
+    ]);
+  } catch (e) {
+    console.warn('[payment] gmail push scan notice:', e.message);
+  }
+  return res.status(204).end();
+});
+
+// ── /cron/scan — safety-net reconciler (Vercel Cron) ────────────────────────
+// The hybrid's fallback: even if a push is missed (renewal gap, transient
+// Pub/Sub failure), this sweeps on a schedule — retiring 6-hour-abandoned
+// windows and running one coalesced mailbox scan so any live payment is still
+// detected. CRON_SECRET-authenticated (Bearer), the same contract as the other
+// crons in this app.
+router.all('/cron/scan', async (req, res) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
+  if (!cronAuthorized(req)) return fail(res, 401, 'CRON_UNAUTHORIZED', 'Unauthorized.');
+  try {
+    const ready = await store.ensureReady();
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', ready.reason);
+
+    let expired = 0;
+    try { expired = await store.expireOverduePayments({ limit: 100 }); } catch (e) {}
+
+    let scan = { ok: false };
+    try { scan = await verifier.triggerMailboxScan({ force: true }); } catch (e) { scan = { ok: false, reason: e.message }; }
+
+    return res.json({
+      ok: true,
+      expired,
+      scan: { ok: !!scan.ok, scanned: scan.scanned || 0, settled: scan.settled || 0, idle: !!scan.idle },
+    });
+  } catch (err) {
+    console.error('[payment] cron scan error:', err);
+    return fail(res, 500, 'CRON_SCAN_FAILED', 'Cron scan failed.');
+  }
+});
+
+// ── /cron/gmail-watch — renew the Gmail push watch (Vercel Cron, daily) ─────
+// A users.watch registration lasts ~7 days; re-arming it daily keeps pushes
+// from lapsing. CRON_SECRET-authenticated.
+router.all('/cron/gmail-watch', async (req, res) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
+  if (!cronAuthorized(req)) return fail(res, 401, 'CRON_UNAUTHORIZED', 'Unauthorized.');
+  try {
+    const result = await verifier.renewGmailWatch();
+    return res.status(result.ok ? 200 : 502).json(result);
+  } catch (err) {
+    console.error('[payment] gmail watch renew error:', err);
+    return fail(res, 500, 'WATCH_RENEW_FAILED', 'Watch renewal failed.');
+  }
+});
+
+// ── /gmail-watch/start — arm the Gmail push watch (operator, one-time setup) ─
+// Run once after Pub/Sub is configured (re-running is harmless). Uses the same
+// CRON_SECRET contract so it can be triggered with a single authenticated curl.
+router.all('/gmail-watch/start', async (req, res) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
+  if (!cronAuthorized(req)) return fail(res, 401, 'CRON_UNAUTHORIZED', 'Unauthorized.');
+  try {
+    const result = await verifier.startGmailWatch();
+    return res.status(result.ok ? 200 : 502).json(result);
+  } catch (err) {
+    console.error('[payment] gmail watch start error:', err);
+    return fail(res, 500, 'WATCH_START_FAILED', 'Watch start failed.');
+  }
 });
 
 // ── /webhook — gateway confirmation (HMAC authenticated) ────────────────────

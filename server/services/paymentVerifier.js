@@ -973,14 +973,18 @@ let _lastScanStartedAt = 0;
 const SCAN_MIN_INTERVAL_MS = Number(process.env.PAYMENT_MAIL_SCAN_MIN_MS || 1500);
 
 async function triggerMailboxScan(opts = {}) {
+  const { force = false, ...scanOpts } = opts || {};
   if (_scanInFlight) return _scanInFlight;
-  if (Date.now() - _lastScanStartedAt < SCAN_MIN_INTERVAL_MS) {
+  // A genuine Gmail push (force) always scans; the time-throttle only guards
+  // the high-frequency browser-poll callers. In-flight sharing still applies to
+  // both, so a push arriving mid-scan never starts a second Gmail run.
+  if (!force && Date.now() - _lastScanStartedAt < SCAN_MIN_INTERVAL_MS) {
     return { ok: true, coalesced: true, scanned: 0, settled: 0 };
   }
   _lastScanStartedAt = Date.now();
   _scanInFlight = (async () => {
     try {
-      return await scanPaymentMailbox(opts);
+      return await scanPaymentMailbox(scanOpts);
     } catch (e) {
       return { ok: false, reason: e.message, scanned: 0, settled: 0 };
     } finally {
@@ -988,6 +992,74 @@ async function triggerMailboxScan(opts = {}) {
     }
   })();
   return _scanInFlight;
+}
+
+// ── Gmail push (watch) orchestration ─────────────────────────────────────────
+// The push webhook and the daily renewal cron call these. They reuse the SAME
+// dedicated payment-mailbox client and the SAME scanner as the browser paths —
+// this is not a second payment system, it only changes WHAT triggers a scan (an
+// instant Google Pub/Sub push instead of a browser poll) and keeps the watch
+// registration alive.
+async function getPaymentGmail() {
+  const paymentMailbox = require('./paymentMailbox');
+  const client = await paymentMailbox.getAuthorizedClient();
+  if (!client || !client.gmail) return null;
+  let email = '';
+  try { email = (await paymentMailbox.currentEmail()) || ''; } catch (e) {}
+  return { gmail: client.gmail, email };
+}
+
+/**
+ * Start (or refresh) the Gmail push watch on the payment mailbox. Google then
+ * publishes to PAYMENT_GMAIL_PUBSUB_TOPIC whenever mail arrives. Idempotent:
+ * calling it again just resets the ~7-day clock, so the daily cron uses it too.
+ */
+async function startGmailWatch() {
+  const topicName = String(process.env.PAYMENT_GMAIL_PUBSUB_TOPIC || '').trim();
+  if (!topicName) return { ok: false, reason: 'PAYMENT_GMAIL_PUBSUB_TOPIC is not set.' };
+  const conn = await getPaymentGmail();
+  if (!conn) return { ok: false, reason: 'Payment mailbox is not connected.' };
+
+  const gmailService = require('./gmailService');
+  const state = require('./paymentGmailState');
+  try {
+    const { historyId, expiration } = await gmailService.watchMailbox(conn.gmail, {
+      topicName,
+      labelIds: ['INBOX'],
+    });
+    await state.saveWatch(conn.email || 'payment', { historyId, expiration });
+    const expMs = Number(expiration);
+    console.log(
+      `[Payment Watch] active for ${conn.email || '(mailbox)'}; historyId=${historyId}; ` +
+      `expires=${Number.isFinite(expMs) ? new Date(expMs).toISOString() : expiration}`
+    );
+    return { ok: true, historyId, expiration };
+  } catch (e) {
+    console.warn('[Payment Watch] start failed:', e.message);
+    return { ok: false, reason: e.message };
+  }
+}
+
+// Renewing is just (re)starting the watch — Google resets the clock and returns
+// the current historyId. Safe to call daily (or more often).
+async function renewGmailWatch() {
+  return startGmailWatch();
+}
+
+/**
+ * Handle a decoded Gmail Pub/Sub push. The historyId is recorded for
+ * continuity, then detection runs the SAME bounded, dedup-safe scan the browser
+ * paths use — so a duplicate, delayed, or out-of-order push can never
+ * double-settle a payment (the notification-fingerprint guard owns that).
+ */
+async function handleGmailPush({ emailAddress = '', historyId = '' } = {}) {
+  if (historyId) {
+    try {
+      const state = require('./paymentGmailState');
+      await state.saveHistoryId(emailAddress || 'payment', historyId);
+    } catch (e) { /* best effort */ }
+  }
+  return triggerMailboxScan({ force: true });
 }
 
 // ── Buyer receipt email ──────────────────────────────────────────────────────
@@ -1060,4 +1132,8 @@ module.exports = {
   verifyWebhookSignature,
   scanPaymentMailbox,
   triggerMailboxScan,
+  // Gmail push (watch)
+  startGmailWatch,
+  renewGmailWatch,
+  handleGmailPush,
 };

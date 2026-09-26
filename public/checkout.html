@@ -1592,6 +1592,9 @@
     skewMs: 0,
     pollId: null,
     opening: false,
+    // Guards against showing the success screen twice when the poll and the SSE
+    // stream both observe PAID (or a repeated PAID event arrives).
+    successShown: false,
   };
 
   function upiEl(id) { return document.getElementById(id); }
@@ -1676,9 +1679,15 @@
   }
 
   async function onPaymentExpiredByClock() {
-    stopUpiStream();
+    // The 10-minute on-screen window closed. Do NOT tell the backend to stop —
+    // it keeps verifying for up to 6h. Show the expired visual, keep a status
+    // connection alive, and take one immediate reading so a payment that landed
+    // right at 0:00 is reflected without waiting for the next poll.
+    clearInterval(upiState.timerId); upiState.timerId = null;
+    showUpiState('watching');
+    ensureStatusWatch();
     const paymentId = upiState.paymentId;
-    if (!paymentId) { showUpiState('expired'); return; }
+    if (!paymentId) return;
     try {
       const res = await fetch('/api/payment/status?payment_id=' + encodeURIComponent(paymentId), {
         credentials: 'include', headers: authHeaders(),
@@ -1686,7 +1695,7 @@
       const data = await res.json().catch(() => ({}));
       applyPaymentState(data);
     } catch (e) {
-      showUpiState('expired');
+      // Transient failure: the poll keeps trying, so we never hard-fail here.
     }
   }
 
@@ -1720,12 +1729,25 @@
 
     switch (data.status) {
       case 'PENDING':
-        hideUpiState();
-        renderUpiQr(data.qr);
-        startUpiTimer();
+        if (data.window_expired) {
+          // The 10-minute on-screen window closed, but the server keeps
+          // checking for up to 6 hours. Show the expired visual, drop the QR
+          // and the countdown, and keep a status connection alive so a payment
+          // made later updates the UI with no refresh. Never re-show the QR.
+          clearInterval(upiState.timerId); upiState.timerId = null;
+          showUpiState('watching');
+          ensureStatusWatch();
+        } else {
+          hideUpiState();
+          renderUpiQr(data.qr);
+          startUpiTimer();
+        }
         break;
 
       case 'PAID':
+        // The poll and the SSE stream can both observe PAID; show success once.
+        if (upiState.successShown) break;
+        upiState.successShown = true;
         clearInterval(upiState.timerId); upiState.timerId = null;
         stopUpiStream();
         stopUpiPoll();
@@ -1877,6 +1899,12 @@
       ico.textContent = '🔎';
       ttl.textContent = 'Payment needs review';
       sub.textContent = 'We could not verify this payment automatically. Nothing was unlocked. Please contact support with your UTR and order reference.';
+    } else if (kind === 'watching') {
+      // The 10-minute timer closed, but the backend is STILL checking (up to
+      // 6h). Reassure the buyer instead of declaring the attempt dead.
+      ico.textContent = '⏳';
+      ttl.textContent = 'Payment window expired';
+      sub.textContent = "Still checking automatically — if you've already paid, or pay now, we'll detect it and unlock your coupon. You can keep this page open.";
     } else {
       ico.textContent = '⏳';
       ttl.textContent = 'Payment window expired';
@@ -1909,6 +1937,8 @@
     const overlay = upiEl('upiPayOverlay');
     if (overlay) overlay.classList.add('show');
     document.body.style.overflow = 'hidden';
+    // Fresh interaction: allow the success screen to show for this attempt.
+    upiState.successShown = false;
   }
 
   function closeUpiBox() {
@@ -1971,6 +2001,15 @@
       try { upiState.stream.close(); } catch (e) {}
       upiState.stream = null;
     }
+  }
+
+  // Keep a status connection alive after the on-screen timer closes so a late
+  // payment still updates the UI. Prefers the live SSE stream; otherwise falls
+  // back to polling. Safe to call repeatedly (no duplicate transports).
+  function ensureStatusWatch() {
+    if (upiState.stream) return;   // SSE still delivering
+    if (upiState.pollId) return;   // poll already running
+    startUpiPoll();
   }
 
   // Polling fallback. Reads the same server state, so it cannot diverge from

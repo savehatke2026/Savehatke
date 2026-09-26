@@ -37,6 +37,14 @@
     {
       "path": "/api/admin/drive/keepalive",
       "schedule": "0 4 1 * *"
+    },
+    {
+      "path": "/api/payment/cron/scan",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/payment/cron/gmail-watch",
+      "schedule": "0 6 * * *"
     }
   ],
   "routes": [

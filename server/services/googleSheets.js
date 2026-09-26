@@ -38,6 +38,11 @@ const SHEETS = {
   ORDERS: 'Orders',
   PAYMENTS: 'Payments',
   PAYMENT_NOTIFICATIONS: 'PaymentNotifications',
+  // Single-row-per-mailbox state for the Gmail push (watch) + History-API
+  // incremental scanner: the last processed historyId and the current watch
+  // expiration. Lets the fast path check only new messages and lets the daily
+  // cron renew the watch before Google's ~7-day expiry.
+  PAYMENT_GMAIL_STATE: 'PaymentGmailState',
   REFUNDS: 'Refunds',
   // Admin revenue-share payouts (40/40/20). One row per admin payout event.
   ADMIN_PAYOUTS: 'AdminPayouts',
@@ -387,6 +392,11 @@ const HEADERS = {
     'verification_source',
     'verification_notes',
     'received_amount',
+    // Backend checking deadline (6h). The 10-minute `expires_at` above still
+    // drives the on-screen countdown; this is how long the server keeps the
+    // payment matchable after that timer hits 0:00. APPENDED AT THE END so
+    // existing rows keep lining up.
+    'check_expires_at',
   ],
   // Every confirmation the server observes (gateway webhook or payment-mailbox
   // email), recorded before it is acted on. `fingerprint` is the identity that
@@ -410,6 +420,15 @@ const HEADERS = {
     'created_at',
     'processed_at',
     'raw',
+  ],
+  // One row per connected payment mailbox. Tracks the Gmail push (watch) state:
+  // the last processed historyId (so incremental scans read only new messages)
+  // and the current watch expiration (so a daily cron renews it in time).
+  [SHEETS.PAYMENT_GMAIL_STATE]: [
+    'email',
+    'last_history_id',
+    'watch_expiration',
+    'updated_at',
   ],
   // One row per refund event triggered by a payment-amount mismatch (the buyer
   // paid more or less than the coupon's required amount). Overpayments refund
