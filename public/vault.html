@@ -345,6 +345,153 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .inv-price{font-weight:700;color:#00e676;font-family:'JetBrains Mono',monospace;font-size:.8rem}
 .inv-tfoot{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid rgba(79,195,247,.08);font-size:.8rem;color:#6b88aa}
 
+/* ══ COUPON MANAGEMENT — redesigned "All Coupons" inventory ═══════════════
+   Namespaced .cm2-* so it restyles ONLY the coupon inventory and never touches
+   the shared admin classes. Palette matches the approved mockup: #0a0c16 page,
+   #121626 cards, emerald accents, slate text. All data + actions stay live. */
+.cm2-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-bottom:20px}
+@media(max-width:1100px){.cm2-cards{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:640px){.cm2-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.cm2-card{background:#121626;border:1px solid rgba(99,102,241,.2);border-radius:16px;padding:18px 20px;transition:transform .2s,border-color .2s}
+.cm2-card:hover{transform:translateY(-2px)}
+.cm2-card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.cm2-card-ico{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center}
+.cm2-card-ico svg{width:20px;height:20px}
+.cm2-card-num{font-size:1.9rem;font-weight:300;color:#fff;line-height:1;font-variant-numeric:tabular-nums}
+.cm2-card-lbl{font-size:.82rem;font-weight:500;color:#94a3b8}
+.cm2-card.c-indigo{border-color:rgba(99,102,241,.25)}.cm2-card.c-indigo .cm2-card-ico{background:rgba(99,102,241,.1);color:#818cf8}
+.cm2-card.c-emerald{border-color:rgba(16,185,129,.25)}.cm2-card.c-emerald .cm2-card-ico{background:rgba(16,185,129,.1);color:#34d399}
+.cm2-card.c-purple{border-color:rgba(168,85,247,.25)}.cm2-card.c-purple .cm2-card-ico{background:rgba(168,85,247,.1);color:#c084fc}
+.cm2-card.c-amber{border-color:rgba(245,158,11,.25)}.cm2-card.c-amber .cm2-card-ico{background:rgba(245,158,11,.1);color:#fbbf24}
+.cm2-card.c-rose{border-color:rgba(244,63,94,.25)}.cm2-card.c-rose .cm2-card-ico{background:rgba(244,63,94,.1);color:#fb7185}
+
+.cm2-controls{display:flex;flex-direction:column;gap:14px;background:#121626;border:1px solid #1f2740;border-radius:16px;padding:14px;margin-bottom:20px}
+@media(min-width:1024px){.cm2-controls{flex-direction:row;align-items:center;justify-content:space-between}}
+.cm2-pills{display:flex;flex-wrap:wrap;gap:8px}
+.cm2-pill{display:inline-flex;align-items:center;gap:7px;padding:9px 15px;border-radius:11px;font-size:.82rem;font-weight:500;background:#1a1f35;color:#94a3b8;border:1px solid transparent;cursor:pointer;transition:all .18s}
+.cm2-pill:hover{background:#20263f;color:#cbd5e1}
+.cm2-pill svg{width:15px;height:15px}
+.cm2-pill.on.p-emerald{background:rgba(16,185,129,.1);color:#34d399;border-color:rgba(16,185,129,.3)}
+.cm2-pill.on.p-purple{background:rgba(168,85,247,.1);color:#c084fc;border-color:rgba(168,85,247,.3)}
+.cm2-pill.on.p-amber{background:rgba(245,158,11,.1);color:#fbbf24;border-color:rgba(245,158,11,.3)}
+.cm2-pill.on.p-rose{background:rgba(244,63,94,.1);color:#fb7185;border-color:rgba(244,63,94,.3)}
+.cm2-right{display:flex;align-items:center;gap:14px;width:100%}
+@media(min-width:1024px){.cm2-right{width:auto}}
+.cm2-search{position:relative;flex:1}
+@media(min-width:1024px){.cm2-search{min-width:320px}}
+.cm2-search svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#64748b;pointer-events:none}
+.cm2-search input{width:100%;background:#0a0c16;border:1px solid rgba(30,58,95,.6);color:#fff;padding:10px 14px 10px 40px;border-radius:11px;outline:none;font-size:.86rem;transition:border-color .18s}
+.cm2-search input::placeholder{color:#475569}
+.cm2-search input:focus{border-color:rgba(16,185,129,.5);box-shadow:0 0 0 1px rgba(16,185,129,.3)}
+.cm2-viewtoggle{display:flex;align-items:center;background:#0a0c16;padding:4px;border-radius:11px;border:1px solid #1f2740;flex-shrink:0}
+.cm2-vbtn{display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;color:#64748b;background:none;border:none;cursor:pointer;transition:all .18s}
+.cm2-vbtn svg{width:18px;height:18px}
+.cm2-vbtn.on{background:linear-gradient(90deg,rgba(37,99,235,.2),rgba(16,185,129,.2));color:#34d399}
+
+.cm2-list{display:flex;flex-direction:column;gap:12px}
+.cm2-row{display:flex;flex-wrap:wrap;align-items:center;gap:16px;background:#121626;border:1px solid rgba(30,41,59,.8);border-radius:16px;padding:16px;transition:border-color .18s,background .18s}
+.cm2-row:hover{border-color:rgba(30,58,95,.9);background:#15192c}
+.cm2-logo{width:60px;height:60px;border-radius:12px;background:#fff;overflow:hidden;flex-shrink:0;border:1px solid #334155;display:flex;align-items:center;justify-content:center}
+.cm2-logo img{width:100%;height:100%;object-fit:contain}
+.cm2-initial{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#10b981,#3b82f6);color:#04121f;font-weight:800;font-size:1.1rem}
+.cm2-codewrap{display:flex;flex-direction:column;gap:6px;width:100%}
+@media(min-width:768px){.cm2-codewrap{width:230px}}
+.cm2-code-line{display:flex;align-items:center;gap:8px;min-width:0}
+.cm2-code{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.02rem;color:#fff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cm2-copy{color:#64748b;background:none;border:none;cursor:pointer;padding:2px;transition:color .18s;flex-shrink:0}
+.cm2-copy:hover{color:#34d399}
+.cm2-copy svg{width:15px;height:15px}
+.cm2-cat{font-size:.72rem;color:#94a3b8;background:rgba(30,41,59,.5);padding:2px 8px;border-radius:6px;align-self:flex-start;border:1px solid rgba(51,65,85,.5)}
+.cm2-divider{display:none;width:1px;height:40px;background:#1e293b}
+@media(min-width:768px){.cm2-divider{display:block}}
+.cm2-meta{display:flex;flex:1;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;min-width:0}
+.cm2-field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.cm2-field-lbl{font-size:.62rem;text-transform:uppercase;font-weight:600;letter-spacing:.06em;color:#64748b}
+.cm2-field-val{font-weight:600;color:#fff;font-size:.9rem}
+.cm2-field-val.price{color:#34d399;font-weight:700;font-size:1.05rem;font-family:'JetBrains Mono',monospace}
+.cm2-badge{display:inline-block;padding:4px 11px;font-size:.7rem;font-weight:600;border-radius:9999px;border:1px solid;white-space:nowrap}
+.cm2-badge.b-src-admin{background:rgba(99,102,241,.1);color:#818cf8;border-color:rgba(99,102,241,.2);font-size:.62rem;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:5px}
+.cm2-badge.b-src-user{background:rgba(168,85,247,.1);color:#c084fc;border-color:rgba(168,85,247,.2);font-size:.62rem;font-weight:700;letter-spacing:.04em;padding:3px 8px;border-radius:5px}
+.cm2-badge.b-st-available{background:rgba(16,185,129,.1);color:#34d399;border-color:rgba(16,185,129,.2)}
+.cm2-badge.b-st-pending{background:rgba(245,158,11,.1);color:#fbbf24;border-color:rgba(245,158,11,.2)}
+.cm2-badge.b-st-sold{background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.2)}
+.cm2-badge.b-st-expired{background:rgba(148,163,184,.1);color:#94a3b8;border-color:rgba(148,163,184,.2)}
+.cm2-offer{padding:3px 9px;font-size:.72rem;font-weight:700;border-radius:6px;background:rgba(236,72,153,.1);color:#ec4899;border:1px solid rgba(236,72,153,.2)}
+.cm2-offer.none{background:none;border:none;color:#475569;padding:0;font-weight:400}
+
+.cm2-menuwrap{position:relative;margin-left:auto}
+.cm2-menu-btn{color:#64748b;background:none;border:none;cursor:pointer;padding:8px;border-radius:9px;transition:all .18s}
+.cm2-menu-btn:hover{color:#fff;background:rgba(30,41,59,.8)}
+.cm2-menu-btn svg{width:18px;height:18px}
+.cm2-menu{position:absolute;right:0;top:calc(100% + 6px);width:236px;background:#0d1120;border:1px solid #1f2740;border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.55);padding:8px;z-index:60;display:none}
+.cm2-menu.open{display:block}
+.cm2-mi{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:8px 10px;border-radius:8px;font-size:.82rem;color:#cbd5e1;background:none;border:none;cursor:pointer;text-align:left;transition:background .15s}
+.cm2-mi:hover{background:rgba(30,41,59,.7);color:#fff}
+.cm2-mi .cm2-mi-state{font-size:.7rem;font-weight:700}
+.cm2-mi.danger{color:#fb7185}.cm2-mi.danger:hover{background:rgba(244,63,94,.12)}
+.cm2-mi.approve{color:#34d399}.cm2-mi.approve:hover{background:rgba(16,185,129,.12)}
+.cm2-mi-field{padding:8px 10px}
+.cm2-mi-field label{display:block;font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;color:#64748b;margin-bottom:5px}
+.cm2-mi-field input{width:100%;background:#0a0c16;border:1px solid #1f2740;border-radius:7px;color:#e2e8f0;font-size:.74rem;padding:6px 8px;outline:none;color-scheme:dark;font-family:'JetBrains Mono',monospace}
+.cm2-mi-field input:focus{border-color:rgba(16,185,129,.5)}
+.cm2-menu-sep{height:1px;background:#1f2740;margin:6px 4px}
+
+.cm2-tablecard{background:#121626;border:1px solid #1f2740;border-radius:16px;overflow:hidden}
+.cm2-tablewrap{overflow-x:auto}
+.cm2-table{width:100%;border-collapse:collapse;min-width:920px;text-align:left}
+.cm2-table thead tr{background:#161a2d;border-bottom:1px solid #1f2740}
+.cm2-table th{padding:14px 20px;font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#94a3b8;white-space:nowrap}
+.cm2-table th.ta-right{text-align:right}
+.cm2-table td{padding:12px 20px;border-bottom:1px solid rgba(30,41,59,.6);vertical-align:middle}
+.cm2-table td.ta-right{text-align:right}
+.cm2-table tbody tr:last-child td{border-bottom:none}
+.cm2-table tbody tr:hover{background:#1a1f35}
+.cm2-tbrand{display:flex;align-items:center;gap:10px}
+.cm2-tbrand-logo{width:32px;height:32px;border-radius:8px;background:#fff;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.cm2-tbrand-logo img{width:100%;height:100%;object-fit:contain}
+.cm2-tbrand-logo .cm2-initial{font-size:.72rem}
+.cm2-tbrand-name{color:#fff;font-weight:500;font-size:.86rem}
+.cm2-tcode{color:#fff;font-family:'JetBrains Mono',monospace;font-size:.82rem}
+.cm2-tcat{font-size:.72rem;color:#64748b}
+.cm2-tprice{color:#34d399;font-weight:700;font-family:'JetBrains Mono',monospace}
+
+.cm2-pager{display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:space-between;padding-top:18px;margin-top:18px;border-top:1px solid rgba(30,41,59,.5)}
+@media(min-width:640px){.cm2-pager{flex-direction:row}}
+.cm2-pager-info{font-size:.84rem;color:#94a3b8}
+.cm2-pager-info b{color:#fff;font-weight:600}
+.cm2-pager-btns{display:flex;align-items:center;gap:5px}
+.cm2-pg{padding:7px 13px;border-radius:9px;font-size:.82rem;font-weight:500;color:#94a3b8;background:none;border:none;cursor:pointer;transition:all .15s}
+.cm2-pg:hover:not(:disabled){color:#fff;background:#1a1f35}
+.cm2-pg:disabled{opacity:.4;cursor:not-allowed}
+.cm2-pg-num{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:9px;font-size:.82rem;font-weight:500;color:#94a3b8;background:none;border:1px solid transparent;cursor:pointer}
+.cm2-pg-num:hover{color:#fff;background:#1a1f35}
+.cm2-pg-num.on{background:rgba(16,185,129,.1);color:#34d399;border-color:rgba(16,185,129,.3)}
+.cm2-empty{text-align:center;padding:56px 20px;color:#64748b}
+.cm2-empty .cm2-empty-ico{font-size:2.4rem;margin-bottom:10px}
+
+/* ── Align the rest of the coupon tabs (Add / Pending / Active / Categories)
+   to the redesigned palette. SCOPED to #sec-coupons so no other admin section
+   is touched — the mockup only defines the inventory view, so these tabs keep
+   their structure and get the new colours/inputs. ── */
+#sec-coupons .page-title .gtext{color:#34d399}
+#sec-coupons .tab-row{border-bottom:1px solid #1f2740}
+#sec-coupons .tab-btn{color:#94a3b8}
+#sec-coupons .tab-btn:hover{color:#cbd5e1}
+#sec-coupons .tab-btn.active{color:#34d399}
+#sec-coupons .card{background:#121626;border:1px solid #1f2740;border-radius:16px}
+#sec-coupons .search-bar input,
+#sec-coupons .form-input,
+#sec-coupons .form-select,
+#sec-coupons .form-textarea{background:#0a0c16;border:1px solid rgba(30,58,95,.6);border-radius:11px;color:#fff}
+#sec-coupons .search-bar input:focus,
+#sec-coupons .form-input:focus,
+#sec-coupons .form-select:focus,
+#sec-coupons .form-textarea:focus{border-color:rgba(16,185,129,.5);box-shadow:0 0 0 1px rgba(16,185,129,.3);outline:none}
+#sec-coupons .cm-filters .btn.active{background:rgba(16,185,129,.12);border-color:rgba(16,185,129,.4);color:#34d399}
+#sec-coupons .appr-table thead th{background:#161a2d;color:#94a3b8}
+#sec-coupons .appr-table th:last-child,#sec-coupons .appr-table td:last-child{background:#121626}
+#sec-coupons .appr-table thead th:last-child{background:#161a2d}
+
 /* ── COUPON MANAGEMENT: ⏳ Pending + ✅ Approved/Active tables ── */
 /* `.main` is a flex item with min-width:auto, so a wide table used to push the
    whole page wider than the viewport — where body{overflow-x:hidden} clipped the
@@ -1592,10 +1739,33 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <button class="tab-btn" onclick="showCouponTab('cats',this)">🗂️ Categories</button>
       </div>
 
-      <!-- ALL COUPONS -->
+      <!-- ALL COUPONS (redesigned inventory — data + actions stay live) -->
       <div class="tab-content active" id="ctab-all">
-        <div class="search-bar"><input type="text" id="invSearch" placeholder="Search coupons, brands, codes..."></div>
-        <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:12px" id="inventoryTable"></div>
+        <!-- Summary cards (populated by loadInventory) -->
+        <div class="cm2-cards" id="cmSummaryCards"></div>
+
+        <!-- Controls: filter pills + search + card/table view toggle -->
+        <div class="cm2-controls">
+          <div class="cm2-pills" id="cmPills">
+            <button type="button" class="cm2-pill p-emerald" data-pill="active" onclick="cmSetPill('active',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg> Active Coupons</button>
+            <button type="button" class="cm2-pill p-purple" data-pill="seller" onclick="cmSetPill('seller',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> Seller Coupons</button>
+            <button type="button" class="cm2-pill p-amber" data-pill="sold" onclick="cmSetPill('sold',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Sold Coupons</button>
+            <button type="button" class="cm2-pill p-rose" data-pill="expired" onclick="cmSetPill('expired',this)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg> Expired Coupons</button>
+          </div>
+          <div class="cm2-right">
+            <div class="cm2-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              <input type="text" id="invSearch" placeholder="Search coupons, brands, codes...">
+            </div>
+            <div class="cm2-viewtoggle">
+              <button type="button" class="cm2-vbtn on" id="cmViewCard" onclick="cmSetView('card')" title="Card view" aria-label="Card view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></button>
+              <button type="button" class="cm2-vbtn" id="cmViewTable" onclick="cmSetView('table')" title="Table view" aria-label="Table view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inventory (card or table view) + pagination, rendered by loadInventory() -->
+        <div id="inventoryTable"></div>
       </div>
 
       <!-- ADD COUPON FORM -->

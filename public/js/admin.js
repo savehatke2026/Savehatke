@@ -291,6 +291,10 @@ const INV_PAGE_SIZE = 20;
 // Last rendered page-set, so an inline sale/timer edit can patch its row in
 // place instead of re-fetching and losing the page + scroll position.
 let INVENTORY_CACHE = [];
+// Redesigned "All Coupons" view state.
+let invViewMode = 'card';   // 'card' | 'table'
+let invPillFilter = null;   // null | 'active' | 'seller' | 'sold' | 'expired'
+let INVENTORY_ALL = [];     // full fetched set — drives the summary cards + pill filters
 
 async function loadInventory() {
   const container = document.getElementById('inventoryTable');
@@ -308,104 +312,75 @@ async function loadInventory() {
     // If a newer request started while we were awaiting, drop this response
     if (seq !== inventoryRequestSeq) return;
 
-    // All Coupons = approved/active/available inventory only. A seller
-    // submission starts life as status 'pending' and belongs in the ⏳ Pending
-    // tab until an admin approves it; showing it here too would put the same
-    // coupon in both tabs at once. The exclusion is keyed on (source, status)
-    // so an admin-entered coupon is never hidden from this table — the Add
-    // Coupon form only offers available/scheduled/draft, but a status set
-    // through the API keeps rendering here exactly as it always has.
-    const allCoupons = (data.coupons || []).filter(
-      (c) => !(c.status === 'pending' && isSellerSubmission(c)),
-    );
+    const all = data.coupons || [];
+    INVENTORY_ALL = all;
 
-    // Unfiltered fetch already holds every coupon — use it to keep the ⏳ Pending
-    // tab badge honest, since opening the section only loads this table. The
-    // badge counts seller submissions only, matching what the Pending tab
-    // itself renders. proof_requested items continue to live in the Coupon
-    // Reviews section.
+    // Unfiltered fetch already holds every coupon — keep the ⏳ Pending tab badge
+    // honest (seller submissions only, matching what that tab renders).
     if (!status) {
-      cmSetPendingBadge(
-        (data.coupons || []).filter((c) => c.status === 'pending' && isSellerSubmission(c)).length,
+      cmSetPendingBadge(all.filter((c) => c.status === 'pending' && isSellerSubmission(c)).length);
+    }
+
+    // Summary cards are computed across the WHOLE set, before any view filter.
+    renderInventorySummary(all);
+
+    // Default "All Coupons" set: everything EXCEPT still-pending seller
+    // submissions (those live in the ⏳ Pending tab, so they aren't shown twice).
+    const base = all.filter((c) => !(c.status === 'pending' && isSellerSubmission(c)));
+
+    // A filter pill narrows the set. 'seller' spans the whole set (incl. pending)
+    // so the pill actually surfaces seller submissions.
+    let coupons;
+    switch (invPillFilter) {
+      case 'active':  coupons = all.filter((c) => String(c.status).toLowerCase() === 'available'); break;
+      case 'seller':  coupons = all.filter(isSellerSubmission); break;
+      case 'sold':    coupons = all.filter((c) => String(c.status).toLowerCase() === 'sold'); break;
+      case 'expired': coupons = all.filter(couponIsExpired); break;
+      default:        coupons = base;
+    }
+
+    const search = document.getElementById('invSearch')?.value?.toLowerCase() || '';
+    if (search) {
+      coupons = coupons.filter(
+        (c) =>
+          (c.code || '').toLowerCase().includes(search) ||
+          (c.brand || '').toLowerCase().includes(search) ||
+          (c.category || '').toLowerCase().includes(search)
       );
     }
 
-    if (allCoupons.length === 0) {
+    const totalFiltered = coupons.length;
+    if (totalFiltered === 0) {
       INVENTORY_CACHE = [];
       container.innerHTML = `
-        <div class="empty-state">
-          <div class="es-icon">📋</div>
-          <div class="es-title">No coupons in inventory</div>
-          <div class="es-sub">Add your first coupon with the “➕ Add Coupon” button above.</div>
+        <div class="cm2-empty">
+          <div class="cm2-empty-ico">📋</div>
+          <div style="color:#e2e8f0;font-weight:600;margin-bottom:4px">No coupons found</div>
+          <div style="font-size:.85rem">${(search || invPillFilter) ? 'Try clearing the search or the active filter.' : 'Add your first coupon with the “➕ Add Coupon” button above.'}</div>
         </div>
       `;
       return;
     }
 
-    const search = document.getElementById('invSearch')?.value?.toLowerCase() || '';
-    let coupons = allCoupons;
-    if (search) {
-      coupons = coupons.filter(
-        (c) =>
-          (c.code || '').toLowerCase().includes(search) ||
-          (c.brand || '').toLowerCase().includes(search)
-      );
-    }
-
     // Pagination
-    const totalFiltered = coupons.length;
     const totalPages = Math.max(1, Math.ceil(totalFiltered / INV_PAGE_SIZE));
     if (invCurrentPage > totalPages) invCurrentPage = totalPages;
+    if (invCurrentPage < 1) invCurrentPage = 1;
     const startIdx = (invCurrentPage - 1) * INV_PAGE_SIZE;
     const pageCoupons = coupons.slice(startIdx, startIdx + INV_PAGE_SIZE);
     INVENTORY_CACHE = pageCoupons;
 
-    container.innerHTML = `
-      <div class="table-card" style="margin-bottom:0">
-        <div class="overflow-x">
-          <table class="inv-table">
-            <colgroup>
-              <!-- Brand is logo-only now, so it needs far less room than it did
-                   with the name beside it; the width it gives up goes to Code,
-                   where long coupon codes were being ellipsised. -->
-              <col style="width:112px"><col style="width:228px"><col style="width:120px">
-              <col style="width:88px"><col style="width:92px"><col style="width:70px">
-              <col style="width:70px"><col style="width:206px"><col style="width:170px">
-              <col style="width:104px"><col style="width:110px">
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Brand</th>
-                <th>Code</th>
-                <th>Category</th>
-                <th class="ta-center">Value</th>
-                <th>Price</th>
-                <th class="ta-center" title="Show the 🔥 Sale badge on the marketplace card">Sale</th>
-                <th class="ta-center" title="Show the expiry countdown on the marketplace card. Turning it off keeps the date — it just stops counting down.">Timer</th>
-                <th title="When this coupon expires — drives the countdown on the marketplace card">Expires</th>
-                <th title="Hero image shown on the marketplace card — per coupon. Empty uses the default SaveHatke background.">Image</th>
-                <th>Source</th>
-                <th>Status</th>
-                <th class="ta-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${pageCoupons.map(invRowHtml).join('')}
-            </tbody>
-          </table>
-        </div>
-        <div class="inv-tfoot">
-          <span>Showing ${startIdx + 1}–${Math.min(startIdx + INV_PAGE_SIZE, totalFiltered)} of ${totalFiltered} coupons</span>
-          <div style="display:flex;align-items:center;gap:8px">
-            <button class="btn btn-ghost btn-sm" onclick="invGoToPage(1)" ${invCurrentPage <= 1 ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>«</button>
-            <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${invCurrentPage - 1})" ${invCurrentPage <= 1 ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>‹ Prev</button>
-            <span style="font-weight:700;color:#e2ecff">Page ${invCurrentPage} / ${totalPages}</span>
-            <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${invCurrentPage + 1})" ${invCurrentPage >= totalPages ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>Next ›</button>
-            <button class="btn btn-ghost btn-sm" onclick="invGoToPage(${totalPages})" ${invCurrentPage >= totalPages ? 'disabled style="opacity:.4;pointer-events:none"' : ''}>»</button>
-          </div>
-        </div>
-      </div>
-    `;
+    const body = invViewMode === 'table'
+      ? `<div class="cm2-tablecard"><div class="cm2-tablewrap"><table class="cm2-table">
+            <thead><tr>
+              <th>Brand</th><th>Code</th><th>Source</th><th>Value</th><th>Price</th>
+              <th>Offer</th><th>Status</th><th class="ta-right">Action</th>
+            </tr></thead>
+            <tbody>${pageCoupons.map(cmTableRowHtml).join('')}</tbody>
+          </table></div></div>`
+      : `<div class="cm2-list">${pageCoupons.map(cmCardHtml).join('')}</div>`;
+
+    container.innerHTML = body + invPagerHtml(startIdx, totalFiltered, totalPages);
 
     startInventoryExpiryTicker();
   } catch (err) {
@@ -423,70 +398,217 @@ async function loadInventory() {
   }
 }
 
-/** One inventory row: brand logo (no name — the logo is the label), inline sale + timer switches, inline expiry. */
-function invRowHtml(c) {
-  const id = escHtml(c.id || '');
-  const brand = c.brand || '';
-  const statusBadge = c.status === 'sold' ? 'green' : c.status === 'pending' ? 'orange' : 'blue';
-  const sourceBadge = c.source === 'admin' ? 'purple' : c.source === 'auto-scraped' ? 'teal' : 'blue';
+/** True when a coupon has expired — flagged 'expired', or simply past its date. */
+function couponIsExpired(c) {
+  if (String(c.status || '').toLowerCase() === 'expired') return true;
+  const at = parseExpiry(c.expiryDate);
+  return at !== null && at < Date.now();
+}
+
+/** ADMIN vs USER-SUBMITTED source badge (mockup palette). */
+function cmSourceBadge(c) {
+  if (isSellerSubmission(c)) return '<span class="cm2-badge b-src-user">USER-SUBMITTED</span>';
+  return `<span class="cm2-badge b-src-admin">${escHtml(String(c.source || 'admin').toUpperCase())}</span>`;
+}
+
+/** Status badge. A coupon past its expiry date reads EXPIRED even if the row still says available. */
+function cmStatusBadge(c) {
+  let s = String(c.status || '').toLowerCase();
+  if (s !== 'expired' && couponIsExpired(c)) s = 'expired';
+  const cls = ['available', 'pending', 'sold', 'expired'].includes(s) ? s : 'available';
+  return `<span class="cm2-badge b-st-${cls}">${escHtml((s || 'available').toUpperCase())}</span>`;
+}
+
+/** Offer/discount badge (e.g. "50% OFF"); a dash when there is none. */
+function cmOfferBadge(c) {
+  const offer = String(c.discount || '').trim();
+  if (!offer) return '<span class="cm2-offer none">—</span>';
+  return `<span class="cm2-offer">${escHtml(offer)}</span>`;
+}
+
+/** Brand logo (falls back to the coloured initial), shared by card + table. */
+function cmLogoHtml(brand) {
   const logoUrl = getBrandLogo(brand);
   const logoClass = getBrandLogoClass(logoUrl);
   const initial = escHtml(getBrandInitial(brand));
+  if (logoUrl) {
+    return `<img class="${logoClass ? logoClass + ' ' : ''}" src="${escHtml(logoUrl)}" alt="${escHtml(brand)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="cm2-initial" style="display:none">${initial}</span>`;
+  }
+  return `<span class="cm2-initial">${initial}</span>`;
+}
+
+/**
+ * The shared ⋮ actions menu. It keeps EVERY live capability the old inline table
+ * row had — sale/timer toggles, expiry, background image, approve, delete — plus
+ * copy-code, so nothing is lost in the redesign. Handlers are the existing
+ * functions (setCouponSale/Timer/Expiry/BackgroundImage, approveCoupon, deleteCoupon).
+ */
+function cmMenuHtml(c) {
+  const id = escHtml(c.id || '');
   const onSale = c.onSale !== false;
   const timerOn = c.timerOn !== false;
   const timerValue = escHtml(toTimerInputValue(c.expiryDate));
-
+  const img = escHtml(c.backgroundImage || '');
+  const code = escHtml(c.code || '');
   return `
-    <tr data-coupon-id="${id}">
-      <td>
-        <div class="inv-brand" title="${escHtml(brand)}">
-          ${logoUrl
-            ? `<img class="inv-brand-logo${logoClass ? ' ' + logoClass : ''}" src="${escHtml(logoUrl)}" alt="${escHtml(brand)}" loading="lazy"
-                    onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
-               ><span class="inv-brand-initial" style="display:none">${initial}</span>`
-            : `<span class="inv-brand-initial">${initial}</span>`
-          }
+    <div class="cm2-menuwrap">
+      <button type="button" class="cm2-menu-btn" title="Actions" onclick="cmToggleMenu(event,'${id}')" aria-label="Coupon actions">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      </button>
+      <div class="cm2-menu" id="cm2menu-${id}">
+        <button type="button" class="cm2-mi" onclick="cmCopyCode('${code}',this)">Copy code <span>📋</span></button>
+        <div class="cm2-menu-sep"></div>
+        <label class="cm2-mi" style="cursor:pointer" title="Show the 🔥 Sale badge on the marketplace card">🔥 Sale
+          <input type="checkbox" ${onSale ? 'checked' : ''} onchange="setCouponSale('${id}', this.checked, this)"></label>
+        <label class="cm2-mi" style="cursor:pointer" title="Show the expiry countdown on the marketplace card (the date is kept either way)">⏱ Timer
+          <input type="checkbox" ${timerOn ? 'checked' : ''} onchange="setCouponTimer('${id}', this.checked, this)"></label>
+        <div class="cm2-mi-field">
+          <label>Expiry date &amp; time</label>
+          <input type="datetime-local" value="${timerValue}" data-prev-value="${timerValue}" onchange="setCouponExpiry('${id}', this.value, this)">
         </div>
-      </td>
-      <td><code class="inv-code">${escHtml(c.code || '')}</code></td>
-      <td>${escHtml(c.category || '—')}</td>
-      <td class="ta-center">₹${escHtml(c.originalValue || '—')}</td>
-      <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
-      <td class="ta-center">
-        <label class="toggle" title="${onSale ? 'Sale is ON — turn it off' : 'Sale is OFF — turn it on'}">
-          <input type="checkbox" ${onSale ? 'checked' : ''} onchange="setCouponSale('${id}', this.checked, this)">
-          <span class="toggle-slider"></span>
-        </label>
-      </td>
-      <td class="ta-center">
-        <label class="toggle" title="${timerOn ? 'Timer is ON — turn it off to hide the countdown (the date is kept)' : 'Timer is OFF — turn it on to show the countdown again'}">
-          <input type="checkbox" ${timerOn ? 'checked' : ''} onchange="setCouponTimer('${id}', this.checked, this)">
-          <span class="toggle-slider"></span>
-        </label>
-      </td>
-      <td>
-        <input class="inv-timer${timerOn ? '' : ' inv-timer-off'}" type="datetime-local" value="${timerValue}" data-prev-value="${timerValue}"
-               title="${timerOn ? 'Set when this coupon expires — clear the field to remove the timer' : 'Turn the Timer switch on to edit this'}"
-               ${timerOn ? '' : 'disabled'}
-               onchange="setCouponExpiry('${id}', this.value, this)">
-        ${invExpiryChip(c.expiryDate, timerOn)}
-      </td>
-      <td>
-        <input class="inv-img" type="text" value="${escHtml(c.backgroundImage || '')}" data-prev-value="${escHtml(c.backgroundImage || '')}"
-               placeholder="/images/coupons/…"
-               title="Hero image for this coupon's marketplace card — a path like /images/coupons/amazon.webp or a full URL. Clear to use the default background."
-               onchange="setCouponBackgroundImage('${id}', this.value.trim(), this)">
-      </td>
-      <td><span class="badge badge-${sourceBadge}">${escHtml(c.source || '—')}</span></td>
-      <td><span class="badge badge-${statusBadge}">${escHtml(c.status || '—')}</span></td>
-      <td>
-        <div class="admin-actions ta-right">
-          ${c.status === 'pending' ? `<button class="btn btn-success btn-xs" title="Approve this coupon" onclick="approveCoupon('${id}')">✓</button>` : ''}
-          <button class="btn btn-danger btn-xs" title="Delete this coupon" onclick="deleteCoupon('${id}')">🗑</button>
+        <div class="cm2-mi-field">
+          <label>Background image</label>
+          <input type="text" value="${img}" data-prev-value="${img}" placeholder="/images/coupons/…" onchange="setCouponBackgroundImage('${id}', this.value.trim(), this)">
         </div>
-      </td>
-    </tr>
-  `;
+        <div class="cm2-menu-sep"></div>
+        ${c.status === 'pending' ? `<button type="button" class="cm2-mi approve" onclick="approveCoupon('${id}')">Approve coupon <span>✓</span></button>` : ''}
+        <button type="button" class="cm2-mi danger" onclick="deleteCoupon('${id}')">Delete coupon <span>🗑</span></button>
+      </div>
+    </div>`;
+}
+
+/** One card-view row — the mockup's default layout. */
+function cmCardHtml(c) {
+  const brand = c.brand || '';
+  const code = escHtml(c.code || '');
+  return `
+    <div class="cm2-row" data-coupon-id="${escHtml(c.id || '')}">
+      <div class="cm2-logo" title="${escHtml(brand)}">${cmLogoHtml(brand)}</div>
+      <div class="cm2-codewrap">
+        <div class="cm2-code-line">
+          <span class="cm2-code" title="${code}">${code}</span>
+          <button type="button" class="cm2-copy" title="Copy code" onclick="cmCopyCode('${code}',this)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          </button>
+        </div>
+        <span class="cm2-cat">${escHtml(c.category || '—')}</span>
+      </div>
+      <div class="cm2-divider"></div>
+      <div class="cm2-meta">
+        <div class="cm2-field" style="min-width:120px"><span class="cm2-field-lbl">Source</span>${cmSourceBadge(c)}</div>
+        <div class="cm2-field"><span class="cm2-field-lbl">Value</span><span class="cm2-field-val">₹${escHtml(c.originalValue || '—')}</span></div>
+        <div class="cm2-field"><span class="cm2-field-lbl">Price</span><span class="cm2-field-val price">₹${escHtml(c.sellingPrice || '0')}</span></div>
+        <div class="cm2-field"><span class="cm2-field-lbl">Offer</span>${cmOfferBadge(c)}</div>
+        <div class="cm2-field"><span class="cm2-field-lbl">Status</span>${cmStatusBadge(c)}</div>
+        ${cmMenuHtml(c)}
+      </div>
+    </div>`;
+}
+
+/** One table-view row. */
+function cmTableRowHtml(c) {
+  const brand = c.brand || '';
+  return `
+    <tr data-coupon-id="${escHtml(c.id || '')}">
+      <td><div class="cm2-tbrand"><span class="cm2-tbrand-logo">${cmLogoHtml(brand)}</span><span class="cm2-tbrand-name">${escHtml(brand || '—')}</span></div></td>
+      <td><div style="display:flex;flex-direction:column;gap:2px"><span class="cm2-tcode">${escHtml(c.code || '')}</span><span class="cm2-tcat">${escHtml(c.category || '')}</span></div></td>
+      <td>${cmSourceBadge(c)}</td>
+      <td style="color:#fff;font-weight:600">₹${escHtml(c.originalValue || '—')}</td>
+      <td class="cm2-tprice">₹${escHtml(c.sellingPrice || '0')}</td>
+      <td>${cmOfferBadge(c)}</td>
+      <td>${cmStatusBadge(c)}</td>
+      <td class="ta-right">${cmMenuHtml(c)}</td>
+    </tr>`;
+}
+
+/** Render the five summary cards across the whole coupon set. */
+function renderInventorySummary(all) {
+  const host = document.getElementById('cmSummaryCards');
+  if (!host) return;
+  const total = all.length;
+  const active = all.filter((c) => String(c.status).toLowerCase() === 'available').length;
+  const seller = all.filter(isSellerSubmission).length;
+  const sold = all.filter((c) => String(c.status).toLowerCase() === 'sold').length;
+  const expired = all.filter(couponIsExpired).length;
+  const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const card = (accent, icon, num, lbl) =>
+    `<div class="cm2-card c-${accent}"><div class="cm2-card-top"><div class="cm2-card-ico">${icon}</div><span class="cm2-card-num">${num}</span></div><p class="cm2-card-lbl">${lbl}</p></div>`;
+  host.innerHTML =
+    card('indigo', svg('<path d="M12 2H2v10l9.29 9.29c.94.94 2.48.94 3.42 0l6.58-6.58c.94-.94.94-2.48 0-3.42L12 2Z"/><path d="M7 7h.01"/>'), total, 'Total Coupons') +
+    card('emerald', svg('<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>'), active, 'Active Coupons') +
+    card('purple', svg('<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>'), seller, 'Seller Coupons') +
+    card('amber', svg('<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>'), sold, 'Sold Coupons') +
+    card('rose', svg('<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>'), expired, 'Expired Coupons');
+}
+
+/** Pagination footer (mockup style) — reuses invGoToPage(). */
+function invPagerHtml(startIdx, total, totalPages) {
+  const from = total === 0 ? 0 : startIdx + 1;
+  const to = Math.min(startIdx + INV_PAGE_SIZE, total);
+  let nums = '';
+  let last = 0;
+  for (let p = 1; p <= totalPages; p++) {
+    if (!(p === 1 || p === totalPages || Math.abs(p - invCurrentPage) <= 1)) continue;
+    if (last && p - last > 1) nums += '<span style="color:#475569;padding:0 3px">…</span>';
+    nums += `<button type="button" class="cm2-pg-num${p === invCurrentPage ? ' on' : ''}" onclick="invGoToPage(${p})">${p}</button>`;
+    last = p;
+  }
+  return `
+    <div class="cm2-pager">
+      <p class="cm2-pager-info">Showing <b>${from}–${to}</b> of <b>${total}</b> coupons</p>
+      <div class="cm2-pager-btns">
+        <button type="button" class="cm2-pg" onclick="invGoToPage(${invCurrentPage - 1})" ${invCurrentPage <= 1 ? 'disabled' : ''}>Previous</button>
+        ${nums}
+        <button type="button" class="cm2-pg" onclick="invGoToPage(${invCurrentPage + 1})" ${invCurrentPage >= totalPages ? 'disabled' : ''}>Next</button>
+      </div>
+    </div>`;
+}
+
+// ── View toggle / filter pills / row menu / copy ────────────────────────────
+function cmSetView(mode) {
+  invViewMode = mode === 'table' ? 'table' : 'card';
+  const cardBtn = document.getElementById('cmViewCard');
+  const tableBtn = document.getElementById('cmViewTable');
+  if (cardBtn) cardBtn.classList.toggle('on', invViewMode === 'card');
+  if (tableBtn) tableBtn.classList.toggle('on', invViewMode === 'table');
+  loadInventory();
+}
+
+function cmSetPill(pill, el) {
+  invPillFilter = invPillFilter === pill ? null : pill;
+  document.querySelectorAll('#cmPills .cm2-pill').forEach((b) => {
+    b.classList.toggle('on', b === el && invPillFilter === pill);
+  });
+  invCurrentPage = 1;
+  loadInventory();
+}
+
+function cmToggleMenu(ev, id) {
+  if (ev) ev.stopPropagation();
+  const menu = document.getElementById('cm2menu-' + id);
+  const wasOpen = menu && menu.classList.contains('open');
+  document.querySelectorAll('.cm2-menu.open').forEach((m) => m.classList.remove('open'));
+  if (menu && !wasOpen) menu.classList.add('open');
+}
+
+// Close any open row menu when clicking outside it.
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.closest && e.target.closest('.cm2-menuwrap')) return;
+  document.querySelectorAll('.cm2-menu.open').forEach((m) => m.classList.remove('open'));
+});
+
+async function cmCopyCode(code, btn) {
+  try {
+    await navigator.clipboard.writeText(code);
+  } catch (e) {
+    const t = document.createElement('textarea');
+    t.value = code;
+    document.body.appendChild(t);
+    t.select();
+    try { document.execCommand('copy'); } catch (_) {}
+    document.body.removeChild(t);
+  }
+  if (typeof showToast === 'function') showToast('Code copied: ' + code, 'success', 1500);
 }
 
 /**
