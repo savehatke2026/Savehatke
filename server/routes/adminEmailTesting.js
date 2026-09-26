@@ -187,6 +187,7 @@ router.post('/send', async (req, res) => {
       subject: rendered.subject,
       html: rendered.html,
       text: rendered.text,
+      sender: rendered.sender,
     });
 
     const status = result && result.success ? 'sent' : 'failed';

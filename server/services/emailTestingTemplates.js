@@ -32,6 +32,7 @@ const NOW_ISO = () => new Date().toISOString();
 const TEMPLATES = [
   {
     id: 'payment_success',
+    sender: 'payment',
     name: 'Payment Successful',
     description: 'Test the buyer payment-confirmation (receipt) email.',
     category: 'Payment',
@@ -50,6 +51,7 @@ const TEMPLATES = [
   },
   {
     id: 'welcome',
+    sender: 'noreply',
     name: 'Welcome Email',
     description: 'Test the new user welcome email.',
     category: 'Account',
@@ -57,6 +59,7 @@ const TEMPLATES = [
   },
   {
     id: 'otp',
+    sender: 'security',
     name: 'OTP Verification Code',
     description: 'Test the login / verification one-time-code email.',
     category: 'Security',
@@ -64,6 +67,7 @@ const TEMPLATES = [
   },
   {
     id: 'signin_alert',
+    sender: 'security',
     name: 'New Device Detected',
     description: 'Test the new-device / sign-in security notification email.',
     category: 'Security',
@@ -85,6 +89,7 @@ const TEMPLATES = [
   },
   {
     id: 'two_factor_enabled',
+    sender: 'security',
     name: 'Two-Factor Enabled',
     description: 'Test the "two-factor authentication enabled" security email.',
     category: 'Security',
@@ -99,6 +104,7 @@ const TEMPLATES = [
   },
   {
     id: 'two_factor_recovery_used',
+    sender: 'security',
     name: 'Recovery Code Used',
     description: 'Test the "a recovery code was used" security alert email.',
     category: 'Security',
@@ -114,6 +120,7 @@ const TEMPLATES = [
   },
   {
     id: 'support_ack',
+    sender: 'support',
     name: 'Support Request Received',
     description: 'Test the support ticket acknowledgment email.',
     category: 'Account',
@@ -128,6 +135,7 @@ const TEMPLATES = [
   },
   {
     id: 'support_resolved',
+    sender: 'support',
     name: 'Support Case Resolved',
     description: 'Test the support ticket resolved email.',
     category: 'Account',
@@ -143,6 +151,7 @@ const TEMPLATES = [
   },
   {
     id: 'sos_alert',
+    sender: 'security',
     name: 'SOS Backup Access Alert',
     description: 'Test the SOS backup-access security alert email.',
     category: 'Security',
@@ -167,6 +176,7 @@ const TEMPLATES = [
   },
   {
     id: 'monthly_report',
+    sender: 'main',
     name: 'Monthly Report',
     description: 'Test the monthly marketplace report email.',
     category: 'Admin',
@@ -182,6 +192,7 @@ const TEMPLATES = [
   },
   {
     id: 'coupon_submission',
+    sender: 'noreply',
     name: 'Coupon Submission (Admin)',
     description: 'Test the "new coupon submission" admin notification email.',
     category: 'Coupon',
@@ -194,6 +205,7 @@ const TEMPLATES = [
   },
   {
     id: 'payout_request',
+    sender: 'noreply',
     name: 'Payout Request (Admin)',
     description: 'Test the "new payout request" admin notification email.',
     category: 'Admin',
@@ -280,6 +292,7 @@ async function renderTemplate(id, testEmail) {
     ok: true,
     name: tpl.name,
     category: tpl.category,
+    sender: tpl.sender || 'main',
     subject: withTestSubject(r.subject),
     html: injectTestBanner(r.html),
     text: withTestText(r.text),

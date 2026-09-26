@@ -2624,23 +2624,105 @@ Status: Pending Payment
 }
 
 /**
- * Send a fully-rendered email through the main authenticated SMTP transport.
- * Used by the Admin Email Testing tool to dispatch a test copy of a production
- * template (already rendered via each sender's renderOnly path) to the admin's
- * saved test address. It never touches any real user/order/coupon/refund data —
- * the caller supplies the finished subject/html/text — and it reuses the same
- * Nodemailer transport as the production security/transactional mail.
+ * Resolve the transporter + From identity for a logical sender, so a test copy
+ * leaves from the SAME mailbox the real email uses. A payment receipt must look
+ * like it came from the payment mailbox, not the security one; the welcome and
+ * admin-alert mail from no-reply; support mail from the support mailbox. Mirrors
+ * the exact From resolution each production sender applies. Returns null only
+ * when the requested sender has no usable transporter.
  *
- * @param {{to:string, subject:string, html:string, text?:string, headers?:object}} p
+ * @param {'payment'|'noreply'|'support'|'security'|'main'} [kind]
+ * @returns {{transporter: import('nodemailer').Transporter, fromEmail: string, fromName: string}|null}
+ */
+function resolveSender(kind) {
+  const domainOf = (addr) => (String(addr).split('@')[1] || '').toLowerCase();
+
+  // No-reply From resolution — identical policy to the welcome email and the
+  // payment-confirmation fallback (never claim an address we can't send as).
+  const resolveNoreply = () => {
+    const t = getNoreplyTransporter();
+    if (!t) return null;
+    const authUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+    const desired = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || 'noreply@savehatke.com').trim();
+    const hasDedicated = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
+    const canSendAs = hasDedicated
+      || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+      || Boolean(desired && authUser && domainOf(desired) === domainOf(authUser));
+    return {
+      transporter: t,
+      fromEmail: canSendAs ? desired : (authUser || desired),
+      fromName: (process.env.NOREPLY_NAME || 'SaveHatke').trim(),
+    };
+  };
+
+  switch (String(kind || '').toLowerCase()) {
+    case 'payment': {
+      const paymentSender = getPaymentTransporter();
+      if (paymentSender) {
+        return {
+          transporter: paymentSender.transporter,
+          fromEmail: (process.env.PAYMENT_FROM_EMAIL || paymentSender.fromEmail).trim(),
+          fromName: (process.env.PAYMENT_FROM_NAME || 'SaveHatke').trim(),
+        };
+      }
+      // Same fallback the real receipt uses when the payment mailbox is not
+      // configured: the no-reply account — never the security mailbox.
+      return resolveNoreply();
+    }
+    case 'noreply':
+      return resolveNoreply();
+    case 'support': {
+      const t = getSupportTransporter();
+      if (!t) return null;
+      const hasDedicatedSupport = Boolean(
+        (process.env.SUPPORT_EMAIL || '').trim() && (process.env.SUPPORT_EMAIL_PASSWORD || '').trim()
+      );
+      const fromEmail = hasDedicatedSupport
+        ? (process.env.SUPPORT_EMAIL || '').trim()
+        : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
+      return {
+        transporter: t,
+        fromEmail,
+        fromName: (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim(),
+      };
+    }
+    case 'security':
+    case 'main':
+    default: {
+      const t = getTransporter();
+      if (!t) return null;
+      return {
+        transporter: t,
+        fromEmail: resolveMainFromAddress(),
+        fromName: (process.env.EMAIL_FROM_NAME || 'SaveHatke').trim(),
+      };
+    }
+  }
+}
+
+/**
+ * Send a fully-rendered email through the transport that matches the requested
+ * logical `sender`. Used by the Admin Email Testing tool to dispatch a test copy
+ * of a production template (already rendered via each sender's renderOnly path)
+ * to the admin's saved test address. It never touches any real
+ * user/order/coupon/refund data — the caller supplies the finished
+ * subject/html/text. Routing by `sender` keeps the test copy faithful: e.g. the
+ * payment receipt leaves from the payment mailbox, not the security one. When no
+ * `sender` is given it falls back to the main authenticated SMTP transport
+ * (unchanged behaviour for existing callers).
+ *
+ * @param {{to:string, subject:string, html:string, text?:string, headers?:object, sender?:string}} p
  * @returns {Promise<{success:boolean, messageId?:string, isSimulated?:boolean, error?:string}>}
  */
-async function sendCustomEmail({ to, subject, html, text, headers } = {}) {
+async function sendCustomEmail({ to, subject, html, text, headers, sender } = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   if (!cleanEmail) return { success: false, error: 'No recipient address provided.' };
   if (!html && !text) return { success: false, error: 'Nothing to send: empty email body.' };
 
-  const t = getTransporter();
-  if (!t || !isEmailConfigured()) {
+  // Route through the requested sender's mailbox; if that sender has no
+  // transporter, fall back to the main account so the test still goes out.
+  const resolved = resolveSender(sender) || resolveSender('main');
+  if (!resolved || !resolved.transporter) {
     return {
       success: false,
       isSimulated: true,
@@ -2648,8 +2730,7 @@ async function sendCustomEmail({ to, subject, html, text, headers } = {}) {
     };
   }
 
-  const fromEmail = resolveMainFromAddress();
-  const fromName = (process.env.EMAIL_FROM_NAME || 'SaveHatke').trim();
+  const { transporter: t, fromEmail, fromName } = resolved;
 
   try {
     const info = await t.sendMail({
@@ -2678,8 +2759,11 @@ async function sendCustomEmail({ to, subject, html, text, headers } = {}) {
  * settled (server-verified PAID) — fired from the payment verifier's webhook
  * and FamApp-mailbox settle paths, never from anything the browser reports.
  *
- * Uses the no-reply account (transactional/account comms) exactly like the
- * welcome email, so SPF/DKIM stays aligned and replies route to support. The
+ * Sends FROM the dedicated payment mailbox (PAYMENT_SMTP_USER, e.g.
+ * payments.savehatke@gmail.com) whenever its SMTP credentials are configured, so
+ * the receipt looks like it came from Payments — not the security mailbox. If
+ * those credentials are missing it falls back to the no-reply account (never
+ * security), keeping SPF/DKIM aligned with replies routed to support. The
  * header shows the real website brand lockup — logo.png + the "SaveHatke"
  * wordmark — matching public/index.html's nav-brand. Everything else is the
  * template that was provided, rebuilt around live order data.
