@@ -27,6 +27,7 @@ Thumbs.db
 .vscode/
 .idea/
 .claude/
+.qoder/
 
 # Build
 dist/
@@ -34,6 +35,9 @@ build/
 .dbg/
 .vercel/
 .zcode/
+
+# Generated PDF artifacts (rendered at runtime; not source)
+server/generated/
 
 # Sensitive scratch files and local notes
 *api key*
