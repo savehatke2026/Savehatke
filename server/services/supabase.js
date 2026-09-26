@@ -1477,6 +1477,41 @@ async function setMaintenanceWhitelist(emails, adminEmail) {
   };
 }
 
+// ── Generic site_settings key/value (jsonb) helpers ────────────────────────
+// Small reusable read/write over the same site_settings table that maintenance
+// mode uses, so admin tools can persist tiny JSON blobs in Supabase (the app's
+// always-available store) without needing a dedicated table or MongoDB.
+async function getSiteSetting(key) {
+  const client = getClient();
+  if (!client) return null;
+  try {
+    const { data, error } = await client
+      .from('site_settings')
+      .select('value, updated_at, updated_by')
+      .eq('key', key)
+      .limit(1)
+      .single();
+    if (error || !data) return null; // no row yet (PGRST116) or unreadable
+    return data; // { value, updated_at, updated_by }
+  } catch (err) {
+    console.warn(`getSiteSetting(${key}) error:`, err.message);
+    return null;
+  }
+}
+
+async function setSiteSetting(key, value, updatedBy) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase not configured');
+  const now = new Date().toISOString();
+  const { data, error } = await client
+    .from('site_settings')
+    .upsert({ key, value, updated_at: now, updated_by: updatedBy || '' }, { onConflict: 'key' })
+    .select()
+    .single();
+  if (error) throw new Error(error.message || 'Failed to write site setting');
+  return data;
+}
+
 module.exports = {
   getClient,
   isConfigured,
@@ -1528,6 +1563,8 @@ module.exports = {
   setMaintenanceMode,
   getMaintenanceWhitelist,
   setMaintenanceWhitelist,
+  getSiteSetting,
+  setSiteSetting,
   // Test helpers
   _clearMaintenanceCachesForTests,
 };

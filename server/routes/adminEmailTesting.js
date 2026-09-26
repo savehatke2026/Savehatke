@@ -5,6 +5,10 @@
 // production email templates to an admin-controlled test address, using safe
 // dummy data. Mounted at /api/admin/email-testing.
 //
+// Storage lives in Supabase (the app's always-available store) under the
+// shared `site_settings` key/value table — the same place maintenance mode is
+// kept — so this tool does NOT depend on MongoDB being connected.
+//
 // Hard safety guarantees (see also services/emailTestingTemplates.js):
 //   • Every endpoint requires an authenticated admin session.
 //   • Templates are validated against a fixed allowlist — the client never
@@ -17,17 +21,15 @@
 
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
-const { waitForMongoReady } = require('../config/db');
+const supabase = require('../services/supabase');
 const emailService = require('../services/emailService');
 const templates = require('../services/emailTestingTemplates');
-const EmailTestConfig = require('../models/EmailTestConfig');
-const EmailTestLog = require('../models/EmailTestLog');
-const Admin = require('../models/Admin');
 
 const router = express.Router();
 
 // ── Config ───────────────────────────────────────────────────────────────
-const CONFIG_KEY = 'email_testing';
+const CONFIG_KEY = 'email_testing_config';   // { testEmail }
+const HISTORY_KEY = 'email_testing_history';  // { items: [...] }
 const HISTORY_LIMIT = 25;
 // Rate limit: at most N successful test emails per admin within the window.
 const RATE_MAX = 10;
@@ -40,44 +42,46 @@ function isValidEmail(value) {
   return s.length > 0 && s.length <= 254 && EMAIL_RE.test(s);
 }
 
-// Everything here needs MongoDB (admin data + config + logs). Give a clear
-// 503 instead of a buffered-query hang when the DB is mid-reconnect.
-async function ensureMongo(res) {
-  const ready = await waitForMongoReady(4000).catch(() => false);
-  if (!ready) {
-    res.status(503).json({ error: 'Service temporarily unavailable. Please try again in a moment.' });
-    return false;
-  }
-  return true;
-}
-
 // Resolve the acting admin from the authenticated session → { email, name }.
-async function resolveActingAdmin(req) {
+// Uses only the session/JWT claims so it never depends on MongoDB.
+function actingAdmin(req) {
   const email = String((req.user && req.user.email) || '').toLowerCase().trim();
-  let name = '';
-  try {
-    const me = await Admin.findOne({ email }).select('name').lean();
-    name = (me && me.name) || '';
-  } catch (_) { /* fall through to session/email */ }
-  if (!name) name = (req.user && req.user.name) ? String(req.user.name).trim() : '';
+  let name = (req.user && req.user.name) ? String(req.user.name).trim() : '';
   if (!name) name = email || 'Admin';
   return { email, name };
 }
 
-async function loadConfig() {
-  let doc = await EmailTestConfig.findOne({ key: CONFIG_KEY });
-  if (!doc) {
-    doc = await EmailTestConfig.create({ key: CONFIG_KEY, testEmail: '' }).catch(async (e) => {
-      // Concurrent first-create — re-read the winner.
-      if (e && e.code === 11000) return EmailTestConfig.findOne({ key: CONFIG_KEY });
-      throw e;
-    });
-  }
-  return doc;
+async function loadTestEmail() {
+  const row = await supabase.getSiteSetting(CONFIG_KEY);
+  const val = (row && row.value) || {};
+  return String(val.testEmail || '').trim().toLowerCase();
+}
+
+async function saveTestEmail(email, updatedBy) {
+  await supabase.setSiteSetting(CONFIG_KEY, { testEmail: email }, updatedBy);
+}
+
+async function loadHistory() {
+  const row = await supabase.getSiteSetting(HISTORY_KEY);
+  const val = (row && row.value) || {};
+  return Array.isArray(val.items) ? val.items : [];
+}
+
+async function saveHistory(items, updatedBy) {
+  await supabase.setSiteSetting(HISTORY_KEY, { items: items.slice(0, HISTORY_LIMIT) }, updatedBy);
 }
 
 // All routes are admin-only.
 router.use(authenticateToken, requireAdmin);
+
+// Writes need Supabase configured; give a clear message instead of a raw 500.
+function requireStore(res) {
+  if (!supabase.isConfigured()) {
+    res.status(503).json({ error: 'Email testing storage is not configured on the server.' });
+    return false;
+  }
+  return true;
+}
 
 // ── GET /templates — catalog + filter categories ─────────────────────────
 router.get('/templates', (req, res) => {
@@ -86,19 +90,18 @@ router.get('/templates', (req, res) => {
 
 // ── GET /config — the saved test email address ───────────────────────────
 router.get('/config', async (req, res) => {
-  if (!(await ensureMongo(res))) return;
   try {
-    const doc = await loadConfig();
-    res.json({ testEmail: (doc && doc.testEmail) || '' });
+    const testEmail = await loadTestEmail();
+    res.json({ testEmail });
   } catch (err) {
     console.error('[email-testing] load config failed:', err.message);
-    res.status(500).json({ error: 'Could not load the test email address.' });
+    res.json({ testEmail: '' }); // never block the page on a read hiccup
   }
 });
 
 // ── POST /config — save the test email address ───────────────────────────
 router.post('/config', async (req, res) => {
-  if (!(await ensureMongo(res))) return;
+  if (!requireStore(res)) return;
   try {
     const testEmail = String((req.body && req.body.testEmail) || '').trim().toLowerCase();
     if (!testEmail) {
@@ -107,22 +110,17 @@ router.post('/config', async (req, res) => {
     if (!isValidEmail(testEmail)) {
       return res.status(400).json({ error: 'Please enter a valid email address.' });
     }
-    const admin = await resolveActingAdmin(req);
-    await EmailTestConfig.findOneAndUpdate(
-      { key: CONFIG_KEY },
-      { $set: { testEmail, updatedByEmail: admin.email } },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    const admin = actingAdmin(req);
+    await saveTestEmail(testEmail, admin.email);
     res.json({ success: true, testEmail, message: 'Test email address saved successfully.' });
   } catch (err) {
     console.error('[email-testing] save config failed:', err.message);
-    res.status(500).json({ error: 'Could not save the test email address.' });
+    res.status(500).json({ error: 'Could not save the test email address. Please try again.' });
   }
 });
 
 // ── POST /preview — render a template (NO send) ──────────────────────────
 router.post('/preview', async (req, res) => {
-  if (!(await ensureMongo(res))) return;
   try {
     const id = String((req.body && req.body.template) || '');
     if (!templates.isValidTemplate(id)) {
@@ -130,8 +128,11 @@ router.post('/preview', async (req, res) => {
     }
     // Show the saved address inside the preview when we have one; otherwise a
     // neutral placeholder. Preview never sends, so the address is display-only.
-    const cfg = await loadConfig();
-    const previewTo = isValidEmail(cfg && cfg.testEmail) ? cfg.testEmail : 'test@example.com';
+    let previewTo = 'test@example.com';
+    try {
+      const saved = await loadTestEmail();
+      if (isValidEmail(saved)) previewTo = saved;
+    } catch (_) { /* use placeholder */ }
 
     const rendered = await templates.renderTemplate(id, previewTo);
     if (!rendered.ok) {
@@ -146,7 +147,7 @@ router.post('/preview', async (req, res) => {
 
 // ── POST /send — send a test email to the saved address ──────────────────
 router.post('/send', async (req, res) => {
-  if (!(await ensureMongo(res))) return;
+  if (!requireStore(res)) return;
   try {
     const id = String((req.body && req.body.template) || '');
     if (!templates.isValidTemplate(id)) {
@@ -154,19 +155,20 @@ router.post('/send', async (req, res) => {
     }
 
     // The recipient is ALWAYS the saved test address — never a client value.
-    const cfg = await loadConfig();
-    const testEmail = String((cfg && cfg.testEmail) || '').trim().toLowerCase();
+    const testEmail = await loadTestEmail();
     if (!isValidEmail(testEmail)) {
       return res.status(400).json({ error: 'Please save a valid test email address before sending.' });
     }
 
-    const admin = await resolveActingAdmin(req);
+    const admin = actingAdmin(req);
 
     // Per-admin rate limit — count this admin's successful sends in the window.
-    const since = new Date(Date.now() - RATE_WINDOW_MS);
-    const recentCount = await EmailTestLog.countDocuments({
-      sentByEmail: admin.email, status: 'sent', created_at: { $gte: since },
-    }).catch(() => 0);
+    const history = await loadHistory();
+    const windowStart = Date.now() - RATE_WINDOW_MS;
+    const recentCount = history.filter((h) => h
+      && h.status === 'sent'
+      && String(h.sentByEmail || '').toLowerCase() === admin.email
+      && h.createdAt && new Date(h.createdAt).getTime() >= windowStart).length;
     if (recentCount >= RATE_MAX) {
       return res.status(429).json({ error: 'Too many test emails. Please wait before sending another test email.' });
     }
@@ -188,7 +190,8 @@ router.post('/send', async (req, res) => {
     });
 
     const status = result && result.success ? 'sent' : 'failed';
-    await EmailTestLog.create({
+    // Prepend a metadata-only log entry (no email body, no sensitive data).
+    const entry = {
       template: id,
       templateName: rendered.name,
       recipient: testEmail,
@@ -196,7 +199,13 @@ router.post('/send', async (req, res) => {
       sentByName: admin.name,
       status,
       error: result && result.success ? '' : String((result && result.error) || 'Unknown error').slice(0, 300),
-    }).catch((e) => console.error('[email-testing] log write failed:', e.message));
+      createdAt: new Date().toISOString(),
+    };
+    try {
+      await saveHistory([entry, ...history], admin.email);
+    } catch (e) {
+      console.error('[email-testing] history write failed:', e.message);
+    }
 
     if (!result || !result.success) {
       return res.status(502).json({
@@ -218,24 +227,20 @@ router.post('/send', async (req, res) => {
 
 // ── GET /history — recent test-email activity ────────────────────────────
 router.get('/history', async (req, res) => {
-  if (!(await ensureMongo(res))) return;
   try {
-    const rows = await EmailTestLog.find({})
-      .sort({ created_at: -1 })
-      .limit(HISTORY_LIMIT)
-      .lean();
-    const history = rows.map((r) => ({
+    const items = await loadHistory();
+    const history = items.slice(0, HISTORY_LIMIT).map((r) => ({
       template: r.template,
       templateName: r.templateName || r.template,
       recipient: r.recipient || '',
       sentByName: r.sentByName || r.sentByEmail || 'Admin',
       status: r.status || 'sent',
-      createdAt: r.created_at,
+      createdAt: r.createdAt,
     }));
     res.json({ history });
   } catch (err) {
     console.error('[email-testing] history failed:', err.message);
-    res.status(500).json({ error: 'Could not load the recent test emails.' });
+    res.json({ history: [] });
   }
 });
 
