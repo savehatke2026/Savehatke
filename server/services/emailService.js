@@ -3000,21 +3000,23 @@ SaveHatke Team
 
       <!-- SUCCESS BANNER -->
       <div class="success-banner">
-        <div class="tick-circle">
+        <div class="tick-circle" id="tickCircle">
           <svg viewBox="0 0 24 24">
             <polyline points="20 6 9 17 4 12"/>
           </svg>
         </div>
-        <div class="success-title">Payment Successful</div>
-        <div class="success-sub">Your transaction is complete</div>
+        <div class="success-title">Payment Successful!</div>
+        <div class="success-sub">Your transaction has been confirmed</div>
       </div>
 
       <!-- BODY -->
       <div class="email-body">
         <p class="greeting">Hello <strong>${safeName}</strong>,</p>
-        <p class="intro">We have received your payment successfully.</p>
+        <p class="intro">We have received your payment successfully. Here are your transaction details for your records.</p>
 
         <div class="details-card">
+          <div class="details-header">Transaction Details</div>
+
           <div class="detail-row">
             <span class="detail-label">Amount</span>
             <span class="detail-value amount">${amountStr}</span>
@@ -3029,14 +3031,17 @@ SaveHatke Team
           </div>
         </div>
 
-        <p class="thankyou">Thank you for choosing <span class="brand-name">SaveHatke</span>.</p>
+        <p class="thankyou">
+          Thank you for choosing <span class="brand-name">SaveHatke</span>.
+          We appreciate your trust in us and look forward to serving you again.
+        </p>
       </div>
 
       <!-- FOOTER -->
       <div class="email-footer">
         <p class="regards">Regards,</p>
         <p class="team-name">SaveHatke Team</p>
-        <p class="footer-copy">© ${year} SaveHatke. All rights reserved. This is an automated payment confirmation — please do not reply.</p>
+        <p class="footer-copy">© ${year} SaveHatke. All rights reserved.</p>
       </div>
 
     </div>
