@@ -546,6 +546,15 @@ router.get('/status', authenticateToken, async (req, res) => {
       if (!payment) return fail(res, 404, 'PAYMENT_NOT_FOUND', 'Payment not found.');
     }
 
+    // Poll-fallback verification: when the browser cannot hold an SSE stream
+    // open it polls /status while PENDING. Drive the same on-demand FamApp
+    // scan from here so those buyers also get near-instant verification. The
+    // scan is globally coalesced, so this never multiplies Gmail calls.
+    if (payment.status === 'PENDING' && new Date(payment.expiresAt).getTime() > Date.now()) {
+      try { await verifier.triggerMailboxScan(); } catch (e) {}
+      payment = (await store.findPaymentById(payment.paymentId)) || payment;
+    }
+
     // The server owns expiry. A payment past its deadline is retired the
     // moment anyone asks, so the frontend never has to decide it.
     if (payment.status === 'PENDING' && new Date(payment.expiresAt).getTime() <= Date.now()) {
@@ -596,11 +605,11 @@ router.get('/active', authenticateToken, async (req, res) => {
 });
 
 // ── /verify — ask the server to re-check, independently ────────────────────
-// The request may carry a UTR / transaction reference the buyer read off their
-// UPI app. That is treated as a HINT ONLY: it is recorded on the notification
-// and used to narrow the mailbox search, but it can never by itself settle a
-// payment. Settlement requires the value to appear in an independent source
-// (a signed webhook or a credit notification in the payment mailbox).
+// A manual "check now" trigger for the buyer's still-open window: it forces an
+// immediate FamApp mailbox scan. It NEVER accepts a status, amount, UTR or
+// transaction id from the client as proof — only an independent FamApp credit
+// email (matched on amount, server-side) or a signed webhook can settle a
+// payment.
 router.post('/verify', verifyLimiter, authenticateToken, async (req, res) => {
   try {
     const ready = await store.ensureReady();
@@ -625,27 +634,9 @@ router.post('/verify', verifyLimiter, authenticateToken, async (req, res) => {
       return res.set(NO_STORE).json(await presentPayment(payment));
     }
 
-    // Buyer-supplied claim: recorded for the audit trail / manual review, and
-    // passed to the matcher as a hint. It cannot grant a PAID status.
-    const claimedRef = String(
-      (req.body && (req.body.utr || req.body.transaction_id || req.body.reference)) || ''
-    ).trim().slice(0, 64);
-
-    if (claimedRef) {
-      try {
-        await store.recordNotification({
-          fingerprint: verifier.fingerprintOf(['claim', payment.paymentId, claimedRef]),
-          source: 'buyer_claim',
-          amount: payment.amount,
-          transactionId: claimedRef,
-          reference: claimedRef,
-          status: 'REVIEW',
-          notes: `Buyer submitted reference ${claimedRef} for payment ${payment.paymentId}. Awaiting independent confirmation.`,
-        });
-      } catch (e) {
-        // A duplicate claim is not an error.
-      }
-    }
+    // No client-supplied value (amount, UTR, transaction id, status) is ever
+    // read here — the buyer cannot self-certify a payment. Verification is
+    // purely the server-side FamApp mailbox scan below.
 
     // Independent check: read the payment mailbox and try to match a real
     // credit notification against this (and any other) pending payment.
@@ -768,6 +759,17 @@ router.get('/stream', authenticateToken, async (req, res) => {
       if (!payment) {
         send('error', { code: 'PAYMENT_NOT_FOUND' });
         return;
+      }
+
+      // Opening the payment window starts verification: while this stream is
+      // live and the window is open, check the FamApp mailbox each tick and
+      // settle the instant a matching credit email arrives. Verification stops
+      // automatically once the payment leaves PENDING or the window closes (the
+      // stream ends below). The scan is globally coalesced across all concurrent
+      // streams, so simultaneous buyers never multiply Gmail calls.
+      if (payment.status === 'PENDING' && new Date(payment.expiresAt).getTime() > Date.now()) {
+        try { await verifier.triggerMailboxScan(); } catch (e) {}
+        payment = (await store.findPaymentById(payment.paymentId)) || payment;
       }
 
       if (payment.status === 'PENDING' && new Date(payment.expiresAt).getTime() <= Date.now()) {

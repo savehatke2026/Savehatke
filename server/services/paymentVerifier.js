@@ -18,18 +18,25 @@
 //      specific pending payment. Credentials stay on the server; the browser
 //      never sees a mail token.
 //
-// Matching policy — auto-settlement requires EVERY one of:
-//   * the notification is a CREDIT (money received), not a debit or a request
-//   * the payee VPA is exactly our configured UPI_ID
-//   * the amount equals the pending payment's amount to the paisa
-//   * a strong correlator is present: our order code in the reference/narration,
-//     OR a transaction id / UTR
-//   * the transaction id / UTR has not already settled another payment
-//   * the claimed time falls inside the payment's own window
+// Matching policy has TWO independent server-side sources:
 //
-// An email that merely contains the right amount is NOT enough: without a
-// correlator, or when more than one pending payment could match, the
-// notification is parked for manual review instead of unlocking a coupon.
+//   Payment mailbox (FamApp email) — the primary buyer path:
+//     * the sender is EXACTLY no-reply@famapp.in (no other sender counts)
+//     * the notification is a CREDIT ("successfully received")
+//     * the received amount equals a live pending payment's amount to the paisa
+//     * the email arrived AFTER that payment's window opened (new-email
+//       checkpoint) — an old FamApp email can never settle a new order
+//     * exactly ONE live session is waiting for that amount; two concurrent
+//       same-amount orders are parked for review, never guessed
+//     Transaction ID / UTR are NEVER extracted, stored, or used for matching.
+//     Deduplication is by Gmail message id only.
+//
+//   Gateway webhook (POST /api/payment/webhook) — HMAC-signed PSP path, left
+//   intact for gateways that post signed confirmations.
+//
+// An email that merely contains the right amount but predates the window, or
+// is ambiguous across concurrent orders, is parked for review instead of
+// unlocking a coupon.
 // ============================================
 
 const crypto = require('crypto');
@@ -43,34 +50,29 @@ const refundsService = require('./refunds');
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
-const DEFAULT_MAIL_SENDERS = [
-  'famapp',
-  'fam.co',
-  'famapp.in',
-  'phonepe',
-  'paytm',
-  'googlepay',
-  'okaxis',
-  'okhdfcbank',
-  'okicici',
-  'oksbi',
-  'ybl',
-];
+// FamApp is the ONLY sender SaveHatke accepts as a payment confirmation. The
+// buyer's UPI credit lands in the payment mailbox as an email from this exact
+// address; no bank/PSP/other sender can settle an order.
+const FAMAPP_SENDER = 'no-reply@famapp.in';
 
 function getMailConfig() {
+  // The sender allow-list defaults to FamApp ONLY. PAYMENT_MAIL_FROM can
+  // override it (e.g. for a staging inbox), but the shipped default is
+  // FamApp-only so a stray email can never confirm a payment.
   const senders = String(process.env.PAYMENT_MAIL_FROM || '')
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
   return {
-    // Hosts/addresses we are willing to read a confirmation from. When unset we
-    // fall back to well-known UPI PSP / bank identifiers — matching is still
-    // gated on the strict correlators below, so a wider net here cannot by
-    // itself unlock anything.
-    senders: senders.length ? senders : DEFAULT_MAIL_SENDERS,
-    lookbackDays: Number(process.env.PAYMENT_MAIL_LOOKBACK_DAYS || 2),
+    senders: senders.length ? senders : [FAMAPP_SENDER],
+    lookbackDays: Number(process.env.PAYMENT_MAIL_LOOKBACK_DAYS || 1),
     explicit: senders.length > 0,
   };
+}
+
+/** True only when an email's From is the FamApp payment-notification address. */
+function isFamAppSender(from) {
+  return String(from || '').toLowerCase().includes(FAMAPP_SENDER);
 }
 
 function getWebhookSecret() {
@@ -91,6 +93,26 @@ function parseMoney(text) {
   const n = Number(String(raw).replace(/,/g, ''));
   if (!Number.isFinite(n) || n <= 0) return null;
   return Math.round(n * 100) / 100;
+}
+
+/**
+ * Extract the RECEIVED (credited) amount from a FamApp email, preferring the
+ * amount tied to "received" and explicitly ignoring "Updated Balance" so a
+ * ₹2 credit that leaves a ₹5 balance is read as ₹2, never ₹5. Returns a
+ * 2-dp number or null.
+ */
+function parseReceivedAmount(text) {
+  const s = String(text || '');
+  const near =
+    s.match(/received[\s\S]{0,40}?(?:₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/i) ||
+    s.match(/(?:₹|rs\.?|inr)\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)[\s\S]{0,20}?received/i);
+  if (near && near[1]) {
+    const n = Number(near[1].replace(/,/g, ''));
+    if (Number.isFinite(n) && n > 0) return Math.round(n * 100) / 100;
+  }
+  // Fallback: first money in the text with the balance line removed, so the
+  // "Updated Balance" figure can never be mistaken for the credit.
+  return parseMoney(s.replace(/updated\s*balance[\s\S]*/i, ''));
 }
 
 /** Compare two money values exactly, at paise precision. */
@@ -166,9 +188,8 @@ function fingerprintOf(parts) {
  * candidate. Everything here is a CLAIM — the matching step below is what
  * decides whether any of it is trustworthy.
  */
-function buildCandidateFromEmail({ messageId, from = '', subject = '', body = '', date = '' }) {
+function buildCandidateFromEmail({ messageId, from = '', subject = '', body = '', date = '', internalDate = '' }) {
   const text = `${subject}\n${body}`;
-  const orderCode = extractOrderCode(text);
   const vpas = extractVpas(text);
   const payee = upi.getPayee();
 
@@ -176,22 +197,34 @@ function buildCandidateFromEmail({ messageId, from = '', subject = '', body = ''
   const payeeVpa = vpas.find((v) => vpaEquals(v, payee.upiId)) || '';
   const payerVpa = vpas.find((v) => !vpaEquals(v, payee.upiId)) || '';
 
+  // Authoritative "when this landed in the mailbox": Gmail internalDate
+  // (epoch ms) drives the per-session new-email checkpoint; the Date header
+  // is only a fallback.
+  let receivedAt = '';
+  if (internalDate !== '' && internalDate !== null && /^\d+$/.test(String(internalDate))) {
+    receivedAt = new Date(Number(internalDate)).toISOString();
+  } else if (date) {
+    const d = new Date(date);
+    if (!Number.isNaN(d.getTime())) receivedAt = d.toISOString();
+  }
+
   return {
     source: 'email',
+    messageId: messageId || '',
+    // Dedup key is the Gmail message id (technical dedup ONLY — never a
+    // transaction id or UTR).
     fingerprint: fingerprintOf(['email', messageId || fingerprintOf([from, subject, date, text.slice(0, 500)])]),
     direction: detectDirection(text),
-    amount: parseMoney(text),
+    // Amount is the RECEIVED credit, not the running balance.
+    amount: parseReceivedAmount(text),
     currency: 'INR',
-    transactionId: extractTransaction(text),
-    utr: extractTransaction(text),
-    orderCode,
     payerVpa,
     payeeVpa,
-    reference: orderCode,
-    occurredAt: date ? new Date(date).toISOString() : new Date().toISOString(),
     from,
     subject,
-    raw: { messageId, from, subject, date, snippet: String(body || '').slice(0, 2000) },
+    occurredAt: receivedAt || new Date().toISOString(),
+    receivedAt,
+    raw: { messageId, from, subject, date, snippet: String(body || '').slice(0, 500) },
   };
 }
 
@@ -579,15 +612,185 @@ function verifyWebhookSignature(rawBody, signature, secret = getWebhookSecret())
   return false;
 }
 
-// ── Mailbox path ───────────────────────────────────────────────────────────
+// ── Mailbox path (FamApp email → amount-only settlement) ────────────────────
 
 /**
- * Read recent payment-mailbox messages and try to settle any that correspond
- * to a pending payment. Returns a summary; safe to call often — the inbox
- * fingerprint makes repeat scans cheap and idempotent.
+ * Decide what to do with ONE FamApp payment-notification email.
+ *
+ * Amount-only matching: the received credit must equal a live pending
+ * payment's amount to the paisa. Transaction ID / UTR are never extracted,
+ * stored, or used. Deduplication is by Gmail message id (via the notification
+ * fingerprint), so a re-read message is a no-op on every later scan.
+ *
+ * Isolation + freshness guarantees:
+ *   * only no-reply@famapp.in can settle anything;
+ *   * the email must have arrived AFTER the payment's window opened;
+ *   * exactly one live session may be waiting for that amount — two concurrent
+ *     same-amount orders are parked for review, never guessed.
+ *
+ * Never mutates state unless every check passes; settlement is delegated to
+ * store.finalizePayment (atomic, coupon-flip-gated, idempotent).
  */
-async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
+async function processEmailCandidate(candidate, { pendingPayments = null } = {}) {
+  const tag = '[Payment Email]';
+
+  // Hard sender gate: ONLY FamApp confirmations are ever considered.
+  if (!isFamAppSender(candidate.from)) {
+    return { action: 'ignored', reason: `Sender is not FamApp (${candidate.from || 'unknown'}).` };
+  }
+
+  // Record first — the message-id fingerprint makes a re-read email idempotent.
+  let recorded;
+  try {
+    recorded = await store.recordNotification({
+      fingerprint: candidate.fingerprint,
+      source: 'email',
+      amount: candidate.amount,
+      currency: 'INR',
+      // Transaction ID / UTR intentionally NOT recorded.
+      payerVpa: candidate.payerVpa,
+      payeeVpa: candidate.payeeVpa,
+      reference: '',
+      occurredAt: candidate.occurredAt,
+      raw: candidate.raw,
+    });
+  } catch (e) {
+    console.error(`${tag} could not record notification:`, e.message);
+    return { action: 'error', reason: 'Could not record the notification.' };
+  }
+
+  if (recorded.duplicate) {
+    return {
+      action: 'duplicate',
+      reason: 'This FamApp message was already processed.',
+      notification: recorded.notification,
+      previousPaymentId: recorded.notification?.matchedPaymentId || '',
+    };
+  }
+
+  const notification = recorded.notification;
+  const reject = async (status, notes) => {
+    try { await store.updateNotification(notification.id, { status, notes }); } catch (e) {}
+    return { action: status === 'REVIEW' ? 'review' : 'ignored', reason: notes, notification };
+  };
+
+  // Must be an incoming credit ("successfully received").
+  if (candidate.direction !== 'credit') {
+    return reject('IGNORED', `Not a credit notification (direction: ${candidate.direction}).`);
+  }
+  if (!candidate.amount || candidate.amount <= 0) {
+    return reject('IGNORED', 'No received amount found in the FamApp email.');
+  }
+
+  console.log(`${tag} FamApp email detected`);
+  console.log(`${tag} Amount received: ₹${candidate.amount.toFixed(2)}`);
+
+  // Live pending payments only (findPendingPaymentsForAmount already excludes
+  // expired windows). Amount-only match, to the paisa.
+  const pending = pendingPayments || (await store.findPendingPaymentsForAmount(null));
+  const amountMatches = pending.filter((p) => moneyEquals(p.amount, candidate.amount));
+
+  if (!amountMatches.length) {
+    // Wrong amount / nothing waiting: keep every session live until it expires
+    // (spec — wrong-amount handling). Do NOT mark anything paid.
+    return reject('IGNORED', `No active order is waiting for ₹${candidate.amount.toFixed(2)}.`);
+  }
+
+  // New-email checkpoint: a message must have arrived AFTER a session opened to
+  // settle it. This is what stops an OLD FamApp email verifying a new order.
+  const recvdMs = candidate.receivedAt ? new Date(candidate.receivedAt).getTime() : NaN;
+  const fresh = amountMatches.filter((p) => {
+    const startedMs = new Date(p.createdAt).getTime();
+    // Fail-open only when a timestamp is genuinely unreadable; otherwise the
+    // email must be at/after the window start (60s clock-skew grace).
+    if (!Number.isFinite(recvdMs) || !Number.isFinite(startedMs)) return true;
+    return recvdMs >= startedMs - 60 * 1000;
+  });
+
+  if (!fresh.length) {
+    return reject('IGNORED', 'FamApp email predates the active payment window (old notification).');
+  }
+
+  // Session isolation: a bare amount cannot disambiguate two concurrent
+  // same-amount orders. Settle only when exactly one live session waits for it.
+  if (fresh.length > 1) {
+    return reject(
+      'REVIEW',
+      `₹${candidate.amount.toFixed(2)} matches ${fresh.length} concurrent orders — cannot attribute by amount alone.`
+    );
+  }
+
+  const payment = fresh[0];
+  console.log(`${tag} Expected amount: ₹${Number(payment.amount).toFixed(2)}`);
+
+  if (payment.status !== 'PENDING') {
+    return reject('REVIEW', `Payment ${payment.paymentId} is ${payment.status}, not PENDING.`);
+  }
+
+  console.log(`${tag} Amount matched`);
+
+  // Settle atomically — NO transaction id / UTR. finalizePayment gates on the
+  // coupon flip and is idempotent, so an email can never unlock a coupon twice.
+  let result;
+  try {
+    result = await store.finalizePayment({
+      paymentId: payment.paymentId,
+      transactionId: null,
+      utr: null,
+      source: 'email',
+      notes: `Matched FamApp credit on amount ₹${candidate.amount.toFixed(2)}.`,
+      paidAt: candidate.occurredAt,
+      raw: candidate.raw,
+      receivedAmount: candidate.amount,
+    });
+  } catch (e) {
+    return reject('REVIEW', 'Settlement failed: ' + e.message);
+  }
+
+  if (!result || !result.ok) {
+    const code = (result && result.code) || 'UNKNOWN';
+    return reject('REVIEW', `Settlement refused by the database (${code}).`);
+  }
+
+  try {
+    await store.updateNotification(notification.id, {
+      status: 'MATCHED',
+      matched_payment_id: payment.paymentId,
+      notes: `Settled payment ${payment.paymentId} (${result.code}) on amount ₹${candidate.amount.toFixed(2)}.`,
+    });
+  } catch (e) {}
+
+  console.log(`${tag} Payment verified: ${payment.paymentId} (order ${payment.orderCode || payment.orderId})`);
+  console.log(`${tag} Verification stopped for ${payment.paymentId}`);
+
+  return {
+    action: 'settled',
+    reason: `Payment ${payment.paymentId} settled (${result.code}).`,
+    notification,
+    payment,
+    result,
+  };
+}
+
+/**
+ * Read recent FamApp emails from the payment mailbox and settle any that match
+ * a live pending payment by amount. On-demand only: it is a no-op (and never
+ * touches Gmail) when no payment session is active, so the inbox is not
+ * monitored between checkouts. Safe to call often — message-id dedup makes
+ * repeat scans cheap and idempotent.
+ */
+async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
+  const tag = '[Payment Email]';
   const cfg = getMailConfig();
+
+  // ── On-demand guard ────────────────────────────────────────────────────────
+  // Only scan when at least one payment session is actually live. With no active
+  // order there is nothing an email could settle, so we never open the inbox —
+  // this is what keeps Gmail from being monitored continuously.
+  const pending = await store.findPendingPaymentsForAmount(null);
+  if (!pending.length) {
+    return { ok: true, scanned: 0, settled: 0, reason: 'No active payment session.', idle: true };
+  }
 
   // The read helpers (listMessages / getMessageFull) live on gmailService and
   // take a `gmail` client as their first argument, so they work against ANY
@@ -606,7 +809,7 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
       client = await paymentMailbox.getAuthorizedClient();
       if (client) mailboxSource = 'payment';
     } catch (e) {
-      console.warn('[paymentVerifier] dedicated payment mailbox open notice:', e.message);
+      console.warn(`${tag} payment mailbox open notice:`, e.message);
       // A failure to even open the dedicated mailbox is recorded against the
       // Supabase row so the admin panel can show reauthorization_required. This
       // NEVER settles or marks any order as paid — verification simply stops.
@@ -630,8 +833,17 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
     return { ok: false, reason: 'Could not open the payment mailbox: ' + e.message, scanned: 0, settled: 0 };
   }
 
+  // ── Search: FamApp only, bounded to the active window(s) ─────────────────────
+  // Restrict as tightly as possible: the sender allow-list (FamApp by default)
+  // AND messages no older than the earliest live payment window (minus a small
+  // grace). This never downloads the whole inbox.
+  const startTimes = pending.map((p) => new Date(p.createdAt).getTime()).filter(Number.isFinite);
+  const earliestStart = startTimes.length ? Math.min(...startTimes) : NaN;
+  const afterSecs = Number.isFinite(earliestStart)
+    ? Math.floor((earliestStart - 5 * 60 * 1000) / 1000)
+    : Math.floor((Date.now() - cfg.lookbackDays * 24 * 60 * 60 * 1000) / 1000);
   const senders = cfg.senders.map((s) => `from:${s}`).join(' OR ');
-  const q = `newer_than:${cfg.lookbackDays}d (${senders})`;
+  const q = `(${senders}) after:${afterSecs}`;
 
   let messages = [];
   try {
@@ -656,63 +868,48 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
     return { ok: false, reason, scanned: 0, settled: 0 };
   }
 
-  const pending = await store.findPendingPaymentsForAmount(null);
   const results = [];
 
   for (const msg of messages) {
+    // Sender gate first — only FamApp is ever a payment confirmation.
+    if (!isFamAppSender(msg.from)) continue;
+
     const candidate = buildCandidateFromEmail({
       messageId: msg.id,
       from: msg.from,
       subject: msg.subject,
       body: msg.snippet,
       date: msg.date,
+      internalDate: msg.internalDate,
     });
 
-    // Cheap pre-filter before spending a full-body fetch: it must look like a
-    // credit for an amount, and mention our order code when one is available.
-    if (candidate.direction !== 'credit' || !candidate.amount) {
+    // Cheap snippet pre-filter before a full-body fetch: it must look like a
+    // credit for an amount we are actually waiting on.
+    const plausible =
+      candidate.direction === 'credit' &&
+      Boolean(candidate.amount) &&
+      pending.some((p) => moneyEquals(p.amount, candidate.amount));
+
+    if (!plausible) {
       // Record-and-ignore so the same message is not re-examined forever.
       try {
         await store.recordNotification({
           fingerprint: candidate.fingerprint,
           source: 'email',
           amount: candidate.amount,
-          transactionId: candidate.transactionId,
           payerVpa: candidate.payerVpa,
           payeeVpa: candidate.payeeVpa,
-          reference: candidate.reference,
+          reference: '',
           occurredAt: candidate.occurredAt,
           raw: candidate.raw,
           status: 'IGNORED',
-          notes: 'Not a credit notification (snippet pre-filter).',
+          notes: 'No active order waiting for this amount (snippet pre-filter).',
         });
       } catch (e) {}
       continue;
     }
 
-    // The snippet usually holds the amount and reference; fetch the full body
-    // only when the amount matches something we are actually waiting for.
-    const plausible = pending.some((p) => moneyEquals(p.amount, candidate.amount)) ||
-      (!candidate.orderCode && pending.some((p) => moneyEquals(p.amount, candidate.amount)));
-
-    if (!plausible) {
-      try {
-        await store.recordNotification({
-          fingerprint: candidate.fingerprint,
-          source: 'email',
-          amount: candidate.amount,
-          transactionId: candidate.transactionId,
-          reference: candidate.reference,
-          occurredAt: candidate.occurredAt,
-          raw: candidate.raw,
-          status: 'IGNORED',
-          notes: 'No pending payment is waiting for this amount.',
-        });
-      } catch (e) {}
-      continue;
-    }
-
-    // Resolve the fullest text we can for the definitive match.
+    // Resolve the fullest text we can for the definitive amount read.
     let full = candidate;
     try {
       const detail = await gmailService.getMessageFull(gmail, msg.id);
@@ -724,6 +921,7 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
           subject: msg.subject,
           body: body + '\n' + (msg.snippet || ''),
           date: msg.date,
+          internalDate: msg.internalDate,
         });
       }
     } catch (e) {
@@ -731,7 +929,7 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
     }
 
     try {
-      results.push(await processCandidate(full, { pendingPayments: pending }));
+      results.push(await processEmailCandidate(full, { pendingPayments: pending }));
     } catch (e) {
       results.push({ action: 'error', reason: e.message });
     }
@@ -748,12 +946,43 @@ async function scanPaymentMailbox({ maxMessages = 25 } = {}) {
   };
 }
 
+// ── Coalesced, on-demand trigger ────────────────────────────────────────────
+// Called from the live status paths (SSE /stream tick and /status poll) while a
+// payment window is open. Concurrent callers share a single in-flight scan, and
+// scans are throttled to a short minimum interval, so many simultaneous buyers
+// never multiply Gmail API calls. When no session is active, scanPaymentMailbox
+// short-circuits before touching Gmail.
+let _scanInFlight = null;
+let _lastScanStartedAt = 0;
+const SCAN_MIN_INTERVAL_MS = Number(process.env.PAYMENT_MAIL_SCAN_MIN_MS || 1500);
+
+async function triggerMailboxScan(opts = {}) {
+  if (_scanInFlight) return _scanInFlight;
+  if (Date.now() - _lastScanStartedAt < SCAN_MIN_INTERVAL_MS) {
+    return { ok: true, coalesced: true, scanned: 0, settled: 0 };
+  }
+  _lastScanStartedAt = Date.now();
+  _scanInFlight = (async () => {
+    try {
+      return await scanPaymentMailbox(opts);
+    } catch (e) {
+      return { ok: false, reason: e.message, scanned: 0, settled: 0 };
+    } finally {
+      _scanInFlight = null;
+    }
+  })();
+  return _scanInFlight;
+}
+
 module.exports = {
   // config
   getMailConfig,
   getWebhookSecret,
+  isFamAppSender,
+  FAMAPP_SENDER,
   // extraction (exported for tests)
   parseMoney,
+  parseReceivedAmount,
   moneyEquals,
   extractTransaction,
   extractOrderCode,
@@ -766,6 +995,8 @@ module.exports = {
   buildCandidateFromWebhook,
   // core
   processCandidate,
+  processEmailCandidate,
   verifyWebhookSignature,
   scanPaymentMailbox,
+  triggerMailboxScan,
 };
