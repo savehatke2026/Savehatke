@@ -1591,40 +1591,197 @@
     <!-- ═══════════════════════════════════════════════
          VIEW: WALLET
     ═══════════════════════════════════════════════ -->
+    <!-- Transactions view styles — scoped to #view-wallet, txp- prefix so they
+         never collide with the rest of the dashboard's classes. -->
+    <style>
+      #view-wallet .txp-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-bottom:22px}
+      #view-wallet .txp-stat{background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.09);border-radius:15px;padding:18px;transition:border-color .25s,background .25s}
+      #view-wallet .txp-stat:hover{border-color:rgba(0,230,118,.22);background:rgba(17,34,66,.7)}
+      #view-wallet .txp-stat-top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+      #view-wallet .txp-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+      #view-wallet .txp-ico svg{width:18px;height:18px}
+      #view-wallet .txp-si-green{background:rgba(0,230,118,.12);color:#00e676}
+      #view-wallet .txp-si-blue{background:rgba(79,195,247,.12);color:#4fc3f7}
+      #view-wallet .txp-si-purple{background:rgba(206,147,216,.12);color:#ce93d8}
+      #view-wallet .txp-si-orange{background:rgba(255,183,77,.12);color:#ffb74d}
+      #view-wallet .txp-stat-name{font-size:.78rem;font-weight:600;color:#a8c0dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+      #view-wallet .txp-stat-val{font-family:'JetBrains Mono',monospace;font-size:1.65rem;font-weight:600;line-height:1;color:#e2ecff}
+      #view-wallet .txp-stat-val.green{background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+      #view-wallet .txp-filter{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+      #view-wallet .txp-tab{display:inline-flex;align-items:center;gap:7px;padding:8px 18px;border-radius:50px;border:1.5px solid rgba(79,195,247,.15);background:transparent;color:#8ea6c4;font-family:'Outfit',sans-serif;font-size:.84rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:all .18s}
+      #view-wallet .txp-tab svg{width:15px;height:15px;flex-shrink:0}
+      #view-wallet .txp-tab:hover{border-color:rgba(0,230,118,.35);color:#e2ecff;background:rgba(0,230,118,.05)}
+      #view-wallet .txp-tab.active{border-color:#00e676;color:#060d1f;background:linear-gradient(135deg,#00e676,#00c853);box-shadow:0 4px 18px rgba(0,230,118,.28)}
+
+      #view-wallet .txp-search{position:relative;margin-bottom:20px}
+      #view-wallet .txp-search-ico{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#6b88aa;width:16px;height:16px;pointer-events:none}
+      #view-wallet .txp-search input{width:100%;height:46px;padding:0 18px 0 44px;border-radius:12px;background:rgba(6,13,31,.6);border:1px solid rgba(79,195,247,.15);color:#e2ecff;font-family:'Outfit',sans-serif;font-size:.86rem;outline:none;transition:border-color .2s,background .2s}
+      #view-wallet .txp-search input::placeholder{color:#5f7c9e}
+      #view-wallet .txp-search input:focus{border-color:rgba(0,230,118,.4);background:rgba(6,13,31,.85)}
+
+      #view-wallet .txp-history{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;overflow:hidden}
+      #view-wallet .txp-history-hdr{display:flex;align-items:center;gap:11px;padding:18px 22px;border-bottom:1px solid rgba(79,195,247,.07)}
+      #view-wallet .txp-history-ico{width:34px;height:34px;border-radius:9px;background:rgba(255,183,77,.12);color:#ffb74d;display:flex;align-items:center;justify-content:center}
+      #view-wallet .txp-history-ico svg{width:17px;height:17px}
+      #view-wallet .txp-history-title{font-size:.95rem;font-weight:700;color:#e2ecff}
+
+      #view-wallet .txp-tbl-wrap{overflow-x:auto}
+      #view-wallet .txp-tbl{width:100%;border-collapse:collapse}
+      #view-wallet .txp-tbl thead th{font-size:.67rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:10px 18px;text-align:left;background:rgba(0,0,0,.18);white-space:nowrap}
+      #view-wallet .txp-tbl thead th:first-child{padding-left:22px}
+      #view-wallet .txp-tbl tbody tr{border-top:1px solid rgba(79,195,247,.05);transition:background .18s}
+      #view-wallet .txp-tbl tbody tr:hover{background:rgba(79,195,247,.04)}
+      #view-wallet .txp-tbl tbody td{padding:14px 18px;vertical-align:middle;font-size:.83rem;color:#a8c0dc}
+      #view-wallet .txp-tbl tbody td:first-child{padding-left:22px}
+
+      #view-wallet .txp-row-ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+      #view-wallet .txp-row-ico svg{width:18px;height:18px}
+      #view-wallet .txp-ic-purchase{background:rgba(0,230,118,.12);color:#00e676}
+      #view-wallet .txp-ic-refund{background:rgba(255,133,133,.12);color:#ff8585}
+      #view-wallet .txp-ic-payout{background:rgba(255,183,77,.12);color:#ffb74d}
+
+      #view-wallet .txp-det-name{font-size:.86rem;font-weight:700;color:#e2ecff;margin-bottom:2px}
+      #view-wallet .txp-det-desc{font-size:.75rem;color:#6b88aa}
+
+      #view-wallet .txp-id{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#8ea6c4}
+      #view-wallet .txp-copy{background:none;border:none;cursor:pointer;color:#5f7c9e;padding:2px;line-height:0;transition:color .14s}
+      #view-wallet .txp-copy:hover{color:#00e676}
+      #view-wallet .txp-copy svg{width:13px;height:13px}
+
+      #view-wallet .txp-amt{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600;color:#00e676;white-space:nowrap}
+      #view-wallet .txp-date-main{font-size:.82rem;color:#a8c0dc;white-space:nowrap}
+      #view-wallet .txp-date-sub{font-size:.73rem;color:#6b88aa;margin-top:2px}
+
+      #view-wallet .txp-badge{display:inline-flex;align-items:center;font-size:.67rem;font-weight:700;letter-spacing:.07em;padding:4px 11px;border-radius:6px;white-space:nowrap}
+      #view-wallet .txp-badge.done{background:rgba(0,230,118,.12);color:#00e676}
+      #view-wallet .txp-badge.pending{background:rgba(255,183,77,.12);color:#ffb74d}
+      #view-wallet .txp-badge.processing{background:rgba(79,195,247,.12);color:#4fc3f7}
+      #view-wallet .txp-badge.rejected{background:rgba(255,133,133,.12);color:#ff8585}
+      #view-wallet .txp-chevron{color:#3a5070;font-size:1rem;line-height:1}
+
+      #view-wallet .txp-empty{text-align:center;padding:48px 18px;color:#5f7c9e;font-size:.85rem}
+
+      /* Mobile: rows collapse into cards */
+      #view-wallet .txp-cards{display:none;flex-direction:column;gap:10px;padding:14px}
+      #view-wallet .txp-card{background:rgba(6,13,31,.5);border:1px solid rgba(79,195,247,.09);border-radius:12px;padding:13px 14px}
+      #view-wallet .txp-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px}
+      #view-wallet .txp-card-type{display:flex;align-items:center;gap:9px;min-width:0}
+      #view-wallet .txp-card-id{font-family:'JetBrains Mono',monospace;font-size:.72rem;color:#6b88aa;margin-bottom:8px;word-break:break-all}
+      #view-wallet .txp-card-foot{display:flex;align-items:center;justify-content:space-between;gap:10px}
+
+      @media(max-width:900px){
+        #view-wallet .txp-stats{grid-template-columns:repeat(2,1fr)}
+      }
+      @media(max-width:720px){
+        #view-wallet .txp-tbl-wrap{display:none}
+        #view-wallet .txp-cards{display:flex}
+      }
+      @media(max-width:560px){
+        #view-wallet .txp-stats{grid-template-columns:1fr 1fr}
+        #view-wallet .txp-tab{padding:7px 13px;font-size:.78rem}
+      }
+    </style>
+
     <div id="view-wallet" class="db-view">
     <div class="container">
 
       <div class="view-hdr">
         <div>
           <div class="view-title">Transactions</div>
-          <div class="view-subtitle">View your purchase, sale and withdrawal history.</div>
+          <div class="view-subtitle">View your purchase, refund and payout history.</div>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="refreshDashboard({silent:true})" title="Refresh">↻ Refresh</button>
         </div>
       </div>
 
-      <!-- Ledger filters -->
-      <div id="txFilterTabs" class="pc-tabs">
-        <button class="mc-chip active" data-filter="all" onclick="setTxFilter('all')">All</button>
-        <button class="mc-chip" data-filter="purchases" onclick="setTxFilter('purchases')">Purchases</button>
-        <button class="mc-chip" data-filter="sales" onclick="setTxFilter('sales')">Sales</button>
-        <button class="mc-chip" data-filter="withdrawals" onclick="setTxFilter('withdrawals')">Withdrawals</button>
+      <!-- Stat cards (computed from real purchase / payout / refund data) -->
+      <div class="txp-stats">
+        <div class="txp-stat">
+          <div class="txp-stat-top">
+            <div class="txp-ico txp-si-green">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <span class="txp-stat-name">Total Amount</span>
+          </div>
+          <div class="txp-stat-val green" id="txpStatAmount">₹0</div>
+        </div>
+        <div class="txp-stat">
+          <div class="txp-stat-top">
+            <div class="txp-ico txp-si-blue">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+            </div>
+            <span class="txp-stat-name">Total Purchases</span>
+          </div>
+          <div class="txp-stat-val" id="txpStatPurchases">0</div>
+        </div>
+        <div class="txp-stat">
+          <div class="txp-stat-top">
+            <div class="txp-ico txp-si-purple">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </div>
+            <span class="txp-stat-name">Total Payout</span>
+          </div>
+          <div class="txp-stat-val" id="txpStatPayout">₹0</div>
+        </div>
+        <div class="txp-stat">
+          <div class="txp-stat-top">
+            <div class="txp-ico txp-si-orange">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </div>
+            <span class="txp-stat-name">Total Refunds</span>
+          </div>
+          <div class="txp-stat-val" id="txpStatRefunds">₹0</div>
+        </div>
       </div>
 
-      <!-- One full-width history card -->
-      <div class="card" id="transactions">
-        <div class="card-hdr">
-          <div class="card-title"><span class="ico">💳</span> Transaction History</div>
-          <span class="tx-filter-tag" id="txFilterLabel">All</span>
+      <!-- Filter tabs -->
+      <div class="txp-filter" id="txFilterTabs">
+        <button class="txp-tab active" data-filter="all" onclick="setTxFilter('all',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          All
+        </button>
+        <button class="txp-tab" data-filter="purchases" onclick="setTxFilter('purchases',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
+          Purchases
+        </button>
+        <button class="txp-tab" data-filter="refunds" onclick="setTxFilter('refunds',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+          Refunds
+        </button>
+        <button class="txp-tab" data-filter="payouts" onclick="setTxFilter('payouts',this)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          Payouts
+        </button>
+      </div>
+
+      <!-- Search -->
+      <div class="txp-search">
+        <svg class="txp-search-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" placeholder="Search by Transaction ID, coupon name or brand..." oninput="txSearch(this.value)" />
+      </div>
+
+      <!-- Transaction history -->
+      <div class="txp-history">
+        <div class="txp-history-hdr">
+          <div class="txp-history-ico">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+          </div>
+          <span class="txp-history-title">Transaction History</span>
         </div>
 
-        <div class="tx-table-wrap" id="txTableWrap">
-          <table class="tx-table">
+        <div class="txp-tbl-wrap" id="txTableWrap">
+          <table class="txp-tbl">
             <thead>
               <tr>
                 <th>Type</th>
                 <th>Details</th>
-                <th class="ta-right">Amount</th>
+                <th>Transaction ID</th>
+                <th>Amount</th>
                 <th>Date</th>
                 <th>Status</th>
+                <th></th>
               </tr>
             </thead>
             <tbody id="txTableBody"></tbody>
@@ -1632,13 +1789,9 @@
         </div>
 
         <!-- Mobile: each row collapses into a compact card -->
-        <div class="tx-mobile" id="txMobile"></div>
+        <div class="txp-cards" id="txMobile"></div>
 
-        <div class="tx-empty" id="txEmpty" style="display:none">
-          <div class="tx-empty-ico">💳</div>
-          <div class="tx-empty-title">No transactions yet</div>
-          <div class="tx-empty-sub">Your coupon purchases, sales and withdrawals will appear here.</div>
-        </div>
+        <div class="txp-empty" id="txEmpty" style="display:none">No transactions yet.</div>
       </div>
 
     </div><!-- /container -->
@@ -2880,6 +3033,8 @@
     tickets: [],            // /api/support/tickets
     payouts: [],            // /api/payouts/my → seller's payouts
     payoutsSummary: { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 },
+    refunds: [],            // /api/refunds → this buyer's refund records
+    refundsSummary: {},     // /api/refunds summary block
     reviews: [],            // /api/reviews/my → this buyer's own reviews
     notifications: [],
     lastUpdated: null,
@@ -3226,6 +3381,26 @@
     } catch (err) {
       console.warn('my-payouts failed:', err.message);
       return { payouts: [], summary: { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 } };
+    }
+  }
+
+  // Refund records for the Transactions ledger. Uses the same auth-scoped
+  // /api/refunds endpoint the Refunds view reads; amounts stay server-owned.
+  async function loadMyRefunds() {
+    try {
+      const res = await fetch('/api/refunds', {
+        credentials: 'include',
+        headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { refunds: [], summary: {} };
+      return {
+        refunds: Array.isArray(data.refunds) ? data.refunds : [],
+        summary: data.summary || {},
+      };
+    } catch (err) {
+      console.warn('my-refunds failed:', err.message);
+      return { refunds: [], summary: {} };
     }
   }
 
@@ -4188,11 +4363,18 @@
   // Amounts always come from the record itself — nothing is assumed, because
   // payouts and selling prices differ per coupon.
   window.TX_FILTER = 'all';
+  window.TX_SEARCH = '';
 
-  function setTxFilter(filter) {
+  function setTxFilter(filter, btn) {
     window.TX_FILTER = filter;
-    const tabs = document.querySelectorAll('#txFilterTabs .mc-chip');
-    tabs.forEach((t) => t.classList.toggle('active', t.dataset.filter === filter));
+    document.querySelectorAll('#txFilterTabs .txp-tab').forEach((t) => {
+      t.classList.toggle('active', btn ? t === btn : t.dataset.filter === filter);
+    });
+    renderTransactions();
+  }
+
+  function txSearch(val) {
+    window.TX_SEARCH = String(val || '').toLowerCase();
     renderTransactions();
   }
 
@@ -4202,6 +4384,48 @@
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
+  function txTime(v) {
+    const d = v ? new Date(v) : null;
+    if (!d || isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  // Inline SVG glyphs for the row/type icons (match the stat + tab icons).
+  const TX_ICONS = {
+    purchase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>',
+    refund: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>',
+    payout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>',
+  };
+  const TX_COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+
+  // Nearest real identifier for each row type (the ledger has no synthetic IDs).
+  function purchaseTxnId(c) {
+    return c.orderCode || c.orderId || c.txnId || c.transactionId || c.id || '';
+  }
+  function refundTxnId(r) {
+    return r.orderCode || r.paymentId || r.refundId || r.id || r.couponId || '';
+  }
+  function payoutTxnId(p) {
+    if (p.paymentReference) return p.paymentReference;
+    return p.id ? 'PO-' + String(p.id).slice(0, 8).toUpperCase() : '';
+  }
+
+  const TX_REFUND_BADGE = {
+    pending:    ['Pending',    'pending'],
+    processing: ['Processing', 'processing'],
+    refunded:   ['Refunded',   'done'],
+    rejected:   ['Rejected',   'rejected'],
+  };
+  const TX_PAYOUT_BADGE = {
+    paid:       ['Completed',  'done'],
+    processing: ['Processing', 'processing'],
+    pending:    ['Pending',    'pending'],
+    rejected:   ['Rejected',   'rejected'],
+  };
+
+  // A single chronological history from three real sources: coupons the user
+  // bought, refund records (/api/refunds), and payout/withdrawal records.
+  // Amounts always come from the record itself — nothing is assumed.
   function buildTransactions() {
     const rows = [];
 
@@ -4209,66 +4433,79 @@
       const paid = c.pricePaid != null ? c.pricePaid : c.sellingPrice;
       rows.push({
         group: 'purchases',
-        type: 'Purchase',
-        icon: '🛒',
+        icon: 'purchase',
+        name: 'Purchase',
         detail: `${c.brand || 'Coupon'} Coupon${c.originalValue ? ' · ' + inr(c.originalValue) + ' OFF' : ''}`,
-        amount: paid != null && paid !== '' ? `-${inr(paid)}` : '—',
-        sign: paid != null && paid !== '' ? 'neg' : 'zero',
+        txnId: purchaseTxnId(c),
+        amount: paid != null && paid !== '' ? inr(paid) : '—',
         date: c.purchasedAt || c.soldAt || c.addedAt,
         status: 'Completed',
-        statusCls: 'badge-green',
+        badge: 'done',
       });
     });
 
-    (STATE.sales || []).filter(isSold).forEach((c) => {
-      // The seller's earning is whatever the record carries; never a flat rate.
-      const earned = c.sellerEarning != null ? c.sellerEarning
-        : (c.payoutAmount != null ? c.payoutAmount
-          : (c.sellingPrice != null ? c.sellingPrice : null));
+    (STATE.refunds || []).forEach((r) => {
+      const s = String(r.status || 'pending').toLowerCase();
+      const [label, badge] = TX_REFUND_BADGE[s] || [r.status || 'Pending', 'pending'];
+      const amt = r.refundAmount != null ? r.refundAmount : r.requiredAmount;
       rows.push({
-        group: 'sales',
-        type: 'Sale',
-        icon: '💰',
-        detail: `${c.brand || 'Coupon'} Coupon${c.originalValue ? ' · ' + inr(c.originalValue) + ' Voucher' : ''}`,
-        amount: earned != null && earned !== '' ? `+${inr(earned)}` : '—',
-        sign: earned != null && earned !== '' ? 'pos' : 'zero',
-        date: c.soldAt || c.addedAt,
-        status: 'Completed',
-        statusCls: 'badge-green',
+        group: 'refunds',
+        icon: 'refund',
+        name: 'Refund',
+        detail: r.brand ? `${r.brand} Coupon refund` : 'Payment refund',
+        txnId: refundTxnId(r),
+        amount: amt != null && amt !== '' ? inr(amt) : '—',
+        date: r.createdAt || r.updatedAt,
+        status: label,
+        badge,
       });
     });
 
     (STATE.payouts || []).forEach((p) => {
       const s = String(p.status || 'pending').toLowerCase();
-      const statusMap = {
-        paid: ['Completed', 'badge-green'],
-        processing: ['Processing', 'badge-blue'],
-        pending: ['Pending', 'badge-orange'],
-        rejected: ['Rejected', 'badge-red'],
-      };
-      const [statusLabel, statusCls] = statusMap[s] || [p.status || 'Pending', 'badge-gray'];
+      const [label, badge] = TX_PAYOUT_BADGE[s] || [p.status || 'Pending', 'pending'];
       const dest = (p.method === 'UPI' && p.upiId) ? `UPI · ${p.upiId}`
         : (p.method === 'QR' && p.qrFileId) ? 'QR code'
           // Bank rows only exist from before QR replaced bank transfer.
           : (p.method === 'Bank' && p.bankAccount) ? `Bank · •••• ${String(p.bankAccount).slice(-4)}`
             : (p.method ? `${p.method} Withdrawal` : 'Withdrawal');
       rows.push({
-        group: 'withdrawals',
-        type: 'Withdrawal',
-        icon: '💸',
+        group: 'payouts',
+        icon: 'payout',
+        name: 'Seller Payout',
         detail: dest,
-        amount: p.amount != null ? `-${inr(p.amount)}` : '—',
-        sign: p.amount != null ? 'neg' : 'zero',
+        txnId: payoutTxnId(p),
+        amount: p.amount != null ? inr(p.amount) : '—',
         date: p.requestedAt || p.processedAt,
-        status: statusLabel,
-        statusCls,
+        status: label,
+        badge,
       });
     });
 
     return rows.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
   }
 
+  // Strip currency/formatting to a number for the stat card sums.
+  function txNum(v) { return Number(String(v == null ? 0 : v).replace(/[^0-9.-]/g, '')) || 0; }
+
+  function renderTxStats() {
+    const purchases = STATE.purchases || [];
+    const payouts = STATE.payouts || [];
+    const refunds = STATE.refunds || [];
+    const totalSpend = purchases.reduce((s, c) => s + txNum(c.pricePaid != null ? c.pricePaid : c.sellingPrice), 0);
+    const totalPayout = payouts.reduce((s, p) => s + txNum(p.amount), 0);
+    const totalRefund = (STATE.refundsSummary && STATE.refundsSummary.total != null)
+      ? txNum(STATE.refundsSummary.total)
+      : refunds.reduce((s, r) => s + txNum(r.refundAmount != null ? r.refundAmount : r.requiredAmount), 0);
+    setText('txpStatAmount', inr(totalSpend));
+    setText('txpStatPurchases', String(purchases.length));
+    setText('txpStatPayout', inr(totalPayout));
+    setText('txpStatRefunds', inr(totalRefund));
+  }
+
   function renderTransactions() {
+    renderTxStats();
+
     const tbody = document.getElementById('txTableBody');
     const mob = document.getElementById('txMobile');
     const emptyBox = document.getElementById('txEmpty');
@@ -4276,11 +4513,14 @@
     if (!tbody || !mob) return;
 
     const filter = window.TX_FILTER || 'all';
-    const label = { all: 'All', purchases: 'Purchases', sales: 'Sales', withdrawals: 'Withdrawals' }[filter] || 'All';
-    setText('txFilterLabel', label);
+    const q = window.TX_SEARCH || '';
 
-    const all = buildTransactions();
-    const rows = filter === 'all' ? all : all.filter((r) => r.group === filter);
+    let rows = buildTransactions();
+    if (filter !== 'all') rows = rows.filter((r) => r.group === filter);
+    if (q) {
+      rows = rows.filter((r) => [r.txnId, r.detail, r.name]
+        .map((v) => String(v || '').toLowerCase()).join(' ').includes(q));
+    }
 
     if (rows.length === 0) {
       tbody.innerHTML = '';
@@ -4289,12 +4529,9 @@
       mob.style.display = 'none';
       if (emptyBox) {
         emptyBox.style.display = '';
-        const sub = emptyBox.querySelector('.tx-empty-sub');
-        if (sub) {
-          sub.textContent = filter === 'all'
-            ? 'Your coupon purchases, sales and withdrawals will appear here.'
-            : `You have no ${label.toLowerCase()} yet.`;
-        }
+        emptyBox.textContent = q
+          ? 'No transactions match your search.'
+          : (filter === 'all' ? 'No transactions yet.' : `You have no ${filter} yet.`);
       }
       return;
     }
@@ -4303,27 +4540,46 @@
     if (wrap) wrap.style.display = '';
     mob.style.display = '';
 
-    tbody.innerHTML = rows.map((r) => `
+    tbody.innerHTML = rows.map((r) => {
+      const id = r.txnId || '—';
+      const safeArg = String(r.txnId || '').replace(/['"\\<>]/g, '');
+      const copy = r.txnId
+        ? `<button class="txp-copy" onclick="copyTxnId(event,'${safeArg}')" title="Copy ID">${TX_COPY_ICON}</button>`
+        : '';
+      return `
       <tr>
-        <td><span class="tx-type">${r.icon} ${escapeHtml(r.type)}</span></td>
-        <td><div class="tx-detail" title="${escapeHtml(r.detail)}">${escapeHtml(r.detail)}</div></td>
-        <td class="ta-right"><span class="tx-amt ${r.sign}">${escapeHtml(r.amount)}</span></td>
-        <td><span class="tx-date">${escapeHtml(txDate(r.date))}</span></td>
-        <td><span class="badge ${r.statusCls}">${escapeHtml(r.status)}</span></td>
-      </tr>`).join('');
+        <td><div class="txp-row-ico txp-ic-${r.icon}">${TX_ICONS[r.icon]}</div></td>
+        <td><div class="txp-det-name">${escapeHtml(r.name)}</div><div class="txp-det-desc">${escapeHtml(r.detail)}</div></td>
+        <td><div class="txp-id"><span>${escapeHtml(id)}</span>${copy}</div></td>
+        <td><span class="txp-amt">${escapeHtml(r.amount)}</span></td>
+        <td><div class="txp-date-main">${escapeHtml(txDate(r.date))}</div><div class="txp-date-sub">${escapeHtml(txTime(r.date))}</div></td>
+        <td><span class="txp-badge ${r.badge}">${escapeHtml(String(r.status).toUpperCase())}</span></td>
+        <td><span class="txp-chevron">›</span></td>
+      </tr>`;
+    }).join('');
 
     mob.innerHTML = rows.map((r) => `
-      <div class="tx-mob-card">
-        <div class="tx-mob-top">
-          <span class="tx-type">${r.icon} ${escapeHtml(r.type)}</span>
-          <span class="tx-amt ${r.sign}">${escapeHtml(r.amount)}</span>
+      <div class="txp-card">
+        <div class="txp-card-top">
+          <div class="txp-card-type">
+            <div class="txp-row-ico txp-ic-${r.icon}">${TX_ICONS[r.icon]}</div>
+            <div><div class="txp-det-name">${escapeHtml(r.name)}</div><div class="txp-det-desc">${escapeHtml(r.detail)}</div></div>
+          </div>
+          <span class="txp-amt">${escapeHtml(r.amount)}</span>
         </div>
-        <div class="tx-mob-detail">${escapeHtml(r.detail)}</div>
-        <div class="tx-mob-foot">
-          <span class="tx-date">${escapeHtml(txDate(r.date))}</span>
-          <span class="badge ${r.statusCls}">${escapeHtml(r.status)}</span>
+        <div class="txp-card-id">${escapeHtml(r.txnId || '—')}</div>
+        <div class="txp-card-foot">
+          <div class="txp-date-main">${escapeHtml(txDate(r.date))} <span class="txp-date-sub">${escapeHtml(txTime(r.date))}</span></div>
+          <span class="txp-badge ${r.badge}">${escapeHtml(String(r.status).toUpperCase())}</span>
         </div>
       </div>`).join('');
+  }
+
+  // Copy a transaction ID from the ledger; reuses the dashboard toast.
+  function copyTxnId(e, id) {
+    if (e) e.stopPropagation();
+    try { navigator.clipboard.writeText(id); } catch (_) {}
+    if (typeof showToast === 'function') showToast('Transaction ID copied', 'success');
   }
 
   function renderPayouts() {
@@ -4483,13 +4739,14 @@
     STATE.isFetching = true;
 
     try {
-      const [user, sales, purchases, tickets, payoutsData, reviews] = await Promise.all([
+      const [user, sales, purchases, tickets, payoutsData, reviews, refundsData] = await Promise.all([
         loadMe(),
         loadMySales(),
         loadMyPurchases(),
         loadMyTickets(),
         loadMyPayouts(),
         loadMyReviews(),
+        loadMyRefunds(),
       ]);
       STATE.user = user || STATE.user || Auth.getUser() || null;
       STATE.sales = sales;
@@ -4497,6 +4754,8 @@
       STATE.tickets = tickets;
       STATE.payouts = payoutsData.payouts;
       STATE.payoutsSummary = payoutsData.summary;
+      STATE.refunds = refundsData.refunds;
+      STATE.refundsSummary = refundsData.summary;
       STATE.reviews = reviews;
 
       applyUserToUI(STATE.user);
