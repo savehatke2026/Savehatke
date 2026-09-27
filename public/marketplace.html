@@ -126,9 +126,14 @@
     .cpill.active { background:linear-gradient(135deg,#00e676,#00c853); border-color:transparent; color:#060d1f; }
 
     /* COUPON GRID */
-    .coupon-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
+    /* grid-auto-rows:1fr makes every row the same height, so cards line up
+       across the whole grid (not just within a row) and their Buy buttons
+       align — no more ragged, uneven rows as you scroll. Only for the multi-
+       column layouts; the single-column phone layout below keeps natural
+       heights so a sparse card is not stretched tall on its own. */
+    .coupon-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; grid-auto-rows:1fr; }
     @media(max-width:900px){.coupon-grid{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:560px){.coupon-grid{grid-template-columns:1fr}}
+    @media(max-width:560px){.coupon-grid{grid-template-columns:1fr;grid-auto-rows:auto}}
 
     /* COUPON CARD — hero image on top, compact body below. The hero renders the
        coupon's own background image (coupon.backgroundImage, set per coupon
@@ -173,7 +178,7 @@
 
     /* BODY — title, description line, category, price, timer, buy. */
     .c-body { padding:13px 16px 16px; display:flex; flex-direction:column; gap:9px; flex:1; }
-    .ctitle { font-size:.92rem; font-weight:700; color:#e2ecff; line-height:1.42; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .ctitle { font-size:.92rem; font-weight:700; color:#e2ecff; line-height:1.42; min-height:2.84em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     .cdesc { font-size:.75rem; color:#a8c0dc; line-height:1.5; display:-webkit-box; -webkit-line-clamp:1; -webkit-box-orient:vertical; overflow:hidden; }
     /* Category pill — size, padding, position and typography are unchanged.
        Colour now comes from --cat-rgb, set per category by the data-cat rules
