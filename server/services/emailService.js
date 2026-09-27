@@ -2971,6 +2971,10 @@ SaveHatke Team
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- WHITE / LIGHT THEME ONLY. Signal light-only so dark-mode clients do not
+       auto-invert this receipt. No dark variant is provided or supported. -->
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
   <title>Payment Confirmation – SaveHatke</title>
   <style>
     /* ── Web font: Inter (only the weights this email uses: 400 / 600 / 700) ── */
@@ -2980,9 +2984,10 @@ SaveHatke Team
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background-color: #f2f4f6;
+      background-color: #FFFFFF;
       font-family: 'Inter', Arial, Helvetica, sans-serif;
-      color: #1a1a2e;
+      color: #111827;
+      color-scheme: light;
       min-height: 100vh;
       display: flex;
       align-items: center;
@@ -2993,18 +2998,18 @@ SaveHatke Team
     /* ── Email wrapper ── */
     .email-wrapper { width: 100%; max-width: 560px; }
 
-    /* ── Card ── */
+    /* ── Card — pure white, clean (no heavy shadow / no glow) ── */
     .email-card {
-      background: #ffffff;
+      background: #FFFFFF;
       border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+      box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
     }
 
     /* ── Header ── */
     .email-header {
-      background: #ffffff;
-      border-bottom: 1px solid #f0f0f0;
+      background: #FFFFFF;
+      border-bottom: 1px solid #E5E7EB;
       padding: 28px 40px 24px;
       text-align: center;
     }
@@ -3036,7 +3041,7 @@ SaveHatke Team
     .logo-text {
       font-size: 22px;
       font-weight: 700;
-      color: #1a1a2e;
+      color: #111827;
       letter-spacing: -0.3px;
     }
 
@@ -3044,7 +3049,7 @@ SaveHatke Team
 
     /* ── Success banner ── */
     .success-banner {
-      background: #ffffff;
+      background: #FFFFFF;
       padding: 36px 40px 32px;
       text-align: center;
     }
@@ -3058,7 +3063,6 @@ SaveHatke Team
       align-items: center;
       justify-content: center;
       margin-bottom: 16px;
-      box-shadow: 0 0 0 8px rgba(0, 226, 114, 0.12);
     }
 
     .tick-circle svg {
@@ -3075,13 +3079,13 @@ SaveHatke Team
       font-size: 28px;
       font-weight: 700;
       line-height: 34px;
-      color: #1a1a2e;
+      color: #111827;
       margin-bottom: 4px;
     }
 
     .success-sub {
       font-size: 16px;
-      color: #6b7280;
+      color: #667085;
       font-weight: 400;
       line-height: 24px;
     }
@@ -3089,18 +3093,20 @@ SaveHatke Team
     /* ── Body ── */
     .email-body { padding: 32px 40px; }
 
-    .greeting { font-size: 16px; font-weight: 600; line-height: 24px; color: #374151; margin-bottom: 6px; }
+    .greeting { font-size: 16px; font-weight: 600; line-height: 24px; color: #111827; margin-bottom: 6px; }
     .greeting strong { color: #00E272; font-weight: 700; }
 
     .intro {
       font-size: 16px;
-      color: #6b7280;
+      color: #111827;
       font-weight: 400;
       margin-bottom: 28px;
       line-height: 25px;
     }
 
-    /* ── Details table ── */
+    /* ── Transaction details ──────────────────────────────────────────────
+       NO outer box / card / container. The rows sit directly on the pure-white
+       email background and are separated only by subtle #E5E7EB dividers. */
     .details-card { margin-bottom: 28px; }
 
     .details-header {
@@ -3110,8 +3116,8 @@ SaveHatke Team
       line-height: 18px;
       letter-spacing: 0.8px;
       text-transform: uppercase;
-      color: #9ca3af;
-      border-bottom: 1px solid #e5e7eb;
+      color: #667085;
+      border-bottom: 1px solid #E5E7EB;
     }
 
     .detail-row {
@@ -3119,16 +3125,16 @@ SaveHatke Team
       align-items: center;
       justify-content: space-between;
       padding: 14px 0;
-      border-bottom: 1px solid #f0f0f0;
+      border-bottom: 1px solid #E5E7EB;
     }
 
     .detail-row:last-child { border-bottom: none; }
 
-    .detail-label { font-size: 15px; color: #9ca3af; font-weight: 400; line-height: 22px; }
+    .detail-label { font-size: 15px; color: #667085; font-weight: 400; line-height: 22px; }
 
     .detail-value {
       font-size: 15px;
-      color: #1a1a2e;
+      color: #111827;
       font-weight: 600;
       line-height: 22px;
       font-family: 'Inter', Arial, Helvetica, sans-serif;
@@ -3136,7 +3142,7 @@ SaveHatke Team
 
     .detail-value.amount {
       font-size: 18px;
-      color: #1a1a2e;
+      color: #111827;
       font-family: inherit;
       font-weight: 700;
       line-height: 24px;
@@ -3144,25 +3150,25 @@ SaveHatke Team
 
     /* ── Thank you block ── */
     .thankyou {
-      font-size: 15px;
-      color: #374151;
+      font-size: 16px;
+      color: #111827;
       font-weight: 400;
       margin-bottom: 6px;
       line-height: 24px;
     }
 
-    .brand-name { font-weight: 700; color: #1a1a2e; }
+    .brand-name { font-weight: 700; color: #111827; }
 
     /* ── Footer ── */
     .email-footer {
-      background: #ffffff;
+      background: #FFFFFF;
       padding: 0 40px 32px;
       text-align: left;
     }
 
-    .regards { font-size: 15px; color: #374151; font-weight: 400; margin-bottom: 2px; }
-    .team-name { font-size: 15px; font-weight: 600; color: #1a1a2e; }
-    .footer-copy { margin-top: 24px; font-size: 11px; color: #9ca3af; }
+    .regards { font-size: 15px; color: #667085; font-weight: 400; margin-bottom: 2px; }
+    .team-name { font-size: 15px; font-weight: 600; color: #111827; }
+    .footer-copy { margin-top: 24px; font-size: 11px; color: #667085; }
 
     /* ── Responsive ── */
     @media (max-width: 480px) {
@@ -3172,7 +3178,6 @@ SaveHatke Team
       .email-footer { padding-left: 24px; padding-right: 24px; }
     }
   </style>
-${EMAIL_DARK_STYLE}
   </head>
 <body>
 
@@ -3248,37 +3253,60 @@ ${EMAIL_DARK_STYLE}
   }
 
   // ── Deliverability headers ─────────────────────────────────────────
-  // The SAME transactional signals the OTP / support mail use to stay out of
-  // Spam. RFC 3834 Auto-Submitted marks this as automated transactional mail
-  // (not bulk); a Message-ID whose domain matches the From keeps DKIM/SPF
-  // alignment intact; Priority stays Normal (High-importance on a money
-  // subject reads as phishy to some filters). No List-Unsubscribe — a payment
-  // receipt is transactional, not a subscription. This does NOT touch the
-  // email's visible template — headers only.
+  // The SAME transactional signals the OTP / support mail use — now at full
+  // parity with them. RFC 3834 Auto-Submitted + Precedence mark this as
+  // automated transactional mail (not bulk); Feedback-ID lets Gmail bucket
+  // reputation for receipts; a Message-ID + envelope return-path on the From
+  // domain keep SPF/DKIM/DMARC aligned; Priority stays Normal (High on a money
+  // subject reads phishy). No List-Unsubscribe — a receipt is transactional,
+  // not a subscription. Headers only — this does NOT touch the visible template.
   const fromDomain = (String(fromEmail).split('@')[1] || 'savehatke.com').toLowerCase();
   const headers = {
     'X-Entity-Ref-ID': `payment-${orderCode || Date.now()}`,
     'Auto-Submitted': 'auto-generated',
+    'Precedence': 'transactional',
+    'Feedback-ID': 'payment:receipt:SaveHatke',
     'X-Mailer': 'SaveHatke Payments',
     'X-Priority': '3',
     'Importance': 'Normal',
   };
 
+  const mailOptions = {
+    from: `"${fromName}" <${fromEmail}>`,
+    to: cleanEmail,
+    replyTo,
+    subject,
+    text: textBody,
+    html: htmlContent,
+    // Pin the envelope sender to the header From so the return-path cannot
+    // drift to the authenticated login and break SPF/DKIM alignment.
+    envelope: { from: fromEmail, to: cleanEmail },
+    // Explicit Message-ID on the sender's own domain (parity with OTP mail).
+    messageId: `<payment-${Date.now()}-${crypto.randomBytes(6).toString('hex')}@${fromDomain}>`,
+    headers,
+  };
+
+  // Optional DKIM signing — activates only when DKIM_DOMAIN + DKIM_SELECTOR +
+  // DKIM_PRIVATE_KEY are set. This is the piece that lets the receipt PASS
+  // DMARC when the From is a savehatke.com address sent through Gmail SMTP
+  // (Gmail signs as gmail.com, which does NOT align with a savehatke.com From
+  // — the classic reason a receipt lands in Spam). Publish the matching
+  // <selector>._domainkey TXT record and the receipt inboxes. Same env
+  // contract the support / 2FA / new-device mails already use.
+  if (
+    process.env.DKIM_DOMAIN &&
+    process.env.DKIM_SELECTOR &&
+    process.env.DKIM_PRIVATE_KEY
+  ) {
+    mailOptions.dkim = {
+      domainName: process.env.DKIM_DOMAIN.trim(),
+      keySelector: process.env.DKIM_SELECTOR.trim(),
+      privateKey: process.env.DKIM_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    };
+  }
+
   try {
-    const info = await t.sendMail({
-      from: `"${fromName}" <${fromEmail}>`,
-      to: cleanEmail,
-      replyTo,
-      subject,
-      text: textBody,
-      html: htmlContent,
-      // Pin the envelope sender to the header From so the return-path cannot
-      // drift to the authenticated login and break SPF/DKIM alignment.
-      envelope: { from: fromEmail, to: cleanEmail },
-      // Explicit Message-ID on the sender's own domain (parity with OTP mail).
-      messageId: `<payment-${Date.now()}-${crypto.randomBytes(6).toString('hex')}@${fromDomain}>`,
-      headers,
-    });
+    const info = await t.sendMail(mailOptions);
     console.log(`✅ [EmailService] Payment confirmation sent to ${cleanEmail} from ${fromEmail} (Message ID: ${info.messageId})`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
