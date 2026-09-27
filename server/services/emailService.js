@@ -2871,7 +2871,7 @@ async function sendCustomEmail({ to, subject, html, text, headers, sender } = {}
  */
 async function sendPaymentSuccessEmail({
   to, buyerName, amount, orderCode, couponBrand, couponTitle, couponCode,
-  paidAt, transactionId, currency = 'INR',
+  paidAt, transactionId, transactionType, gatewayReference, currency = 'INR',
 } = {}, opts = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   const displayName = buyerName && String(buyerName).trim() ? String(buyerName).trim() : 'there';
@@ -2932,10 +2932,16 @@ async function sendPaymentSuccessEmail({
     .toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   const safeOrder = escapeHtml(orderCode || '—');
-  // {{utr}} — the gateway transaction id / UTR. The FamApp mailbox path does
-  // not capture a UTR, so this falls back to a dash when none was recorded.
+  // Our OWN canonical Transaction ID (TXN-YYYYMMDD-XXXXXXXX). Always shown in
+  // full — never shortened. Falls back to a dash only for legacy rows that
+  // predate the internal transaction id.
   const txnRef = String(transactionId || '').trim() || '—';
   const safeTxn = escapeHtml(txnRef);
+  // The external bank/UPI reference (UTR). Separate from our Transaction ID.
+  // Shown as an extra line only when the verifier actually captured one (the
+  // FamApp mailbox path often does not), so it never renders an empty row.
+  const gatewayRef = String(gatewayReference || '').trim();
+  const safeGatewayRef = escapeHtml(gatewayRef);
 
   if (!t && !opts.renderOnly) {
     console.warn(`⚠️ [EmailService] SMTP not configured. Payment confirmation for ${cleanEmail} was NOT sent.`);
@@ -2951,7 +2957,7 @@ We have received your payment successfully.
 
 Amount: ${amountStr}
 Order ID: ${orderCode || '—'}
-Transaction ID: ${txnRef}
+Transaction ID: ${txnRef}${gatewayRef ? `\nPayment Reference (UTR): ${gatewayRef}` : ''}
 
 Thank you for choosing SaveHatke.
 
@@ -3211,7 +3217,11 @@ ${EMAIL_DARK_STYLE}
           <div class="detail-row">
             <span class="detail-label">Transaction ID</span>
             <span class="detail-value">${safeTxn}</span>
-          </div>
+          </div>${gatewayRef ? `
+          <div class="detail-row">
+            <span class="detail-label">Payment Reference (UTR)</span>
+            <span class="detail-value">${safeGatewayRef}</span>
+          </div>` : ''}
         </div>
 
         <p class="thankyou">

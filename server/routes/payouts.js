@@ -34,6 +34,8 @@ const { sniffImage, looksComplete } = require('../utils/imageSniff');
 // reinventing the 7% rule here so the auto-payout can never drift away from
 // what the submission flow stored on the coupon.
 const sellerPayout = require('../services/sellerPayout');
+// Canonical Order ID / Transaction ID minting (SH-PAY-... / TXN-...).
+const ids = require('../utils/identifiers');
 
 const router = express.Router();
 
@@ -184,6 +186,11 @@ function normalizeMethod(method) {
 function sanitize(payout) {
   return {
     id: payout.id,
+    // Canonical financial identifiers (legacy rows have none → blank, and the
+    // UI falls back to `id`). transaction_type is always SELLER_PAYOUT here.
+    orderId: payout.orderId || '',
+    transactionId: payout.transactionId || '',
+    transactionType: payout.transactionType || 'SELLER_PAYOUT',
     sellerEmail: payout.sellerEmail,
     sellerUserId: payout.sellerUserId || '',
     amount: Number(payout.amount || 0),
@@ -224,6 +231,21 @@ async function findPayoutById(id) {
   if (!id) return null;
   const all = await getAllPayouts();
   return all.find((p) => String(p.id) === String(id)) || null;
+}
+
+// Mint the canonical Order ID (SH-PAY-YYYYMMDD-XXXXXX) + Transaction ID
+// (TXN-YYYYMMDD-XXXXXXXX) for a NEW seller-payout row, unique against the
+// payouts already in the ledger. transaction_type is always 'SELLER_PAYOUT'.
+// Pass an already-loaded rows array to avoid a second read.
+async function mintPayoutIdentifiers(existingRows = null) {
+  const all = existingRows || await getAllPayouts();
+  const takenOrderIds = new Set(all.map((p) => p.orderId).filter(Boolean));
+  const takenTxnIds = new Set(all.map((p) => p.transactionId).filter(Boolean));
+  return {
+    orderId: ids.generateUniqueOrderIdSync('SELLER_PAYOUT', takenOrderIds),
+    transactionId: ids.generateUniqueTransactionIdSync(takenTxnIds),
+    transactionType: 'SELLER_PAYOUT',
+  };
 }
 
 async function sumPayoutsByStatus(payouts) {
@@ -845,8 +867,12 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
 
     // The stored destination is copied onto the row exactly as before, so the
     // admin payout screens and sanitize() keep reading one place.
+    const payoutIds = await mintPayoutIdentifiers();
     const payout = {
       id: uuidv4(),
+      orderId: payoutIds.orderId,
+      transactionId: payoutIds.transactionId,
+      transactionType: payoutIds.transactionType,
       sellerEmail: email,
       sellerUserId: req.user.id || req.user.user_id || stored.sellerUserId || '',
       amount: Math.round(requestedAmount),
@@ -938,8 +964,12 @@ module.exports.createAutoPayout = async function createAutoPayout({ coupon, sell
       return null;
     }
 
+    const payoutIds = await mintPayoutIdentifiers(all);
     const payout = {
       id: uuidv4(),
+      orderId: payoutIds.orderId,
+      transactionId: payoutIds.transactionId,
+      transactionType: payoutIds.transactionType,
       sellerEmail: String(sellerEmail).toLowerCase().trim(),
       sellerUserId: String(sellerUserId || ''),
       amount: resolved.amount,

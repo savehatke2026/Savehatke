@@ -43,6 +43,7 @@
 const crypto = require('crypto');
 const db = require('./googleSheets');
 const supabase = require('./supabase');
+const ids = require('../utils/identifiers');
 
 const PAYMENT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes, per the checkout UI
 
@@ -118,6 +119,10 @@ function fromOrder(r) {
     updatedAt: r.updated_at || '',
     expiresAt: r.expires_at || '',
     paidAt: r.paid_at || '',
+    // Canonical financial identifiers. Legacy rows read back blank; callers
+    // fall back to orderCode for display and derive the type from context.
+    transactionId: r.transaction_id || '',
+    transactionType: r.transaction_type || (r.order_code ? 'PURCHASE' : ''),
   };
 }
 
@@ -274,7 +279,9 @@ function shortCode(length = 6) {
 }
 
 function newOrderCode() {
-  return 'SH-' + shortCode(6);
+  // Canonical Order ID for a purchase: SH-PUR-YYYYMMDD-XXXXXX.
+  // (Uniqueness is enforced by the caller against the rows in the sheet.)
+  return ids.makeOrderId('PURCHASE');
 }
 
 function newPaymentId() {
@@ -456,13 +463,18 @@ async function createOrder({
 }) {
   const now = new Date().toISOString();
 
-  // The order code has ~1e9 of space, but a collision must not be a hard
-  // failure — retry against the codes actually in the sheet.
+  // Mint the canonical identifiers SERVER-SIDE and enforce uniqueness against
+  // the codes actually in the sheet (Sheets has no unique constraint, so this
+  // pre-check + the huge random space is the guarantee). The date part is
+  // derived from `now` so the id's embedded date matches the row's created_at.
+  //   order_code      SH-PUR-YYYYMMDD-XXXXXX  (the human Order ID)
+  //   transaction_id  TXN-YYYYMMDD-XXXXXXXX   (separate financial-txn id)
   const existing = await rowsFresh(ORDERS);
-  const taken = new Set(existing.map((r) => String(r.order_code)));
+  const takenCodes = new Set(existing.map((r) => String(r.order_code)));
+  const takenTxns = new Set(existing.map((r) => String(r.transaction_id)).filter(Boolean));
 
-  let orderCode = newOrderCode();
-  for (let attempt = 0; attempt < 5 && taken.has(orderCode); attempt++) orderCode = newOrderCode();
+  const orderCode = ids.generateUniqueOrderIdSync('PURCHASE', takenCodes, { date: now });
+  const transactionId = ids.generateUniqueTransactionIdSync(takenTxns, { date: now });
 
   const row = {
     id: crypto.randomUUID(),
@@ -482,6 +494,8 @@ async function createOrder({
     updated_at: now,
     expires_at: expiresAt || '',
     paid_at: '',
+    transaction_id: transactionId,
+    transaction_type: 'PURCHASE',
   };
 
   await db.appendRow(ORDERS, row);

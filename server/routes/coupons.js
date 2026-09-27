@@ -973,25 +973,56 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
       coupons = await db.findRows(db.SHEETS.COUPONS, 'buyerEmail', req.user.email);
     }
 
+    // Enrich each purchased coupon with the canonical Order ID (SH-PUR-...) and
+    // Transaction ID (TXN-...) from the order that bought it, so the dashboard
+    // shows the real financial identifiers instead of the coupon UUID. Reads are
+    // cached; a missing order just leaves the fields blank (legacy purchases).
+    const email = String(req.user.email || '').toLowerCase();
+    const ordersByCoupon = new Map();
+    try {
+      const orderRows = await db.getRows(db.SHEETS.ORDERS);
+      for (const o of orderRows || []) {
+        const cid = String(o.coupon_id || '');
+        if (!cid) continue;
+        const buyer = String(o.buyer_email || o.user_email || '').toLowerCase();
+        if (buyer && email && buyer !== email) continue;
+        const prev = ordersByCoupon.get(cid);
+        const isPaid = String(o.status || '').toUpperCase() === 'PAID';
+        const prevPaid = prev && String(prev.status || '').toUpperCase() === 'PAID';
+        if (!prev
+            || (isPaid && !prevPaid)
+            || (isPaid === prevPaid && new Date(o.created_at || 0) > new Date(prev.created_at || 0))) {
+          ordersByCoupon.set(cid, o);
+        }
+      }
+    } catch (e) { /* best effort — dashboard falls back gracefully */ }
+
     res.json({
-      coupons: coupons.map((c) => ({
-        id: c.id,
-        code: c.code,
-        category: c.category,
-        brand: c.brand,
-        title: c.title,
-        description: c.description,
-        discount: c.discount,
-        originalValue: c.originalValue,
-        sellingPrice: c.sellingPrice,
-        pricePaid: c.sellingPrice,
-        expiryDate: c.expiryDate,
-        status: c.status,
-        addedAt: c.addedAt,
-        soldAt: c.soldAt,
-        purchasedAt: c.soldAt,
-        sellerEmail: c.sellerEmail,
-      })),
+      coupons: coupons.map((c) => {
+        const ord = ordersByCoupon.get(String(c.id)) || {};
+        return {
+          id: c.id,
+          code: c.code,
+          category: c.category,
+          brand: c.brand,
+          title: c.title,
+          description: c.description,
+          discount: c.discount,
+          originalValue: c.originalValue,
+          sellingPrice: c.sellingPrice,
+          pricePaid: c.sellingPrice,
+          expiryDate: c.expiryDate,
+          status: c.status,
+          addedAt: c.addedAt,
+          soldAt: c.soldAt,
+          purchasedAt: c.soldAt,
+          sellerEmail: c.sellerEmail,
+          // Canonical purchase identifiers (blank for legacy orders).
+          orderCode: ord.order_code || '',
+          transactionId: ord.transaction_id || '',
+          transactionType: ord.transaction_type || (ord.order_code ? 'PURCHASE' : ''),
+        };
+      }),
     });
   } catch (err) {
     console.error('My purchases error:', err);

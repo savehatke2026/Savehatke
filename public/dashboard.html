@@ -3125,8 +3125,11 @@
       <div class="mc-sec-hdr" style="margin-top:6px"><div class="mc-sec-title">Details</div></div>
       <div class="card" style="padding:14px">
         <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px;font-size:.84rem">
+          <div><span style="color:#6b88aa">Order ID</span><div class="mono" id="refundDetailOrderId">—</div></div>
+          <div><span style="color:#6b88aa">Transaction ID</span><div class="mono" id="refundDetailTxnId">—</div></div>
           <div><span style="color:#6b88aa">Refund ID</span><div class="mono" id="refundDetailId">—</div></div>
           <div><span style="color:#6b88aa">Purchase ID</span><div class="mono" id="refundDetailPaymentId">—</div></div>
+          <div><span style="color:#6b88aa">Original Order</span><div class="mono" id="refundDetailOrigOrder">—</div></div>
           <div><span style="color:#6b88aa">Coupon</span><div id="refundDetailCoupon">—</div></div>
           <div><span style="color:#6b88aa">Status</span><div id="refundDetailStatus">—</div></div>
           <div><span style="color:#6b88aa">Reason</span><div id="refundDetailReason">—</div></div>
@@ -4672,16 +4675,26 @@
   };
   const TX_COPY_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
-  // Nearest real identifier for each row type (the ledger has no synthetic IDs).
+  // Each ledger row now surfaces BOTH the human Order ID (SH-…) and the
+  // Transaction ID (TXN-…). Legacy rows fall back to the older values and blank
+  // ids degrade to '—' at render time.
   function purchaseTxnId(c) {
-    return c.orderCode || c.orderId || c.txnId || c.transactionId || c.id || '';
+    return c.orderCode || c.id || '';
+  }
+  function purchaseTransactionId(c) {
+    return c.transactionId || '';
   }
   function refundTxnId(r) {
-    return r.orderCode || r.paymentId || r.refundId || r.id || r.couponId || '';
+    return r.orderId || r.orderCode || r.refundId || r.id || '';
+  }
+  function refundTransactionId(r) {
+    return r.transactionId || '';
   }
   function payoutTxnId(p) {
-    if (p.paymentReference) return p.paymentReference;
-    return p.id ? 'PO-' + String(p.id).slice(0, 8).toUpperCase() : '';
+    return p.orderId || (p.id ? String(p.id) : '');
+  }
+  function payoutTransactionId(p) {
+    return p.transactionId || '';
   }
 
   const TX_REFUND_BADGE = {
@@ -4711,6 +4724,7 @@
         name: 'Purchase',
         detail: `${c.brand || 'Coupon'} Coupon${c.originalValue ? ' · ' + inr(c.originalValue) + ' OFF' : ''}`,
         txnId: purchaseTxnId(c),
+        transactionId: purchaseTransactionId(c),
         amount: paid != null && paid !== '' ? inr(paid) : '—',
         date: c.purchasedAt || c.soldAt || c.addedAt,
         status: 'Completed',
@@ -4728,6 +4742,7 @@
         name: 'Refund',
         detail: r.brand ? `${r.brand} Coupon refund` : 'Payment refund',
         txnId: refundTxnId(r),
+        transactionId: refundTransactionId(r),
         amount: amt != null && amt !== '' ? inr(amt) : '—',
         date: r.createdAt || r.updatedAt,
         status: label,
@@ -4749,6 +4764,7 @@
         name: 'Seller Payout',
         detail: dest,
         txnId: payoutTxnId(p),
+        transactionId: payoutTransactionId(p),
         amount: p.amount != null ? inr(p.amount) : '—',
         date: p.requestedAt || p.processedAt,
         status: label,
@@ -4792,7 +4808,7 @@
     let rows = buildTransactions();
     if (filter !== 'all') rows = rows.filter((r) => r.group === filter);
     if (q) {
-      rows = rows.filter((r) => [r.txnId, r.detail, r.name]
+      rows = rows.filter((r) => [r.txnId, r.transactionId, r.detail, r.name]
         .map((v) => String(v || '').toLowerCase()).join(' ').includes(q));
     }
 
@@ -4815,16 +4831,24 @@
     mob.style.display = '';
 
     tbody.innerHTML = rows.map((r) => {
-      const id = r.txnId || '—';
-      const safeArg = String(r.txnId || '').replace(/['"\\<>]/g, '');
-      const copy = r.txnId
-        ? `<button class="txp-copy" onclick="copyTxnId(event,'${safeArg}')" title="Copy ID">${TX_COPY_ICON}</button>`
+      const orderId = r.txnId || '—';
+      const txnId = r.transactionId || '';
+      const safeOrder = String(r.txnId || '').replace(/['"\\<>]/g, '');
+      const safeTxn = String(txnId).replace(/['"\\<>]/g, '');
+      const orderCopy = r.txnId
+        ? `<button class="txp-copy" onclick="copyTxnId(event,'${safeOrder}','Order ID')" title="Copy Order ID">${TX_COPY_ICON}</button>`
+        : '';
+      const txnCopy = txnId
+        ? `<button class="txp-copy" onclick="copyTxnId(event,'${safeTxn}','Transaction ID')" title="Copy Transaction ID">${TX_COPY_ICON}</button>`
+        : '';
+      const txnLine = txnId
+        ? `<div class="txp-id" style="margin-top:3px;font-size:.72rem;color:#6b88aa"><span>${escapeHtml(txnId)}</span>${txnCopy}</div>`
         : '';
       return `
       <tr>
         <td><div class="txp-row-ico txp-ic-${r.icon}">${TX_ICONS[r.icon]}</div></td>
         <td><div class="txp-det-name">${escapeHtml(r.name)}</div><div class="txp-det-desc">${escapeHtml(r.detail)}</div></td>
-        <td><div class="txp-id"><span>${escapeHtml(id)}</span>${copy}</div></td>
+        <td><div class="txp-id"><span>${escapeHtml(orderId)}</span>${orderCopy}</div>${txnLine}</td>
         <td><span class="txp-amt">${escapeHtml(r.amount)}</span></td>
         <td><div class="txp-date-main">${escapeHtml(txDate(r.date))}</div><div class="txp-date-sub">${escapeHtml(txTime(r.date))}</div></td>
         <td><span class="txp-badge ${r.badge}">${escapeHtml(String(r.status).toUpperCase())}</span></td>
@@ -4841,7 +4865,7 @@
           </div>
           <span class="txp-amt">${escapeHtml(r.amount)}</span>
         </div>
-        <div class="txp-card-id">${escapeHtml(r.txnId || '—')}</div>
+        <div class="txp-card-id">${escapeHtml(r.txnId || '—')}${r.transactionId ? `<div style="margin-top:3px;color:#8ea6c4">${escapeHtml(String(r.transactionId))}</div>` : ''}</div>
         <div class="txp-card-foot">
           <div class="txp-date-main">${escapeHtml(txDate(r.date))} <span class="txp-date-sub">${escapeHtml(txTime(r.date))}</span></div>
           <span class="txp-badge ${r.badge}">${escapeHtml(String(r.status).toUpperCase())}</span>
@@ -4850,10 +4874,10 @@
   }
 
   // Copy a transaction ID from the ledger; reuses the dashboard toast.
-  function copyTxnId(e, id) {
+  function copyTxnId(e, id, label) {
     if (e) e.stopPropagation();
     try { navigator.clipboard.writeText(id); } catch (_) {}
-    if (typeof showToast === 'function') showToast('Transaction ID copied', 'success');
+    if (typeof showToast === 'function') showToast((label || 'Transaction ID') + ' copied', 'success');
   }
 
   function renderPayouts() {
@@ -4901,10 +4925,11 @@
         <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px;gap:10px">
           <div style="min-width:0;flex:1">
             <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-              <strong class="mono" style="font-size:.9rem;color:#e2ecff">#PO-${escapeHtml(String(p.id).slice(0, 8).toUpperCase())}</strong>
+              <strong class="mono" style="font-size:.9rem;color:#e2ecff">${escapeHtml(p.orderId || (p.id ? String(p.id) : '—'))}</strong>
               <span class="badge ${statusCls}">${escapeHtml(statusLabel)}</span>
             </div>
             <div style="font-size:.74rem;color:#6b88aa;margin-top:4px">${methodLine}</div>
+            ${p.transactionId ? `<div style="font-size:.7rem;color:#6b88aa;margin-top:2px" class="mono">${escapeHtml(String(p.transactionId))}</div>` : ''}
             <div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(timeAgo(p.requestedAt))} · ${p.sourceType === 'auto' ? 'auto' : 'manual'}${p.processedAt ? ` · processed ${escapeHtml(timeAgo(p.processedAt))}` : ''}</div>
             ${p.paymentReference ? `<div style="font-size:.7rem;color:#00e676;margin-top:2px" class="mono">ref: ${escapeHtml(p.paymentReference)}</div>` : ''}
             ${p.rejectionReason ? `<div style="font-size:.72rem;color:#ff8585;margin-top:4px">🚫 ${escapeHtml(p.rejectionReason)}</div>` : ''}
@@ -5856,9 +5881,10 @@
   let _refundSearch = '';
   let _refundSort = 'newest';
 
-  // Order ID prefers the human order code, then the coupon it belongs to.
+  // Order ID prefers the refund's own SH-REF Order ID, then the original order
+  // code (legacy), then the coupon it belongs to.
   function refundOrderId(r) {
-    return r.orderCode || r.couponId || '';
+    return r.orderId || r.orderCode || r.couponId || '';
   }
 
   // Single refund as a desktop table row. Columns match the redesigned
@@ -5940,7 +5966,8 @@
     if (q) {
       rows = rows.filter((r) => {
         const hay = [
-          refundOrderId(r), r.paymentId, r.refundId, r.id, r.couponId,
+          refundOrderId(r), r.orderId, r.orderCode, r.transactionId,
+          r.paymentId, r.refundId, r.id, r.couponId,
           r.requiredAmount, r.receivedAmount, r.refundAmount,
         ].map((v) => String(v == null ? '' : v).toLowerCase()).join(' ');
         return hay.includes(q);
@@ -6105,8 +6132,11 @@
       setText('refundDetailRequired', inr(r.requiredAmount));
       setText('refundDetailReceived', inr(r.receivedAmount));
       setText('refundDetailAmount',    inr(r.refundAmount));
+      setText('refundDetailOrderId',   r.orderId || '—');
+      setText('refundDetailTxnId',     r.transactionId || '—');
       setText('refundDetailId',        r.refundId || r.id || '—');
       setText('refundDetailPaymentId', r.paymentId || '—');
+      setText('refundDetailOrigOrder', r.orderCode || '—');
       setText('refundDetailCoupon',    r.couponId || '—');
       setText('refundDetailStatus',    refundBadge(r.status));
       setText('refundDetailReason',    r.refundReason || '—');

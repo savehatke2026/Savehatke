@@ -1051,6 +1051,11 @@
         <span class="succ-value succ-mono" id="succOrderId">—</span>
       </div>
       <div class="succ-divider"></div>
+      <div class="succ-row">
+        <span class="succ-label">Transaction ID</span>
+        <span class="succ-value succ-mono" id="succTxnId">—</span>
+      </div>
+      <div class="succ-divider"></div>
     </div>
 
     <p class="succ-emailnote">📧 A confirmation email has been sent to <strong id="confirmEmail">your email</strong></p>
@@ -1577,6 +1582,8 @@
   const upiState = {
     paymentId: '',
     orderId: '',
+    orderCode: '',
+    transactionId: '',
     amount: 0,
     expiresAt: 0,
     status: '',
@@ -1710,6 +1717,8 @@
     upiState.status = data.status;
     if (data.payment_id) upiState.paymentId = data.payment_id;
     if (data.order_id) upiState.orderId = data.order_id;
+    if (data.order_code) upiState.orderCode = data.order_code;
+    if (data.transaction_id) upiState.transactionId = data.transaction_id;
     if (data.expires_at) upiState.expiresAt = new Date(data.expires_at).getTime();
 
     // The amount shown is the server's amount for this order. formatRupees()
@@ -2047,12 +2056,15 @@
     if (data.amount !== undefined && upiEl('succAmount')) {
       upiEl('succAmount').textContent = formatRupees(data.amount);
     }
-    // Order ID for the success details row (server-owned, captured on create).
+    // Order ID + Transaction ID for the success details rows (server-owned,
+    // captured on create). Prefer the human Order ID (SH-PUR-…), never the UUID.
     const orderEl = upiEl('succOrderId');
     if (orderEl) {
-      const oid = (data && data.order_id) || upiState.orderId || '';
-      orderEl.textContent = oid || '—';
+      const oid = (data && data.order_code) || upiState.orderCode || '—';
+      orderEl.textContent = oid;
     }
+    const txnEl = upiEl('succTxnId');
+    if (txnEl) txnEl.textContent = (data && data.transaction_id) || upiState.transactionId || '—';
     const email = document.getElementById('buyerEmail');
     const confirm = upiEl('confirmEmail');
     if (confirm) confirm.textContent = (email && email.value) || 'your email';

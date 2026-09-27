@@ -42,6 +42,7 @@
 const crypto = require('crypto');
 const store = require('./paymentStore');
 const upi = require('./upi');
+const ids = require('../utils/identifiers');
 // Refund-record service for the mismatch (overpayment / underpayment)
 // path. Loaded eagerly so a circular-import somewhere never costs us the
 // first overpayment: processCandidate() only ever invokes it from a
@@ -164,10 +165,14 @@ function detectDirection(text) {
   return 'unknown';
 }
 
-/** Extract the order code (SH-XXXXXX) we generated, if it appears. */
+/**
+ * Extract the order code we generated, if it appears in the notification text.
+ * Recognises BOTH the current format (SH-PUR/REF/PAY-YYYYMMDD-XXXXXX) and the
+ * legacy SH-XXXXXX code, so in-flight payments created before the id change
+ * still reconcile. Delegates to the single source of truth in utils/identifiers.
+ */
 function extractOrderCode(text) {
-  const m = String(text || '').match(/\bSH-([2-9A-HJKMNP-Z]{6})\b/i);
-  return m ? ('SH-' + m[1].toUpperCase()) : '';
+  return ids.extractOrderCodeFromText(text);
 }
 
 /** Find a UPI VPA in the text. */
@@ -1087,7 +1092,11 @@ async function deliverPaymentSuccessEmail(payment) {
       couponBrand: (order && order.couponBrand) || '',
       couponCode: (order && order.couponCode) || '',
       paidAt: (order && order.paidAt) || payment.paidAt || new Date().toISOString(),
-      transactionId: payment.verifiedTransactionId || payment.verifiedUtr || '',
+      // Our OWN canonical Transaction ID (TXN-YYYYMMDD-XXXXXXXX). The bank's UTR
+      // is a separate external reference passed as gatewayReference.
+      transactionId: (order && order.transactionId) || '',
+      transactionType: (order && order.transactionType) || 'PURCHASE',
+      gatewayReference: payment.verifiedTransactionId || payment.verifiedUtr || '',
     });
     // A hung SMTP call must never stall settlement reporting; cap the wait.
     // sendPaymentSuccessEmail swallows its own errors, so this never rejects.

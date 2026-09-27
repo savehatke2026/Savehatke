@@ -40,11 +40,15 @@ const TEMPLATES = [
       to,
       buyerName: 'SaveHatke Test User',
       amount: 499,
-      orderCode: 'SH-TEST-1001',
+      // Canonical formats: Order ID SH-<TYPE>-YYYYMMDD-XXXXXX, Transaction ID
+      // TXN-YYYYMMDD-XXXXXXXX. The UTR is a separate external bank reference.
+      orderCode: 'SH-PUR-20260926-A7K92P',
       couponBrand: 'Test Brand',
       couponTitle: 'Test Coupon',
       couponCode: 'TESTCODE10',
-      transactionId: 'TESTUTR1234567890',
+      transactionId: 'TXN-20260926-7K4P92M8',
+      transactionType: 'PURCHASE',
+      gatewayReference: 'TESTUTR1234567890',
       paidAt: NOW_ISO(),
       currency: 'INR',
     }, { renderOnly: true }),

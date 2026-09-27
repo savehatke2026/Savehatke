@@ -145,6 +145,16 @@ const HEADERS = {
     'paymentReference',
     'rejectionReason',
     'notes',
+    // Canonical financial identifiers (see server/utils/identifiers.js). This
+    // sheet uses camelCase headers, so these match that style; the API layer
+    // still exposes them as order_id / transaction_id / transaction_type.
+    //   orderId         SH-PAY-YYYYMMDD-XXXXXX (the payout's Order ID)
+    //   transactionId   TXN-YYYYMMDD-XXXXXXXX  (the payout financial txn)
+    //   transactionType always 'SELLER_PAYOUT'
+    // APPENDED AT THE END; legacy payouts read back blank and fall back to `id`.
+    'orderId',
+    'transactionId',
+    'transactionType',
   ],
   // One row per seller: where that seller's money goes. Payout destinations are
   // account-level on purpose — a coupon row must never carry payment
@@ -364,6 +374,14 @@ const HEADERS = {
     'updated_at',
     'expires_at',
     'paid_at',
+    // Canonical financial identifiers (see server/utils/identifiers.js).
+    // `order_code` above is the human Order ID (SH-PUR-YYYYMMDD-XXXXXX for new
+    // rows, legacy SH-XXXXXX for old ones). `transaction_id` is the separate
+    // TXN-YYYYMMDD-XXXXXXXX financial-transaction id; `transaction_type` is
+    // always 'PURCHASE' for an order row. APPENDED AT THE END so existing rows
+    // keep lining up (they read back blank and callers fall back).
+    'transaction_id',
+    'transaction_type',
   ],
   // One row per UPI payment attempt against an order. verified_transaction_id
   // / verified_utr are only ever written by the server-side verifier.
@@ -458,6 +476,17 @@ const HEADERS = {
     'processed_by',
     'created_at',
     'updated_at',
+    // Canonical financial identifiers (see server/utils/identifiers.js).
+    // `order_code` above is a REFERENCE to the original purchase order being
+    // refunded. These three are the refund's OWN standardized identity:
+    //   order_id         SH-REF-YYYYMMDD-XXXXXX (the refund's Order ID)
+    //   transaction_id   TXN-YYYYMMDD-XXXXXXXX  (the refund financial txn)
+    //   transaction_type always 'REFUND'
+    // APPENDED AT THE END; legacy refunds read back blank and fall back to
+    // refund_id/order_code for display.
+    'order_id',
+    'transaction_id',
+    'transaction_type',
   ],
   // Admin revenue-share payout ledger (40/40/20). One row per payout event; the
   // acting admin, amount, status and references are the audit trail. Amounts are

@@ -27,6 +27,7 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('./googleSheets');
 const supabase = require('./supabase');
+const ids = require('../utils/identifiers');
 
 const SHEETS = db.SHEETS;
 const STATUSES = ['pending', 'processing', 'refunded', 'rejected'];
@@ -95,7 +96,14 @@ function normalize(row) {
     userEmail: row.user_email || row.userEmail || '',
     paymentId: row.payment_id || row.paymentId || '',
     couponId: row.coupon_id || row.couponId || '',
+    // `orderCode` is a REFERENCE to the original purchase order being refunded.
     orderCode: row.order_code || row.orderCode || '',
+    // Canonical financial identity of THIS refund record. Legacy rows have none,
+    // so fall back to refund_id for the visible id and 'REFUND' for the type
+    // (every row in this store is, by definition, a refund).
+    orderId: row.order_id || row.orderId || '',
+    transactionId: row.transaction_id || row.transactionId || '',
+    transactionType: row.transaction_type || row.transactionType || 'REFUND',
     requiredAmount: money2(row.required_amount || row.requiredAmount),
     receivedAmount: money2(row.received_amount || row.receivedAmount),
     refundAmount: money2(row.refund_amount || row.refundAmount),
@@ -136,6 +144,9 @@ function toSheetsRow(r) {
     processed_by: r.processedBy,
     created_at: r.createdAt,
     updated_at: r.updatedAt,
+    order_id: r.orderId,
+    transaction_id: r.transactionId,
+    transaction_type: r.transactionType || 'REFUND',
   };
 }
 
@@ -162,6 +173,10 @@ function toSupabaseRow(r) {
     admin_note: r.adminNote,
     processed_at: r.processedAt || null,
     processed_by: r.processedBy,
+    // Canonical financial identifiers (see server/utils/identifiers.js).
+    order_id: r.orderId || null,
+    transaction_id: r.transactionId || null,
+    transaction_type: r.transactionType || 'REFUND',
     // created_at and updated_at default to now() at the SQL level — only
     // send values when the caller has an authoritative timestamp.
     ...(r.createdAt ? { created_at: r.createdAt } : {}),
@@ -274,7 +289,18 @@ async function createOrUpdateRefund({
   const reasonText = isUnderpayment ? REASON_UNDERPAYMENT : REASON_OVERPAYMENT;
 
   // Find an existing row by payment_id (the unique-per-payment key).
-  const existing = (await readAllRefunds()).find((r) => r.paymentId === paymentId) || null;
+  const allRefunds = await readAllRefunds();
+  const existing = allRefunds.find((r) => r.paymentId === paymentId) || null;
+
+  // Mint canonical identifiers for a NEW refund; an existing refund keeps the
+  // ones it already has (never regenerate a historical id). Uniqueness is
+  // enforced against the refunds already in the store.
+  const takenOrderIds = new Set(allRefunds.map((r) => r.orderId).filter(Boolean));
+  const takenTxnIds = new Set(allRefunds.map((r) => r.transactionId).filter(Boolean));
+  const refundOrderId = (existing && existing.orderId)
+    || ids.generateUniqueOrderIdSync('REFUND', takenOrderIds, { date: now });
+  const refundTransactionId = (existing && existing.transactionId)
+    || ids.generateUniqueTransactionIdSync(takenTxnIds, { date: now });
 
   const merged = normalize({
     ...(existing || {}),
@@ -284,6 +310,9 @@ async function createOrUpdateRefund({
     payment_id: paymentId,
     coupon_id: couponId || (existing && existing.couponId) || '',
     order_code: orderCode || (existing && existing.orderCode) || '',
+    order_id: refundOrderId,
+    transaction_id: refundTransactionId,
+    transaction_type: 'REFUND',
     required_amount: money2(requiredAmount),
     received_amount: money2(receivedAmount),
     refund_amount: money2(computed.refundAmount),

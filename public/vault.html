@@ -4417,12 +4417,13 @@ function txnBadge(status) {
 
 function txnRowHtml(t) {
   const id = t.orderCode || t.id || '';
+  const txnLine = t.transactionId ? `<div class="mono" style="font-size:.65rem;color:#6b88aa">${escapeHtml(String(t.transactionId))}</div>` : '';
   const user = t.user || '—';
   const initials = (user || '?').split(/\s+/).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || 'U';
   const dt = t.createdAt ? new Date(t.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
   const refund = t.refundStatus ? ` <span class="badge badge-red" style="font-size:.6rem">${escapeHtml(t.refundStatus)}</span>` : '';
   return `<tr>
-    <td><strong class="mono">${escapeHtml(String(id))}</strong></td>
+    <td><strong class="mono">${escapeHtml(String(id || '—'))}</strong>${txnLine}</td>
     <td><div style="display:flex;align-items:center;gap:8px"><div class="u-avatar">${escapeHtml(initials)}</div>${escapeHtml(user)}</div></td>
     <td>${escapeHtml(t.coupon || '—')}</td>
     <td><strong class="mono" style="color:#00e676">₹${(Math.round(Number(t.amount) || 0)).toLocaleString('en-IN')}</strong></td>
@@ -4901,7 +4902,11 @@ function renderTxnPage(rows) {
   body.innerHTML = rows.map((t) => {
     const dt = t.createdAt ? new Date(t.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
     const refund = t.refundStatus ? ` <span class="badge badge-red" style="font-size:.6rem">${escapeHtml(t.refundStatus)}</span>` : '';
-    const idCell = (t.orderCode && t.id) ? `<strong class="mono">${escapeHtml(String(t.orderCode))}</strong><div class="mono" style="font-size:.65rem;color:#6b88aa">${escapeHtml(String(t.id))}</div>` : `<strong class="mono">${escapeHtml(String(t.orderCode || t.id || '—'))}</strong>`;
+    const idPrimary = t.orderCode || t.id || '—';
+    const idSub = [];
+    if (t.transactionId) idSub.push(String(t.transactionId));
+    if (t.orderCode && t.id) idSub.push(String(t.id));
+    const idCell = `<strong class="mono">${escapeHtml(String(idPrimary))}</strong>` + idSub.map((v) => `<div class="mono" style="font-size:.65rem;color:#6b88aa">${escapeHtml(v)}</div>`).join('');
     return `<tr>
       <td>${idCell}</td>
       <td>${escapeHtml(t.user || '—')}${t.userEmail ? `<div style="font-size:.65rem;color:#6b88aa">${escapeHtml(t.userEmail)}</div>` : ''}</td>
@@ -5659,14 +5664,15 @@ function payoutStatusBadge(status) {
 
 function payoutRow(p) {
   const id = escapeHtml(p.id);
-  const shortId = String(p.id || '').slice(0, 8).toUpperCase();
+  const payoutOrderId = p.orderId || (p.id ? String(p.id) : '');
   const isPending = String(p.status).toLowerCase() === 'pending';
   const checked = PAYOUT_STATE.selected.has(p.id) ? 'checked' : '';
   return `
     <tr>
       <td>${isPending ? `<input type="checkbox" data-payout-id="${id}" ${checked} onchange="togglePayoutSelected('${id}', this.checked)">` : ''}</td>
       <td>
-        <strong>#PO-${escapeHtml(shortId)}</strong>
+        <strong class="mono">${escapeHtml(payoutOrderId || '—')}</strong>
+        ${p.transactionId ? `<div class="mono" style="font-size:.68rem;color:#6b88aa;margin-top:2px">${escapeHtml(String(p.transactionId))}</div>` : ''}
         <div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${p.sourceType === 'auto' ? '🤖 auto' : '✋ manual'}</div>
       </td>
       <td><div class="cm-seller-cell">${p.sellerEmail ? emailAvatarHtml(p.sellerEmail, 24) : ''}<span class="cm-seller">${escapeHtml(p.sellerEmail || '—')}</span></div></td>
@@ -5837,7 +5843,8 @@ function openMarkPaidModal(payoutId) {
   if (summary) {
     summary.innerHTML = `
       <div style="font-size:.78rem;color:#6b88aa;margin-bottom:4px">Payout</div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:700;color:#e2ecff;min-width:0">${payout.sellerEmail ? emailAvatarHtml(payout.sellerEmail, 24) : ''}<span style="overflow-wrap:anywhere">#PO-${escapeHtml(String(payout.id).slice(0, 8).toUpperCase())} · ${escapeHtml(payout.sellerEmail)}</span></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:700;color:#e2ecff;min-width:0">${payout.sellerEmail ? emailAvatarHtml(payout.sellerEmail, 24) : ''}<span style="overflow-wrap:anywhere">${escapeHtml(payout.orderId || String(payout.id) || '—')} · ${escapeHtml(payout.sellerEmail)}</span></div>
+      ${payout.transactionId ? `<div class="mono" style="font-size:.72rem;color:#6b88aa;margin-top:2px;overflow-wrap:anywhere">${escapeHtml(String(payout.transactionId))}</div>` : ''}
       <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600;color:#00e676;margin-top:6px">${inr(payout.amount)}</div>
       <div style="font-size:.76rem;color:#a8c0dc;margin-top:6px">${payoutMethodLine(payout)}</div>
     `;
@@ -5884,7 +5891,8 @@ function openRejectPayoutModal(payoutId) {
   if (summary) {
     summary.innerHTML = `
       <div style="font-size:.78rem;color:#6b88aa;margin-bottom:4px">Payout</div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:700;color:#e2ecff;min-width:0">${payout.sellerEmail ? emailAvatarHtml(payout.sellerEmail, 24) : ''}<span style="overflow-wrap:anywhere">#PO-${escapeHtml(String(payout.id).slice(0, 8).toUpperCase())} · ${escapeHtml(payout.sellerEmail)}</span></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:.9rem;font-weight:700;color:#e2ecff;min-width:0">${payout.sellerEmail ? emailAvatarHtml(payout.sellerEmail, 24) : ''}<span style="overflow-wrap:anywhere">${escapeHtml(payout.orderId || String(payout.id) || '—')} · ${escapeHtml(payout.sellerEmail)}</span></div>
+      ${payout.transactionId ? `<div class="mono" style="font-size:.72rem;color:#6b88aa;margin-top:2px;overflow-wrap:anywhere">${escapeHtml(String(payout.transactionId))}</div>` : ''}
       <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:600;color:#ff8585;margin-top:6px">${inr(payout.amount)}</div>
     `;
   }

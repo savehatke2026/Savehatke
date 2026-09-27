@@ -217,7 +217,7 @@ function evaluateCoupon(coupon, { userId, userEmail }) {
  * Shape a payment for the frontend. Only the fields the existing modal needs,
  * plus the status the realtime/polling layer watches.
  */
-async function presentPayment(payment, { coupon = null } = {}) {
+async function presentPayment(payment, { coupon = null, order = null } = {}) {
   const payee = upi.getPayee();
   let qr = null;
   if (payment.status === 'PENDING' && payment.upiUri) {
@@ -230,9 +230,24 @@ async function presentPayment(payment, { coupon = null } = {}) {
 
   const code = await safeCouponCode(payment.couponId, payment.status, coupon);
 
+  // The order carries the human Order ID (order_code = SH-PUR-YYYYMMDD-XXXXXX)
+  // and the canonical Transaction ID (TXN-YYYYMMDD-XXXXXXXX). Reads are cached,
+  // so resolving it here for /status and /stream is cheap. Callers that already
+  // have the order can pass it to skip the lookup.
+  const ord = order
+    || (payment.orderId ? await store.findOrderById(payment.orderId).catch(() => null) : null);
+
   return {
     payment_id: payment.paymentId,
+    // Internal order PK (UUID) — kept for the existing /status?order_id lookup
+    // and any consumer that matches on it. NOT the human-facing id.
     order_id: payment.orderId,
+    // Human-facing Order ID and the separate financial Transaction ID. These
+    // are what the receipt/success screen show. Legacy orders fall back to a
+    // blank transaction id and 'PURCHASE' type.
+    order_code: (ord && ord.orderCode) || '',
+    transaction_id: (ord && ord.transactionId) || '',
+    transaction_type: (ord && ord.transactionType) || 'PURCHASE',
     status: payment.status,
     amount: Number(payment.amount.toFixed(2)),
     // The verified amount actually received. Present only when the server

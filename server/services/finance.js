@@ -447,6 +447,11 @@ async function getTransactions(period, opts = {}) {
     return {
       id: p.payment_id || '',
       orderCode: o.order_code || '',
+      // Canonical financial identifiers from the order (SH-PUR-... / TXN-...).
+      // `gatewayReference` below stays the REAL external bank UTR — a separate
+      // thing from our internal transactionId.
+      transactionId: o.transaction_id || '',
+      transactionType: o.transaction_type || (o.order_code ? 'PURCHASE' : ''),
       user: o.buyer_name || p.user_email || o.user_email || '',
       userEmail: p.user_email || o.user_email || '',
       couponId: p.coupon_id || '',
@@ -469,6 +474,7 @@ async function getTransactions(period, opts = {}) {
     rows = rows.filter((r) =>
       String(r.id).toLowerCase().includes(search) ||
       String(r.orderCode).toLowerCase().includes(search) ||
+      String(r.transactionId).toLowerCase().includes(search) ||
       String(r.user).toLowerCase().includes(search) ||
       String(r.userEmail).toLowerCase().includes(search) ||
       String(r.coupon).toLowerCase().includes(search) ||
