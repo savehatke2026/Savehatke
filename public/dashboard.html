@@ -891,6 +891,84 @@
   .pc-stats{grid-template-columns:1fr}
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   My Coupons — reskin (scoped to #view-my-coupons only). Visual layer only:
+   data, filters, tab logic, stats IDs and the For-Sale payout tracker are
+   unchanged. All classes are mcx- prefixed / scoped so no other view is
+   affected. ══════════════════════════════════════════════════════════════ */
+/* stat cards with an icon tile */
+#view-my-coupons .mcx-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-bottom:22px}
+#view-my-coupons .mcx-stat{background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.09);border-radius:15px;padding:16px 18px;transition:border-color .25s,background .25s}
+#view-my-coupons .mcx-stat:hover{border-color:rgba(0,230,118,.22);background:rgba(17,34,66,.7)}
+#view-my-coupons .mcx-stat-top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+#view-my-coupons .mcx-ico{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#view-my-coupons .mcx-ico svg{width:18px;height:18px}
+#view-my-coupons .mcx-si-green{background:rgba(0,230,118,.12);color:#00e676}
+#view-my-coupons .mcx-si-blue{background:rgba(79,195,247,.12);color:#4fc3f7}
+#view-my-coupons .mcx-si-red{background:rgba(255,133,133,.12);color:#ff8585}
+#view-my-coupons .mcx-si-orange{background:rgba(255,183,77,.12);color:#ffb74d}
+#view-my-coupons .mcx-si-purple{background:rgba(206,147,216,.12);color:#ce93d8}
+#view-my-coupons .mcx-stat-name{font-size:.78rem;font-weight:600;color:#a8c0dc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#view-my-coupons .mcx-stat-val{font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:600;line-height:1;color:#e2ecff}
+#view-my-coupons .mcx-stat-val.green{background:linear-gradient(135deg,#00e676,#4fc3f7);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+
+/* filter chips → pills with icons (scoped so Support's .mc-chip is untouched) */
+#view-my-coupons .pc-tabs .mc-chip{display:inline-flex;align-items:center;gap:7px;padding:8px 16px;border-radius:50px;border:1.5px solid rgba(79,195,247,.15);background:transparent;color:#8ea6c4;font-size:.82rem}
+#view-my-coupons .pc-tabs .mc-chip svg{width:15px;height:15px;flex-shrink:0}
+#view-my-coupons .pc-tabs .mc-chip:hover{border-color:rgba(0,230,118,.35);color:#e2ecff;background:rgba(0,230,118,.05)}
+#view-my-coupons .pc-tabs .mc-chip.active{border-color:#00e676;color:#060d1f;background:linear-gradient(135deg,#00e676,#00c853);box-shadow:0 4px 18px rgba(0,230,118,.28)}
+
+/* search */
+#view-my-coupons .mcx-search{position:relative;margin:0 0 18px}
+#view-my-coupons .mcx-search svg{position:absolute;left:15px;top:50%;transform:translateY(-50%);width:16px;height:16px;color:#6b88aa;pointer-events:none}
+#view-my-coupons .mcx-search input{width:100%;height:44px;padding:0 16px 0 42px;border-radius:12px;background:rgba(6,13,31,.6);border:1px solid rgba(79,195,247,.15);color:#e2ecff;font-family:'Outfit',sans-serif;font-size:.86rem;outline:none;transition:border-color .2s,background .2s}
+#view-my-coupons .mcx-search input::placeholder{color:#5f7c9e}
+#view-my-coupons .mcx-search input:focus{border-color:rgba(0,230,118,.4);background:rgba(6,13,31,.85)}
+
+/* table (Purchased) */
+#view-my-coupons .mcx-tbl-wrap{overflow-x:auto}
+#view-my-coupons .mcx-tbl{width:100%;border-collapse:collapse}
+#view-my-coupons .mcx-tbl thead th{font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;padding:10px 14px;text-align:left;background:rgba(0,0,0,.18);white-space:nowrap}
+#view-my-coupons .mcx-tbl tbody tr{border-top:1px solid rgba(79,195,247,.05);transition:background .16s}
+#view-my-coupons .mcx-tbl tbody td{padding:13px 14px;vertical-align:middle;font-size:.83rem;color:#a8c0dc}
+#view-my-coupons .mcx-tbl tbody tr:hover{background:rgba(79,195,247,.04)}
+#view-my-coupons .mcx-rico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center}
+#view-my-coupons .mcx-rico svg{width:18px;height:18px}
+#view-my-coupons .mcx-ic-available,#view-my-coupons .mcx-ic-active{background:rgba(0,230,118,.12);color:#00e676}
+#view-my-coupons .mcx-ic-expired{background:rgba(255,133,133,.12);color:#ff8585}
+#view-my-coupons .mcx-ic-used{background:rgba(79,195,247,.12);color:#4fc3f7}
+#view-my-coupons .mcx-ic-pending,#view-my-coupons .mcx-ic-payout{background:rgba(255,183,77,.12);color:#ffb74d}
+#view-my-coupons .mcx-ic-paid{background:rgba(206,147,216,.12);color:#ce93d8}
+#view-my-coupons .mcx-name{font-size:.85rem;font-weight:700;color:#e2ecff}
+#view-my-coupons .mcx-desc{font-size:.73rem;color:#6b88aa;margin-top:2px}
+#view-my-coupons .mcx-code{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:.77rem;color:#8ea6c4}
+#view-my-coupons .mcx-copy{background:none;border:none;cursor:pointer;color:#5f7c9e;padding:2px;line-height:0;transition:color .14s}
+#view-my-coupons .mcx-copy:hover{color:#00e676}
+#view-my-coupons .mcx-copy svg{width:13px;height:13px}
+#view-my-coupons .mcx-amt{font-family:'JetBrains Mono',monospace;font-size:.92rem;font-weight:600;color:#00e676}
+#view-my-coupons .mcx-date{font-size:.82rem;color:#a8c0dc}
+#view-my-coupons .mcx-chev{color:#3a5070;font-size:1rem;line-height:1}
+#view-my-coupons .mcx-badge{display:inline-flex;align-items:center;font-size:.66rem;font-weight:700;letter-spacing:.06em;padding:4px 10px;border-radius:6px;white-space:nowrap;text-transform:uppercase}
+#view-my-coupons .mcx-bg-available,#view-my-coupons .mcx-bg-active{background:rgba(0,230,118,.12);color:#00e676}
+#view-my-coupons .mcx-bg-expired{background:rgba(255,133,133,.12);color:#ff8585}
+#view-my-coupons .mcx-bg-used{background:rgba(79,195,247,.12);color:#4fc3f7}
+#view-my-coupons .mcx-bg-pending,#view-my-coupons .mcx-bg-payout{background:rgba(255,183,77,.12);color:#ffb74d}
+#view-my-coupons .mcx-bg-paid{background:rgba(206,147,216,.12);color:#ce93d8}
+
+/* For-Sale summary row restyled to match the table look (accordion preserved) */
+#view-my-coupons .ml-item-summary{gap:12px;padding:12px 14px}
+#view-my-coupons .ml-sum-ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#view-my-coupons .ml-sum-ico svg{width:18px;height:18px}
+#view-my-coupons .ml-sum-amt{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:#00e676;margin-top:3px}
+
+/* toast */
+#view-my-coupons .mcx-toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:700;font-size:.82rem;padding:9px 22px;border-radius:50px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:999;white-space:nowrap}
+#view-my-coupons .mcx-toast.show{opacity:1}
+
+/* responsive: drop lower-priority columns on small screens */
+@media(max-width:820px){ #view-my-coupons .mcx-hide-md{display:none} }
+@media(max-width:560px){ #view-my-coupons .mcx-hide-sm{display:none} }
+
 /* ── Transactions view: one full-width ledger card ── */
 .tx-filter-tag{font-size:.72rem;font-weight:700;letter-spacing:.04em;color:#00e676;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.22);border-radius:9999px;padding:3px 11px}
 .tx-table-wrap{overflow-x:auto}
@@ -1304,27 +1382,104 @@
         <div class="welcome-inner">
           <div>
             <p class="slabel">Dashboard</p>
-            <h1 class="welcome-greeting">Welcome back, <span class="gtext" id="welcomeFirstName">Friend</span> 👋</h1>
-            <!-- First-frame paint: the stored name goes in the moment this
-                 markup exists — the 150KB dashboard script at the end of the
-                 document used to be what the greeting waited for. A try/catch
-                 keeps blocked localStorage from throwing mid-parse; the main
-                 script still runs applyUserToUI() as the source of truth. -->
+            <h1 class="welcome-greeting" id="welcomeGreeting">Hey there 👋</h1>
+            <!-- Greeting copy + the per-load pick live in ONE place so the
+                 instant first-frame paint below and the main init's
+                 applyUserToUI() always land on the same line. Time of day comes
+                 from the browser clock (the user's own local time); the chosen
+                 line is cached on window for this page load so it never
+                 reshuffles between paint, DOMContentLoaded and the post-fetch
+                 refresh — a fresh visit or refresh rolls a new one, and the
+                 previous line is skipped so it doesn't repeat back-to-back. -->
             <script>
               (function () {
+                var G = {
+                  morning: [
+                    'Hey {name}, good to see you 👋',
+                    'Morning, {name} 👋',
+                    'Hey {name}, ready to go? 👋',
+                    "Hope your day's off to a good start, {name} 👋"
+                  ],
+                  afternoon: [
+                    "Hey {name}, how's it going? 👋",
+                    "What's up, {name}? 👋",
+                    "What's cooking, {name}? 👋",
+                    "How's your day going, {name}? 👋"
+                  ],
+                  evening: [
+                    'Hey {name}, good to have you back 👋',
+                    "Hey {name}, how's your evening going? 👋",
+                    'What are you up to tonight, {name}? 👋',
+                    'Hey {name}, still making moves? 👋'
+                  ],
+                  night: [
+                    'Hey night owl, still up? 👋',
+                    'Still around, {name}? 👋',
+                    'Late one, {name}? 👋',
+                    'Hey {name}, burning the midnight oil? 👋'
+                  ]
+                };
+                // 21:00–04:59 is night and wraps midnight, so "morning" copy can
+                // never show at night.
+                function periodFor(h) {
+                  if (h >= 5 && h < 12) return 'morning';
+                  if (h >= 12 && h < 17) return 'afternoon';
+                  if (h >= 17 && h < 21) return 'evening';
+                  return 'night';
+                }
+                // Passwordless accounts often carry an email-derived name, so
+                // split on spaces/dots/underscores/hyphens, drop trailing digits
+                // ("rupayan.das99" → "Rupayan") and title-case. Falls back to
+                // "Friend" when nothing usable is stored.
+                function firstName(raw) {
+                  var f = String(raw || '').trim().split(/[\s._-]+/).filter(Boolean)[0] || '';
+                  f = f.replace(/\d+$/, '');
+                  return f ? f.charAt(0).toUpperCase() + f.slice(1) : 'Friend';
+                }
+                function esc(s) {
+                  return String(s).replace(/[&<>"']/g, function (c) {
+                    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+                  });
+                }
+                // One pick per page load, remembered on window so every render
+                // this load agrees. The last line (across loads) is skipped so
+                // the same message doesn't show twice in a row.
+                function pick() {
+                  if (!window.__shGreet) {
+                    var list = G[periodFor(new Date().getHours())];
+                    var last = null;
+                    try { last = localStorage.getItem('sh_last_greet'); } catch (e) {}
+                    var pool = list.length > 1 ? list.filter(function (t) { return t !== last; }) : list;
+                    window.__shGreet = pool[Math.floor(Math.random() * pool.length)];
+                    try { localStorage.setItem('sh_last_greet', window.__shGreet); } catch (e) {}
+                  }
+                  return window.__shGreet;
+                }
+                function toHtml(raw) {
+                  var tpl = pick();
+                  // Templates are trusted static strings; only the derived name
+                  // (which can come from an email) is escaped before it lands in
+                  // the DOM. The name keeps the .gtext gradient accent.
+                  return tpl.indexOf('{name}') === -1
+                    ? tpl
+                    : tpl.replace('{name}', '<span class="gtext">' + esc(firstName(raw)) + '</span>');
+                }
+                // Shared with the main init (applyUserToUI) so both paths paint
+                // the identical greeting.
+                window.SHGreeting = {
+                  apply: function (el, raw) {
+                    if (!el) return;
+                    try { el.innerHTML = toHtml(raw); } catch (e) { /* keep fallback */ }
+                  }
+                };
+                // First-frame paint: render from the stored user the moment this
+                // markup exists, rather than waiting on the ~150KB script at the
+                // end of the document. try/catch survives blocked localStorage.
                 try {
                   var u = JSON.parse(localStorage.getItem('sh_user') || 'null');
-                  // Same name the full init's applyUserToUI() will land on
-                  // (name, else email prefix, else "Friend") so the first
-                  // frame never flips to a different word.
                   var raw = u && (u.name || (u.email || '').split('@')[0]);
-                  if (raw) {
-                    var first = String(raw).trim().split(/[\s._-]+/)[0] || '';
-                    first = first.replace(/\d+$/, '');
-                    document.getElementById('welcomeFirstName').textContent =
-                      first ? first.charAt(0).toUpperCase() + first.slice(1) : 'Friend';
-                  }
-                } catch (e) { /* blocked storage — "Friend" stays until init */ }
+                  if (raw) window.SHGreeting.apply(document.getElementById('welcomeGreeting'), raw);
+                } catch (e) { /* blocked storage — the static fallback stays until init */ }
               })();
             </script>
             <p class="welcome-sub">Manage your coupons, purchases and earnings.</p>
@@ -1489,32 +1644,46 @@
           <div class="mc-sec-sub">Coupons you have purchased.</div>
         </div>
 
-        <div class="pc-stats">
-          <div class="cs-item">
-            <div class="cs-num" style="color:#00e676" id="csAvailableCount">0</div>
-            <div class="cs-lbl">Available</div>
+        <div class="mcx-stats">
+          <div class="mcx-stat">
+            <div class="mcx-stat-top">
+              <div class="mcx-ico mcx-si-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+              <span class="mcx-stat-name">Available</span>
+            </div>
+            <div class="mcx-stat-val green" id="csAvailableCount">0</div>
           </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#80cbc4" id="csUsedCount">0</div>
-            <div class="cs-lbl">Used</div>
+          <div class="mcx-stat">
+            <div class="mcx-stat-top">
+              <div class="mcx-ico mcx-si-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></div>
+              <span class="mcx-stat-name">Used</span>
+            </div>
+            <div class="mcx-stat-val" id="csUsedCount">0</div>
           </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#6b88aa" id="csExpiredCount">0</div>
-            <div class="cs-lbl">Expired</div>
+          <div class="mcx-stat">
+            <div class="mcx-stat-top">
+              <div class="mcx-ico mcx-si-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg></div>
+              <span class="mcx-stat-name">Expired</span>
+            </div>
+            <div class="mcx-stat-val" id="csExpiredCount">0</div>
           </div>
+        </div>
+
+        <div id="mcFilterChips" class="pc-tabs">
+          <button class="mc-chip active" data-filter="all" onclick="setMcFilter('all')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> All</button>
+          <button class="mc-chip" data-filter="available" onclick="setMcFilter('available')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Available</button>
+          <button class="mc-chip" data-filter="used" onclick="setMcFilter('used')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Used</button>
+          <button class="mc-chip" data-filter="expired" onclick="setMcFilter('expired')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg> Expired</button>
+          <button class="mc-chip" data-filter="purchase-history" onclick="setMcFilter('purchase-history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> Purchase History</button>
+        </div>
+
+        <div class="mcx-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="mcxSearchP" autocomplete="off" placeholder="Search by coupon name, brand or code..." oninput="mcxSearch('purchased',this.value)" />
         </div>
 
         <div class="card pc-card" id="my-coupons">
           <div class="card-hdr">
             <div class="card-title"><span class="ico">🎟️</span> Coupon Overview</div>
-          </div>
-
-          <div id="mcFilterChips" class="pc-tabs">
-            <button class="mc-chip active" data-filter="all" onclick="setMcFilter('all')">All</button>
-            <button class="mc-chip" data-filter="available" onclick="setMcFilter('available')">Available</button>
-            <button class="mc-chip" data-filter="used" onclick="setMcFilter('used')">Used</button>
-            <button class="mc-chip" data-filter="expired" onclick="setMcFilter('expired')">Expired</button>
-            <button class="mc-chip" data-filter="purchase-history" onclick="setMcFilter('purchase-history')">Purchase History</button>
           </div>
 
           <div id="myCouponsList"></div>
@@ -1528,18 +1697,27 @@
           <div class="mc-sec-sub">Coupons you've submitted for sale.</div>
         </div>
 
-        <div class="pc-stats">
-          <div class="cs-item">
-            <div class="cs-num" style="color:#4fc3f7" id="mlActiveCount">0</div>
-            <div class="cs-lbl">Active Listings</div>
+        <div class="mcx-stats">
+          <div class="mcx-stat">
+            <div class="mcx-stat-top">
+              <div class="mcx-ico mcx-si-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+              <span class="mcx-stat-name">Active Listings</span>
+            </div>
+            <div class="mcx-stat-val green" id="mlActiveCount">0</div>
           </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#ffb74d" id="mlPendingCount">0</div>
-            <div class="cs-lbl">Pending Review</div>
+          <div class="mcx-stat">
+            <div class="mcx-stat-top">
+              <div class="mcx-ico mcx-si-orange"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+              <span class="mcx-stat-name">Pending Review</span>
+            </div>
+            <div class="mcx-stat-val" id="mlPendingCount">0</div>
           </div>
-          <div class="cs-item">
-            <div class="cs-num" style="color:#00e676" id="mlPayableCount">0</div>
-            <div class="cs-lbl">Eligible for Payout</div>
+          <div class="mcx-stat">
+            <div class="mcx-stat-top">
+              <div class="mcx-ico mcx-si-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg></div>
+              <span class="mcx-stat-name">Eligible for Payout</span>
+            </div>
+            <div class="mcx-stat-val" id="mlPayableCount">0</div>
           </div>
         </div>
 
@@ -1567,23 +1745,30 @@
           </div>
         </div>
 
+        <div id="mlFilterChips" class="pc-tabs">
+          <button class="mc-chip active" data-filter="all" onclick="setMlFilter('all')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg> All</button>
+          <button class="mc-chip" data-filter="active" onclick="setMlFilter('active')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg> Active</button>
+          <button class="mc-chip" data-filter="pending" onclick="setMlFilter('pending')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Pending Review</button>
+          <button class="mc-chip" data-filter="payable" onclick="setMlFilter('payable')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> Eligible for Payout</button>
+          <button class="mc-chip" data-filter="paid" onclick="setMlFilter('paid')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Paid</button>
+          <button class="mc-chip" data-filter="history" onclick="setMlFilter('history')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg> History</button>
+        </div>
+
+        <div class="mcx-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="mcxSearchS" autocomplete="off" placeholder="Search by coupon name, brand or code..." oninput="mcxSearch('sales',this.value)" />
+        </div>
+
         <div class="card pc-card" style="margin-top:0">
           <div class="card-hdr">
             <div class="card-title"><span class="ico">🏷️</span> Listing Overview</div>
           </div>
 
-          <div id="mlFilterChips" class="pc-tabs">
-            <button class="mc-chip active" data-filter="all" onclick="setMlFilter('all')">All</button>
-            <button class="mc-chip" data-filter="active" onclick="setMlFilter('active')">Active</button>
-            <button class="mc-chip" data-filter="pending" onclick="setMlFilter('pending')">Pending Review</button>
-            <button class="mc-chip" data-filter="payable" onclick="setMlFilter('payable')">Eligible for Payout</button>
-            <button class="mc-chip" data-filter="paid" onclick="setMlFilter('paid')">Paid</button>
-            <button class="mc-chip" data-filter="history" onclick="setMlFilter('history')">History</button>
-          </div>
-
           <div id="myListingsList"></div>
         </div>
       </section>
+
+      <div id="mcxToast" class="mcx-toast">Copied!</div>
 
     </div><!-- /container -->
     </div><!-- /view-my-coupons -->
@@ -3434,7 +3619,10 @@
     // lookup has to be optional — a hard dereference here used to throw and
     // abort the whole DOMContentLoaded init chain.
     const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
-    set('welcomeFirstName', firstNameOf(name));
+    // The greeting is owned by window.SHGreeting (defined next to the welcome
+    // markup) so the first-frame paint and this init render the identical,
+    // name-filled, time-of-day line. Guarded in case that script didn't run.
+    if (window.SHGreeting) window.SHGreeting.apply(document.getElementById('welcomeGreeting'), name);
     set('profileNameNav', name);
     set('pdName', name);
     set('pdEmail', email);
@@ -3683,6 +3871,41 @@
     STATE.availableBalance = availableBalance;
   }
 
+  // ─── My-Coupons reskin helpers (UI only) ────────────────────────────
+  // Inline SVGs for the row/stat type icons, the search-box query per pane,
+  // and a copy-to-clipboard toast. No data or endpoint is touched here.
+  const MCX_ICON = {
+    available: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
+    active: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>`,
+    used: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    paid: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
+    expired: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`,
+    pending: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`,
+    payout: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+    copy: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`,
+  };
+  window.MCX_Q = window.MCX_Q || { purchased: '', sales: '' };
+
+  // Search box handler (one per pane). Filters the already-loaded list; it
+  // never refetches, so the buyer/seller data source is unchanged.
+  function mcxSearch(pane, val) {
+    if (!window.MCX_Q) window.MCX_Q = { purchased: '', sales: '' };
+    if (pane === 'sales') { window.MCX_Q.sales = val || ''; renderMyListings(); }
+    else { window.MCX_Q.purchased = val || ''; renderMyCoupons(); }
+  }
+
+  let mcxToastTimer;
+  function mcxCopy(e, text) {
+    if (e) e.stopPropagation();
+    try { navigator.clipboard.writeText(text); } catch (err) {}
+    const t = document.getElementById('mcxToast');
+    if (t) {
+      t.classList.add('show');
+      clearTimeout(mcxToastTimer);
+      mcxToastTimer = setTimeout(() => t.classList.remove('show'), 1600);
+    }
+  }
+
   function renderMyCoupons() {
     const purchases = STATE.purchases;
 
@@ -3754,7 +3977,14 @@
       list = bought;
     }
 
-    // List — newest first
+    // Apply the search box query (brand / value / code), then newest first.
+    const q = (window.MCX_Q && window.MCX_Q.purchased ? window.MCX_Q.purchased : '').trim().toLowerCase();
+    if (q) {
+      list = list.filter((c) =>
+        String(c.brand || '').toLowerCase().includes(q) ||
+        String(c.value || '').toLowerCase().includes(q) ||
+        String(c.code || '').toLowerCase().includes(q));
+    }
     list = list
       .sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0))
       .slice(0, 20);
@@ -3766,34 +3996,61 @@
       container.innerHTML = `
         <div class="pc-empty">
           <div class="pc-empty-ico">🎟️</div>
-          <div class="pc-empty-title">${emptyMessage}</div>
-          <div class="pc-empty-sub">${emptyHint}</div>
-          ${emptyActions ? `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">${emptyActions}</div>` : ''}
+          <div class="pc-empty-title">${q ? 'No coupons found' : emptyMessage}</div>
+          <div class="pc-empty-sub">${q ? 'No coupons match your search.' : emptyHint}</div>
+          ${(!q && emptyActions) ? `<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">${emptyActions}</div>` : ''}
         </div>
       `;
       return;
     }
 
-    container.innerHTML = list.map((c) => {
-      const badgeMap = { purchased: 'badge-green', used: 'badge-blue', expired: 'badge-gray' };
+    const rowsHtml = list.map((c) => {
       const labelMap = { purchased: 'Available', used: 'Used', expired: 'Expired' };
+      const icoKind = c.kind === 'purchased' ? 'available' : c.kind; // available | used | expired
+      const label = labelMap[c.kind] || 'Available';
       const exp = c.exp ? new Date(c.exp) : null;
-      const expText = (exp && !isNaN(exp.getTime()))
-        ? `Exp: ${exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`
-        : (c.kind === 'sold' ? `Sold: ${timeAgo(c.addedAt)}` : `Added: ${timeAgo(c.addedAt)}`);
+      const dateMain = (exp && !isNaN(exp.getTime()))
+        ? exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+        : (c.addedAt && !isNaN(new Date(c.addedAt).getTime())
+            ? new Date(c.addedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+            : '—');
+      const dateSub = (exp && !isNaN(exp.getTime())) ? 'Expiry date' : `Added ${timeAgo(c.addedAt)}`;
+      const safeCode = escapeHtml(c.code || '');
+      const jsCode = String(c.code || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       return `
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(255,255,255,.03);border:1px solid rgba(79,195,247,.08);border-radius:10px;margin-bottom:8px">
-          <div style="min-width:0;flex:1">
-            <div style="font-size:.85rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.brand)} — ${escapeHtml(c.value || 'Coupon')}</div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:.75rem;color:#00e676;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(c.code)}</div>
-          </div>
-          <div style="text-align:right;flex-shrink:0;margin-left:10px">
-            <span class="badge ${badgeMap[c.kind]}">${labelMap[c.kind]}</span>
-            <div style="font-size:.7rem;color:#6b88aa;margin-top:4px">${escapeHtml(expText)}</div>
-          </div>
-        </div>
-      `;
+        <tr>
+          <td><div class="mcx-rico mcx-ic-${icoKind}">${MCX_ICON[icoKind] || MCX_ICON.available}</div></td>
+          <td>
+            <div class="mcx-name">${escapeHtml(c.brand)} — ${escapeHtml(c.value || 'Coupon')}</div>
+            <div class="mcx-desc">${escapeHtml(dateSub)}</div>
+          </td>
+          <td class="mcx-hide-sm">
+            <div class="mcx-code"><span>${safeCode || '—'}</span>${safeCode ? `<button class="mcx-copy" title="Copy code" onclick="mcxCopy(event,'${jsCode}')">${MCX_ICON.copy}</button>` : ''}</div>
+          </td>
+          <td class="mcx-hide-md"><span class="mcx-amt">${escapeHtml(c.value || '—')}</span></td>
+          <td class="mcx-hide-md"><div class="mcx-date">${escapeHtml(dateMain)}</div></td>
+          <td><span class="mcx-badge mcx-bg-${icoKind}">${label}</span></td>
+          <td><span class="mcx-chev">&#8250;</span></td>
+        </tr>`;
     }).join('');
+
+    container.innerHTML = `
+      <div class="mcx-tbl-wrap">
+        <table class="mcx-tbl">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Coupon</th>
+              <th class="mcx-hide-sm">Code</th>
+              <th class="mcx-hide-md">Value</th>
+              <th class="mcx-hide-md">Date</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>${rowsHtml}</tbody>
+        </table>
+      </div>`;
   }
 
   // ─── My-Coupons tabs ────────────────────────────────────────────────
@@ -3805,6 +4062,12 @@
   function setMcSide(side) {
     const next = side === 'sales' ? 'sales' : 'purchased';
     window.MC_SIDE = next;
+
+    // Reset the per-pane search when switching sides so a stale query never
+    // hides rows on the tab the user just opened.
+    if (window.MCX_Q) { window.MCX_Q.purchased = ''; window.MCX_Q.sales = ''; }
+    const _mcxSp = document.getElementById('mcxSearchP'); if (_mcxSp) _mcxSp.value = '';
+    const _mcxSs = document.getElementById('mcxSearchS'); if (_mcxSs) _mcxSs.value = '';
 
     document.querySelectorAll('#mcSideTabs .mc-tab').forEach((tab) => {
       const on = tab.dataset.side === next;
@@ -3944,6 +4207,15 @@
       emptyHint = 'Every coupon you have submitted will appear here.';
     }
 
+    // Apply the search box query (brand / value / code) before limiting.
+    const sq = (window.MCX_Q && window.MCX_Q.sales ? window.MCX_Q.sales : '').trim().toLowerCase();
+    if (sq) {
+      list = list.filter((c) =>
+        String(c.brand || '').toLowerCase().includes(sq) ||
+        String(c.value || '').toLowerCase().includes(sq) ||
+        String(c.code || '').toLowerCase().includes(sq));
+    }
+
     list = list
       .slice()
       .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))
@@ -3956,8 +4228,8 @@
       container.innerHTML = `
         <div class="pc-empty">
           <div class="pc-empty-ico">🏷️</div>
-          <div class="pc-empty-title">${emptyTitle}</div>
-          <div class="pc-empty-sub">${emptyHint}</div>
+          <div class="pc-empty-title">${sq ? 'No listings found' : emptyTitle}</div>
+          <div class="pc-empty-sub">${sq ? 'No listings match your search.' : emptyHint}</div>
         </div>
       `;
       return;
@@ -3973,11 +4245,14 @@
       const cid = String(c.id || '');
       const expanded = mlExpanded.has(cid);
       const toggle = `toggleListingTracker('${escapeHtml(cid)}')`;
+      const stageIco = { active: 'active', pending_review: 'pending', eligible: 'payout', payout_processing: 'payout', paid: 'paid', validation_failed: 'expired' };
+      const icoKind = stageIco[c.stage] || 'active';
       return `
         <div class="ml-item${expanded ? ' expanded' : ''}" id="mlItem-${escapeHtml(cid)}">
           <div class="ml-item-summary" role="button" tabindex="0" aria-expanded="${expanded ? 'true' : 'false'}"
                onclick="${toggle}"
                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${toggle}}">
+            <div class="ml-sum-ico mcx-ic-${icoKind}">${MCX_ICON[icoKind] || MCX_ICON.active}</div>
             <div class="ml-item-main">
               <div class="ml-item-title">${escapeHtml(c.brand)}${c.value ? ` — ${escapeHtml(c.value)}` : ''}</div>
               <div class="ml-item-code">${escapeHtml(c.code || '—')}</div>
