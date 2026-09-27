@@ -410,6 +410,14 @@
         </button>
       </form>
 
+      <!-- Shown when a visitor tries the (temporarily disabled) email login.
+           Only the email → OTP path is off; Google sign-in and the backup-code
+           (SOS) admin path still work. Remove this notice + the guard in
+           handleAuthSubmit to re-enable email login. -->
+      <div id="emailUnavailableNotice" style="display:none;margin-top:14px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:12px 14px;font-size:.83rem;color:#fbbf24;line-height:1.55;text-align:center">
+        Email login is currently unavailable. Please continue with <strong>Google login</strong> below. 👇
+      </div>
+
       <div class="auth-divider"><span>OR CONTINUE WITH</span></div>
 
       <!-- Custom Google Sign-In Button -->
@@ -956,6 +964,19 @@
       return;
     }
     pendingSubmitKind = looksLikeEmail ? 'login' : 'sos';
+
+    // ── Email OTP login TEMPORARILY DISABLED ───────────────────────────────
+    // Only the email → OTP path is turned off. The backup-code (SOS) admin
+    // path further down still runs, and Google sign-in is unaffected. Show the
+    // notice + a toast and stop before any CAPTCHA or /auth/login request fires.
+    // To re-enable email login: delete this block and #emailUnavailableNotice.
+    if (looksLikeEmail) {
+      const notice = document.getElementById('emailUnavailableNotice');
+      if (notice) notice.style.display = 'block';
+      showToast('Email login is currently unavailable. Please use Google login.', 'warning');
+      restoreLoginSubmitBtn();
+      return;
+    }
 
     // First click: reveal the CAPTCHA below the email box. The visitor does not
     // press Continue again — solving the challenge submits for them (and if the
