@@ -3930,6 +3930,7 @@
         value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.description || ''),
         exp: c.expiryDate || '',
         addedAt: c.purchasedAt || c.soldAt || c.addedAt,
+        category: c.category || c.type || '',
       }));
 
     const availableList = bought.filter((c) => c.kind === 'purchased');
@@ -4019,8 +4020,12 @@
       const dateSub = (exp && !isNaN(exp.getTime())) ? 'Expiry date' : `Added ${timeAgo(c.addedAt)}`;
       const safeCode = escapeHtml(c.code || '');
       const jsCode = String(c.code || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const rowPayload = encodeURIComponent(JSON.stringify({
+        brand: c.brand, code: c.code, value: c.value,
+        exp: c.exp, kind: c.kind, category: c.category || '', addedAt: c.addedAt
+      }));
       return `
-        <tr>
+        <tr style="cursor:pointer" onclick="openCouponDetail('${rowPayload}')">
           <td><div class="mcx-rico mcx-ic-${icoKind}">${MCX_ICON[icoKind] || MCX_ICON.available}</div></td>
           <td>
             <div class="mcx-name">${escapeHtml(c.brand)} — ${escapeHtml(c.value || 'Coupon')}</div>
@@ -7385,5 +7390,559 @@
 
 </script>
 <script src="js/chatbot.js"></script>
+
+<!-- ═══════════════════════════════════════════════
+     COUPON DETAIL OVERLAY
+═══════════════════════════════════════════════ -->
+<div id="couponDetailOverlay" aria-modal="true" role="dialog" aria-label="Coupon detail">
+  <div id="couponDetailPanel">
+    <!-- Header row -->
+    <div class="cdp-header">
+      <button class="cdp-back-btn" onclick="closeCouponDetail()" aria-label="Back to My Coupons">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <span class="cdp-header-title">My Coupons</span>
+    </div>
+
+    <!-- Brand + badge row -->
+    <div class="cdp-brand-row">
+      <div class="cdp-brand-title" id="cdpBrandTitle">Loading…</div>
+      <div class="cdp-status-badge" id="cdpStatusBadge">
+        <span class="cdp-status-dot"></span>
+        <span id="cdpStatusText">Available</span>
+      </div>
+    </div>
+
+    <!-- Category + actions row -->
+    <div class="cdp-meta-row">
+      <div class="cdp-category-pill" id="cdpCategoryPill">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <span id="cdpCategoryText">General</span>
+      </div>
+      <div class="cdp-action-btns">
+        <button class="cdp-action-btn" id="cdpCopyBtn" title="Copy code" onclick="cdpCopyCode()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </button>
+        <button class="cdp-action-btn" title="How to use" onclick="cdpShowHint()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- The coupon card -->
+    <div class="cdp-coupon-card" id="cdpCouponCard">
+      <!-- Valid until badge -->
+      <div class="cdp-valid-badge" id="cdpValidBadge">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="cdpValidText">Valid until —</span>
+      </div>
+
+      <!-- Brand visual area -->
+      <div class="cdp-brand-visual">
+        <div class="cdp-brand-name" id="cdpCardBrand">Brand</div>
+        <div class="cdp-brand-arrow">
+          <svg viewBox="0 0 100 22" fill="#ff9900" xmlns="http://www.w3.org/2000/svg">
+            <path d="M2 11 C18 19,42 22,60 19 C72 17,82 13,92 9" stroke="#ff9900" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+            <path d="M84 5 L92 9 L86 15" stroke="#ff9900" stroke-width="3.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+        <div class="cdp-discount-text" id="cdpDiscountText">₹200 OFF</div>
+        <div class="cdp-discount-sub">on selected items</div>
+      </div>
+
+      <!-- Scratch / Reveal zone -->
+      <div class="cdp-scratch-zone" id="cdpScratchZone">
+        <!-- Revealed code layer (hidden until scratched) -->
+        <div class="cdp-revealed" id="cdpRevealed">
+          <div class="cdp-code-row">
+            <span class="cdp-code-text" id="cdpCodeText">CODE</span>
+            <button class="cdp-code-copy" onclick="cdpCopyCode()" title="Copy">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            </button>
+          </div>
+          <div class="cdp-use-banner">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Use this code at checkout to save.
+          </div>
+        </div>
+        <!-- Scratch canvas overlay -->
+        <canvas id="cdpScratchCanvas" class="cdp-scratch-canvas"></canvas>
+        <!-- Scratch hint text (on top of canvas) -->
+        <div class="cdp-scratch-hint" id="cdpScratchHint">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0"/><path d="M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+          <span>Scratch to reveal code</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hint panel (hidden by default) -->
+    <div class="cdp-hint-panel" id="cdpHintPanel" hidden>
+      <div class="cdp-hint-title">How to use this coupon</div>
+      <ol class="cdp-hint-steps">
+        <li>Scratch the card above to reveal your code.</li>
+        <li>Shop on the brand's website or app.</li>
+        <li>Add items to your cart and proceed to checkout.</li>
+        <li>Paste the code in the promo/coupon field.</li>
+        <li>Your discount will be applied automatically.</li>
+      </ol>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ═══════════════════════════════════════════════
+   COUPON DETAIL OVERLAY
+═══════════════════════════════════════════════ */
+@keyframes cdpSlideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+@keyframes cdpSlideDown{from{transform:translateY(0);opacity:1}to{transform:translateY(100%);opacity:0}}
+@keyframes cdpReveal{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+@keyframes cdpFireGlow{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes cdpBounceHand{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-6px) rotate(8deg)}}
+
+#couponDetailOverlay{
+  position:fixed;inset:0;z-index:5000;
+  background:rgba(4,10,24,.72);
+  backdrop-filter:blur(6px);
+  display:none;align-items:flex-end;justify-content:center;
+  padding:0;
+}
+#couponDetailOverlay.open{display:flex}
+
+#couponDetailPanel{
+  width:100%;max-width:480px;
+  max-height:calc(100vh - 56px);
+  background:#060d1f;
+  border:1px solid rgba(79,195,247,.15);
+  border-radius:24px 24px 0 0;
+  padding:28px 22px 36px;
+  overflow-y:auto;
+  animation:cdpSlideUp .35s cubic-bezier(.22,.84,.38,1) both;
+  scrollbar-width:thin;scrollbar-color:#1a3055 transparent;
+  position:relative;
+}
+#couponDetailPanel.closing{animation:cdpSlideDown .28s cubic-bezier(.6,.04,.98,.34) both}
+
+/* Header */
+.cdp-header{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.cdp-back-btn{
+  width:36px;height:36px;flex-shrink:0;border-radius:10px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.18);
+  color:#a8c0dc;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .18s;padding:0;
+}
+.cdp-back-btn:hover{border-color:rgba(0,230,118,.35);background:rgba(0,230,118,.08);color:#00e676;transform:translateX(-2px)}
+.cdp-header-title{font-size:.82rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa}
+
+/* Brand row */
+.cdp-brand-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.cdp-brand-title{font-family:'DM Serif Display',serif;font-size:clamp(1.3rem,4vw,1.65rem);line-height:1.15;color:#e2ecff;flex:1;min-width:0}
+.cdp-status-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;border-radius:999px;
+  background:rgba(15,30,58,.9);border:1px solid rgba(0,230,118,.35);
+  font-size:.75rem;font-weight:700;color:#00e676;flex-shrink:0;
+}
+.cdp-status-dot{width:7px;height:7px;border-radius:50%;background:#00e676;animation:pulse-ring 2.4s ease-in-out infinite}
+.cdp-status-badge.used{border-color:rgba(79,195,247,.35);color:#4fc3f7}
+.cdp-status-badge.used .cdp-status-dot{background:#4fc3f7;animation:none}
+.cdp-status-badge.expired{border-color:rgba(255,133,133,.35);color:#ff8585}
+.cdp-status-badge.expired .cdp-status-dot{background:#ff8585;animation:none}
+
+/* Meta row */
+.cdp-meta-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:22px}
+.cdp-category-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;border-radius:8px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.14);
+  font-size:.78rem;font-weight:600;color:#a8c0dc;
+}
+.cdp-action-btns{display:flex;gap:8px}
+.cdp-action-btn{
+  width:36px;height:36px;border-radius:10px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(79,195,247,.15);
+  color:#a8c0dc;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .18s;padding:0;
+}
+.cdp-action-btn:hover{border-color:rgba(0,230,118,.35);background:rgba(0,230,118,.08);color:#00e676}
+
+/* The coupon card */
+.cdp-coupon-card{
+  position:relative;border-radius:18px;overflow:hidden;
+  background:linear-gradient(135deg,#0d1e3d 0%,#0a1528 100%);
+  border:1px solid rgba(255,153,0,.25);
+  box-shadow:0 0 40px rgba(255,120,0,.12),0 16px 48px rgba(0,0,0,.55);
+  margin-bottom:18px;
+}
+/* Fire background effect */
+.cdp-coupon-card::before{
+  content:'';position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 60% 80% at 85% 60%,rgba(255,100,0,.28) 0%,transparent 65%),
+    radial-gradient(ellipse 50% 60% at 75% 40%,rgba(255,160,0,.18) 0%,transparent 55%),
+    radial-gradient(ellipse 40% 50% at 90% 80%,rgba(200,60,0,.15) 0%,transparent 50%);
+  animation:cdpFireGlow 3s ease-in-out infinite;
+  pointer-events:none;z-index:0;
+}
+/* Package boxes background using emoji */
+.cdp-coupon-card::after{
+  content:'📦';
+  position:absolute;right:-8px;bottom:60px;
+  font-size:5rem;opacity:.18;transform:rotate(12deg);
+  pointer-events:none;z-index:0;filter:sepia(1) saturate(3) hue-rotate(15deg);
+}
+
+.cdp-valid-badge{
+  position:absolute;top:14px;right:14px;z-index:2;
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(30,18,0,.85);border:1px solid rgba(255,153,0,.4);
+  backdrop-filter:blur(6px);
+  color:#ffb74d;font-size:.72rem;font-weight:700;
+  padding:5px 10px;border-radius:8px;
+}
+
+.cdp-brand-visual{
+  position:relative;z-index:1;
+  padding:24px 20px 16px;
+}
+.cdp-brand-name{
+  font-size:clamp(1.6rem,5vw,2.1rem);font-weight:900;
+  color:#fff;letter-spacing:-.02em;line-height:1;
+  margin-bottom:4px;
+  text-shadow:0 2px 12px rgba(0,0,0,.4);
+}
+.cdp-brand-arrow{
+  width:80px;margin-bottom:14px;opacity:.9;
+}
+.cdp-discount-text{
+  font-size:clamp(1.8rem,6vw,2.4rem);font-weight:800;line-height:1;
+  background:linear-gradient(135deg,#00e676,#4fc3f7);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  background-clip:text;
+  margin-bottom:4px;
+  filter:drop-shadow(0 0 12px rgba(0,230,118,.3));
+}
+.cdp-discount-sub{font-size:.88rem;color:rgba(255,255,255,.8);font-weight:500}
+
+/* Scratch zone */
+.cdp-scratch-zone{
+  position:relative;
+  margin:0 14px 14px;
+  border-radius:12px;overflow:hidden;
+  background:rgba(8,16,42,.6);border:1px solid rgba(79,195,247,.12);
+  min-height:80px;
+}
+.cdp-revealed{
+  display:flex;flex-direction:column;align-items:stretch;
+  padding:0;
+}
+.cdp-code-row{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  padding:16px 16px 12px;
+  background:rgba(10,20,45,.95);
+}
+.cdp-code-text{
+  font-family:'JetBrains Mono',monospace;font-size:clamp(1.3rem,5vw,1.7rem);
+  font-weight:700;color:#e2ecff;letter-spacing:.08em;
+}
+.cdp-code-copy{
+  width:32px;height:32px;border-radius:8px;
+  background:rgba(79,195,247,.12);border:1px solid rgba(79,195,247,.25);
+  color:#4fc3f7;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;transition:all .18s;flex-shrink:0;padding:0;
+}
+.cdp-code-copy:hover{background:rgba(0,230,118,.15);border-color:rgba(0,230,118,.35);color:#00e676}
+.cdp-use-banner{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  padding:10px;
+  background:linear-gradient(135deg,rgba(0,180,95,.85),rgba(0,140,70,.85));
+  color:#e8fff4;font-size:.8rem;font-weight:600;
+}
+
+/* Canvas scratch overlay */
+.cdp-scratch-canvas{
+  position:absolute;inset:0;
+  width:100%;height:100%;
+  cursor:crosshair;
+  touch-action:none;
+  border-radius:12px;
+  z-index:3;
+}
+/* Scratch hint */
+.cdp-scratch-hint{
+  position:absolute;inset:0;z-index:4;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;
+  color:rgba(230,240,255,.6);font-size:.82rem;font-weight:600;
+  pointer-events:none;
+}
+.cdp-scratch-hint svg{animation:cdpBounceHand 1.6s ease-in-out infinite}
+
+/* Hint panel */
+.cdp-hint-panel{
+  background:rgba(12,24,50,.85);border:1px solid rgba(79,195,247,.14);
+  border-radius:14px;padding:18px;margin-bottom:8px;
+  animation:cdpReveal .25s ease-out;
+}
+.cdp-hint-title{font-size:.88rem;font-weight:700;color:#e2ecff;margin-bottom:12px}
+.cdp-hint-steps{padding-left:18px;display:flex;flex-direction:column;gap:8px}
+.cdp-hint-steps li{font-size:.82rem;color:#a8c0dc;line-height:1.5;padding-left:4px}
+
+/* Copy toast */
+.cdp-copy-toast{
+  position:fixed;bottom:32px;left:50%;transform:translateX(-50%);
+  background:linear-gradient(135deg,#00e676,#00c853);
+  color:#060d1f;font-weight:700;font-size:.82rem;
+  padding:10px 24px;border-radius:50px;
+  opacity:0;pointer-events:none;transition:opacity .2s;
+  z-index:6000;white-space:nowrap;
+}
+.cdp-copy-toast.show{opacity:1}
+
+/* Dark sheet background for overlay when fully open on desktop */
+@media(min-width:600px){
+  #couponDetailPanel{
+    border-radius:20px;
+    margin-bottom:40px;
+    max-height:calc(100vh - 100px);
+  }
+  #couponDetailOverlay{align-items:center}
+}
+@media(max-width:480px){
+  #couponDetailPanel{padding:22px 16px 32px}
+  .cdp-brand-title{font-size:1.25rem}
+}
+</style>
+
+<div class="cdp-copy-toast" id="cdpCopyToast">Copied!</div>
+
+<script>
+(function(){
+  'use strict';
+
+  let _cdpCurrent = null;
+  let _cdpScratched = false;
+
+  window.openCouponDetail = function(encodedPayload) {
+    try {
+      const coupon = JSON.parse(decodeURIComponent(encodedPayload));
+      _cdpCurrent = coupon;
+      _cdpScratched = false;
+      _populateCouponDetail(coupon);
+      const overlay = document.getElementById('couponDetailOverlay');
+      const panel = document.getElementById('couponDetailPanel');
+      panel.classList.remove('closing');
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+      // reset hint panel
+      const hp = document.getElementById('cdpHintPanel');
+      if (hp) hp.hidden = true;
+      // init scratch after paint
+      requestAnimationFrame(() => requestAnimationFrame(() => _initScratch(coupon)));
+    } catch(e) { console.warn('openCouponDetail error', e); }
+  };
+
+  window.closeCouponDetail = function() {
+    const overlay = document.getElementById('couponDetailOverlay');
+    const panel = document.getElementById('couponDetailPanel');
+    panel.classList.add('closing');
+    panel.addEventListener('animationend', function onEnd() {
+      panel.removeEventListener('animationend', onEnd);
+      overlay.classList.remove('open');
+      panel.classList.remove('closing');
+      document.body.style.overflow = '';
+    }, {once: true});
+  };
+
+  window.cdpCopyCode = function() {
+    if (!_cdpCurrent || !_cdpCurrent.code) return;
+    navigator.clipboard.writeText(_cdpCurrent.code).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = _cdpCurrent.code; ta.style.position='fixed'; ta.style.opacity='0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    });
+    _showCdpToast('Copied!');
+  };
+
+  window.cdpShowHint = function() {
+    const hp = document.getElementById('cdpHintPanel');
+    if (hp) hp.hidden = !hp.hidden;
+  };
+
+  function _showCdpToast(msg) {
+    const t = document.getElementById('cdpCopyToast');
+    if (!t) return;
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  function _populateCouponDetail(c) {
+    const kindLabel = c.kind === 'purchased' ? 'Available' : (c.kind === 'used' ? 'Used' : 'Expired');
+    const statusClass = c.kind === 'purchased' ? '' : c.kind;
+
+    // Brand title
+    _setText('cdpBrandTitle', (c.brand || 'Coupon') + ' — ' + (c.value || 'Coupon'));
+
+    // Status badge
+    const badge = document.getElementById('cdpStatusBadge');
+    if (badge) {
+      badge.className = 'cdp-status-badge ' + statusClass;
+      _setText('cdpStatusText', kindLabel);
+    }
+
+    // Category
+    _setText('cdpCategoryText', c.category || 'General');
+
+    // Valid until
+    const exp = c.exp ? new Date(c.exp) : null;
+    const validStr = (exp && !isNaN(exp.getTime()))
+      ? 'Valid until ' + exp.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+      : 'No expiry date';
+    _setText('cdpValidText', validStr);
+
+    // Card brand name + discount
+    _setText('cdpCardBrand', c.brand || 'Coupon');
+    _setText('cdpDiscountText', c.value || '');
+
+    // Code
+    _setText('cdpCodeText', c.code || '—');
+  }
+
+  function _setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function _initScratch(coupon) {
+    const zone = document.getElementById('cdpScratchZone');
+    const canvas = document.getElementById('cdpScratchCanvas');
+    const hint = document.getElementById('cdpScratchHint');
+    const revealed = document.getElementById('cdpRevealed');
+    if (!zone || !canvas || !revealed) return;
+
+    // If already scratched (e.g. previously used coupon), reveal immediately
+    if (coupon.kind !== 'purchased') {
+      _revealCode(canvas, hint);
+      return;
+    }
+
+    const w = zone.offsetWidth;
+    const h = zone.offsetHeight || 86;
+    canvas.width = w;
+    canvas.height = h;
+
+    const ctx = canvas.getContext('2d');
+
+    // Draw silver scratch surface
+    const grad = ctx.createLinearGradient(0, 0, w, h);
+    grad.addColorStop(0,   '#9aabb8');
+    grad.addColorStop(.18, '#b8c8d3');
+    grad.addColorStop(.36, '#8a9eac');
+    grad.addColorStop(.52, '#c0d0da');
+    grad.addColorStop(.68, '#96aab8');
+    grad.addColorStop(.82, '#b2c4ce');
+    grad.addColorStop(1,   '#8898a6');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, h);
+
+    // Noise texture for metallic feel
+    for (let i = 0; i < 2400; i++) {
+      const x = Math.random() * w;
+      const y = Math.random() * h;
+      const alpha = Math.random() * .18;
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.fillRect(x, y, 1.5, 1.5);
+    }
+
+    ctx.globalCompositeOperation = 'destination-out';
+
+    let isDrawing = false;
+    let lastX = 0, lastY = 0;
+
+    function getPos(e) {
+      const r = canvas.getBoundingClientRect();
+      if (e.touches) {
+        return { x: e.touches[0].clientX - r.left, y: e.touches[0].clientY - r.top };
+      }
+      return { x: e.clientX - r.left, y: e.clientY - r.top };
+    }
+
+    function scratch(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const { x, y } = getPos(e);
+      ctx.lineWidth = 38;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(lastX, lastY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      lastX = x; lastY = y;
+      // Hide hint after first scratch stroke
+      if (hint) hint.style.opacity = '0';
+      _checkScratchPercent(ctx, canvas, hint);
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      isDrawing = true;
+      const { x, y } = getPos(e);
+      lastX = x; lastY = y;
+    });
+    canvas.addEventListener('mousemove', scratch);
+    canvas.addEventListener('mouseup', () => { isDrawing = false; });
+    canvas.addEventListener('mouseleave', () => { isDrawing = false; });
+    canvas.addEventListener('touchstart', (e) => {
+      isDrawing = true;
+      const { x, y } = getPos(e);
+      lastX = x; lastY = y;
+    }, { passive: false });
+    canvas.addEventListener('touchmove', scratch, { passive: false });
+    canvas.addEventListener('touchend', () => { isDrawing = false; });
+  }
+
+  function _checkScratchPercent(ctx, canvas, hint) {
+    if (_cdpScratched) return;
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let cleared = 0;
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 128) cleared++;
+    }
+    const pct = cleared / (canvas.width * canvas.height);
+    if (pct > 0.42) _revealCode(canvas, hint);
+  }
+
+  function _revealCode(canvas, hint) {
+    if (_cdpScratched) return;
+    _cdpScratched = true;
+    if (canvas) {
+      canvas.style.transition = 'opacity .4s ease';
+      canvas.style.opacity = '0';
+      setTimeout(() => { canvas.style.pointerEvents = 'none'; }, 420);
+    }
+    if (hint) hint.style.display = 'none';
+    // Flash the copy button to signal it's time to copy
+    const copyBtn = document.getElementById('cdpCopyBtn');
+    if (copyBtn) {
+      copyBtn.style.borderColor = 'rgba(0,230,118,.6)';
+      copyBtn.style.color = '#00e676';
+      copyBtn.style.background = 'rgba(0,230,118,.12)';
+    }
+  }
+
+  // Close overlay on backdrop click
+  document.getElementById('couponDetailOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeCouponDetail();
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const overlay = document.getElementById('couponDetailOverlay');
+      if (overlay && overlay.classList.contains('open')) closeCouponDetail();
+    }
+  });
+})();
+</script>
 </body>
 </html>
