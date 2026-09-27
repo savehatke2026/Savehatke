@@ -1987,6 +1987,41 @@ function imageToJpegBlob(img, maxEdge, quality) {
   });
 }
 
+/* ── Shrink a manually-attached screenshot before upload ──
+   The proof travels to the server as base64 inside a JSON POST. On Vercel a
+   serverless request body is capped at ~4.5 MB and base64 inflates the bytes by
+   ~33%, so a large screenshot (a ~3 MB phone PNG becomes ~4 MB encoded) can be
+   rejected or time out on the live site even though it uploads fine locally.
+   The AI-scan path already downscales its proof for exactly this reason; the
+   manual upload path did not, which is why big screenshots failed to submit.
+   We re-encode oversized images to a JPEG that stays well under the cap while
+   keeping the coupon code readable for review. Anything already small, or that
+   we cannot decode/re-encode, is sent through unchanged so a submission is
+   never blocked by compression. */
+const PROOF_UPLOAD_SOFT_LIMIT = 1.5 * 1024 * 1024;   // compress files larger than this
+const PROOF_UPLOAD_TARGET_BYTES = 2.2 * 1024 * 1024; // aim below this after re-encoding
+
+async function prepareProofForUpload(file) {
+  try {
+    if (!file || file.size <= PROOF_UPLOAD_SOFT_LIMIT) return file;
+    const { img, url } = await loadImageFile(file);
+    try {
+      let blob = await imageToJpegBlob(img, 2000, 0.9);
+      if (blob.size > PROOF_UPLOAD_TARGET_BYTES) blob = await imageToJpegBlob(img, 1600, 0.82);
+      if (blob.size > PROOF_UPLOAD_TARGET_BYTES) blob = await imageToJpegBlob(img, 1280, 0.75);
+      // Only adopt the re-encoded copy if it actually came out smaller.
+      if (blob.size >= file.size) return file;
+      const base = String(file.name || 'coupon-proof').replace(/\.[^.]+$/, '') || 'coupon-proof';
+      return new File([blob], base + '.jpg', { type: 'image/jpeg' });
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  } catch (e) {
+    // Compression is best-effort — never let it stop a valid submission.
+    return file;
+  }
+}
+
 /* ── The flow ── */
 
 /** File input handler. */
@@ -3074,10 +3109,15 @@ async function submitCoupons() {
         ? `⏳ Uploading screenshot ${done}/${toUpload}...`
         : '⏳ Uploading screenshot...';
       try {
-        const dataBase64 = await fileToBase64(c.proofFile);
+        // Re-encode an oversized screenshot to a smaller JPEG first, so the
+        // base64 POST body stays well under Vercel's ~4.5 MB serverless limit.
+        // The raw file used to be sent as-is here, which is why large
+        // screenshots failed to submit on the live site.
+        const fileForUpload = await prepareProofForUpload(c.proofFile);
+        const dataBase64 = await fileToBase64(fileForUpload);
         const upload = await api('/coupons/proof', {
           method: 'POST',
-          body: { filename: c.proofFile.name, contentType: c.proofFile.type, dataBase64 }
+          body: { filename: fileForUpload.name, contentType: fileForUpload.type, dataBase64 }
         });
         const url = (upload && upload.url) || '';
         if (!url) throw new Error('Upload did not return a file reference.');
