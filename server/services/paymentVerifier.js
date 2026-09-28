@@ -51,6 +51,10 @@ const refundsService = require('./refunds');
 // Buyer receipt email. Sent best-effort AFTER a payment is genuinely settled;
 // it never affects the settlement result (see deliverPaymentSuccessEmail).
 const emailService = require('./emailService');
+// Coupon lookup (Supabase first, then the Sheets mirror) for the buyer's
+// "Your Coupon Details" email. Read-only; never affects settlement.
+const supabase = require('./supabase');
+const db = require('./googleSheets');
 
 // ── Configuration ──────────────────────────────────────────────────────────
 
@@ -1073,6 +1077,23 @@ async function handleGmailPush({ emailAddress = '', historyId = '' } = {}) {
 // Fully isolated from settlement: it reads the order for the receipt fields,
 // sends the confirmation, and can neither throw into nor stall (beyond a short
 // cap) the settlement path that calls it.
+// Best-effort coupon lookup for the coupon-details email. Mirrors the route
+// layer's loadCoupon (Supabase first, then the Sheets mirror). Never throws.
+async function loadCouponForEmail(couponId) {
+  if (!couponId) return null;
+  try {
+    if (supabase && typeof supabase.isConfigured === 'function' && supabase.isConfigured()) {
+      const c = await supabase.findCouponById(couponId).catch(() => null);
+      if (c) return c;
+    }
+  } catch (e) { /* fall through to the Sheets mirror */ }
+  try {
+    return await db.findRow(db.SHEETS.COUPONS, 'id', couponId);
+  } catch (e) {
+    return null;
+  }
+}
+
 async function deliverPaymentSuccessEmail(payment) {
   try {
     if (!payment || !payment.paymentId) return;
@@ -1110,6 +1131,39 @@ async function deliverPaymentSuccessEmail(payment) {
       console.warn('[Payment Email] SMTP not configured — payment confirmation not sent.');
     } else {
       console.warn(`[Payment Email] Payment confirmation not sent: ${(res && res.error) || 'unknown error'}.`);
+    }
+
+    // ── ALSO send the buyer's "Your Coupon Details" email ────────────────────
+    // A coupon-delivery note from the no-reply mailbox, sent IN ADDITION to the
+    // receipt above. Isolated in its own try so it can never disturb settlement
+    // or the receipt. Coupon facts (description, face value, expiry) come from
+    // the coupon record; name/brand/order come from the settled order.
+    try {
+      const coupon = await loadCouponForEmail((order && order.couponId) || payment.couponId || '');
+      const faceValue = coupon && (coupon.originalValue != null ? coupon.originalValue
+        : (coupon.original_value != null ? coupon.original_value
+          : (coupon.faceValue != null ? coupon.faceValue : coupon.face_value)));
+      const couponRes = await Promise.race([
+        emailService.sendCouponDetailsEmail({
+          to,
+          userName: (order && order.buyerName) || '',
+          brandName: (coupon && coupon.brand) || (order && order.couponBrand) || '',
+          couponDescription: (coupon && (coupon.description || coupon.title || coupon.discount)) || '',
+          couponValue: faceValue == null ? '' : faceValue,
+          expiryDate: (coupon && (coupon.expiryDate || coupon.expiry_date)) || '',
+          orderId: (order && order.orderCode) || '',
+        }),
+        new Promise((resolve) => setTimeout(() => resolve({ success: false, error: 'send timed out' }), 12000)),
+      ]);
+      if (couponRes && couponRes.success) {
+        console.log(`[Coupon Email] Coupon details sent to ${to} (order ${(order && order.orderCode) || payment.paymentId}).`);
+      } else if (couponRes && couponRes.isSimulated) {
+        console.warn('[Coupon Email] SMTP not configured — coupon-details email not sent.');
+      } else {
+        console.warn(`[Coupon Email] Coupon-details email not sent: ${(couponRes && couponRes.error) || 'unknown error'}.`);
+      }
+    } catch (e) {
+      console.warn('[Coupon Email] Coupon-details send failed:', e.message);
     }
   } catch (e) {
     console.warn('[Payment Email] Payment confirmation send failed:', e.message);

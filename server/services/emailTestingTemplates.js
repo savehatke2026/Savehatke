@@ -54,6 +54,22 @@ const TEMPLATES = [
     }, { renderOnly: true }),
   },
   {
+    id: 'coupon_details',
+    sender: 'noreply',
+    name: 'Coupon Details (Purchase)',
+    description: 'Test the buyer "Your Coupon Details" delivery email sent on purchase.',
+    category: 'Payment',
+    render: (to) => emailService.sendCouponDetailsEmail({
+      to,
+      userName: 'SaveHatke Test User',
+      brandName: 'Amazon',
+      couponDescription: 'Flat ₹500 off on orders above ₹2,000',
+      couponValue: '500',
+      expiryDate: '2026-12-31',
+      orderId: 'SH-PUR-20260926-A7K92P',
+    }, { renderOnly: true }),
+  },
+  {
     id: 'welcome',
     sender: 'noreply',
     name: 'Welcome Email',

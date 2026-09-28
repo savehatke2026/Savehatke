@@ -3148,8 +3148,319 @@ This is an automated payment confirmation from SaveHatke.
   }
 }
 
+/**
+ * "Your Coupon Details" email — sent to the BUYER after a coupon purchase
+ * settles, IN ADDITION to the payment receipt (sendPaymentSuccessEmail). The
+ * receipt is the financial record (amount paid, txn id) from the Payments
+ * mailbox; THIS is the coupon-delivery note from the no-reply mailbox — it
+ * tells the buyer their coupon is ready and shows the coupon's own details
+ * (brand, description, FACE VALUE, validity, order id). The coupon CODE is
+ * never included; the buyer opens it from their account.
+ *
+ * Sender: noreply.savehatke@gmail.com, AUTHENTICATED as that Gmail account via
+ * a Gmail App Password (NOREPLY_GMAIL_PASS) — never a spoofed From. If that
+ * password is not configured it falls back to the existing no-reply transport
+ * (NOREPLY_SMTP_* / shared) and logs a warning; the From then follows the
+ * account actually authenticated, so Gmail's SPF/DKIM stay aligned.
+ *
+ * White/light theme only. Header shows the real SaveHatke brand lockup
+ * (logo.png + the "SaveHatke" wordmark); single centred HTTPS CTA to the
+ * buyer's coupons in the dashboard.
+ *
+ * @param {Object} p
+ * @param {string} p.to                  Buyer email (recipient)
+ * @param {string} [p.userName]          Name to greet
+ * @param {string} [p.brandName]         Coupon brand
+ * @param {string} [p.couponDescription] Coupon description/title
+ * @param {string|number} [p.couponValue] Coupon FACE VALUE in ₹ (originalValue)
+ * @param {string} [p.expiryDate]        Coupon expiry ("Valid Until")
+ * @param {string} [p.orderId]           Human order id (order_code)
+ * @returns {Promise<{success:boolean, messageId?:string, isSimulated?:boolean, error?:string, isPreview?:boolean, html?:string, text?:string, subject?:string}>}
+ */
+async function sendCouponDetailsEmail({
+  to, userName, brandName, couponDescription, couponValue, expiryDate, orderId,
+} = {}, opts = {}) {
+  const cleanEmail = String(to || '').toLowerCase().trim();
+  const displayName = userName && String(userName).trim() ? String(userName).trim() : 'there';
+  const safeName = escapeHtml(displayName);
+
+  // ── Sender: the dedicated no-reply Gmail account ─────────────────────────
+  // Authenticate AS noreply.savehatke@gmail.com (a Gmail App Password) so the
+  // From is real and Gmail signs it. Same integration as the Payments sender —
+  // no new mail system. Fallbacks never spoof: the From follows whatever
+  // account we actually logged in as, and a warning fires if that is not the
+  // no-reply account.
+  const NOREPLY_SENDER_EMAIL = (process.env.NOREPLY_GMAIL_USER || 'noreply.savehatke@gmail.com').trim().toLowerCase();
+  const NOREPLY_SENDER_NAME = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
+  const noreplyPass = (process.env.NOREPLY_GMAIL_PASS || '').trim();
+
+  let t;
+  let fromEmail;
+  const fromName = NOREPLY_SENDER_NAME;
+
+  if (noreplyPass) {
+    t = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user: NOREPLY_SENDER_EMAIL, pass: noreplyPass.replace(/\s+/g, '') },
+    });
+    fromEmail = NOREPLY_SENDER_EMAIL;
+  } else {
+    t = getNoreplyTransporter();
+    const noreplyAuthUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+    const desiredNoreply = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || NOREPLY_SENDER_EMAIL).trim();
+    const hasDedicatedNoreply = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
+    const domainOf = (addr) => (String(addr).split('@')[1] || '').toLowerCase();
+    const canSendAsNoreply = hasDedicatedNoreply
+      || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+      || Boolean(desiredNoreply && noreplyAuthUser && domainOf(desiredNoreply) === domainOf(noreplyAuthUser));
+    fromEmail = canSendAsNoreply ? desiredNoreply : (noreplyAuthUser || desiredNoreply);
+    if (t && !opts.renderOnly && String(fromEmail).toLowerCase() !== NOREPLY_SENDER_EMAIL) {
+      console.warn(`⚠️ [EmailService] Coupon-details email is authenticating as "${fromEmail}", not ${NOREPLY_SENDER_EMAIL}. Set NOREPLY_GMAIL_USER=${NOREPLY_SENDER_EMAIL} + NOREPLY_GMAIL_PASS (a Gmail App Password for that account) so the From matches the authenticated account exactly.`);
+    }
+  }
+
+  // logo.png is served at the web root (express.static → public/), the same
+  // brand image the site and the payment receipt use.
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const logoUrl = `${siteUrl}/logo.png`;
+  // Deep-link straight to the buyer's coupons (dashboard hash view).
+  const ctaUrl = `${siteUrl}/dashboard.html#my-coupons`;
+  const year = new Date().getFullYear();
+  const subject = 'Your Coupon Details — SaveHatke';
+
+  const safeBrand = escapeHtml(String(brandName || '').trim() || '—');
+  const safeDesc = escapeHtml(String(couponDescription || '').trim() || '—');
+
+  // Coupon FACE VALUE (originalValue) — the template already prints the ₹, so
+  // emit the number only. Falls back to the raw string, then a dash.
+  const faceNum = Number(String(couponValue == null ? '' : couponValue).replace(/[^\d.]/g, ''));
+  const couponValueStr = (Number.isFinite(faceNum) && faceNum > 0)
+    ? faceNum.toLocaleString('en-IN')
+    : (String(couponValue == null ? '' : couponValue).trim() || '—');
+  const safeValue = escapeHtml(couponValueStr);
+
+  // "Valid Until" — format an ISO/`YYYY-MM-DD` date to "31 Dec 2026" (IST);
+  // otherwise show the raw value, or a friendly note when unset.
+  const expiryStr = (() => {
+    const raw = String(expiryDate == null ? '' : expiryDate).trim();
+    if (!raw) return 'No expiry date';
+    const norm = /^\d{4}-\d{2}-\d{2}([ T]\d{2}:\d{2})?/.test(raw) ? raw.replace(' ', 'T') : raw;
+    const d = new Date(norm);
+    if (Number.isFinite(d.getTime())) {
+      try {
+        return new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' }).format(d);
+      } catch (e) { return raw; }
+    }
+    return raw;
+  })();
+  const safeExpiry = escapeHtml(expiryStr);
+  const safeOrder = escapeHtml(String(orderId || '').trim() || '—');
+
+  if (!t && !opts.renderOnly) {
+    console.warn(`⚠️ [EmailService] SMTP not configured. Coupon-details email for ${cleanEmail} was NOT sent.`);
+    return { success: false, isSimulated: true, error: 'SMTP credentials not configured on server.' };
+  }
+
+  const textBody =
+`Your Coupon Details — SaveHatke
+
+Hello ${displayName},
+
+Your coupon is now available in your SaveHatke account.
+
+Coupon Details
+Brand: ${String(brandName || '').trim() || '—'}
+Description: ${String(couponDescription || '').trim() || '—'}
+Coupon Value: ₹${couponValueStr}
+Valid Until: ${expiryStr}
+Order ID: ${String(orderId || '').trim() || '—'}
+
+You can securely access and use your coupon from your SaveHatke account.
+View your coupon: ${ctaUrl}
+
+Thank you for choosing SaveHatke.
+
+Regards,
+SaveHatke Team
+
+You're receiving this email because a coupon was purchased through your SaveHatke account.
+
+© ${year} SaveHatke. All rights reserved.`;
+
+  const htmlContent = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>SaveHatke Coupon</title>
+    <style>
+      body {
+        margin: 0;
+        background-color: #ffffff;
+        color: #222222;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      .email {
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 40px 24px;
+        box-sizing: border-box;
+      }
+
+      .brand {
+        margin: 0 0 40px;
+        font-size: 26px;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      .brand img {
+        width: 34px;
+        height: 34px;
+        object-fit: contain;
+        vertical-align: middle;
+        border: 0;
+      }
+
+      .brand .brand-text { vertical-align: middle; margin-left: 8px; }
+
+      p {
+        margin: 0 0 20px;
+        font-size: 16px;
+        line-height: 1.6;
+      }
+
+      .green {
+        color: #00e272;
+      }
+
+      .details {
+        margin-bottom: 24px;
+      }
+
+      .details p {
+        margin-bottom: 6px;
+      }
+
+      .button {
+        display: inline-block;
+        margin: 0;
+        padding: 13px 24px;
+        background-color: #00e272;
+        color: #000000;
+        font-size: 16px;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      /* View Coupon button centred in its row */
+      .cta {
+        margin-bottom: 24px;
+        text-align: center;
+      }
+
+      .footer {
+        margin-top: 36px;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      /* Dark mode. Clients that honour prefers-color-scheme (Apple Mail, iOS
+         Mail, Outlook.com) repaint to the SaveHatke dark palette; the Admin →
+         Email Testing preview forces this ON by rewriting the media query
+         (services/emailTestingTemplates.js → applyPreviewMode), so the query
+         text MUST stay exactly "@media (prefers-color-scheme: dark)". Gmail
+         ignores prefers-color-scheme and does its own partial darkening. */
+      @media (prefers-color-scheme: dark) {
+        body { background-color: #0f172a !important; color: #e5e7eb !important; }
+        .email { background-color: #0f172a !important; }
+        .brand,
+        p,
+        .details p,
+        .details strong,
+        p strong { color: #e5e7eb !important; }
+        .footer { color: #94a3b8 !important; }
+        /* Brand green + the green button stay on-brand and readable on dark. */
+        .green { color: #00e272 !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="email">
+      <div class="brand">
+        <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" />
+        <span class="brand-text">Save<span class="green">Hatke</span></span>
+      </div>
+
+      <p>Hello <span class="green">${safeName}</span>,</p>
+
+      <p>Your coupon is now available in your SaveHatke account.</p>
+
+      <p><strong>Coupon Details</strong></p>
+
+      <div class="details">
+        <p>Brand: ${safeBrand}</p>
+        <p>Description: ${safeDesc}</p>
+        <p>Coupon Value: <span class="green">₹${safeValue}</span></p>
+        <p>Valid Until: ${safeExpiry}</p>
+        <p>Order ID: ${safeOrder}</p>
+      </div>
+
+      <p>
+        You can securely access and use your coupon from your SaveHatke
+        account.
+      </p>
+
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="cta">
+        <tr>
+          <td align="center">
+            <a class="button" href="${ctaUrl}" style="display:inline-block;padding:13px 24px;background-color:#00e272;color:#000000;font-size:16px;font-weight:700;text-decoration:none;font-family:Arial,Helvetica,sans-serif;">View Coupon</a>
+          </td>
+        </tr>
+      </table>
+
+      <p>Thank you for choosing SaveHatke.</p>
+
+      <p>
+        Regards,<br />
+        SaveHatke Team
+      </p>
+
+      <p class="footer">
+        You're receiving this email because a coupon was purchased through
+        your SaveHatke account.
+      </p>
+    </div>
+  </body>
+</html>`;
+
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
+  try {
+    const info = await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: cleanEmail,
+      subject,
+      text: textBody,
+      html: htmlContent,
+    });
+    console.log(`✅ [EmailService] Coupon-details email sent to ${cleanEmail} from ${fromEmail} (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Failed to send coupon-details email to ${cleanEmail}:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
   sendPaymentSuccessEmail,
+  sendCouponDetailsEmail,
   sendOTPEmail,
   sendTwoFactorSecurityEmail,
   sendWelcomeEmail,
