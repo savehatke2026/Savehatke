@@ -1519,6 +1519,9 @@ async function sendSignInAlertEmail({
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
   // Admins secure their account from the vault; users from their dashboard.
   const secureUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#security`;
+  const notifUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#notifications`;
+  const accountUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#account`;
+  const logoUrl = `${siteUrl}/logo.png`;
   const year = new Date().getFullYear();
 
   const t = getTransporter();
@@ -1536,321 +1539,185 @@ async function sendSignInAlertEmail({
   const textBody =
 `SaveHatke
 
-New device detected on your ${accountLabel}
+New sign-in detected on your SaveHatke account
 
 Hello, ${userName && String(userName).trim() ? userName.trim() : 'there'}.
 
-Your ${accountLabel} was just signed in to from a device we have not seen on this account before. The sign-in succeeded.
+Your SaveHatke account ${accountText} was recently signed in from a new device or browser:
 
-Sign-in details
-
-  Account: ${accountText}
-  Account type: ${accountTypeText}
-  Date and time: ${signInDate} IST
-  Device type: ${deviceText}
+  Location: ${locationText}
+  Time: ${signInDate} IST
   Browser: ${browserText}
+  Device: ${deviceText}
   Operating system: ${osText}
-  Approximate location: ${locationText}
-  IP address: ${ipText}${methodText ? `
-  Sign-in method: ${methodText}` : ''}
+  IP: ${ipText}
+  Sign-in method: ${methodText || 'Not available'}
 
-If this wasn't you, secure your account immediately.
+Don't recognize this activity?
 
-Sign out every other device and review your recent sign-in activity here:
-${secureUrl}
+Review your recent activity: ${secureUrl}
+Access your account security settings: ${accountUrl}
 
-If this was you, no action is needed — this device is now recognised and you will not be alerted for it again.
-
-You are receiving this because the device, browser or operating system above has never been used to sign in to this account. You will not get this alert for devices you already use.
+This alert is triggered when we detect a sign-in from a device, browser, or operating system that hasn't previously been used with your SaveHatke account. Common causes include using a new device, browser, or network.
 
 If you believe someone else accessed your account, please contact SaveHatke Support${supportFrom ? ` (${supportFrom})` : ''} as soon as possible.
 
 Regards,
-Team SaveHatke
+SaveHatke Team
 
-© ${year} SaveHatke. All rights reserved.`;
+Manage your notification settings: ${notifUrl}
+You are receiving this email because a new sign-in was detected on your SaveHatke account.`;
 
-  const htmlContent = `
-  <!DOCTYPE html>
-  <html lang="en">
+  const htmlContent = `<!DOCTYPE html>
+<html lang="en">
   <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
-    <title>New Device Detected — SaveHatke Security</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
+    <title>New sign-in detected on your SaveHatke account</title>
     <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      html { scroll-behavior: smooth; }
       body {
-        font-family: 'Outfit', sans-serif;
+        margin: 0;
         background: #ffffff;
-        color: #0f1e3a;
-        -webkit-font-smoothing: antialiased;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 48px 16px 64px;
-        line-height: 1.65;
+        color: #222222;
+        font-family: Arial, Helvetica, sans-serif;
       }
 
-      .email-wrapper {
-        position: relative;
+      .email {
         width: 100%;
-        max-width: 620px;
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 48px 32px;
+        box-sizing: border-box;
       }
 
-      .email-header {
+      h1 {
+        margin: 0 0 28px;
+        font-size: 28px;
+        line-height: 1.3;
+      }
+
+      .brand {
+        margin: 0 0 36px;
+        color: #222222;
+        font-size: 24px;
+        font-weight: 700;
         text-align: center;
-        margin-bottom: 28px;
-      }
-      .brand-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        text-decoration: none;
-        color: #0f1e3a;
-        font-size: 1.3rem;
-        font-weight: 800;
-      }
-      .brand-icon {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #00e676, #4fc3f7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.1rem;
-      }
-      .bhl { color: #00c853; }
-
-      .email-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 8px 28px rgba(15, 30, 58, 0.08);
       }
 
-      .email-body { padding: 36px 40px; }
+      p {
+        margin: 0 0 20px;
+        font-size: 16px;
+        line-height: 1.6;
+      }
 
-      .email-title {
-        font-family: 'DM Serif Display', serif;
-        font-size: 1.65rem;
-        font-weight: 400;
-        line-height: 1.25;
-        color: #0f1e3a;
+      .details {
+        margin: 0 0 24px;
+      }
+
+      .details p {
         margin-bottom: 6px;
       }
-      /* Per spec: the h2 ("New sign-in detected...") is BOLD BLACK */
-      .email-subtitle {
-        font-size: 1.1rem;
-        font-weight: 800;
-        line-height: 1.45;
-        color: #000000;
-        margin-bottom: 28px;
-        padding-bottom: 22px;
-        border-bottom: 1px solid #e5e7eb;
+
+      .green {
+        color: #00e272;
       }
 
-      .line {
-        font-size: 0.95rem;
-        color: #374151;
-        line-height: 1.75;
-        margin-bottom: 18px;
-      }
-      /* Per spec: {{user_name}} is "less bold black" — weight 700, dark navy */
-      .line .greeting-name {
-        color: #0f1e3a;
-        font-weight: 700;
-      }
-      .mono { font-family: 'JetBrains Mono', monospace; }
-
-      .case-list {
-        list-style: none;
-        padding: 14px 20px;
-        margin: 0 0 24px;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-      }
-      .case-list li {
-        font-size: 0.95rem;
-        color: #374151;
-        line-height: 1.7;
-        padding: 4px 0;
-      }
-      .case-list li strong { color: #000000; font-weight: 800; }
-
-      /* "Sign-in details" label above the detail list */
-      .detail-label {
-        font-size: 0.95rem;
-        font-weight: 800;
-        color: #000000;
-        margin: 0 0 10px;
-      }
-
-      /* "Don't recognize this activity?" section heading */
-      .email-h3 {
-        font-size: 1.02rem;
-        font-weight: 800;
-        color: #0f1e3a;
-        margin: 26px 0 12px;
-      }
-
-      /* Explanatory note — why this alert was sent */
-      .note {
-        font-size: 0.86rem;
-        color: #6b7280;
-      }
-
-      .support-link { color: #00c853; text-decoration: none; }
-
-      .warn-line {
-        font-size: 0.86rem;
-        color: #92400e;
-        line-height: 1.65;
-        margin: 0 0 24px;
-        padding: 14px 18px;
-        background: #fffbeb;
-        border: 1px solid #fde68a;
-        border-radius: 10px;
-      }
-      .warn-line strong { color: #78350f; font-weight: 700; }
-
-      /* CTA Button — website green */
-      .cta-wrap {
-        text-align: center;
-        margin: 28px 0 24px;
-      }
-      .cta-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 0 40px;
-        height: 52px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #00e676, #00c853);
-        color: #0f1e3a;
-        font-family: 'Outfit', sans-serif;
-        font-size: 1rem;
-        font-weight: 800;
-        letter-spacing: 0.01em;
+      a.green {
+        color: #00e272;
         text-decoration: none;
-        box-shadow: 0 10px 24px rgba(0, 200, 83, 0.35);
       }
 
-      .signoff {
-        font-size: 0.92rem;
-        color: #374151;
-        line-height: 1.75;
-        margin-top: 24px;
-        padding-top: 22px;
-        border-top: 1px solid #e5e7eb;
+      .footer {
+        margin-top: 36px;
+        padding-top: 24px;
+        border-top: 1px solid #eeeeee;
+        color: #777777;
+        font-size: 13px;
       }
-      .signoff strong { color: #0f1e3a; font-weight: 700; }
 
-      .email-footer {
-        background: #f9fafb;
-        border-top: 1px solid #e5e7eb;
-        padding: 22px 40px;
-        text-align: center;
+      .footer p,
+      .footer a {
+        font-size: 13px;
       }
-      .footer-copy {
-        font-size: 0.78rem;
-        color: #6b7280;
+
+      .footer a {
+        color: #222222;
       }
 
       @media (max-width: 600px) {
-        body { padding: 28px 12px 48px; }
-        .email-body { padding: 28px 24px; }
-        .email-footer { padding: 20px 24px; }
+        .email {
+          padding: 32px 20px;
+        }
+
+        h1 {
+          font-size: 24px;
+        }
       }
     </style>
-  ${EMAIL_DARK_STYLE}
   </head>
   <body>
+    <main class="email">
+      <div class="brand">
+        <img src="${logoUrl}" alt="SaveHatke" width="30" height="30" style="vertical-align:middle;margin-right:8px;" />
+        <span style="vertical-align:middle;">Save<span class="green">Hatke</span></span>
+      </div>
 
-  <!-- Preheader (hidden inbox preview line) -->
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">A device we haven't seen before signed in to your ${accountLabel} at ${signInDate} IST.</div>
+      <h1>New sign-in detected on your SaveHatke account</h1>
 
-  <div class="email-wrapper">
+      <p>Hello, ${safeName}.</p>
 
-    <!-- Brand Header -->
-    <div class="email-header">
-      <a href="${siteUrl}/index.html" class="brand-link">
-        <div class="brand-icon">🛡️</div>
-        <span>Save<span class="bhl">Hatke</span></span>
-      </a>
-    </div>
+      <p>
+        Your SaveHatke account
+        <span class="green">${safeAccount}</span> was recently signed
+        in from a new device or browser:
+      </p>
 
-    <!-- Email Card -->
-    <div class="email-card">
+      <div class="details">
+        <p><strong>Location:</strong> ${safeLocation}</p>
+        <p><strong>Time:</strong> ${signInDate} IST</p>
+        <p><strong>Browser:</strong> ${safeBrowser}</p>
+        <p><strong>Device:</strong> ${safeDeviceLine}</p>
+        <p><strong>Operating system:</strong> ${safeOs}</p>
+        <p><strong>IP:</strong> ${safeIp}</p>
+        <p><strong>Sign-in method:</strong> ${safeMethod || 'Not available'}</p>
+      </div>
 
-      <div class="email-body">
+      <p><strong>Don't recognize this activity?</strong></p>
 
-        <h1 class="email-title">SaveHatke</h1>
-        <h2 class="email-subtitle">New device detected on your ${isAdminAccount ? 'admin account' : 'account'}</h2>
+      <p>
+        <a class="green" href="${secureUrl}">Review your recent activity</a> and
+        <a class="green" href="${accountUrl}">access your account security settings now.</a>
+      </p>
 
-        <p class="line">
-          Hello, <span class="greeting-name">${safeName}</span>.
+      <p>
+        This alert is triggered when we detect a sign-in from a device, browser,
+        or operating system that hasn't previously been used with your
+        SaveHatke account. Common causes include using a new device, browser, or
+        network.
+      </p>
+
+      <p>
+        If you believe someone else accessed your account, please contact
+        SaveHatke Support as soon as possible.
+      </p>
+
+      <p>
+        Regards,<br />
+        SaveHatke Team
+      </p>
+
+      <footer class="footer">
+        <p><a href="${notifUrl}">Manage your notification settings</a></p>
+        <p>
+          You are receiving this email because a new sign-in was detected on
+          your SaveHatke account.
         </p>
-
-        <p class="line">Your ${escapeHtml(accountLabel)} was just signed in to from a device we have not seen on this account before. The sign-in succeeded.</p>
-
-        <p class="detail-label">Sign-in details</p>
-
-        <ul class="case-list">
-          <li><strong>Account:</strong> <span style="color:#00de6d;">${safeAccount}</span></li>
-          <li><strong>Account type:</strong> ${safeAccountType}</li>
-          <li><strong>Date and time:</strong> <span class="mono">${escapeHtml(signInDate)} IST</span></li>
-          <li><strong>Device type:</strong> ${safeDeviceLine}</li>
-          <li><strong>Browser:</strong> ${safeBrowser}</li>
-          <li><strong>Operating system:</strong> ${safeOs}</li>
-          <li><strong>Approximate location:</strong> ${safeLocation}</li>
-          <li><strong>IP address:</strong> <span class="mono">${safeIp}</span></li>
-          ${safeMethod ? `<li><strong>Sign-in method:</strong> ${safeMethod}</li>` : ''}
-        </ul>
-
-        <h3 class="email-h3">Didn't sign in just now?</h3>
-
-        <p class="warn-line"><strong>If this wasn't you, secure your account immediately.</strong> Sign out every other device and review your recent sign-in activity.</p>
-
-        <div class="cta-wrap">
-          <a href="${secureUrl}" class="cta-btn" style="background:#00de6d;background-color:#00de6d;">Secure My Account</a>
-        </div>
-
-        <p class="line">If this was you, no action is needed — this device is now recognised and you will not be alerted for it again.</p>
-
-        <p class="line note">You are receiving this because the device, browser or operating system above has never been used to sign in to this account. You will not get this alert for devices you already use.</p>
-
-        <p class="line">If you believe someone else accessed your account, please contact
-          ${supportFrom
-            ? `<a href="mailto:${escapeHtml(supportFrom)}" class="support-link"><strong>SaveHatke Support</strong></a>`
-            : '<strong>SaveHatke Support</strong>'} as soon as possible.</p>
-
-        <p class="signoff">Regards,<br><strong>Team SaveHatke</strong></p>
-
-      </div>
-
-      <!-- Footer -->
-      <div class="email-footer">
-        <div class="footer-copy">© ${year} SaveHatke. All rights reserved.</div>
-      </div>
-
-    </div>
-
-  </div>
-
+      </footer>
+    </main>
   </body>
-  </html>
-  `;
+</html>`;
 
   // ── Deliverability headers ─────────────────────────────────────────
   const fqdn = (() => {
