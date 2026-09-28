@@ -4047,10 +4047,14 @@
         kind: isUsedBuy(c) ? 'used' : (isExpiredBuy(c) ? 'expired' : 'purchased'),
         brand: c.brand || 'Coupon',
         code: c.code,
+        orderId: c.orderCode || c.id || '',
         value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.description || ''),
         exp: c.expiryDate || '',
         addedAt: c.purchasedAt || c.soldAt || c.addedAt,
         category: c.category || c.type || '',
+        backgroundImage: c.backgroundImage || '',
+        terms: c.terms || '',
+        id: c.id || '',
       }));
 
     const availableList = bought.filter((c) => c.kind === 'purchased');
@@ -4106,6 +4110,7 @@
       list = list.filter((c) =>
         String(c.brand || '').toLowerCase().includes(q) ||
         String(c.value || '').toLowerCase().includes(q) ||
+        String(c.orderId || '').toLowerCase().includes(q) ||
         String(c.code || '').toLowerCase().includes(q));
     }
     list = list
@@ -4138,11 +4143,12 @@
             ? new Date(c.addedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
             : '—');
       const dateSub = (exp && !isNaN(exp.getTime())) ? 'Expiry date' : `Added ${timeAgo(c.addedAt)}`;
-      const safeCode = escapeHtml(c.code || '');
-      const jsCode = String(c.code || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const safeOrder = escapeHtml(c.orderId || '');
+      const jsOrder = String(c.orderId || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       const rowPayload = encodeURIComponent(JSON.stringify({
         brand: c.brand, code: c.code, value: c.value,
-        exp: c.exp, kind: c.kind, category: c.category || '', addedAt: c.addedAt
+        exp: c.exp, kind: c.kind, category: c.category || '', addedAt: c.addedAt,
+        orderId: c.orderId || '', backgroundImage: c.backgroundImage || '', terms: c.terms || '', id: c.id || ''
       }));
       return `
         <tr style="cursor:pointer" onclick="openCouponDetail('${rowPayload}')">
@@ -4152,7 +4158,7 @@
             <div class="mcx-desc">${escapeHtml(dateSub)}</div>
           </td>
           <td class="mcx-hide-sm">
-            <div class="mcx-code"><span>${safeCode || '—'}</span>${safeCode ? `<button class="mcx-copy" title="Copy code" onclick="mcxCopy(event,'${jsCode}')">${MCX_ICON.copy}</button>` : ''}</div>
+            <div class="mcx-code"><span>${safeOrder || '—'}</span>${safeOrder ? `<button class="mcx-copy" title="Copy order ID" onclick="mcxCopy(event,'${jsOrder}')">${MCX_ICON.copy}</button>` : ''}</div>
           </td>
           <td class="mcx-hide-md"><span class="mcx-amt">${escapeHtml(c.value || '—')}</span></td>
           <td class="mcx-hide-md"><div class="mcx-date">${escapeHtml(dateMain)}</div></td>
@@ -4168,7 +4174,7 @@
             <tr>
               <th>Type</th>
               <th>Coupon</th>
-              <th class="mcx-hide-sm">Code</th>
+              <th class="mcx-hide-sm">Order ID</th>
               <th class="mcx-hide-md">Value</th>
               <th class="mcx-hide-md">Date</th>
               <th>Status</th>
@@ -7540,8 +7546,8 @@
         <span id="cdpCategoryText">General</span>
       </div>
       <div class="cdp-action-btns">
-        <button class="cdp-action-btn" id="cdpCopyBtn" title="Copy code" onclick="cdpCopyCode()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <button class="cdp-action-btn" id="cdpTermsBtn" title="Terms &amp; conditions" onclick="cdpShowTerms()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>
         </button>
         <button class="cdp-action-btn" title="How to use" onclick="cdpShowHint()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
@@ -7551,6 +7557,9 @@
 
     <!-- The coupon card -->
     <div class="cdp-coupon-card" id="cdpCouponCard">
+      <!-- Coupon background / hero image (per-coupon image → brand bg → default) -->
+      <img class="cdp-hero-img" id="cdpHeroImg" alt="" aria-hidden="true">
+      <div class="cdp-hero-shade" aria-hidden="true"></div>
       <!-- Valid until badge -->
       <div class="cdp-valid-badge" id="cdpValidBadge">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -7605,6 +7614,12 @@
         <li>Paste the code in the promo/coupon field.</li>
         <li>Your discount will be applied automatically.</li>
       </ol>
+    </div>
+
+    <!-- Terms & conditions panel (hidden by default) -->
+    <div class="cdp-hint-panel" id="cdpTermsPanel" hidden>
+      <div class="cdp-hint-title">Terms &amp; conditions</div>
+      <div class="cdp-terms-body" id="cdpTermsBody">—</div>
     </div>
   </div>
 </div>
@@ -7710,6 +7725,23 @@
   font-size:5rem;opacity:.18;transform:rotate(12deg);
   pointer-events:none;z-index:0;filter:sepia(1) saturate(3) hue-rotate(15deg);
 }
+/* Coupon hero / background image — shown when the coupon box opens */
+.cdp-hero-img{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;object-position:center;
+  z-index:0;opacity:0;transition:opacity .3s ease;
+}
+.cdp-coupon-card.has-hero .cdp-hero-img{opacity:1}
+/* Readability shade over the hero so the neon code/text stays legible */
+.cdp-hero-shade{
+  position:absolute;inset:0;z-index:0;pointer-events:none;opacity:0;
+  transition:opacity .3s ease;
+  background:linear-gradient(180deg,rgba(6,13,31,.55) 0%,rgba(6,13,31,.30) 42%,rgba(6,13,31,.86) 100%);
+}
+.cdp-coupon-card.has-hero .cdp-hero-shade{opacity:1}
+/* With a real hero image, drop the decorative fire glow + parcel emoji */
+.cdp-coupon-card.has-hero::before,
+.cdp-coupon-card.has-hero::after{display:none}
 
 .cdp-valid-badge{
   position:absolute;top:14px;right:14px;z-index:2;
@@ -7806,6 +7838,7 @@
 .cdp-hint-title{font-size:.88rem;font-weight:700;color:#e2ecff;margin-bottom:12px}
 .cdp-hint-steps{padding-left:18px;display:flex;flex-direction:column;gap:8px}
 .cdp-hint-steps li{font-size:.82rem;color:#a8c0dc;line-height:1.5;padding-left:4px}
+.cdp-terms-body{font-size:.82rem;color:#a8c0dc;line-height:1.6;white-space:pre-line;word-break:break-word}
 
 /* Copy toast */
 .cdp-copy-toast{
@@ -7853,9 +7886,11 @@
       panel.classList.remove('closing');
       overlay.classList.add('open');
       document.body.style.overflow = 'hidden';
-      // reset hint panel
+      // reset hint + terms panels
       const hp = document.getElementById('cdpHintPanel');
       if (hp) hp.hidden = true;
+      const tp = document.getElementById('cdpTermsPanel');
+      if (tp) tp.hidden = true;
       // init scratch after paint
       requestAnimationFrame(() => requestAnimationFrame(() => _initScratch(coupon)));
     } catch(e) { console.warn('openCouponDetail error', e); }
@@ -7884,8 +7919,17 @@
   };
 
   window.cdpShowHint = function() {
+    const tp = document.getElementById('cdpTermsPanel');
+    if (tp) tp.hidden = true;
     const hp = document.getElementById('cdpHintPanel');
     if (hp) hp.hidden = !hp.hidden;
+  };
+
+  window.cdpShowTerms = function() {
+    const hp = document.getElementById('cdpHintPanel');
+    if (hp) hp.hidden = true;
+    const tp = document.getElementById('cdpTermsPanel');
+    if (tp) tp.hidden = !tp.hidden;
   };
 
   function _showCdpToast(msg) {
@@ -7924,13 +7968,64 @@
     _setText('cdpCardBrand', c.brand || 'Coupon');
     _setText('cdpDiscountText', c.value || '');
 
+    // Coupon background / hero image (per-coupon image → brand bg → default)
+    const card = document.getElementById('cdpCouponCard');
+    const heroImg = document.getElementById('cdpHeroImg');
+    if (card && heroImg) {
+      const hero = _cdpHeroImage(c);
+      if (hero) {
+        heroImg.onerror = function() { card.classList.remove('has-hero'); };
+        heroImg.src = hero;
+        card.classList.add('has-hero');
+      } else {
+        heroImg.removeAttribute('src');
+        card.classList.remove('has-hero');
+      }
+    }
+
+    // Terms & conditions (falls back to a sensible default when none is set)
+    const termsText = (c.terms && String(c.terms).trim())
+      ? String(c.terms).trim()
+      : 'Valid for a single use before the expiry date shown above. Applies as per the brand\u2019s offer terms at checkout. Once the code is revealed the coupon is non-refundable.';
+    _setText('cdpTermsBody', termsText);
+
     // Code
     _setText('cdpCodeText', c.code || '—');
+  }
+
+  // Coupon hero image, mirroring the marketplace's three-layer rule:
+  //   1. coupon.backgroundImage (admin per-coupon image) — http(s) or safe path
+  //   2. the brand background from coupon-meta.js (getBrandBackground)
+  //   3. the shared default coupon background
+  const CDP_DEFAULT_BG = '/images/coupons/default.svg';
+  function _cdpHeroImage(c) {
+    const raw = String((c && c.backgroundImage) || '').trim();
+    if (/^https?:\/\/\S+$/i.test(raw)) return raw;
+    if (/^\/[\w\-./~%#?=&+]*$/.test(raw) && raw.indexOf('"') < 0 && raw.indexOf("'") < 0) return raw;
+    const brandBg = (typeof getBrandBackground === 'function') ? getBrandBackground(c && c.brand) : '';
+    if (brandBg) return brandBg;
+    return CDP_DEFAULT_BG;
   }
 
   function _setText(id, text) {
     const el = document.getElementById(id);
     if (el) el.textContent = text;
+  }
+
+  // A coupon can be scratched only once. After the first reveal we remember it
+  // (per browser) keyed by its Order ID / id / code, so re-opening the coupon
+  // shows the code already revealed instead of a fresh scratch surface.
+  function _cdpScratchKey(c) {
+    const id = (c && (c.orderId || c.id || c.code)) || '';
+    return id ? 'sh_scratched_' + id : '';
+  }
+  function _cdpAlreadyScratched(c) {
+    try { const k = _cdpScratchKey(c); return !!k && localStorage.getItem(k) === '1'; }
+    catch (e) { return false; }
+  }
+  function _cdpMarkScratched(c) {
+    try { const k = _cdpScratchKey(c); if (k) localStorage.setItem(k, '1'); }
+    catch (e) {}
   }
 
   function _initScratch(coupon) {
@@ -7940,9 +8035,10 @@
     const revealed = document.getElementById('cdpRevealed');
     if (!zone || !canvas || !revealed) return;
 
-    // If already scratched (e.g. previously used coupon), reveal immediately
-    if (coupon.kind !== 'purchased') {
-      _revealCode(canvas, hint);
+    // Reveal immediately (no scratch surface) for coupons that are not an
+    // active purchase, or that this user has already scratched once before.
+    if (coupon.kind !== 'purchased' || _cdpAlreadyScratched(coupon)) {
+      _revealCode(canvas, hint, false);
       return;
     }
 
@@ -8029,20 +8125,22 @@
       if (data[i] < 128) cleared++;
     }
     const pct = cleared / (canvas.width * canvas.height);
-    if (pct > 0.42) _revealCode(canvas, hint);
+    if (pct > 0.42) _revealCode(canvas, hint, true);
   }
 
-  function _revealCode(canvas, hint) {
+  function _revealCode(canvas, hint, persist) {
     if (_cdpScratched) return;
     _cdpScratched = true;
+    // Persist the one-time reveal so this coupon can only be scratched once.
+    if (persist && _cdpCurrent) _cdpMarkScratched(_cdpCurrent);
     if (canvas) {
       canvas.style.transition = 'opacity .4s ease';
       canvas.style.opacity = '0';
       setTimeout(() => { canvas.style.pointerEvents = 'none'; }, 420);
     }
     if (hint) hint.style.display = 'none';
-    // Flash the copy button to signal it's time to copy
-    const copyBtn = document.getElementById('cdpCopyBtn');
+    // Flash the in-card copy button to signal it's time to copy the code.
+    const copyBtn = document.querySelector('#cdpRevealed .cdp-code-copy');
     if (copyBtn) {
       copyBtn.style.borderColor = 'rgba(0,230,118,.6)';
       copyBtn.style.color = '#00e676';

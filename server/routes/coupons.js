@@ -1017,6 +1017,10 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
           soldAt: c.soldAt,
           purchasedAt: c.soldAt,
           sellerEmail: c.sellerEmail,
+          // Per-coupon hero image + terms so the dashboard coupon box can show
+          // the coupon's own background image and its terms & conditions.
+          backgroundImage: c.backgroundImage || '',
+          terms: c.terms || '',
           // Canonical purchase identifiers (blank for legacy orders).
           orderCode: ord.order_code || '',
           transactionId: ord.transaction_id || '',
