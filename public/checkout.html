@@ -20,11 +20,11 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
-    body { font-family: 'Outfit', sans-serif; background: #060d1f; color: #e2ecff; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+    body { font-family: 'Inter', 'Outfit', sans-serif; background: #060d1f; color: #e2ecff; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: #060d1f; }
     ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+    ::-webkit-scrollbar-thumb:hover { background: #00E272; }
     a { text-decoration: none; color: inherit; }
 
     @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
@@ -51,8 +51,9 @@
     .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
     .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); }
     .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
-    .btn-pay { width:100%; height:54px; border-radius:13px; font-size:1.05rem; font-weight:800; letter-spacing:.01em; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; transition:all .22s; animation: pulse-ring 2.5s ease-in-out infinite; }
-    .btn-pay:hover { transform:translateY(-2px); box-shadow:0 14px 36px rgba(0,230,118,.45); }
+    .btn-pay { width:100%; height:54px; border-radius:14px; font-family:'Inter','Outfit',sans-serif; font-size:1.05rem; font-weight:800; letter-spacing:.01em; background:linear-gradient(135deg,#00E272,#00c853); color:#04120a; border:none; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:10px; box-shadow:0 10px 26px rgba(0,226,114,.28); transition:transform .18s ease, box-shadow .18s ease, filter .18s ease; animation: pulse-ring 2.5s ease-in-out infinite; }
+    .btn-pay:hover { transform:translateY(-2px); filter:brightness(1.04); box-shadow:0 16px 38px rgba(0,226,114,.45); }
+    .btn-pay:active { transform:translateY(0); box-shadow:0 6px 18px rgba(0,226,114,.32); }
     .btn-pay:disabled { opacity:.55; cursor:not-allowed; transform:none; box-shadow:none; animation:none; }
 
     /* NAVBAR */
@@ -79,24 +80,25 @@
     .bc-cur { color:#a8c0dc; }
 
     /* PAGE HEADER */
-    .page-header { padding:16px 0 28px; }
-    .ph-title { font-size:clamp(1.4rem,3vw,1.9rem); font-weight:800; letter-spacing:-.01em; }
-    .ph-sub { font-size:.85rem; color:#6b88aa; margin-top:4px; }
+    .page-header { padding:20px 0 30px; }
+    .ph-title { font-size:clamp(1.55rem,3.2vw,2.1rem); font-weight:800; letter-spacing:-.02em; line-height:1.1; }
+    .ph-pay { color:#00E272; }
+    .ph-sub { font-size:.9rem; color:#7f97b8; margin-top:8px; letter-spacing:.005em; }
 
     /* PROGRESS STEPS */
-    .progress-steps { display:flex; align-items:center; gap:0; margin:16px 0 0; }
-    .ps-step { display:flex; align-items:center; gap:7px; }
-    .ps-dot { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:700; flex-shrink:0; }
-    .ps-dot.done { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
-    .ps-dot.active { background:linear-gradient(135deg,#00e676,#4fc3f7); color:#060d1f; box-shadow:0 0 0 3px rgba(0,230,118,.2); }
-    .ps-dot.pending { background:rgba(255,255,255,.06); color:#6b88aa; border:1.5px solid rgba(79,195,247,.15); }
-    .ps-label { font-size:.74rem; font-weight:600; color:#6b88aa; }
+    .progress-steps { display:flex; align-items:center; gap:0; margin:22px 0 0; }
+    .ps-step { display:flex; align-items:center; gap:8px; }
+    .ps-dot { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:700; flex-shrink:0; transition:all .2s; }
+    .ps-dot.done { background:#00E272; color:#04120a; }
+    .ps-dot.active { background:#00E272; color:#04120a; box-shadow:0 0 0 4px rgba(0,226,114,.18); }
+    .ps-dot.pending { background:rgba(255,255,255,.04); color:#6b88aa; border:1.5px solid rgba(127,151,184,.28); }
+    .ps-label { font-size:.76rem; font-weight:600; color:#6b88aa; letter-spacing:.01em; }
     .ps-label.active { color:#e2ecff; }
-    .ps-line { flex:1; height:1px; background:rgba(79,195,247,.12); margin:0 8px; min-width:20px; }
-    .ps-line.done { background:linear-gradient(90deg,#00e676,#4fc3f7); }
+    .ps-line { flex:1; height:2px; border-radius:2px; background:rgba(127,151,184,.16); margin:0 10px; min-width:20px; }
+    .ps-line.done { background:#00E272; }
 
     /* MAIN LAYOUT */
-    .checkout-layout { display:grid; grid-template-columns:1fr 380px; gap:24px; padding-bottom:80px; align-items:start; }
+    .checkout-layout { display:grid; grid-template-columns:1fr 384px; gap:28px; padding-bottom:80px; align-items:start; }
     /* Grid items default to min-width:auto, so a long coupon title — the
        discount line is nowrap by design — could push a whole column past the
        viewport and take the page with it. Flooring both columns at 0 keeps the
@@ -104,11 +106,11 @@
     .checkout-layout > * { min-width:0; }
 
     /* CARDS */
-    .co-card { border-radius:16px; background:rgba(13,26,52,.85); border:1px solid rgba(79,195,247,.1); padding:24px; margin-bottom:16px; }
-    .co-card-hdr { display:flex; align-items:center; gap:10px; margin-bottom:20px; }
-    .co-card-ico { width:34px; height:34px; border-radius:9px; background:rgba(0,230,118,.1); display:flex; align-items:center; justify-content:center; font-size:1rem; flex-shrink:0; }
-    .co-card-ttl { font-weight:700; font-size:.98rem; }
-    .co-card-sub { font-size:.75rem; color:#6b88aa; margin-top:1px; }
+    .co-card { border-radius:18px; background:rgba(13,26,52,.72); border:1px solid rgba(79,195,247,.1); padding:28px; margin-bottom:20px; box-shadow:0 4px 24px rgba(0,0,0,.18); }
+    .co-card-hdr { display:flex; align-items:center; gap:12px; margin-bottom:22px; }
+    .co-card-ico { width:38px; height:38px; border-radius:11px; background:rgba(0,226,114,.1); border:1px solid rgba(0,226,114,.16); display:flex; align-items:center; justify-content:center; font-size:1.05rem; flex-shrink:0; }
+    .co-card-ttl { font-weight:700; font-size:1.05rem; letter-spacing:-.01em; }
+    .co-card-sub { font-size:.75rem; color:#7f97b8; margin-top:2px; }
 
     /* COUPON COMPACT SHOWCASE */
     .coupon-compact { border-radius:12px; background:linear-gradient(135deg,rgba(0,230,118,.07),rgba(79,195,247,.04)); border:1px solid rgba(0,230,118,.18); padding:16px 20px; margin-bottom:14px; }
@@ -220,37 +222,53 @@
     /* COMPACT NOTE */
     .compact-note { font-size:.78rem; color:#6b88aa; display:flex; align-items:flex-start; gap:7px; padding:10px 14px; border-radius:9px; background:rgba(79,195,247,.04); border:1px solid rgba(79,195,247,.08); line-height:1.55; }
 
-    /* COMPACT KEY/VALUE LIST — the coupon facts, one hairline-separated row each.
-       Same palette and type scale as the cards it sits in; no inner box. */
-    .ck-list { margin:0; }
-    .ck-row { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; padding:9px 0; border-bottom:1px solid rgba(79,195,247,.07); }
-    .ck-row:last-child { border-bottom:none; }
-    .ck-row dt { font-size:.8rem; color:#a8c0dc; font-weight:500; }
-    .ck-row dd { margin:0; font-size:.85rem; font-weight:700; color:#e2ecff; text-align:right; }
-    .ck-row dd.green { color:#00e676; }
+    /* COUPON PRICING — a clean three-column stat block: muted uppercase labels
+       over strong tabular numerals. The Minimum Order column (csMinOrderItem) is
+       hidden by paintCoupon() when the coupon has none; because the columns are
+       flex:1 the remaining ones rebalance and never leave a gap. */
+    .ck-stats { display:flex; align-items:stretch; border:1px solid rgba(79,195,247,.12); border-radius:14px; background:rgba(0,0,0,.14); overflow:hidden; }
+    .ck-stat { flex:1 1 0; min-width:0; display:flex; flex-direction:column; gap:7px; padding:16px 18px; border-left:1px solid rgba(79,195,247,.1); }
+    .ck-stat:first-child { border-left:none; }
+    .ck-stat-lbl { font-size:.64rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:#7f97b8; }
+    .ck-stat-val { font-family:'JetBrains Mono',monospace; font-size:1.3rem; font-weight:700; line-height:1.05; color:#e2ecff; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+    .ck-stat-val.green { color:#00E272; }
+    /* "Applicable On" stays hidden until a coupon actually carries it; a full
+       width row keeps its longer descriptive value readable when shown. */
+    .ck-applicable { display:flex; align-items:center; justify-content:space-between; gap:14px; margin-top:12px; padding:12px 16px; border:1px solid rgba(79,195,247,.1); border-radius:12px; background:rgba(0,0,0,.14); }
+    .ck-applicable .ck-stat-lbl { flex-shrink:0; }
+    .ck-app-val { font-size:.9rem; font-weight:700; color:#e2ecff; text-align:right; overflow-wrap:anywhere; }
 
     /* FORM */
-    .fgroup { margin-bottom:16px; }
-    .flabel { display:block; font-size:.8rem; font-weight:600; color:#a8c0dc; margin-bottom:7px; }
-    .flabel .req { color:#00e676; margin-left:2px; }
-    .finput { width:100%; padding:12px 15px; border-radius:10px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.14); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.9rem; transition:border-color .2s, background .2s; outline:none; }
-    .finput:focus { border-color:rgba(0,230,118,.4); background:rgba(0,230,118,.02); }
+    .fgroup { margin-bottom:18px; }
+    .flabel { display:block; font-size:.82rem; font-weight:600; color:#b7cbe6; margin-bottom:8px; letter-spacing:.01em; }
+    .flabel .req { color:#00E272; margin-left:2px; }
+    .finput { width:100%; padding:13px 15px; border-radius:11px; background:rgba(255,255,255,.04); border:1.5px solid rgba(79,195,247,.14); color:#e2ecff; font-family:'Inter','Outfit',sans-serif; font-size:.92rem; transition:border-color .18s, background .18s, box-shadow .18s; outline:none; }
+    .finput:focus { border-color:#00E272; background:rgba(0,226,114,.04); box-shadow:0 0 0 3px rgba(0,226,114,.14); }
     .finput::placeholder { color:#6b88aa; }
     .finput.prefilled { background:rgba(79,195,247,.05); border-color:rgba(79,195,247,.22); color:#c8daf5; }
-    .finput-group { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
-    .finput-prefix { display:flex; align-items:center; }
-    .finput-prefix .prefix { background:rgba(255,255,255,.04); border:1.5px solid rgba(79,195,247,.14); border-right:none; border-radius:10px 0 0 10px; padding:12px 13px; font-size:.88rem; color:#6b88aa; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
-    .finput-prefix .finput { border-radius:0 10px 10px 0; }
+    .finput-group { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .finput-prefix { display:flex; align-items:stretch; }
+    .finput-prefix .prefix { display:flex; align-items:center; background:rgba(255,255,255,.03); border:1.5px solid rgba(79,195,247,.14); border-right:none; border-radius:11px 0 0 11px; padding:0 13px; font-size:.9rem; color:#8aa3c4; font-family:'JetBrains Mono',monospace; white-space:nowrap; }
+    .finput-prefix .finput { border-radius:0 11px 11px 0; }
+    .finput-prefix:focus-within .prefix { border-color:#00E272; }
     .fpre-note { font-size:.73rem; color:#6b88aa; margin-top:6px; display:flex; align-items:center; gap:5px; }
+
+    /* PAYER NAME WARNING — a subtle amber informational note revealed while the
+       Payer Name field is focused. Collapsed (height/opacity 0) until #buyerName
+       gets focus, when a tiny self-contained script adds .show; it slides down
+       and fades in. Amber/yellow, not a red error. */
+    .pn-warn { display:flex; align-items:flex-start; gap:8px; margin-top:0; padding:0 13px; max-height:0; opacity:0; overflow:hidden; border-radius:10px; background:rgba(255,193,7,.08); border:1px solid transparent; color:#ffcf6b; font-size:.76rem; line-height:1.5; transition:max-height .32s ease, opacity .28s ease, margin-top .28s ease, padding .28s ease, border-color .28s ease; }
+    .pn-warn.show { max-height:160px; opacity:1; margin-top:9px; padding:11px 13px; border-color:rgba(255,193,7,.3); }
+    .pn-warn-ico { flex-shrink:0; line-height:1.5; }
 
     /* ORDER SUMMARY SIDEBAR */
     .summary-sticky { position:sticky; top:80px; }
     /* The summary is the card that has to be found first: a slightly lighter
        surface, a firmer border and a hairline green top edge lift it above the
        information cards without any glow. */
-    .summary-card { position:relative; border-radius:16px; background:rgba(12,26,56,.96); border:1px solid rgba(0,230,118,.18); padding:24px; box-shadow:0 18px 44px rgba(0,0,0,.32); overflow:hidden; }
-    .summary-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg,#00e676,#4fc3f7); }
-    .sum-title { font-weight:800; font-size:1.1rem; margin-bottom:18px; color:#e2ecff; }
+    .summary-card { position:relative; border-radius:18px; background:rgba(12,26,56,.96); border:1px solid rgba(0,226,114,.2); padding:26px; box-shadow:0 18px 44px rgba(0,0,0,.32); overflow:hidden; }
+    .summary-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:#00E272; }
+    .sum-title { font-weight:800; font-size:1.15rem; letter-spacing:-.01em; margin-bottom:20px; color:#e2ecff; }
     .sum-coupon-preview { border-radius:10px; background:rgba(0,230,118,.05); border:1px solid rgba(0,230,118,.14); padding:12px 16px; margin-bottom:18px; display:flex; align-items:center; gap:12px; }
     .scp-ico { height:38px; min-width:38px; max-width:104px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .scp-ico img { max-width:100%; width:auto; height:100%; object-fit:contain; display:block; }
@@ -258,30 +276,37 @@
     .scp-brand { font-weight:700; font-size:.9rem; }
     .scp-off { font-family:'JetBrains Mono',monospace; font-size:.8rem; color:#00e676; font-weight:600; margin-top:2px; }
     .sum-rows { margin-bottom:16px; }
-    .sum-row { display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid rgba(79,195,247,.05); font-size:.86rem; }
+    .sum-row { display:flex; justify-content:space-between; align-items:center; padding:9px 0; border-bottom:1px solid rgba(79,195,247,.05); font-size:.88rem; }
     .sum-row:last-child { border-bottom:none; }
     .sum-row-label { color:#a8c0dc; }
-    .sum-row-val { font-family:'JetBrains Mono',monospace; font-weight:600; }
-    .sum-row-val.green { color:#00e676; }
+    .sum-row-val { font-family:'JetBrains Mono',monospace; font-weight:600; font-variant-numeric:tabular-nums; }
+    .sum-row-val.green { color:#00E272; }
     .sum-divider { height:1px; background:rgba(79,195,247,.08); margin:14px 0; }
     /* "You Save" sits between two dividers so the eye reads value → price →
        saving → total as one descending ladder. */
     .sum-save-row { display:flex; justify-content:space-between; align-items:center; padding:2px 0; font-size:.9rem; }
     .sum-save-label { color:#e2ecff; font-weight:600; }
-    .sum-save-val { font-family:'JetBrains Mono',monospace; font-weight:800; color:#00e676; font-size:1rem; }
+    .sum-save-val { font-family:'JetBrains Mono',monospace; font-weight:800; color:#00E272; font-size:1rem; font-variant-numeric:tabular-nums; }
     /* Total is the loudest thing on the page: the amount alone carries the size,
        so the surrounding chrome stays quiet. */
     .sum-total-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:4px 0 2px; }
-    .sum-total-label { font-weight:700; font-size:.95rem; color:#a8c0dc; letter-spacing:.01em; }
-    .sum-total-val { font-family:'JetBrains Mono',monospace; font-size:2.15rem; line-height:1; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; }
+    .sum-total-label { font-weight:700; font-size:1rem; color:#e2ecff; letter-spacing:.01em; }
+    .sum-total-val { font-family:'JetBrains Mono',monospace; font-size:2.2rem; line-height:1; font-weight:800; color:#00E272; font-variant-numeric:tabular-nums; }
     .sum-saving-note { margin:12px 0 0; font-size:.78rem; color:#4fc3f7; text-align:center; font-weight:500; }
 
     /* TERMS & PAYMENT */
-    .terms-check { display:flex; align-items:flex-start; gap:9px; margin-bottom:16px; }
-    .terms-check input[type="checkbox"] { margin-top:2px; width:15px; height:15px; accent-color:#00e676; flex-shrink:0; cursor:pointer; }
-    .terms-check label { font-size:.78rem; color:#a8c0dc; line-height:1.5; cursor:pointer; }
-    .terms-check label a { color:#4fc3f7; text-decoration:underline; text-underline-offset:2px; }
+    .terms-check { display:flex; align-items:flex-start; gap:10px; margin-bottom:18px; }
+    .terms-check input[type="checkbox"] { margin-top:2px; width:16px; height:16px; accent-color:#00E272; flex-shrink:0; cursor:pointer; }
+    .terms-check label { font-size:.8rem; color:#a8c0dc; line-height:1.55; cursor:pointer; }
+    .terms-check label a { color:#8fd0ff; text-decoration:underline; text-underline-offset:2px; transition:color .2s; }
+    .terms-check label a:hover { color:#bfe6ff; }
     .pay-secure-note { text-align:center; font-size:.75rem; color:#6b88aa; margin-top:10px; display:flex; align-items:center; justify-content:center; gap:5px; }
+
+    /* TRUST INDICATORS — three compact, balanced badges under the pay button. */
+    .trust-row { display:flex; align-items:stretch; gap:8px; margin-top:16px; }
+    .trust-item { flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:5px; padding:11px 6px; border-radius:11px; background:rgba(255,255,255,.03); border:1px solid rgba(79,195,247,.1); }
+    .trust-ico { font-size:1rem; line-height:1; }
+    .trust-txt { font-size:.66rem; font-weight:600; color:#9fb6d6; letter-spacing:.01em; line-height:1.25; }
 
     /* ── UPI PAYMENT BOX ──────────────────────────────────────────────────
        The payment box the "Pay ₹X Securely" button opens. Layout and palette
@@ -481,6 +506,58 @@
       .succ-code { font-size:16px; }
     }
 
+    /* PAYMENT-SUCCESSFUL CARD (reference mockup)
+       Scoped to #successOverlay so it restyles ONLY the payment-success screen
+       and never leaks into the shared .success-box used by #extraAmountOverlay.
+       The overlay container keeps its backdrop + scale-in; these rules re-skin
+       the inner card to the receipt design. */
+    #successOverlay .ps-card {
+      position:relative; width:min(100%,436px); max-width:436px;
+      padding:67px 29px 34px; text-align:center;
+      border:1.5px solid rgba(0,154,103,.5); border-radius:25px; background:#0b1427;
+      box-shadow:0 28px 70px rgba(0,0,0,.3), inset 0 0 40px rgba(0,230,153,.012);
+      font-family:'Inter',sans-serif;
+    }
+    #successOverlay .ps-close {
+      position:absolute; top:19px; right:19px; width:37px; height:37px;
+      display:grid; place-items:center; padding:0; color:#fff;
+      border:1px solid #33415b; border-radius:10px; background:#131d32;
+      box-shadow:0 2px 6px rgba(0,0,0,.2); cursor:pointer;
+      transition:transform .16s ease, border-color .16s ease, background .16s ease;
+    }
+    #successOverlay .ps-close:hover { transform:scale(1.04); border-color:#57789c; background:#0b1d34; }
+    #successOverlay .ps-close:focus-visible { outline:3px solid rgba(0,237,156,.36); outline-offset:3px; }
+    #successOverlay .ps-close svg { width:16px; height:16px; }
+    #successOverlay .ps-icon {
+      width:104px; height:104px; margin:0 auto 27px; display:grid; place-items:center;
+      border:2px solid rgba(0,223,141,.48); border-radius:50%;
+      background:linear-gradient(145deg,#20ef9d,#00c875);
+      box-shadow:0 0 0 11px rgba(0,226,138,.065),0 0 0 22px rgba(0,226,138,.025),0 0 34px rgba(0,230,141,.17);
+      animation:psArrive 500ms cubic-bezier(.2,.85,.35,1.25) both;
+    }
+    #successOverlay .ps-icon svg { width:55px; height:55px; filter:drop-shadow(0 3px 3px rgba(0,99,61,.18)); }
+    #successOverlay .ps-title { margin:0; font-size:clamp(1.55rem,6vw,1.9rem); line-height:1.12; letter-spacing:-.035em; font-weight:800; color:#f7f9ff; }
+    #successOverlay .ps-title span, #successOverlay .ps-accent { color:#00eb98; }
+    #successOverlay .ps-subtitle { margin:10px 0 31px; color:#9da8c0; font-size:.92rem; line-height:1.5; }
+    #successOverlay .ps-details { margin:0; display:grid; gap:17px; text-align:left; }
+    #successOverlay .ps-detail { display:grid; grid-template-columns:minmax(98px,.72fr) minmax(0,1.28fr); align-items:baseline; gap:14px; }
+    #successOverlay .ps-detail dt { color:#8995af; font-size:.86rem; }
+    #successOverlay .ps-detail dd { min-width:0; margin:0; color:#f8faff; font-size:.88rem; font-weight:600; text-align:right; overflow-wrap:anywhere; }
+    #successOverlay .ps-detail:first-child dd { font-size:1.24rem; font-weight:800; color:#00eb98; }
+    #successOverlay .ps-redirect { margin:32px 0 29px; color:#9da8c0; font-size:.82rem; }
+    #successOverlay .ps-secured { margin:0; display:flex; align-items:center; justify-content:center; gap:9px; color:#8f9bb4; font-size:.77rem; }
+    #successOverlay .ps-secured::before, #successOverlay .ps-secured::after { content:""; height:1px; flex:1; max-width:132px; background:#2b354d; }
+    #successOverlay .ps-shield { width:17px; height:20px; flex:0 0 auto; }
+    #successOverlay .ps-secured strong { color:#00eb98; font-weight:700; }
+    @keyframes psArrive { from { opacity:0; transform:scale(.72); } to { opacity:1; transform:scale(1); } }
+    @media (max-width:560px) {
+      #successOverlay .ps-card { padding:64px 28px 32px; border-radius:22px; }
+      #successOverlay .ps-close { width:36px; height:36px; border-radius:9px; }
+      #successOverlay .ps-secured { gap:7px; font-size:.72rem; }
+      #successOverlay .ps-secured::before, #successOverlay .ps-secured::after { min-width:24px; }
+    }
+    @media (prefers-reduced-motion: reduce) { #successOverlay .ps-icon { animation:none; } }
+
     /* EXTRA-AMOUNT (OVERPAYMENT) OVERLAY
        Reuses .success-overlay / .success-box / .succ-* so it sits inside the
        exact same payment-window styling; only the refund-specific bits are new.
@@ -504,14 +581,15 @@
     .spinner { width:18px; height:18px; border:2.5px solid rgba(6,13,31,.3); border-top-color:#060d1f; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
 
     /* FOOTER */
-    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:36px 0 0; }
-    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; padding-bottom:28px; }
-    .fbrand p { font-size:.84rem; color:#6b88aa; line-height:1.6; margin-top:12px; max-width:320px; }
-    .fcol h4 { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; }
-    .fcol a { display:block; font-size:.84rem; color:#6b88aa; margin-bottom:8px; transition:color .2s; }
-    .fcol a:hover { color:#00e676; }
-    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:14px 0; display:flex; justify-content:space-between; font-size:.78rem; color:#6b88aa; }
-    @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:24px}}
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:48px 0 0; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:40px; padding-bottom:36px; }
+    .fbrand .nav-brand { font-size:1.2rem; }
+    .fbrand p { font-size:.85rem; color:#7f97b8; line-height:1.7; margin-top:14px; max-width:320px; }
+    .fcol h4 { font-size:.72rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:#c8daf5; margin-bottom:16px; }
+    .fcol a { display:block; font-size:.85rem; color:#7f97b8; margin-bottom:11px; transition:color .2s; }
+    .fcol a:hover { color:#00E272; }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:18px 0; display:flex; justify-content:space-between; align-items:center; font-size:.78rem; color:#6b88aa; }
+    @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:28px}}
     @media(max-width:600px){.footer-grid{grid-template-columns:1fr}.fbot{flex-direction:column;gap:6px;text-align:center}}
 
     /* PROFILE AVATAR & DROPDOWN */
@@ -542,11 +620,17 @@
     }
 
     @media(max-width:960px){
-      .checkout-layout { grid-template-columns:1fr; }
-      /* Stacked order is deliberate: coupon details, buyer information, the
-         coupon's terms, then the summary with the pay button last — the user
-         reads what they are buying before they are asked to pay for it. */
+      /* Single column. The left column wrapper collapses (display:contents) so
+         its two cards become direct flex items alongside the summary, letting
+         CSS order interleave them without touching the DOM: the buyer sees what
+         they are buying (Coupon Details), then the amount and pay button (Order
+         Summary), then the payer form — the required mobile reading order. */
+      .checkout-layout { display:flex; flex-direction:column; gap:20px; }
+      .checkout-col-left { display:contents; }
+      .co-coupon { order:1; }
       .summary-sticky { position:static; order:2; }
+      .co-payer { order:3; }
+      .co-coupon, .co-payer, .summary-sticky { min-width:0; margin-bottom:0; }
       .sum-total-val { font-size:2rem; }
     }
     @media(max-width:600px){
@@ -556,8 +640,13 @@
       .ps-label { display:none; }
       .ps-line { min-width:14px; }
       .success-meta { grid-template-columns:1fr; }
-      .co-card { padding:18px; }
-      .summary-card { padding:18px; }
+      .co-card { padding:20px; }
+      .summary-card { padding:20px; }
+      .ck-stat { padding:13px 11px; }
+      .ck-stat-val { font-size:1.08rem; }
+      .ck-stat-lbl { font-size:.6rem; letter-spacing:.06em; }
+      .trust-item { padding:10px 4px; }
+      .trust-txt { font-size:.6rem; }
       /* A coupon title can be long, and the discount line is nowrap so it reads
          as one figure on desktop. On a phone the row wraps and the title is
          allowed to break instead of forcing the card wider than the screen. */
@@ -630,8 +719,7 @@
   <div class="container">
     <!-- PAGE HEADER -->
     <div class="page-header fu in">
-      <div class="page-hero-badge" style="display:inline-flex;align-items:center;gap:8px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);color:#00e676;border-radius:9999px;font-size:.78rem;font-weight:700;padding:6px 16px;margin-bottom:16px">🔥 Buy &amp; Sell Coupons — All in One Place!</div>
-      <h1 class="ph-title">Review &amp; <span class="gtext">Pay</span></h1>
+      <h1 class="ph-title">Review &amp; <span class="ph-pay">Pay</span></h1>
       <p class="ph-sub">Review your coupon details and complete your payment securely.</p>
       <div class="progress-steps">
         <div class="ps-step">
@@ -654,11 +742,12 @@
     <!-- CHECKOUT LAYOUT -->
     <div class="checkout-layout">
 
-      <!-- LEFT: FORM COLUMN -->
-      <div>
+      <!-- LEFT: FORM COLUMN — collapses to display:contents on mobile so its
+           two cards can be reordered around the summary via CSS order. -->
+      <div class="checkout-col-left">
 
         <!-- COUPON DETAILS -->
-        <div class="co-card fu in">
+        <div class="co-card co-coupon fu in">
           <div class="co-card-hdr">
             <div class="co-card-ico">🏷️</div>
             <div>
@@ -709,29 +798,32 @@
 
           <div class="cc-divider"></div>
 
-          <dl class="ck-list">
-            <div class="ck-row">
-              <dt>Coupon Value</dt>
-              <dd class="green" id="csValue">—</dd>
+          <!-- Three-column pricing. csMinOrderItem is toggled by paintCoupon()
+               (display '' / 'none'); because the columns are flex:1 the row
+               rebalances gracefully when Minimum Order is hidden. -->
+          <div class="ck-stats">
+            <div class="ck-stat">
+              <span class="ck-stat-lbl">Coupon Value</span>
+              <span class="ck-stat-val green" id="csValue">—</span>
             </div>
-            <div class="ck-row">
-              <dt>Your Price</dt>
-              <dd id="csPrice">—</dd>
+            <div class="ck-stat">
+              <span class="ck-stat-lbl">Your Price</span>
+              <span class="ck-stat-val" id="csPrice">—</span>
             </div>
             <!-- Hidden by paintCoupon when the coupon has no minimum, so no
                  minimum is ever invented for it. -->
-            <div class="ck-row" id="csMinOrderItem">
-              <dt>Minimum Order</dt>
-              <dd id="csMinOrder">—</dd>
+            <div class="ck-stat" id="csMinOrderItem">
+              <span class="ck-stat-lbl">Minimum Order</span>
+              <span class="ck-stat-val" id="csMinOrder">—</span>
             </div>
-            <!-- "Applicable On" only appears when the coupon actually carries
-                 that data; otherwise it stays hidden rather than showing a
-                 placeholder. -->
-            <div class="ck-row" id="csApplicableItem" style="display:none">
-              <dt>Applicable On</dt>
-              <dd id="csApplicable">—</dd>
-            </div>
-          </dl>
+          </div>
+          <!-- "Applicable On" only appears when the coupon actually carries
+               that data; otherwise it stays hidden rather than showing a
+               placeholder. -->
+          <div class="ck-applicable" id="csApplicableItem" style="display:none">
+            <span class="ck-stat-lbl">Applicable On</span>
+            <span class="ck-app-val" id="csApplicable">—</span>
+          </div>
 
           <!-- Availability notice. Hidden while the coupon is buyable; blockPurchase()
                reveals it (expired / sold out) and also disables the pay button. This
@@ -739,18 +831,24 @@
           <div class="cc-status" id="csStatus" style="display:none"></div>
         </div>
 
-        <!-- BUYER DETAILS -->
-        <div class="co-card fu in d1">
+        <!-- PAYER DETAILS -->
+        <div class="co-card co-payer fu in d1">
           <div class="co-card-hdr">
             <div class="co-card-ico">👤</div>
             <div>
-              <div class="co-card-ttl">Buyer Information</div>
+              <div class="co-card-ttl">Payer Information</div>
             </div>
           </div>
 
           <div class="fgroup">
-            <label class="flabel" for="buyerName">Full Name <span class="req">*</span></label>
-            <input type="text" class="finput" id="buyerName" value="" placeholder="Your full name">
+            <label class="flabel" for="buyerName">Payer Name <span class="req">*</span></label>
+            <input type="text" class="finput" id="buyerName" value="" placeholder="Enter the name of the person making the payment">
+            <!-- Revealed while #buyerName is focused by the self-contained
+                 script before </body>; subtle amber note, not a red error. -->
+            <div class="pn-warn" id="payerNameWarn" role="note">
+              <span class="pn-warn-ico" aria-hidden="true">⚠️</span>
+              <span>Please enter the name of the person making the payment correctly. Incorrect payer information may cause delays in payment verification, order updates, or coupon delivery.</span>
+            </div>
           </div>
 
           <div class="finput-group">
@@ -815,7 +913,11 @@
             <span id="payBtnText">🔒 Pay Securely</span>
           </button>
 
-          <div class="pay-secure-note">🔒 Secure UPI payment</div>
+          <div class="trust-row">
+            <div class="trust-item"><span class="trust-ico">🔒</span><span class="trust-txt">Secure UPI Payment</span></div>
+            <div class="trust-item"><span class="trust-ico">✓</span><span class="trust-txt">Verified Coupon</span></div>
+            <div class="trust-item"><span class="trust-ico">⚡</span><span class="trust-txt">Instant Delivery</span></div>
+          </div>
         </div>
       </div>
 
@@ -998,82 +1100,56 @@
 
 <!-- SUCCESS OVERLAY -->
 <div class="success-overlay" id="successOverlay">
-  <div class="success-box">
-    <!-- Close -->
-    <button class="succ-close" onclick="closeSuccess()" aria-label="Close">
-      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  <div class="success-box ps-card" aria-labelledby="payment-title">
+    <!-- Close (also cancels the auto-redirect — see closeSuccess()) -->
+    <button class="ps-close" type="button" onclick="closeSuccess()" aria-label="Close payment confirmation">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" />
+      </svg>
     </button>
 
-    <!-- Animated success check + ripples + confetti (reference design) -->
-    <div class="succ-anim">
-      <div class="succ-ripple-3"></div>
-      <div class="succ-ripple-2"></div>
-      <div class="succ-ripple"></div>
-      <div class="succ-check">
-        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
-      </div>
-      <span class="succ-confetti scf1"></span>
-      <span class="succ-confetti scf2"></span>
-      <span class="succ-confetti scf3"></span>
-      <span class="succ-confetti scf4"></span>
-      <span class="succ-confetti scf5"></span>
-      <span class="succ-confetti scf6"></span>
-      <span class="succ-confetti scf7"></span>
-      <span class="succ-confetti scf8"></span>
-      <span class="succ-confetti scf9"></span>
+    <div class="ps-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64">
+        <path d="M13 33.5 26.5 47 52 19.5" fill="none" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
     </div>
 
-    <h2 class="succ-title">Payment <span>Successful!</span></h2>
-    <p class="succ-subtitle">Your payment has been received.</p>
+    <h2 class="ps-title" id="payment-title">Payment <span>Successful!</span></h2>
+    <p class="ps-subtitle">Your payment has been received.</p>
 
-    <!-- Amount / Coupon Code / Order ID -->
-    <div class="succ-details">
-      <div class="succ-row">
-        <span class="succ-label">Amount Paid</span>
-        <span class="succ-value large" id="succAmount">—</span>
+    <!-- Amount / Order ID / Transaction ID / Date & Time.
+         IDs (succAmount, succOrderId, succTxnId) are populated with real,
+         server-owned values by showServerConfirmedSuccess(); never truncated. -->
+    <dl class="ps-details">
+      <div class="ps-detail">
+        <dt>Amount Paid</dt>
+        <dd id="succAmount">—</dd>
       </div>
-      <div class="succ-divider"></div>
-      <div class="succ-row">
-        <span class="succ-label">Coupon Code</span>
-        <span class="succ-code-wrap">
-          <!-- id kept as revealedCode so the verified-payment handler and the
-               Copy button keep working unchanged. Never populated before a
-               verified payment. -->
-          <span class="succ-code" id="revealedCode">••••••••</span>
-          <button class="succ-copy" onclick="copyCode()" aria-label="Copy coupon code">
-            <span id="copyIcon">📋</span> <span id="copyText">Copy</span>
-          </button>
-        </span>
+      <div class="ps-detail">
+        <dt>Order ID</dt>
+        <dd id="succOrderId">—</dd>
       </div>
-      <div class="succ-divider"></div>
-      <div class="succ-row">
-        <span class="succ-label">Order ID</span>
-        <span class="succ-value succ-mono" id="succOrderId">—</span>
+      <div class="ps-detail">
+        <dt>Transaction ID</dt>
+        <dd id="succTxnId">—</dd>
       </div>
-      <div class="succ-divider"></div>
-      <div class="succ-row">
-        <span class="succ-label">Transaction ID</span>
-        <span class="succ-value succ-mono" id="succTxnId">—</span>
+      <div class="ps-detail">
+        <dt>Date &amp; Time</dt>
+        <dd id="succDateTime">—</dd>
       </div>
-      <div class="succ-divider"></div>
-    </div>
+    </dl>
 
-    <p class="succ-emailnote">📧 A confirmation email has been sent to <strong id="confirmEmail">your email</strong></p>
+    <p class="ps-redirect" aria-live="polite">
+      Redirecting in <span class="ps-accent" id="succCountdown">3</span> seconds...
+    </p>
 
-    <div class="success-actions">
-      <a href="marketplace" class="btn btn-primary">🏷️ Browse More Coupons</a>
-      <a href="dashboard" class="btn btn-ghost">📊 My Orders</a>
-    </div>
-
-    <!-- Footer -->
-    <div class="succ-foot">
-      <div class="succ-foot-line"></div>
-      <div class="succ-foot-content">
-        <span class="succ-shield"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
-        Secured by <span class="succ-foot-brand">SaveHatke</span>
-      </div>
-      <div class="succ-foot-line"></div>
-    </div>
+    <p class="ps-secured">
+      <svg class="ps-shield" viewBox="0 0 28 32" aria-hidden="true">
+        <path d="M14 1 26 5.5v8.7c0 7.7-4.7 13.3-12 16.8C6.7 27.5 2 21.9 2 14.2V5.5L14 1Z" fill="#00eb98" />
+        <path d="m8 15.5 4 4 8-9" fill="none" stroke="#063126" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+      </svg>
+      <span>Secured by <strong>SaveHatke</strong></span>
+    </p>
   </div>
 </div>
 
@@ -2065,6 +2141,15 @@
     }
     const txnEl = upiEl('succTxnId');
     if (txnEl) txnEl.textContent = (data && data.transaction_id) || upiState.transactionId || '—';
+    // Date & Time of this successful payment, formatted for the receipt design
+    // (en-IN, e.g. "27 Sep 2026, 6:59 PM"). The success screen renders the moment
+    // the server confirms the payment, so "now" is the verified-payment time.
+    const dtEl = upiEl('succDateTime');
+    if (dtEl) {
+      dtEl.textContent = new Intl.DateTimeFormat('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+      }).format(new Date());
+    }
     const email = document.getElementById('buyerEmail');
     const confirm = upiEl('confirmEmail');
     if (confirm) confirm.textContent = (email && email.value) || 'your email';
@@ -2357,15 +2442,44 @@
     await startUpiPayment();
   }
 
+  // Auto-redirect for the success screen. After the countdown the buyer lands on
+  // My Orders (dashboard), where the purchased coupon code lives — so dropping the
+  // on-screen code reveal does not strand them.
+  let successRedirectTimer = null;
+  const SUCCESS_REDIRECT_SECONDS = 3;
+  const SUCCESS_REDIRECT_URL = 'dashboard';
+
   function showSuccessScreen() {
     document.getElementById('successOverlay').classList.add('show');
     document.body.style.overflow = 'hidden';
-    launchConfetti();
+    startSuccessRedirect();
   }
 
-  // Close the success overlay (reference design × button). The code is already
-  // in the buyer's hands (shown + copyable) and also emailed / in My Orders.
+  // Count down on screen, then send the buyer to My Orders. Clears any earlier
+  // timer first so a reopened overlay / retry can never run two countdowns at once.
+  function startSuccessRedirect() {
+    clearSuccessRedirect();
+    let seconds = SUCCESS_REDIRECT_SECONDS;
+    const cdEl = upiEl('succCountdown');
+    if (cdEl) cdEl.textContent = String(seconds);
+    successRedirectTimer = setInterval(function () {
+      seconds -= 1;
+      if (cdEl) cdEl.textContent = String(Math.max(seconds, 0));
+      if (seconds <= 0) {
+        clearSuccessRedirect();
+        window.location.href = SUCCESS_REDIRECT_URL;
+      }
+    }, 1000);
+  }
+
+  function clearSuccessRedirect() {
+    if (successRedirectTimer) { clearInterval(successRedirectTimer); successRedirectTimer = null; }
+  }
+
+  // Close the success overlay (× button). Closing is an explicit "stay" signal,
+  // so it also cancels the pending auto-redirect to My Orders.
   function closeSuccess() {
+    clearSuccessRedirect();
     const ov = document.getElementById('successOverlay');
     if (ov) ov.classList.remove('show');
     document.body.style.overflow = '';
@@ -2613,5 +2727,16 @@
   }
 </script>
 <script src="js/chatbot.js"></script>
+<!-- Payer Name warning toggle — self-contained, independent of the payment
+     script. Shows the amber note while #buyerName is focused, hides on blur. -->
+<script>
+  (function () {
+    var input = document.getElementById('buyerName');
+    var warn = document.getElementById('payerNameWarn');
+    if (!input || !warn) return;
+    input.addEventListener('focus', function () { warn.classList.add('show'); });
+    input.addEventListener('blur', function () { warn.classList.remove('show'); });
+  })();
+</script>
 </body>
 </html>
