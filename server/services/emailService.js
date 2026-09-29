@@ -331,9 +331,7 @@ Go to SaveHatke: ${siteUrl}
 If you did not create this account, please contact SaveHatke Support immediately.
 
 Regards,
-SaveHatke Team
-
-You're receiving this email because a SaveHatke account was created using this email address.`;
+SaveHatke Team`;
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -489,11 +487,6 @@ You're receiving this email because a SaveHatke account was created using this e
                   Regards,<br />
                   SaveHatke Team
                 </p>
-
-                <p class="footer">
-                  You&rsquo;re receiving this email because a SaveHatke account was
-                  created using this email address.
-                </p>
               </td>
             </tr>
           </table>
@@ -617,12 +610,6 @@ async function sendOTPEmail(to, otp, opts = {}) {
               </td>
             </tr>
 
-            <!-- Footer -->
-            <tr>
-              <td style="padding:20px 40px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center;">
-                <p style="margin:0;font-size:0.75rem;color:#6b7280;">© ${year} SaveHatke — India's Smartest Price Tracker &amp; Coupon Marketplace.</p>
-              </td>
-            </tr>
           </table>
         </td>
       </tr>
@@ -801,11 +788,7 @@ If you did not submit this request, please contact us immediately.
 
 Regards,
 
-**SaveHatke Support Team**
-
-© ${year} SaveHatke. All rights reserved.
-
-This email was sent to ${cleanEmail} because you submitted a support request to SaveHatke. You may receive emails related to this support request, including case updates and responses from our support team.`;
+**SaveHatke Support Team**`;
 
   const logoUrl = `https://savehatke.vercel.app/logo.png`;
 
@@ -920,14 +903,6 @@ This email was sent to ${cleanEmail} because you submitted a support request to 
                 <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;">Regards,<br><strong style="color:#0f1e3a;font-weight:700;">SaveHatke Support Team</strong></p>
               </div>
 
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td align="center" style="padding:26px 0 0;">
-              <p style="font-size:0.78rem;color:#6b7280;margin:0 0 12px;">&copy; ${year} SaveHatke. All rights reserved.</p>
-              <p style="font-size:0.72rem;color:#9ca3af;margin:0;line-height:1.6;font-weight:400;">This email was sent to ${cleanEmail} because you submitted a support request to SaveHatke. You may receive emails related to this support request, including case updates and responses from our support team.</p>
             </td>
           </tr>
 
@@ -1096,9 +1071,7 @@ View Case Details: ${viewUrl}
 Thank you for contacting SaveHatke Support.
 
 Regards,
-SaveHatke Support Team
-
-© ${year} SaveHatke. All rights reserved.`;
+SaveHatke Support Team`;
 
   const htmlContent = `
   <!DOCTYPE html>
@@ -1361,11 +1334,6 @@ SaveHatke Support Team
 
       </div>
 
-      <!-- Footer -->
-      <div class="email-footer">
-        <div class="footer-copy">© ${year} SaveHatke. All rights reserved.</div>
-      </div>
-
     </div>
 
   </div>
@@ -1563,10 +1531,7 @@ This alert is triggered when we detect a sign-in from a device, browser, or oper
 If you believe someone else accessed your account, please contact SaveHatke Support${supportFrom ? ` (${supportFrom})` : ''} as soon as possible.
 
 Regards,
-SaveHatke Team
-
-Manage your notification settings: ${notifUrl}
-You are receiving this email because a new sign-in was detected on your SaveHatke account.`;
+SaveHatke Team`;
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -1707,14 +1672,6 @@ You are receiving this email because a new sign-in was detected on your SaveHatk
         Regards,<br />
         SaveHatke Team
       </p>
-
-      <footer class="footer">
-        <p><a href="${notifUrl}">Manage your notification settings</a></p>
-        <p>
-          You are receiving this email because a new sign-in was detected on
-          your SaveHatke account.
-        </p>
-      </footer>
     </main>
   </body>
 </html>`;
@@ -1870,9 +1827,7 @@ ${secureUrl}
 ${supportFrom ? `\nContact SaveHatke Support (${supportFrom}) if you need help.` : ''}
 
 Regards,
-Team SaveHatke
-
-© ${year} SaveHatke. All rights reserved.`;
+Team SaveHatke`;
 
   const safe = {
     heading: escapeHtml(copy.heading),
@@ -1917,10 +1872,6 @@ ${lowCodes === null ? '' : `
             If you did not make this change, someone may have access to your account. Review your account security straight away.
           </p>
           <a href="${secureUrl}" style="display:inline-block;background:#00c853;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:10px">Review account security</a>
-        </td></tr>
-        <tr><td style="padding:18px 28px;background:#f7fafd;border-top:1px solid #e3eaf4;font-size:11.5px;line-height:1.6;color:#7d93ad">
-          ${supportFrom ? `Need help? Contact <a href="mailto:${escapeHtml(supportFrom)}" style="color:#0f8f47">${escapeHtml(supportFrom)}</a>.<br>` : ''}
-          &copy; ${year} SaveHatke. All rights reserved.
         </td></tr>
       </table>
     </td></tr>
@@ -2090,11 +2041,6 @@ If you did not authorize this activity, immediately review the security logs and
               </div>
             </td>
           </tr>
-          <tr>
-            <td align="center" style="padding:18px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
-              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">This is an automated security notification sent to every SaveHatke administrator. It contains no credentials.</p>
-            </td>
-          </tr>
         </table>
       </td></tr>
     </table>
@@ -2207,11 +2153,6 @@ async function sendMonthlyReportEmail(p, opts = {}) {
           <tr>
             <td style="padding:14px 32px 24px;">
               <p style="margin:0;font-size:0.8rem;color:#6b7280;line-height:1.6;">The same figures are attached as <strong>${escapeHtml(p.pdf && p.pdf.filename ? p.pdf.filename : 'report.pdf')}</strong>. Delivery status for both admin addresses is shown in Reports → Monthly Reports.</p>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
-              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">Automated monthly report from the SaveHatke admin panel. No credentials or buyer details are included.</p>
             </td>
           </tr>
         </table>
@@ -2342,11 +2283,6 @@ ${reviewUrl}`;
             <td style="padding:8px 32px 26px;">
               <p style="margin:0 0 16px;font-size:0.88rem;color:#374151;line-height:1.65;">Please open the Admin Panel \u2192 Coupon Submissions to review the submission.</p>
               <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;background:#00a152;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Coupon Submissions</a>
-            </td>
-          </tr>
-          <tr>
-            <td align="center" style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
-              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">Automated notification for SaveHatke administrators. No coupon codes are included in this email.</p>
             </td>
           </tr>
         </table>
@@ -2500,7 +2436,7 @@ Status: Pending Payment
           </tr>
           <tr>
             <td align="center" style="padding:16px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;">
-              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">\u2014 SaveHatke<br>Automated notification for SaveHatke administrators. No payment credentials are included in this email.</p>
+              <p style="margin:0;font-size:0.72rem;color:#9ca3af;line-height:1.6;">\u2014 SaveHatke</p>
             </td>
           </tr>
         </table>
@@ -2826,11 +2762,7 @@ View your order: ${siteUrl}/dashboard
 Thank you for choosing SaveHatke.
 
 Regards,
-SaveHatke
-
-You’re receiving this email because a payment was successfully received for a purchase made through your SaveHatke account.
-
-© ${year} SaveHatke. All rights reserved.`;
+SaveHatke`;
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="en" style="margin:0;padding:0;">
@@ -2946,16 +2878,6 @@ You’re receiving this email because a payment was successfully received for a 
               <span class="sh-secondary" style="font-weight:400;color:#64748B;">Regards,</span><br />
               <span class="sh-primary" style="font-weight:700;color:#111827;">SaveHatke</span>
             </td>
-          </tr>
-
-          <!-- FOOTER MESSAGE -->
-          <tr>
-            <td class="sh-pad sh-muted" align="center" style="padding:30px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;font-weight:400;color:#64748B;">You&rsquo;re receiving this email because a payment was successfully received for a purchase made through your SaveHatke account.</td>
-          </tr>
-
-          <!-- COPYRIGHT -->
-          <tr>
-            <td class="sh-pad sh-muted" align="center" style="padding:14px 40px 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;font-weight:400;color:#64748B;">&copy; ${year} SaveHatke. All rights reserved.</td>
           </tr>
 
         </table>
@@ -3126,11 +3048,7 @@ View your coupon: ${ctaUrl}
 Thank you for choosing SaveHatke.
 
 Regards,
-SaveHatke Team
-
-You're receiving this email because a coupon was purchased through your SaveHatke account.
-
-© ${year} SaveHatke. All rights reserved.`;
+SaveHatke Team`;
 
   const htmlContent = `<!doctype html>
 <html lang="en">
@@ -3273,11 +3191,6 @@ You're receiving this email because a coupon was purchased through your SaveHatk
       <p>
         Regards,<br />
         SaveHatke Team
-      </p>
-
-      <p class="footer">
-        You're receiving this email because a coupon was purchased through
-        your SaveHatke account.
       </p>
     </div>
   </body>
