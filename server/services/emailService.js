@@ -577,7 +577,7 @@ async function sendOTPEmail(to, otp, opts = {}) {
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:22px;">
             <tr>
               <td style="text-align:center;">
-                <span style="font-size:1.3rem;font-weight:800;color:#0f1e3a;">💰 Save<span style="color:#00c853;">Hatke</span></span>
+                <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" style="display:inline-block;vertical-align:middle;width:34px;height:34px;object-fit:contain;border:0;margin-right:9px;" /><span style="vertical-align:middle;font-size:1.3rem;font-weight:800;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
               </td>
             </tr>
           </table>
@@ -1289,7 +1289,7 @@ SaveHatke Support Team`;
     <!-- Brand Header -->
     <div class="email-header">
       <a href="${siteUrl}/index.html" class="brand-link">
-        <div class="brand-icon">💰</div>
+        <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="width:38px;height:38px;object-fit:contain;border:0;vertical-align:middle;" />
         <span>Save<span class="bhl">Hatke</span></span>
       </a>
     </div>
@@ -1849,9 +1849,9 @@ Team SaveHatke`;
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7fb;padding:28px 12px">
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e3eaf4;border-radius:16px;overflow:hidden">
-        <tr><td style="background:#0a1024;padding:22px 28px">
-          <span style="font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-.3px">Save<span style="color:#00e676">Hatke</span></span>
-          <span style="display:block;margin-top:4px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8ea6c4">Security notification</span>
+        <tr><td align="center" style="background:#0a1024;padding:22px 28px;text-align:center">
+          <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" style="display:inline-block;vertical-align:middle;width:34px;height:34px;object-fit:contain;border:0;margin-right:9px;" /><span style="vertical-align:middle;font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-.3px">Save<span style="color:#00e676">Hatke</span></span>
+          <span style="display:block;margin-top:6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8ea6c4">Security notification</span>
         </td></tr>
         <tr><td style="padding:28px">
           <h1 style="margin:0 0 12px;font-size:19px;font-weight:700;color:#0f1e3a">${safe.heading}</h1>
@@ -2019,6 +2019,11 @@ If you did not authorize this activity, immediately review the security logs and
       <tr><td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
           <tr>
+            <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
+              <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+            </td>
+          </tr>
+          <tr>
             <td style="padding:22px 32px;background:linear-gradient(135deg,#7f1d1d,#b91c1c);">
               <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#fecaca;font-weight:700;">SaveHatke Security</p>
               <h1 style="margin:6px 0 0;font-size:1.24rem;color:#ffffff;font-weight:800;">🚨 SOS Backup Access Detected</h1>
@@ -2133,6 +2138,11 @@ async function sendMonthlyReportEmail(p, opts = {}) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:26px 12px;">
       <tr><td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08);">
+          <tr>
+            <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
+              <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+            </td>
+          </tr>
           <tr>
             <td style="padding:22px 32px;background:linear-gradient(135deg,#065f46,#00b25a);">
               <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#bbf7d0;font-weight:700;">SaveHatke Admin</p>
@@ -2267,6 +2277,11 @@ ${reviewUrl}`;
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
       <tr><td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
+          <tr>
+            <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
+              <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+            </td>
+          </tr>
           <tr>
             <td style="padding:22px 32px;background:linear-gradient(135deg,#065f46,#00a152);">
               <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#a7f3d0;font-weight:700;">SaveHatke Admin</p>
@@ -2408,6 +2423,11 @@ Status: Pending Payment
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
       <tr><td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
+          <tr>
+            <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
+              <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+            </td>
+          </tr>
           <tr>
             <td style="padding:22px 32px;background:linear-gradient(135deg,#065f46,#00a152);">
               <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#a7f3d0;font-weight:700;">SaveHatke Admin</p>
