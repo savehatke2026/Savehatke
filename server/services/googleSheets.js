@@ -76,6 +76,8 @@ const HEADERS = {
     // Appended by ensureSheets() on sheets created before it existed, so an
     // older row simply reads back as "nothing seen yet".
     'onboarding_state',
+    // Preferred display name chosen by the user during first-login onboarding.
+    'preferred_name',
   ],
   [SHEETS.COUPONS]: [
     'id',

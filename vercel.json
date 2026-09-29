@@ -53,7 +53,7 @@
       "dest": "/api/index.js"
     },
     {
-      "src": "/(dashboard|profile|account|marketplace|buy|sell|my-coupons|purchased|checkout|payment|orders|settings|wallet|payouts|notifications|security)(\\.html)?",
+      "src": "/(dashboard|profile|account|marketplace|buy|sell|my-coupons|purchased|checkout|payment|orders|settings|wallet|payouts|notifications|security|onboarding)(\\.html)?",
       "dest": "/api/index.js"
     },
     {

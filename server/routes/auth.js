@@ -843,7 +843,8 @@ router.get('/google-redirect', (req, res) => {
                 localStorage.setItem('sh_admin_user', JSON.stringify(data.user));
                 window.location.replace('/vault');
               } else {
-                window.location.replace('/index');
+                const target = (data.user && data.user.needs_name_setup) ? '/onboarding.html' : '/dashboard.html';
+                window.location.replace(data.redirectTo || target);
               }
               return;
             }
@@ -947,6 +948,7 @@ router.post('/google-redirect', async (req, res) => {
 
     // Save/Find user in Google Sheets (Users tab) asynchronously
     const now = new Date().toISOString();
+    let isNewUser = false;
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
       // Paranoid pre-create scan — see the email login path for rationale.
@@ -963,12 +965,14 @@ router.post('/google-redirect', async (req, res) => {
           ...googlePictureFields(userPicture),
         }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
       } else {
+        isNewUser = true;
         const userId = uuidv4();
         sheetUser = {
           user_ID: userId,
           user_id: userId,
           id: userId,
           name: userName,
+          preferred_name: '',
           username: userEmail.split('@')[0],
           email: userEmail,
           status: 'active',
@@ -997,12 +1001,16 @@ router.post('/google-redirect', async (req, res) => {
     });
     if (gate.required) return res.json(gate.body);
 
+    const hasPreferredName = Boolean(sheetUser.preferred_name && String(sheetUser.preferred_name).trim());
+    const needsNameSetup = isNewUser || !hasPreferredName;
+    const targetUrl = needsNameSetup ? '/onboarding.html' : '/dashboard.html';
+
     // Server-side 48h session
-    const session = await createLoginSession(req, userId, 'Google', userEmail, sheetUser.name || userName, res).catch(() => null);
+    const session = await createLoginSession(req, userId, 'Google', userEmail, sheetUser.preferred_name || sheetUser.name || userName, res).catch(() => null);
     const token = issueLoginToken({
       id: userId,
       email: userEmail,
-      name: sheetUser.name || userName,
+      name: sheetUser.preferred_name || sheetUser.name || userName,
       role: 'user',
     }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
@@ -1010,7 +1018,10 @@ router.post('/google-redirect', async (req, res) => {
     const regularUser = {
       id: userId,
       email: userEmail,
-      name: sheetUser.name || userName,
+      name: sheetUser.preferred_name || sheetUser.name || userName,
+      preferred_name: sheetUser.preferred_name || '',
+      google_name: userName || '',
+      needs_name_setup: needsNameSetup,
       username: sheetUser.username || userEmail.split('@')[0],
       picture: userPicture || '',
       role: 'user',
@@ -1021,7 +1032,7 @@ router.post('/google-redirect', async (req, res) => {
         localStorage.setItem('sh_token', ${JSON.stringify(token)});
         localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(regularUser)}));
       } catch(e) {}
-      window.location.replace('/index');
+      window.location.replace(${JSON.stringify(targetUrl)});
     `);
   } catch (err) {
     console.error('Google redirect handler error:', err);
@@ -1115,6 +1126,7 @@ router.post('/google', async (req, res) => {
 
     // Save/Find user in Google Sheets (Users tab) asynchronously
     const now = new Date().toISOString();
+    let isNewUser = false;
     let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
     if (!sheetUser) {
       // Paranoid pre-create scan — see the email login path for rationale.
@@ -1131,12 +1143,14 @@ router.post('/google', async (req, res) => {
           ...googlePictureFields(userPicture),
         }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
       } else {
+        isNewUser = true;
         const userId = uuidv4();
         sheetUser = {
           user_ID: userId,
           user_id: userId,
           id: userId,
           name: userName,
+          preferred_name: '',
           username: userEmail.split('@')[0],
           email: userEmail,
           status: 'active',
@@ -1163,12 +1177,16 @@ router.post('/google', async (req, res) => {
     });
     if (gate.required) return res.json(gate.body);
 
+    const hasPreferredName = Boolean(sheetUser.preferred_name && String(sheetUser.preferred_name).trim());
+    const needsNameSetup = isNewUser || !hasPreferredName;
+    const targetUrl = needsNameSetup ? '/onboarding.html' : '/dashboard.html';
+
     // Server-side 48h session
-    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail, sheetUser.name || userName, res).catch(() => null);
+    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail, sheetUser.preferred_name || sheetUser.name || userName, res).catch(() => null);
     const token = issueLoginToken({
       id: sheetUser.user_id || sheetUser.id,
       email: userEmail,
-      name: sheetUser.name || userName,
+      name: sheetUser.preferred_name || sheetUser.name || userName,
       role: 'user',
     }, session);
     if (session) setSessionCookie(res, session.token, session.ttlMs);
@@ -1178,11 +1196,15 @@ router.post('/google', async (req, res) => {
       token,
       session_id: session ? session.sessionId : undefined,
       session_expires_at: session ? session.expiresAt : undefined,
+      redirectTo: targetUrl,
       user: {
         id: sheetUser.user_id || sheetUser.id,
         user_id: sheetUser.user_id || sheetUser.id,
         email: userEmail,
-        name: sheetUser.name || userName,
+        name: sheetUser.preferred_name || sheetUser.name || userName,
+        preferred_name: sheetUser.preferred_name || '',
+        google_name: userName || '',
+        needs_name_setup: needsNameSetup,
         username: sheetUser.username || userEmail.split('@')[0],
         picture: userPicture,
         status: sheetUser.status || 'active',
@@ -1620,9 +1642,17 @@ router.get('/me', authenticateToken, async (req, res) => {
       if (!row && req.user.email) {
         row = await db.findRow(db.SHEETS.USERS, 'email', String(req.user.email).toLowerCase().trim());
       }
+      let preferredName = '';
+      let displayName = req.user.name;
       if (row) {
         status = String(row.status || 'active').toLowerCase();
         if (status !== 'active') suspendReason = String(row.suspend_reason || '');
+        if (row.preferred_name && String(row.preferred_name).trim()) {
+          preferredName = String(row.preferred_name).trim();
+          displayName = preferredName;
+        } else if (row.name) {
+          displayName = String(row.name).trim();
+        }
       }
     } catch (e) {
       // Sheet unreachable — fall back to 'active' rather than locking the user
@@ -1634,7 +1664,8 @@ router.get('/me', authenticateToken, async (req, res) => {
       user: {
         id: req.user.id,
         email: req.user.email,
-        name: req.user.name,
+        name: displayName,
+        preferred_name: preferredName,
         role: req.user.role,
         status,
         ...(suspendReason ? { suspendReason } : {}),
@@ -1760,6 +1791,7 @@ router.put('/notification-preferences', authenticateToken, async (req, res) => {
 const ONBOARDING_DEFAULTS = Object.freeze({
   marketplaceTutorialCompleted: false,
   marketplaceTutorialSkipped: false,
+  nameSetupCompleted: false,
 });
 
 function parseOnboardingState(raw) {
@@ -1831,6 +1863,86 @@ router.put('/onboarding', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Unable to save your onboarding state.' });
   }
 });
+
+// ── First-login onboarding: Save preferred display name ────────────────────
+async function handleUpdatePreferredName(req, res) {
+  try {
+    const rawName = req.body.preferred_name !== undefined
+      ? req.body.preferred_name
+      : (req.body.name !== undefined ? req.body.name : '');
+
+    // Trim leading/trailing spaces automatically
+    const trimmedName = String(rawName || '').trim();
+
+    // Validation 1: Name cannot be empty
+    if (!trimmedName) {
+      return res.status(400).json({ error: 'Name cannot be empty.' });
+    }
+
+    // Validation 2: Prevent excessively long names
+    if (trimmedName.length > 50) {
+      return res.status(400).json({ error: 'Name is too long. Please keep it under 50 characters.' });
+    }
+
+    // Find user record in Google Sheets
+    const row = await findUserRowForRequest(req.user);
+    if (!row) {
+      return res.status(404).json({ error: 'User account not found.' });
+    }
+
+    const idField = row.user_ID !== undefined ? 'user_ID' : (row.user_id !== undefined ? 'user_id' : 'email');
+    const idValue = idField === 'email' ? String(row.email || '').toLowerCase().trim() : row[idField];
+
+    // Mark onboarding state completed for name setup
+    const onboarding = parseOnboardingState(row.onboarding_state);
+    onboarding.nameSetupCompleted = true;
+
+    const now = new Date().toISOString();
+
+    // Save preferred name & update name in Google Sheets
+    await db.updateRow(db.SHEETS.USERS, idField, idValue, {
+      name: trimmedName,
+      preferred_name: trimmedName,
+      onboarding_state: JSON.stringify(onboarding),
+      updated_at: now,
+    });
+
+    // Sync preferred name to Supabase if configured
+    if (supabase.isConfigured() && req.user.id) {
+      try {
+        await supabase.updateUser(req.user.id, {
+          name: trimmedName,
+        });
+      } catch (spErr) {
+        console.warn('Supabase name update notice:', spErr.message);
+      }
+    }
+
+    // Return updated user profile
+    const updatedUser = {
+      id: req.user.id,
+      email: req.user.email,
+      name: trimmedName,
+      preferred_name: trimmedName,
+      needs_name_setup: false,
+      role: req.user.role || 'user',
+    };
+
+    res.json({
+      success: true,
+      message: 'Preferred name saved successfully!',
+      user: updatedUser,
+      redirectTo: '/dashboard.html',
+    });
+  } catch (err) {
+    console.error('Preferred name update failed:', err);
+    res.status(500).json({ error: 'Failed to save preferred name. Please try again.' });
+  }
+}
+
+router.put('/preferred-name', authenticateToken, handleUpdatePreferredName);
+router.post('/preferred-name', authenticateToken, handleUpdatePreferredName);
+router.put('/profile', authenticateToken, handleUpdatePreferredName);
 
 module.exports = router;
 

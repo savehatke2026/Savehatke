@@ -205,6 +205,7 @@ const PROTECTED_USER_PAGES = new Set([
   '/payouts', '/payouts.html',
   '/notifications', '/notifications.html',
   '/security', '/security.html',
+  '/onboarding', '/onboarding.html',
 ]);
 
 // Navbar / footer destinations that are public pages. terms.html,
