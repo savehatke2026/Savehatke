@@ -2760,10 +2760,12 @@ async function sendPaymentSuccessEmail({
     }
   }
 
-  // The website serves logo.png at the web root (express.static → public/), so
-  // the email header can reference the exact same brand image the site uses.
+  // siteUrl still powers the CTA link below (SITE_URL env, default savehatke.com).
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
-  const logoUrl = `${siteUrl}/logo.png`;
+  // Brand logo: pinned to the deployed public HTTPS asset so it renders reliably
+  // in Gmail and every other client regardless of the SITE_URL / custom-domain
+  // setup (the same absolute URL the new-device sign-in alert email already uses).
+  const logoUrl = `https://savehatke.vercel.app/logo.png`;
   const year = new Date().getFullYear();
   // Transactional subject — plain, no promo/urgency words. Includes the Order ID.
   const subject = orderCode ? `Payment successful — ${orderCode}` : 'Payment successful';
@@ -2810,9 +2812,9 @@ async function sendPaymentSuccessEmail({
 
 Hello ${displayName},
 
-Your payment has been successfully received.
+Your payment has been successfully received. Here are your transaction details for your records.
 
-Transaction details
+Transaction Details
 Order ID: ${orderCode || '—'}
 Transaction ID: ${txnRef}
 Amount Paid: ${amountStr}
@@ -2821,302 +2823,145 @@ Date & Time: ${paidWhen}
 
 View your order: ${siteUrl}/dashboard
 
-This is an automated payment confirmation from SaveHatke.
+Thank you for choosing SaveHatke.
+
+Regards,
+SaveHatke
+
+You’re receiving this email because a payment was successfully received for a purchase made through your SaveHatke account.
 
 © ${year} SaveHatke. All rights reserved.`;
 
   const htmlContent = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" style="margin:0;padding:0;">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- WHITE / LIGHT THEME ONLY. Signal light-only so dark-mode clients do not
-       auto-invert this receipt. No dark variant is provided or supported. -->
-  <meta name="color-scheme" content="light" />
-  <meta name="supported-color-schemes" content="light" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!-- Intentional LIGHT + DARK support. Both palettes are defined explicitly so
+       dark-mode clients render a DESIGNED dark version instead of auto-inverting
+       the receipt. The meta hints plus the prefers-color-scheme block below keep
+       the design coherent; Gmail may still nudge colors, but nothing inverts. -->
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>Payment Confirmation – SaveHatke</title>
   <style>
-    /* ── Web font: Inter (only the weights this email uses: 400 / 600 / 700) ── */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    /* Minimal, email-safe resets */
+    body { margin:0 !important; padding:0 !important; width:100% !important; }
+    table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
+    img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
+    a { text-decoration:none; }
+    a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; }
 
-    /* ── Reset ── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      background-color: #FFFFFF;
-      font-family: 'Inter', Arial, Helvetica, sans-serif;
-      color: #111827;
-      color-scheme: light;
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 32px 16px;
+    /* ── DARK MODE: explicitly designed, NOT an auto-invert. Only colors change;
+       spacing and layout stay identical to light mode. ── */
+    @media (prefers-color-scheme: dark) {
+      body, .sh-bg, .sh-body { background:#111111 !important; }
+      .sh-primary   { color:#FFFFFF !important; }
+      .sh-secondary { color:#A7B0C0 !important; }
+      .sh-muted     { color:#94A3B8 !important; }
+      .sh-green     { color:#00E272 !important; }
+      .sh-btn       { background:#00E272 !important; }
+      .sh-btn a     { color:#FFFFFF !important; }
     }
 
-    /* ── Email wrapper ── */
-    .email-wrapper { width: 100%; max-width: 560px; }
-
-    /* ── Card — pure white, clean (no heavy shadow / no glow) ── */
-    .email-card {
-      background: #FFFFFF;
-      border-radius: 16px;
-      overflow: hidden;
-      box-shadow: 0 1px 3px rgba(16, 24, 40, 0.06);
-    }
-
-    /* ── Header ── */
-    .email-header {
-      background: #FFFFFF;
-      border-bottom: 1px solid #E5E7EB;
-      padding: 28px 40px 24px;
-      text-align: center;
-    }
-
-    .logo-wrap {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      text-decoration: none;
-    }
-
-    /* SaveHatke "S" icon */
-    .logo-icon {
-      width: 42px;
-      height: 42px;
-      border-radius: 10px;
-      background: #00E272;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-    }
-
-    .logo-icon svg { width: 24px; height: 24px; fill: #ffffff; }
-
-    /* Website brand logo (logo.png) — replaces the placeholder icon box */
-    .logo-img { width: 42px; height: 42px; object-fit: contain; display: block; flex-shrink: 0; }
-
-    .logo-text {
-      font-size: 22px;
-      font-weight: 700;
-      color: #111827;
-      letter-spacing: -0.3px;
-    }
-
-    .logo-text span { color: #00E272; }
-
-    /* ── Success banner ── */
-    .success-banner {
-      background: #FFFFFF;
-      padding: 36px 40px 32px;
-      text-align: center;
-    }
-
-    .tick-circle {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      background: #00E272;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-    }
-
-    .tick-circle svg {
-      width: 32px;
-      height: 32px;
-      stroke: #ffffff;
-      stroke-width: 2.5;
-      fill: none;
-      stroke-linecap: round;
-      stroke-linejoin: round;
-    }
-
-    .success-title {
-      font-size: 28px;
-      font-weight: 700;
-      line-height: 34px;
-      color: #111827;
-      margin-bottom: 4px;
-    }
-
-    .success-sub {
-      font-size: 16px;
-      color: #667085;
-      font-weight: 400;
-      line-height: 24px;
-    }
-
-    /* ── Body ── */
-    .email-body { padding: 32px 40px; }
-
-    .greeting { font-size: 16px; font-weight: 600; line-height: 24px; color: #111827; margin-bottom: 6px; }
-    .greeting strong { color: #00E272; font-weight: 700; }
-
-    .intro {
-      font-size: 16px;
-      color: #111827;
-      font-weight: 400;
-      margin-bottom: 28px;
-      line-height: 25px;
-    }
-
-    /* ── Transaction details ──────────────────────────────────────────────
-       NO outer box / card / container. The rows sit directly on the pure-white
-       email background and are separated only by subtle #E5E7EB dividers. */
-    .details-card { margin-bottom: 28px; }
-
-    .details-header {
-      padding: 12px 0;
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 18px;
-      letter-spacing: 0.8px;
-      text-transform: uppercase;
-      color: #667085;
-      border-bottom: 1px solid #E5E7EB;
-    }
-
-    .detail-row {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 14px 0;
-      border-bottom: 1px solid #E5E7EB;
-    }
-
-    .detail-row:last-child { border-bottom: none; }
-
-    .detail-label { font-size: 15px; color: #667085; font-weight: 400; line-height: 22px; }
-
-    .detail-value {
-      font-size: 15px;
-      color: #111827;
-      font-weight: 600;
-      line-height: 22px;
-      font-family: 'Inter', Arial, Helvetica, sans-serif;
-    }
-
-    .detail-value.amount {
-      font-size: 18px;
-      color: #111827;
-      font-family: inherit;
-      font-weight: 700;
-      line-height: 24px;
-    }
-
-    /* ── Thank you block ── */
-    .thankyou {
-      font-size: 16px;
-      color: #111827;
-      font-weight: 400;
-      margin-bottom: 6px;
-      line-height: 24px;
-    }
-
-    .brand-name { font-weight: 700; color: #111827; }
-
-    /* ── Footer ── */
-    .email-footer {
-      background: #FFFFFF;
-      padding: 0 40px 32px;
-      text-align: left;
-    }
-
-    .regards { font-size: 15px; color: #667085; font-weight: 400; margin-bottom: 2px; }
-    .team-name { font-size: 15px; font-weight: 600; color: #111827; }
-    .footer-copy { margin-top: 24px; font-size: 11px; color: #667085; }
-
-    /* ── Responsive ── */
-    @media (max-width: 480px) {
-      .email-header,
-      .success-banner,
-      .email-body,
-      .email-footer { padding-left: 24px; padding-right: 24px; }
+    /* ── MOBILE ── */
+    @media only screen and (max-width:480px) {
+      .sh-container { width:100% !important; }
+      .sh-pad { padding-left:24px !important; padding-right:24px !important; }
+      .sh-title { font-size:26px !important; line-height:32px !important; }
     }
   </style>
-  </head>
-<body>
+</head>
+<body class="sh-body" bgcolor="#FFFFFF" style="margin:0;padding:0;background:#FFFFFF;">
+  <table role="presentation" class="sh-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background:#FFFFFF;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" class="sh-container" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:600px;">
 
-  <div class="email-wrapper">
-    <div class="email-card">
-
-      <!-- HEADER: SaveHatke logo + wordmark (same as the website) -->
-      <div class="email-header">
-        <div class="logo-wrap">
-          <img src="${logoUrl}" alt="SaveHatke" class="logo-img" width="42" height="42" />
-          <span class="logo-text">Save<span>Hatke</span></span>
-        </div>
-      </div>
-
-      <!-- SUCCESS BANNER -->
-      <div class="success-banner">
-        <div class="tick-circle" id="tickCircle">
-          <svg viewBox="0 0 24 24">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-        </div>
-        <div class="success-title">Payment Successful!</div>
-        <div class="success-sub">Your transaction has been confirmed</div>
-      </div>
-
-      <!-- BODY -->
-      <div class="email-body">
-        <p class="greeting">Hello <strong>${safeName}</strong>,</p>
-        <p class="intro">Your payment has been successfully received. Here are your transaction details for your records.</p>
-
-        <div class="details-card">
-          <div class="details-header">Transaction Details</div>
-
-          <div class="detail-row">
-            <span class="detail-label">Order ID</span>
-            <span class="detail-value">${safeOrder}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Transaction ID</span>
-            <span class="detail-value">${safeTxn}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Amount Paid</span>
-            <span class="detail-value amount">${amountStr}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Payment Method</span>
-            <span class="detail-value">${paymentMethod}</span>
-          </div>
-          <div class="detail-row">
-            <span class="detail-label">Date &amp; Time</span>
-            <span class="detail-value">${safePaidWhen}</span>
-          </div>
-        </div>
-
-        <!-- CTA — a single legitimate SaveHatke link (HTTPS), no tracking. The
-             inline styles make the green button render reliably in Gmail. -->
-        <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="margin:4px 0 10px">
+          <!-- HEADER — centered brand lockup (logo.png + wordmark), no border -->
           <tr>
-            <td align="center">
-              <a class="cta-button" href="${siteUrl}/dashboard"
-                 style="display:inline-block;background:#00E272;color:#07110B;font-family:'Inter',Arial,Helvetica,sans-serif;font-size:15px;font-weight:600;line-height:20px;text-decoration:none;padding:14px 30px;border-radius:8px;">View Order</a>
+            <td class="sh-pad" align="center" style="padding:8px 40px 22px;">
+              <img src="${logoUrl}" alt="SaveHatke" width="46" height="36" style="display:inline-block;width:46px;height:36px;vertical-align:middle;border:0;" />
+              <span class="sh-primary" style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.3px;color:#111827;">Save<span class="sh-green" style="color:#00E272;">Hatke</span></span>
             </td>
           </tr>
+
+          <!-- SUCCESS ICON -->
+          <tr>
+            <td class="sh-pad" align="center" style="padding:10px 40px 0;">
+              <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td align="center" valign="middle" width="64" height="64" style="width:64px;height:64px;background:#00E272;border-radius:50%;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:64px;font-weight:700;color:#FFFFFF;">&#10003;</td>
+              </tr></table>
+            </td>
+          </tr>
+
+          <!-- SUCCESS TITLE + SUBTITLE -->
+          <tr>
+            <td class="sh-pad sh-primary sh-title" align="center" style="padding:18px 40px 4px;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:36px;font-weight:700;color:#111827;">Payment Successful!</td>
+          </tr>
+          <tr>
+            <td class="sh-pad sh-secondary" align="center" style="padding:0 40px 6px;font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:24px;font-weight:400;color:#64748B;">Your transaction has been confirmed</td>
+          </tr>
+
+          <!-- GREETING + INTRO -->
+          <tr>
+            <td class="sh-pad" style="padding:26px 40px 0;">
+              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello <span class="sh-green" style="color:#00E272;font-weight:700;">${safeName}</span>,</p>
+              <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;font-weight:400;color:#111827;">Your payment has been successfully received. Here are your transaction details for your records.</p>
+            </td>
+          </tr>
+
+          <!-- TRANSACTION DETAILS — bold label + regular value, no dividers, no boxes -->
+          <tr>
+            <td class="sh-pad" style="padding:26px 40px 0;">
+              <p class="sh-muted" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:16px;font-weight:700;letter-spacing:0.8px;text-transform:uppercase;color:#64748B;">Transaction Details</p>
+              <p style="margin:0 0 11px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Order ID:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${safeOrder}</span></p>
+              <p style="margin:0 0 11px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Transaction ID:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${safeTxn}</span></p>
+              <p style="margin:0 0 11px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Amount Paid:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${amountStr}</span></p>
+              <p style="margin:0 0 11px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Payment Method:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${paymentMethod}</span></p>
+              <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Date &amp; Time:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${safePaidWhen}</span></p>
+            </td>
+          </tr>
+
+          <!-- CTA — compact, centered, NOT full-width -->
+          <tr>
+            <td class="sh-pad" align="center" style="padding:28px 40px 6px;">
+              <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td class="sh-btn" align="center" bgcolor="#00E272" style="background:#00E272;border-radius:8px;">
+                  <a href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;">View Order</a>
+                </td>
+              </tr></table>
+            </td>
+          </tr>
+
+          <!-- THANK YOU -->
+          <tr>
+            <td class="sh-pad sh-primary" style="padding:24px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Thank you for choosing <span style="font-weight:700;">SaveHatke</span>.</td>
+          </tr>
+
+          <!-- SIGNATURE -->
+          <tr>
+            <td class="sh-pad" style="padding:16px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;">
+              <span class="sh-secondary" style="font-weight:400;color:#64748B;">Regards,</span><br />
+              <span class="sh-primary" style="font-weight:700;color:#111827;">SaveHatke</span>
+            </td>
+          </tr>
+
+          <!-- FOOTER MESSAGE -->
+          <tr>
+            <td class="sh-pad sh-muted" align="center" style="padding:30px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:13px;line-height:20px;font-weight:400;color:#64748B;">You&rsquo;re receiving this email because a payment was successfully received for a purchase made through your SaveHatke account.</td>
+          </tr>
+
+          <!-- COPYRIGHT -->
+          <tr>
+            <td class="sh-pad sh-muted" align="center" style="padding:14px 40px 10px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;font-weight:400;color:#64748B;">&copy; ${year} SaveHatke. All rights reserved.</td>
+          </tr>
+
         </table>
-
-        <p class="thankyou">
-          Thank you for choosing <span class="brand-name">SaveHatke</span>.
-        </p>
-      </div>
-
-      <!-- FOOTER -->
-      <div class="email-footer">
-        <p class="regards">This is an automated payment confirmation from SaveHatke.</p>
-        <p class="footer-copy">© ${year} SaveHatke. All rights reserved.</p>
-      </div>
-
-    </div>
-  </div>
-
+      </td>
+    </tr>
+  </table>
 </body>
 </html>`;
 

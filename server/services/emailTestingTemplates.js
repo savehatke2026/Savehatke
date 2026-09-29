@@ -38,15 +38,15 @@ const TEMPLATES = [
     category: 'Payment',
     render: (to) => emailService.sendPaymentSuccessEmail({
       to,
-      buyerName: 'SaveHatke Test User',
-      amount: 499,
+      buyerName: 'Parly Das',
+      amount: 2,
       // Canonical formats: Order ID SH-<TYPE>-YYYYMMDD-XXXXXX, Transaction ID
       // TXN-YYYYMMDD-XXXXXXXX. The UTR is a separate external bank reference.
-      orderCode: 'SH-PUR-20260926-A7K92P',
+      orderCode: 'SH-PUR-20260928-98DYBS',
       couponBrand: 'Test Brand',
       couponTitle: 'Test Coupon',
       couponCode: 'TESTCODE10',
-      transactionId: 'TXN-20260926-7K4P92M8',
+      transactionId: 'TXN-20260928-WNLRQ2TD',
       transactionType: 'PURCHASE',
       gatewayReference: 'TESTUTR1234567890',
       paidAt: NOW_ISO(),
