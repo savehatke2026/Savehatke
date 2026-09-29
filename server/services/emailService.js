@@ -306,7 +306,7 @@ async function sendWelcomeEmail(to, userName, opts = {}) {
 
   const subject = 'Welcome to SaveHatke!';
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
-  const logoUrl = `${siteUrl}/logo.png`;
+  const logoUrl = `https://savehatke.vercel.app/logo.png`;
   const safeEmail = escapeHtml(cleanEmail);
   const displayName = userName && String(userName).trim() ? String(userName).trim() : 'there';
   // The welcome mail is sent at signup time (fire-and-forget), so "now" is the
@@ -1521,7 +1521,7 @@ async function sendSignInAlertEmail({
   const secureUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#security`;
   const notifUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#notifications`;
   const accountUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#account`;
-  const logoUrl = `${siteUrl}/logo.png`;
+  const logoUrl = `https://savehatke.vercel.app/logo.png`;
   const year = new Date().getFullYear();
 
   const t = getTransporter();
@@ -3067,7 +3067,7 @@ async function sendCouponDetailsEmail({
   // logo.png is served at the web root (express.static → public/), the same
   // brand image the site and the payment receipt use.
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
-  const logoUrl = `${siteUrl}/logo.png`;
+  const logoUrl = `https://savehatke.vercel.app/logo.png`;
   // Deep-link straight to the buyer's coupons (dashboard hash view).
   const ctaUrl = `${siteUrl}/dashboard.html#my-coupons`;
   const year = new Date().getFullYear();
