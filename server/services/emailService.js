@@ -196,6 +196,36 @@ function getPaymentTransporter() {
 // NOTE: Gmail ignores prefers-color-scheme and does its own partial darkening —
 // a client limitation, not something CSS here can override.
 const EMAIL_DARK_MEDIA = '@media (prefers-color-scheme: dark)';
+
+// ── SaveHatke brand green — single source of truth ──────────────────────────
+// The brand green is ONE value everywhere: EMAIL_GREEN (#00E272). Every template
+// paints its green (wordmark "Hatke", highlighted names, coupon values, links,
+// icons, accents, borders, CTA buttons) with this exact hex in LIGHT mode, inline
+// or via a class. EMAIL_GREEN_DARK_RULES below is dropped INSIDE every dark-mode
+// @media block (the shared EMAIL_DARK_STYLE plus the self-contained templates)
+// so the SAME brand green is re-pinned to #00E272 in dark mode instead of being
+// inverted, greyed, darkened, or shifted. It covers BOTH inline styles (attribute
+// selectors, matching "prop:#hex" and "prop: #hex" spacing in upper/lower case)
+// and the shared class hooks (.green / a.green / .sh-green / .bhl for text and
+// .button / .sh-btn / .cta-btn for buttons). NOTE: Gmail's app strips <style>/
+// ignores prefers-color-scheme and does its own partial darkening — a client
+// limitation CSS cannot override — so the inline #00E272 + color-scheme meta is
+// the strongest email-safe defense we can ship without breaking the layout.
+const EMAIL_GREEN = '#00E272';
+const EMAIL_GREEN_DARK_RULES = `
+      /* SaveHatke brand green → pinned to ${EMAIL_GREEN}, never inverted/greyed/darkened */
+      [style*="color:#00e272"],[style*="color: #00e272"],
+      [style*="color:#00E272"],[style*="color: #00E272"],
+      .green,a.green,.sh-green,.bhl{color:${EMAIL_GREEN} !important;}
+      [style*="background:#00e272"],[style*="background: #00e272"],
+      [style*="background-color:#00e272"],[style*="background-color: #00e272"],
+      [style*="background:#00E272"],[style*="background: #00E272"],
+      [style*="background-color:#00E272"],[style*="background-color: #00E272"],
+      [bgcolor="#00E272"],[bgcolor="#00e272"],
+      .button,.sh-btn,.cta-btn{background-color:${EMAIL_GREEN} !important;background:${EMAIL_GREEN} !important;}
+      [style*="dashed #00e272"],[style*="dashed #00E272"],
+      [style*="solid #00e272"],[style*="solid #00E272"]{border-color:${EMAIL_GREEN} !important;}`;
+
 const EMAIL_DARK_STYLE = `
     <style>
     ${EMAIL_DARK_MEDIA} {
@@ -250,6 +280,7 @@ const EMAIL_DARK_STYLE = `
       /* Light borders → dark (bare hex → only affects border-color) */
       [style*="#e5e7eb"],[style*="#e4e4e7"],[style*="#e9eff7"],[style*="#e3eaf4"],
       [style*="#f0f0f0"],[style*="#3f3f46"]{border-color:#334155 !important;}
+${EMAIL_GREEN_DARK_RULES}
     }
     </style>`;
 
@@ -338,7 +369,8 @@ SaveHatke Team`;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light only" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
     <title>SaveHatke Account Created</title>
     <style>
       html,
@@ -421,6 +453,17 @@ SaveHatke Team`;
         .content {
           padding: 32px 20px;
         }
+      }
+
+      /* Dark mode. Light layout/spacing/typography is untouched; only colours
+         adapt. Brand green is re-pinned by the shared rules (never inverted).
+         Query text MUST stay exactly "@media (prefers-color-scheme: dark)" so
+         the Admin Email Testing preview can toggle it. */
+      @media (prefers-color-scheme: dark) {
+        html, body, .page, .email, .content { background:#0f172a !important; background-color:#0f172a !important; }
+        body, p, .brand-text { color:#e5e7eb !important; }
+        .footer { border-top-color:#334155 !important; color:#94a3b8 !important; }
+${EMAIL_GREEN_DARK_RULES}
       }
     </style>
   </head>
@@ -577,7 +620,7 @@ async function sendOTPEmail(to, otp, opts = {}) {
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:22px;">
             <tr>
               <td style="text-align:center;">
-                <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" style="display:inline-block;vertical-align:middle;width:34px;height:34px;object-fit:contain;border:0;margin-right:9px;" /><span style="vertical-align:middle;font-size:1.3rem;font-weight:800;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+                <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="34" height="34" style="display:inline-block;vertical-align:middle;width:34px;height:34px;object-fit:contain;border:0;margin-right:9px;" /><span style="vertical-align:middle;font-size:1.3rem;font-weight:800;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
               </td>
             </tr>
           </table>
@@ -594,8 +637,8 @@ async function sendOTPEmail(to, otp, opts = {}) {
             <!-- OTP Box -->
             <tr>
               <td style="padding:22px 40px 6px;" align="center">
-                <div style="background:#f0fdf4;border:2px dashed #00c853;border-radius:14px;padding:20px 30px;display:inline-block;">
-                  <div style="font-family:'Courier New',Courier,monospace;font-size:2.4rem;font-weight:800;letter-spacing:10px;color:#00a844;text-align:center;padding-left:10px;">${otp}</div>
+                <div style="background:#f0fdf4;border:2px dashed #00E272;border-radius:14px;padding:20px 30px;display:inline-block;">
+                  <div style="font-family:'Courier New',Courier,monospace;font-size:2.4rem;font-weight:800;letter-spacing:10px;color:#00E272;text-align:center;padding-left:10px;">${otp}</div>
                 </div>
                 <p style="margin:16px 0 0;font-size:0.82rem;color:#6b7280;">⏱️ This code will expire in <strong style="color:#0f1e3a;">5 minutes</strong>.</p>
               </td>
@@ -824,7 +867,7 @@ Regards,
                       <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" style="width:34px;height:34px;border-radius:8px;object-fit:contain;display:block;">
                     </td>
                     <td style="vertical-align:middle;">
-                      <span style="font-size:1.25rem;font-weight:800;color:#0f1e3a;white-space:nowrap;">Save<span style="color:#00e676;">Hatke</span></span>
+                      <span style="font-size:1.25rem;font-weight:800;color:#0f1e3a;white-space:nowrap;">Save<span style="color:#00E272;">Hatke</span></span>
                     </td>
                   </tr>
                 </table>
@@ -851,7 +894,7 @@ Regards,
               </table>
 
               <!-- Greeting -->
-              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello <strong style="color:#00e676;font-weight:700;">${safeName}</strong>,</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello <strong style="color:#00E272;font-weight:700;">${safeName}</strong>,</p>
 
               <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">We've received your support request and created a case for it.</p>
 
@@ -891,7 +934,7 @@ Regards,
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
                 <tr>
                   <td align="center">
-                    <a href="${viewUrl}" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#00e676;color:#0f1e3a;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
+                    <a href="${viewUrl}" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#00E272;color:#0f1e3a;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
                   </td>
                 </tr>
               </table>
@@ -1125,13 +1168,13 @@ SaveHatke Support Team`;
         width: 38px;
         height: 38px;
         border-radius: 10px;
-        background: linear-gradient(135deg, #00e676, #4fc3f7);
+        background: linear-gradient(135deg, #00E272, #4fc3f7);
         display: flex;
         align-items: center;
         justify-content: center;
         font-size: 1.1rem;
       }
-      .bhl { color: #00c853; }
+      .bhl { color: #00E272; }
 
       /* Main email card — fully white */
       .email-card {
@@ -1224,7 +1267,7 @@ SaveHatke Support Team`;
         word-break: break-word;
         white-space: pre-wrap;
       }
-      .msg-box { border-left: 3px solid #00c853; }
+      .msg-box { border-left: 3px solid #00E272; }
       .resolution-box { border-left: 3px solid #0ea5e9; }
 
       /* CTA Button — website green */
@@ -1240,14 +1283,14 @@ SaveHatke Support Team`;
         padding: 0 40px;
         height: 52px;
         border-radius: 12px;
-        background: linear-gradient(135deg, #00e676, #00c853);
+        background: linear-gradient(135deg, #00E272, #00E272);
         color: #0f1e3a;
         font-family: 'Outfit', sans-serif;
         font-size: 1rem;
         font-weight: 800;
         letter-spacing: 0.01em;
         text-decoration: none;
-        box-shadow: 0 10px 24px rgba(0, 200, 83, 0.35);
+        box-shadow: 0 10px 24px rgba(0, 226, 114, 0.35);
       }
 
       .signoff {
@@ -1289,7 +1332,7 @@ SaveHatke Support Team`;
     <!-- Brand Header -->
     <div class="email-header">
       <a href="${siteUrl}/index.html" class="brand-link">
-        <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="width:38px;height:38px;object-fit:contain;border:0;vertical-align:middle;" />
+        <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="width:38px;height:38px;object-fit:contain;border:0;vertical-align:middle;" />
         <span>Save<span class="bhl">Hatke</span></span>
       </a>
     </div>
@@ -1538,8 +1581,8 @@ SaveHatke Team`;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
-    <meta name="supported-color-schemes" content="light" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
     <title>New sign-in detected on your SaveHatke account</title>
     <style>
       body {
@@ -1619,6 +1662,18 @@ SaveHatke Team`;
         h1 {
           font-size: 24px;
         }
+      }
+
+      /* Dark mode. Light layout/spacing/typography is untouched; only colours
+         adapt. Brand green is re-pinned by the shared rules (never inverted).
+         Query text MUST stay exactly "@media (prefers-color-scheme: dark)" so
+         the Admin Email Testing preview can toggle it. */
+      @media (prefers-color-scheme: dark) {
+        body, .email { background:#0f172a !important; background-color:#0f172a !important; }
+        body, p, h1, .brand, .details p, .details strong { color:#e5e7eb !important; }
+        .footer { border-top-color:#334155 !important; color:#94a3b8 !important; }
+        .footer a { color:#e5e7eb !important; }
+${EMAIL_GREEN_DARK_RULES}
       }
     </style>
   </head>
@@ -1850,7 +1905,7 @@ Team SaveHatke`;
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e3eaf4;border-radius:16px;overflow:hidden">
         <tr><td align="center" style="background:#0a1024;padding:22px 28px;text-align:center">
-          <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" style="display:inline-block;vertical-align:middle;width:34px;height:34px;object-fit:contain;border:0;margin-right:9px;" /><span style="vertical-align:middle;font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-.3px">Save<span style="color:#00e676">Hatke</span></span>
+          <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="34" height="34" style="display:inline-block;vertical-align:middle;width:34px;height:34px;object-fit:contain;border:0;margin-right:9px;" /><span style="vertical-align:middle;font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-.3px">Save<span style="color:#00E272">Hatke</span></span>
           <span style="display:block;margin-top:6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8ea6c4">Security notification</span>
         </td></tr>
         <tr><td style="padding:28px">
@@ -1871,7 +1926,7 @@ ${lowCodes === null ? '' : `
             <strong style="color:#0f1e3a">Didn't do this?</strong><br>
             If you did not make this change, someone may have access to your account. Review your account security straight away.
           </p>
-          <a href="${secureUrl}" style="display:inline-block;background:#00c853;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:10px">Review account security</a>
+          <a href="${secureUrl}" style="display:inline-block;background:#00E272;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:10px">Review account security</a>
         </td></tr>
       </table>
     </td></tr>
@@ -2012,7 +2067,7 @@ If you did not authorize this activity, immediately review the security logs and
     </tr>`).join('');
 
   const htmlContent = `<!DOCTYPE html>
-  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${EMAIL_DARK_STYLE}
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">${EMAIL_DARK_STYLE}
   </head>
   <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
@@ -2020,7 +2075,7 @@ If you did not authorize this activity, immediately review the security logs and
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
             </td>
           </tr>
           <tr>
@@ -2134,17 +2189,17 @@ async function sendMonthlyReportEmail(p, opts = {}) {
   ].join('\n');
 
   const htmlContent = `<!DOCTYPE html>
-  <html><body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;">
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">${EMAIL_DARK_STYLE}</head><body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Arial,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:26px 12px;">
       <tr><td align="center">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
             </td>
           </tr>
           <tr>
-            <td style="padding:22px 32px;background:linear-gradient(135deg,#065f46,#00b25a);">
+            <td style="padding:22px 32px;background:linear-gradient(135deg,#065f46,#00a152);">
               <p style="margin:0;font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#bbf7d0;font-weight:700;">SaveHatke Admin</p>
               <h1 style="margin:6px 0 0;font-size:1.24rem;color:#ffffff;font-weight:800;">📑 Monthly report — ${monthLabel}</h1>
               <p style="margin:6px 0 0;font-size:0.8rem;color:#d1fae5;">${periodLabel}</p>
@@ -2271,7 +2326,7 @@ ${reviewUrl}`;
     </tr>`).join('');
 
   const htmlContent = `<!DOCTYPE html>
-  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${EMAIL_DARK_STYLE}
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">${EMAIL_DARK_STYLE}
   </head>
   <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
@@ -2279,7 +2334,7 @@ ${reviewUrl}`;
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
             </td>
           </tr>
           <tr>
@@ -2297,7 +2352,7 @@ ${reviewUrl}`;
           <tr>
             <td style="padding:8px 32px 26px;">
               <p style="margin:0 0 16px;font-size:0.88rem;color:#374151;line-height:1.65;">Please open the Admin Panel \u2192 Coupon Submissions to review the submission.</p>
-              <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;background:#00a152;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Coupon Submissions</a>
+              <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;background:#00E272;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Coupon Submissions</a>
             </td>
           </tr>
         </table>
@@ -2417,7 +2472,7 @@ Status: Pending Payment
     </tr>`).join('');
 
   const htmlContent = `<!DOCTYPE html>
-  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">${EMAIL_DARK_STYLE}
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">${EMAIL_DARK_STYLE}
   </head>
   <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
@@ -2425,7 +2480,7 @@ Status: Pending Payment
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="${logoUrl}" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
             </td>
           </tr>
           <tr>
@@ -2451,7 +2506,7 @@ Status: Pending Payment
           </tr>
           <tr>
             <td style="padding:20px 32px 26px;">
-              <a href="${escapeHtml(payoutsUrl)}" style="display:inline-block;background:#00a152;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Seller Payouts</a>
+              <a href="${escapeHtml(payoutsUrl)}" style="display:inline-block;background:#00E272;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Seller Payouts</a>
             </td>
           </tr>
           <tr>
@@ -2815,6 +2870,7 @@ SaveHatke`;
       .sh-green     { color:#00E272 !important; }
       .sh-btn       { background:#00E272 !important; }
       .sh-btn a     { color:#FFFFFF !important; }
+${EMAIL_GREEN_DARK_RULES}
     }
 
     /* ── MOBILE ── */
@@ -3075,8 +3131,8 @@ SaveHatke Team`;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="color-scheme" content="light" />
-    <meta name="supported-color-schemes" content="light" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="supported-color-schemes" content="light dark" />
     <title>SaveHatke Coupon</title>
     <style>
       body {
@@ -3169,6 +3225,7 @@ SaveHatke Team`;
         .footer { color: #94a3b8 !important; }
         /* Brand green + the green button stay on-brand and readable on dark. */
         .green { color: #00e272 !important; }
+${EMAIL_GREEN_DARK_RULES}
       }
     </style>
   </head>
