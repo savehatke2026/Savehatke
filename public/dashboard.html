@@ -169,8 +169,6 @@
     .db-wrap{padding-top:68px;min-height:100vh}
     /* Reviews stays compact. Account, security and support use the same
        full-height dashboard canvas as the main view. */
-    body.view-reviews-active .db-wrap{min-height:0}
-    body.view-reviews-active .db-content{padding-bottom:24px}
     .db-bg{position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 10% 10%,rgba(0,230,118,.05) 0%,transparent 60%),radial-gradient(ellipse 60% 70% at 90% 90%,rgba(79,195,247,.04) 0%,transparent 60%),linear-gradient(180deg,#060d1f 0%,#070f24 100%);pointer-events:none;z-index:0}
     .db-content{position:relative;z-index:1;padding:32px 0 72px;animation:fadeIn .45s ease}
 
@@ -1230,6 +1228,100 @@
     .view-title{font-family:'DM Serif Display',serif;font-size:clamp(1.35rem,2.5vw,1.85rem);line-height:1.2}
     .view-subtitle{font-size:.83rem;color:#6b88aa;margin-top:4px}
 
+    /* ===================================================
+       SHARED VIEW LAYOUT — notifications, reviews, refunds,
+       account and support share one card grammar so every
+       secondary view reads with the same rhythm and hierarchy.
+    =================================================== */
+    :is(#view-notifications,#view-reviews,#view-refunds,#view-account,#view-support) .container{max-width:1160px}
+    :is(#view-notifications,#view-reviews,#view-refunds,#view-account,#view-support) .view-hdr{margin-bottom:28px;padding-bottom:18px}
+    :is(#view-notifications,#view-reviews,#view-account,#view-support) .view-title .gtext{background:none;-webkit-text-fill-color:currentColor;color:#e2ecff}
+    :is(#view-notifications,#view-reviews,#view-account,#view-support) :is(.ns-card,.ns-error,.rv-wrap,.sec-stack){width:100%;max-width:none}
+    :is(#view-notifications,#view-account,#view-support) .card{padding:0;overflow:hidden;background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px}
+    :is(#view-notifications,#view-account,#view-support) .card-hdr{min-height:71px;padding:18px 22px;margin:0;border-bottom:1px solid rgba(79,195,247,.07);gap:12px;flex-wrap:wrap}
+    :is(#view-notifications,#view-account,#view-support) .card-title{display:flex;align-items:center;gap:11px;font-size:.95rem;font-weight:700;color:#e2ecff}
+    :is(#view-notifications,#view-account,#view-support) .card-title .ico{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(0,230,118,.12);font-size:1rem;flex-shrink:0}
+    #view-notifications .ns-row{padding:18px 22px;align-items:center}
+    #view-notifications .ns-row-name{font-size:.86rem}
+    #view-notifications .ns-row-desc{color:#8ea6c4;max-width:720px;line-height:1.6}
+    #view-notifications .ns-group-label{padding:18px 22px 0;margin:0}
+    #view-notifications .ns-divider{margin:0}
+    #view-notifications .ns-foot{margin:0;padding:18px 22px;background:rgba(0,0,0,.12)}
+    #view-notifications .ns-reset{color:#8ea6c4}
+    #view-account .sec-stack{gap:22px}
+    #view-account .acct-identity{padding:22px}
+    #view-account #acctPhotoNote{margin:0!important;padding:0 22px 22px}
+    #view-account .acct-rows{padding:0 22px}
+    #view-account .acct-row{padding:18px 0}
+    :is(#view-reviews,#view-support) :is(.rv-summary,.sup-stats){gap:14px;margin-bottom:22px}
+    :is(#view-reviews,#view-support) :is(.rv-stat,.sup-stat){padding:18px;background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.09);border-radius:15px;transition:border-color .25s,background .25s}
+    :is(#view-reviews,#view-support) :is(.rv-stat,.sup-stat):hover{border-color:rgba(0,230,118,.22);background:rgba(17,34,66,.7)}
+    :is(#view-reviews,#view-support) :is(.rv-stat-lbl,.sup-stat-lbl){display:flex;align-items:center;gap:10px;margin:0 0 14px;color:#a8c0dc;font-size:.78rem;font-weight:600;text-transform:none;letter-spacing:normal}
+    .layout-stat-ico{display:flex;align-items:center;justify-content:center;flex:0 0 auto;width:34px;height:34px;border-radius:10px;background:rgba(0,230,118,.12);color:#00e676;font-size:1rem}
+    .layout-stat-ico.orange{background:rgba(255,183,77,.12);color:#ffb74d}
+    .layout-stat-ico.blue{background:rgba(79,195,247,.12);color:#4fc3f7}
+    :is(#view-reviews,#view-support) :is(.rv-stat-val,.sup-stat-val){font-family:'JetBrains Mono',monospace;font-size:1.65rem;font-weight:600;line-height:1;margin:0}
+    #view-reviews .rv-section{background:rgba(15,30,58,.75);border:1px solid rgba(79,195,247,.1);border-radius:16px;overflow:hidden;margin-bottom:22px}
+    #view-reviews .rv-section-hdr{display:flex;align-items:center;gap:11px;padding:18px 22px;margin:0;border-bottom:1px solid rgba(79,195,247,.07);min-height:71px}
+    #view-reviews .rv-list{gap:0}
+    #view-reviews .rv-card{border:none;border-bottom:1px solid rgba(79,195,247,.07);border-radius:0;background:transparent;padding:22px}
+    #view-reviews .rv-card:last-child{border-bottom:none}
+    #view-reviews .rv-empty{border:0;background:none;border-radius:0;padding:44px 22px}
+    #view-reviews .rv-empty-sub{color:#8ea6c4}
+    #view-support .sup-filters{padding:18px 22px;margin:0;gap:6px;flex-wrap:wrap;overflow:visible}
+    :is(#view-support .sup-filters,#view-refunds .rf-tabs) :is(.mc-chip,.rf-tab){display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:8px 18px;border-radius:50px;border:1.5px solid rgba(79,195,247,.15);background:transparent;color:#8ea6c4;font-size:.84rem;font-weight:600;transition:all .18s;white-space:nowrap}
+    :is(#view-support .sup-filters,#view-refunds .rf-tabs) :is(.mc-chip,.rf-tab):hover{border-color:rgba(0,230,118,.35);color:#e2ecff;background:rgba(0,230,118,.05)}
+    :is(#view-support .sup-filters,#view-refunds .rf-tabs) :is(.mc-chip,.rf-tab).active{border-color:#00e676;color:#060d1f;background:linear-gradient(135deg,#00e676,#00c853);box-shadow:0 4px 18px rgba(0,230,118,.28)}
+    #view-support .sup-table th{padding:10px 18px;background:rgba(0,0,0,.18);border:0;font-size:.67rem}
+    #view-support .sup-table td{padding:14px 18px;font-size:.83rem}
+    #view-support .sup-table :is(th,td):first-child{padding-left:22px}
+    #view-support .sup-table :is(th,td):last-child{padding-right:22px}
+    #view-support .sup-mobile{padding:0 18px 18px}
+    #view-support .sup-empty{background:none;border:0;border-radius:0;padding:44px 22px}
+    #view-refunds .rf-header{margin-bottom:28px;padding-bottom:18px;border-color:rgba(79,195,247,.07)}
+    #view-refunds .rf-header-left{align-items:center}
+    #view-refunds .rf-title{font-size:clamp(1.35rem,2.5vw,1.85rem);line-height:1.2}
+    #view-refunds .rf-subtitle{font-size:.83rem;margin-top:4px}
+    #view-refunds .rf-summary-grid{gap:14px;margin-bottom:22px}
+    #view-refunds .rf-card{display:grid;grid-template-columns:34px minmax(0,1fr) auto;column-gap:10px;padding:18px;border-color:rgba(79,195,247,.09)}
+    #view-refunds .rf-card:hover{transform:none;border-color:rgba(0,230,118,.22);background:rgba(17,34,66,.7)}
+    #view-refunds .rf-card-top{display:contents}
+    #view-refunds .rf-card-ico{grid-column:1;grid-row:1;margin-bottom:14px}
+    #view-refunds .rf-card-count{grid-column:3;grid-row:1;align-self:start;margin-top:5px}
+    #view-refunds .rf-card-name{grid-column:2;grid-row:1;font-size:.78rem;font-weight:600;color:#a8c0dc;margin:8px 0 14px;white-space:nowrap}
+    #view-refunds .rf-card-amt{grid-column:1/-1;grid-row:2;font-size:1.65rem;font-weight:600;line-height:1}
+    #view-refunds .rf-card-desc{grid-column:1/-1;grid-row:3;margin-top:4px;color:#8ea6c4}
+    #view-refunds .rf-records{border-radius:16px;background:rgba(15,30,58,.75)}
+    #view-refunds .rf-toolbar{padding:18px 22px;gap:16px;align-items:flex-start}
+    #view-refunds .rf-tabs{gap:6px;flex-wrap:wrap;background:none;border:none;padding:0}
+    #view-refunds .rf-tools{flex:1 1 100%;width:100%}
+    #view-refunds .rf-search{flex:1;max-width:none}
+    #view-refunds .rf-search input{height:46px;background:rgba(6,13,31,.6);border-radius:12px;font-size:.86rem}
+    #view-refunds .rf-filter-btn{height:46px;border-radius:12px}
+    #view-refunds .rf-table th{background:rgba(0,0,0,.18);padding-top:10px;padding-bottom:10px}
+    :is(#view-notifications,#view-reviews,#view-refunds,#view-account,#view-support) :is(button,a,input):focus-visible{outline:2px solid #00e676;outline-offset:3px}
+    @media(max-width:1000px){
+      #view-refunds .rf-summary-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    }
+    @media(max-width:640px){
+      :is(#view-reviews,#view-support) :is(.rv-summary,.sup-stats){grid-template-columns:repeat(2,minmax(0,1fr))}
+      #view-refunds .rf-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+      #view-refunds .rf-card{grid-template-columns:34px minmax(0,1fr)}
+      #view-refunds .rf-card-count{grid-column:2;grid-row:2;justify-self:end;margin:0}
+      :is(#view-notifications,#view-account,#view-support) .card-hdr{padding:16px 18px}
+      #view-notifications .ns-row{padding:16px 18px;gap:14px}
+      #view-refunds .rf-toolbar{padding:16px 18px}
+      #view-refunds .rf-header-right{width:100%}
+      #view-refunds .rf-tabs .rf-tab{padding:8px 14px;min-height:40px}
+      #view-support .sup-filters{padding:16px 18px}
+      #view-reviews .rv-section-hdr{padding:16px 18px}
+    }
+    @media(max-width:400px){
+      :is(#view-reviews,#view-support) :is(.rv-summary,.sup-stats){grid-template-columns:1fr}
+      #view-refunds .rf-tools{flex-wrap:wrap}
+      #view-refunds .rf-search{flex-basis:100%;min-width:0}
+    }
+
     /* OVERVIEW SUMMARY */
     .ov-row{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(79,195,247,.05);font-size:.84rem}
     .ov-row:last-child{border-bottom:none}
@@ -1367,7 +1459,7 @@
 <nav class="navbar" id="nav" role="navigation" aria-label="Main navigation">
   <div class="container">
     <a href="index" class="nav-brand" aria-label="SaveHatke home">
-      <img src="logo.png" alt="SaveHatke" class="brand-icon">
+      <img src="logo.png" alt="SaveHatke" class="brand-icon" onerror="this.hidden=true">
       <span class="brand-name">Save<span class="bhl">Hatke</span></span>
     </a>
     <div class="nav-links" id="navLinks">
@@ -2620,11 +2712,11 @@
 
         <div class="rv-summary">
           <div class="rv-stat">
-            <div class="rv-stat-lbl">Reviews Given</div>
+            <div class="rv-stat-lbl"><span class="layout-stat-ico" aria-hidden="true">✓</span> Reviews Given</div>
             <div class="rv-stat-val gtext" id="rvGivenCount">0</div>
           </div>
           <div class="rv-stat">
-            <div class="rv-stat-lbl">Pending Reviews</div>
+            <div class="rv-stat-lbl"><span class="layout-stat-ico orange" aria-hidden="true">◷</span> Pending Reviews</div>
             <div class="rv-stat-val" id="rvPendingCount">0</div>
           </div>
         </div>
@@ -2632,12 +2724,12 @@
         <!-- Only purchases the server would accept a review for are listed here;
              eligibility itself is enforced in server/routes/reviews.js -->
         <section class="rv-section" id="rvPendingSection">
-          <h2 class="rv-section-hdr">Pending Reviews</h2>
+          <h2 class="rv-section-hdr"><span class="layout-stat-ico orange" aria-hidden="true">☆</span> Pending Reviews</h2>
           <div class="rv-list" id="rvPendingList"></div>
         </section>
 
         <section class="rv-section">
-          <h2 class="rv-section-hdr">Your Reviews</h2>
+          <h2 class="rv-section-hdr"><span class="layout-stat-ico" aria-hidden="true">✓</span> Your Reviews</h2>
           <div class="rv-list" id="rvGivenList"></div>
         </section>
 
@@ -2665,15 +2757,15 @@
       <!-- Summary tiles: counts come from STATE.tickets, never hardcoded. -->
       <div class="sup-stats">
         <div class="sup-stat">
-          <div class="sup-stat-lbl">Open Cases</div>
+          <div class="sup-stat-lbl"><span class="layout-stat-ico orange" aria-hidden="true">◷</span> Open Cases</div>
           <div class="sup-stat-val open" id="supportOpenCount">0</div>
         </div>
         <div class="sup-stat">
-          <div class="sup-stat-lbl">Resolved Cases</div>
+          <div class="sup-stat-lbl"><span class="layout-stat-ico" aria-hidden="true">✓</span> Resolved Cases</div>
           <div class="sup-stat-val resolved" id="supportResolvedCount">0</div>
         </div>
         <div class="sup-stat">
-          <div class="sup-stat-lbl">Total Cases</div>
+          <div class="sup-stat-lbl"><span class="layout-stat-ico blue" aria-hidden="true">▤</span> Total Cases</div>
           <div class="sup-stat-val total" id="supportTotalCount">0</div>
         </div>
       </div>
@@ -2730,7 +2822,7 @@
     <div class="footer-grid">
       <div class="fbrand">
         <a href="index" class="nav-brand" style="font-size:1.2rem" aria-label="SaveHatke home">
-          <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+          <img src="logo.png" alt="SaveHatke" class="brand-icon" onerror="this.hidden=true"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
         </a>
         <p>SaveHatke is a marketplace where users can discover available coupons and submit eligible unused coupons for review and potential sale.</p>
       </div>
