@@ -58,3 +58,4 @@ gui-test-screenshots/
 # Local source assets awaiting upload. The Coupons.backgroundImage column stores
 # a hosted URL, not a repo path, so no code references these files.
 Coupon bg imgs/
+*.rar

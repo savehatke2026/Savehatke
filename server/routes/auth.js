@@ -1719,9 +1719,11 @@ function parseNotificationPrefs(raw) {
 // id existed, so email is the fallback lookup — same order as /me.
 async function findUserRowForRequest(user) {
   if (!user) return null;
-  if (user.id) {
-    const byId = await db.findRow(db.SHEETS.USERS, 'user_id', user.id)
-      || await db.findRow(db.SHEETS.USERS, 'id', user.id);
+  const uid = user.id || user.user_id || user.user_ID;
+  if (uid) {
+    const byId = await db.findRow(db.SHEETS.USERS, 'user_id', uid)
+      || await db.findRow(db.SHEETS.USERS, 'user_ID', uid)
+      || await db.findRow(db.SHEETS.USERS, 'id', uid);
     if (byId) return byId;
   }
   if (user.email) {
@@ -1885,7 +1887,32 @@ async function handleUpdatePreferredName(req, res) {
     }
 
     // Find user record in Google Sheets
-    const row = await findUserRowForRequest(req.user);
+    let row = await findUserRowForRequest(req.user);
+    if (!row && req.user && req.user.email) {
+      const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
+      row = (allRows || []).find((r) => {
+        const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
+        return v && v === String(req.user.email).toLowerCase().trim();
+      }) || null;
+      if (!row) {
+        const now = new Date().toISOString();
+        const userId = req.user.id || req.user.user_id || uuidv4();
+        row = {
+          user_ID: userId,
+          user_id: userId,
+          id: userId,
+          name: trimmedName,
+          preferred_name: trimmedName,
+          username: (req.user.email || '').split('@')[0],
+          email: req.user.email,
+          status: 'active',
+          created_at: now,
+          updated_at: now,
+          last_login_at: now,
+        };
+        await db.appendRow(db.SHEETS.USERS, row).catch((e) => console.warn('GSheet fallback append notice:', e.message));
+      }
+    }
     if (!row) {
       return res.status(404).json({ error: 'User account not found.' });
     }
@@ -1920,12 +1947,15 @@ async function handleUpdatePreferredName(req, res) {
 
     // Return updated user profile
     const updatedUser = {
-      id: req.user.id,
-      email: req.user.email,
+      id: req.user.id || (row ? (row.user_ID || row.user_id || row.id) : ''),
+      user_id: req.user.id || (row ? (row.user_ID || row.user_id || row.id) : ''),
+      email: req.user.email || (row ? row.email : ''),
       name: trimmedName,
       preferred_name: trimmedName,
       needs_name_setup: false,
       role: req.user.role || 'user',
+      ...(row && row.profile_picture ? { picture: row.profile_picture } : {}),
+      ...(row && row.username ? { username: row.username } : {}),
     };
 
     res.json({

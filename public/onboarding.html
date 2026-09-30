@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>What should we call you? — SaveHatke</title>
+  <meta name="description" content="Choose your preferred name to get started on SaveHatke.">
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+
+  <!-- Preconnect and Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <script>
+    /* ════════════════════════════════════════════════════════════════════════
+       FIRST-FRAME ROUTING GUARD
+       - If visitor is not logged in → return to login
+       - If user already completed name setup → redirect to dashboard
+       - Run synchronously before render to prevent any UI flashing
+       ════════════════════════════════════════════════════════════════════════ */
+    (function checkFirstLoginGate() {
+      try {
+        const token = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
+        const userRaw = localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user');
+
+        if (!token || !userRaw) {
+          document.documentElement.style.display = 'none';
+          window.location.replace('/login.html');
+          return;
+        }
+
+        const user = JSON.parse(userRaw);
+        // If profile already has a preferred display name and does not need setup, proceed to dashboard
+        const hasSavedPreferredName = Boolean(user && user.preferred_name && String(user.preferred_name).trim().length > 0);
+        if (hasSavedPreferredName && user.needs_name_setup !== true) {
+          document.documentElement.style.display = 'none';
+          window.location.replace('/dashboard.html');
+          return;
+        }
+      } catch (e) {
+        // Fallback: stay on page to handle setup
+      }
+    })();
+  </script>
+
+  <style>
+    /* ════════════════════════════════════════════════════════════════════════
+       DESIGN SYSTEM VARIABLES & RESET
+       ════════════════════════════════════════════════════════════════════════ */
+    :root {
+      --primary-green: #00E272;
+      --primary-green-hover: #00f079;
+      --primary-green-active: #00c853;
+      --bg-dark: #060d1f;
+      --card-bg: rgba(12, 24, 53, 0.92);
+      --card-border: rgba(79, 195, 247, 0.16);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-helper: #64748b;
+      --input-bg: rgba(255, 255, 255, 0.05);
+      --input-border: rgba(79, 195, 247, 0.22);
+      --error-red: #f87171;
+      --font-outfit: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      height: 100%;
+      min-height: 100dvh;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-outfit);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       AMBIENT LIGHTING & BACKGROUND
+       ════════════════════════════════════════════════════════════════════════ */
+    .bg-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    /* Soft organic mesh lighting */
+    .glow-accent-green {
+      position: absolute;
+      top: -15%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 700px;
+      height: 500px;
+      background: radial-gradient(ellipse at center, rgba(0, 226, 114, 0.12) 0%, rgba(0, 226, 114, 0.03) 45%, transparent 70%);
+      filter: blur(40px);
+    }
+
+    .glow-accent-blue {
+      position: absolute;
+      bottom: -10%;
+      right: 15%;
+      width: 600px;
+      height: 450px;
+      background: radial-gradient(ellipse at center, rgba(79, 195, 247, 0.09) 0%, rgba(79, 195, 247, 0.02) 50%, transparent 70%);
+      filter: blur(50px);
+    }
+
+    /* Subtle high-tech geometric grid */
+    .grid-pattern {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(79, 195, 247, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(79, 195, 247, 0.035) 1px, transparent 1px);
+      background-size: 44px 44px;
+      opacity: 0.85;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       PAGE WRAPPER & CENTERED CARD
+       ════════════════════════════════════════════════════════════════════════ */
+    .page-wrapper {
+      position: relative;
+      z-index: 10;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .onboarding-card {
+      width: 100%;
+      max-width: 440px;
+      background: var(--card-bg);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border: 1px solid var(--card-border);
+      border-radius: 24px;
+      padding: 40px 36px 36px;
+      box-shadow:
+        0 24px 64px -12px rgba(0, 0, 0, 0.65),
+        0 0 0 1px rgba(255, 255, 255, 0.06),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+      animation: cardFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      transform-origin: center center;
+    }
+
+    @keyframes cardFadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(18px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       LOGO & BRAND BADGE
+       ════════════════════════════════════════════════════════════════════════ */
+    .brand-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 22px;
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, rgba(0, 226, 114, 0.15), rgba(79, 195, 247, 0.12));
+      border: 1px solid rgba(0, 226, 114, 0.3);
+      box-shadow:
+        0 8px 20px rgba(0, 226, 114, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+      transition: transform 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    .brand-badge:hover {
+      transform: translateY(-1px) scale(1.03);
+      box-shadow: 0 12px 26px rgba(0, 226, 114, 0.25);
+    }
+
+    .brand-logo-img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       TYPOGRAPHY
+       ════════════════════════════════════════════════════════════════════════ */
+    .card-header {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+
+    .main-heading {
+      font-size: 1.68rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.25;
+      color: #ffffff;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 0.92rem;
+      font-weight: 400;
+      color: var(--text-muted);
+      line-height: 1.55;
+      max-width: 340px;
+      margin: 0 auto;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       FORM & INPUT FIELD
+       ════════════════════════════════════════════════════════════════════════ */
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 24px;
+      position: relative;
+    }
+
+    .field-label {
+      font-size: 0.84rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      letter-spacing: 0.01em;
+    }
+
+    .input-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .name-input {
+      width: 100%;
+      height: 50px;
+      padding: 0 16px;
+      border-radius: 12px;
+      background: var(--input-bg);
+      border: 1.5px solid var(--input-border);
+      color: #ffffff;
+      font-family: var(--font-outfit);
+      font-size: 1rem;
+      font-weight: 500;
+      outline: none;
+      transition: border-color 0.22s ease, box-shadow 0.22s ease, background 0.22s ease;
+      -webkit-appearance: none;
+    }
+
+    .name-input::placeholder {
+      color: #556987;
+      font-weight: 400;
+    }
+
+    /* Clear focus state using primary green #00E272 */
+    .name-input:focus {
+      border-color: var(--primary-green);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0 0 3.5px rgba(0, 226, 114, 0.2);
+    }
+
+    .name-input.is-invalid {
+      border-color: var(--error-red) !important;
+      box-shadow: 0 0 0 3px rgba(248, 113, 113, 0.18) !important;
+    }
+
+    /* Inline Validation Message */
+    .validation-msg {
+      display: none;
+      align-items: center;
+      gap: 6px;
+      color: var(--error-red);
+      font-size: 0.81rem;
+      font-weight: 500;
+      margin-top: 8px;
+      line-height: 1.4;
+      animation: shakeSlide 0.32s ease forwards;
+    }
+
+    .validation-msg.visible {
+      display: flex;
+    }
+
+    .validation-msg svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    @keyframes shakeSlide {
+      0% { opacity: 0; transform: translateY(-4px); }
+      20% { transform: translateX(-4px); }
+      40% { transform: translateX(4px); }
+      60% { transform: translateX(-2px); }
+      80% { transform: translateX(2px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+
+    /* Helper text */
+    .helper-text {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      font-size: 0.79rem;
+      color: var(--text-helper);
+      margin-top: 9px;
+      line-height: 1.45;
+    }
+
+    .helper-text svg {
+      width: 14px;
+      height: 14px;
+      margin-top: 2px;
+      flex-shrink: 0;
+      opacity: 0.75;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       CONTINUE BUTTON
+       ════════════════════════════════════════════════════════════════════════ */
+    .continue-btn {
+      width: 100%;
+      height: 50px;
+      border-radius: 9999px; /* Prominent rounded pill shape */
+      background: var(--primary-green);
+      color: #060d1f; /* Deep contrast dark text */
+      font-family: var(--font-outfit);
+      font-size: 0.98rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 18px rgba(0, 226, 114, 0.28);
+      position: relative;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .continue-btn:hover:not(:disabled) {
+      background: var(--primary-green-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 10px 28px rgba(0, 226, 114, 0.42);
+    }
+
+    .continue-btn:active:not(:disabled) {
+      background: var(--primary-green-active);
+      transform: translateY(0);
+      box-shadow: 0 4px 12px rgba(0, 226, 114, 0.28);
+    }
+
+    /* Visually de-emphasized when invalid/empty */
+    .continue-btn:disabled,
+    .continue-btn.is-disabled {
+      opacity: 0.42;
+      cursor: not-allowed;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+
+    .btn-arrow {
+      font-size: 1.15rem;
+      line-height: 1;
+      transition: transform 0.22s ease;
+      display: inline-block;
+    }
+
+    .continue-btn:hover:not(:disabled) .btn-arrow {
+      transform: translateX(3px);
+    }
+
+    /* Spinner state */
+    .btn-spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2.2px solid rgba(6, 13, 31, 0.25);
+      border-top-color: #060d1f;
+      border-radius: 50%;
+      animation: spin 0.65s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .continue-btn.is-loading .btn-text,
+    .continue-btn.is-loading .btn-arrow {
+      display: none;
+    }
+
+    .continue-btn.is-loading .btn-spinner {
+      display: inline-block;
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       SUCCESS TOAST OVERLAY (Subtle feedback before redirect)
+       ════════════════════════════════════════════════════════════════════════ */
+    .success-badge {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 14px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--primary-green);
+      animation: fadeIn 0.3s ease;
+    }
+
+    .success-badge.visible {
+      display: flex;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════════
+       MOBILE RESPONSIVENESS
+       ════════════════════════════════════════════════════════════════════════ */
+    @media (max-width: 480px) {
+      .page-wrapper {
+        padding: 20px 16px;
+        align-items: center;
+      }
+
+      .onboarding-card {
+        padding: 32px 22px 28px;
+        border-radius: 20px;
+      }
+
+      .main-heading {
+        font-size: 1.48rem;
+      }
+
+      .subtitle {
+        font-size: 0.88rem;
+      }
+
+      .name-input {
+        height: 48px;
+        font-size: 16px; /* Prevents auto-zoom in iOS Safari */
+      }
+
+      .continue-btn {
+        height: 48px;
+        font-size: 0.95rem;
+      }
+    }
+
+    /* Reduced motion preference */
+    @media (prefers-reduced-motion: reduce) {
+      .onboarding-card,
+      .continue-btn,
+      .brand-badge,
+      .validation-msg {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background lighting & geometric grid -->
+  <div class="bg-canvas" aria-hidden="true">
+    <div class="glow-accent-green"></div>
+    <div class="glow-accent-blue"></div>
+    <div class="grid-pattern"></div>
+  </div>
+
+  <!-- Main Viewport Content -->
+  <main class="page-wrapper">
+    <section class="onboarding-card" aria-labelledby="onboardingHeading">
+
+      <!-- Subtle SaveHatke Brand Logo -->
+      <div class="brand-container">
+        <div class="brand-badge" aria-label="SaveHatke Logo">
+          <img src="logo.png" alt="SaveHatke" class="brand-logo-img">
+        </div>
+      </div>
+
+      <!-- Main Header -->
+      <header class="card-header">
+        <h1 class="main-heading" id="onboardingHeading">What should we call you?</h1>
+        <p class="subtitle">Choose the name you'd like us to use when addressing you on SaveHatke.</p>
+      </header>
+
+      <!-- Name Setup Form -->
+      <form id="onboardingForm" onsubmit="handleOnboardingSubmit(event)" novalidate>
+        <div class="form-group">
+          <label class="field-label" for="preferredNameInput">
+            <span>Preferred name</span>
+          </label>
+
+          <div class="input-wrapper">
+            <input
+              type="text"
+              id="preferredNameInput"
+              class="name-input"
+              placeholder="Enter your name"
+              maxlength="50"
+              autocomplete="name"
+              autocapitalize="words"
+              spellcheck="false"
+              required
+            >
+          </div>
+
+          <!-- Inline Validation Message -->
+          <div id="nameValidationMsg" class="validation-msg" role="alert" aria-live="polite">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span id="validationText">Please enter your preferred name to continue.</span>
+          </div>
+
+          <!-- Helper Text -->
+          <p class="helper-text">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span>This name will be used across your SaveHatke account and communications.</span>
+          </p>
+        </div>
+
+        <!-- Prominent Rounded Green Button -->
+        <button
+          type="submit"
+          id="continueBtn"
+          class="continue-btn"
+          aria-label="Continue to dashboard"
+        >
+          <span class="btn-text">Continue</span>
+          <span class="btn-arrow" aria-hidden="true">&rarr;</span>
+          <span class="btn-spinner" aria-hidden="true"></span>
+        </button>
+
+        <!-- Brief Success State -->
+        <div id="successNotice" class="success-badge" role="status" aria-live="polite">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          <span id="successText">Name saved! Taking you to your dashboard...</span>
+        </div>
+      </form>
+
+    </section>
+  </main>
+
+  <script>
+    /* ════════════════════════════════════════════════════════════════════════
+       ONBOARDING LOGIC & INTERACTION CONTROLLER
+       ════════════════════════════════════════════════════════════════════════ */
+    const inputEl = document.getElementById('preferredNameInput');
+    const continueBtn = document.getElementById('continueBtn');
+    const validationMsg = document.getElementById('nameValidationMsg');
+    const validationText = document.getElementById('validationText');
+    const successNotice = document.getElementById('successNotice');
+    let isSubmitting = false;
+
+    // Helper: Retrieve local stored user
+    function getStoredUser() {
+      try {
+        const raw = localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user');
+        return raw ? JSON.parse(raw) : null;
+      } catch (e) {
+        return null;
+      }
+    }
+
+    // Helper: Show inline validation message
+    function showValidationError(message) {
+      validationText.textContent = message;
+      validationMsg.classList.add('visible');
+      inputEl.classList.add('is-invalid');
+      inputEl.focus();
+    }
+
+    // Helper: Clear inline validation error
+    function clearValidationError() {
+      validationMsg.classList.remove('visible');
+      inputEl.classList.remove('is-invalid');
+    }
+
+    // Dynamic button state based on input value
+    function updateButtonState() {
+      const trimmed = inputEl.value.trim();
+      if (!trimmed || trimmed.length > 50) {
+        continueBtn.classList.add('is-disabled');
+      } else {
+        continueBtn.classList.remove('is-disabled');
+      }
+    }
+
+    // Initialize: Pre-fill name from Google account if available
+    document.addEventListener('DOMContentLoaded', () => {
+      const user = getStoredUser();
+
+      if (user) {
+        // Candidate pre-fill name: google_name or existing name
+        const prefillCandidate = (user.google_name || user.name || '').trim();
+        // If not empty and not an email string fallback
+        if (prefillCandidate && !prefillCandidate.includes('@')) {
+          inputEl.value = prefillCandidate;
+        }
+      }
+
+      updateButtonState();
+
+      // Focus input with cursor at end
+      try {
+        const val = inputEl.value;
+        inputEl.focus();
+        inputEl.setSelectionRange(val.length, val.length);
+      } catch (e) {}
+
+      // Scroll card into view if on small mobile screen
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    // Real-time input validation & typing handling
+    inputEl.addEventListener('input', () => {
+      if (validationMsg.classList.contains('visible')) {
+        clearValidationError();
+      }
+      updateButtonState();
+    });
+
+    // Handle form submission
+    async function handleOnboardingSubmit(e) {
+      if (e) e.preventDefault();
+      if (isSubmitting) return;
+
+      const rawValue = inputEl.value;
+      const trimmed = rawValue.trim();
+
+      // Validation 1: Name cannot be empty
+      if (!trimmed) {
+        showValidationError('Please enter your preferred name to continue.');
+        updateButtonState();
+        return;
+      }
+
+      // Validation 2: Maximum length check
+      if (trimmed.length > 50) {
+        showValidationError('Please keep your name under 50 characters.');
+        updateButtonState();
+        return;
+      }
+
+      // Automatically set the trimmed value into the input field
+      inputEl.value = trimmed;
+      clearValidationError();
+
+      // Set loading state on Continue button
+      isSubmitting = true;
+      continueBtn.disabled = true;
+      continueBtn.classList.add('is-loading');
+
+      try {
+        const token = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token') || '';
+        const user = getStoredUser() || {};
+
+        // Call backend API to persist preferred display name
+        const response = await fetch('/api/auth/preferred-name', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            preferred_name: trimmed,
+            name: trimmed,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to save your name. Please try again.');
+        }
+
+        // Successfully saved! Update local storage with the new preferred name
+        const updatedProfile = {
+          ...user,
+          name: trimmed,
+          preferred_name: trimmed,
+          needs_name_setup: false,
+          ...(data.user || {}),
+        };
+
+        localStorage.setItem('sh_user', JSON.stringify(updatedProfile));
+        if (localStorage.getItem('sh_admin_user')) {
+          localStorage.setItem('sh_admin_user', JSON.stringify(updatedProfile));
+        }
+
+        // Show brief success notice & redirect to dashboard
+        if (successNotice) {
+          successNotice.classList.add('visible');
+        }
+
+        const targetUrl = data.redirectTo || '/dashboard.html';
+        setTimeout(() => {
+          window.location.replace(targetUrl);
+        }, 400);
+
+      } catch (err) {
+        console.error('Error saving preferred name:', err);
+        showValidationError(err.message || 'Unable to save your name. Please try again.');
+        isSubmitting = false;
+        continueBtn.disabled = false;
+        continueBtn.classList.remove('is-loading');
+        updateButtonState();
+      }
+    }
+  </script>
+</body>
+</html>

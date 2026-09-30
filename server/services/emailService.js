@@ -75,7 +75,7 @@ function resolveMainFromAddress() {
   const desiredFrom = (process.env.SMTP_FROM || process.env.EMAIL_FROM || '').trim();
   const domainOf = (a) => (String(a).split('@')[1] || '').toLowerCase();
   const aligned = desiredFrom && authUser && domainOf(desiredFrom) === domainOf(authUser);
-  return aligned ? desiredFrom : (authUser || desiredFrom || 'noreply@savehatke.com');
+  return aligned ? desiredFrom : (authUser || desiredFrom || 'support.savehatke@gmail.com');
 }
 
 /**
@@ -304,7 +304,7 @@ async function sendWelcomeEmail(to, userName, opts = {}) {
     || '').trim();
   const desiredNoreply = (process.env.NOREPLY_EMAIL
     || process.env.NOREPLY_SMTP_USER
-    || 'noreply@savehatke.com').trim();
+    || noreplyAuthUser).trim();
   const hasDedicatedNoreply = Boolean(
     (process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim()
   );
@@ -322,7 +322,7 @@ async function sendWelcomeEmail(to, userName, opts = {}) {
   // SaveHatke display name rather than inheriting "SaveHatke Security".
   const noreplyName = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
   // Replies go to support (not the no-reply inbox)
-  const replyTo = process.env.SUPPORT_EMAIL || 'support@savehatke.com';
+  const replyTo = process.env.SUPPORT_EMAIL || 'support.savehatke@gmail.com';
 
   const t = getNoreplyTransporter();
   if (!t) {
@@ -336,7 +336,7 @@ async function sendWelcomeEmail(to, userName, opts = {}) {
   }
 
   const subject = 'Welcome to SaveHatke!';
-  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
   const logoUrl = `https://savehatke.vercel.app/logo.png`;
   const safeEmail = escapeHtml(cleanEmail);
   const displayName = userName && String(userName).trim() ? String(userName).trim() : 'there';
@@ -668,7 +668,7 @@ async function sendOTPEmail(to, otp, opts = {}) {
   // DKIM/SPF alignment intact. Priority is left Normal (a "verification code"
   // subject flagged High-importance reads as phishy to some filters). We do
   // NOT add List-Unsubscribe — a one-time security code isn't a subscription.
-  const fromDomain = (String(fromEmail).split('@')[1] || 'savehatke.com').toLowerCase();
+  const fromDomain = (String(fromEmail).split('@')[1] || 'savehatke.vercel.app').toLowerCase();
   const headers = {
     'X-Entity-Ref-ID': `otp-${Date.now()}`,
     'Auto-Submitted': 'auto-generated',
@@ -781,9 +781,9 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
   // also have a password for it (i.e. we're authenticated as that user).
   const fromEmail = hasDedicatedSupport
     ? supportFrom
-    : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
+    : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'support.savehatke@gmail.com');
   const fromName = (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim();
-  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
   const viewUrl = `https://savehatke.vercel.app/dashboard`;
   const year = new Date().getFullYear();
 
@@ -979,8 +979,8 @@ Regards,
   // sending domain (helps DMARC/spam scoring). Must be defined here; it is
   // not shared from other functions.
   const fqdn = (() => {
-    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
-    catch { return 'savehatke.com'; }
+    try { return new URL(siteUrl).hostname || 'savehatke.vercel.app'; }
+    catch { return 'savehatke.vercel.app'; }
   })();
 
   const mailOptions = {
@@ -1066,9 +1066,9 @@ async function sendSupportResolvedEmail({ to, userName, caseId, subject, resolve
   // also have a password for it (i.e. we're authenticated as that user).
   const fromEmail = hasDedicatedSupport
     ? supportFrom
-    : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
+    : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'support.savehatke@gmail.com');
   const fromName = (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim();
-  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
   const viewUrl = `${siteUrl}/support.html`;
   const year = new Date().getFullYear();
 
@@ -1398,8 +1398,8 @@ SaveHatke Support Team`;
   // sending domain (helps DMARC/spam scoring). Must be defined here; it is
   // not shared from other functions.
   const fqdn = (() => {
-    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
-    catch { return 'savehatke.com'; }
+    try { return new URL(siteUrl).hostname || 'savehatke.vercel.app'; }
+    catch { return 'savehatke.vercel.app'; }
   })();
 
   const mailOptions = {
@@ -1527,7 +1527,7 @@ async function sendSignInAlertEmail({
   const fromName = (process.env.SECURITY_FROM_NAME || 'SaveHatke Security').trim();
   // Replies to a security alert still route to the support inbox when set.
   const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
-  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
   // Admins secure their account from the vault; users from their dashboard.
   const secureUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#security`;
   const notifUrl = isAdminAccount ? `${siteUrl}/vault.html` : `${siteUrl}/dashboard.html#notifications`;
@@ -1733,8 +1733,8 @@ ${EMAIL_GREEN_DARK_RULES}
 
   // ── Deliverability headers ─────────────────────────────────────────
   const fqdn = (() => {
-    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
-    catch { return 'savehatke.com'; }
+    try { return new URL(siteUrl).hostname || 'savehatke.vercel.app'; }
+    catch { return 'savehatke.vercel.app'; }
   })();
   const emailHash = crypto.createHash('sha256').update(cleanEmail).digest('hex').slice(0, 16);
   const unsubscribeMailto = `unsubscribe+${emailHash}@${fqdn}`;
@@ -1855,7 +1855,7 @@ async function sendTwoFactorSecurityEmail({
   const fromEmail = resolveMainFromAddress();
   const fromName = (process.env.SECURITY_FROM_NAME || 'SaveHatke Security').trim();
   const supportFrom = (process.env.SUPPORT_EMAIL || '').trim();
-  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
   const secureUrl = `${siteUrl}/dashboard.html#security`;
   const year = new Date().getFullYear();
 
@@ -1934,8 +1934,8 @@ ${lowCodes === null ? '' : `
 </body></html>`;
 
   const fqdn = (() => {
-    try { return new URL(siteUrl).hostname || 'savehatke.com'; }
-    catch { return 'savehatke.com'; }
+    try { return new URL(siteUrl).hostname || 'savehatke.vercel.app'; }
+    catch { return 'savehatke.vercel.app'; }
   })();
   const emailHash = crypto.createHash('sha256').update(cleanEmail).digest('hex').slice(0, 16);
   const ref = `2fa-${change}-${emailHash}-${Date.now()}`;
@@ -2299,7 +2299,7 @@ async function sendCouponSubmissionAdminEmail(p, opts = {}) {
     timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: true,
   });
-  const reviewUrl = String(p.reviewUrl || `${(process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '')}/vault`);
+  const reviewUrl = String(p.reviewUrl || `${(process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '')}/vault`);
 
   const subject = 'New Coupon Submission \u2013 SaveHatke';
 
@@ -2443,7 +2443,7 @@ async function sendPayoutRequestAdminEmail(p, opts = {}) {
     timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', hour12: true,
   });
-  const payoutsUrl = `${(process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '')}/vault`;
+  const payoutsUrl = `${(process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '')}/vault`;
 
   const subject = 'New Payout Request \u2013 SaveHatke';
 
@@ -2574,7 +2574,7 @@ function resolveSender(kind) {
     const t = getNoreplyTransporter();
     if (!t) return null;
     const authUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
-    const desired = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || 'noreply@savehatke.com').trim();
+    const desired = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || '').trim();
     const hasDedicated = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
     const canSendAs = hasDedicated
       || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
@@ -2610,7 +2610,7 @@ function resolveSender(kind) {
       );
       const fromEmail = hasDedicatedSupport
         ? (process.env.SUPPORT_EMAIL || '').trim()
-        : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'noreply@savehatke.com');
+        : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'support.savehatke@gmail.com');
       return {
         transporter: t,
         fromEmail,
@@ -2758,7 +2758,7 @@ async function sendPaymentSuccessEmail({
     } else {
       t = getNoreplyTransporter();
       const noreplyAuthUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
-      const desiredNoreply = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || 'noreply@savehatke.com').trim();
+      const desiredNoreply = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || '').trim();
       const hasDedicatedNoreply = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
       const domainOf = (addr) => (String(addr).split('@')[1] || '').toLowerCase();
       const canSendAsNoreply = hasDedicatedNoreply
@@ -2771,8 +2771,8 @@ async function sendPaymentSuccessEmail({
     }
   }
 
-  // siteUrl still powers the CTA link below (SITE_URL env, default savehatke.com).
-  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  // siteUrl still powers the CTA link below (SITE_URL env, default savehatke.vercel.app).
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
   // Brand logo: pinned to the deployed public HTTPS asset so it renders reliably
   // in Gmail and every other client regardless of the SITE_URL / custom-domain
   // setup (the same absolute URL the new-device sign-in alert email already uses).
@@ -3064,7 +3064,7 @@ async function sendCouponDetailsEmail({
 
   // logo.png is served at the web root (express.static → public/), the same
   // brand image the site and the payment receipt use.
-  const siteUrl = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
   const logoUrl = `https://savehatke.vercel.app/logo.png`;
   // Deep-link straight to the buyer's coupons (dashboard hash view).
   const ctaUrl = `${siteUrl}/dashboard.html#my-coupons`;
