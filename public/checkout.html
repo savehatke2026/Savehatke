@@ -443,7 +443,11 @@
     }
 
     /* SUCCESS OVERLAY */
-    .success-overlay { position:fixed; inset:0; z-index:300; background:rgba(6,13,31,.96); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .35s; }
+    /* z-index 360 sits ABOVE the UPI payment box (340): whenever a success
+       surface appears it must always cover the payment window, never hide
+       beneath it (a handoff race would otherwise read as the payment window
+       "coming back" on top of the success screen). */
+    .success-overlay { position:fixed; inset:0; z-index:360; background:rgba(6,13,31,.96); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .35s; }
     .success-overlay.show { opacity:1; pointer-events:auto; }
     .success-box { position:relative; max-width:440px; width:100%; border-radius:24px; padding:40px 32px 32px; background:#0c1628; border:1px solid rgba(0,210,110,.25); box-shadow:0 0 0 1px rgba(0,210,110,.08),0 0 60px rgba(0,210,110,.06),0 30px 80px rgba(0,0,0,.6); text-align:center; font-family:'Inter',sans-serif; transform:scale(.94); transition:transform .35s; }
     .success-overlay.show .success-box { transform:scale(1); }
@@ -1872,6 +1876,11 @@
   function renderUpiQr(dataUrl) {
     const host = upiEl('upmQr');
     if (!host || !dataUrl) return;
+    // Same QR already painted? Skip. The SSE stream re-applies the payment
+    // state immediately after open, and re-setting innerHTML makes the image
+    // blank for a frame — a visible blink of the QR.
+    const img = host.querySelector('img');
+    if (img && img.getAttribute('src') === dataUrl) return;
     host.innerHTML = '<img alt="UPI payment QR code" src="' + dataUrl + '">';
   }
 
@@ -1975,7 +1984,12 @@
     }
   }
 
-  function showUpiState(kind) {
+  /**
+   * Show the in-box state panel (covers the payment UI inside the box).
+   * `kind` picks the copy; an optional `subText` overrides the subtitle, which
+   * the "error" kind uses to surface the server's exact failure message.
+   */
+  function showUpiState(kind, subText) {
     const state = upiEl('upmState');
     if (!state) return;
     const ico = upiEl('upmStateIco');
@@ -1992,6 +2006,13 @@
       ico.textContent = '⏳';
       ttl.textContent = 'Payment window expired';
       sub.textContent = "Still checking automatically — if you've already paid, or pay now, we'll detect it and unlock your coupon. You can keep this page open.";
+    } else if (kind === 'error') {
+      // A failed /api/payment/create. The window STAYS OPEN with this panel —
+      // closing it here made the window visibly flash open→closed ("coming and
+      // going") on every failed attempt.
+      ico.textContent = '⚠️';
+      ttl.textContent = "Couldn't start the payment";
+      sub.textContent = subText || 'Something went wrong while creating this payment. Please try again.';
     } else {
       ico.textContent = '⏳';
       ttl.textContent = 'Payment window expired';
@@ -2000,6 +2021,12 @@
     state.classList.add('show');
     // Freeze every interaction: an expired request must not be payable.
     disableUpiInteraction(true);
+    if (kind === 'error') {
+      // Nothing is live in this state, so the × must still close the box
+      // (askCancelPayment() sees no PENDING payment and closes directly).
+      const close = upiEl('upmClose');
+      if (close) close.disabled = false;
+    }
   }
 
   function hideUpiState() {
@@ -2334,6 +2361,11 @@
       upiEl('upmPayAmt').textContent = totalPrice ? formatRupees(totalPrice) : '—';
     }
     openUpiBox();
+    // Fresh attempt: clear leftovers (an old QR, a previous state panel) so the
+    // box always opens on the loading skeleton, never on stale content.
+    hideUpiState();
+    const qrHost = upiEl('upmQr');
+    if (qrHost) qrHost.innerHTML = '<div class="upm-qr-empty"><div class="upm-qr-skel"></div></div>';
 
     try {
       const res = await fetch('/api/payment/create', {
@@ -2354,15 +2386,17 @@
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.status) {
-        closeUpiBox({ instant: true });
         resetBtn();
-        // A missing migration / missing UPI config is an operator problem, not
-        // a buyer problem — say so plainly instead of a generic failure.
-        if (data.code === 'UPI_NOT_CONFIGURED' || data.code === 'STORAGE_UNAVAILABLE') {
-          showToastLocal(data.error || 'Payments are not available right now.', 'error');
-        } else {
-          showToastLocal(data.error || 'Could not start the payment. Please try again.', 'error');
-        }
+        // The user may have closed the box while we were fetching — don't
+        // paint a state panel onto a box that is already gone.
+        if (!upiEl('upiPayOverlay').classList.contains('show')) return;
+        // FAILED CREATE: keep the window open and show the error INSIDE it.
+        // Closing here made the window flash open→closed on every failed
+        // attempt (the "payment window coming and going" bug).
+        const msg = (data.code === 'UPI_NOT_CONFIGURED' || data.code === 'STORAGE_UNAVAILABLE')
+          ? (data.error || 'Payments are not available right now.')
+          : (data.error || 'Could not start the payment. Please try again.');
+        showUpiState('error', msg);
         return;
       }
 
@@ -2379,9 +2413,9 @@
         subscribeToPayment(data.payment_id);
       }
     } catch (e) {
-      closeUpiBox({ instant: true });
       resetBtn();
-      showToastLocal('Network error. Please try again.', 'error');
+      if (!upiEl('upiPayOverlay').classList.contains('show')) return;
+      showUpiState('error', 'Network error. Please check your connection and try again.');
     } finally {
       upiState.opening = false;
     }
