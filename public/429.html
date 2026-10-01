@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#060d1f">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="description" content="You've made too many requests in a short time. Please wait a moment and try again.">
+  <title>Too Many Requests — SaveHatke</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="apple-touch-icon" href="logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       SaveHatke — HTTP 429 "Too Many Requests" system page.
+       Reuses the exact design tokens from maintenance.html / index.html:
+       Outfit + DM Serif Display, #060d1f canvas, the shared .btn system,
+       the fixed .topbar brand lockup and the ambient green/blue glows.
+       Brand accent pinned to SaveHatke green #00E272.
+       Deliberately self-contained and script-light: it loads app.js NOT,
+       and makes ZERO network calls — a page shown *because* the visitor
+       sent too many requests must never fire more of them, and that also
+       keeps the existing session untouched.
+       ============================================================ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: #060d1f;
+      color: #e2ecff;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      min-height: 100svh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+      position: relative;
+    }
+    a { text-decoration: none; color: inherit; }
+
+    .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; width: 100%; }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #060d1f; }
+    ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00E272; }
+
+    /* ── Buttons — same shape/metrics as every SaveHatke page, accent
+       pinned to the brand green #00E272. ── */
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:9px; padding:0 28px; height:50px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.98rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; text-decoration:none; }
+    .btn svg { width:18px; height:18px; flex:none; }
+    .btn-primary { background:linear-gradient(135deg,#00E272,#00b45c); color:#041426; box-shadow:0 8px 24px rgba(0,226,114,.26); }
+    .btn-primary:hover { transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,226,114,.42); }
+    .btn-primary:active { transform:translateY(0); box-shadow:0 6px 16px rgba(0,226,114,.3); }
+    .btn-primary[disabled] { cursor:not-allowed; opacity:.55; transform:none; box-shadow:none; filter:saturate(.85); }
+    .btn-ghost { background:transparent; color:#8ba2c4; border:1px solid rgba(139,162,196,.35); }
+    .btn-ghost:hover { color:#e2ecff; border-color:rgba(226,236,255,.6); transform:translateY(-2px); }
+    .btn:focus-visible { outline:3px solid #00E272; outline-offset:3px; }
+
+    /* ── Ambient background glow — identical treatment to maintenance.html ── */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -30%; left: -10%;
+      width: 60%; height: 60%;
+      background: radial-gradient(ellipse, rgba(0,226,114,.07) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -20%; right: -10%;
+      width: 50%; height: 50%;
+      background: radial-gradient(ellipse, rgba(79,195,247,.04) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── TOP BAR — the same fixed brand lockup slot every page uses. Kept
+       action-free (no app.js) so the page stays request-free. ── */
+    .topbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); }
+    .topbar .container { height:100%; display:flex; align-items:center; }
+    .brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; color:#e2ecff; }
+    .brand-icon { width:34px; height:34px; object-fit:contain; }
+    .bhl { color:#00E272; }
+    .brand:focus-visible { outline:3px solid #00E272; outline-offset:4px; border-radius:8px; }
+
+    /* ── Animations (shared language: fadeInUp / float / shimmer) ── */
+    @keyframes fadeInUp { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-7px)} }
+    @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
+    @keyframes ringPulse { 0%,100%{ box-shadow:0 0 0 0 rgba(0,226,114,.0);} 50%{ box-shadow:0 0 0 10px rgba(0,226,114,.045);} }
+
+    /* ── Centered error state ── */
+    .error-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 560px;
+      width: 100%;
+      padding: 92px 24px 40px;
+      margin: auto;              /* centres between the fixed top bar and the footer */
+      text-align: center;
+      animation: fadeInUp .7s ease;
+    }
+
+    /* Security / protection icon — a shield with a "pause / slow down"
+       motif, in the SaveHatke icon style (thin stroked SVG inside a
+       glass orbit, subtle green glow). Intentionally compact, not an
+       oversized illustration. */
+    .shield-orbit {
+      width: 92px; height: 92px;
+      margin: 0 auto 26px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      background: radial-gradient(circle at 50% 42%, rgba(0,226,114,.14), rgba(0,226,114,.03) 70%);
+      border: 1px solid rgba(0,226,114,.28);
+      animation: float 4s ease-in-out infinite, ringPulse 4s ease-in-out infinite;
+    }
+    .shield-orbit svg { width: 46px; height: 46px; filter: drop-shadow(0 0 6px rgba(0,226,114,.35)); }
+
+    /* Big status number */
+    .code {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(66px, 17vw, 104px);
+      line-height: .98;
+      letter-spacing: -1px;
+      background: linear-gradient(90deg, #00E272 0%, #5bf0ac 32%, #00E272 64%, #5bf0ac 100%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: #00E272;
+      animation: shimmer 4s linear infinite;
+    }
+
+    .headline {
+      font-family: 'DM Serif Display', serif;
+      font-size: clamp(1.5rem, 5.5vw, 2.05rem);
+      line-height: 1.2;
+      margin-top: 6px;
+      color: #e2ecff;
+    }
+
+    .message {
+      font-size: 1rem;
+      line-height: 1.7;
+      color: #8ba2c4;
+      max-width: 456px;
+      margin: 14px auto 0;
+    }
+
+    /* Retry hint — subtle; upgrades to a live countdown ONLY when the
+       page is reached with a real Retry-After value in the URL. */
+    .retry-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 22px;
+      padding: 9px 16px;
+      border-radius: 100px;
+      background: rgba(0,226,114,.06);
+      border: 1px solid rgba(0,226,114,.18);
+      color: #a9c6ba;
+      font-size: .86rem;
+      font-weight: 500;
+    }
+    .retry-hint .dot { width:7px; height:7px; border-radius:50%; background:#00E272; flex:none; box-shadow:0 0 8px rgba(0,226,114,.6); }
+    .retry-hint #retrySeconds { color:#00E272; font-weight:700; font-variant-numeric: tabular-nums; }
+
+    /* Action area — primary dominant, secondary subtle */
+    .actions { display:flex; gap:12px; justify-content:center; flex-wrap:wrap; margin-top:28px; }
+
+    /* Security supporting line — small & secondary */
+    .security-note {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      max-width: 440px;
+      margin: 30px auto 0;
+      color: #627693;
+      font-size: .78rem;
+      line-height: 1.55;
+      text-align: left;
+    }
+    .security-note svg { width:15px; height:15px; flex:none; margin-top:1px; stroke:#4b6a86; }
+    .security-note span { flex:1; }
+
+    /* Tiny technical identifier chip (safe to show — no internals) */
+    .err-id {
+      display: inline-block;
+      margin-top: 20px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: .72rem;
+      letter-spacing: .4px;
+      color: #51657f;
+      padding: 3px 10px;
+      border: 1px solid rgba(79,195,247,.1);
+      border-radius: 7px;
+      background: rgba(255,255,255,.015);
+    }
+
+    /* ── Minimal footer, same tone as the site ── */
+    .foot {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 18px 24px calc(18px + env(safe-area-inset-bottom, 0px));
+      color: #44586f;
+      font-size: .76rem;
+      border-top: 1px solid rgba(79,195,247,.08);
+    }
+    .foot a { color:#627693; transition:color .2s; }
+    .foot a:hover { color:#00E272; }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .error-wrap { padding-top: 84px; }
+      .message { font-size: .93rem; }
+      .actions .btn { width: 100%; }
+      .shield-orbit { width: 82px; height: 82px; }
+      .shield-orbit svg { width: 40px; height: 40px; }
+    }
+
+    /* ── Mobile touch targets — same invisible ::after widening as the
+       rest of the site, so the brand is a comfortable ~44px tap. ── */
+    @media(max-width:768px),(max-height:500px) and (orientation:landscape){
+      .brand{position:relative}
+      .brand::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
+    }
+
+    /* ── Reduced motion ── */
+    @media (prefers-reduced-motion: reduce) {
+      .error-wrap, .shield-orbit, .code { animation: none !important; }
+      .btn { transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR — brand lockup only (static, no login slot / no app.js), so the
+     page issues no further requests while the visitor is being throttled. -->
+<header class="topbar" role="banner">
+  <div class="container">
+    <a class="brand" href="/" aria-label="SaveHatke — go to home">
+      <img src="logo.png" alt="" class="brand-icon">
+      <span>Save<span class="bhl">Hatke</span></span>
+    </a>
+  </div>
+</header>
+
+<!-- CENTERED ERROR STATE -->
+<main class="error-wrap" role="main">
+  <div class="shield-orbit" aria-hidden="true">
+    <!-- Shield + pause bars: "protected, slow down a moment" -->
+    <svg viewBox="0 0 48 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M24 3 7 10v14c0 11 7.4 18 17 23 9.6-5 17-12 17-23V10L24 3Z"
+            fill="rgba(0,226,114,.06)" stroke="#00E272" stroke-width="2.4"
+            stroke-linejoin="round"/>
+      <path d="M20 20v12M28 20v12" stroke="#00E272" stroke-width="3.2" stroke-linecap="round"/>
+    </svg>
+  </div>
+
+  <div class="code" aria-hidden="true">429</div>
+  <h1 class="headline">Too Many Requests</h1>
+
+  <p class="message">
+    Whoa, slow down! We’ve received too many requests from your connection
+    in a short period of time. Please wait a moment and try again.
+  </p>
+
+  <!-- Retry hint. Static by default; becomes a live countdown only when a
+       genuine Retry-After value arrives in the URL (?retry=<seconds>). -->
+  <div class="retry-hint" id="retryHint" role="status" aria-live="polite">
+    <span class="dot" aria-hidden="true"></span>
+    <span id="retryText">Please wait a few seconds before trying again.</span>
+  </div>
+
+  <!-- ACTION AREA — primary is visually dominant -->
+  <div class="actions">
+    <button class="btn btn-primary" id="tryAgainBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v4h4" stroke="currentColor"
+              stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span id="tryAgainLabel">Try Again</span>
+    </button>
+    <a class="btn btn-ghost" id="homeBtn" href="/">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 11.5 12 4l8 7.5M6 10v9h12v-9" stroke="currentColor"
+              stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Go to Home</span>
+    </a>
+  </div>
+
+  <!-- Security supporting line — small & secondary -->
+  <p class="security-note">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3 5 6v6c0 5 3.5 8 7 9 3.5-1 7-4 7-9V6l-7-3Z"
+            stroke-width="1.8" stroke-linejoin="round"/>
+    </svg>
+    <span>This temporary limit helps protect SaveHatke from automated abuse and keeps the service available for everyone.</span>
+  </p>
+
+  <span class="err-id">Error 429</span>
+</main>
+
+<footer class="foot">
+  © <span id="yr">2026</span> SaveHatke · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a>
+</footer>
+
+<script>
+  // ── SaveHatke 429 page behaviour ────────────────────────────────────────
+  // Pure client logic, no network calls. Two jobs: (1) send "Try Again" back
+  // to the page the visitor came from, and (2) show a REAL countdown only
+  // when the server/caller forwarded an actual Retry-After value in the URL.
+  (function () {
+    'use strict';
+
+    var qs = new URLSearchParams(window.location.search);
+    document.getElementById('yr').textContent = String(new Date().getFullYear());
+
+    // ── Where should "Try Again" go? ──────────────────────────────────────
+    // Priority: an explicit same-origin ?from= path  ->  same-origin referrer
+    //           ->  step back in history  ->  home. Everything is validated to
+    // stay on this origin so the page can't be used as an open redirect.
+    function safeInternalPath(raw) {
+      if (!raw) return '';
+      // Reject protocol-relative ("//evil") and absolute URLs outright.
+      if (/^https?:/i.test(raw) || raw.indexOf('//') === 0) {
+        // Allow a full URL only when it is the SAME origin.
+        try {
+          var u = new URL(raw, window.location.origin);
+          if (u.origin === window.location.origin) return u.pathname + u.search + u.hash;
+        } catch (e) {}
+        return '';
+      }
+      // A normal path must start with a single "/".
+      if (raw.charAt(0) === '/' && raw.charAt(1) !== '/') return raw;
+      return '';
+    }
+
+    function sameOriginReferrer() {
+      try {
+        if (!document.referrer) return '';
+        var r = new URL(document.referrer);
+        if (r.origin !== window.location.origin) return '';
+        // Never bounce back to this very page.
+        if (r.pathname === window.location.pathname) return '';
+        return r.pathname + r.search + r.hash;
+      } catch (e) { return ''; }
+    }
+
+    var fromPath = safeInternalPath(qs.get('from') || qs.get('return') || '');
+    var retryTarget = fromPath || sameOriginReferrer();
+
+    var tryBtn = document.getElementById('tryAgainBtn');
+    tryBtn.addEventListener('click', function () {
+      if (tryBtn.hasAttribute('disabled')) return;
+      if (retryTarget) {
+        window.location.assign(retryTarget);
+      } else if (window.history.length > 1) {
+        // Step back to the previous page — this re-issues the original
+        // request the visitor was making, which is the real "retry".
+        window.history.back();
+      } else {
+        window.location.assign('/');
+      }
+    });
+
+    // ── Countdown — ONLY if a real Retry-After value was passed in ────────
+    // Accepted keys: retry / retryAfter / retry_after / ra (seconds).
+    // No value => no countdown (we never invent one); the static hint stays.
+    function parseRetrySeconds() {
+      var keys = ['retry', 'retryAfter', 'retry_after', 'ra'];
+      for (var i = 0; i < keys.length; i++) {
+        var v = qs.get(keys[i]);
+        if (v == null || v === '') continue;
+        var n = parseInt(v, 10);
+        if (isFinite(n) && n > 0) return Math.min(n, 3600); // clamp to 1h
+      }
+      return 0;
+    }
+
+    var seconds = parseRetrySeconds();
+    var retryText = document.getElementById('retryText');
+    var tryLabel = document.getElementById('tryAgainLabel');
+
+    if (seconds > 0) {
+      var remaining = seconds;
+
+      var paint = function () {
+        retryText.innerHTML = 'Try again in <span id="retrySeconds">' + remaining + 's</span>';
+        tryLabel.textContent = 'Try again in ' + remaining + 's';
+      };
+
+      // Lock the primary action until the window elapses, then release it.
+      tryBtn.setAttribute('disabled', 'disabled');
+      tryBtn.setAttribute('aria-disabled', 'true');
+      paint();
+
+      var timer = setInterval(function () {
+        remaining -= 1;
+        if (remaining <= 0) {
+          clearInterval(timer);
+          tryBtn.removeAttribute('disabled');
+          tryBtn.removeAttribute('aria-disabled');
+          tryLabel.textContent = 'Try Again';
+          retryText.textContent = 'You can try again now.';
+          // Deliberately NOT auto-navigating: no continuous auto-refresh —
+          // the visitor chooses when to retry.
+        } else {
+          paint();
+        }
+      }, 1000);
+    }
+  })();
+</script>
+</body>
+</html>
