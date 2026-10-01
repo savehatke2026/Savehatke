@@ -475,6 +475,49 @@
       .nav-links a{position:relative}
       .nav-links a::before{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
     }
+
+    /* === Upgrade styles ported from the Figma "coupon-marketplace" design ===
+       Appended 2026-10; later rules win over the existing marketplace styles
+       by design. Only visual; the markup, ids, and JS flow are unchanged. === */
+    :root { --primary:#00e676; --primary-foreground:#060d1f; }
+:root { --accent:var(--primary); --accent-foreground:var(--primary-foreground); }
+  button:not(:disabled):active { background:var(--primary); color:var(--primary-foreground); border-color:var(--primary); }
+  button[aria-pressed="true"],button[aria-pressed="true"]:hover { background:var(--primary); color:var(--primary-foreground); border-color:var(--primary); }
+  .coupon-card { min-width:0; border-color:#17364b; background:#0d1930; }
+  .coupon-banner { height:111px; background:#070e1e; }
+  .coupon-artwork { display:block; width:100%; height:111px; }
+  .coupon-actions { position:absolute; top:9px; right:9px; display:flex; gap:5px; }
+  .coupon-icon { display:flex; width:27px; height:27px; align-items:center; justify-content:center; border:1px solid #293347; border-radius:7px; color:#dbe8fb; background:#080f20; cursor:pointer; font-size:17px; transition:color .18s,border-color .18s; }
+  .coupon-icon:hover,.coupon-icon-saved { color:#00e676; border-color:#00a866; }
+  .coupon-icon-saved svg { fill:#00e676; }
+  .coupon-icon-saved,.coupon-icon-saved:hover { background:var(--primary); color:var(--primary-foreground); border-color:var(--primary); }
+  .coupon-icon-saved svg { fill:none; }
+  .coupon-body { padding:16px; }
+  .coupon-title { min-height:46px; margin:0 0 7px; font-size:14px; line-height:1.45; font-weight:700; color:#e2ecff; }
+  .coupon-description { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin:0 0 9px; color:#a6d9fb; font-size:12px; line-height:1.5; }
+  .coupon-price-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+  .coupon-price-label { color:#93a8c3; font-size:11px; line-height:1.45; }
+  .coupon-price { color:#e2ecff; font-weight:700; font-size:15px; line-height:1.5; }
+  .coupon-category { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border:1px solid #00617d; border-radius:6px; background:#073047; color:#00d6ff; font-size:10px; line-height:1.6; font-weight:800; box-shadow:0 0 13px #00bffb18; white-space:nowrap; }
+  .coupon-gaming { color:#9398ff; border-color:#3f457d; background:#202541; }
+  .coupon-finance { color:#00e676; border-color:#00674b; background:#07342e; }
+  .coupon-countdown { display:flex; justify-content:center; align-items:center; gap:6px; min-height:24px; padding:3px 8px; margin-bottom:12px; border:1px solid #005a44; border-radius:999px; background:#082c33; color:#00e676; font-size:10px; line-height:1.5; font-weight:800; letter-spacing:.04em; }
+  .coupon-countdown svg { width:10px; height:10px; }
+  .coupon-countdown strong { font-family:'JetBrains Mono',monospace; font-size:10px; letter-spacing:0; }
+  .coupon-countdown-urgent { color:#ffd23a; border-color:#655b30; background:#232b32; }
+  .coupon-buy { width:100%; min-height:42px; border:1px solid #005c49; border-radius:11px; background:linear-gradient(110deg,#0c3139,#122740); color:#00e676; font-size:13px; font-weight:800; cursor:pointer; transition:background .2s,border-color .2s; }
+  .coupon-buy:hover { background:#104539; border-color:#00bd79; }
+  .coupon-buy-selected,.coupon-buy-selected:hover { background:var(--primary); color:var(--primary-foreground); border-color:var(--primary); }
+  .coupon-buy:disabled { opacity:.5; cursor:not-allowed; }
+  .coupon-card button:focus-visible { outline:2px solid #00e676; outline-offset:3px; }
+  .coupon-fallback { height:111px; padding:34px 22px 12px; background-image:radial-gradient(ellipse at top right,#ffffff10,transparent 75%); }
+  .coupon-brand { display:block; font-size:30px; line-height:1.2; font-weight:800; }
+  .coupon-offer { position:absolute; right:14px; bottom:6px; color:#00e676; font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:700; }
+  .coupon-badges { position:absolute; top:10px; left:10px; display:flex; gap:6px; }
+  .coupon-verified { padding:2px 6px; border:1px solid #27445a; border-radius:5px; background:#070e1ecc; color:#a6d9fb; font-size:10px; font-weight:800; }
+  .coupon-sale { padding:2px 7px; border-radius:5px; background:#ff4c13; color:#fff; font-size:10px; font-weight:800; }
+  @media(max-width:380px) { .coupon-category { padding:3px 6px; font-size:9px; } }
+  @media(prefers-reduced-motion:reduce) { .coupon-card,.coupon-buy,.coupon-icon { transition:none; } .coupon-card:hover { transform:none; } }
   </style>
 </head>
 <body>
