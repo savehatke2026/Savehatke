@@ -1836,7 +1836,9 @@
         clearInterval(upiState.timerId); upiState.timerId = null;
         stopUpiStream();
         stopUpiPoll();
-        closeUpiBox();
+        // Hand off directly to the success overlay — no fade-out cross-fade
+        // between the two surfaces.
+        closeUpiBox({ instant: true });
         showServerConfirmedSuccess(data);
         break;
 
@@ -2020,15 +2022,40 @@
 
   function openUpiBox() {
     const overlay = upiEl('upiPayOverlay');
-    if (overlay) overlay.classList.add('show');
+    if (overlay) {
+      // Idempotent: only toggle the class if it isn't already shown. Adding the
+      // same class twice triggers a redundant CSS transition tick on some
+      // engines and was causing the visible flash on the resume-payment path
+      // (initiatePayment → applyPaymentState already opened the box, then the
+      // outer flow called openUpiBox a second time). Same body scroll lock.
+      if (!overlay.classList.contains('show')) overlay.classList.add('show');
+    }
     document.body.style.overflow = 'hidden';
     // Fresh interaction: allow the success screen to show for this attempt.
     upiState.successShown = false;
   }
 
-  function closeUpiBox() {
+  function closeUpiBox(opts) {
     const overlay = upiEl('upiPayOverlay');
-    if (overlay) overlay.classList.remove('show');
+    if (overlay && overlay.classList.contains('show')) {
+      // When we're handing off to a fullscreen overlay (e.g. the success
+      // screen), the cross-fade between two opacity transitions briefly shows
+      // both surfaces. Suppress the transition for that single frame so the
+      // handoff is instant. The next time the box is opened normally, the
+      // transition is restored on the first opacity change.
+      if (opts && opts.instant) {
+        const prev = overlay.style.transition;
+        overlay.style.transition = 'none';
+        overlay.classList.remove('show');
+        // Force a reflow before restoring the transition, otherwise the
+        // browser may batch the change and skip the cleanup.
+        void overlay.offsetWidth;
+        // Restore on the next frame.
+        requestAnimationFrame(() => { overlay.style.transition = prev; });
+      } else {
+        overlay.classList.remove('show');
+      }
+    }
     document.body.style.overflow = '';
     // Never leave a payable deep link behind a closed box.
     updateOpenAppButton('');
@@ -2327,7 +2354,7 @@
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok || !data.status) {
-        closeUpiBox();
+        closeUpiBox({ instant: true });
         resetBtn();
         // A missing migration / missing UPI config is an operator problem, not
         // a buyer problem — say so plainly instead of a generic failure.
@@ -2352,7 +2379,7 @@
         subscribeToPayment(data.payment_id);
       }
     } catch (e) {
-      closeUpiBox();
+      closeUpiBox({ instant: true });
       resetBtn();
       showToastLocal('Network error. Please try again.', 'error');
     } finally {
