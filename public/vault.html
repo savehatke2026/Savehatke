@@ -395,7 +395,9 @@ tbody td strong{color:#e2ecff;font-weight:600}
 /* Marketplace-style coupon BOXES for the admin inventory card view. */
 .cmbx-card{position:relative;background:#0d1930;border:1px solid #17364b;border-radius:16px;transition:transform .22s cubic-bezier(.2,.7,.2,1),border-color .22s,box-shadow .22s;box-shadow:0 6px 24px rgba(0,0,0,.18)}
 .cmbx-card:hover{transform:translateY(-4px);border-color:rgba(0,230,118,.5);box-shadow:0 16px 40px rgba(0,0,0,.34),0 0 28px rgba(0,230,118,.14)}
-.cmbx-hero{position:relative;height:120px;border-radius:16px 16px 0 0;overflow:hidden;background:#070e1e center/cover no-repeat}
+.cmbx-hero{position:relative;height:120px;border-radius:16px 16px 0 0;overflow:hidden;background:#070e1e}
+.cmbx-art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.cmbx-art-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at top right,#113049,#070e1e);color:#9fb6d6;font-weight:800;font-size:1.05rem;letter-spacing:.02em}
 .cmbx-hero-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,13,31,.12),rgba(6,13,31,.82))}
 .cmbx-badges{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap;z-index:3}
 .cmbx-logo{position:absolute;left:12px;bottom:10px;z-index:3;width:46px;height:46px;border-radius:11px;background:#e2ecff;border:1px solid #334155;overflow:hidden;display:flex;align-items:center;justify-content:center}
@@ -409,6 +411,9 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cmbx-card .cm2-menu-btn:hover{background:rgba(0,230,118,.22);color:#e2ecff}
 .cmbx-body{padding:16px;display:flex;flex-direction:column;gap:10px}
 .cmbx-brand{font-size:1rem;font-weight:800;color:#e2ecff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmbx-title{font-size:.82rem;color:#a6d9fb;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:0}
+.cmbx-card:has(.cm2-menu.open){z-index:40}
+.cmbx-card .cm2-menu{z-index:200}
 .cmbx-body .cm2-code-line{width:auto}
 .cmbx-body .cm2-cat{align-self:flex-start;color:#00d6ff;background:#073047;border:1px solid #00617d}
 .cmbx-pricerow{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:2px;padding-top:12px;border-top:1px solid rgba(79,195,247,.1)}

@@ -452,8 +452,8 @@ function cmMenuHtml(c) {
   const code = escHtml(c.code || '');
   return `
     <div class="cm2-menuwrap">
-      <button type="button" class="cm2-menu-btn" title="Actions" onclick="cmToggleMenu(event,'${id}')" aria-label="Coupon actions">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg>
+      <button type="button" class="cm2-menu-btn" title="Edit coupon" onclick="cmToggleMenu(event,'${id}')" aria-label="Edit coupon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l4-1 13-13a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>
       </button>
       <div class="cm2-menu" id="cm2menu-${id}">
         <button type="button" class="cm2-mi" onclick="cmCopyCode('${code}',this)">Copy code <span>📋</span></button>
@@ -490,7 +490,9 @@ function cmCardHtml(c) {
   return `
     <div class="cmbx-card" data-coupon-id="${escHtml(c.id || '')}">
       ${cmMenuHtml(c)}
-      <div class="cmbx-hero" style="background-image:url('${escHtml(bg)}')">
+      <div class="cmbx-hero">
+        <img class="cmbx-art" src="${escHtml(bg)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div class="cmbx-art-fallback" style="display:none"><span>${escHtml(brand) || 'SaveHatke'}</span></div>
         <div class="cmbx-hero-shade"></div>
         <div class="cmbx-badges">${cmSourceBadge(c)}${cmStatusBadge(c)}</div>
         <div class="cmbx-logo" title="${escHtml(brand)}">${cmLogoHtml(brand)}</div>
@@ -498,8 +500,9 @@ function cmCardHtml(c) {
       </div>
       <div class="cmbx-body">
         <div class="cmbx-brand" title="${escHtml(brand)}">${escHtml(brand) || '—'}</div>
+        <div class="cmbx-title" title="${escHtml(c.title || c.description || '')}">${escHtml(c.title || c.description || 'Verified Discount Offer')}</div>
         <div class="cm2-code-line">
-          <span class="cm2-code" title="${code}">${code}</span>
+          <span class="cm2-code" title="${code}">${code || '—'}</span>
           <button type="button" class="cm2-copy" title="Copy code" onclick="cmCopyCode('${code}',this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
           </button>
