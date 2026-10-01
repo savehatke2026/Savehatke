@@ -7,7 +7,28 @@ let currentCategory = 'all';
 let currentSource = '';
 let searchQuery = '';
 let currentPage = 1;
+let currentSort = 'recommended';
+let savedOnly = false;
+// Saved coupon IDs persisted to localStorage — the only state that survives a
+// page reload. Coupon data itself is always re-fetched from /api/coupons so
+// prices and availability stay live.
+const SAVED_STORAGE_KEY = 'savehatke-saved';
+let savedIds = loadSavedIds();
 const PER_PAGE = 30;
+
+function loadSavedIds() {
+  try {
+    const raw = localStorage.getItem(SAVED_STORAGE_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return new Set(Array.isArray(arr) ? arr.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function persistSavedIds() {
+  try { localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(Array.from(savedIds))); } catch {}
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   loadCoupons();
@@ -19,9 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cat = params.get('cat');
   if (cat) {
     currentCategory = cat;
-    document.querySelectorAll('#categoryPills .cpill').forEach((p) => {
-      p.classList.toggle('active', p.dataset.category === cat);
-    });
+    // Active state can land on either the visible pills or the "More" dropdown
+    syncCategoryUI(cat);
   }
 });
 
@@ -63,25 +83,94 @@ function renderFilteredCoupons() {
     filtered = filtered.filter((c) => c.source === source);
   }
 
-  // Separate paid and free coupons
-  const paidCoupons = filtered.filter((c) => c.source !== 'auto-scraped');
-  const freeCoupons = filtered.filter((c) => c.source === 'auto-scraped');
+  // Saved-only filter (localStorage-backed)
+  if (savedOnly) {
+    filtered = filtered.filter((c) => savedIds.has(String(c.id)));
+  }
 
-  // Pagination for paid coupons
+  // Sort — recommended (default), price asc, or expiry asc
+  filtered = sortCoupons(filtered, currentSort);
+
+  // Update the count chip in the Explore header
+  updateExploreCount(filtered.length);
+
+  // Empty-state visibility — toggled off the grid itself, so the grid is
+  // left untouched and never flashes a wrong number of cards on rerender.
+  const emptyEl = document.getElementById('emptyMarket');
+  if (emptyEl) {
+    const h = emptyEl.querySelector('h3');
+    const p = emptyEl.querySelector('p');
+    if (savedOnly && filtered.length === 0) {
+      if (h) h.textContent = 'No saved coupons here yet';
+      if (p) p.textContent = 'Tap the bookmark on a coupon to keep it for later.';
+    } else {
+      if (h) h.textContent = 'No coupons found';
+      if (p) p.textContent = 'Try another brand or clear your filters for a fresh start.';
+    }
+    emptyEl.hidden = filtered.length !== 0;
+  }
+
+  // Separate paid and free coupons only for pagination — the unified grid
+  // renders everything (paid + free) together, with the FREE badge marking
+  // auto-scraped coupons in-card.
+  const paidCoupons = filtered.filter((c) => c.source !== 'auto-scraped');
+
+  // Pagination for paid coupons (free coupons don't consume a page slot —
+  // they're always shown alongside the paid ones).
   const totalPages = Math.ceil(paidCoupons.length / PER_PAGE);
-  if (currentPage > totalPages) currentPage = 1;
+  if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
   const pageSlice = paidCoupons.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
 
   renderCouponGrid('couponGrid', pageSlice);
   renderPagination(totalPages);
+}
 
-  // Free codes section
-  const freeSection = document.getElementById('freeCodesSection');
-  if (freeCoupons.length > 0 && freeSection) {
-    freeSection.style.display = 'block';
-    renderCouponGrid('freeCodesGrid', freeCoupons);
-  } else if (freeSection) {
-    freeSection.style.display = 'none';
+/** Stable, idempotent sort. Returns a NEW array — never mutates the input. */
+function sortCoupons(list, mode) {
+  const out = list.slice();
+  if (mode === 'price') {
+    // Free coupons (₹0) come first, then ascending by sellingPrice.
+    out.sort((a, b) => (Number(a.sellingPrice) || 0) - (Number(b.sellingPrice) || 0));
+  } else if (mode === 'expiry') {
+    // Soonest-to-expire first. Coupons with no expiry date sink to the end.
+    out.sort((a, b) => {
+      const ax = parseExpiry(a.expiryDate)?.valueOf() ?? Infinity;
+      const bx = parseExpiry(b.expiryDate)?.valueOf() ?? Infinity;
+      return ax - bx;
+    });
+  }
+  // 'recommended' = preserve the API order (insertion order).
+  return out;
+}
+
+function updateExploreCount(n) {
+  const el = document.getElementById('couponCount');
+  if (!el) return;
+  el.textContent = `${n} available`;
+}
+
+/**
+ * Reflect the active category across the visible pills and the "More"
+ * dropdown, so the chosen filter reads correctly whichever surface picked
+ * it. Pills hold the main six, the dropdown holds the rest — values match
+ * the API's category strings (e.g. "Beauty & Personal Care", "Travel &
+ * Transport"), so whichever one matches wins.
+ */
+function syncCategoryUI(cat) {
+  const target = (cat || 'all').toLowerCase();
+  document.querySelectorAll('#categoryPills .cpill').forEach((p) => {
+    const isActive = (p.dataset.category || 'all').toLowerCase() === target;
+    p.classList.toggle('active', isActive);
+    p.setAttribute('aria-pressed', String(isActive));
+  });
+  const more = document.getElementById('moreCategories');
+  if (more) {
+    // If the chosen category isn't one of the visible pills, show it as the
+    // dropdown's current selection. Otherwise leave the dropdown on its
+    // "More categories" placeholder.
+    const visible = Array.from(document.querySelectorAll('#categoryPills .cpill'))
+      .some((p) => (p.dataset.category || '').toLowerCase() === target && target !== 'all');
+    more.value = visible ? '' : cat;
   }
 }
 
@@ -90,13 +179,10 @@ function renderCouponGrid(gridId, coupons) {
   if (!grid) return;
 
   if (coupons.length === 0) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-ico">🏷️</div>
-        <div class="empty-title">No coupons found in database</div>
-        <div class="empty-sub">Add coupons in the Admin panel or sell a coupon to make it appear here live!</div>
-      </div>
-    `;
+    // The marketplace's outer empty state lives outside the grid (see
+    // #emptyMarket in marketplace.html); it shows when zero coupons survive
+    // the current filters. The grid itself just becomes empty.
+    grid.innerHTML = '';
     return;
   }
 
@@ -104,7 +190,9 @@ function renderCouponGrid(gridId, coupons) {
     .map((c) => {
       const isFree = c.source === 'auto-scraped';
       const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '15'}`;
-      const origVal = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`) : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
+      const origVal = c.discount
+        ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`)
+        : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
       // Admin-controlled per-coupon switch (Coupon Management → Sale column).
       // Defaults to on, so coupons from a pre-migration database keep the badge.
       const onSale = c.onSale !== false;
@@ -113,55 +201,105 @@ function renderCouponGrid(gridId, coupons) {
       const title = c.title || c.description || 'Verified Discount Offer';
       const desc = c.description && c.description !== title ? c.description : '';
       const id = String(c.id);
+      const heroUrl = escapeCoupon(heroImageFor(c));
+      const isSaved = savedIds.has(id);
+
+      // Per-category accent — gaming and finance get a hue shift so they
+      // stand apart from the default cyan E-Commerce pill. Any unlisted
+      // category falls back to the default cyan styling.
+      const catClass = isFree
+        ? 'coupon-finance'
+        : (/gaming|entertainment/i.test(c.category || '')
+            ? 'coupon-gaming'
+            : /finance/i.test(c.category || '')
+              ? 'coupon-finance'
+              : '');
 
       return `
-        <div class="coupon-card" style="cursor:pointer" onclick="buyCoupon('${id}', ${isFree})">
-          <div class="c-hero">
-            <img class="c-hero-img" src="${escapeCoupon(heroImageFor(c))}" alt="" loading="lazy" decoding="async" aria-hidden="true">
-            <div class="c-hero-shade" aria-hidden="true"></div>
-            <div class="c-hero-badges">
-              ${isFree ? '<span class="cfree-badge">FREE</span>' : '<span class="cverified">✓ VERIFIED DEAL</span>'}
-              ${!isFree && onSale ? '<span class="csale-badge">🔥 Sale</span>' : ''}
+        <article class="coupon-card" data-coupon-id="${id}" style="cursor:pointer" onclick="buyCoupon('${id}', ${isFree})">
+          <div class="coupon-banner">
+            <img class="coupon-artwork" src="${heroUrl}" alt="" loading="lazy" decoding="async"
+                 onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex');">
+            <div class="coupon-fallback" style="display:none">
+              <span class="coupon-brand">${escapeCoupon((c.brand || '').slice(0, 10))}</span>
+              <span class="coupon-offer">${escapeCoupon(origVal)}</span>
             </div>
-            <div class="c-hero-tools">
-              <button type="button" class="c-icon-btn" aria-label="View Terms and Conditions" title="Terms &amp; Conditions"
+            <div class="coupon-badges">
+              ${isFree ? '<span class="coupon-verified">✓ FREE CODE</span>' : '<span class="coupon-verified">✓ VERIFIED DEAL</span>'}
+              ${!isFree && onSale ? '<span class="coupon-sale">🔥 SALE</span>' : ''}
+            </div>
+            <div class="coupon-actions">
+              <button type="button" class="coupon-icon" aria-label="View Terms and Conditions" title="Terms &amp; Conditions"
                       onclick="event.stopPropagation(); openCouponTerms('${id}')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7h.01"/>
                 </svg>
               </button>
-              <button type="button" class="c-icon-btn" aria-label="View How to Use" title="How to Use"
+              <button type="button" class="coupon-icon" aria-label="View How to Use" title="How to Use"
                       onclick="event.stopPropagation(); openCouponHowTo('${id}')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
                 </svg>
               </button>
-            </div>
-            <div class="c-hero-foot">
-              <div class="coff">${escapeCoupon(origVal)}</div>
+              <button type="button" class="coupon-icon coupon-save-btn" data-action="save" aria-pressed="${isSaved}" aria-label="${isSaved ? 'Unsave coupon' : 'Save coupon'}" title="${isSaved ? 'Saved' : 'Save'}"
+                      onclick="event.stopPropagation(); toggleSaved('${id}', this)">
+                <svg viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M6 3h12v18l-6-4-6 4V3Z"/>
+                </svg>
+              </button>
             </div>
           </div>
-          <div class="c-body">
-            <div class="ctitle">${escapeCoupon(title)}</div>
-            ${desc ? `<div class="cdesc">${escapeCoupon(desc)}</div>` : ''}
-            <div class="c-price">
-              <div class="c-price-main">
-                <span class="clbl">Price</span>
-                <span class="cval">${escapeCoupon(priceText)}</span>
+          <div class="coupon-body">
+            <h3 class="coupon-title">${escapeCoupon(title)}</h3>
+            ${desc ? `<p class="coupon-description" title="${escapeCoupon(desc)}">${escapeCoupon(desc)}</p>` : ''}
+            <div class="coupon-price-row">
+              <div>
+                <p class="coupon-price-label">Price</p>
+                <p class="coupon-price">${escapeCoupon(priceText)}</p>
               </div>
-              ${c.category ? `<span class="ccat" data-cat="${escapeCoupon(c.category)}"><span class="ccat-ico" aria-hidden="true">${categoryIconFor(c.category)}</span>${escapeCoupon(c.category)}</span>` : ''}
+              ${c.category
+                ? `<span class="coupon-category ${catClass}"><span aria-hidden="true">${categoryIconFor(c.category)}</span>${escapeCoupon(c.category)}</span>`
+                : ''}
             </div>
             ${renderExpiryTimer(c.expiryDate, c.timerOn)}
-            <button class="cbuy-btn" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">
-              ${isFree ? 'Get Free Code →' : 'Buy Coupon →'}
+            <button type="button" class="coupon-buy" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">
+              ${isFree ? 'Get Free Coupon →' : 'Buy Coupon →'}
             </button>
           </div>
-        </div>
+        </article>
       `;
     })
     .join('');
 
   startExpiryTicker();
+}
+
+/**
+ * Toggle a coupon in/out of the user's saved set. Updates the button's
+ * aria-pressed, fills/unfills the icon, persists the new set to localStorage,
+ * and re-renders so the active "Saved only" filter (if on) reflects the
+ * change immediately.
+ */
+function toggleSaved(id, btn) {
+  const key = String(id);
+  if (savedIds.has(key)) {
+    savedIds.delete(key);
+  } else {
+    savedIds.add(key);
+  }
+  persistSavedIds();
+  if (btn) {
+    const isSaved = savedIds.has(key);
+    btn.setAttribute('aria-pressed', String(isSaved));
+    btn.setAttribute('aria-label', isSaved ? 'Unsave coupon' : 'Save coupon');
+    btn.setAttribute('title', isSaved ? 'Saved' : 'Save');
+    const svg = btn.querySelector('svg');
+    if (svg) svg.setAttribute('fill', isSaved ? 'currentColor' : 'none');
+  }
+  // Only re-render when the saved-only filter is actually on; otherwise the
+  // card the user just toggled would lose its position in the grid for no
+  // visible reason.
+  if (savedOnly) renderFilteredCoupons();
 }
 
 // ── Card hero image ─────────────────────────────────────────────────────
@@ -674,28 +812,115 @@ function showCouponModal(coupon) {
 }
 
 function initFilters() {
-  // Category pills
+  // Category pills — visible row (the main six categories + All)
   document.querySelectorAll('#categoryPills .cpill').forEach((pill) => {
     pill.addEventListener('click', () => {
-      document.querySelectorAll('#categoryPills .cpill').forEach((p) => p.classList.remove('active'));
-      pill.classList.add('active');
       currentCategory = pill.dataset.category || 'all';
+      // Reset the "More categories" dropdown so the user can see they picked
+      // a main pill, not a long-tail one.
+      const more = document.getElementById('moreCategories');
+      if (more) more.value = '';
+      currentPage = 1;
+      syncCategoryUI(currentCategory);
+      renderFilteredCoupons();
+    });
+  });
+
+  // "More categories" dropdown — for the long-tail categories that don't get
+  // a dedicated pill. Picking one here syncs the same UI state as a pill click.
+  document.getElementById('moreCategories')?.addEventListener('change', (e) => {
+    const value = e.target.value;
+    if (!value) return;
+    currentCategory = value;
+    currentPage = 1;
+    syncCategoryUI(value);
+    renderFilteredCoupons();
+  });
+
+  // Search input — debounced. The visible clear button shows only when
+  // there's something to clear.
+  const searchInput = document.getElementById('searchInput');
+  const searchClear = document.getElementById('searchClear');
+  searchInput?.addEventListener('input', debounce((e) => {
+    searchQuery = e.target.value.toLowerCase().trim();
+    if (searchClear) searchClear.hidden = searchQuery.length === 0;
+    currentPage = 1;
+    renderFilteredCoupons();
+  }, 250));
+  searchClear?.addEventListener('click', () => {
+    if (!searchInput) return;
+    searchInput.value = '';
+    searchQuery = '';
+    searchClear.hidden = true;
+    currentPage = 1;
+    renderFilteredCoupons();
+    searchInput.focus();
+  });
+
+  // Popular search tags — Amazon/Myntra/Swiggy/Nykaa. Click fills the input
+  // and runs the search immediately (no debounce delay).
+  document.querySelectorAll('[data-search]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const term = btn.dataset.search || '';
+      if (searchInput) {
+        searchInput.value = term;
+        searchInput.focus();
+      }
+      searchQuery = term.toLowerCase().trim();
+      if (searchClear) searchClear.hidden = term.length === 0;
       currentPage = 1;
       renderFilteredCoupons();
     });
   });
 
-  // Search
-  document.getElementById('searchInput')?.addEventListener('input', debounce((e) => {
-    searchQuery = e.target.value.toLowerCase().trim();
-    currentPage = 1;
-    renderFilteredCoupons();
-  }, 250));
-
-  // Source filter
+  // Source filter (unified card with the search input)
   document.getElementById('sourceFilter')?.addEventListener('change', (e) => {
     currentSource = e.target.value;
     currentPage = 1;
+    renderFilteredCoupons();
+  });
+
+  // Sort dropdown — Recommended / Price: low to high / Expiring soon
+  document.getElementById('sortSelect')?.addEventListener('change', (e) => {
+    currentSort = e.target.value || 'recommended';
+    currentPage = 1;
+    renderFilteredCoupons();
+  });
+
+  // Saved-only filter — shows only coupons the user has bookmarked.
+  document.getElementById('savedFilter')?.addEventListener('click', (e) => {
+    savedOnly = !savedOnly;
+    const btn = e.currentTarget;
+    btn.setAttribute('aria-pressed', String(savedOnly));
+    btn.classList.toggle('active', savedOnly);
+    currentPage = 1;
+    renderFilteredCoupons();
+  });
+
+  // Reset button inside the empty-state — clears every filter and shows
+  // every coupon again. The dropdown returns to its placeholder and the
+  // pill row highlights "All".
+  document.getElementById('resetFilters')?.addEventListener('click', () => {
+    if (searchInput) searchInput.value = '';
+    searchQuery = '';
+    const sourceSel = document.getElementById('sourceFilter');
+    if (sourceSel) sourceSel.value = '';
+    currentSource = '';
+    currentCategory = 'all';
+    currentSort = 'recommended';
+    const sortSel = document.getElementById('sortSelect');
+    if (sortSel) sortSel.value = 'recommended';
+    const more = document.getElementById('moreCategories');
+    if (more) more.value = '';
+    savedOnly = false;
+    const savedBtn = document.getElementById('savedFilter');
+    if (savedBtn) {
+      savedBtn.setAttribute('aria-pressed', 'false');
+      savedBtn.classList.remove('active');
+    }
+    if (searchClear) searchClear.hidden = true;
+    currentPage = 1;
+    syncCategoryUI('all');
     renderFilteredCoupons();
   });
 }
