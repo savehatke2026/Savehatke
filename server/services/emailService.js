@@ -212,6 +212,27 @@ const EMAIL_DARK_MEDIA = '@media (prefers-color-scheme: dark)';
 // limitation CSS cannot override — so the inline #00E272 + color-scheme meta is
 // the strongest email-safe defense we can ship without breaking the layout.
 const EMAIL_GREEN = '#00E272';
+// CTA button LABEL colour. Black on the bright #00E272 button — the SAME value
+// in LIGHT and DARK. The client must never lighten, grey, or invert it.
+const EMAIL_BTN_TEXT = '#000000';
+
+// ── SaveHatke intentional DARK palette (brand-neutral) ──────────────────────
+// Five tokens are the ONLY dark surfaces/text used anywhere, so every template
+// darkens to the SAME designed theme instead of a random client auto-invert.
+// The dark rules below map the templates' existing LIGHT colours onto them:
+//   light #ffffff  (white cards/containers)       → DK_CARD   (card surface)
+//   light greys    (page + inset wells + footers) → DK_BG     (email background)
+//   light near-black text                         → DK_TEXT   (main text)
+//   light grey / secondary / muted text           → DK_TEXT2  (secondary text)
+//   light hairline borders                        → DK_BORDER (borders/dividers)
+// Brand green (#00E272) is handled separately (EMAIL_GREEN_DARK_RULES) and is
+// NEVER remapped. Light mode is the untouched default/fallback.
+const DK_BG = '#0F1115';     // email background (outermost page + inset wells)
+const DK_CARD = '#171B19';   // card / section surface (the white containers)
+const DK_TEXT = '#FFFFFF';   // main text
+const DK_TEXT2 = '#B8B8B8';  // secondary / muted text
+const DK_BORDER = '#29302D'; // borders / dividers
+
 const EMAIL_GREEN_DARK_RULES = `
       /* SaveHatke brand green → pinned to ${EMAIL_GREEN}, never inverted/greyed/darkened */
       [style*="color:#00e272"],[style*="color: #00e272"],
@@ -224,15 +245,19 @@ const EMAIL_GREEN_DARK_RULES = `
       [bgcolor="#00E272"],[bgcolor="#00e272"],
       .button,.sh-btn,.cta-btn{background-color:${EMAIL_GREEN} !important;background:${EMAIL_GREEN} !important;}
       [style*="dashed #00e272"],[style*="dashed #00E272"],
-      [style*="solid #00e272"],[style*="solid #00E272"]{border-color:${EMAIL_GREEN} !important;}`;
+      [style*="solid #00e272"],[style*="solid #00E272"]{border-color:${EMAIL_GREEN} !important;}
+      /* CTA button LABEL = pure black on the green in dark mode too (matches light).
+         Placed LAST so it wins; covers class-on-anchor and class-on-cell patterns. */
+      .button,a.button,.sh-btn,a.sh-btn,.sh-btn a,.cta-btn,a.cta-btn,.cta-btn a{color:${EMAIL_BTN_TEXT} !important;}`;
 
 const EMAIL_DARK_STYLE = `
     <style>
     ${EMAIL_DARK_MEDIA} {
-      /* Page + card surfaces → dark */
+      /* White cards / containers → card surface */
       [style*="background-color:#ffffff"],[style*="background-color: #ffffff"],
-      [style*="background:#ffffff"],[style*="background: #ffffff"]{background-color:#0f172a !important;background:#0f172a !important;}
-      /* Subtle grey panels / footers → lifted dark */
+      [style*="background:#ffffff"],[style*="background: #ffffff"],
+      [bgcolor="#ffffff"],[bgcolor="#FFFFFF"]{background-color:${DK_CARD} !important;background:${DK_CARD} !important;}
+      /* Grey page + inset wells + footers → email background */
       [style*="background:#f9fafb"],[style*="background: #f9fafb"],
       [style*="background-color:#f9fafb"],[style*="background-color: #f9fafb"],
       [style*="background:#f3f4f6"],[style*="background: #f3f4f6"],
@@ -241,10 +266,11 @@ const EMAIL_DARK_STYLE = `
       [style*="background:#f2f4f6"],[style*="background: #f2f4f6"],
       [style*="background:#f4f7fb"],[style*="background: #f4f7fb"],
       [style*="background:#f7fafd"],[style*="background: #f7fafd"],
+      [style*="background:#f7f8f8"],[style*="background: #f7f8f8"],
       [style*="background:#e9eff7"],[style*="background: #e9eff7"],
       [style*="background:#e3eaf4"],[style*="background: #e3eaf4"],
-      [style*="background:#f0f0f0"],[style*="background: #f0f0f0"]{background-color:#1e293b !important;background:#1e293b !important;}
-      /* Green tint chips → dark green */
+      [style*="background:#f0f0f0"],[style*="background: #f0f0f0"]{background-color:${DK_BG} !important;background:${DK_BG} !important;}
+      /* Green tint chips → dark green (success chips keep their meaning) */
       [style*="background:#f0fdf4"],[style*="background: #f0fdf4"],
       [style*="background:#d1fae5"],[style*="background: #d1fae5"],
       [style*="background:#dcfce7"],[style*="background: #dcfce7"],
@@ -254,22 +280,28 @@ const EMAIL_DARK_STYLE = `
       [style*="background:#fff8e6"],[style*="background: #fff8e6"]{background-color:#2a1f06 !important;background:#2a1f06 !important;}
       /* Red tint chips → dark red */
       [style*="background:#fef2f2"],[style*="background: #fef2f2"]{background-color:#2a0f0f !important;background:#2a0f0f !important;}
-      /* Primary / strong text → light */
+      /* Primary / strong text → main text. NOTE: #000000 is deliberately absent —
+         it is the CTA button label and must stay black on the green button. */
       [style*="color:#0f1e3a"],[style*="color: #0f1e3a"],
       [style*="color:#111827"],[style*="color: #111827"],
-      [style*="color:#000000"],[style*="color: #000000"]{color:#e5e7eb !important;}
+      [style*="color:#111111"],[style*="color: #111111"],
+      [style*="color:#222222"],[style*="color: #222222"]{color:${DK_TEXT} !important;}
       /* Secondary text → soft light */
       [style*="color:#374151"],[style*="color: #374151"],
       [style*="color:#4b5563"],[style*="color: #4b5563"],
-      [style*="color:#3c5372"],[style*="color: #3c5372"]{color:#cbd5e1 !important;}
-      /* Muted text → grey */
+      [style*="color:#3c5372"],[style*="color: #3c5372"],
+      [style*="color:#555555"],[style*="color: #555555"],
+      [style*="color:#64748b"],[style*="color: #64748b"],
+      [style*="color:#64748B"],[style*="color: #64748B"]{color:${DK_TEXT2} !important;}
+      /* Muted text → secondary grey */
       [style*="color:#6b7280"],[style*="color: #6b7280"],
       [style*="color:#9ca3af"],[style*="color: #9ca3af"],
       [style*="color:#71717a"],[style*="color: #71717a"],
       [style*="color:#6b88aa"],[style*="color: #6b88aa"],
       [style*="color:#a1a1aa"],[style*="color: #a1a1aa"],
       [style*="color:#7d93ad"],[style*="color: #7d93ad"],
-      [style*="color:#8ea6c4"],[style*="color: #8ea6c4"]{color:#94a3b8 !important;}
+      [style*="color:#777777"],[style*="color: #777777"],
+      [style*="color:#8ea6c4"],[style*="color: #8ea6c4"]{color:${DK_TEXT2} !important;}
       /* Status text: amber + red kept readable on dark */
       [style*="color:#92400e"],[style*="color: #92400e"],
       [style*="color:#b45309"],[style*="color: #b45309"],
@@ -277,9 +309,9 @@ const EMAIL_DARK_STYLE = `
       [style*="color:#991b1b"],[style*="color: #991b1b"],
       [style*="color:#b91c1c"],[style*="color: #b91c1c"],
       [style*="color:#7f1d1d"],[style*="color: #7f1d1d"]{color:#fca5a5 !important;}
-      /* Light borders → dark (bare hex → only affects border-color) */
+      /* Light hairline borders → dark border (bare hex → only affects border-color) */
       [style*="#e5e7eb"],[style*="#e4e4e7"],[style*="#e9eff7"],[style*="#e3eaf4"],
-      [style*="#f0f0f0"],[style*="#3f3f46"]{border-color:#334155 !important;}
+      [style*="#f0f0f0"],[style*="#eeeeee"]{border-color:${DK_BORDER} !important;}
 ${EMAIL_GREEN_DARK_RULES}
     }
     </style>`;
@@ -434,7 +466,7 @@ SaveHatke Team`;
         padding: 14px 24px;
         border-radius: 6px;
         background: #00e272;
-        color: #05351e;
+        color: #000000;
         font-size: 16px;
         font-weight: 700;
         text-decoration: none;
@@ -460,9 +492,9 @@ SaveHatke Team`;
          Query text MUST stay exactly "@media (prefers-color-scheme: dark)" so
          the Admin Email Testing preview can toggle it. */
       @media (prefers-color-scheme: dark) {
-        html, body, .page, .email, .content { background:#0f172a !important; background-color:#0f172a !important; }
-        body, p, .brand-text { color:#e5e7eb !important; }
-        .footer { border-top-color:#334155 !important; color:#94a3b8 !important; }
+        html, body, .page, .email, .content { background:#0F1115 !important; background-color:#0F1115 !important; }
+        body, p, .brand-text { color:#FFFFFF !important; }
+        .footer { border-top-color:#29302D !important; color:#B8B8B8 !important; }
 ${EMAIL_GREEN_DARK_RULES}
       }
     </style>
@@ -517,6 +549,7 @@ ${EMAIL_GREEN_DARK_RULES}
                     href="${siteUrl}"
                     target="_blank"
                     rel="noopener noreferrer"
+                    style="display:inline-block;padding:14px 24px;border-radius:6px;background:#00e272;color:#000000;font-size:16px;font-weight:700;text-decoration:none;"
                     >Go to SaveHatke &rarr;</a
                   >
                 </p>
@@ -934,7 +967,7 @@ Regards,
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
                 <tr>
                   <td align="center">
-                    <a href="${viewUrl}" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#00E272;color:#0f1e3a;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
+                    <a href="${viewUrl}" class="sh-btn" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#00E272;color:#000000;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
                   </td>
                 </tr>
               </table>
@@ -1284,7 +1317,7 @@ SaveHatke Support Team`;
         height: 52px;
         border-radius: 12px;
         background: linear-gradient(135deg, #00E272, #00E272);
-        color: #0f1e3a;
+        color: #000000;
         font-family: 'Outfit', sans-serif;
         font-size: 1rem;
         font-weight: 800;
@@ -1318,6 +1351,33 @@ SaveHatke Support Team`;
         body { padding: 28px 12px 48px; }
         .email-body { padding: 28px 24px; }
         .email-footer { padding: 20px 24px; }
+      }
+
+      /* ── DARK MODE: SaveHatke designed dark theme for this class-based
+         template (its colours live in classes, so the shared attribute-selector
+         overrides can't reach them — it needs its own block). Layout/spacing is
+         untouched; only colours adapt. Query text MUST stay exactly
+         "@media (prefers-color-scheme: dark)" so the Admin → Email Testing
+         preview can force it on. Light mode remains the default fallback. */
+      @media (prefers-color-scheme: dark) {
+        body { background:#0F1115 !important; color:#FFFFFF !important; }
+        .brand-link { color:#FFFFFF !important; }
+        .email-card { background:#171B19 !important; border-color:#29302D !important; }
+        .email-title { color:#FFFFFF !important; }
+        .email-subtitle { color:#FFFFFF !important; border-bottom-color:#29302D !important; }
+        .line { color:#B8B8B8 !important; }
+        .line strong, .signoff strong { color:#FFFFFF !important; }
+        .case-list { background:#0F1115 !important; border-color:#29302D !important; }
+        .case-list li { color:#B8B8B8 !important; }
+        .case-list li strong { color:#FFFFFF !important; }
+        .section-h, .footer-copy { color:#B8B8B8 !important; }
+        .msg-box, .resolution-box { background:#0F1115 !important; border-color:#29302D !important; color:#B8B8B8 !important; }
+        .msg-box { border-left-color:#00E272 !important; }
+        .resolution-box { border-left-color:#0ea5e9 !important; }
+        .status-pill { background:#0b2a1b !important; color:#00E272 !important; border-color:#29302D !important; }
+        .signoff { color:#B8B8B8 !important; border-top-color:#29302D !important; }
+        .email-footer { background:#0F1115 !important; border-top-color:#29302D !important; }
+${EMAIL_GREEN_DARK_RULES}
       }
     </style>
   ${EMAIL_DARK_STYLE}
@@ -1365,7 +1425,7 @@ SaveHatke Support Team`;
         <p class="line">We hope your issue has been resolved successfully. If you're still experiencing the same problem or need further assistance, you can reopen this case or contact our support team again.</p>
 
         <div class="cta-wrap">
-          <a href="${viewUrl}" class="cta-btn">View Case Details</a>
+          <a href="${viewUrl}" class="cta-btn" style="display:inline-block;background:#00E272;color:#000000;padding:14px 40px;border-radius:12px;font-weight:800;text-decoration:none;">View Case Details</a>
         </div>
 
         <p class="line">Thank you for contacting SaveHatke Support.</p>
@@ -1669,10 +1729,10 @@ SaveHatke Team`;
          Query text MUST stay exactly "@media (prefers-color-scheme: dark)" so
          the Admin Email Testing preview can toggle it. */
       @media (prefers-color-scheme: dark) {
-        body, .email { background:#0f172a !important; background-color:#0f172a !important; }
-        body, p, h1, .brand, .details p, .details strong { color:#e5e7eb !important; }
-        .footer { border-top-color:#334155 !important; color:#94a3b8 !important; }
-        .footer a { color:#e5e7eb !important; }
+        body, .email { background:#0F1115 !important; background-color:#0F1115 !important; }
+        body, p, h1, .brand, .details p, .details strong { color:#FFFFFF !important; }
+        .footer { border-top-color:#29302D !important; color:#B8B8B8 !important; }
+        .footer a { color:#FFFFFF !important; }
 ${EMAIL_GREEN_DARK_RULES}
       }
     </style>
@@ -1926,7 +1986,7 @@ ${lowCodes === null ? '' : `
             <strong style="color:#0f1e3a">Didn't do this?</strong><br>
             If you did not make this change, someone may have access to your account. Review your account security straight away.
           </p>
-          <a href="${secureUrl}" style="display:inline-block;background:#00E272;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:10px">Review account security</a>
+          <a href="${secureUrl}" class="sh-btn" style="display:inline-block;background:#00E272;color:#000000;font-size:14px;font-weight:600;text-decoration:none;padding:12px 22px;border-radius:10px">Review account security</a>
         </td></tr>
       </table>
     </td></tr>
@@ -2352,7 +2412,7 @@ ${reviewUrl}`;
           <tr>
             <td style="padding:8px 32px 26px;">
               <p style="margin:0 0 16px;font-size:0.88rem;color:#374151;line-height:1.65;">Please open the Admin Panel \u2192 Coupon Submissions to review the submission.</p>
-              <a href="${escapeHtml(reviewUrl)}" style="display:inline-block;background:#00E272;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Coupon Submissions</a>
+              <a href="${escapeHtml(reviewUrl)}" class="sh-btn" style="display:inline-block;background:#00E272;color:#000000;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Coupon Submissions</a>
             </td>
           </tr>
         </table>
@@ -2506,7 +2566,7 @@ Status: Pending Payment
           </tr>
           <tr>
             <td style="padding:20px 32px 26px;">
-              <a href="${escapeHtml(payoutsUrl)}" style="display:inline-block;background:#00E272;color:#ffffff;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Seller Payouts</a>
+              <a href="${escapeHtml(payoutsUrl)}" class="sh-btn" style="display:inline-block;background:#00E272;color:#000000;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Open Seller Payouts</a>
             </td>
           </tr>
           <tr>
@@ -2863,13 +2923,13 @@ SaveHatke`;
     /* ── DARK MODE: explicitly designed, NOT an auto-invert. Only colors change;
        spacing and layout stay identical to light mode. ── */
     @media (prefers-color-scheme: dark) {
-      body, .sh-bg, .sh-body { background:#111111 !important; }
+      body, .sh-bg, .sh-body { background:#0F1115 !important; background-color:#0F1115 !important; }
       .sh-primary   { color:#FFFFFF !important; }
-      .sh-secondary { color:#A7B0C0 !important; }
-      .sh-muted     { color:#94A3B8 !important; }
+      .sh-secondary { color:#B8B8B8 !important; }
+      .sh-muted     { color:#B8B8B8 !important; }
       .sh-green     { color:#00E272 !important; }
       .sh-btn       { background:#00E272 !important; }
-      .sh-btn a     { color:#FFFFFF !important; }
+      .sh-btn a     { color:#000000 !important; }
 ${EMAIL_GREEN_DARK_RULES}
     }
 
@@ -2937,7 +2997,7 @@ ${EMAIL_GREEN_DARK_RULES}
             <td class="sh-pad" align="center" style="padding:28px 40px 6px;">
               <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td class="sh-btn" align="center" bgcolor="#00E272" style="background:#00E272;border-radius:8px;">
-                  <a href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;">View Order</a>
+                  <a href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#000000;text-decoration:none;">View Order</a>
                 </td>
               </tr></table>
             </td>
@@ -3215,14 +3275,14 @@ SaveHatke Team`;
          text MUST stay exactly "@media (prefers-color-scheme: dark)". Gmail
          ignores prefers-color-scheme and does its own partial darkening. */
       @media (prefers-color-scheme: dark) {
-        body { background-color: #0f172a !important; color: #e5e7eb !important; }
-        .email { background-color: #0f172a !important; }
+        body { background-color: #0F1115 !important; color: #FFFFFF !important; }
+        .email { background-color: #0F1115 !important; }
         .brand,
         p,
         .details p,
         .details strong,
-        p strong { color: #e5e7eb !important; }
-        .footer { color: #94a3b8 !important; }
+        p strong { color: #FFFFFF !important; }
+        .footer { color: #B8B8B8 !important; }
         /* Brand green + the green button stay on-brand and readable on dark. */
         .green { color: #00e272 !important; }
 ${EMAIL_GREEN_DARK_RULES}
