@@ -143,28 +143,31 @@
     .cpill:hover { border-color:rgba(0,230,118,.35); color:#e2ecff; }
     .cpill.active { background:linear-gradient(135deg,#00e676,#00c853); border-color:transparent; color:#060d1f; }
     .coupon-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
-    .coupon-card { padding:24px; border-radius:16px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12); transition:all .3s; cursor:pointer; position:relative; overflow:hidden; }
-    .coupon-card:hover { border-color:rgba(0,230,118,.28); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.3); }
-    .ctop { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; gap:10px; }
-    /* Brand block: logo only, no plate around it — the wrapper is a bare sizing
-       box so the mark sits straight on the card. The white circle that used to
-       back the image is gone too; it was the same frame, just drawn on the <img>
-       instead of the wrapper. The initial fallback keeps its gradient chip,
-       which is the substitute mark itself rather than a frame around one. */
-    /* Logo-only brand mark: the box grows sideways so wordmark logos stay
-       readable, while square logos still render 48x48. */
-    .cbrand { display:flex; align-items:center; min-width:0; }
-    .cbrand-logo-wrap { height:48px; min-width:48px; max-width:118px; flex-shrink:1; display:flex; align-items:center; justify-content:center; }
+    /* Premium marketplace card: gradient body, bigger brand zone, save-pill, ribbon sticker */
+    .coupon-card { padding:0; border-radius:20px; background:linear-gradient(160deg, rgba(15,30,58,.82) 0%, rgba(10,22,50,.78) 100%); border:1px solid rgba(79,195,247,.14); transition:transform .25s cubic-bezier(.2,.7,.2,1), border-color .25s ease, box-shadow .25s ease; cursor:pointer; position:relative; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,.18); }
+    .coupon-card:hover { border-color:rgba(0,226,114,.6); transform:translateY(-6px); box-shadow:0 24px 60px rgba(0,0,0,.42), 0 0 0 1px rgba(0,226,114,.2), 0 0 36px rgba(0,226,114,.24); }
+    .coupon-card:focus-visible { outline:2px solid #00e676; outline-offset:3px; }
+    /* Top accent line that fades in on hover */
+    .coupon-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, transparent 0%, rgba(0,230,118,.75) 50%, transparent 100%); opacity:0; transition:opacity .25s ease; pointer-events:none; z-index:5; }
+    .coupon-card:hover::before { opacity:1; }
+    /* "Top Deal" corner sticker — pure CSS, no markup change */
+    .coupon-card::after { content:'🔥 Top Deal'; position:absolute; top:0; right:0; z-index:4; font-size:.6rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:6px 14px; border-radius:0 18px 0 14px; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; box-shadow:0 4px 12px rgba(0,230,118,.3); pointer-events:none; }
+    .ctop { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:26px 20px 18px; background:linear-gradient(135deg, rgba(79,195,247,.1) 0%, rgba(0,230,118,.05) 100%); border-bottom:1px solid rgba(79,195,247,.12); }
+    .cbrand { display:flex; align-items:center; min-width:0; flex:1; }
+    /* Brand zone: bigger glass plate, subtle inner glow on hover */
+    .cbrand-logo-wrap { height:88px; min-width:88px; max-width:160px; flex:1; flex-shrink:1; display:flex; align-items:center; justify-content:center; padding:10px 14px; border-radius:14px; background:linear-gradient(160deg, rgba(255,255,255,.05) 0%, rgba(79,195,247,.06) 100%); border:1px solid rgba(79,195,247,.1); box-shadow:inset 0 0 0 1px rgba(255,255,255,.02); transition:box-shadow .25s ease, border-color .25s ease, background .25s ease; }
+    .coupon-card:hover .cbrand-logo-wrap { border-color:rgba(0,230,118,.28); background:linear-gradient(160deg, rgba(0,230,118,.07) 0%, rgba(79,195,247,.08) 100%); box-shadow:inset 0 0 28px rgba(0,230,118,.1), 0 6px 18px rgba(0,0,0,.2); }
     .cbrand-logo { max-width:100%; width:auto; height:100%; object-fit:contain; background:transparent; padding:0; }
-    .cbrand-initial { width:48px; height:48px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.1rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); border-radius:50%; }
-    .coff { font-family:'JetBrains Mono',monospace; font-size:1.05rem; font-weight:700; color:#00e676; flex-shrink:0; white-space:nowrap; }
-    .cdesc { font-size:.83rem; color:#a8c0dc; margin-bottom:16px; line-height:1.5; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .cmeta { display:flex; justify-content:space-between; align-items:center; }
-    .clbl { font-size:.7rem; color:#6b88aa; display:block; }
-    .cval { font-family:'JetBrains Mono',monospace; font-size:1.05rem; font-weight:700; }
-    .ccat { font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:4px 10px; border-radius:6px; background:rgba(79,195,247,.1); color:#4fc3f7; max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    @media(max-width:900px){.coupon-grid{grid-template-columns:repeat(2,1fr)}}
-    @media(max-width:600px){.coupon-grid{grid-template-columns:1fr}}
+    .cbrand-initial { width:64px; height:64px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); border-radius:50%; }
+    /* Save-ribbon pill: green gradient, dark text, soft outer glow */
+    .coff { font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:800; color:#060d1f; flex-shrink:0; white-space:nowrap; padding:8px 14px; border-radius:9999px; background:linear-gradient(135deg,#00e676 0%, #00c853 100%); letter-spacing:.04em; box-shadow:0 6px 18px rgba(0,230,118,.28), inset 0 1px 0 rgba(255,255,255,.18); text-transform:uppercase; }
+    .cdesc { font-size:.85rem; color:#b8cce4; padding:16px 20px 0; margin:0 0 16px; line-height:1.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .cmeta { display:flex; justify-content:space-between; align-items:center; padding:14px 20px 16px; margin:0; border-top:1px solid rgba(79,195,247,.1); background:linear-gradient(180deg, transparent 0%, rgba(79,195,247,.04) 100%); }
+    .clbl { font-size:.68rem; color:#6b88aa; display:block; margin-bottom:2px; letter-spacing:.04em; text-transform:uppercase; }
+    .cval { font-family:'JetBrains Mono',monospace; font-size:1.2rem; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; letter-spacing:.01em; }
+    .ccat { font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:5px 12px; border-radius:8px; background:rgba(79,195,247,.1); color:#4fc3f7; border:1px solid rgba(79,195,247,.18); max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    @media(max-width:900px){.coupon-grid{grid-template-columns:repeat(2,1fr)}.cbrand-logo-wrap{height:72px;min-width:72px;max-width:140px;padding:8px 12px}}
+    @media(max-width:600px){.coupon-grid{grid-template-columns:1fr}.cbrand-logo-wrap{height:64px;min-width:64px;max-width:120px;padding:8px 10px;border-radius:10px}.ctop{padding:24px 16px 14px;gap:10px}.cdesc{padding:14px 16px 0;font-size:.83rem}.cmeta{padding:12px 16px 14px}.cbrand-initial{width:48px;height:48px;font-size:1.1rem}.coff{font-size:.7rem;padding:6px 10px}.cval{font-size:1.1rem}.ccat{font-size:.62rem;padding:4px 10px}.coupon-card::after{font-size:.56rem;padding:5px 10px}}
 
     /* SELL CTA */
     .sell-card { border-radius:24px; padding:72px 60px; text-align:center; background:linear-gradient(135deg,rgba(0,230,118,.08) 0%,rgba(79,195,247,.06) 100%); border:1px solid rgba(0,230,118,.2); position:relative; overflow:hidden; }
