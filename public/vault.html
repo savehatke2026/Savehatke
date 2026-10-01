@@ -391,7 +391,29 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cm2-vbtn svg{width:18px;height:18px}
 .cm2-vbtn.on{background:linear-gradient(90deg,rgba(37,99,235,.2),rgba(0,230,118,.2));color:#00e676}
 
-.cm2-list{display:flex;flex-direction:column;gap:12px}
+.cm2-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+/* Marketplace-style coupon BOXES for the admin inventory card view. */
+.cmbx-card{position:relative;background:#0d1930;border:1px solid #17364b;border-radius:16px;transition:transform .22s cubic-bezier(.2,.7,.2,1),border-color .22s,box-shadow .22s;box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.cmbx-card:hover{transform:translateY(-4px);border-color:rgba(0,230,118,.5);box-shadow:0 16px 40px rgba(0,0,0,.34),0 0 28px rgba(0,230,118,.14)}
+.cmbx-hero{position:relative;height:120px;border-radius:16px 16px 0 0;overflow:hidden;background:#070e1e center/cover no-repeat}
+.cmbx-hero-shade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(6,13,31,.12),rgba(6,13,31,.82))}
+.cmbx-badges{position:absolute;top:10px;left:10px;display:flex;gap:6px;flex-wrap:wrap;z-index:3}
+.cmbx-logo{position:absolute;left:12px;bottom:10px;z-index:3;width:46px;height:46px;border-radius:11px;background:#e2ecff;border:1px solid #334155;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.cmbx-logo img{width:100%;height:100%;object-fit:contain}
+.cmbx-logo .cm2-initial{width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.15rem;color:#060d1f;background:linear-gradient(135deg,#00e676,#4fc3f7)}
+.cmbx-offer{position:absolute;right:12px;bottom:10px;z-index:3}
+.cmbx-offer .cm2-offer{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.92rem;color:#00e676;background:rgba(6,13,31,.72);border:1px solid rgba(0,230,118,.3);padding:3px 10px;border-radius:8px}
+.cmbx-offer .cm2-offer.none{display:none}
+.cmbx-card>.cm2-menuwrap{position:absolute;top:10px;right:10px;margin:0;z-index:6}
+.cmbx-card .cm2-menu-btn{background:rgba(6,13,31,.66);color:#e2ecff;backdrop-filter:blur(4px)}
+.cmbx-card .cm2-menu-btn:hover{background:rgba(0,230,118,.22);color:#e2ecff}
+.cmbx-body{padding:16px;display:flex;flex-direction:column;gap:10px}
+.cmbx-brand{font-size:1rem;font-weight:800;color:#e2ecff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmbx-body .cm2-code-line{width:auto}
+.cmbx-body .cm2-cat{align-self:flex-start;color:#00d6ff;background:#073047;border:1px solid #00617d}
+.cmbx-pricerow{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:2px;padding-top:12px;border-top:1px solid rgba(79,195,247,.1)}
+.cmbx-price-field{display:flex;flex-direction:column;gap:3px;min-width:0}
+@media(max-width:600px){.cm2-list{grid-template-columns:1fr}}
 .cm2-row{display:flex;flex-wrap:wrap;align-items:center;gap:16px;background:rgba(12,24,52,.8);border:1px solid rgba(79,195,247,.8);border-radius:16px;padding:16px;transition:border-color .18s,background .18s}
 .cm2-row:hover{border-color:rgba(79,195,247,.9);background:#15192c}
 .cm2-logo{width:60px;height:60px;border-radius:12px;background:#e2ecff;overflow:hidden;flex-shrink:0;border:1px solid #334155;display:flex;align-items:center;justify-content:center}

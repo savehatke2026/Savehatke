@@ -477,14 +477,27 @@ function cmMenuHtml(c) {
     </div>`;
 }
 
-/** One card-view row — the mockup's default layout. */
+/** One card-view item — a marketplace-style box (brand banner, badges, price).
+ * Keeps every data hook + the full actions menu; only the layout is boxed. */
 function cmCardHtml(c) {
   const brand = c.brand || '';
   const code = escHtml(c.code || '');
+  // Same 3-layer background rule the marketplace card uses:
+  // coupon.backgroundImage -> brand background -> SaveHatke default.
+  const bg = c.backgroundImage
+    || (typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '')
+    || '/images/coupons/default.svg';
   return `
-    <div class="cm2-row" data-coupon-id="${escHtml(c.id || '')}">
-      <div class="cm2-logo" title="${escHtml(brand)}">${cmLogoHtml(brand)}</div>
-      <div class="cm2-codewrap">
+    <div class="cmbx-card" data-coupon-id="${escHtml(c.id || '')}">
+      ${cmMenuHtml(c)}
+      <div class="cmbx-hero" style="background-image:url('${escHtml(bg)}')">
+        <div class="cmbx-hero-shade"></div>
+        <div class="cmbx-badges">${cmSourceBadge(c)}${cmStatusBadge(c)}</div>
+        <div class="cmbx-logo" title="${escHtml(brand)}">${cmLogoHtml(brand)}</div>
+        <div class="cmbx-offer">${cmOfferBadge(c)}</div>
+      </div>
+      <div class="cmbx-body">
+        <div class="cmbx-brand" title="${escHtml(brand)}">${escHtml(brand) || '—'}</div>
         <div class="cm2-code-line">
           <span class="cm2-code" title="${code}">${code}</span>
           <button type="button" class="cm2-copy" title="Copy code" onclick="cmCopyCode('${code}',this)">
@@ -492,15 +505,10 @@ function cmCardHtml(c) {
           </button>
         </div>
         <span class="cm2-cat">${escHtml(c.category || '—')}</span>
-      </div>
-      <div class="cm2-divider"></div>
-      <div class="cm2-meta">
-        <div class="cm2-field" style="min-width:120px"><span class="cm2-field-lbl">Source</span>${cmSourceBadge(c)}</div>
-        <div class="cm2-field"><span class="cm2-field-lbl">Value</span><span class="cm2-field-val">₹${escHtml(c.originalValue || '—')}</span></div>
-        <div class="cm2-field"><span class="cm2-field-lbl">Price</span><span class="cm2-field-val price">₹${escHtml(c.sellingPrice || '0')}</span></div>
-        <div class="cm2-field"><span class="cm2-field-lbl">Offer</span>${cmOfferBadge(c)}</div>
-        <div class="cm2-field"><span class="cm2-field-lbl">Status</span>${cmStatusBadge(c)}</div>
-        ${cmMenuHtml(c)}
+        <div class="cmbx-pricerow">
+          <div class="cmbx-price-field"><span class="cm2-field-lbl">Value</span><span class="cm2-field-val">₹${escHtml(c.originalValue || '—')}</span></div>
+          <div class="cmbx-price-field"><span class="cm2-field-lbl">Price</span><span class="cm2-field-val price">₹${escHtml(c.sellingPrice || '0')}</span></div>
+        </div>
       </div>
     </div>`;
 }
@@ -898,36 +906,10 @@ function renderActiveCoupons() {
       <span><b>${fromReviews}</b> approved from seller submissions</span>
       <span><b>${all.length - fromReviews}</b> added by admin</span>
     </div>
-    <div class="table-card" style="margin-bottom:0">
-      <div class="overflow-x">
-        <table class="appr-table">
-          <colgroup>
-            <col style="width:200px"><col style="width:196px"><col style="width:118px">
-            <col style="width:84px"><col style="width:84px"><col style="width:180px">
-            <col style="width:132px"><col style="width:180px"><col style="width:148px">
-            <col style="width:112px">
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Brand</th>
-              <th>Code</th>
-              <th>Category</th>
-              <th>Value</th>
-              <th>Price</th>
-              <th>Seller</th>
-              <th title="When review approved this coupon">Approved</th>
-              <th title="When this coupon expires — drives the countdown on the marketplace card">Expires</th>
-              <th>Source</th>
-              <th class="ta-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>${pageRows.map(activeRowHtml).join('')}</tbody>
-        </table>
-      </div>
-      <div class="inv-tfoot">
-        <span>Showing ${start + 1}–${start + pageRows.length} of ${rows.length} approved coupon${rows.length !== 1 ? 's' : ''}</span>
-        ${cmPagerHtml(activeCoupons.page, totalPages, 'activeGoToPage')}
-      </div>
+    <div class="vault-grid">${pageRows.map(activeRowHtml).join('')}</div>
+    <div class="inv-tfoot" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px">
+      <span>Showing ${start + 1}–${start + pageRows.length} of ${rows.length} approved coupon${rows.length !== 1 ? 's' : ''}</span>
+      ${cmPagerHtml(activeCoupons.page, totalPages, 'activeGoToPage')}
     </div>
   `;
 
@@ -937,32 +919,65 @@ function renderActiveCoupons() {
 /** One approved-coupon row. */
 function activeRowHtml(c) {
   const id = escHtml(c.id || '');
+  const brand = c.brand || '';
   const seller = c.sellerEmail || 'Admin';
   const src = String(c.source || '').toLowerCase();
   const srcBadge = src === 'admin' ? 'purple' : src === 'auto-scraped' ? 'teal' : src === 'partner' ? 'blue' : 'green';
   // review-action stamps verifiedAt on approve; older rows only carry addedAt.
   const approvedAt = c.verifiedAt || c.reviewedAt || c.approvedAt || '';
   const fallbackAt = c.addedAt || c.createdAt || '';
+  const whenDate = approvedAt || fallbackAt;
+
+  // Banner: a per-coupon image wins, then the brand's marketplace background, else a flat panel.
+  const bg = c.backgroundImage || (typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '');
+  const banner = bg
+    ? `<img src="${escHtml(bg)}" alt="${escHtml(brand)} banner" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><div class="vault-banner-placeholder" style="display:none"></div>`
+    : '<div class="vault-banner-placeholder"></div>';
+
+  const title = c.title || c.discount || brand || 'Coupon';
+  const descRaw = (c.description && c.description !== c.title)
+    ? c.description
+    : (c.discount && c.discount !== title ? c.discount : '');
+  const description = descRaw || `${brand || c.category || 'Coupon'} offer`;
+  const expired = (typeof couponIsExpired === 'function') ? couponIsExpired(c) : false;
+  const catClass = /fashion/i.test(c.category || '') ? ' fashion' : '';
+
+  const clockSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/></svg>';
+  const tagSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 11 3.8a2 2 0 0 0-1.4-.6H4a1 1 0 0 0-1 1v5.6a2 2 0 0 0 .6 1.4l9.6 9.6a2 2 0 0 0 2.8 0l4.6-4.6a2 2 0 0 0 0-2.8Z"/><circle cx="7.5" cy="7.5" r="1.3"/></svg>';
+  const expiry = (typeof invExpiryChip === 'function') ? invExpiryChip(c.expiryDate, c.timerOn !== false) : escHtml(c.expiryDate || '—');
 
   return `
-    <tr data-coupon-id="${id}">
-      <td>${cmBrandCellHtml(c.brand || '')}</td>
-      <td><code class="inv-code">${escHtml(c.code || '')}</code></td>
-      <td>${escHtml(c.category || '—')}</td>
-      <td>₹${escHtml(c.originalValue || '—')}</td>
-      <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
-      <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<span class="cm-seller" title="${escHtml(seller)}">${escHtml(seller)}</span></div></td>
-      <td>${cmWhenHtml(approvedAt, fallbackAt)}</td>
-      <td>${typeof invExpiryChip === 'function' ? invExpiryChip(c.expiryDate, c.timerOn !== false) : escHtml(c.expiryDate || '—')}</td>
-      <td><span class="badge badge-${srcBadge}">${escHtml(c.source || '—')}</span></td>
-      <td>
-        <div class="admin-actions ta-right">
-          <button class="btn btn-ghost btn-xs" title="Open the full review record" onclick="openReviewModal('${id}')">🔍</button>
-          <button class="btn btn-warning btn-xs" title="Mark this coupon invalid and withhold its payout" onclick="invalidateCoupon('${id}')">⛔</button>
-          <button class="btn btn-danger btn-xs" title="Delete this coupon" onclick="deleteCoupon('${id}')">🗑</button>
+    <article class="vault-coupon" data-coupon-id="${id}">
+      <div class="vault-banner">
+        <span class="vault-source badge badge-${srcBadge}">${escHtml(c.source || '—')}</span>
+        ${banner}
+      </div>
+      <div class="vault-body">
+        <div class="vault-brandline">${cmBrandCellHtml(brand)}<code class="vault-code">${escHtml(c.code || '—')}</code></div>
+        <h3 class="vault-title">${escHtml(title)}</h3>
+        <p class="vault-description">${escHtml(description)}</p>
+        <div class="vault-price-row">
+          <div>
+            <div class="vault-price-label">Price</div>
+            <div class="vault-price">₹${escHtml(c.sellingPrice || '0')}</div>
+          </div>
+          <span class="vault-category${catClass}">${tagSvg}${escHtml(String(c.category || 'General').toUpperCase())}</span>
         </div>
-      </td>
-    </tr>
+        <div class="vault-countdown ${expired ? 'expired' : ''}">${clockSvg}${expiry}</div>
+        <div class="vault-seller">
+          ${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 22) : ''}
+          <span class="vault-seller-name" title="${escHtml(seller)}">${escHtml(seller)}</span>
+          <span class="vault-dot">·</span>
+          <span>Value ₹${escHtml(c.originalValue || '—')}</span>
+          ${whenDate ? `<span class="vault-dot">·</span><span>Approved ${escHtml(typeof fmtDate === 'function' ? fmtDate(whenDate) : whenDate)}</span>` : ''}
+        </div>
+        <div class="admin-actions vault-actions">
+          <button class="btn btn-ghost btn-xs" title="Open the full review record" onclick="openReviewModal('${id}')">🔍 Review</button>
+          <button class="btn btn-warning btn-xs" title="Mark this coupon invalid and withhold its payout" onclick="invalidateCoupon('${id}')">⛔ Invalidate</button>
+          <button class="btn btn-danger btn-xs" title="Delete this coupon" onclick="deleteCoupon('${id}')">🗑 Delete</button>
+        </div>
+      </div>
+    </article>
   `;
 }
 
