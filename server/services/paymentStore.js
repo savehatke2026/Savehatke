@@ -865,6 +865,78 @@ async function finalizePayment({
   });
 }
 
+/**
+ * Record an underpayment on a pending payment WITHOUT unlocking the coupon.
+ *
+ * The order-code mismatch path uses this when the verified received amount
+ * is below the required amount. The payment moves PENDING → REVIEW; the
+ * coupon stays locked (so the buyer can retry, or another buyer can take
+ * the listing); the refund service still writes its underpayment row so the
+ * full received amount is returned to the buyer.
+ *
+ * Idempotent: a second call on a row that's already REVIEW/underpaid is a
+ * no-op (returns the original answer with idempotent:true).
+ *
+ * Never unlocks the coupon. Never marks PAID. The dashboard surfaces the
+ * refund record + the REVIEW notes for admin processing.
+ */
+async function finalizeUnderpayment({
+  paymentId,
+  transactionId = null,
+  utr = null,
+  source = '',
+  notes = '',
+  paidAt = null,
+  raw = null,
+  receivedAmount = null,
+}) {
+  return withLock(async () => {
+    const rows = await rowsFresh(PAYMENTS);
+    const found = rows.find((r) => String(r.payment_id) === String(paymentId));
+    if (!found) return { ok: false, code: 'PAYMENT_NOT_FOUND' };
+
+    const payment = fromPayment(found);
+    const occurredAt = paidAt || new Date().toISOString();
+
+    // Idempotent: if this payment is already parked in REVIEW by an earlier
+    // underpayment settlement, repeat the original verdict. Keeps a redelivered
+    // webhook / re-run of the verifier from rewriting notes or double-writing.
+    if (payment.status === 'REVIEW') {
+      return {
+        ok: true, code: 'UNDERPAYMENT_ALREADY_RECORDED', payment_status: 'REVIEW',
+        idempotent: true,
+      };
+    }
+
+    // Only a PENDING payment can be parked for underpayment. EXPIRED /
+    // CANCELLED / PAID are all final.
+    if (payment.status !== 'PENDING') {
+      return { ok: false, code: 'PAYMENT_NOT_PENDING', payment_status: payment.status };
+    }
+
+    const patch = {
+      status: 'REVIEW',
+      received_amount: money2(receivedAmount !== null && receivedAmount !== undefined ? receivedAmount : payment.amount),
+      verified_transaction_id: transactionId || '',
+      verified_utr: utr || '',
+      verification_source: source || '',
+      verification_notes:
+        (notes ? notes + ' ' : '') +
+        `Underpayment: required ${money2(payment.amount)}, received ${money2(receivedAmount)}. Coupon NOT unlocked; refund record created for full received amount.`,
+      updated_at: occurredAt,
+    };
+    await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, patch);
+    // Order mirrors the payment so the listing stays available (coupon still
+    // locked) while admin processes the refund.
+    await db.updateRow(ORDERS, 'id', payment.orderId, {
+      status: 'REVIEW',
+      updated_at: occurredAt,
+    });
+
+    return { ok: true, code: 'UNDERPAYMENT_RECORDED', payment_status: 'REVIEW' };
+  });
+}
+
 /** Write the PAID state onto the payment and its order. */
 async function markPaid({ payment, txn, reference, source, notes, settledAt, receivedAmount }) {
   const patch = {
@@ -1090,6 +1162,7 @@ module.exports = {
   expireIfDue,
   cancelPayment,
   finalizePayment,
+  finalizeUnderpayment,
   flagForReview,
   expireOverduePayments,
   supersedeLivePaymentsForUser,

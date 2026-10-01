@@ -1049,8 +1049,11 @@ const webhookHandler = async (req, res) => {
     }
 
     const verdict = await verifier.processCandidate(candidate);
+    // Underpayments are also a successful verdict from the gateway's POV:
+    // we recorded the partial credit and queued the refund. The gateway
+    // should stop retrying; only true failures keep that envelope open.
     res.json({
-      ok: verdict.action === 'settled' || verdict.action === 'duplicate',
+      ok: verdict.action === 'settled' || verdict.action === 'duplicate' || verdict.action === 'underpayment_recorded',
       action: verdict.action,
       reason: verdict.reason,
       payment_id: (verdict.payment && verdict.payment.paymentId) || undefined,

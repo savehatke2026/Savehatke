@@ -578,6 +578,30 @@
     .xa-note { font-size:13px; color:#8a9dc0; line-height:1.45; margin-bottom:8px; }
     .xa-redirect { font-size:12.5px; color:#00d46a; font-weight:600; margin:0; }
 
+    /* INSUFFICIENT-PAYMENT (UNDERPAYMENT) OVERLAY
+       Sits in the same .success-overlay / .success-box shell so it inherits
+       the modal styling; only the warning palette and the "Okay, Got it"
+       CTA are new. Surfaced when the buyer paid less than the required
+       amount — finalizeUnderpayment() parks the payment as REVIEW, the
+       coupon stays locked, and the refund service queues the full received
+       amount to be returned. No coupon reveal happens here. */
+    .xa-icon-under { background:rgba(255,68,84,.08); border-color:rgba(255,68,84,.45); }
+    .xa-icon-under svg { stroke:#ff4454; }
+    .xa-icon-under::after { content:'!'; background:#ff4454; color:#1a0509; }
+    .xa-icon-under .ip-warn { stroke:#1a0509; stroke-width:2.6; }
+    .xa-row-under .succ-label, .xa-row-under .succ-value { color:#ff4d63; }
+    .xa-info-under { background:rgba(255,68,84,.07); border-color:rgba(255,68,84,.32); }
+    .xa-info-under svg { stroke:#ff7a87; }
+    .xa-info-under .xa-info-text b { color:#ff4d63; }
+    .ip-accent { color:#ff4d63; }
+    .xa-confirm { width:100%; min-height:48px; margin-top:8px; display:flex; justify-content:center; align-items:center; gap:9px; border:0; border-radius:12px; background:linear-gradient(135deg,#ff4d63,#e9304a); color:#fff; font-family:'Outfit',Arial,sans-serif; font-size:14.5px; font-weight:700; letter-spacing:.01em; cursor:pointer; box-shadow:0 8px 22px rgba(255,77,99,.28); transition:transform .15s ease, box-shadow .15s ease, background .15s ease; }
+    .xa-confirm:hover { transform:translateY(-1px); box-shadow:0 12px 28px rgba(255,77,99,.42); }
+    .xa-confirm:active { transform:translateY(0); box-shadow:0 6px 16px rgba(255,77,99,.32); }
+    .xa-confirm svg { width:18px; height:18px; stroke:#fff; stroke-width:2.4; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    .ip-close { color:#ff4d63; border-color: rgba(255,68,84,.35); }
+    .ip-close:hover { background:rgba(255,68,84,.1); border-color: rgba(255,68,84,.6); }
+    @media(max-width:480px){ .xa-confirm{ font-size:14px; min-height:46px; } }
+
     /* CONFETTI */
     .confetti-piece { position:fixed; width:10px; height:10px; border-radius:2px; animation:confettiFall linear forwards; pointer-events:none; z-index:400; }
 
@@ -1090,6 +1114,71 @@
 
     <p class="xa-note">We'll process the refund shortly and notify you once it's completed.</p>
     <p class="xa-redirect" id="xaRedirect">Revealing your coupon in 5s…</p>
+
+    <div class="succ-foot">
+      <div class="succ-foot-line"></div>
+      <div class="succ-foot-content">
+        <span class="succ-shield"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+        Secured by <span class="succ-foot-brand">SaveHatke</span>
+      </div>
+      <div class="succ-foot-line"></div>
+    </div>
+  </div>
+</div>
+
+<!-- INSUFFICIENT-PAYMENT (UNDERPAYMENT) OVERLAY
+     Surfaced when the server reports the buyer paid less than the required
+     amount. Unlike the overpayment overlay, the coupon is NOT unlocked —
+     finalizeUnderpayment() parks the payment as REVIEW and the refund
+     service writes an underpayment row for the full received amount, so the
+     buyer is made whole automatically. There is no coupon reveal here. -->
+<div class="success-overlay" id="insufficientAmountOverlay">
+  <div class="success-box">
+    <button class="succ-close ip-close" onclick="closeInsufficientAmount()" aria-label="Close payment confirmation">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+
+    <div class="xa-icon xa-icon-under">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
+        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
+        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
+        <line x1="9" y1="9" x2="15" y2="15" class="ip-warn"/>
+        <line x1="15" y1="9" x2="9" y2="15" class="ip-warn"/>
+      </svg>
+    </div>
+
+    <h2 class="succ-title">Insufficient <span class="ip-accent">Payment</span></h2>
+    <p class="succ-subtitle">You paid less than the required amount.</p>
+
+    <div class="succ-details">
+      <div class="succ-row">
+        <span class="succ-label">Required Amount</span>
+        <span class="succ-value" id="ipRequired">—</span>
+      </div>
+      <div class="succ-divider"></div>
+      <div class="succ-row">
+        <span class="succ-label">Amount Paid</span>
+        <span class="succ-value" id="ipPaid">—</span>
+      </div>
+      <div class="succ-divider"></div>
+      <div class="succ-row xa-row-refund xa-row-under">
+        <span class="succ-label">Short Amount</span>
+        <span class="succ-value large" id="ipShort">—</span>
+      </div>
+    </div>
+
+    <div class="xa-info xa-info-under">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+      <div class="xa-info-text">Your payment of <b id="ipPaidInline">₹0</b> is lower than the required amount. It will be refunded to your <b>original payment method</b> automatically.</div>
+    </div>
+
+    <p class="xa-note">We'll process the refund shortly and notify you once it's completed.</p>
+
+    <button class="xa-confirm" id="ipConfirmBtn" type="button" onclick="closeInsufficientAmount()">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+      <span>Okay, Got it</span>
+    </button>
 
     <div class="succ-foot">
       <div class="succ-foot-line"></div>
@@ -1857,6 +1946,25 @@
         clearInterval(upiState.timerId); upiState.timerId = null;
         stopUpiStream();
         stopUpiPoll();
+        // Underpayment detection: finalizeUnderpayment() parks the payment
+        // as REVIEW AND records received_amount. If we see a verified
+        // received amount that's smaller than the required price, surface
+        // the insufficient-payment overlay (no coupon reveal — the refund
+        // service owns the buyer's notice). Anything else (coupon
+        // unavailable, manual review, etc.) keeps the existing generic
+        // "review" state.
+        {
+          const reqAmt = Number(data && data.amount);
+          const recAmt = (data && data.received_amount !== undefined && data.received_amount !== null)
+            ? Number(data.received_amount)
+            : null;
+          if (recAmt !== null && Number.isFinite(recAmt) && Number.isFinite(reqAmt) && recAmt + 0.005 < reqAmt) {
+            if (upiState.successShown) break;
+            upiState.successShown = true;
+            showInsufficientAmountScreen(reqAmt, recAmt);
+            break;
+          }
+        }
         showUpiState('review');
         break;
 
@@ -2588,6 +2696,53 @@
     const overlay = upiEl('extraAmountOverlay');
     if (overlay) overlay.classList.remove('show');
     showSuccessScreen();
+  }
+
+  // ── Underpayment ("Insufficient Payment") ─────────────────────────────────
+  // Surfaced when the server reports the buyer paid less than the coupon's
+  // required amount: the coupon is NOT unlocked, no success reveal happens,
+  // and the refund service has already queued an automatic refund of the
+  // full received amount. The buyer acknowledges the notice and lands back
+  // on the checkout page (the order is parked in REVIEW, coupon still
+  // available) with a toast explaining what just happened.
+  function showInsufficientAmountScreen(required, received) {
+    const short = Math.max(0, Math.round((required - received) * 100) / 100);
+    const set = (id, txt) => { const el = upiEl(id); if (el) el.textContent = txt; };
+    set('ipRequired', formatRupees(required));
+    set('ipPaid', formatRupees(received));
+    set('ipShort', formatRupees(short));
+    set('ipPaidInline', formatRupees(received));
+
+    // Keep the QR / countdown surface closed if it's still up — this is the
+    // terminal state for this payment attempt.
+    stopUpiStream();
+    stopUpiPoll();
+    closeUpiBox({ instant: true });
+
+    const overlay = upiEl('insufficientAmountOverlay');
+    if (!overlay) return; // no overlay markup → nothing to show; the toast below still fires
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+
+    // Focus the primary CTA so the buyer can acknowledge with one tap.
+    const cta = upiEl('ipConfirmBtn');
+    if (cta) {
+      try { cta.focus({ preventScroll: true }); } catch (_) { cta.focus(); }
+    }
+  }
+
+  function closeInsufficientAmount() {
+    const overlay = upiEl('insufficientAmountOverlay');
+    if (overlay) overlay.classList.remove('show');
+    document.body.style.overflow = '';
+    // Tell the buyer where their money went and what to do next.
+    const paid = upiEl('ipPaid');
+    showToastLocal(
+      (paid && paid.textContent ? paid.textContent : 'Your partial payment') +
+      ' will be refunded to your original payment method shortly. The order has been parked and the coupon is still available.',
+      'info',
+      6500
+    );
   }
 
   function copyCode() {

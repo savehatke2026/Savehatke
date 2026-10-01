@@ -526,18 +526,45 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
   }
 
   // 9) Settle atomically. This is the only call that can move money.
+  //
+  //    Order-code mismatch path can be either overpayment (received >
+  //    required) or underpayment (received < required). Overpayments still
+  //    unlock the coupon and queue a refund for the excess. Underpayments
+  //    do NOT unlock the coupon — the order is parked in REVIEW and the
+  //    refund service refunds the full received amount so the buyer gets
+  //    their money back without a coupon.
+  const requiredForMismatch = Number(payment.amount || 0);
+  const receivedForMismatch = Number(candidate.amount || 0);
+  const isUnderpayment = mismatchPath
+    && Number.isFinite(requiredForMismatch)
+    && Number.isFinite(receivedForMismatch)
+    && receivedForMismatch + 0.005 < requiredForMismatch;
+
   let result;
   try {
-    result = await store.finalizePayment({
-      paymentId: payment.paymentId,
-      transactionId: candidate.transactionId || null,
-      utr: candidate.utr || null,
-      source: candidate.source,
-      notes: `Matched on ${candidate.orderCode ? 'order code' : 'transaction ID'}; amount ₹${candidate.amount.toFixed(2)}${mismatchPath ? ' (mismatch — see refund record)' : ''}.`,
-      paidAt: candidate.occurredAt,
-      raw: candidate.raw,
-      receivedAmount: candidate.amount,
-    });
+    if (isUnderpayment) {
+      result = await store.finalizeUnderpayment({
+        paymentId: payment.paymentId,
+        transactionId: candidate.transactionId || null,
+        utr: candidate.utr || null,
+        source: candidate.source,
+        notes: `Matched on order code; received ₹${receivedForMismatch.toFixed(2)}, required ₹${requiredForMismatch.toFixed(2)} (underpayment — coupon NOT unlocked).`,
+        paidAt: candidate.occurredAt,
+        raw: candidate.raw,
+        receivedAmount: receivedForMismatch,
+      });
+    } else {
+      result = await store.finalizePayment({
+        paymentId: payment.paymentId,
+        transactionId: candidate.transactionId || null,
+        utr: candidate.utr || null,
+        source: candidate.source,
+        notes: `Matched on ${candidate.orderCode ? 'order code' : 'transaction ID'}; amount ₹${candidate.amount.toFixed(2)}${mismatchPath ? ' (mismatch — see refund record)' : ''}.`,
+        paidAt: candidate.occurredAt,
+        raw: candidate.raw,
+        receivedAmount: candidate.amount,
+      });
+    }
   } catch (e) {
     return reject('REVIEW', 'Settlement failed: ' + e.message);
   }
@@ -551,11 +578,12 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
   }
 
   // 10) Mismatch handling — only runs on the order-code path, after the
-  //     payment itself has been settled to PAID. The refund service is the
-  //     same writer the dashboard reads from, so the user sees the record
-  //     on the next refresh. The required amount comes from the payment
-  //     row (server-set), the received amount from the verified
-  //     notification — never from the request body.
+  //     payment itself has been settled (PAID for overpayment, REVIEW for
+  //     underpayment). The refund service is the same writer the dashboard
+  //     reads from, so the user sees the record on the next refresh. The
+  //     required amount comes from the payment row (server-set), the
+  //     received amount from the verified notification — never from the
+  //     request body.
   let refundRecord = null;
   if (mismatchPath) {
     try {
@@ -583,20 +611,24 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
     await store.updateNotification(notification.id, {
       status: 'MATCHED',
       matched_payment_id: payment.paymentId,
-      notes: `Settled payment ${payment.paymentId} (${result.code})${refundRecord ? `; refund ${refundRecord.refundId} created for ${refundRecord.mismatchType}` : ''}.`,
+      notes: `${isUnderpayment ? 'Underpayment recorded' : 'Settled payment'} ${payment.paymentId} (${result.code})${refundRecord ? `; refund ${refundRecord.refundId} created for ${refundRecord.mismatchType}` : ''}.`,
     });
   } catch (e) {}
 
   // Payment is genuinely settled to PAID — send the buyer their confirmation
   // receipt. Skipped for idempotent replays so a redelivered webhook never
   // double-sends, and isolated so an email failure can't undo the settlement.
-  if (result && result.ok && !result.idempotent) {
+  // Underpayments never unlock the coupon, so the buyer does NOT get a
+  // "Payment Successful" receipt here — the refund flow owns their notice.
+  if (result && result.ok && !result.idempotent && !isUnderpayment) {
     await deliverPaymentSuccessEmail(payment);
   }
 
   return {
-    action: 'settled',
-    reason: `Payment ${payment.paymentId} settled (${result.code}).`,
+    action: isUnderpayment ? 'underpayment_recorded' : 'settled',
+    reason: isUnderpayment
+      ? `Payment ${payment.paymentId} parked as REVIEW (underpayment: required ₹${requiredForMismatch.toFixed(2)}, received ₹${receivedForMismatch.toFixed(2)}).`
+      : `Payment ${payment.paymentId} settled (${result.code}).`,
     notification,
     payment,
     result,
