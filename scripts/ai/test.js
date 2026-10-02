@@ -103,7 +103,7 @@ async function testCouponSearch() {
 }
 
 async function testSellEligibility() {
-  await section('Seller eligibility (invite-only whitelist, not purchase history)', async () => {
+  await section('Seller eligibility (open to every signed-in user)', async () => {
     const r = await ask('can i sell a coupon', { conversationId: 't-sell' });
     check('eligibility responds ok', r.ok === true);
     check('eligibility intent classified', r.meta.intent === 'SELL_ELIGIBILITY');

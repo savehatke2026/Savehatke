@@ -11,15 +11,12 @@
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
     /* ── Sell access — pre-paint cloak ──
-       The selling form is visible only to whitelisted email IDs, so almost
-       every visitor — logged out, or logged in without seller access — sees
-       the locked screen instead. This script runs before <body> paints and
-       hides the sell UI while the access check (see initSellPage at the
-       bottom of the page) decides which of the two to show, so the form
-       never flashes for a visitor who is about to be locked out. Applies to
-       everyone, including logged-out visitors (they cannot be on any
-       whitelist). The same localStorage key Auth.isLoggedIn() reads in
-       js/app.js. */
+       The selling form is open to every signed-in user; a logged-out visitor
+       sees a "log in to sell" screen instead. This script runs before <body>
+       paints and hides the sell UI while initSellPage (at the bottom of the
+       page) decides which of the two to show, so the form never flashes for a
+       logged-out visitor about to see the login screen. Reads the same
+       localStorage sh_token key Auth.isLoggedIn() uses in js/app.js. */
     document.documentElement.classList.add('sell-gate-pending');
   </script>
   <style>
@@ -805,23 +802,23 @@
 
     </div><!-- /form-card -->
 
-    <!-- ── Sell locked screen — email not on the seller whitelist ──
-         The server-side gate (GET /api/coupons/sell-eligibility) decides who
-         sees this instead of the form. Same .form-card + .success-state design
-         language as the submit-success step. Hidden by default; initSellPage
-         at the bottom of this file adds .show, hides the form elements and
-         points the CTA at login for a logged-out visitor. -->
+    <!-- ── Sell locked screen — shown only to logged-out visitors ──
+         Selling is open to every signed-in user, so the only time this shows
+         instead of the form is when nobody is logged in (initSellPage locks
+         before even calling the eligibility endpoint). Same .form-card +
+         .success-state design language as the submit-success step. Hidden by
+         default; initSellPage adds .show and hides the form elements. -->
     <div class="form-card sell-locked" id="sellLocked">
       <div class="success-state">
         <span class="success-emoji">🔒</span>
-        <h2 class="success-title">Selling is available to selected users only</h2>
+        <h2 class="success-title">Log in to start selling</h2>
         <p class="success-sub">
-          Selling coupons on SaveHatke is currently available to whitelisted users only.
-          If you believe you should have access, contact our support team.
+          You need a SaveHatke account to list a coupon. Log in — or create one
+          in a minute — and you can submit coupons for review right away.
         </p>
         <div class="success-actions">
-          <a href="marketplace" class="btn btn-primary btn-lg" id="sellLockedBrowseBtn">Browse Coupons →</a>
-          <a href="support" class="btn btn-secondary btn-lg">Contact Support</a>
+          <a href="login.html" class="btn btn-primary btn-lg" id="sellLockedBrowseBtn">Log In</a>
+          <a href="marketplace" class="btn btn-secondary btn-lg">Browse Coupons →</a>
         </div>
       </div>
     </div><!-- /sell-locked -->
@@ -3364,7 +3361,8 @@ document.querySelectorAll('.fu').forEach(el => obs.observe(el));
 // sell UI invisible until the check resolves, so neither the form nor the
 // locked screen flashes.
 function lockSellPage() {
-  // No seller access: replace the sell UI with the locked screen. The AI
+  // Only reached for a logged-out visitor (selling is open to every signed-in
+  // user). Replace the sell UI with the "log in to sell" screen. The AI
   // scanner, the stepper and the form card itself all describe "selling", so
   // they go too. The locked card uses the same .form-card shell, hence the
   // :not() guard.
@@ -3372,24 +3370,14 @@ function lockSellPage() {
     .forEach((el) => { el.style.display = 'none'; });
   const locked = document.getElementById('sellLocked');
   if (locked) locked.classList.add('show');
-  // A logged-out visitor's primary next step is logging in — their account
-  // may already be whitelisted — so the CTA becomes Log In. A signed-in
-  // user without access is better served by the marketplace button.
-  if (!localStorage.getItem('sh_token')) {
-    const cta = document.getElementById('sellLockedBrowseBtn');
-    if (cta) {
-      cta.href = 'login.html';
-      cta.textContent = 'Log In';
-    }
-  }
   document.documentElement.classList.remove('sell-gate-pending');
 }
 
 async function initSellPage() {
-  // A logged-out visitor cannot be on any whitelist, so lock straight away —
-  // without calling the eligibility endpoint, whose 401 SESSION_EXPIRED
-  // answer would bounce the visitor to the login page instead of showing
-  // them this page's locked screen (api() redirects on that code).
+  // Selling needs an account, so a logged-out visitor gets the "log in to
+  // sell" screen straight away — without calling the eligibility endpoint,
+  // whose 401 SESSION_EXPIRED answer would bounce them to the login page
+  // instead of showing this page's locked screen (api() redirects on that).
   if (!localStorage.getItem('sh_token')) {
     lockSellPage();
     return;
@@ -3430,5 +3418,6 @@ async function initSellPage() {
 </script>
 <script src="js/cookie-consent.js"></script>
 <script src="js/app.js"></script>
+  <script src="js/site-footer.js"></script>
 </body>
 </html>

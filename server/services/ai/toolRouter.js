@@ -578,30 +578,12 @@ async function checkSellEligibility(args = {}, ctx) {
 
   const role = String(user.role || '').toLowerCase();
   const isAdminRole = role === 'admin' || role === 'super admin' || role === 'support';
-  if (isAdminRole) {
-    return { ok: true, canSell: true, reason: 'admin_role' };
-  }
-
-  // The authoritative rule: selling is invite-only, gated on the admin-managed
-  // whitelist — NOT on purchase history. Read from Supabase, the single source
-  // of truth, and fail closed if it cannot be read.
-  let whitelisted = false;
-  let reachable = true;
-  try {
-    const whitelist = await supabase.getMaintenanceWhitelist();
-    whitelisted = Array.isArray(whitelist) && whitelist.map(normEmail).includes(normEmail(user.email));
-  } catch (e) {
-    reachable = false;
-  }
-
-  if (!reachable) {
-    return { ok: true, canSell: false, reason: 'unverifiable', fallbackToSupport: true };
-  }
+  // Selling is open to every signed-in user — there is no seller whitelist.
+  // Include the seller's own submission count so the answer stays useful.
   return {
     ok: true,
-    canSell: whitelisted,
-    reason: whitelisted ? 'whitelisted' : 'not_whitelisted',
-    // The seller's own history, so the answer can be useful either way.
+    canSell: true,
+    reason: isAdminRole ? 'admin_role' : 'open_to_all',
     ...(await (async () => {
       try {
         const mine = await readSellerCoupons(user.email);

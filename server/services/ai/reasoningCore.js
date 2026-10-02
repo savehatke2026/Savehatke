@@ -37,7 +37,7 @@ const DIRECT_ANSWERS = {
     chips: ['Show me coupons', 'Can I sell a coupon?', 'Check my earnings', 'Contact support'],
   },
   WEBSITE_NAVIGATION: {
-    text: "Here's where things live on SaveHatke:\n\n• **Marketplace** — browse and buy available coupons\n• **Sell** — submit a coupon for review (invite-only for now)\n• **Dashboard** — your submissions, purchases, earnings and payouts\n• **Price Tracker** — watch a product price and get alerts\n• **Support** — raise and track a ticket\n\nTell me what you're trying to do and I'll point you at the right page.",
+    text: "Here's where things live on SaveHatke:\n\n• **Marketplace** — browse and buy available coupons\n• **Sell** — submit a coupon for review\n• **Dashboard** — your submissions, purchases, earnings and payouts\n• **Price Tracker** — watch a product price and get alerts\n• **Support** — raise and track a ticket\n\nTell me what you're trying to do and I'll point you at the right page.",
     chips: ['Open the marketplace', 'Check my earnings', 'How does the tracker work?', 'Contact support'],
   },
   TWO_FACTOR_AUTH: {
@@ -104,7 +104,7 @@ const LOGIN_PROMPTS = {
   PURCHASE_HISTORY: "I can only show purchases to the account that made them. Sign in and ask me again — then I'll list them for you.",
   SUBMISSION_STATUS: "Your submissions are private to your account. Sign in and ask me again and I'll show you where each one stands.",
   SELL_ELIGIBILITY: "I can check that for you once you're signed in — eligibility is tied to your account email. Sign in and ask me again.",
-  SELL_COUPON: "Selling is invite-only at the moment, and eligibility is checked against your account. Sign in and ask me again and I'll tell you where you stand.",
+  SELL_COUPON: "Anyone with a SaveHatke account can sell. Open the Sell page while signed in, add your coupon's details and a proof screenshot, and submit it for review — once approved it goes live on the marketplace and you earn 7% of its face value when it sells.",
   PRICE_TRACKER: "Your tracked products are saved to your account. Sign in and ask me again and I'll list them.",
   PROFILE: "Profile details are private to your account. Sign in and ask me again and I'll show you your summary.",
   DEFAULT: "I need you to be signed in for that one — it's account-specific information. Sign in and ask me again.",

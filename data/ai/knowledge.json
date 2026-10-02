@@ -22,7 +22,7 @@
     "category": "How SaveHatke Works",
     "intent": "HOW_IT_WORKS",
     "question": "What can I do on SaveHatke?",
-    "answer": "You can:\n\n• **Buy coupons** — real discounts at less than face value\n• **Sell coupons** — list a coupon you don't need and earn when it sells (currently invite-only)\n• **Track prices** — watch a product and get alerted when the price drops to your target\n• **Manage purchases and earnings** — everything you've bought, sold and earned in one dashboard\n• **Get support** — raise and track a support case",
+    "answer": "You can:\n\n• **Buy coupons** — real discounts at less than face value\n• **Sell coupons** — list a coupon you don't need and earn when it sells\n• **Track prices** — watch a product and get alerted when the price drops to your target\n• **Manage purchases and earnings** — everything you've bought, sold and earned in one dashboard\n• **Get support** — raise and track a support case",
     "keywords": ["what can i do", "features", "options", "available", "help", "savehatke do"],
     "enabled": true
   },
@@ -76,7 +76,7 @@
     "category": "Coupon Selling",
     "intent": "SELL_ELIGIBILITY",
     "question": "Can I sell coupons?",
-    "answer": "Selling is currently invite-only — it isn't open to every account yet. If your account has been approved for it, you can submit coupons from the Sell page. If you'd like access, contact support and the team can review it.",
+    "answer": "Selling is open to everyone with a SaveHatke account — there's no invite or approval needed. Just open the Sell page while signed in and submit a coupon for review. Once it's approved it goes live on the marketplace and you earn 7% of its face value when it sells.",
     "keywords": ["can i sell", "sell coupon", "eligible sell", "selling", "sell eligible", "bechna", "allowed sell"],
     "enabled": true
   },
@@ -85,7 +85,7 @@
     "category": "Coupon Selling",
     "intent": "SELL_ELIGIBILITY",
     "question": "Am I eligible to sell coupons?",
-    "answer": "Eligibility is checked against your account email. Selling is invite-only right now, so unless the SaveHatke team has approved your account, the Sell page will ask you to contact support. You can verify your own status any time by opening the Sell page while signed in.",
+    "answer": "Yes — selling is open to everyone with a SaveHatke account. Just open the Sell page while signed in and you can submit a coupon for review; there's no invite or approval needed. If you're signed out, the Sell page will ask you to log in first.",
     "keywords": ["am i eligible", "eligibility", "whitelist", "approved sell", "qualify sell", "sell access", "permission sell"],
     "enabled": true
   },

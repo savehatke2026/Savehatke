@@ -211,7 +211,7 @@ function main() {
     check_payout_ladder: { ok: true, ladder: ['Pending Review', 'Active', 'Eligible for Payout', 'Payout Processing', 'Paid'], ratePerCoupon: 10, ratePerCouponFormatted: '₹10', minPayoutRequest: 50, minPayoutRequestFormatted: '₹50', maxPayoutRequest: 100000, maxPayoutRequestFormatted: '₹1,00,000' },
     check_purchases: { ok: true, total: 1, codesAvailable: 1, purchases: [{ brand: 'Amazon', title: 'Amazon 100 off', code: 'AMZ12345', pricePaid: '60', purchasedAt: '2026-01-01' }] },
     check_support_tickets: { ok: true, total: 1, openCount: 1, inProgressCount: 0, resolvedCount: 0, tickets: [{ id: 't1', subject: 'Refund', status: 'open', createdAt: '2026-01-01' }] },
-    check_sell_eligibility: { ok: true, canSell: false, reason: 'not_whitelisted' },
+    check_sell_eligibility: { ok: true, canSell: true, reason: 'open_to_all', submittedCount: 2 },
     get_user_profile: { ok: true, emailMasked: 'ev***@example.test', name: 'Eval', role: 'user', hasPayoutDetails: false, signInMethod: 'email one-time code or Google' },
     get_maintenance_status: { ok: true, enabled: false, message: '' },
     get_price_tracker: { ok: true, total: 1, items: [{ productName: 'Phone', platform: 'Amazon', currentPrice: '19999', targetPrice: '17000' }] },

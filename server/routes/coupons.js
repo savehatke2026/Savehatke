@@ -50,15 +50,14 @@ const MIN_EXPIRY_FLOOR_DAYS = MIN_EXPIRY_DAYS - 1;
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
 
-// ── Sell eligibility — a whitelisted email unlocks selling ──
-// Selling is invite-only: the coupon submission form is reserved for
-// emails the admin listed under the `maintenance_whitelist`
-// site_settings key — the same list that lets users browse the site
-// during maintenance, so one card in the admin Settings manages both.
-// Admins (admin / super admin / support) bypass the list on role, so an
-// operator can always test the flow and never locks themselves out of
-// the admin-side tooling.
-const SELL_GATE_MESSAGE = 'Selling coupons is currently available to selected users only. If you believe you should have access, contact support.';
+// ── Sell eligibility — open to every signed-in user ──
+// Selling is available to any authenticated user: there is no seller
+// whitelist. It used to be invite-only, gated on the maintenance_whitelist
+// site_settings key, but that gate was removed so anyone with an account can
+// list a coupon. The maintenance whitelist still exists — it now only controls
+// who may browse the site during maintenance. The gates below therefore reject
+// only a request with no authenticated user at all.
+const SELL_GATE_MESSAGE = 'Please sign in to sell coupons.';
 
 function normEmail(v) {
   return String(v || '').toLowerCase().trim();
@@ -69,22 +68,11 @@ function isAdminSellRole(user) {
   return role === 'admin' || role === 'super admin' || role === 'support';
 }
 
-// Supabase is the single source of truth for the list (no Sheets
-// fallback — an admin's edit must be reflected, not read from a stale
-// mirror). An unreadable list behaves as empty, which keeps the gate
-// closed for non-admins: the safe direction. Admins are checked first,
-// before this read, so a Supabase outage can never lock the operator out.
+// Any signed-in user may sell. A valid `user` here means the request already
+// passed authenticateToken, so the only thing rejected is a missing identity;
+// admins qualify too (a role implies an account).
 async function canSellCoupons(user) {
-  if (isAdminSellRole(user)) return true;
-  const email = normEmail(user && user.email);
-  if (!email) return false;
-  try {
-    const whitelist = await supabase.getMaintenanceWhitelist();
-    return whitelist.includes(email);
-  } catch (e) {
-    console.warn('Sell eligibility whitelist read notice:', e.message);
-    return false;
-  }
+  return !!(user && (user.id || normEmail(user.email)));
 }
 
 // GET /api/coupons — List available coupons (public, with optional auth)
@@ -229,9 +217,9 @@ router.get('/categories', async (req, res) => {
 // returns no selling price, source or status — those stay with the seller and
 // the submit route.
 //
-// Sell-whitelist gated: the scanner exists only to fill the sell form, and
-// each call spends paid Gemini Vision quota — a user who cannot submit
-// coupons has no legitimate use for it.
+// Sign-in gated: the scanner exists only to fill the sell form, and each call
+// spends paid Gemini Vision quota — a signed-out visitor has no legitimate
+// use for it.
 router.post('/scan', authenticateToken, async (req, res) => {
   try {
     const maySell = await canSellCoupons(req.user);
@@ -310,9 +298,9 @@ router.post('/scan', authenticateToken, async (req, res) => {
 // in the operator's own Drive folder, never on public object storage. If Drive
 // is not usable we fail loudly rather than silently stashing the file elsewhere.
 //
-// Sell-whitelist gated: proof uploads exist only for coupon submissions, and
-// each one costs a Drive round-trip and storage — a user who cannot submit
-// coupons has no legitimate use for it.
+// Sign-in gated: proof uploads exist only for coupon submissions, and each one
+// costs a Drive round-trip and storage — a signed-out visitor has no
+// legitimate use for it.
 router.post('/proof', authenticateToken, async (req, res) => {
   try {
     const maySell = await canSellCoupons(req.user);
@@ -432,11 +420,11 @@ function formatRupees(value) {
 // and the legacy single-coupon format { code, category, brand, ... }.
 const handleCouponSubmission = async (req, res) => {
   try {
-    // ── Sell whitelist gate (server-side, authoritative) ──
-    // Checked before any validation or storage work, so a user whose email is
-    // not on the admin's sell whitelist can never submit coupons through ANY
-    // client — /api/coupons/sell, /api/coupons/submit and the legacy
-    // public/js/sell.js all funnel through this shared handler.
+    // ── Sell gate (server-side, authoritative) ──
+    // Checked before any validation or storage work: selling needs a signed-in
+    // user (there is no whitelist), and every client — /api/coupons/sell,
+    // /api/coupons/submit and the legacy public/js/sell.js — funnels through
+    // this shared handler, so the check can never be bypassed.
     const maySell = await canSellCoupons(req.user);
     if (!maySell) {
       return res.status(403).json({ error: SELL_GATE_MESSAGE });

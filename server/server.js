@@ -613,9 +613,9 @@ async function initServices() {
     // is initialised to `{ enabled: false, message: '' }` and
     // `site_settings.maintenance_whitelist` to `{ "emails": [] }` by the
     // migrations. Bypasses are decided server-side only: the admin role from
-    // the verified JWT, and user emails from the whitelist row. The same
-    // whitelist row also gates who may see the selling form (routes/coupons
-    // canSellCoupons), so one list serves both purposes.
+    // the verified JWT, and user emails from the whitelist row. The whitelist
+    // controls maintenance-mode access only — selling is open to every
+    // signed-in user (see routes/coupons canSellCoupons).
   }
 
   // 48-hour session expiry sweep — a real interval on a long-running server;
