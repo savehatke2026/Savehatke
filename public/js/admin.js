@@ -405,10 +405,10 @@ function couponIsExpired(c) {
   return at !== null && at < Date.now();
 }
 
-/** ADMIN vs USER-SUBMITTED source badge (mockup palette). */
+/** Source badge — shows who submitted the coupon: Admin vs User. */
 function cmSourceBadge(c) {
-  if (isSellerSubmission(c)) return '<span class="cm2-badge b-src-user">USER-SUBMITTED</span>';
-  return `<span class="cm2-badge b-src-admin">${escHtml(String(c.source || 'admin').toUpperCase())}</span>`;
+  if (isSellerSubmission(c)) return '<span class="cm2-badge b-src-user">User</span>';
+  return '<span class="cm2-badge b-src-admin">Admin</span>';
 }
 
 /** Status badge. A coupon past its expiry date reads EXPIRED even if the row still says available. */
