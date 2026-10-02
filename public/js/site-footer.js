@@ -48,7 +48,7 @@
   };
 
   var CSS = `
-.fsocial { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:0 0 22px; }
+.fsocial { display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:10px; padding:0 0 22px; }
 .fsocial[hidden] { display:none; }
 .fs-icon { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:50%; flex-shrink:0; color:#8ba2c4; background:rgba(15,30,58,.55); border:1px solid rgba(79,195,247,.12); transition:color .2s, border-color .2s, background .2s, transform .2s; }
 .fs-icon:hover { transform:scale(1.06); }
