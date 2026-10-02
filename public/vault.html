@@ -386,12 +386,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cm2-search input{width:100%;background:#060d1f;border:1px solid rgba(79,195,247,.6);color:#e2ecff;padding:10px 14px 10px 40px;border-radius:11px;outline:none;font-size:.86rem;transition:border-color .18s}
 .cm2-search input::placeholder{color:#6b88aa}
 .cm2-search input:focus{border-color:rgba(0,230,118,.5);box-shadow:0 0 0 1px rgba(0,230,118,.3)}
-.cm2-viewtoggle{display:flex;align-items:center;background:#060d1f;padding:4px;border-radius:11px;border:1px solid rgba(79,195,247,.12);flex-shrink:0}
-.cm2-vbtn{display:flex;align-items:center;justify-content:center;padding:8px;border-radius:8px;color:#6b88aa;background:none;border:none;cursor:pointer;transition:all .18s}
-.cm2-vbtn svg{width:18px;height:18px}
-.cm2-vbtn.on{background:linear-gradient(90deg,rgba(37,99,235,.2),rgba(0,230,118,.2));color:#00e676}
-
-.cm2-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.cm2-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
 /* Marketplace-style coupon BOXES for the admin inventory card view. */
 .cmbx-card{position:relative;background:#0d1930;border:1px solid #17364b;border-radius:16px;transition:transform .22s cubic-bezier(.2,.7,.2,1),border-color .22s,box-shadow .22s;box-shadow:0 6px 24px rgba(0,0,0,.18)}
 .cmbx-card:hover{transform:translateY(-4px);border-color:rgba(0,230,118,.5);box-shadow:0 16px 40px rgba(0,0,0,.34),0 0 28px rgba(0,230,118,.14)}
@@ -406,18 +401,30 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cmbx-offer{position:absolute;right:12px;bottom:10px;z-index:3}
 .cmbx-offer .cm2-offer{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.92rem;color:#00e676;background:rgba(6,13,31,.72);border:1px solid rgba(0,230,118,.3);padding:3px 10px;border-radius:8px}
 .cmbx-offer .cm2-offer.none{display:none}
-.cmbx-card>.cm2-menuwrap{position:absolute;top:10px;right:10px;margin:0;z-index:6}
-.cmbx-card .cm2-menu-btn{background:rgba(6,13,31,.66);color:#e2ecff;backdrop-filter:blur(4px)}
-.cmbx-card .cm2-menu-btn:hover{background:rgba(0,230,118,.22);color:#e2ecff}
+.cmbx-edit{position:absolute;top:10px;right:10px;z-index:6;display:flex;align-items:center;justify-content:center;padding:8px;border-radius:9px;border:none;cursor:pointer;background:rgba(6,13,31,.66);color:#e2ecff;backdrop-filter:blur(4px);transition:background .18s}
+.cmbx-edit:hover{background:rgba(0,230,118,.22)}
+.cmbx-edit svg{width:17px;height:17px}
 .cmbx-body{padding:16px;display:flex;flex-direction:column;gap:10px}
 .cmbx-brand{font-size:1rem;font-weight:800;color:#e2ecff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cmbx-title{font-size:.82rem;color:#a6d9fb;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:0}
-.cmbx-card:has(.cm2-menu.open){z-index:40}
-.cmbx-card .cm2-menu{z-index:200}
+.cmbx-desc{font-size:.76rem;color:#8fb0d4;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cmbx-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.cmbx-meta .inv-exp,.cmbx-meta .inv-exp-none,.cmbx-meta .inv-exp-off{margin-top:0}
+.cmbx-expiry{display:inline-flex;align-items:center}
+.cmbx-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px}
+.cmbx-id{font-size:.64rem;font-family:'JetBrains Mono',monospace;color:#5f7da3;letter-spacing:.02em}
 .cmbx-body .cm2-code-line{width:auto}
 .cmbx-body .cm2-cat{align-self:flex-start;color:#00d6ff;background:#073047;border:1px solid #00617d}
 .cmbx-pricerow{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-top:2px;padding-top:12px;border-top:1px solid rgba(79,195,247,.1)}
 .cmbx-price-field{display:flex;flex-direction:column;gap:3px;min-width:0}
+/* Loading skeleton for the inventory grid */
+.cmbx-skel{background:#0d1930;border:1px solid #17364b;border-radius:16px;overflow:hidden}
+.cmbx-skel .sk-hero{aspect-ratio:2.43;background:linear-gradient(100deg,#0e1c33 30%,#16284a 50%,#0e1c33 70%);background-size:200% 100%;animation:cmbxShimmer 1.2s linear infinite}
+.cmbx-skel .sk-body{padding:16px;display:flex;flex-direction:column;gap:12px}
+.cmbx-skel .sk-line{height:12px;border-radius:6px;background:linear-gradient(100deg,#0e1c33 30%,#16284a 50%,#0e1c33 70%);background-size:200% 100%;animation:cmbxShimmer 1.2s linear infinite}
+.cmbx-skel .sk-line.sh{width:55%}
+.cmbx-skel .sk-line.md{width:80%}
+@keyframes cmbxShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
 @media(max-width:600px){.cm2-list{grid-template-columns:1fr}}
 .cm2-row{display:flex;flex-wrap:wrap;align-items:center;gap:16px;background:rgba(12,24,52,.8);border:1px solid rgba(79,195,247,.8);border-radius:16px;padding:16px;transition:border-color .18s,background .18s}
 .cm2-row:hover{border-color:rgba(79,195,247,.9);background:#15192c}
@@ -449,41 +456,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cm2-offer{padding:3px 9px;font-size:.72rem;font-weight:700;border-radius:6px;background:rgba(236,72,153,.1);color:#ec4899;border:1px solid rgba(236,72,153,.2)}
 .cm2-offer.none{background:none;border:none;color:#6b88aa;padding:0;font-weight:400}
 
-.cm2-menuwrap{position:relative;margin-left:auto}
-.cm2-menu-btn{color:#6b88aa;background:none;border:none;cursor:pointer;padding:8px;border-radius:9px;transition:all .18s}
-.cm2-menu-btn:hover{color:#e2ecff;background:rgba(79,195,247,.8)}
-.cm2-menu-btn svg{width:18px;height:18px}
-.cm2-menu{position:absolute;right:0;top:calc(100% + 6px);width:236px;background:#0c1835;border:1px solid rgba(79,195,247,.12);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.55);padding:8px;z-index:60;display:none}
-.cm2-menu.open{display:block}
-.cm2-mi{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;padding:8px 10px;border-radius:8px;font-size:.82rem;color:#e2ecff;background:none;border:none;cursor:pointer;text-align:left;transition:background .15s}
-.cm2-mi:hover{background:rgba(79,195,247,.7);color:#e2ecff}
-.cm2-mi .cm2-mi-state{font-size:.7rem;font-weight:700}
-.cm2-mi.danger{color:#ef9a9a}.cm2-mi.danger:hover{background:rgba(244,63,94,.12)}
-.cm2-mi.approve{color:#00e676}.cm2-mi.approve:hover{background:rgba(0,230,118,.12)}
-.cm2-mi-field{padding:8px 10px}
-.cm2-mi-field label{display:block;font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;color:#6b88aa;margin-bottom:5px}
-.cm2-mi-field input{width:100%;background:#060d1f;border:1px solid rgba(79,195,247,.12);border-radius:7px;color:#e2ecff;font-size:.74rem;padding:6px 8px;outline:none;color-scheme:dark;font-family:'JetBrains Mono',monospace}
-.cm2-mi-field input:focus{border-color:rgba(0,230,118,.5)}
-.cm2-menu-sep{height:1px;background:rgba(79,195,247,.12);margin:6px 4px}
-
-.cm2-tablecard{background:rgba(12,24,52,.8);border:1px solid rgba(79,195,247,.12);border-radius:16px;overflow:hidden}
-.cm2-tablewrap{overflow-x:auto}
-.cm2-table{width:100%;border-collapse:collapse;min-width:920px;text-align:left}
-.cm2-table thead tr{background:rgba(6,13,31,.5);border-bottom:1px solid rgba(79,195,247,.12)}
-.cm2-table th{padding:14px 20px;font-size:.68rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#a8c0dc;white-space:nowrap}
-.cm2-table th.ta-right{text-align:right}
-.cm2-table td{padding:12px 20px;border-bottom:1px solid rgba(79,195,247,.6);vertical-align:middle}
-.cm2-table td.ta-right{text-align:right}
-.cm2-table tbody tr:last-child td{border-bottom:none}
-.cm2-table tbody tr:hover{background:#0c1835}
-.cm2-tbrand{display:flex;align-items:center;gap:10px}
-.cm2-tbrand-logo{width:32px;height:32px;border-radius:8px;background:#e2ecff;overflow:hidden;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-.cm2-tbrand-logo img{width:100%;height:100%;object-fit:contain}
-.cm2-tbrand-logo .cm2-initial{font-size:.72rem}
-.cm2-tbrand-name{color:#e2ecff;font-weight:500;font-size:.86rem}
-.cm2-tcode{color:#e2ecff;font-family:'JetBrains Mono',monospace;font-size:.82rem}
-.cm2-tcat{font-size:.72rem;color:#6b88aa}
-.cm2-tprice{color:#00e676;font-weight:700;font-family:'JetBrains Mono',monospace}
+/* Coupon-card quick-actions dropdown + table-view styles removed — the inventory
+   renders as cards only, and the pencil opens the full #couponEditModal. */
 
 .cm2-pager{display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:space-between;padding-top:18px;margin-top:18px;border-top:1px solid rgba(79,195,247,.5)}
 @media(min-width:640px){.cm2-pager{flex-direction:row}}
@@ -1796,10 +1770,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="cm2-search">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
               <input type="text" id="invSearch" placeholder="Search coupons, brands, codes...">
-            </div>
-            <div class="cm2-viewtoggle">
-              <button type="button" class="cm2-vbtn on" id="cmViewCard" onclick="cmSetView('card')" title="Card view" aria-label="Card view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg></button>
-              <button type="button" class="cm2-vbtn" id="cmViewTable" onclick="cmSetView('table')" title="Table view" aria-label="Table view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg></button>
             </div>
           </div>
         </div>
@@ -3555,6 +3525,50 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('rejectPayoutModal')">Cancel</button>
       <button class="btn btn-danger" style="flex:1" id="rejectPayoutConfirmBtn" onclick="confirmRejectPayout()">🚫 Reject Payout</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EDIT COUPON — full edit interface opened by the card pencil ══ -->
+<div class="modal-overlay" id="couponEditModal">
+  <div class="modal" style="max-width:720px;width:96%">
+    <button class="modal-close" onclick="closeModal('couponEditModal')" aria-label="Close edit coupon">✕</button>
+    <div class="modal-hdr">
+      <div>
+        <div class="modal-title">Edit <span class="gtext">Coupon</span></div>
+        <div class="modal-sub" id="ceSubtitle">Update the details and save — changes go live immediately.</div>
+      </div>
+    </div>
+    <div class="form-grid form-grid-2">
+      <div class="form-group"><label class="form-label">Store / Brand *</label><input class="form-input" type="text" id="ceBrand" placeholder="e.g. Amazon"></div>
+      <div class="form-group"><label class="form-label">Coupon Title</label><input class="form-input" type="text" id="ceTitle" placeholder="e.g. 30% Off Skincare"></div>
+      <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" id="ceCode" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase" placeholder="e.g. SAVE30"></div>
+      <div class="form-group"><label class="form-label">Category</label><input class="form-input" type="text" id="ceCategory" placeholder="e.g. Fashion"></div>
+      <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="ceStatus"><option value="available">Available</option><option value="sold">Sold</option><option value="expired">Expired</option><option value="pending">Pending</option><option value="draft">Draft</option><option value="scheduled">Scheduled</option></select></div>
+      <div class="form-group"><label class="form-label">Coupon Type</label><select class="form-select" id="ceType"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
+      <div class="form-group"><label class="form-label">Discount / Offer</label><input class="form-input" type="text" id="ceDiscount" placeholder="e.g. 50% OFF"></div>
+      <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" min="0" id="cePrice"></div>
+      <div class="form-group"><label class="form-label">Face / Original Value (₹)</label><input class="form-input" type="number" min="0" id="ceValue"></div>
+      <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" min="0" id="ceMinOrder"></div>
+      <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="ceExpiry"></div>
+      <div class="form-group"><label class="form-label">Affiliate Link</label><input class="form-input" type="url" id="ceLink" placeholder="https://..."></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Background Image URL</label><input class="form-input" type="text" id="ceBg" placeholder="/images/coupons/amazon.webp or https://..."><div class="form-hint">Hero image on the coupon card. Leave empty for the default SaveHatke background.</div></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Description</label><textarea class="form-textarea" id="ceDescription" placeholder="Short description shown on the card..."></textarea></div>
+      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" id="ceTerms" placeholder="Enter terms and conditions..."></textarea></div>
+    </div>
+    <div style="display:flex;gap:16px;margin-top:16px;flex-wrap:wrap">
+      <label class="form-check"><input type="checkbox" id="ceSale"> 🔥 Show Sale badge</label>
+      <label class="form-check"><input type="checkbox" id="ceTimer"> ⏱ Show countdown timer</label>
+      <label class="form-check"><input type="checkbox" id="ceFeatured"> Featured</label>
+      <label class="form-check"><input type="checkbox" id="ceExclusive"> Exclusive</label>
+      <label class="form-check"><input type="checkbox" id="ceVerified"> Verified</label>
+    </div>
+    <div class="modal-footer" style="justify-content:space-between;align-items:center">
+      <button class="btn btn-danger" id="ceDeleteBtn" onclick="deleteCouponFromEdit()">🗑 Delete</button>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-ghost" onclick="closeModal('couponEditModal')">Cancel</button>
+        <button class="btn btn-primary" id="ceSaveBtn" onclick="saveCouponEdit()">💾 Save Changes</button>
+      </div>
     </div>
   </div>
 </div>

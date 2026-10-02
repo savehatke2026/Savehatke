@@ -292,7 +292,6 @@ const INV_PAGE_SIZE = 20;
 // place instead of re-fetching and losing the page + scroll position.
 let INVENTORY_CACHE = [];
 // Redesigned "All Coupons" view state.
-let invViewMode = 'card';   // 'card' | 'table'
 let invPillFilter = null;   // null | 'active' | 'seller' | 'sold' | 'expired'
 let INVENTORY_ALL = [];     // full fetched set — drives the summary cards + pill filters
 
@@ -307,6 +306,8 @@ async function loadInventory() {
 
   const seq = ++inventoryRequestSeq;
   try {
+    // First paint: show a loading skeleton so the grid never flashes empty.
+    if (INVENTORY_ALL.length === 0) renderInventorySkeleton();
     const status = document.getElementById('invStatusFilter')?.value || '';
     const data = await api(`/admin/coupons${status ? `?status=${status}` : ''}`, { useAdmin: true });
     // If a newer request started while we were awaiting, drop this response
@@ -339,14 +340,17 @@ async function loadInventory() {
       default:        coupons = base;
     }
 
-    const search = document.getElementById('invSearch')?.value?.toLowerCase() || '';
+    const search = (document.getElementById('invSearch')?.value || '').trim().toLowerCase();
     if (search) {
-      coupons = coupons.filter(
-        (c) =>
-          (c.code || '').toLowerCase().includes(search) ||
-          (c.brand || '').toLowerCase().includes(search) ||
-          (c.category || '').toLowerCase().includes(search)
-      );
+      // Search the real dataset across every field an admin might type:
+      // title/name, brand, coupon ID, category, code, seller, status, offer.
+      coupons = coupons.filter((c) => {
+        const fields = [
+          c.title, c.brand, c.id, c.category, c.code, c.sellerEmail,
+          c.status, c.description, c.discount,
+        ];
+        return fields.some((v) => String(v == null ? '' : v).toLowerCase().includes(search));
+      });
     }
 
     const totalFiltered = coupons.length;
@@ -370,15 +374,7 @@ async function loadInventory() {
     const pageCoupons = coupons.slice(startIdx, startIdx + INV_PAGE_SIZE);
     INVENTORY_CACHE = pageCoupons;
 
-    const body = invViewMode === 'table'
-      ? `<div class="cm2-tablecard"><div class="cm2-tablewrap"><table class="cm2-table">
-            <thead><tr>
-              <th>Brand</th><th>Code</th><th>Source</th><th>Value</th><th>Price</th>
-              <th>Offer</th><th>Status</th><th class="ta-right">Action</th>
-            </tr></thead>
-            <tbody>${pageCoupons.map(cmTableRowHtml).join('')}</tbody>
-          </table></div></div>`
-      : `<div class="cm2-list">${pageCoupons.map(cmCardHtml).join('')}</div>`;
+    const body = `<div class="cm2-list">${pageCoupons.map(cmCardHtml).join('')}</div>`;
 
     container.innerHTML = body + invPagerHtml(startIdx, totalFiltered, totalPages);
 
@@ -437,59 +433,33 @@ function cmLogoHtml(brand) {
   return `<span class="cm2-initial">${initial}</span>`;
 }
 
-/**
- * The shared ⋮ actions menu. It keeps EVERY live capability the old inline table
- * row had — sale/timer toggles, expiry, background image, approve, delete — plus
- * copy-code, so nothing is lost in the redesign. Handlers are the existing
- * functions (setCouponSale/Timer/Expiry/BackgroundImage, approveCoupon, deleteCoupon).
- */
-function cmMenuHtml(c) {
-  const id = escHtml(c.id || '');
-  const onSale = c.onSale !== false;
-  const timerOn = c.timerOn !== false;
-  const timerValue = escHtml(toTimerInputValue(c.expiryDate));
-  const img = escHtml(c.backgroundImage || '');
-  const code = escHtml(c.code || '');
-  return `
-    <div class="cm2-menuwrap">
-      <button type="button" class="cm2-menu-btn" title="Edit coupon" onclick="cmToggleMenu(event,'${id}')" aria-label="Edit coupon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l4-1 13-13a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>
-      </button>
-      <div class="cm2-menu" id="cm2menu-${id}">
-        <button type="button" class="cm2-mi" onclick="cmCopyCode('${code}',this)">Copy code <span>📋</span></button>
-        <div class="cm2-menu-sep"></div>
-        <label class="cm2-mi" style="cursor:pointer" title="Show the 🔥 Sale badge on the marketplace card">🔥 Sale
-          <input type="checkbox" ${onSale ? 'checked' : ''} onchange="setCouponSale('${id}', this.checked, this)"></label>
-        <label class="cm2-mi" style="cursor:pointer" title="Show the expiry countdown on the marketplace card (the date is kept either way)">⏱ Timer
-          <input type="checkbox" ${timerOn ? 'checked' : ''} onchange="setCouponTimer('${id}', this.checked, this)"></label>
-        <div class="cm2-mi-field">
-          <label>Expiry date &amp; time</label>
-          <input type="datetime-local" value="${timerValue}" data-prev-value="${timerValue}" onchange="setCouponExpiry('${id}', this.value, this)">
-        </div>
-        <div class="cm2-mi-field">
-          <label>Background image</label>
-          <input type="text" value="${img}" data-prev-value="${img}" placeholder="/images/coupons/…" onchange="setCouponBackgroundImage('${id}', this.value.trim(), this)">
-        </div>
-        <div class="cm2-menu-sep"></div>
-        ${c.status === 'pending' ? `<button type="button" class="cm2-mi approve" onclick="approveCoupon('${id}')">Approve coupon <span>✓</span></button>` : ''}
-        <button type="button" class="cm2-mi danger" onclick="deleteCoupon('${id}')">Delete coupon <span>🗑</span></button>
-      </div>
-    </div>`;
-}
-
-/** One card-view item — a marketplace-style box (brand banner, badges, price).
- * Keeps every data hook + the full actions menu; only the layout is boxed. */
+/** One card-view item — a marketplace-style box with the real coupon image,
+ * every real detail (brand, title, description, code, category, value, price,
+ * live expiry countdown, status + source badges, coupon ID) and a pencil that
+ * opens the full edit interface. */
 function cmCardHtml(c) {
   const brand = c.brand || '';
   const code = escHtml(c.code || '');
+  const id = escHtml(c.id || '');
   // Same 3-layer background rule the marketplace card uses:
   // coupon.backgroundImage -> brand background -> SaveHatke default.
   const bg = c.backgroundImage
     || (typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '')
     || '/images/coupons/default.svg';
+  const title = c.title || c.description || 'Verified Discount Offer';
+  // A description line only when it adds something beyond the title.
+  const descRaw = (c.description && String(c.description) !== String(title)) ? String(c.description) : '';
+  // Live countdown chip (the shared 1s ticker keeps it current).
+  const expiryChip = (typeof invExpiryChip === 'function')
+    ? invExpiryChip(c.expiryDate, c.timerOn !== false)
+    : '';
+  const idStr = String(c.id || '');
+  const shortId = idStr ? (idStr.length > 12 ? idStr.slice(0, 10) + '…' : idStr) : '';
   return `
-    <div class="cmbx-card" data-coupon-id="${escHtml(c.id || '')}">
-      ${cmMenuHtml(c)}
+    <div class="cmbx-card" data-coupon-id="${id}">
+      <button type="button" class="cmbx-edit" title="Edit coupon" aria-label="Edit coupon" onclick="openCouponEdit('${id}')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l4-1 13-13a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>
+      </button>
       <div class="cmbx-hero">
         <img class="cmbx-art" src="${escHtml(bg)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
         <div class="cmbx-art-fallback" style="display:none"><span>${escHtml(brand) || 'SaveHatke'}</span></div>
@@ -500,37 +470,28 @@ function cmCardHtml(c) {
       </div>
       <div class="cmbx-body">
         <div class="cmbx-brand" title="${escHtml(brand)}">${escHtml(brand) || '—'}</div>
-        <div class="cmbx-title" title="${escHtml(c.title || c.description || '')}">${escHtml(c.title || c.description || 'Verified Discount Offer')}</div>
+        <div class="cmbx-title" title="${escHtml(title)}">${escHtml(title)}</div>
+        ${descRaw ? `<div class="cmbx-desc" title="${escHtml(descRaw)}">${escHtml(descRaw)}</div>` : ''}
         <div class="cm2-code-line">
           <span class="cm2-code" title="${code}">${code || '—'}</span>
           <button type="button" class="cm2-copy" title="Copy code" onclick="cmCopyCode('${code}',this)">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
           </button>
         </div>
-        <span class="cm2-cat">${escHtml(c.category || '—')}</span>
+        <div class="cmbx-meta">
+          <span class="cm2-cat">${escHtml(c.category || '—')}</span>
+          ${expiryChip ? `<span class="cmbx-expiry">${expiryChip}</span>` : ''}
+        </div>
         <div class="cmbx-pricerow">
           <div class="cmbx-price-field"><span class="cm2-field-lbl">Value</span><span class="cm2-field-val">₹${escHtml(c.originalValue || '—')}</span></div>
           <div class="cmbx-price-field"><span class="cm2-field-lbl">Price</span><span class="cm2-field-val price">₹${escHtml(c.sellingPrice || '0')}</span></div>
         </div>
+        ${shortId ? `<div class="cmbx-foot"><span class="cmbx-id" title="Coupon ID: ${escHtml(idStr)}">ID ${escHtml(shortId)}</span></div>` : ''}
       </div>
     </div>`;
 }
 
-/** One table-view row. */
-function cmTableRowHtml(c) {
-  const brand = c.brand || '';
-  return `
-    <tr data-coupon-id="${escHtml(c.id || '')}">
-      <td><div class="cm2-tbrand"><span class="cm2-tbrand-logo">${cmLogoHtml(brand)}</span><span class="cm2-tbrand-name">${escHtml(brand || '—')}</span></div></td>
-      <td><div style="display:flex;flex-direction:column;gap:2px"><span class="cm2-tcode">${escHtml(c.code || '')}</span><span class="cm2-tcat">${escHtml(c.category || '')}</span></div></td>
-      <td>${cmSourceBadge(c)}</td>
-      <td style="color:#fff;font-weight:600">₹${escHtml(c.originalValue || '—')}</td>
-      <td class="cm2-tprice">₹${escHtml(c.sellingPrice || '0')}</td>
-      <td>${cmOfferBadge(c)}</td>
-      <td>${cmStatusBadge(c)}</td>
-      <td class="ta-right">${cmMenuHtml(c)}</td>
-    </tr>`;
-}
+/* Table-view row removed with the view toggle — inventory renders as cards only. */
 
 /** Render the five summary cards across the whole coupon set. */
 function renderInventorySummary(all) {
@@ -575,16 +536,7 @@ function invPagerHtml(startIdx, total, totalPages) {
     </div>`;
 }
 
-// ── View toggle / filter pills / row menu / copy ────────────────────────────
-function cmSetView(mode) {
-  invViewMode = mode === 'table' ? 'table' : 'card';
-  const cardBtn = document.getElementById('cmViewCard');
-  const tableBtn = document.getElementById('cmViewTable');
-  if (cardBtn) cardBtn.classList.toggle('on', invViewMode === 'card');
-  if (tableBtn) tableBtn.classList.toggle('on', invViewMode === 'table');
-  loadInventory();
-}
-
+// ── Filter pills / copy ────────────────────────────
 function cmSetPill(pill, el) {
   invPillFilter = invPillFilter === pill ? null : pill;
   document.querySelectorAll('#cmPills .cm2-pill').forEach((b) => {
@@ -593,20 +545,6 @@ function cmSetPill(pill, el) {
   invCurrentPage = 1;
   loadInventory();
 }
-
-function cmToggleMenu(ev, id) {
-  if (ev) ev.stopPropagation();
-  const menu = document.getElementById('cm2menu-' + id);
-  const wasOpen = menu && menu.classList.contains('open');
-  document.querySelectorAll('.cm2-menu.open').forEach((m) => m.classList.remove('open'));
-  if (menu && !wasOpen) menu.classList.add('open');
-}
-
-// Close any open row menu when clicking outside it.
-document.addEventListener('click', (e) => {
-  if (e.target && e.target.closest && e.target.closest('.cm2-menuwrap')) return;
-  document.querySelectorAll('.cm2-menu.open').forEach((m) => m.classList.remove('open'));
-});
 
 async function cmCopyCode(code, btn) {
   try {
@@ -678,119 +616,8 @@ function startInventoryExpiryTicker() {
   invExpiryTimerId = setInterval(tick, 1000);
 }
 
-/**
- * Flip the per-coupon sale switch. Persists to Supabase via PUT and reverts the
- * checkbox if the write fails, so the UI never claims a save that didn't happen.
- */
-async function setCouponSale(id, on, inputEl) {
-  inputEl.disabled = true;
-  try {
-    await api(`/admin/coupons/${id}`, { method: 'PUT', useAdmin: true, body: { onSale: on } });
-    const cached = INVENTORY_CACHE.find((c) => c.id === id);
-    if (cached) cached.onSale = on;
-    const label = inputEl.closest('label');
-    if (label) label.title = on ? 'Sale is ON — turn it off' : 'Sale is OFF — turn it on';
-    showToast(on ? '🔥 Sale turned ON for this coupon.' : 'Sale turned OFF for this coupon.', 'success');
-  } catch (err) {
-    inputEl.checked = !on; // put the switch back where it was
-    // A session-expired error carries no copy — app.js already handles that one.
-    if (!err.sessionExpired) showToast(err.message || 'Could not save the sale switch.', 'error');
-  } finally {
-    inputEl.disabled = false;
-  }
-}
-
-/**
- * Flip the per-coupon timer switch. The expiry date itself is left untouched —
- * turning the timer off only hides the countdown on the marketplace card, so
- * turning it back on restores the date that's already saved. Persists via PUT
- * and reverts the checkbox if the write fails.
- */
-async function setCouponTimer(id, on, inputEl) {
-  inputEl.disabled = true;
-  try {
-    await api(`/admin/coupons/${id}`, { method: 'PUT', useAdmin: true, body: { timerOn: on } });
-    const cached = INVENTORY_CACHE.find((c) => c.id === id);
-    if (cached) cached.timerOn = on;
-
-    const label = inputEl.closest('label');
-    if (label) {
-      label.title = on
-        ? 'Timer is ON — turn it off to hide the countdown (the date is kept)'
-        : 'Timer is OFF — turn it on to show the countdown again';
-    }
-
-    // The picker and the chip live in the next cell over, so walk up to the row.
-    const row = inputEl.closest('tr');
-    const picker = row?.querySelector('.inv-timer');
-    if (picker) {
-      picker.disabled = !on;
-      picker.classList.toggle('inv-timer-off', !on);
-      picker.title = on
-        ? 'Set when this coupon expires — clear the field to remove the timer'
-        : 'Turn the Timer switch on to edit this';
-    }
-    const chip = row?.querySelector('.inv-exp, .inv-exp-none');
-    // The chip re-renders with (or without) data-inv-expiry; the shared ticker
-    // re-queries the DOM every second, so it picks the change up on its own.
-    if (chip) chip.outerHTML = invExpiryChip(cached ? cached.expiryDate : picker?.value, on);
-
-    showToast(
-      on ? '⏱ Timer turned ON for this coupon.' : 'Timer turned OFF — the expiry date is still saved.',
-      'success'
-    );
-  } catch (err) {
-    inputEl.checked = !on; // put the switch back where it was
-    if (!err.sessionExpired) showToast(err.message || 'Could not save the timer switch.', 'error');
-  } finally {
-    inputEl.disabled = false;
-  }
-}
-
-/** Save the per-coupon expiry timer and refresh just that row's countdown chip. */
-async function setCouponExpiry(id, value, inputEl) {
-  const previous = inputEl.dataset.prevValue || '';
-  inputEl.disabled = true;
-  try {
-    await api(`/admin/coupons/${id}`, { method: 'PUT', useAdmin: true, body: { expiryDate: value || '' } });
-    inputEl.dataset.prevValue = value;
-    const cached = INVENTORY_CACHE.find((c) => c.id === id);
-    if (cached) cached.expiryDate = value;
-
-    const chip = inputEl.parentElement?.querySelector('.inv-exp, .inv-exp-none');
-    // Only reachable while the Timer switch is on (the picker is disabled when
-    // it's off), but read the flag back rather than assuming it.
-    if (chip) chip.outerHTML = invExpiryChip(value, cached ? cached.timerOn !== false : true);
-
-    showToast(value ? 'Timer saved for this coupon.' : 'Timer cleared for this coupon.', 'success');
-  } catch (err) {
-    inputEl.value = previous; // roll the picker back
-    if (!err.sessionExpired) showToast(err.message || 'Could not save the timer.', 'error');
-  } finally {
-    inputEl.disabled = false;
-  }
-}
-
-/**
- * Save the per-coupon card background image. Empty value clears it — the
- * marketplace card then falls back to the default SaveHatke background.
- */
-async function setCouponBackgroundImage(id, value, inputEl) {
-  const previous = inputEl.dataset.prevValue || '';
-  inputEl.disabled = true;
-  try {
-    await api(`/admin/coupons/${id}`, { method: 'PUT', useAdmin: true, body: { backgroundImage: value || '' } });
-    inputEl.dataset.prevValue = value;
-    const cached = INVENTORY_CACHE.find((c) => c.id === id);
-    if (cached) cached.backgroundImage = value;
-    showToast(value ? 'Background image saved for this coupon.' : 'Background image cleared — the card will use the default background.', 'success');
-  } catch (err) {
-    inputEl.value = previous; // roll the input back
-    if (!err.sessionExpired) showToast(err.message || 'Could not save the background image.', 'error');
-  } finally {
-    inputEl.disabled = false;
-  }
-}
+/* Per-coupon quick toggles (sale / timer / expiry / background) are now part of
+ * the full Edit modal (openCouponEdit) — a single PUT persists every field. */
 
 function invPrev() {
   if (invCurrentPage > 1) {
@@ -2848,6 +2675,177 @@ function refreshCouponViews() {
   loadInventory();
   loadPending();
   loadActiveCoupons();
+}
+
+// ── Coupon edit interface (pencil → full prefilled modal) ───────────────────
+// The card pencil opens this. It finds the coupon in the current caches,
+// prefills every field, saves through the existing PUT /admin/coupons/:id, and
+// refreshes only the affected card (no full reload). Delete uses the existing
+// DELETE route and removes just that card.
+
+/** Find a coupon by id in the rendered page cache, then the full set. */
+function findCouponById(id) {
+  const key = String(id);
+  return INVENTORY_CACHE.find((c) => String(c.id) === key)
+      || INVENTORY_ALL.find((c) => String(c.id) === key)
+      || null;
+}
+
+/** The rendered card node for a coupon id (data-coupon-id match, escape-safe). */
+function couponCardNode(id) {
+  const key = String(id);
+  return Array.from(document.querySelectorAll('#inventoryTable .cmbx-card'))
+    .find((n) => n.getAttribute('data-coupon-id') === key) || null;
+}
+
+/** Re-render only the affected card from the (already updated) cache. */
+function renderOneCouponCard(id) {
+  const c = findCouponById(id);
+  const node = couponCardNode(id);
+  if (c && node) {
+    node.outerHTML = cmCardHtml(c);
+    if (typeof startInventoryExpiryTicker === 'function') startInventoryExpiryTicker();
+  }
+}
+
+/** Loading skeleton — the first inventory paint, so the grid never flashes empty. */
+function renderInventorySkeleton() {
+  const container = document.getElementById('inventoryTable');
+  if (!container) return;
+  let cards = '';
+  for (let i = 0; i < 6; i++) {
+    cards += '<div class="cmbx-skel"><div class="sk-hero"></div><div class="sk-body">'
+      + '<div class="sk-line md"></div><div class="sk-line sh"></div>'
+      + '<div class="sk-line"></div><div class="sk-line sh"></div></div></div>';
+  }
+  container.innerHTML = `<div class="cm2-list">${cards}</div>`;
+}
+
+let couponEditId = null;
+
+/** Open the full edit interface for a coupon, prefilled from cached data. */
+function openCouponEdit(id) {
+  const c = findCouponById(id);
+  if (!c) { showToast('Could not find this coupon to edit. Try refreshing.', 'error'); return; }
+  couponEditId = c.id;
+  const setV = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = (val == null ? '' : String(val)); };
+  const setC = (elId, on) => { const el = document.getElementById(elId); if (el) el.checked = !!on; };
+  const setSel = (elId, val, fallback) => {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const vv = String(val == null ? '' : val);
+    el.value = Array.from(el.options).some((o) => o.value === vv) ? vv : fallback;
+  };
+  setV('ceBrand', c.brand);
+  setV('ceTitle', c.title);
+  setV('ceCode', c.code);
+  setV('ceCategory', c.category);
+  setV('ceDiscount', c.discount);
+  setV('cePrice', c.sellingPrice);
+  setV('ceValue', c.originalValue);
+  setV('ceMinOrder', c.minOrderValue);
+  setV('ceExpiry', typeof toTimerInputValue === 'function' ? toTimerInputValue(c.expiryDate) : (c.expiryDate || ''));
+  setV('ceLink', c.affiliateLink);
+  setV('ceBg', c.backgroundImage);
+  setV('ceDescription', c.description);
+  setV('ceTerms', c.terms);
+  setSel('ceStatus', String(c.status || 'available').toLowerCase(), 'available');
+  setSel('ceType', c.type || 'Public', 'Public');
+  setC('ceSale', c.onSale !== false);
+  setC('ceTimer', c.timerOn !== false);
+  setC('ceFeatured', c.isFeatured === true || c.isFeatured === 'true');
+  setC('ceExclusive', c.isExclusive === true || c.isExclusive === 'true');
+  setC('ceVerified', c.isVerified === true || c.isVerified === 'true');
+  const sub = document.getElementById('ceSubtitle');
+  if (sub) sub.textContent = `${c.brand || 'Coupon'} · ID ${c.id || '—'}`;
+  if (typeof openModal === 'function') openModal('couponEditModal');
+}
+
+/** Save every edited field through the existing PUT route, then refresh the card. */
+async function saveCouponEdit() {
+  if (!couponEditId) return;
+  const v = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+  const ck = (id) => { const el = document.getElementById(id); return !!(el && el.checked); };
+
+  const brand = v('ceBrand');
+  const code = v('ceCode');
+  if (!brand || !code) { showToast('Brand and Coupon Code are required.', 'warning'); return; }
+  const price = v('cePrice');
+  if (price !== '' && (isNaN(Number(price)) || Number(price) < 0)) { showToast('Selling price must be a valid number.', 'warning'); return; }
+  const faceValue = v('ceValue');
+  if (faceValue !== '' && (isNaN(Number(faceValue)) || Number(faceValue) < 0)) { showToast('Face / original value must be a valid number.', 'warning'); return; }
+
+  const title = v('ceTitle');
+  const body = {
+    brand,
+    code,
+    title,
+    category: v('ceCategory'),
+    status: v('ceStatus'),
+    type: v('ceType'),
+    discount: v('ceDiscount'),
+    sellingPrice: price,
+    originalValue: faceValue,
+    minOrderValue: v('ceMinOrder'),
+    expiryDate: v('ceExpiry'),
+    affiliateLink: v('ceLink'),
+    backgroundImage: v('ceBg'),
+    description: v('ceDescription') || title,
+    terms: v('ceTerms'),
+    onSale: ck('ceSale'),
+    timerOn: ck('ceTimer'),
+    isFeatured: ck('ceFeatured'),
+    isExclusive: ck('ceExclusive'),
+    isVerified: ck('ceVerified'),
+  };
+
+  const btn = document.getElementById('ceSaveBtn');
+  const prev = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  try {
+    await api(`/admin/coupons/${encodeURIComponent(couponEditId)}`, { method: 'PUT', useAdmin: true, body });
+    // Caches share object refs across INVENTORY_ALL / INVENTORY_CACHE, so one merge updates both.
+    const c = findCouponById(couponEditId);
+    if (c) Object.assign(c, body);
+    renderOneCouponCard(couponEditId);
+    if (typeof renderInventorySummary === 'function') renderInventorySummary(INVENTORY_ALL);
+    if (typeof loadAdminStats === 'function') loadAdminStats();
+    showToast('Coupon updated successfully. ✅', 'success');
+    if (typeof closeModal === 'function') closeModal('couponEditModal');
+  } catch (err) {
+    if (!err.sessionExpired) showToast(err.message || 'Could not save the coupon.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prev || '💾 Save Changes'; }
+  }
+}
+
+/** Delete the coupon currently open in the edit interface (confirm + backend). */
+async function deleteCouponFromEdit() {
+  if (!couponEditId) return;
+  if (!confirm('Delete this coupon permanently? This cannot be undone.')) return;
+  const id = couponEditId;
+  const btn = document.getElementById('ceDeleteBtn');
+  const prev = btn ? btn.textContent : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Deleting…'; }
+  try {
+    await api(`/admin/coupons/${encodeURIComponent(id)}`, { method: 'DELETE', useAdmin: true });
+    const key = String(id);
+    INVENTORY_ALL = INVENTORY_ALL.filter((c) => String(c.id) !== key);
+    INVENTORY_CACHE = INVENTORY_CACHE.filter((c) => String(c.id) !== key);
+    const node = couponCardNode(id);
+    if (node) node.remove();
+    if (typeof renderInventorySummary === 'function') renderInventorySummary(INVENTORY_ALL);
+    if (typeof loadAdminStats === 'function') loadAdminStats();
+    showToast('Coupon deleted.', 'info');
+    if (typeof closeModal === 'function') closeModal('couponEditModal');
+    // If the page is now empty, re-render to show the right page / empty state.
+    const list = document.querySelector('#inventoryTable .cm2-list');
+    if (!list || list.children.length === 0) loadInventory();
+  } catch (err) {
+    if (!err.sessionExpired) showToast(err.message || 'Could not delete the coupon.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = prev || '🗑 Delete'; }
+  }
 }
 
 function debounce(fn, ms) {
