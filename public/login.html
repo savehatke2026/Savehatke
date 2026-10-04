@@ -704,30 +704,48 @@
     } catch (e) {}
   })();
 
-  /* ── Failed Google sign-in notice (?google=failed from the OAuth callback) ──
+  /* ── Failed Google sign-in notice (?google=failed[&reason=…] from the OAuth callback) ──
      Every rejection in the callback — cancelled consent, an expired state
-     cookie, or a server that cannot verify the identity — lands back here.
-     Silently showing an untouched form is what makes it look like the login
-     "did nothing", so say plainly that the attempt failed, then strip the
-     param so a refresh cannot replay it. */
+     cookie, a tampered id_token, a server-side fault during finishGoogleLogin,
+     or admin sign-in while the roster is on the env fallback — lands back
+     here with a sanitised slug in `reason`. We translate each slug into a
+     precise toast + log, strip the params so a refresh cannot replay them, and
+     show the existing yellow notice as a secondary cue. The legacy
+     `?google=failed` (no reason) keeps its old generic copy for backwards
+     compatibility with any other redirects that may exist. */
+  const GOOGLE_FAIL_COPY = {
+    cancelled:           'Google sign-in was cancelled. Please try again when you’re ready.',
+    state_missing:       'Your sign-in session expired before Google returned. Please try again.',
+    state_mismatch:      'The sign-in was started on a different site than the one you returned to. Please retry from the same page.',
+    no_id_token:         'Google did not return an identity token. Please try again.',
+    identity_invalid:    'Google returned an identity that did not match the sign-in session. Please try again.',
+    email_unverified:    'Your Google email is not marked verified. Please use a verified Google account.',
+    identity_missing_fields: 'Google did not return the required identity fields. Please try again.',
+    admin_blocked:       'Admin sign-in is temporarily paused so the roster stays accurate. Please try again shortly.',
+  };
   (function noticeFailedGoogleSignIn() {
     try {
       const params = new URLSearchParams(window.location.search);
-      const reason = params.get('google');
-      if (reason !== 'failed' && reason !== 'admin_blocked') return;
+      const flag = params.get('google');
+      if (flag !== 'failed' && flag !== 'admin_blocked') return;
+      const reasonSlug = params.get('reason') || (flag === 'admin_blocked' ? 'admin_blocked' : 'unknown');
       params.delete('google');
+      params.delete('reason');
       const suffix = params.toString();
       window.history.replaceState({}, '', `${window.location.pathname}${suffix ? `?${suffix}` : ''}`);
+
       const notice = document.getElementById('emailUnavailableNotice');
       if (notice) notice.style.display = 'block';
-      if (reason === 'admin_blocked') {
-        // Admin sign-in was attempted while the Supabase roster was unreachable.
-        // Block, don't fall through to user login — the same email would now be
-        // treated as a regular user, which is exactly the kind of drift we guard.
-        showToast('Admin sign-in is temporarily paused so the roster stays accurate. Please try again shortly.', 'error', 5000);
-      } else {
-        setTimeout(() => showToast('Google sign-in did not complete. Please try again.', 'error'), 400);
-      }
+
+      const message = GOOGLE_FAIL_COPY[reasonSlug]
+        || (reasonSlug.startsWith('google_')
+              ? `Google sign-in failed (${reasonSlug.replace(/^google_/, '')}). Please try again.`
+              : reasonSlug.startsWith('server_')
+                ? 'Our server could not finish signing you in. Please try again in a moment.'
+                : 'Google sign-in did not complete. Please try again.');
+
+      console.warn('[auth] google=failed reason=' + reasonSlug);
+      setTimeout(() => showToast(message, 'error', 5000), 400);
     } catch (e) {}
   })();
 

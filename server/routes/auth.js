@@ -221,7 +221,16 @@ async function finishGoogleLogin(req, res, identity) {
     }, '/vault');
   }
 
-  let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', email);
+  let sheetUser = null;
+  try {
+    sheetUser = await db.findRow(db.SHEETS.USERS, 'email', email);
+  } catch (e) {
+    // Sheets outage shouldn't block a sign-in — fall through and create a
+    // Supabase-only profile. The user keeps signing in; an admin can backfill
+    // the Sheets row when the API recovers.
+    console.warn(`[auth] Sheets findRow failed for ${email} (${e.message}); falling through to Supabase-only profile.`);
+    sheetUser = null;
+  }
   const now = new Date().toISOString();
   let isNewUser = false;
   if (sheetUser) {
@@ -231,12 +240,19 @@ async function finishGoogleLogin(req, res, identity) {
     if (sheetUser.google_sub && String(sheetUser.google_sub) !== googleSub) {
       return res.status(403).json({ error: 'This Google identity is not linked to this account.' });
     }
-    await db.updateRow(db.SHEETS.USERS, 'email', email, {
-      google_sub: googleSub,
-      last_login_at: now,
-      updated_at: now,
-      ...(picture ? { profile_picture: picture } : {}),
-    });
+    try {
+      await db.updateRow(db.SHEETS.USERS, 'email', email, {
+        google_sub: googleSub,
+        last_login_at: now,
+        updated_at: now,
+        ...(picture ? { profile_picture: picture } : {}),
+      });
+    } catch (e) {
+      // Mirror write failed — keep going with the existing Sheets row. The
+      // session can still be issued; the next successful Sheets read sees the
+      // previous values, which is fine for a non-critical mirror.
+      console.warn(`[auth] Sheets updateRow failed for ${email} (${e.message}); continuing with cached row.`);
+    }
   } else {
     isNewUser = true;
     const id = uuidv4();
@@ -246,7 +262,16 @@ async function finishGoogleLogin(req, res, identity) {
       ...(picture ? { profile_picture: picture } : {}),
       created_at: now, updated_at: now, last_login_at: now, last_logout_at: '',
     };
-    await db.appendRow(db.SHEETS.USERS, sheetUser);
+    try {
+      await db.appendRow(db.SHEETS.USERS, sheetUser);
+    } catch (e) {
+      // First-time Sheets row failed — fall back to a Supabase-only profile so
+      // the sign-in still succeeds. A user object built from the stub above is
+      // enough for `setSessionCookie + sendGoogleLoginHandoff` to issue a
+      // session; Supabase.createUser below mirrors what the Sheets row would
+      // have carried.
+      console.warn(`[auth] Sheets appendRow failed for new user ${email} (${e.message}); continuing with Supabase-only profile.`);
+    }
     if (supabase.isConfigured()) {
       await supabase.createUser({ user_id: id, name: googleName, email, username: sheetUser.username })
         .catch(() => console.warn('[auth] Supabase profile sync failed.'));
@@ -290,14 +315,31 @@ router.get('/google-redirect', async (req, res) => {
   const clientSecret = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
   if (!clientId || !clientSecret) return res.status(503).send('Google sign-in is temporarily unavailable.');
 
+  // Every rejection of the OAuth callback lands on /login?google=failed&reason=
+  // <slug> so the UI can show a precise message and the deploy logs + the URL
+  // agree on what failed. The slug is a sanitised lowercased token; the full
+  // reason still goes to the deploy log.
+  const fail = (slug, logLine) => {
+    const safe = String(slug || 'unknown').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 40) || 'unknown';
+    if (logLine) console.warn(`[auth] Google OAuth rejected: ${logLine}`);
+    else console.warn(`[auth] Google OAuth rejected: ${safe}`);
+    return res.redirect(303, `/login?google=failed&reason=${safe}`);
+  };
+
   try {
     const redirectUri = googleRedirectUri();
     const oauth = new OAuth2Client(clientId, clientSecret, redirectUri);
     const code = String(req.query.code || '').trim();
     if (!code) {
       if (req.query.error) {
+        // The user (or the Google consent screen) returned an explicit code:
+        // access_denied is consent cancelled; any other value is a real failure.
         clearOAuthStateCookie(res);
-        return res.redirect(303, '/login?google=failed');
+        const userCancelled = String(req.query.error || '').toLowerCase() === 'access_denied';
+        return fail(
+          userCancelled ? 'cancelled' : `google_${req.query.error}`,
+          `consent returned error=${req.query.error}`,
+        );
       }
       const state = crypto.randomBytes(32).toString('base64url');
       const nonce = crypto.randomBytes(32).toString('base64url');
@@ -322,15 +364,14 @@ router.get('/google-redirect', async (req, res) => {
       // 10-minute state cookie to expire, the callback landed on a different
       // host than the one that started the flow (so the SameSite=Lax cookie
       // was never sent), or GOOGLE_REDIRECT_URI changed between the two legs.
-      console.warn(
-        `[auth] Google OAuth callback rejected: OAuth state cookie ${saved ? 'did not match the returned state' : 'was missing'}` +
-        ` (redirect_uri=${redirectUri}); the sign-in flow must start and finish on the same host.`
+      return fail(
+        !saved ? 'state_missing' : 'state_mismatch',
+        `OAuth state cookie ${saved ? 'did not match the returned state' : 'was missing'} (redirect_uri=${redirectUri}); the sign-in flow must start and finish on the same host.`,
       );
-      return res.redirect(303, '/login?google=failed');
     }
 
     const { tokens } = await oauth.getToken({ code, codeVerifier: saved.verifier, redirect_uri: redirectUri });
-    if (!tokens || !tokens.id_token) return res.redirect(303, '/login?google=failed');
+    if (!tokens || !tokens.id_token) return fail('no_id_token', 'google getToken returned no id_token');
     const ticket = await oauth.verifyIdToken({ idToken: tokens.id_token, audience: clientId });
     const identity = ticket.getPayload();
     const now = Math.floor(Date.now() / 1000);
@@ -339,17 +380,24 @@ router.get('/google-redirect', async (req, res) => {
       Number(identity.iat) >= Number(saved.issuedAt) - 60 && Number(identity.iat) <= now + 60;
     const nonceOkay = identity && typeof identity.nonce === 'string' && identity.nonce.length === saved.nonce.length &&
       crypto.timingSafeEqual(Buffer.from(identity.nonce), Buffer.from(saved.nonce));
-    if (!issuerOkay || !issuedAtOkay || !nonceOkay || identity.email_verified !== true || !identity.sub || !identity.email) {
-      return res.redirect(303, '/login?google=failed');
+    if (!issuerOkay || !issuedAtOkay || !nonceOkay) {
+      return fail('identity_invalid', `id_token claims failed (issuer=${issuerOkay}, iat=${issuedAtOkay}, nonce=${nonceOkay})`);
+    }
+    if (identity.email_verified !== true) {
+      return fail('email_unverified', `google says email_verified=false for ${identity.email}`);
+    }
+    if (!identity.sub || !identity.email) {
+      return fail('identity_missing_fields', `id_token missing sub/email`);
     }
     return await finishGoogleLogin(req, res, identity);
   } catch (err) {
     // Logged with the real reason so a broken login is diagnosable from the
-    // deploy logs; the visitor only ever sees the generic failed-login banner.
+    // deploy logs; the visitor only ever sees the precise failure banner.
     console.error('[auth] Google OAuth callback failed:', (err && err.message) || err);
     clearOAuthStateCookie(res);
     if (res.headersSent) return;
-    return res.redirect(303, '/login?google=failed');
+    const msg = String((err && err.message) || 'unknown').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 40) || 'unknown';
+    return res.redirect(303, `/login?google=failed&reason=server_${msg}`);
   }
 });
 
