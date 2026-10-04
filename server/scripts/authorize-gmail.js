@@ -41,8 +41,13 @@ function clean(v) {
 
 const CLIENT_ID = clean(process.env.GMAIL_CLIENT_ID || process.env.GOOGLE_CLIENT_ID);
 const CLIENT_SECRET = clean(process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET);
+// Derive the redirect URI from APP_BASE_URL when the user hasn't pinned it
+// explicitly. GOOGLE_REDIRECT_URI is now reserved for the user-login OAuth
+// client and must NOT be reused for the admin Gmail mailbox flow.
 const REDIRECT_URI =
-  clean(process.env.GOOGLE_REDIRECT_URI) || 'http://localhost:3000/api/admin/gmail/callback';
+  clean(process.env.GMAIL_REDIRECT_URI) ||
+  ((process.env.APP_BASE_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '') +
+    '/api/admin/gmail/callback');
 const EXPECTED = clean(process.env.GMAIL_SUPPORT_EMAIL || process.env.SUPPORT_EMAIL).toLowerCase();
 
 function fail(msg) {

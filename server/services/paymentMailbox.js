@@ -77,19 +77,27 @@ function isOAuthConfigured() {
 // registered and no new OAuth client is needed. The payment flow is told apart
 // from the support flow inside that callback by a `flow: 'payment'` claim in
 // the signed OAuth state.
+const PAYMENT_GMAIL_REDIRECT_PATH = '/api/admin/gmail/callback';
 function getRedirectUri(requestBase) {
   const base = (requestBase || process.env.APP_BASE_URL || '').replace(/\/$/, '');
   const override = String(
     process.env.PAYMENT_GMAIL_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI || ''
   ).trim();
 
+  // Require origin + pathname match. GOOGLE_REDIRECT_URI now belongs to the
+  // user-login OAuth flow (/api/auth/google-redirect) — a pathless origin
+  // match would let the user-login URL leak into payment Gmail OAuth.
   if (override) {
     if (!base) return override;
     try {
-      if (new URL(override).origin === new URL(base).origin) return override;
+      const parsed = new URL(override);
+      const baseParsed = new URL(base);
+      if (parsed.origin === baseParsed.origin && parsed.pathname === PAYMENT_GMAIL_REDIRECT_PATH) {
+        return override;
+      }
     } catch (e) { /* malformed override — fall through */ }
   }
-  return `${(base || 'http://localhost:3000')}/api/admin/gmail/callback`;
+  return `${(base || 'http://localhost:3000')}${PAYMENT_GMAIL_REDIRECT_PATH}`;
 }
 
 function getOAuth2Client(requestBase) {

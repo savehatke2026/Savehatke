@@ -36,25 +36,61 @@ const GOOGLE_STATE_TTL_SECONDS = 600;
 const GOOGLE_OAUTH_REDIRECT_PATH = '/api/auth/google-redirect';
 const GOOGLE_CLIENT_ID_FALLBACK = '930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com';
 
+// Single source of truth for the production Google OAuth callback.
+//
+// Priority (highest first):
+//   1. process.env.GOOGLE_REDIRECT_URI        — the canonical value; required in production.
+//   2. process.env.APP_BASE_URL / SITE_URL    — derived from a configured base.
+//   3. http://localhost:<PORT>/...             — local development only.
+//
+// NEVER use VERCEL_URL here. On Vercel that env var is the *deployment-specific*
+// hostname (e.g. "savehatke-<hash>-save-hatke.vercel.app" on a preview build, or
+// "savehatke.vercel.app" on production), which silently changes per redeploy and
+// produces "redirect_uri_mismatch" the moment a new deployment is cut. Production
+// OAuth must always register against a single, stable, manually-pinned URL — the
+// value of GOOGLE_REDIRECT_URI.
 function googleRedirectUri() {
-  // VERCEL_URL is set automatically on every Vercel deployment
-  // (e.g. "savehatke.vercel.app" or "savehatke-staging.vercel.app"). Prefer it
-  // when present, so the redirect_uri sent to Google always matches the URL the
-  // user is actually visiting — without this, an APP_BASE_URL of savehatke.com
-  // combined with a vercel.app preview URL produces "redirect_uri_mismatch".
-  const vercelHost = String(process.env.VERCEL_URL || '').trim();
-  if (vercelHost) {
-    return `https://${vercelHost}${GOOGLE_OAUTH_REDIRECT_PATH}`;
+  const explicit = String(process.env.GOOGLE_REDIRECT_URI || '').trim();
+  if (explicit) {
+    // Validate the explicit value — refuse a localhost override when running in
+    // production so a developer-side misconfiguration cannot break OAuth in prod.
+    if (process.env.NODE_ENV === 'production') {
+      try {
+        const parsed = new URL(explicit);
+        if (parsed.protocol !== 'https:') {
+          throw new Error(`GOOGLE_REDIRECT_URI must be https in production (got ${parsed.protocol}).`);
+        }
+        if (parsed.username || parsed.password) {
+          throw new Error('GOOGLE_REDIRECT_URI must not include credentials.');
+        }
+      } catch (e) {
+        if (e instanceof Error && /must (be|not)/.test(e.message)) throw e;
+        throw new Error(`GOOGLE_REDIRECT_URI is malformed: ${e.message}`);
+      }
+    }
+    return explicit;
   }
   const configuredBase = String(process.env.APP_BASE_URL || process.env.SITE_URL || '').trim();
   if (configuredBase) {
-    const base = new URL(configuredBase);
-    if (base.username || base.password || (process.env.NODE_ENV === 'production' && base.protocol !== 'https:')) {
-      throw new Error('Invalid OAuth base URL configuration.');
+    try {
+      const base = new URL(configuredBase);
+      if (base.username || base.password || (process.env.NODE_ENV === 'production' && base.protocol !== 'https:')) {
+        throw new Error('Invalid OAuth base URL configuration.');
+      }
+      return `${base.origin}${GOOGLE_OAUTH_REDIRECT_PATH}`;
+    } catch (e) {
+      // fall through to localhost
     }
-    return `${base.origin}${GOOGLE_OAUTH_REDIRECT_PATH}`;
   }
-  if (process.env.NODE_ENV === 'production') return `https://savehatke.com${GOOGLE_OAUTH_REDIRECT_PATH}`;
+  if (process.env.NODE_ENV === 'production') {
+    // No explicit value in production is a misconfiguration: fail loudly rather
+    // than letting a server boot with an OAuth flow that is guaranteed to fail.
+    throw new Error(
+      'GOOGLE_REDIRECT_URI is not set. Set it in your hosting environment ' +
+      '(e.g. Vercel → Settings → Environment Variables → Production) to ' +
+      '"https://savehatke.vercel.app/api/auth/google-redirect".'
+    );
+  }
   return `http://localhost:${String(process.env.PORT || '3000')}${GOOGLE_OAUTH_REDIRECT_PATH}`;
 }
 

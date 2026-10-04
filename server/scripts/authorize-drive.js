@@ -38,7 +38,9 @@ const CLIENT_SECRET = clean(
   process.env.GOOGLE_DRIVE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET
 );
 const REDIRECT_URI =
-  clean(process.env.GOOGLE_REDIRECT_URI) || 'http://localhost:3000/api/admin/gmail/callback';
+  clean(process.env.GOOGLE_DRIVE_REDIRECT_URI) ||
+  ((process.env.APP_BASE_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '') +
+    '/api/admin/gmail/callback');
 const FOLDER_ID = clean(process.env.GOOGLE_DRIVE_FOLDER_ID);
 
 function fail(msg) {

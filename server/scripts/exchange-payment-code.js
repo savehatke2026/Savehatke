@@ -34,9 +34,13 @@ const CLIENT_ID = clean(
 const CLIENT_SECRET = clean(
   process.env.PAYMENT_GMAIL_CLIENT_SECRET || process.env.GMAIL_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET
 );
+// GOOGLE_REDIRECT_URI is reserved for the user-login OAuth callback and must
+// not be reused here. Fall back to APP_BASE_URL/SITE_URL when the dedicated
+// PAYMENT_GMAIL_REDIRECT_URI is unset.
 const REDIRECT_URI =
-  clean(process.env.PAYMENT_GMAIL_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI) ||
-  'http://localhost:3000/api/admin/gmail/callback';
+  clean(process.env.PAYMENT_GMAIL_REDIRECT_URI) ||
+  ((process.env.APP_BASE_URL || process.env.SITE_URL || 'http://localhost:3000').replace(/\/$/, '') +
+    '/api/admin/gmail/callback');
 const EXPECTED = clean(process.env.PAYMENT_MAILBOX_EMAIL || process.env.PAYMENT_GMAIL_EMAIL).toLowerCase();
 
 function fail(msg) {

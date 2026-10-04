@@ -61,6 +61,50 @@ function getJwtSecret() {
 
 function assertSecurityConfiguration() {
   getJwtSecret();
+
+  // Google OAuth callback sanity check. In production the redirect_uri sent to
+  // Google is the *only* thing that decides whether sign-in works or fails with
+  // redirect_uri_mismatch — so a missing / http / wrong-path value must abort
+  // startup rather than be discovered at the first failed login.
+  if (process.env.NODE_ENV === 'production') {
+    const raw = String(process.env.GOOGLE_REDIRECT_URI || '').trim();
+    if (!raw) {
+      throw new Error(
+        'GOOGLE_REDIRECT_URI is not set in production. Set it in your hosting ' +
+        'environment (Vercel → Settings → Environment Variables → Production) to ' +
+        '"https://savehatke.vercel.app/api/auth/google-redirect", then redeploy.'
+      );
+    }
+    try {
+      const parsed = new URL(raw);
+      if (parsed.protocol !== 'https:') {
+        throw new Error(`GOOGLE_REDIRECT_URI must be https in production (got ${parsed.protocol}).`);
+      }
+      if (parsed.pathname !== '/api/auth/google-redirect') {
+        throw new Error(
+          `GOOGLE_REDIRECT_URI must end with /api/auth/google-redirect in production ` +
+          `(got ${parsed.pathname}).`
+        );
+      }
+    } catch (e) {
+      throw new Error(`GOOGLE_REDIRECT_URI is invalid: ${e.message}`);
+    }
+  }
+
+  // Always log the resolved redirect_uri on startup so a misconfiguration is
+  // visible in deploy logs without exposing secrets. We only print host + path,
+  // never the env-var raw value, query, fragment, or credentials.
+  try {
+    const raw = String(process.env.GOOGLE_REDIRECT_URI || '').trim();
+    if (raw) {
+      const parsed = new URL(raw);
+      console.log(`[security] Google OAuth redirect_uri: ${parsed.protocol}//${parsed.host}${parsed.pathname}`);
+    } else if (process.env.NODE_ENV !== 'production') {
+      console.log('[security] Google OAuth redirect_uri: derived from APP_BASE_URL/SITE_URL or localhost');
+    }
+  } catch (e) {
+    console.warn('[security] Google OAuth redirect_uri could not be parsed for diagnostics.');
+  }
 }
 
 module.exports = {

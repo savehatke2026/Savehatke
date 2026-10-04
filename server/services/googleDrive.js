@@ -520,11 +520,19 @@ function isOAuthConfigured() {
 function getRedirectUri(requestBase) {
   const base = (requestBase || process.env.APP_BASE_URL || '').replace(/\/$/, '');
   const override = clean(process.env.GOOGLE_DRIVE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URI || '');
+  // Require origin + pathname match for the override: GOOGLE_REDIRECT_URI is now
+  // reserved for the user-login OAuth callback (/api/auth/google-redirect) and
+  // would silently route Drive OAuth to the wrong URL otherwise.
+  const EXPECTED_PATH = '/api/admin/gmail/callback';
   if (override) {
     if (!base) return override;
-    try { if (new URL(override).origin === new URL(base).origin) return override; } catch (e) { /* fall through */ }
+    try {
+      const parsed = new URL(override);
+      const baseParsed = new URL(base);
+      if (parsed.origin === baseParsed.origin && parsed.pathname === EXPECTED_PATH) return override;
+    } catch (e) { /* fall through */ }
   }
-  return `${(base || 'http://localhost:3000')}/api/admin/gmail/callback`;
+  return `${(base || 'http://localhost:3000')}${EXPECTED_PATH}`;
 }
 function getOAuth2Client(requestBase) {
   return new google.auth.OAuth2(getClientId(), getClientSecret(), getRedirectUri(requestBase));

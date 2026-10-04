@@ -31,21 +31,32 @@ function isOAuthConfigured() {
   return !!(getGmailClientId() && getGmailClientSecret());
 }
 
+// Path this OAuth flow's Google Cloud Console entry MUST register. Hard-coded so
+// a stray GOOGLE_REDIRECT_URI override (which is now reserved for the user-login
+// OAuth client) can never silently route the admin-gmail flow to the wrong path.
+const GMAIL_OAUTH_REDIRECT_PATH = '/api/admin/gmail/callback';
+
 function getRedirectUri(requestBase) {
   const base = (requestBase || process.env.APP_BASE_URL || '').replace(/\/$/, '');
   const override = String(process.env.GOOGLE_REDIRECT_URI || '').trim();
 
-  // Use the explicit override only when it belongs to the domain that is
-  // actually serving this request. Otherwise a localhost override in .env
-  // would break the OAuth flow on the deployed domain (and vice versa).
+  // Use the explicit override only when BOTH origin and pathname match this
+  // flow's expected callback. A bare origin check used to be enough while
+  // GOOGLE_REDIRECT_URI was the admin-Gmail callback, but the user-login OAuth
+  // now claims that key — so a pathless match would silently redirect Gmail
+  // OAuth to /api/auth/google-redirect and break admin mailbox auth.
   if (override) {
     if (!base) return override;
     try {
-      if (new URL(override).origin === new URL(base).origin) return override;
+      const parsed = new URL(override);
+      const baseParsed = new URL(base);
+      if (parsed.origin === baseParsed.origin && parsed.pathname === GMAIL_OAUTH_REDIRECT_PATH) {
+        return override;
+      }
     } catch (e) { /* malformed override — fall through to derivation */ }
   }
 
-  return `${(base || 'http://localhost:3000')}/api/admin/gmail/callback`;
+  return `${(base || 'http://localhost:3000')}${GMAIL_OAUTH_REDIRECT_PATH}`;
 }
 
 function getOAuth2Client(requestBase) {
