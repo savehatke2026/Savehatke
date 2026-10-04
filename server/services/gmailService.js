@@ -220,6 +220,7 @@ function summarizeMessage(msg) {
     threadId: msg.threadId,
     snippet: msg.snippet || '',
     from: h.from || '',
+    authenticationResults: h['authentication-results'] || '',
     to: h.to || '',
     cc: h.cc || '',
     subject: h.subject || '(no subject)',
@@ -257,7 +258,7 @@ async function listMessages(gmail, { folder = 'inbox', labelId, q, pageToken, ma
   const metas = await Promise.all(ids.map(async (id) => {
     try {
       const r = await gmail.users.messages.get({ userId: 'me', id, format: 'metadata',
-        metadataHeaders: ['From', 'To', 'Cc', 'Subject', 'Date'] });
+        metadataHeaders: ['From', 'To', 'Cc', 'Subject', 'Date', 'Authentication-Results'] });
       return r.data;
     } catch (e) {
       return null;

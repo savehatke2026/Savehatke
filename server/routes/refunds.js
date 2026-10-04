@@ -12,12 +12,31 @@
 // server from the verified payment record, never from the browser.
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { adminFinancialLimiter } = require('../utils/adminRateLimit');
+const { safeRateLimitHandler } = require('../utils/rateLimit');
 const refundsService = require('../services/refunds');
 const supabase = require('../services/supabase');
 const db = require('../services/googleSheets');
 
 const router = express.Router();
+
+const refundRequestIpLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  standardHeaders: false,
+  legacyHeaders: false,
+  handler: safeRateLimitHandler('Too many refund requests. Please wait before trying again.'),
+});
+const refundRequestAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: false,
+  legacyHeaders: false,
+  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '').trim()}`,
+  handler: safeRateLimitHandler('Too many refund requests for this account. Please wait before trying again.'),
+});
 
 // Helper: the canonical user identifier the auth middleware put on req.
 // Returns either the user id claim or the email as a last-resort match key.
@@ -76,7 +95,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // their partial payment refunded (instead of paying the remaining amount).
 // The refund_amount and mismatch type are server-set; the buyer cannot
 // edit them. Status moves pending → processing.
-router.post('/:id/request', authenticateToken, async (req, res) => {
+router.post('/:id/request', refundRequestIpLimiter, authenticateToken, refundRequestAccountLimiter, async (req, res) => {
   try {
     const userId = reqUserId(req);
     if (!userId) return res.status(401).json({ error: 'Not authenticated.' });
@@ -113,7 +132,7 @@ router.post('/:id/request', authenticateToken, async (req, res) => {
 // broader surface: they can mark a refund refunded/rejected with a
 // reference number and an admin note. These endpoints live here (not in
 // /admin) so the refund surface stays in one file.
-router.post('/admin/:id/mark-refunded', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/admin/:id/mark-refunded', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
     const { refundReference = '', adminNote = '' } = req.body || {};
     const result = await refundsService.updateRefundStatus(req.params.id, {
@@ -132,7 +151,7 @@ router.post('/admin/:id/mark-refunded', authenticateToken, requireAdmin, async (
   }
 });
 
-router.post('/admin/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/admin/:id/reject', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
     const { adminNote = '' } = req.body || {};
     const result = await refundsService.updateRefundStatus(req.params.id, {

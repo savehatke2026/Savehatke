@@ -789,23 +789,31 @@ function showCouponModal(coupon) {
         <button class="mclose" onclick="this.closest('.modal-overlay').remove()">×</button>
       </div>
       <div style="margin-bottom: 20px;">
-        <p style="color: #a8c0dc; margin-bottom: 14px;">Here's your coupon code for <strong style="color: #e2ecff;">${coupon.brand}</strong>:</p>
-        <div style="background: rgba(0, 230, 118, 0.1); border: 2px dashed #00e676; border-radius: 12px; padding: 18px; margin-bottom: 16px;">
-          <code style="font-size: 1.6rem; font-weight: 800; color: #00e676; letter-spacing: 2px;">${coupon.code}</code>
-        </div>
-        <button class="btn btn-primary btn-sm" onclick="navigator.clipboard.writeText('${coupon.code}'); if(typeof showToast==='function') showToast('Code copied to clipboard! 📋', 'success')">
+          <p style="color: #a8c0dc; margin-bottom: 14px;">Here's your coupon code for <strong style="color: #e2ecff;">${escapeCoupon(coupon.brand)}</strong>:</p>
+          <div style="background: rgba(0, 230, 118, 0.1); border: 2px dashed #00e676; border-radius: 12px; padding: 18px; margin-bottom: 16px;">
+          <code style="font-size: 1.6rem; font-weight: 800; color: #00e676; letter-spacing: 2px;">${escapeCoupon(coupon.code)}</code>
+          </div>
+        <button class="btn btn-primary btn-sm" data-copy-purchased-code>
           📋 Copy Code
         </button>
       </div>
       <p style="font-size: 0.8rem; color: #6b88aa;">
-        ${coupon.description || ''}<br>
-        Worth ₹${coupon.originalValue || coupon.discount || ''} · Paid ₹${coupon.pricePaid || coupon.sellingPrice || ''}
+        ${escapeCoupon(coupon.description || '')}<br>
+        Worth ₹${escapeCoupon(coupon.originalValue || coupon.discount || '')} · Paid ₹${escapeCoupon(coupon.pricePaid || coupon.sellingPrice || '')}
       </p>
       <a href="dashboard" class="btn btn-ghost btn-sm" style="margin-top: 16px;">View in Dashboard</a>
     </div>
   `;
 
   document.body.appendChild(overlay);
+  overlay.querySelector('[data-copy-purchased-code]')?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(String(coupon.code || ''));
+      if (typeof showToast === 'function') showToast('Code copied to clipboard! 📋', 'success');
+    } catch (err) {
+      if (typeof showToast === 'function') showToast('Could not copy the code. Please select and copy it.', 'error');
+    }
+  });
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });

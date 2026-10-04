@@ -18,6 +18,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { adminFinancialLimiter } = require('../utils/adminRateLimit');
 const finance = require('../services/finance');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
@@ -122,7 +123,7 @@ router.get('/settlement', authenticateToken, requireAdmin, async (req, res) => {
     res.json({ ok: true, settlement, synced });
   } catch (err) {
     if (/Invalid year\/month/.test(err.message || '')) {
-      return res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: 'Year and month must describe a valid reporting period.' });
     }
     console.error('Finance settlement error:', err);
     res.status(503).json({ error: 'Unable to load financial data.', dataUnavailable: true });
@@ -193,7 +194,7 @@ router.get('/admin-payouts/stats', authenticateToken, requireAdmin, async (req, 
 
 // POST create an admin payout request (status PENDING). Validates the recipient
 // is a configured admin and that the amount does not exceed available balance.
-router.post('/admin-payouts', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/admin-payouts', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   if (!db.isSheetsConnected()) {
     return res.status(503).json({ error: 'Google Sheets is not connected; cannot record payout.' });
   }
@@ -244,7 +245,20 @@ router.post('/admin-payouts', authenticateToken, requireAdmin, async (req, res) 
 });
 
 // POST mark an admin payout PAID
-router.post('/admin-payouts/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+//
+// Approving a payout is a real disbursement, so the two failure modes that
+// matter are (a) two concurrent approvals both reporting success, and (b) a
+// spreadsheet write that never landed still being reported as success.
+//
+//   • The status write is strict: Google Sheets must acknowledge it before this
+//     handler believes it happened. A non-strict updateRow falls back to this
+//     instance's in-memory mirror during an outage, which would return
+//     { ok: true } for a payout that is still pending in the ledger — and the
+//     human then pays it a second time.
+//   • The status is re-read after the write (compare-and-set). If another
+//     approval won the race, or the sheet still shows a non-paid status, this
+//     request reports a conflict instead of success.
+router.post('/admin-payouts/:id/approve', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   if (!db.isSheetsConnected()) {
     return res.status(503).json({ error: 'Google Sheets is not connected; cannot update payout.' });
   }
@@ -264,18 +278,28 @@ router.post('/admin-payouts/:id/approve', authenticateToken, requireAdmin, async
       processed_by: actingAdmin(req),
       updated_at: nowIso(),
     };
-    await db.updateRow(db.SHEETS.ADMIN_PAYOUTS, 'id', id, updates);
+    await db.updateRow(db.SHEETS.ADMIN_PAYOUTS, 'id', id, updates, { strict: true });
+
+    // Compare-and-set: read the authoritative row back before claiming success.
+    const written = await db.findRow(db.SHEETS.ADMIN_PAYOUTS, 'id', id).catch(() => null);
+    if (!written || String(written.status).toLowerCase() !== 'paid') {
+      console.error(`[adminFinance] payout ${id} approval did not land (status=${written && written.status})`);
+      return res.status(409).json({
+        error: 'This payout could not be marked as paid — it may have been processed by someone else. Reload the page.',
+      });
+    }
+
     await auditFinancial(req, 'admin_payout_paid', id, { paymentReference: updates.payment_reference });
-    const updated = await db.findRow(db.SHEETS.ADMIN_PAYOUTS, 'id', id).catch(() => null);
-    res.json({ ok: true, payout: finance.normAdminPayout(updated || { ...existing, ...updates }) });
+    res.json({ ok: true, payout: finance.normAdminPayout(written) });
   } catch (err) {
-    console.error('Approve admin payout error:', err);
-    res.status(500).json({ error: 'Could not update payout.' });
+    // Strict write failed: the payout is NOT paid. Never report success.
+    console.error('Approve admin payout error:', err && err.message ? err.message : err);
+    res.status(503).json({ error: 'The payout could not be saved. Nothing was changed — please try again.' });
   }
 });
 
 // POST reject an admin payout (does NOT permanently reduce the balance)
-router.post('/admin-payouts/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/admin-payouts/:id/reject', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   if (!db.isSheetsConnected()) {
     return res.status(503).json({ error: 'Google Sheets is not connected; cannot update payout.' });
   }
@@ -294,19 +318,27 @@ router.post('/admin-payouts/:id/reject', authenticateToken, requireAdmin, async 
       processed_by: actingAdmin(req),
       updated_at: nowIso(),
     };
-    await db.updateRow(db.SHEETS.ADMIN_PAYOUTS, 'id', id, updates);
+    await db.updateRow(db.SHEETS.ADMIN_PAYOUTS, 'id', id, updates, { strict: true });
+
+    const written = await db.findRow(db.SHEETS.ADMIN_PAYOUTS, 'id', id).catch(() => null);
+    if (!written || String(written.status).toLowerCase() !== 'rejected') {
+      console.error(`[adminFinance] payout ${id} rejection did not land (status=${written && written.status})`);
+      return res.status(409).json({
+        error: 'This payout could not be rejected — it may have been processed by someone else. Reload the page.',
+      });
+    }
+
     await auditFinancial(req, 'admin_payout_rejected', id, { reason: updates.rejection_reason });
-    const updated = await db.findRow(db.SHEETS.ADMIN_PAYOUTS, 'id', id).catch(() => null);
-    res.json({ ok: true, payout: finance.normAdminPayout(updated || { ...existing, ...updates }) });
+    res.json({ ok: true, payout: finance.normAdminPayout(written) });
   } catch (err) {
-    console.error('Reject admin payout error:', err);
-    res.status(500).json({ error: 'Could not update payout.' });
+    console.error('Reject admin payout error:', err && err.message ? err.message : err);
+    res.status(503).json({ error: 'The payout could not be saved. Nothing was changed — please try again.' });
   }
 });
 
 // GET /api/admin/finance/report?year=YYYY&month=M  — full monthly report DATA
-// object (the single prepared object the master-PDF generator consumes). Real,
-// read-only, same source of truth as the dashboard/overview/settlement.
+// object (the single prepared object the master-PDF generator consumes). This
+// report endpoint is read-only and uses the dashboard/overview source of truth.
 router.get('/report', authenticateToken, requireAdmin, async (req, res) => {
   if (!storeReachable()) {
     return res.status(503).json({ error: 'Unable to load financial data.', dataUnavailable: true });
@@ -319,7 +351,7 @@ router.get('/report', authenticateToken, requireAdmin, async (req, res) => {
     res.json({ ok: true, report });
   } catch (err) {
     if (/Invalid year\/month/.test(err.message || '')) {
-      return res.status(400).json({ error: err.message });
+      return res.status(400).json({ error: 'Year and month must describe a valid reporting period.' });
     }
     console.error('Finance report error:', err);
     res.status(503).json({ error: 'Unable to load financial data.', dataUnavailable: true });
@@ -346,7 +378,7 @@ router.get('/report/pdf', authenticateToken, requireAdmin, async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.send(buffer);
   } catch (err) {
-    if (/Invalid year\/month/.test(err.message || '')) return res.status(400).json({ error: err.message });
+    if (/Invalid year\/month/.test(err.message || '')) return res.status(400).json({ error: 'Year and month must describe a valid reporting period.' });
     console.error('Finance report PDF error:', err);
     res.status(503).json({ error: 'Unable to generate report — financial data is unavailable.', dataUnavailable: true });
   }

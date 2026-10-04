@@ -90,6 +90,14 @@ async function loadTrackedProducts() {
 }
 
 function renderTrackedProducts(container, products) {
+  products = Array.isArray(products) ? products : [];
+  const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[ch]);
+  const safePrice = (value) => {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number.toLocaleString('en-IN') : '—';
+  };
   if (products.length === 0) {
     container.innerHTML = `
       <div class="empty-state">
@@ -101,40 +109,52 @@ function renderTrackedProducts(container, products) {
     return;
   }
 
-  container.innerHTML = products.map((p) => {
-    const platformClass = p.platform.toLowerCase();
-    const priceChange = Number(p.currentPrice) <= Number(p.lowestPrice) ? 'low' : '';
+  container.innerHTML = (Array.isArray(products) ? products : []).map((p) => {
+    const platform = String(p.platform || 'Product');
+    const platformClass = ['amazon', 'flipkart', 'myntra', 'ajio', 'meesho', 'other'].includes(platform.toLowerCase())
+      ? platform.toLowerCase() : 'other';
+    const current = Number(p.currentPrice);
+    const lowest = Number(p.lowestPrice);
+    const priceChange = Number.isFinite(current) && Number.isFinite(lowest) && current <= lowest ? 'low' : '';
+    const id = escapeHtml(p.id);
 
     return `
       <div class="tracker-card mb-4">
         <div class="tracker-platform ${platformClass}">
-          ${p.platform.slice(0, 3).toUpperCase()}
+          ${escapeHtml(platform.slice(0, 3).toUpperCase())}
         </div>
         <div class="tracker-info">
-          <div class="tracker-name">${p.productName}</div>
-          <div class="tracker-url">${p.productUrl}</div>
+          <div class="tracker-name">${escapeHtml(p.productName)}</div>
+          <div class="tracker-url">${escapeHtml(p.productUrl)}</div>
         </div>
         <div class="tracker-prices">
           <div class="tracker-price-item">
             <div class="tracker-price-label">Current</div>
-            <div class="tracker-price-value ${priceChange}">₹${Number(p.currentPrice).toLocaleString('en-IN')}</div>
+            <div class="tracker-price-value ${priceChange}">₹${safePrice(p.currentPrice)}</div>
           </div>
           <div class="tracker-price-item">
             <div class="tracker-price-label">Target</div>
-            <div class="tracker-price-value target">₹${Number(p.targetPrice).toLocaleString('en-IN')}</div>
+            <div class="tracker-price-value target">₹${safePrice(p.targetPrice)}</div>
           </div>
           <div class="tracker-price-item">
             <div class="tracker-price-label">Lowest</div>
-            <div class="tracker-price-value low">₹${Number(p.lowestPrice).toLocaleString('en-IN')}</div>
+            <div class="tracker-price-value low">₹${safePrice(p.lowestPrice)}</div>
           </div>
         </div>
         <div class="tracker-actions">
-          <button class="btn btn-ghost btn-sm" onclick="refreshPrice('${p.id}')" title="Refresh price">🔄</button>
-          <button class="btn btn-ghost btn-sm text-danger" onclick="removeTracker('${p.id}')" title="Stop tracking">🗑️</button>
+          <button class="btn btn-ghost btn-sm" data-tracker-action="refresh" data-tracker-id="${id}" title="Refresh price">🔄</button>
+          <button class="btn btn-ghost btn-sm text-danger" data-tracker-action="remove" data-tracker-id="${id}" title="Stop tracking">🗑️</button>
         </div>
       </div>
     `;
   }).join('');
+  container.querySelectorAll('[data-tracker-action]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const id = button.getAttribute('data-tracker-id');
+      if (button.getAttribute('data-tracker-action') === 'refresh') refreshPrice(id);
+      else if (button.getAttribute('data-tracker-action') === 'remove') removeTracker(id);
+    });
+  });
 }
 
 async function refreshPrice(id) {
@@ -256,14 +276,16 @@ async function loadSales() {
           </thead>
           <tbody>
             ${data.coupons.map((c) => {
-              const statusBadge = c.status === 'sold' ? 'green' : c.status === 'pending' ? 'amber' : 'blue';
+              const normalizedStatus = String(c.status || '').toLowerCase();
+              const statusBadge = normalizedStatus === 'sold' ? 'green' : normalizedStatus === 'pending' ? 'amber' : 'blue';
+              const codeLabel = c.code ? escapeDashboardHtml(c.code) : normalizedStatus === 'sold' ? 'Hidden after sale' : '—';
               return `
                 <tr>
-                  <td><code style="background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 4px; color: var(--color-teal-400);">${c.code}</code></td>
-                  <td>${c.brand}</td>
-                  <td>${c.category}</td>
-                  <td><span class="badge badge-${statusBadge}">${c.status}</span></td>
-                  <td style="color: var(--color-success); font-weight: 700;">${c.earning}</td>
+                  <td><code style="background: rgba(37,99,235,0.1); padding: 2px 8px; border-radius: 4px; color: var(--color-teal-400);">${codeLabel}</code></td>
+                  <td>${escapeDashboardHtml(c.brand)}</td>
+                  <td>${escapeDashboardHtml(c.category)}</td>
+                  <td><span class="badge badge-${statusBadge}">${escapeDashboardHtml(c.status)}</span></td>
+                  <td style="color: var(--color-success); font-weight: 700;">${escapeDashboardHtml(c.earning)}</td>
                   <td>${formatDate(c.addedAt)}</td>
                   <td>${formatDate(c.soldAt)}</td>
                 </tr>
@@ -283,4 +305,10 @@ async function loadSales() {
       </div>
     `;
   }
+}
+
+function escapeDashboardHtml(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[ch]);
 }

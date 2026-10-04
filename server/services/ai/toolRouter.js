@@ -28,6 +28,9 @@ const supabase = require('../supabase');
 // The ONE seller payout formula. Imported, never re-declared: a seller is paid
 // 7% of a coupon's face value, and the marketplace selling price is not an input.
 const sellerPayout = require('../sellerPayout');
+// Coupon codes are only ever released against a settled purchase, so the tool
+// router needs the same ledger reader the checkout uses.
+const paymentStore = require('../paymentStore');
 
 // Permission levels. Only the first two are reachable from chat.
 const LEVEL = {
@@ -134,6 +137,64 @@ async function readBuyerCoupons(email) {
   return coupons;
 }
 
+/**
+ * Coupon ids the buyer has actually PAID for. Mirrors the REST gate in
+ * /api/coupons/my-purchases exactly: a coupon is only ever treated as bought
+ * when a PAID order AND its linked PAID payment agree on the same coupon, the
+ * same amount, and both belong to this buyer.
+ *
+ * readBuyerCoupons() alone is NOT an authorization check — a coupon row can
+ * carry a buyer_email without a settled payment (an admin-recorded manual sale,
+ * a refunded or invalidated sale, a stale row). Revealing a code on that basis
+ * would hand out a coupon nobody paid for in this session.
+ *
+ * Fail-closed: any read failure means "nothing is paid for".
+ */
+async function readPaidCouponIds(ctx) {
+  const email = normEmail(ctx && ctx.user && ctx.user.email);
+  const userId = String((ctx && ctx.user && (ctx.user.id || ctx.user.userId)) || '').trim();
+  const paid = new Map(); // couponId -> paymentId
+  if (!email && !userId) return paid;
+
+  const store = paymentStore;
+  const belongsToCaller = (row) => {
+    const rowUserId = String(row.user_id || row.userId || '').trim();
+    if (rowUserId) return !!userId && rowUserId === userId;
+    const rowEmail = normEmail(row.user_email || row.buyer_email || row.buyerEmail);
+    return !!email && rowEmail === email;
+  };
+
+  try {
+    const [orderRows, paymentRows] = await Promise.all([
+      db.getRowsFresh(db.SHEETS.ORDERS),
+      db.getRowsFresh(db.SHEETS.PAYMENTS),
+    ]);
+    const paidPaymentsByOrder = new Map();
+    for (const row of paymentRows || []) {
+      const payment = store.fromPayment(row);
+      if (!payment || String(payment.status).toUpperCase() !== 'PAID' ||
+          !payment.orderId || !payment.couponId || !belongsToCaller(row)) continue;
+      const previous = paidPaymentsByOrder.get(String(payment.orderId));
+      if (!previous || new Date(payment.updatedAt || payment.createdAt || 0) > new Date(previous.updatedAt || previous.createdAt || 0)) {
+        paidPaymentsByOrder.set(String(payment.orderId), payment);
+      }
+    }
+    for (const row of orderRows || []) {
+      const order = store.fromOrder(row);
+      if (!order || String(order.status).toUpperCase() !== 'PAID' ||
+          !order.couponId || !belongsToCaller(row)) continue;
+      const payment = paidPaymentsByOrder.get(String(order.id));
+      if (!payment) continue;
+      if (String(payment.couponId) !== String(order.couponId)) continue;
+      if (!store.moneyEquals(payment.amount, order.amount)) continue;
+      paid.set(String(order.couponId), String(payment.paymentId));
+    }
+  } catch (e) {
+    return new Map();
+  }
+  return paid;
+}
+
 async function readPayouts() {
   return db.getRows(db.SHEETS.PAYOUTS).catch(() => []);
 }
@@ -214,9 +275,10 @@ const TOOLS = {
     requiresAuth: true,
     description: "The signed-in user's own purchase history.",
     args: [],
-    // This is the one tool permitted to return a coupon code: the record is the
-    // caller's own completed purchase, which is precisely the authorization the
-    // purchase flow grants. Every other tool has codes stripped (see contextSafe).
+    // This is the one tool permitted to return a coupon code, and only for a
+    // purchase that is backed by a PAID order plus its linked PAID payment
+    // (see checkPurchases / readPaidCouponIds). Every other tool has codes
+    // stripped (see contextSafe).
     mayReturnCode: true,
   },
   check_support_tickets: {
@@ -503,11 +565,15 @@ async function checkPurchases(args = {}, ctx) {
   const email = normEmail(ctx.user && ctx.user.email);
   if (!email) return { ok: false, error: 'no_identity' };
   const coupons = await readBuyerCoupons(email);
+  // Which of those coupons the caller has actually PAID for. A coupon row with
+  // a matching buyer_email is not by itself proof of purchase, so the code is
+  // released only for a coupon backed by a PAID order + its PAID payment.
+  const paidCouponIds = await readPaidCouponIds(ctx);
   const sorted = coupons
     .slice()
     .sort((a, b) => new Date(b.soldAt || b.addedAt || 0) - new Date(a.soldAt || a.addedAt || 0));
 
-  const codes = sorted.filter((c) => c.code).length;
+  const codes = sorted.filter((c) => paidCouponIds.has(String(c.id)) && c.code).length;
   return {
     ok: true,
     total: sorted.length,
@@ -522,9 +588,11 @@ async function checkPurchases(args = {}, ctx) {
       purchasedAt: c.soldAt || '',
       expiresInDays: daysUntil(effectiveExpiry(c)),
       status: c.status || 'sold',
-      // The code IS released here: this listing is the buyer's own purchase,
-      // which is exactly the authorization the purchase flow grants.
-      code: c.code || '',
+      // Released only for a settled purchase: the listing is the caller's own
+      // PAID order and the linked PAID payment owns this coupon. Fail closed —
+      // a coupon with no settled payment reports no code, exactly like
+      // /api/coupons/my-purchases.
+      code: paidCouponIds.has(String(c.id)) ? (c.code || '') : '',
     })),
     // Told explicitly so the response engine can point them at the right page.
     hasMore: sorted.length > 6,

@@ -24,9 +24,9 @@
     (function requireLoginForSupport() {
       let loggedIn = false;
       try {
-        const token = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
+        const authenticated = localStorage.getItem('sh_authenticated') === '1';
         const userRaw = localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user');
-        if (token && userRaw) {
+        if (authenticated && userRaw) {
           const u = JSON.parse(userRaw);
           loggedIn = !!(u && (u.email || u.id || u.name));
         }
@@ -387,8 +387,8 @@
       (function revealSupportMailboxForAdmins() {
         try {
           const raw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
-          const token = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
-          if (!raw || !token) return;
+          const authenticated = localStorage.getItem('sh_authenticated') === '1';
+          if (!raw || !authenticated) return;
           const u = JSON.parse(raw);
           const role = String((u && u.role) || '').toLowerCase();
           const isAdminRole = ['admin', 'super admin', 'support'].indexOf(role) !== -1;
@@ -930,7 +930,14 @@
   /* =====================
      AUTH / NAV
   ===================== */
-  function logoutUser() {
+  async function logoutUser() {
+    try {
+      const response = await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+      if (!response.ok) throw new Error('Logout could not be confirmed. Please retry.');
+    } catch (e) {
+      showToast('Logout could not be confirmed. Please retry.', 'error');
+      return;
+    }
     if (window.Auth) window.Auth.clear();
     showToast('Logged out successfully.', 'success');
     if (typeof updateNavAuth === 'function') updateNavAuth();
@@ -944,6 +951,7 @@
         ...(Auth.getToken() ? { Authorization: `Bearer ${Auth.getToken()}` } : {})
       },
       method: options.method || 'GET',
+      credentials: 'same-origin',
       body: options.body ? JSON.stringify(options.body) : undefined
     });
     if (!res.ok) {

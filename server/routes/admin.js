@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin, generateToken } = require('../middleware/auth');
+const { adminMutationLimiter } = require('../utils/adminRateLimit');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
@@ -151,147 +152,26 @@ function reportDebug(hypothesisId, location, msg, data = {}, runId = process.env
   } catch {}
 }
 
-// Admin sign-in is passwordless: admins authenticate with Google on the main
-// login page (POST /api/auth/google-redirect verifies the Google identity and
-// grants the admin session) or with a backup code through the SOS flow
-// (routes/sos.js). The old password-based admin login endpoint was removed
-// together with the rest of the password logic.
-
-// POST /api/admin/create-admin — Create new Admin/Super Admin/Support in MongoDB
-router.post('/create-admin', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { name, full_name, email, role, phone, profile_image } = req.body;
-    const adminName = (name || full_name || '').trim();
-
-    if (!email || !adminName) {
-      return res.status(400).json({ error: 'Name and email are required.' });
-    }
-
-    const validRoles = ['Super Admin', 'Admin', 'Support'];
-    const assignedRole = validRoles.includes(role) ? role : 'Admin';
-
-    const existing = await Admin.findOne({ email: email.toLowerCase().trim() });
-    if (existing) {
-      return res.status(409).json({ error: 'An admin with this email already exists in MongoDB Atlas.' });
-    }
-
-    const newAdmin = await Admin.create({
-      id: uuidv4(),
-      name: adminName,
-      email: email.toLowerCase().trim(),
-      role: assignedRole,
-      phone: phone || '',
-      profile_image: profile_image || '',
-      is_active: true,
-      email_verified: true,
-      two_factor_enabled: false,
-    });
-
-    res.status(201).json({
-      message: 'Admin account created successfully in MongoDB Atlas.',
-      admin: {
-        id: newAdmin.id,
-        name: newAdmin.name,
-        email: newAdmin.email,
-        role: newAdmin.role,
-        phone: newAdmin.phone,
-        profile_image: newAdmin.profile_image,
-        is_active: newAdmin.is_active,
-        created_at: newAdmin.created_at,
-        updated_at: newAdmin.updated_at,
-      },
-    });
-  } catch (err) {
-    console.error('Create admin error:', err);
-    res.status(500).json({ error: 'Failed to create admin in MongoDB Atlas.' });
-  }
+// The administrator roster is fixed to the two server-configured Google
+// identities. Roster changes are deployment/database operations, never public
+// application actions.
+router.post('/create-admin', authenticateToken, requireAdmin, (req, res) => {
+  return res.status(403).json({ error: 'Administrator creation is disabled.', code: 'ADMIN_ROSTER_LOCKED' });
+});
+router.put('/update-admin/:id', authenticateToken, requireAdmin, (req, res) => {
+  return res.status(403).json({ error: 'Administrator roster changes are disabled.', code: 'ADMIN_ROSTER_LOCKED' });
+});
+router.delete('/delete-admin/:id', authenticateToken, requireAdmin, (req, res) => {
+  return res.status(403).json({ error: 'Administrator roster changes are disabled.', code: 'ADMIN_ROSTER_LOCKED' });
+});
+router.get('/list-admins', authenticateToken, requireAdmin, (req, res) => {
+  return res.json({ admins: FALLBACK_ADMINS(), total: 2, source: 'server-allowlist' });
 });
 
-// GET /api/admin/list-admins — List all admins stored in MongoDB Atlas (with fallback)
-// The response carries `source` so the admin panel can say *why* Phone / Last Login /
-// Joined are blank instead of looking like a broken table: 'mongodb' means the rows
-// are real, 'fallback' means Atlas was unreachable and these are the built-in owners.
 const FALLBACK_ADMINS = () => [
-  { id: '1', name: 'Rupayan', email: 'rupayandas2024@gmail.com', role: 'Super Admin', is_active: true, phone: '', created_at: null, last_login: null },
-  { id: '2', name: 'Jaggik', email: 'jaggik8888@gmail.com', role: 'Super Admin', is_active: true, phone: '', created_at: null, last_login: null },
+  { id: '1', name: 'Rupayan', email: 'rupayandas2024@gmail.com', role: 'Admin', is_active: true, phone: '', created_at: null, last_login: null },
+  { id: '2', name: 'Jaggik', email: 'jaggik8888@gmail.com', role: 'Admin', is_active: true, phone: '', created_at: null, last_login: null },
 ];
-
-router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    let admins = [];
-    if (mongoose.connection.readyState === 1) {
-      admins = await Admin.find().sort({ created_at: -1 });
-    }
-    if (!admins || admins.length === 0) {
-      admins = FALLBACK_ADMINS();
-      return res.json({ admins, total: admins.length, source: 'fallback' });
-    }
-    res.json({ admins, total: admins.length, source: 'mongodb' });
-  } catch (err) {
-    console.error('List admins error:', err);
-    const admins = FALLBACK_ADMINS();
-    res.json({ admins, total: admins.length, source: 'fallback' });
-  }
-});
-
-// PUT /api/admin/update-admin/:id — Update admin details in MongoDB Atlas
-router.put('/update-admin/:id', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { name, full_name, role, phone, profile_image, is_active } = req.body;
-
-    const admin = await Admin.findOne({ $or: [{ id }, { _id: id }] });
-    if (!admin) {
-      return res.status(404).json({ error: 'Admin record not found.' });
-    }
-
-    if (name || full_name) admin.name = (name || full_name).trim();
-    if (role && ['Super Admin', 'Admin', 'Support'].includes(role)) admin.role = role;
-    if (phone !== undefined) admin.phone = phone.trim();
-    if (profile_image !== undefined) admin.profile_image = profile_image.trim();
-    if (is_active !== undefined) admin.is_active = Boolean(is_active);
-
-    await admin.save();
-
-    res.json({
-      message: 'Admin updated successfully in MongoDB Atlas.',
-      admin: {
-        id: admin.id,
-        name: admin.name,
-        email: admin.email,
-        role: admin.role,
-        phone: admin.phone,
-        profile_image: admin.profile_image,
-        is_active: admin.is_active,
-        last_login: admin.last_login,
-        created_at: admin.created_at,
-        updated_at: admin.updated_at,
-      },
-    });
-  } catch (err) {
-    console.error('Update admin error:', err);
-    res.status(500).json({ error: 'Failed to update admin details.' });
-  }
-});
-
-// DELETE /api/admin/delete-admin/:id — Delete admin record from MongoDB Atlas
-router.delete('/delete-admin/:id', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const admin = await Admin.findOne({ $or: [{ id }, { _id: id }] });
-    if (!admin) {
-      return res.status(404).json({ error: 'Admin record not found.' });
-    }
-
-    await admin.deleteOne();
-    res.json({ message: 'Admin deleted successfully from MongoDB Atlas.' });
-  } catch (err) {
-    console.error('Delete admin error:', err);
-    res.status(500).json({ error: 'Failed to delete admin.' });
-  }
-});
-
 // GET /api/admin/me — The AUTHENTICATED admin's own profile.
 //
 // Identity comes exclusively from the verified JWT that authenticateToken
@@ -425,7 +305,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/coupons — Add offline coupon codes manually
-router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const {
       code,
@@ -551,7 +431,7 @@ router.post('/coupons', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error('Admin add coupon error:', err);
-    res.status(500).json({ error: 'Failed to save coupon: ' + err.message });
+    res.status(500).json({ error: 'Failed to save coupon.' });
   }
 });
 
@@ -635,7 +515,7 @@ router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
 // let a caller write any column — including a payout. The body is now
 // whitelisted, payout fields are dropped outright, and the seller payout is
 // always recomputed from the authoritative face value.
-router.put('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const body = req.body || {};
@@ -771,7 +651,7 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => 
 });
 
 // DELETE /api/admin/coupons/:id — Delete a coupon
-router.delete('/coupons/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -855,7 +735,7 @@ router.get('/coupons/:id/review', authenticateToken, requireAdmin, async (req, r
 
 // POST /api/admin/coupons/:id/review-action — Approve / Reject / Request More Proof
 // Status is decided server-side from a whitelisted action; never trusted from the client.
-router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { action, notes } = req.body || {};
@@ -962,7 +842,7 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, async
 // not change under it — so the failure is recorded in its own field, and anything
 // still owed on that coupon is withheld in the same call, because a coupon that
 // failed validation must never reach a payout run.
-router.post('/coupons/:id/invalidate', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/coupons/:id/invalidate', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body || {};
@@ -1057,7 +937,7 @@ router.post('/coupons/:id/invalidate', authenticateToken, requireAdmin, async (r
 });
 
 // POST /api/admin/coupons/:id/notify-retry — Re-send the WhatsApp submission alert
-router.post('/coupons/:id/notify-retry', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/coupons/:id/notify-retry', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -1176,7 +1056,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // PUT /api/admin/users/status — Suspend or reactivate a user in the sheet
-router.put('/users/status', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/users/status', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { userId, status } = req.body;
     if (!userId || !['active', 'suspended'].includes(status)) {
@@ -1218,7 +1098,7 @@ router.put('/users/status', authenticateToken, requireAdmin, async (req, res) =>
 router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
   try {
     if (!supabase.isConfigured()) {
-      return res.status(503).json({ error: 'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.' });
+      return res.status(503).json({ error: 'Administrative session storage is temporarily unavailable.' });
     }
 
     const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
@@ -1280,7 +1160,7 @@ router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
 router.get('/admin-sessions', authenticateToken, requireAdmin, async (req, res) => {
   try {
     if (!supabase.isConfigured()) {
-      return res.status(503).json({ error: 'Supabase is not configured on the server. Set SUPABASE_URL and SUPABASE_SERVICE_KEY.' });
+      return res.status(503).json({ error: 'Administrative session storage is temporarily unavailable.' });
     }
 
     const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
@@ -1336,7 +1216,7 @@ router.get('/admin-sessions', authenticateToken, requireAdmin, async (req, res) 
 // looks wrong (fallback "user_<timestamp>" prefix, or empty), look the email
 // up in the Google Sheets USERS tab and write the canonical user_id back to
 // the session row. Safe to re-run.
-router.post('/sessions/backfill-userids', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/sessions/backfill-userids', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     if (!supabase.isConfigured()) {
       return res.status(503).json({ error: 'Supabase is not configured on the server.' });
@@ -1402,12 +1282,12 @@ router.post('/sessions/backfill-userids', authenticateToken, requireAdmin, async
     res.json({ ok: true, updated, skipped, totalSessions: sessions.length, sample });
   } catch (err) {
     console.error('Backfill user_ids error:', err);
-    res.status(500).json({ error: 'Backfill failed.', detail: err.message });
+    res.status(500).json({ error: 'Backfill failed.' });
   }
 });
 
 // PUT /api/admin/sessions/:sessionId/terminate — Force-end an active session
-router.put('/sessions/:sessionId/terminate', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/sessions/:sessionId/terminate', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { sessionId } = req.params;
     if (!sessionId) {
@@ -1455,7 +1335,7 @@ router.get('/support-cases', authenticateToken, requireAdmin, async (req, res) =
 });
 
 // PUT /api/admin/support-cases/:id/status — Move a ticket between statuses in the sheet
-router.put('/support-cases/:id/status', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/support-cases/:id/status', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { status, resolution } = req.body;
     const id = req.params.id;
@@ -1594,7 +1474,7 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // PUT /api/admin/settings — Update system settings (saved to Google Sheets & MongoDB)
-router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/settings', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers } = req.body;
     const {
@@ -1651,7 +1531,7 @@ router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error('Admin update settings error:', err);
-    res.status(500).json({ error: 'Failed to update settings: ' + err.message });
+    res.status(500).json({ error: 'Failed to update settings.' });
   }
 });
 
@@ -1676,7 +1556,7 @@ router.get('/reports/monthly', authenticateToken, requireAdmin, async (req, res)
     } catch (err) {
       // A failed generation must not blank the page — surface it as a notice.
       console.error('[admin/reports/monthly] auto-generation failed:', err.message);
-      autoRun = { generated: false, error: err.message };
+      autoRun = { generated: false, error: 'Automatic report generation is temporarily unavailable.' };
     }
 
     const currentKey = monthlyReports.monthKey();
@@ -1724,7 +1604,7 @@ router.get('/reports/monthly/:month/pdf', authenticateToken, requireAdmin, async
 });
 
 // POST /api/admin/reports/monthly/:month/resend — mail it to both admins again
-router.post('/reports/monthly/:month/resend', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/reports/monthly/:month/resend', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { month } = req.params;
     if (!monthlyReports.isValidMonthKey(month)) {
@@ -1743,7 +1623,7 @@ router.post('/reports/monthly/:month/resend', authenticateToken, requireAdmin, a
     });
   } catch (err) {
     console.error('Admin monthly report resend error:', err);
-    res.status(500).json({ error: err.message || 'Failed to re-send the report.' });
+    res.status(500).json({ error: 'Failed to re-send the report.' });
   }
 });
 
@@ -1791,7 +1671,7 @@ async function handleMonthlyRun(req, res) {
     res.json({ message, ...result });
   } catch (err) {
     console.error('Admin monthly report run error:', err);
-    res.status(500).json({ error: err.message || 'Failed to generate the report.' });
+    res.status(500).json({ error: 'Failed to generate the report.' });
   }
 }
 
@@ -1890,13 +1770,32 @@ async function handleDriveKeepAlive(req, res) {
     });
   } catch (err) {
     console.error('Drive keepalive error:', err);
-    res.status(500).json({ error: err.message || 'Keepalive failed.' });
+    res.status(500).json({ error: 'Keepalive failed.' });
   }
 }
 // ════════════════════════════════════════════════════════════════════════
+// RATE LIMITING STATUS
+// ════════════════════════════════════════════════════════════════════════
+// GET /api/admin/rate-limits — which limiters are live and whether the shared
+// Redis counters are actually connected.
+//
+// This exists so an operator can answer "are we distributed right now?" without
+// reading logs or guessing. It reports configuration only: limiter names,
+// their budgets and each one's behaviour when Redis is unavailable. It NEVER
+// returns the Redis URL, the token, a counter value or any caller identifier.
+router.get('/rate-limits', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const rateLimitService = require('../services/rateLimitService');
+    res.json(rateLimitService.describe());
+  } catch (err) {
+    console.error('Rate-limit status error:', err.message);
+    res.status(500).json({ error: 'Failed to load rate-limit status.' });
+  }
+});
+
+// ════════════════════════════════════════════════════════════════════════
 // MAINTENANCE MODE
 // ════════════════════════════════════════════════════════════════════════
-
 // GET /api/admin/maintenance — Get current maintenance mode status
 router.get('/maintenance', authenticateToken, requireAdmin, async (req, res) => {
   try {
@@ -1909,7 +1808,7 @@ router.get('/maintenance', authenticateToken, requireAdmin, async (req, res) => 
 });
 
 // PUT /api/admin/maintenance — Toggle maintenance mode ON/OFF
-router.put('/maintenance', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/maintenance', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { enabled, message } = req.body;
 
@@ -1931,7 +1830,7 @@ router.put('/maintenance', authenticateToken, requireAdmin, async (req, res) => 
     });
   } catch (err) {
     console.error('Admin update maintenance status error:', err);
-    res.status(500).json({ error: 'Failed to update maintenance mode: ' + err.message });
+    res.status(500).json({ error: 'Failed to update maintenance mode.' });
   }
 });
 
@@ -1949,7 +1848,7 @@ router.get('/maintenance/whitelist', authenticateToken, requireAdmin, async (req
 // PUT /api/admin/maintenance/whitelist — Replace the whitelist.
 // Body: { emails: [ 'user@example.com', ... ] } — the full replacement list;
 // sending [] clears it. Emails are normalised server-side.
-router.put('/maintenance/whitelist', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/maintenance/whitelist', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { emails } = req.body || {};
     if (!Array.isArray(emails)) {
@@ -1977,7 +1876,7 @@ router.put('/maintenance/whitelist', authenticateToken, requireAdmin, async (req
     });
   } catch (err) {
     console.error('Admin update maintenance whitelist error:', err);
-    res.status(500).json({ error: 'Failed to update the maintenance whitelist: ' + err.message });
+    res.status(500).json({ error: 'Failed to update the maintenance whitelist.' });
   }
 });
 

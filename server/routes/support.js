@@ -3,6 +3,7 @@
 // ============================================
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { optionalAuth, authenticateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
@@ -10,8 +11,19 @@ const emailService = require('../services/emailService');
 const googleDrive = require('../services/googleDrive');
 const { sniffImage, looksComplete } = require('../utils/imageSniff');
 const { verifyTurnstile } = require('../utils/turnstile');
+const { safeRateLimitHandler } = require('../utils/rateLimit');
 
 const router = express.Router();
+
+// Support tickets send email and write a persistent record. Keep a separate
+// per-IP budget in addition to the broad API limit and Turnstile verification.
+const supportTicketLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  standardHeaders: false,
+  legacyHeaders: false,
+  handler: safeRateLimitHandler('Too many support requests. Please try again later.'),
+});
 
 // Screenshots live in a private Google Drive folder and are served back only
 // through the authenticated proxy (routes/driveProxy.js). Nothing about them is
@@ -216,7 +228,7 @@ router.post('/attachment', optionalAuth, async (req, res) => {
 });
 
 // POST /api/support/ticket — Submit a support ticket
-router.post('/ticket', optionalAuth, async (req, res) => {
+router.post('/ticket', supportTicketLimiter, optionalAuth, async (req, res) => {
   try {
     const {
       name, email, subject, message,
@@ -227,12 +239,10 @@ router.post('/ticket', optionalAuth, async (req, res) => {
       return res.status(400).json({ error: 'All fields are required: name, email, subject, message.' });
     }
 
-    // Same shared CAPTCHA verifier as the login page: fails open when the
-    // Turnstile infrastructure is the thing that's broken, closed on a real
-    // rejection from Cloudflare.
+    // Support submissions proceed only when Turnstile verification succeeds.
     const captcha = await verifyTurnstile(req, 'support-ticket');
     if (!captcha.ok) {
-      return res.status(400).json({ error: captcha.error });
+      return res.status(captcha.unavailable ? 503 : 400).json({ error: captcha.error });
     }
 
     // Accept only a reference this server issued. A screenshot lives in the

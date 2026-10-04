@@ -3378,7 +3378,7 @@ async function initSellPage() {
   // sell" screen straight away — without calling the eligibility endpoint,
   // whose 401 SESSION_EXPIRED answer would bounce them to the login page
   // instead of showing this page's locked screen (api() redirects on that).
-  if (!localStorage.getItem('sh_token')) {
+  if (localStorage.getItem('sh_authenticated') !== '1') {
     lockSellPage();
     return;
   }

@@ -261,11 +261,18 @@ function scoreKnowledge(entries, query) {
 async function findOrCreateConversation(conversationId, user) {
   if (conversationId) {
     const existing = await db.findRow(db.SHEETS.CHATBOT_CONVERSATIONS, 'id', conversationId).catch(() => null);
-    if (existing) return existing;
+    if (existing) {
+      const sameOwner = user
+        ? String(existing.user_id || '') === String(user.id || '') &&
+          String(existing.user_email || '').toLowerCase() === String(user.email || '').toLowerCase()
+        : Boolean(existing.is_guest) && String(existing.user_id || '') === 'guest' &&
+          /^c_[0-9a-f-]{36}$/i.test(String(existing.id || ''));
+      if (sameOwner) return existing;
+    }
   }
   const now = new Date().toISOString();
   const conv = {
-    id: 'c_' + uuidv4().slice(0, 10),
+    id: 'c_' + uuidv4(),
     user_id: user ? user.id : 'guest',
     user_email: user ? user.email : '',
     user_name: user ? (user.name || '') : '',
@@ -448,32 +455,40 @@ async function getStats(range = {}) {
   };
 }
 
-// ── Rate limiting (in-memory sliding window) ─────────────────────────────
-const rateBuckets = new Map();
+// ── Rate limiting ─────────────────────────────────────────────────────────
+// The guest/user/IP budgets are admin-configurable (chatbotSettings) and are
+// enforced through the shared Upstash Redis counters in services/
+// rateLimitService, so every Vercel instance spends from ONE budget.
+//
+// This used to be a process-local Map, which meant the real allowance was
+// (configured limit x warm instances) and every cold start handed the caller a
+// fresh budget — on the endpoint that calls a paid AI provider.
+//
+// Failure policy: an anonymous guest is refused if Redis is unreachable
+// ('closed'), because there is no verified identity to fall back on; an
+// authenticated user degrades to a per-instance window ('local') so a Redis
+// outage does not take the assistant away from signed-in customers.
+const rateLimitService = require('./rateLimitService');
 
-function checkRateLimit(bucketType, bucketKey, limit) {
-  const key = `${bucketType}:${bucketKey}`;
-  const nowTs = Date.now();
-  const windowMs = 15 * 60 * 1000;
-  let bucket = rateBuckets.get(key);
-  if (!bucket) {
-    bucket = [];
-    rateBuckets.set(key, bucket);
-  }
-  bucket = bucket.filter((ts) => nowTs - ts < windowMs);
-  if (bucket.length >= limit) {
-    rateBuckets.set(key, bucket);
-    return { allowed: false, retryAfterSec: Math.ceil(windowMs / 1000) };
-  }
-  bucket.push(nowTs);
-  rateBuckets.set(key, bucket);
-  // Opportunistic cleanup to bound memory
-  if (rateBuckets.size > 5000) {
-    for (const [k, v] of rateBuckets) {
-      if (!v.some((ts) => nowTs - ts < windowMs)) rateBuckets.delete(k);
-    }
-  }
-  return { allowed: true };
+/**
+ * Consume one chat token for `bucketType:bucketKey`.
+ * @returns {Promise<{allowed:boolean, retryAfterSec:number}>}
+ */
+async function checkRateLimitDistributed(bucketType, bucketKey, limit) {
+  const identifier = `${bucketType}:${bucketKey}`;
+  const result = await rateLimitService.consumeDynamic(`chat:${bucketType}`, identifier, {
+    limit,
+    window: '15 m',
+    // Guests have no verified identity, so a degraded counter would be trivial
+    // to reset; authenticated callers keep working on the local fallback.
+    fail: bucketType === 'guest' ? 'closed' : 'local',
+  });
+  if (result.allowed) return { allowed: true, retryAfterSec: 0, degraded: Boolean(result.degraded) };
+  return {
+    allowed: false,
+    retryAfterSec: result.retryAfter || Math.ceil((15 * 60)),
+    unavailable: Boolean(result.unavailable),
+  };
 }
 
 // ── Prompt-injection heuristics ───────────────────────────────────────────
@@ -692,16 +707,23 @@ async function handleMessage({ message, conversationId, user, ip }) {
     return respondError('blocked', 'invalid_input', `Message too long. Please keep it under ${settings.maxMessageLength} characters.`);
   }
 
-  // 4. Rate limiting (guest/user tiers + IP protection)
+  // 4. Rate limiting (guest/user tiers + IP protection) — shared Redis counters
   const bucketKey = user ? `u:${user.id}` : `g:${ip || 'unknown'}`;
   const userLimit = user ? settings.userRateLimit : settings.guestRateLimit;
-  if (!checkRateLimit(user ? 'user' : 'guest', bucketKey, userLimit).allowed) {
+  const userCheck = await checkRateLimitDistributed(user ? 'user' : 'guest', bucketKey, userLimit);
+  if (!userCheck.allowed) {
+    if (userCheck.unavailable) {
+      return respondError('rate_limited', 'rate_limit', 'The assistant is temporarily unavailable. Please try again in a moment.');
+    }
     return respondError('rate_limited', 'rate_limit', 'You are sending messages too quickly. Please wait a few minutes and try again.');
   }
-    if (ip && !checkRateLimit('ip', `ip:${ip}`, settings.ipRateLimit).allowed) {
-    const resp = { ok: false, rateLimited: true, reply: 'Too many requests from your network. Please try again later.', requestId };
-    await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conversationId || '', model: settings.model, responseTimeMs: Date.now() - started, status: 'rate_limited', errorType: 'rate_limit' });
-    return resp;
+  if (ip) {
+    const ipCheck = await checkRateLimitDistributed('ip', `ip:${ip}`, settings.ipRateLimit);
+    if (!ipCheck.allowed) {
+      const resp = { ok: false, rateLimited: true, reply: 'Too many requests from your network. Please try again later.', requestId };
+      await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conversationId || '', model: settings.model, responseTimeMs: Date.now() - started, status: 'rate_limited', errorType: 'rate_limit' });
+      return resp;
+    }
   }
 
   // 5. Prompt-injection scan

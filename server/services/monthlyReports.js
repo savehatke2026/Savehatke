@@ -20,21 +20,17 @@ const db = require('./googleSheets');
 const supabase = require('./supabase');
 const emailService = require('./emailService');
 const { buildMonthlyReportPdf } = require('../utils/monthlyPdf');
+const { ADMIN_ACCOUNTS } = require('../config/security');
 
 const STATUS = { SENT: 'sent', PENDING: 'pending', NOT_SENT: 'not_sent', FAILED: 'failed' };
 
 // ── Configured admin recipients ───────────────────────────────────────────
-// Two addresses, from REPORT_ADMIN_EMAILS (comma separated) when set. The
-// fallback is the same pair of admin accounts the login route recognises, so a
-// deployment that has not set the variable still delivers to the real admins.
-const FALLBACK_ADMIN_EMAILS = ['rupayandas2024@gmail.com', 'jaggik8888@gmail.com'];
-
+// Financial reports and admin payout recipients use the same server-owned
+// allowlist as authentication. A separate environment override could direct
+// admin distributions to a third, non-admin address.
 function configuredAdminEmails() {
-  const raw = String(process.env.REPORT_ADMIN_EMAILS || '').trim();
-  const list = (raw ? raw.split(',') : FALLBACK_ADMIN_EMAILS)
-    .map((e) => String(e || '').trim().toLowerCase())
-    .filter((e) => e.includes('@'));
-  return [...new Set(list)].slice(0, 2);
+  return ADMIN_ACCOUNTS.filter((account) => account.active)
+    .map((account) => String(account.email || '').trim().toLowerCase());
 }
 
 /** rupayandas2024@gmail.com → rup***as2024@gmail.com (never the full address). */

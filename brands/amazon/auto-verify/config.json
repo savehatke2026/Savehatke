@@ -1,0 +1,13 @@
+{
+  "brandSlug": "amazon",
+  "cartUrl": "https://www.amazon.com/cart",
+  "selectors": {
+    "couponInput": "#coupon-code-input",
+    "applyButton": "#apply-coupon-btn",
+    "successMessage": ".coupon-success-message",
+    "errorMessage": ".coupon-error-message"
+  },
+  "timeout": 10000,
+  "waitForNav": false,
+  "notes": "Update selectors to match the real site DOM before running live tests."
+}

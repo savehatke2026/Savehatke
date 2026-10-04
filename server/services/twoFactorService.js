@@ -15,6 +15,7 @@
 // any plaintext recovery code.
 
 const crypto = require('crypto');
+const { getJwtSecret } = require('../config/security');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { v4: uuidv4 } = require('uuid');
@@ -65,11 +66,11 @@ function getEncryptionKey() {
   const explicit = String(process.env.TWOFA_ENCRYPTION_KEY || '').trim();
   if (explicit) return crypto.createHash('sha256').update(explicit).digest();
 
-  const jwtSecret = String(process.env.JWT_SECRET || '').trim();
-  if (jwtSecret) {
-    return crypto.createHmac('sha256', jwtSecret).update('savehatke-2fa-secret-key-v1').digest();
+  try {
+    return crypto.createHmac('sha256', getJwtSecret()).update('savehatke-2fa-secret-key-v1').digest();
+  } catch (e) {
+    return null;
   }
-  return null;
 }
 
 function isConfigured() {
@@ -107,8 +108,7 @@ function decryptSecret(payload) {
 // fail that verification by construction.
 
 function purposeSecret() {
-  const base = process.env.JWT_SECRET || 'savehatke_dev_secret_key';
-  return crypto.createHmac('sha256', String(base)).update('savehatke-2fa-v1').digest('hex');
+  return crypto.createHmac('sha256', getJwtSecret()).update('savehatke-2fa-v1').digest('hex');
 }
 
 // Binding the token to the caller's IP and User-Agent means a leaked token is

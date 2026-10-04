@@ -12,12 +12,16 @@ const jwt = require('jsonwebtoken');
 const rateLimit = require('express-rate-limit');
 
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { adminMutationLimiter, adminBulkLimiter, adminEmailLimiter, adminOAuthLimiter } = require('../utils/adminRateLimit');
+const { safeRateLimitHandler } = require('../utils/rateLimit');
+const { getPublicOrigin } = require('../config/security');
 const tokenStore = require('../services/gmailTokenStore');
 const { buildRawMessage, parseAddressList, htmlToText } = require('../services/gmailMime');
 const gmailService = require('../services/gmailService');
 const paymentMailbox = require('../services/paymentMailbox');
 const paymentStore = require('../services/paymentMailboxStore');
 const googleDrive = require('../services/googleDrive');
+const { getJwtSecret } = require('../config/security');
 
 const router = express.Router();
 
@@ -29,21 +33,29 @@ const gmailApiLimiter = rateLimit({
   max: 500,
   standardHeaders: true,
   legacyHeaders: false,
-  message: { error: 'Too many Gmail requests. Please slow down.' },
+  handler: safeRateLimitHandler('Too many Gmail requests. Please slow down.'),
 });
 const gmailAuthLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { error: 'Too many OAuth attempts. Please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: safeRateLimitHandler('Too many OAuth attempts. Please try again later.'),
 });
+
+// Constant-time comparison for the push token. The token is a bearer-style
+// secret in the Pub/Sub subscription URL, so `!==` leaks its length and gives
+// an oracle that a plain string compare does not need to.
+function safeTokenEquals(a, b) {
+  const left = Buffer.from(String(a || ''));
+  const right = Buffer.from(String(b || ''));
+  if (left.length === 0 || left.length !== right.length) return false;
+  return crypto.timingSafeEqual(left, right);
+}
 
 router.use(gmailApiLimiter);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-function getJwtSecret() {
-  return process.env.JWT_SECRET || 'savehatke_dev_secret_key';
-}
-
 function clientIp(req) {
   return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || '';
 }
@@ -52,9 +64,7 @@ function clientIp(req) {
 // URI matches whichever domain serves the app (localhost, savehatke.vercel.app,
 // custom domain) without extra configuration.
 function requestBase(req) {
-  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http').split(',')[0].trim();
-  const host = req.get('host');
-  return host ? `${proto}://${host}` : APP_BASE_URL;
+  return getPublicOrigin(req) || APP_BASE_URL;
 }
 
 // Best-effort audit trail — kept in memory (no database). Survives until the
@@ -90,7 +100,7 @@ function handleGmailError(res, err, context = 'Gmail request failed') {
     return res.status(401).json({ error: 'Gmail connection expired. Please disconnect and reconnect Gmail.', expired: true });
   }
   if (status === 403) {
-    return res.status(403).json({ error: `Gmail permission denied: ${msg.slice(0, 200)}` });
+    return res.status(403).json({ error: 'Gmail permission denied. Please check the mailbox authorization.' });
   }
   if (status === 404) {
     return res.status(404).json({ error: 'Message not found.' });
@@ -98,7 +108,7 @@ function handleGmailError(res, err, context = 'Gmail request failed') {
   if (status === 429) {
     return res.status(429).json({ error: 'Gmail API rate limit reached. Please try again in a moment.' });
   }
-  console.error(`${context}:`, msg);
+  console.error(`${context} failed (HTTP ${status}).`);
   return res.status(502).json({ error: `${context}. Please try again.` });
 }
 
@@ -183,25 +193,19 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error('Gmail status error:', err.message);
-    res.status(500).json({ error: 'Failed to load Gmail status.', detail: err.message });
+    res.status(500).json({ error: 'Failed to load Gmail status.' });
   }
 });
 
 // ── OAuth flow ───────────────────────────────────────────────────────────────
-// POST /api/admin/gmail/auth/url — returns a short-lived signed start URL.
-// Browser redirects cannot send Authorization headers, so the admin session is
-// exchanged for a 5-minute single-purpose token carried in the query string.
-router.post('/auth/url', gmailAuthLimiter, authenticateToken, requireAdmin, async (req, res) => {
+// POST /api/admin/gmail/auth/url — return the same-origin, cookie-authenticated
+// OAuth start path. No admin credential is placed in a URL.
+router.post('/auth/url', gmailAuthLimiter, authenticateToken, requireAdmin, adminOAuthLimiter, async (req, res) => {
   try {
     if (!gmailService.isOAuthConfigured()) {
       return res.status(503).json({ error: 'Gmail OAuth is not configured on the server.' });
     }
-    const ot = jwt.sign(
-      { adminId: req.user.id, email: req.user.email, purpose: 'gmail-oauth-start' },
-      getJwtSecret(),
-      { expiresIn: '5m' }
-    );
-    res.json({ url: `/api/admin/gmail/auth?ot=${encodeURIComponent(ot)}` });
+    res.json({ url: '/api/admin/gmail/auth' });
   } catch (err) {
     console.error('Gmail auth url error:', err.message);
     res.status(500).json({ error: 'Failed to prepare Gmail connection.' });
@@ -209,26 +213,14 @@ router.post('/auth/url', gmailAuthLimiter, authenticateToken, requireAdmin, asyn
 });
 
 // GET /api/admin/gmail/auth — redirect admin to Google consent screen
-router.get('/auth', gmailAuthLimiter, async (req, res) => {
+router.get('/auth', gmailAuthLimiter, authenticateToken, requireAdmin, adminOAuthLimiter, async (req, res) => {
   try {
-    // Accept either a Bearer admin token or the signed one-time start token
-    let admin = req.user;
-    if (!admin && req.query.ot) {
-      try {
-        const decoded = jwt.verify(String(req.query.ot), getJwtSecret());
-        if (decoded.purpose === 'gmail-oauth-start' && decoded.adminId) {
-          admin = { id: decoded.adminId, email: decoded.email };
-        }
-      } catch (e) { /* invalid/expired start token */ }
-    }
-    if (!admin) return res.status(401).json({ error: 'Admin authentication required.' });
-
     if (!gmailService.isOAuthConfigured()) {
       return res.status(503).send('Gmail OAuth is not configured on the server.');
     }
     // Signed, short-lived state — prevents CSRF on the OAuth callback
     const state = jwt.sign(
-      { adminId: admin.id, email: admin.email, nonce: crypto.randomBytes(8).toString('hex') },
+      { adminId: req.user.id, email: req.user.email, nonce: crypto.randomBytes(16).toString('hex') },
       getJwtSecret(),
       { expiresIn: '10m' }
     );
@@ -241,7 +233,7 @@ router.get('/auth', gmailAuthLimiter, async (req, res) => {
 });
 
 // GET /api/admin/gmail/callback — Google redirects back here
-router.get('/callback', gmailAuthLimiter, async (req, res) => {
+router.get('/callback', gmailAuthLimiter, authenticateToken, requireAdmin, adminOAuthLimiter, async (req, res) => {
   const reqBase = requestBase(req);
   const done = (ok, message = '', extra = '') => {
     const qs = ok
@@ -262,7 +254,10 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
     } catch (e) {
       return done(false, 'OAuth state validation failed. Please try again.');
     }
-    if (!decoded.adminId) return done(false, 'Invalid OAuth state.');
+    if (!decoded.adminId || String(decoded.adminId) !== String(req.user.id) ||
+        String(decoded.email || '').toLowerCase() !== String(req.user.email || '').toLowerCase()) {
+      return done(false, 'OAuth state does not match the current administrator session.');
+    }
 
     // ── Payment mailbox flow ────────────────────────────────────────────────
     // The dedicated payment mailbox reuses THIS registered redirect URI. It is
@@ -426,7 +421,7 @@ router.get('/callback', gmailAuthLimiter, async (req, res) => {
 });
 
 // POST /api/admin/gmail/disconnect
-router.post('/disconnect', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/disconnect', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const conn = tokenStore.getConnection();
     const result = await gmailService.disconnect();
@@ -563,7 +558,7 @@ Object.keys(LABEL_OPS).forEach((op) => {
 });
 
 // POST /api/admin/gmail/messages/:id/move — move between labels/folders
-router.post('/messages/:id/move', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/messages/:id/move', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -586,7 +581,7 @@ router.post('/messages/:id/move', authenticateToken, requireAdmin, async (req, r
 
 // ── Bulk actions ─────────────────────────────────────────────────────────────
 // POST /api/admin/gmail/messages/bulk — { ids: [], action: read|unread|star|unstar|archive|trash|restore }
-router.post('/messages/bulk', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/messages/bulk', authenticateToken, requireAdmin, adminMutationLimiter, adminBulkLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -611,7 +606,7 @@ router.post('/messages/bulk', authenticateToken, requireAdmin, async (req, res) 
 });
 
 // DELETE /api/admin/gmail/messages/:id — permanent delete
-router.delete('/messages/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/messages/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -657,7 +652,7 @@ function validateComposeBody(body) {
 }
 
 // POST /api/admin/gmail/send
-router.post('/send', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/send', authenticateToken, requireAdmin, adminMutationLimiter, adminEmailLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -683,7 +678,7 @@ router.post('/send', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/gmail/messages/:id/reply — { to, cc, bcc, bodyText/bodyHtml, replyAll }
-router.post('/messages/:id/reply', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/messages/:id/reply', authenticateToken, requireAdmin, adminMutationLimiter, adminEmailLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -726,7 +721,7 @@ router.post('/messages/:id/reply', authenticateToken, requireAdmin, async (req, 
 });
 
 // POST /api/admin/gmail/messages/:id/forward — { to, cc, bcc, comment }
-router.post('/messages/:id/forward', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/messages/:id/forward', authenticateToken, requireAdmin, adminMutationLimiter, adminEmailLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -772,7 +767,7 @@ router.post('/messages/:id/forward', authenticateToken, requireAdmin, async (req
 
 // ── Drafts ───────────────────────────────────────────────────────────────────
 // POST /api/admin/gmail/drafts — create draft
-router.post('/drafts', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/drafts', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -794,7 +789,7 @@ router.post('/drafts', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // PUT /api/admin/gmail/drafts/:id — update draft
-router.put('/drafts/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/drafts/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -821,7 +816,7 @@ router.put('/drafts/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/gmail/drafts/:id/send — send an existing draft
-router.post('/drafts/:id/send', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/drafts/:id/send', authenticateToken, requireAdmin, adminMutationLimiter, adminEmailLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -836,7 +831,7 @@ router.post('/drafts/:id/send', authenticateToken, requireAdmin, async (req, res
 });
 
 // DELETE /api/admin/gmail/drafts/:id — discard draft
-router.delete('/drafts/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/drafts/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -918,7 +913,7 @@ router.get('/changes', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // POST /api/admin/gmail/watch — (re)start Pub/Sub push watch (best-effort)
-router.post('/watch', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/watch', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const auth = await requireGmail(req, res);
     if (!auth) return;
@@ -953,6 +948,16 @@ router.post('/watch', authenticateToken, requireAdmin, async (req, res) => {
 
 // POST /api/admin/gmail/push — Google Pub/Sub push endpoint (no admin session).
 // Secured by a per-connection signed push token embedded in the subscription URL.
+//
+// This is the ONE route under /api/admin that deliberately does not carry
+// authenticateToken + requireAdmin: Pub/Sub cannot present a SaveHatke session,
+// so the subscription URL's 128-bit push token is the credential. It is
+// therefore treated as a bearer secret:
+//   • compared in constant time (safeTokenEquals), never with `!==`;
+//   • the caller can only ever move this connection's history_id forward to a
+//     well-formed value, and only for the account the token belongs to;
+//   • every rejection is a 200 with an empty body, so the endpoint cannot be
+//     used to probe whether a connection or account exists.
 router.post('/push', async (req, res) => {
   try {
     const msg = req.body?.message;
@@ -967,16 +972,21 @@ router.post('/push', async (req, res) => {
 
     const email = String(payload.emailAddress || '').toLowerCase();
     const pushToken = String(msg.attributes?.pushToken || req.query.token || '');
-    if (!email || !pushToken) return res.status(400).json({ error: 'Incomplete notification.' });
 
     const conn = tokenStore.getConnection();
-    if (!conn || conn.gmail_email !== email || !conn.watch_push_token || conn.watch_push_token !== pushToken) {
-      // Never reveal whether the account exists
+    if (!email || !pushToken || !conn || String(conn.gmail_email || '').toLowerCase() !== email ||
+        !safeTokenEquals(conn.watch_push_token, pushToken)) {
+      // Never reveal whether the account exists.
       return res.status(200).json({ ok: true });
     }
 
-    // Refresh historyId so the admin panel picks up the change on next poll
-    tokenStore.updateMeta({ history_id: String(payload.historyId || conn.history_id || '') });
+    // historyId is a uint64 counter supplied by the caller. Only a plain
+    // digit string is accepted; anything else leaves the stored value alone,
+    // so a malformed notification cannot desynchronise the change tracker.
+    const historyId = String(payload.historyId || '');
+    if (/^\d{1,20}$/.test(historyId)) {
+      tokenStore.updateMeta({ history_id: historyId });
+    }
     res.status(200).json({ ok: true });
   } catch (err) {
     console.warn('Gmail push notice:', err.message);
@@ -1042,47 +1052,31 @@ router.get('/payment-status', authenticateToken, requireAdmin, async (req, res) 
   }
 });
 
-// POST /api/admin/gmail/payment-connect — returns a short-lived signed start URL.
-// Browser redirects cannot carry an Authorization header, so the admin session
-// is exchanged for a 5-minute single-purpose token carried in the query string.
-router.post('/payment-connect', gmailAuthLimiter, authenticateToken, requireAdmin, async (req, res) => {
+// POST /api/admin/gmail/payment-connect — returns the same-origin OAuth start
+// path. The browser follows it with the existing HttpOnly admin session.
+router.post('/payment-connect', gmailAuthLimiter, authenticateToken, requireAdmin, adminOAuthLimiter, async (req, res) => {
   try {
     if (!paymentMailbox.isOAuthConfigured()) {
       return res.status(503).json({ error: 'Google OAuth is not configured on the server.' });
     }
-    const ot = jwt.sign(
-      { adminId: req.user.id, email: req.user.email, purpose: 'payment-gmail-oauth-start' },
-      getJwtSecret(),
-      { expiresIn: '5m' }
-    );
-    res.json({ url: `/api/admin/gmail/payment-connect?ot=${encodeURIComponent(ot)}` });
+    res.json({ url: '/api/admin/gmail/payment-connect' });
   } catch (err) {
     console.error('Payment Gmail connect prepare error:', err.message);
     res.status(500).json({ error: 'Failed to prepare the Payment Gmail connection.' });
   }
 });
 
-// GET /api/admin/gmail/payment-connect?ot=… — redirect the admin to Google's
-// consent screen with a signed, short-lived, CSRF-proof state (flow:'payment').
+// GET /api/admin/gmail/payment-connect — redirect the verified admin to
+// Google's consent screen with signed, short-lived state (flow:'payment').
 // The shared /api/admin/gmail/callback exchanges the code, encrypts the refresh
 // token, upserts security_credentials, and returns to the admin panel.
-router.get('/payment-connect', gmailAuthLimiter, async (req, res) => {
+router.get('/payment-connect', gmailAuthLimiter, authenticateToken, requireAdmin, adminOAuthLimiter, async (req, res) => {
   try {
-    let admin = req.user;
-    if (!admin && req.query.ot) {
-      try {
-        const decoded = jwt.verify(String(req.query.ot), getJwtSecret());
-        if (decoded.purpose === 'payment-gmail-oauth-start' && decoded.adminId) {
-          admin = { id: decoded.adminId, email: decoded.email };
-        }
-      } catch (e) { /* invalid/expired start token */ }
-    }
-    if (!admin) return res.status(401).json({ error: 'Admin authentication required.' });
     if (!paymentMailbox.isOAuthConfigured()) {
       return res.status(503).send('Google OAuth is not configured on the server.');
     }
     const state = jwt.sign(
-      { adminId: admin.id, email: admin.email, flow: 'payment', nonce: crypto.randomBytes(8).toString('hex') },
+      { adminId: req.user.id, email: req.user.email, flow: 'payment', nonce: crypto.randomBytes(16).toString('hex') },
       getJwtSecret(),
       { expiresIn: '10m' }
     );
@@ -1099,40 +1093,25 @@ router.get('/payment-connect', gmailAuthLimiter, async (req, res) => {
 // with a flow:'drive' state. The shared /callback stores the encrypted token in
 // Supabase (service = google_drive). No new OAuth client is created here — it
 // reuses the existing Google Drive OAuth client + this registered redirect URI.
-router.post('/drive-connect', gmailAuthLimiter, authenticateToken, requireAdmin, async (req, res) => {
+router.post('/drive-connect', gmailAuthLimiter, authenticateToken, requireAdmin, adminOAuthLimiter, async (req, res) => {
   try {
     if (!googleDrive.isOAuthConfigured()) {
       return res.status(503).json({ error: 'Google Drive OAuth is not configured on the server.' });
     }
-    const ot = jwt.sign(
-      { adminId: req.user.id, email: req.user.email, purpose: 'drive-oauth-start' },
-      getJwtSecret(),
-      { expiresIn: '5m' }
-    );
-    res.json({ url: `/api/admin/gmail/drive-connect?ot=${encodeURIComponent(ot)}` });
+    res.json({ url: '/api/admin/gmail/drive-connect' });
   } catch (err) {
     console.error('Google Drive connect prepare error:', err.message);
     res.status(500).json({ error: 'Failed to prepare the Google Drive connection.' });
   }
 });
 
-router.get('/drive-connect', gmailAuthLimiter, async (req, res) => {
+router.get('/drive-connect', gmailAuthLimiter, authenticateToken, requireAdmin, adminOAuthLimiter, async (req, res) => {
   try {
-    let admin = req.user;
-    if (!admin && req.query.ot) {
-      try {
-        const decoded = jwt.verify(String(req.query.ot), getJwtSecret());
-        if (decoded.purpose === 'drive-oauth-start' && decoded.adminId) {
-          admin = { id: decoded.adminId, email: decoded.email };
-        }
-      } catch (e) { /* invalid/expired start token */ }
-    }
-    if (!admin) return res.status(401).json({ error: 'Admin authentication required.' });
     if (!googleDrive.isOAuthConfigured()) {
       return res.status(503).send('Google Drive OAuth is not configured on the server.');
     }
     const state = jwt.sign(
-      { adminId: admin.id, email: admin.email, flow: 'drive', nonce: crypto.randomBytes(8).toString('hex') },
+      { adminId: req.user.id, email: req.user.email, flow: 'drive', nonce: crypto.randomBytes(16).toString('hex') },
       getJwtSecret(),
       { expiresIn: '10m' }
     );

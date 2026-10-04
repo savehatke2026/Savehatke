@@ -80,7 +80,17 @@ function getMailConfig() {
 
 /** True only when an email's From is the FamApp payment-notification address. */
 function isFamAppSender(from) {
-  return String(from || '').toLowerCase().includes(FAMAPP_SENDER);
+  const value = String(from || '').trim().toLowerCase();
+  const address = value.match(/<\s*([^<>\s]+@[^<>\s]+)\s*>/)?.[1] || value;
+  return address === FAMAPP_SENDER;
+}
+
+function hasTrustedFamAppAuthentication(authenticationResults) {
+  const value = String(authenticationResults || '').toLowerCase();
+  // Gmail's receiving-side authentication result must establish DMARC for
+  // the exact From domain. A display name or matching From string alone is not
+  // payment evidence.
+  return /(?:^|;\s*)dmarc=pass\b[^;]*\bheader\.from=famapp\.in\b/.test(value);
 }
 
 function getWebhookSecret() {
@@ -200,7 +210,7 @@ function fingerprintOf(parts) {
  * candidate. Everything here is a CLAIM — the matching step below is what
  * decides whether any of it is trustworthy.
  */
-function buildCandidateFromEmail({ messageId, from = '', subject = '', body = '', date = '', internalDate = '' }) {
+function buildCandidateFromEmail({ messageId, from = '', authenticationResults = '', subject = '', body = '', date = '', internalDate = '' }) {
   const text = `${subject}\n${body}`;
   const vpas = extractVpas(text);
   const payee = upi.getPayee();
@@ -233,6 +243,7 @@ function buildCandidateFromEmail({ messageId, from = '', subject = '', body = ''
     payerVpa,
     payeeVpa,
     from,
+    authenticationResults,
     subject,
     occurredAt: receivedAt || new Date().toISOString(),
     receivedAt,
@@ -689,6 +700,9 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
   if (!isFamAppSender(candidate.from)) {
     return { action: 'ignored', reason: `Sender is not FamApp (${candidate.from || 'unknown'}).` };
   }
+  if (!hasTrustedFamAppAuthentication(candidate.authenticationResults)) {
+    return { action: 'ignored', reason: 'The receiving mailbox did not confirm aligned FamApp sender authentication.' };
+  }
 
   // Record first — the message-id fingerprint makes a re-read email idempotent.
   let recorded;
@@ -934,6 +948,7 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
     const candidate = buildCandidateFromEmail({
       messageId: msg.id,
       from: msg.from,
+      authenticationResults: msg.authenticationResults,
       subject: msg.subject,
       body: msg.snippet,
       date: msg.date,
@@ -975,6 +990,7 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
         full = buildCandidateFromEmail({
           messageId: msg.id,
           from: msg.from,
+          authenticationResults: detail.authenticationResults || msg.authenticationResults,
           subject: msg.subject,
           body: body + '\n' + (msg.snippet || ''),
           date: msg.date,

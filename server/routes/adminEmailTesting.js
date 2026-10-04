@@ -21,6 +21,7 @@
 
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { adminMutationLimiter, adminEmailLimiter } = require('../utils/adminRateLimit');
 const supabase = require('../services/supabase');
 const emailService = require('../services/emailService');
 const templates = require('../services/emailTestingTemplates');
@@ -100,7 +101,7 @@ router.get('/config', async (req, res) => {
 });
 
 // ── POST /config — save the test email address ───────────────────────────
-router.post('/config', async (req, res) => {
+router.post('/config', adminMutationLimiter, async (req, res) => {
   if (!requireStore(res)) return;
   try {
     const testEmail = String((req.body && req.body.testEmail) || '').trim().toLowerCase();
@@ -151,7 +152,7 @@ router.post('/preview', async (req, res) => {
 });
 
 // ── POST /send — send a test email to the saved address ──────────────────
-router.post('/send', async (req, res) => {
+router.post('/send', adminMutationLimiter, adminEmailLimiter, async (req, res) => {
   if (!requireStore(res)) return;
   try {
     const id = String((req.body && req.body.template) || '');

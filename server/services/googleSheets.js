@@ -157,6 +157,8 @@ const HEADERS = {
     'orderId',
     'transactionId',
     'transactionType',
+    'reservationId',
+    'settlementReservationId',
   ],
   // One row per seller: where that seller's money goes. Payout destinations are
   // account-level on purpose — a coupon row must never carry payment
@@ -542,22 +544,14 @@ let spreadsheetId = null;
 let lastSheetsError = null;
 let serviceAccountEmail = null;
 
-function reportDebug(hypothesisId, location, msg, data = {}, runId = process.env.DEBUG_RUN_ID || 'pre-fix') {
-  try {
-    let debugUrl = 'http://127.0.0.1:7777/event';
-    let sessionId = 'coupon-gsheet-sync';
-    try {
-      const env = fs.readFileSync('.dbg/coupon-gsheet-sync.env', 'utf8');
-      debugUrl = env.match(/DEBUG_SERVER_URL=(.+)/)?.[1] || debugUrl;
-      sessionId = env.match(/DEBUG_SESSION_ID=(.+)/)?.[1] || sessionId;
-    } catch {}
-    fetch(debugUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionId, runId, hypothesisId, location, msg: `[DEBUG] ${msg}`, data, ts: Date.now() }),
-    }).catch(() => {});
-  } catch {}
-}
+// A leftover debug beacon used to live here: it POSTed JSON to
+// http://127.0.0.1:7777/event on every cold start, with the destination
+// overridable by reading `.dbg/coupon-gsheet-sync.env` from disk, and included
+// the spreadsheet-ID suffix and a service-account email hint. It was removed
+// because it is an unmonitored outbound channel inside the one module that
+// holds the Google service-account private key, and because nothing consumes
+// its output any more. All diagnostics below go through console.* instead,
+// which lands in the platform's protected server logs.
 
 /**
  * Initialize the Google Sheets client using Service Account credentials.
@@ -571,28 +565,11 @@ async function initialize() {
   serviceAccountEmail = email || null;
   lastSheetsError = null;
 
-  // #region debug-point A:init-sheets
-  reportDebug('A', 'server/services/googleSheets.js:62', 'Initializing Google Sheets client', {
-    hasSpreadsheetId: Boolean(spreadsheetId),
-    spreadsheetIdSuffix: spreadsheetId ? spreadsheetId.slice(-8) : '',
-    hasEmail: Boolean(email),
-    emailHint: email ? email.slice(0, 6) : '',
-    hasPrivateKey: Boolean(privateKey),
-  });
-  // #endregion
-
   if (!spreadsheetId || !email || !privateKey || spreadsheetId === 'your_spreadsheet_id_here') {
     lastSheetsError = {
       type: 'missing-config',
       message: 'Google Sheets credentials are not fully configured.',
     };
-    // #region debug-point A:missing-sheets-config
-    reportDebug('A', 'server/services/googleSheets.js:73', 'Google Sheets config missing, using fallback database', {
-      hasSpreadsheetId: Boolean(spreadsheetId),
-      hasEmail: Boolean(email),
-      hasPrivateKey: Boolean(privateKey),
-    });
-    // #endregion
     console.warn('⚠️  Google Sheets credentials not configured. Using in-memory fallback database.');
     console.warn('   To connect Google Sheets, fill in your .env file. See .env.example for details.');
     return false;
@@ -614,11 +591,6 @@ async function initialize() {
     // spreadsheets.get straight afterwards — one wasted round-trip (~1.4s) on
     // every cold start.
     const metaRes = await sheetsClient.spreadsheets.get({ spreadsheetId });
-    // #region debug-point A:sheets-connected
-    reportDebug('A', 'server/services/googleSheets.js:91', 'Connected to Google Sheets database', {
-      spreadsheetIdSuffix: spreadsheetId.slice(-8),
-    });
-    // #endregion
     console.log('✅ Connected to Google Sheets database.');
 
     // Ensure all sheet tabs exist with headers
@@ -632,11 +604,7 @@ async function initialize() {
       code: err.code || err.status || '',
     };
     // #region debug-point A:sheets-connect-failed
-    reportDebug('A', 'server/services/googleSheets.js:100', 'Failed to connect to Google Sheets database', {
-      error: err.message,
-      code: err.code || '',
-      status: err.status || '',
-    });
+    // (beacon removed — diagnostics go to the protected server log below)
     // #endregion
     console.error('❌ Failed to connect to Google Sheets:', err.message);
     console.warn('   Falling back to in-memory database.');
@@ -854,10 +822,19 @@ function readRangeFor(sheetName) {
   return sheetName === SHEETS.COUPONS ? 'A:BZ' : 'A:Z';
 }
 
-async function getRows(sheetName) {
+async function getRows(sheetName, options = {}) {
+  // Strict reads are used by financial callers: the spreadsheet is the source
+  // of truth, so an unreachable spreadsheet must surface as an error instead of
+  // silently degrading to this process's in-memory mirror. Without it a Sheets
+  // outage looks like an empty (or stale) ledger and the caller proceeds.
+  const strict = options.strict === true;
   const now = Date.now();
-  if (rowsCache[sheetName] && (now - rowsCache[sheetName].timestamp < CACHE_TTL_MS)) {
+  if (!strict && rowsCache[sheetName] && (now - rowsCache[sheetName].timestamp < CACHE_TTL_MS)) {
     return [...rowsCache[sheetName].data];
+  }
+
+  if (!sheetsClient) {
+    if (strict) throw new Error(`Google Sheets is unavailable for a strict read of ${sheetName}`);
   }
 
   if (sheetsClient) {
@@ -925,17 +902,25 @@ async function getRows(sheetName) {
       // alone made a row whose identity is `payment_id` (Payments) or
       // `fingerprint` (PaymentNotifications) appear TWICE — once from the sheet
       // and once from memoryDB — which downstream code read as two live records.
-      const memRows = memoryDB[sheetName] || [];
-      const combined = [...gsheetRows];
-      memRows.forEach((m) => {
-        if (!combined.some((g) => sameRow(sheetName, g, m))) {
-          combined.push(m);
-        }
-      });
+      // Strict reads skip the memoryDB merge, exactly like strict writes skip
+      // the memoryDB write. A financial caller must never see a row that only
+      // exists in one instance's RAM: an unacknowledged write would otherwise
+      // read back as a real payment/order and could be settled twice.
+      const combined = strict ? [...gsheetRows] : (() => {
+        const memRows = memoryDB[sheetName] || [];
+        const out = [...gsheetRows];
+        memRows.forEach((m) => {
+          if (!out.some((g) => sameRow(sheetName, g, m))) {
+            out.push(m);
+          }
+        });
+        return out;
+      })();
 
       rowsCache[sheetName] = { data: combined, timestamp: Date.now() };
       return combined;
     } catch (err) {
+      if (strict) throw new Error(`Google Sheets read failed for ${sheetName}`);
       console.warn(`getRows warning for ${sheetName}:`, err.message);
     }
   }
@@ -1000,9 +985,11 @@ function dataByNormKey(data) {
  * @param {string} sheetName
  * @param {object} data — object with keys matching column headers (case-insensitive)
  */
-async function appendRow(sheetName, data) {
+async function appendRow(sheetName, data, options = {}) {
   const headers = HEADERS[sheetName];
   if (!headers) throw new Error(`Unknown sheet: ${sheetName}`);
+  const strict = options.strict === true;
+  if (strict && !sheetsClient) throw new Error('Google Sheets is unavailable for a financial write');
 
   // Normalize on write so every newly-appended row has a canonical
   // email value. Without this, a row written by an older code path
@@ -1014,17 +1001,15 @@ async function appendRow(sheetName, data) {
     data = { ...data, email: data.email.toLowerCase().trim() };
   }
 
-  // Always store in memory fallback first to guarantee availability.
-  // Upsert on the sheet's natural key, not just id/code — otherwise a second
-  // append of the same record (a retry, or a row already written to the sheet)
-  // leaves two memoryDB copies that get merged back in as duplicates.
-  memoryDB[sheetName] = memoryDB[sheetName] || [];
-  const existingIdx = memoryDB[sheetName].findIndex((r) => sameRow(sheetName, r, data));
-  if (existingIdx >= 0) {
-    memoryDB[sheetName][existingIdx] = data;
-  } else {
-    memoryDB[sheetName].push(data);
-  }
+  // Upsert on the sheet's natural key, not just id/code. Strict financial
+  // writes update the in-process mirror only after Sheets acknowledges them.
+  const remember = () => {
+    memoryDB[sheetName] = memoryDB[sheetName] || [];
+    const existingIdx = memoryDB[sheetName].findIndex((r) => sameRow(sheetName, r, data));
+    if (existingIdx >= 0) memoryDB[sheetName][existingIdx] = data;
+    else memoryDB[sheetName].push(data);
+  };
+  if (!strict) remember();
 
   if (sheetsClient) {
     try {
@@ -1058,9 +1043,12 @@ async function appendRow(sheetName, data) {
       });
     } catch (err) {
       console.warn(`Google Sheets append warning for ${sheetName}:`, err.message);
+      if (strict) throw new Error('Google Sheets financial write failed');
       data.gsheetError = err.message;
     }
   }
+
+  if (strict) remember();
 
   invalidateCache(sheetName);
   return data;
@@ -1113,9 +1101,9 @@ async function findRows(sheetName, field, value) {
  * two OTP requests a second apart would otherwise both read the same
  * cached rows and both pass a limit that only one should.
  */
-async function getRowsFresh(sheetName) {
+async function getRowsFresh(sheetName, options = {}) {
   invalidateCache(sheetName);
-  return getRows(sheetName);
+  return getRows(sheetName, options);
 }
 
 /**
@@ -1129,16 +1117,18 @@ async function findRowsFresh(sheetName, field, value) {
 /**
  * Update a row by finding it via a field match and replacing values.
  */
-async function updateRow(sheetName, field, value, updatedData) {
+async function updateRow(sheetName, field, value, updatedData, options = {}) {
+  const strict = options.strict === true;
   // Always update memoryDB to guarantee local consistency
   const arr = memoryDB[sheetName] || [];
   const nv = normalizeLookupValue(sheetName, field, value);
   const idx = arr.findIndex((r) => normalizeRowValue(sheetName, field, r[field]) === nv);
-  if (idx !== -1) {
+  if (!strict && idx !== -1) {
     arr[idx] = { ...arr[idx], ...updatedData };
   }
 
   if (!sheetsClient) {
+    if (strict) throw new Error('Google Sheets is unavailable for a financial write');
     invalidateCache(sheetName);
     return idx !== -1 ? arr[idx] : null;
   }
@@ -1151,6 +1141,7 @@ async function updateRow(sheetName, field, value, updatedData) {
 
     const rows = res.data.values;
     if (!rows || rows.length <= 1) {
+      if (strict) throw new Error('Financial row was not found');
       invalidateCache(sheetName);
       return idx !== -1 ? arr[idx] : null;
     }
@@ -1159,6 +1150,7 @@ async function updateRow(sheetName, field, value, updatedData) {
     let fieldIdx = headers.indexOf(field);
     if (fieldIdx === -1) fieldIdx = headers.findIndex((h) => normKey(h) === normKey(field));
     if (fieldIdx === -1) {
+      if (strict) throw new Error('Financial row key was not found');
       invalidateCache(sheetName);
       return idx !== -1 ? arr[idx] : null;
     }
@@ -1173,6 +1165,7 @@ async function updateRow(sheetName, field, value, updatedData) {
     }
 
     if (rowIndex === -1) {
+      if (strict) throw new Error('Financial row was not found');
       invalidateCache(sheetName);
       return idx !== -1 ? arr[idx] : null;
     }
@@ -1199,11 +1192,14 @@ async function updateRow(sheetName, field, value, updatedData) {
       requestBody: { values: [newRow] },
     });
 
+    if (strict && idx !== -1) arr[idx] = { ...arr[idx], ...updatedData };
+
     invalidateCache(sheetName);
     return merged;
   } catch (err) {
     console.warn(`Google Sheets update warning for ${sheetName}:`, err.message);
     invalidateCache(sheetName);
+    if (strict) throw new Error('Google Sheets financial write failed');
     return idx !== -1 ? arr[idx] : null;
   }
 }

@@ -1,0 +1,25 @@
+/* ============================================
+   Flipkart — Brand-Specific Overrides
+   ============================================ */
+
+/*
+ * Override any CSS custom property from global.css here.
+ * Example:
+ *   :root { --brand-accent: #ff6f00; }
+ */
+
+:root {
+  --brand-accent: #3b82f6;
+  --brand-accent-dark: #2563eb;
+}
+
+/* Brand logo area */
+.brand-hero__logo img {
+  max-height: 72px;
+  object-fit: contain;
+}
+
+/* Override coupon card accent stripe for this brand */
+.coupon-card::before {
+  background: var(--brand-accent);
+}

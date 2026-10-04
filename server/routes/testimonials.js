@@ -11,6 +11,7 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { adminMutationLimiter } = require('../utils/adminRateLimit');
 const db = require('../services/googleSheets');
 
 const router = express.Router();
@@ -204,7 +205,7 @@ router.get('/all', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // ─── POST /api/testimonials — admin: add one ──────────────────────────────
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const valid = validate(req.body && typeof req.body === 'object' ? req.body : {});
     if (!valid.ok) return res.status(400).json({ error: valid.error });
@@ -231,7 +232,7 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // ─── PUT /api/testimonials/:id — admin: edit one ──────────────────────────
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
     const existing = await db.findRow(db.SHEETS.TESTIMONIALS, 'id', id);
@@ -267,7 +268,7 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // ─── DELETE /api/testimonials/:id — admin: remove one ─────────────────────
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
     const existing = await db.findRow(db.SHEETS.TESTIMONIALS, 'id', id);
@@ -284,7 +285,7 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 // ─── POST /api/testimonials/:id/move — admin: reorder ─────────────────────
 // Swaps the card with its neighbour and rewrites both slots, so the saved order
 // stays a clean 1..n even if the sheet was edited by hand.
-router.post('/:id/move', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/:id/move', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const id = String(req.params.id || '').trim();
     const direction = String((req.body || {}).direction || '').toLowerCase();

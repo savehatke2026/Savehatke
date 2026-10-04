@@ -47,21 +47,14 @@ function isLoopbackOrPrivate(ip) {
  */
 async function verifyTurnstile(req, label = 'request') {
   const secret = (process.env.TURNSTILE_SECRET_KEY || '').trim();
-  if (!secret) return { ok: true, skipped: 'not-configured' };
+  if (!secret) {
+    console.error(`[turnstile] ${label}: refused because verification is not configured.`);
+    return { ok: false, unavailable: true, reason: 'not-configured', error: 'Security check is temporarily unavailable. Please try again later.' };
+  }
 
   const token = String((req.body && req.body.cfTurnstileToken) || '').trim();
 
   if (!token) {
-    // The widget never produced a token. Refusing here would lock out
-    // anyone whose browser cannot load Cloudflare, so allow it when the
-    // deployment opts in (TURNSTILE_REQUIRED=false) or the caller is on
-    // the local network — a bot farm is not coming from 127.0.0.1.
-    const optional = String(process.env.TURNSTILE_REQUIRED || '').toLowerCase() === 'false';
-    const local = isLoopbackOrPrivate(getClientIP(req));
-    if (optional || local) {
-      console.warn(`[turnstile] ${label}: no CAPTCHA token — allowing (${optional ? 'TURNSTILE_REQUIRED=false' : 'local/private client'}).`);
-      return { ok: true, skipped: optional ? 'optional' : 'local-client' };
-    }
     return { ok: false, reason: 'missing-token', error: 'Security check required. Please complete the CAPTCHA.' };
   }
 
@@ -78,10 +71,8 @@ async function verifyTurnstile(req, label = 'request') {
     });
     data = await res.json();
   } catch (err) {
-    // Cloudflare unreachable or too slow. This is our outage, not the
-    // visitor's fault — let them through rather than blocking every login.
-    console.warn(`[turnstile] ${label}: siteverify unreachable (${err.name === 'AbortError' ? 'timeout' : err.message}) — allowing.`);
-    return { ok: true, skipped: 'siteverify-unreachable' };
+    console.warn(`[turnstile] ${label}: verification provider unavailable (${err.name === 'AbortError' ? 'timeout' : err.name || 'network-error'}).`);
+    return { ok: false, unavailable: true, reason: 'siteverify-unreachable', error: 'Security check is temporarily unavailable. Please try again later.' };
   } finally {
     clearTimeout(timer);
   }
@@ -89,12 +80,11 @@ async function verifyTurnstile(req, label = 'request') {
   if (data && data.success) return { ok: true };
 
   const codes = (data && data['error-codes']) || [];
-  // A configuration mistake on our side (bad/missing secret, hostname not
-  // registered for this widget) must not present as "you failed the CAPTCHA".
+  // Distinguish operator configuration failures from an invalid visitor token.
   const configErrors = ['invalid-input-secret', 'missing-input-secret', 'bad-request'];
   if (codes.some((c) => configErrors.includes(c))) {
-    console.error(`[turnstile] ${label}: MISCONFIGURED (${codes.join(', ')}) — allowing so logins keep working. Fix TURNSTILE_SECRET_KEY / widget hostnames.`);
-    return { ok: true, skipped: 'misconfigured' };
+    console.error(`[turnstile] ${label}: verification configuration error (${codes.join(', ')}).`);
+    return { ok: false, unavailable: true, reason: 'misconfigured', error: 'Security check is temporarily unavailable. Please try again later.' };
   }
 
   console.warn(`[turnstile] ${label}: verification failed (${codes.join(', ') || 'no error code'}).`);

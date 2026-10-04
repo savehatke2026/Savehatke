@@ -1,7 +1,7 @@
 // ============================================
 // SaveHatke — Admin Support Mailbox
 // Frontend for /api/admin/gmail endpoints (backed by Gmail OAuth).
-// Requires admin JWT (Auth.getAdminToken()).
+// Requires the authenticated administrator's HttpOnly SaveHatke session cookie.
 // ============================================
 
 const GmailApp = (() => {
@@ -222,7 +222,7 @@ const GmailApp = (() => {
   async function connect() {
     try {
       $('gmConnectBtn').disabled = true;
-      // Get a short-lived signed start URL (browser redirects can't send Bearer headers)
+      // Start the connection on the same origin with the verified admin cookie.
       const data = await api('/auth/url', { method: 'POST' });
       if (data.url) window.location.href = data.url;
       else toast('Could not start Google sign-in.', 'error');
@@ -586,7 +586,7 @@ const GmailApp = (() => {
     try {
       toast('Downloading…', 'info');
       const res = await fetch(`${API_BASE}/admin/gmail/attachments/${encodeURIComponent(messageId)}/${encodeURIComponent(attachmentId)}`, {
-        headers: { Authorization: `Bearer ${Auth.getAdminToken()}` },
+        credentials: 'same-origin',
       });
       if (!res.ok) {
         let msg = 'Download failed';

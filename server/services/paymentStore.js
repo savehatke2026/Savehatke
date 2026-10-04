@@ -218,6 +218,12 @@ function withLock(fn) {
 
 // ── Availability ───────────────────────────────────────────────────────────
 
+// Passed to the spreadsheet layer wherever money is at stake. A strict read
+// asks the live sheet and throws on failure; a strict write is acknowledged by
+// Sheets before this process believes it happened. Both refuse to fall back to
+// the in-memory mirror, which is per-instance and disappears on restart.
+const STRICT = { strict: true };
+
 let _availability = null; // { ok, checkedAt, reason }
 
 /**
@@ -265,6 +271,28 @@ function isConfigured() {
   return Boolean(process.env.GOOGLE_SHEETS_SPREADSHEET_ID);
 }
 
+/**
+ * Fail-closed availability gate for a write that is about to become
+ * irreversible (see finalizePayment).
+ *
+ * Deliberately NOT the cached ensureReady() probe: that one is allowed to fall
+ * back to a previous verdict for a minute so a hot read path stays cheap, and
+ * it must therefore never gate a settlement. This one always asks the live
+ * spreadsheet and throws on any failure, so the caller refuses the settlement
+ * instead of recording it in process memory only.
+ *
+ * Throws an Error with a caller-safe message; nothing internal is exposed.
+ */
+async function ensureReadyOrThrow() {
+  if (!db.isSheetsConnected()) {
+    try { await db.initialize(); } catch (e) { /* handled by the strict read */ }
+  }
+  // Strict + fresh: bypasses the read cache and refuses the in-memory fallback.
+  await db.getRowsFresh(PAYMENTS, STRICT);
+  // The Orders tab is the second half of every settlement write.
+  await db.getRowsFresh(ORDERS, STRICT);
+}
+
 // ── Identifiers ────────────────────────────────────────────────────────────
 
 // Ambiguous glyphs (0/O, 1/I/L) removed so an order code can be read aloud
@@ -290,8 +318,13 @@ function newPaymentId() {
 
 // ── Reads ──────────────────────────────────────────────────────────────────
 
-const rowsFresh = (sheet) => db.getRowsFresh(sheet);
+const rowsFresh = (sheet, options) => db.getRowsFresh(sheet, options);
 const rowsCached = (sheet) => db.getRows(sheet);
+
+// Financial reads used for settlement decisions. Strict + fresh: they ask the
+// live spreadsheet, bypass the read cache, and refuse the in-memory fallback,
+// so a Sheets outage is an error rather than a plausible-looking empty ledger.
+const rowsStrict = (sheet) => db.getRowsFresh(sheet, STRICT);
 
 async function findOrderById(orderId) {
   const rows = await rowsCached(ORDERS);
@@ -469,7 +502,7 @@ async function createOrder({
   // derived from `now` so the id's embedded date matches the row's created_at.
   //   order_code      SH-PUR-YYYYMMDD-XXXXXX  (the human Order ID)
   //   transaction_id  TXN-YYYYMMDD-XXXXXXXX   (separate financial-txn id)
-  const existing = await rowsFresh(ORDERS);
+  const existing = await rowsStrict(ORDERS);
   const takenCodes = new Set(existing.map((r) => String(r.order_code)));
   const takenTxns = new Set(existing.map((r) => String(r.transaction_id)).filter(Boolean));
 
@@ -498,7 +531,10 @@ async function createOrder({
     transaction_type: 'PURCHASE',
   };
 
-  await db.appendRow(ORDERS, row);
+  // Strict: an order that only exists in this instance's memory is not an
+  // order. The buyer would be shown a UPI QR for something the ledger has
+  // never heard of, and their payment could never be matched.
+  await db.appendRow(ORDERS, row, STRICT);
   return fromOrder(row);
 }
 
@@ -535,7 +571,7 @@ async function createPayment({
   };
 
   return withLock(async () => {
-    const existing = await rowsFresh(PAYMENTS);
+    const existing = await rowsStrict(PAYMENTS);
     const liveForOrder = existing.find((r) => r.status === 'PENDING' && String(r.order_id) === String(orderId));
     if (liveForOrder) throw conflict('order');
 
@@ -568,10 +604,10 @@ async function createPayment({
       verification_notes: '',
     };
 
-    await db.appendRow(PAYMENTS, row);
+    await db.appendRow(PAYMENTS, row, STRICT);
 
     // Confirm the row landed and that we did not end up with two live rows.
-    const after = await rowsFresh(PAYMENTS);
+    const after = await rowsStrict(PAYMENTS);
     const mine = after.filter((r) => String(r.payment_id) === String(id));
     if (!mine.length) {
       const e = new Error('The payment row could not be confirmed after it was written.');
@@ -594,7 +630,7 @@ async function createPayment({
             status: 'CANCELLED',
             updated_at: new Date().toISOString(),
             verification_notes: 'Retired automatically: a duplicate live payment window was detected.',
-          });
+          }, STRICT);
         } catch (e) { /* best effort */ }
       }
       if (String(keep.payment_id) !== String(id)) throw conflict('order');
@@ -615,14 +651,17 @@ async function createPayment({
  */
 async function transitionPayment(paymentId, fromStatus, toStatus, extra = {}) {
   return withLock(async () => {
-    const before = await rowsFresh(PAYMENTS);
+    const before = await rowsStrict(PAYMENTS);
     const current = before.find((r) => String(r.payment_id) === String(paymentId));
     if (!current || current.status !== fromStatus) return null;
 
     const patch = { status: toStatus, updated_at: new Date().toISOString(), ...extra };
-    await db.updateRow(PAYMENTS, 'payment_id', paymentId, patch);
+    // Strict: Sheets must acknowledge the status change. A non-strict write
+    // returns "success" from an in-memory mirror during an outage, and the
+    // read-back below would then confirm a change that never reached the ledger.
+    await db.updateRow(PAYMENTS, 'payment_id', paymentId, patch, STRICT);
 
-    const after = await rowsFresh(PAYMENTS);
+    const after = await rowsStrict(PAYMENTS);
     const written = after.find((r) => String(r.payment_id) === String(paymentId));
     if (!written || written.status !== toStatus) return null; // lost the race
     return fromPayment(written);
@@ -631,14 +670,14 @@ async function transitionPayment(paymentId, fromStatus, toStatus, extra = {}) {
 
 async function transitionOrder(orderId, fromStatus, toStatus, extra = {}) {
   return withLock(async () => {
-    const before = await rowsFresh(ORDERS);
+    const before = await rowsStrict(ORDERS);
     const current = before.find((r) => String(r.id) === String(orderId));
     if (!current || current.status !== fromStatus) return null;
 
     const patch = { status: toStatus, updated_at: new Date().toISOString(), ...extra };
-    await db.updateRow(ORDERS, 'id', orderId, patch);
+    await db.updateRow(ORDERS, 'id', orderId, patch, STRICT);
 
-    const after = await rowsFresh(ORDERS);
+    const after = await rowsStrict(ORDERS);
     const written = after.find((r) => String(r.id) === String(orderId));
     if (!written || written.status !== toStatus) return null;
     return fromOrder(written);
@@ -694,60 +733,39 @@ async function cancelPayment(paymentId, { reason = 'Cancelled by buyer' } = {}) 
  *
  * Returns { unlocked, code, status, buyerEmail }.
  */
-async function unlockCoupon({ couponId, userEmail, paidAt }) {
+async function unlockCoupon({ couponId, userEmail, paidAt, paymentId }) {
   const client = supabase.isConfigured() ? supabase.getClient() : null;
+  // A read-then-write in Google Sheets cannot reserve a coupon safely across
+  // Vercel instances. Never settle or reveal a coupon unless Postgres can
+  // perform the conditional UPDATE atomically.
+  if (!client) throw new Error('Atomic coupon storage is required to settle payments.');
 
-  if (client) {
-    const { data, error } = await client
-      .from('coupons')
-      .update({ status: 'sold', sold_at: paidAt, buyer_email: userEmail })
-      .eq('id', String(couponId))
-      .eq('status', 'available')
-      .select('id, code, status, buyer_email');
+  const { data, error } = await client
+    .from('coupons')
+    .update({ status: 'sold', sold_at: paidAt, buyer_email: userEmail, sold_payment_id: paymentId })
+    .eq('id', String(couponId))
+    .eq('status', 'available')
+    .select('id, code, status, buyer_email, sold_payment_id');
 
-    if (error) throw new Error(error.message);
+  if (error) throw new Error('Atomic coupon update failed.');
+  const row = (data || [])[0];
+  if (row) return { unlocked: true, code: row.code || '', status: 'sold', buyerEmail: userEmail, soldPaymentId: row.sold_payment_id || '' };
 
-    const row = (data || [])[0];
-    if (row) return { unlocked: true, code: row.code || '', status: 'sold', buyerEmail: userEmail };
-
-    // 0 rows affected: it was not available. Read it back to find out why —
-    // already sold to this same buyer is a successful, idempotent unlock;
-    // anything else needs a human.
-    const { data: cur, error: readErr } = await client
-      .from('coupons')
-      .select('id, code, status, buyer_email')
-      .eq('id', String(couponId))
-      .maybeSingle();
-    if (readErr) throw new Error(readErr.message);
-    return {
-      unlocked: false,
-      code: (cur && cur.code) || '',
-      status: (cur && cur.status) || '',
-      buyerEmail: (cur && cur.buyer_email) || '',
-    };
-  }
-
-  // Fallback for a coupon that only exists in the spreadsheet. Best effort by
-  // necessity: the sheet has no conditional write, so this is a read-then-write
-  // with a re-read to confirm. See the header.
-  const fresh = await db.findRowsFresh(db.SHEETS.COUPONS, 'id', String(couponId));
-  const coupon = (fresh || [])[0];
-  if (!coupon) return { unlocked: false, code: '', status: '', buyerEmail: '' };
-  if (String(coupon.status || '').toLowerCase() !== 'available') {
-    return { unlocked: false, code: coupon.code || '', status: coupon.status || '', buyerEmail: coupon.buyer_email || '' };
-  }
-
-  await db.updateRow(db.SHEETS.COUPONS, 'id', String(couponId), {
-    status: 'sold',
-    soldAt: paidAt,
-    buyerEmail: userEmail,
-  });
-  const check = (await db.findRowsFresh(db.SHEETS.COUPONS, 'id', String(couponId)))[0] || {};
+  // 0 rows affected: it was not available. Read it back to find out why —
+  // already sold to this same buyer is idempotent only for this same order,
+  // guarded by finalizePayment's duplicate-paid check.
+  const { data: cur, error: readErr } = await client
+    .from('coupons')
+    .select('id, code, status, buyer_email, sold_payment_id')
+    .eq('id', String(couponId))
+    .maybeSingle();
+  if (readErr) throw new Error('Could not confirm coupon state.');
   return {
-    unlocked: String(check.status || '').toLowerCase() === 'sold',
-    code: check.code || coupon.code || '',
-    status: check.status || '',
-    buyerEmail: check.buyer_email || '',
+    unlocked: false,
+    code: (cur && cur.code) || '',
+    status: (cur && cur.status) || '',
+    buyerEmail: (cur && cur.buyer_email) || '',
+    soldPaymentId: (cur && cur.sold_payment_id) || '',
   };
 }
 
@@ -778,7 +796,20 @@ async function finalizePayment({
   receivedAmount = null,
 }) {
   return withLock(async () => {
-    const rows = await rowsFresh(PAYMENTS);
+    // ─ Fail-closed pre-flight ──────────────────────────────────────────────
+    // Settlement makes ONE durable write that cannot be rolled back: the
+    // Postgres coupon flip in unlockCoupon() below marks the coupon sold. The
+    // ledger that records PAID lives in the spreadsheet, so if the spreadsheet
+    // is unreachable we must refuse BEFORE touching the coupon. Without this
+    // check a Sheets outage would flip the coupon to 'sold', write PAID only
+    // into this process's memory, release the code to the buyer and email a
+    // receipt — for a payment row that no longer exists after a restart.
+    //
+    // The strict read throws when the spreadsheet cannot be read, and callers
+    // (services/paymentVerifier.js) turn that into a structured refusal.
+    await ensureReadyOrThrow();
+
+    const rows = await rowsFresh(PAYMENTS, STRICT);
     const found = rows.find((r) => String(r.payment_id) === String(paymentId));
     if (!found) return { ok: false, code: 'PAYMENT_NOT_FOUND' };
 
@@ -798,6 +829,25 @@ async function finalizePayment({
     // Only a live attempt can be settled. EXPIRED / CANCELLED / REVIEW are final.
     if (payment.status !== 'PENDING') {
       return { ok: false, code: 'PAYMENT_NOT_PENDING', payment_status: payment.status };
+    }
+
+    // A second successful payment for the same buyer/coupon must not be
+    // treated as an idempotent coupon reveal. Park it for explicit refund or
+    // support handling, with no code returned for the duplicate order.
+    const sameBuyerPaid = rows.find((r) =>
+      String(r.payment_id) !== String(paymentId) &&
+      r.status === 'PAID' &&
+      String(r.coupon_id) === String(payment.couponId) &&
+      ((payment.userId && String(r.user_id) === String(payment.userId)) ||
+        (payment.userEmail && String(r.user_email).toLowerCase() === String(payment.userEmail).toLowerCase())));
+    if (sameBuyerPaid) {
+      await transitionPayment(paymentId, 'PENDING', 'REVIEW', {
+        verification_source: source,
+        verification_notes: (notes ? notes + ' ' : '') + 'Duplicate paid order for this buyer and coupon; held for refund review.',
+        updated_at: settledAt,
+      });
+      await transitionOrder(payment.orderId, 'PENDING', 'REVIEW', { updated_at: settledAt });
+      return { ok: false, code: 'DUPLICATE_PURCHASE', payment_status: 'REVIEW' };
     }
 
     // Replay guard: is this txn / UTR already attached to a different settled
@@ -831,11 +881,12 @@ async function finalizePayment({
       couponId: payment.couponId,
       userEmail: payment.userEmail,
       paidAt: settledAt,
+      paymentId: payment.paymentId,
     });
 
     if (!unlock.unlocked) {
       const sameBuyer = String(unlock.buyerEmail || '').toLowerCase() === String(payment.userEmail || '').toLowerCase();
-      if (String(unlock.status).toLowerCase() === 'sold' && sameBuyer) {
+      if (String(unlock.status).toLowerCase() === 'sold' && sameBuyer && String(unlock.soldPaymentId) === String(payment.paymentId)) {
         // Already sold to this same buyer — a successful, idempotent unlock.
         await markPaid({ payment, txn, reference, source, notes, settledAt, receivedAmount });
         return {
@@ -925,13 +976,13 @@ async function finalizeUnderpayment({
         `Underpayment: required ${money2(payment.amount)}, received ${money2(receivedAmount)}. Coupon NOT unlocked; refund record created for full received amount.`,
       updated_at: occurredAt,
     };
-    await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, patch);
+    await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, patch, STRICT);
     // Order mirrors the payment so the listing stays available (coupon still
     // locked) while admin processes the refund.
     await db.updateRow(ORDERS, 'id', payment.orderId, {
       status: 'REVIEW',
       updated_at: occurredAt,
-    });
+    }, STRICT);
 
     return { ok: true, code: 'UNDERPAYMENT_RECORDED', payment_status: 'REVIEW' };
   });
@@ -956,25 +1007,36 @@ async function markPaid({ payment, txn, reference, source, notes, settledAt, rec
   if (receivedAmount !== undefined && receivedAmount !== null) {
     patch.received_amount = money2(receivedAmount);
   }
-  await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, patch);
+  // Strict writes: the ledger must acknowledge PAID before this returns. If
+  // either write fails the caller sees the throw, flags the notification for
+  // review and never reports a settlement — which is the correct outcome, since
+  // the coupon flip that has already happened is visible to an admin, whereas a
+  // PAID row that exists only in this process's memory is not.
+  await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, patch, STRICT);
   await db.updateRow(ORDERS, 'id', payment.orderId, {
     status: 'PAID',
     paid_at: settledAt,
     updated_at: new Date().toISOString(),
-  });
+  }, STRICT);
 }
 
 async function readCoupon(couponId) {
   const client = supabase.isConfigured() ? supabase.getClient() : null;
   if (client) {
     try {
-      const { data } = await client.from('coupons').select('id, code, status, buyer_email').eq('id', String(couponId)).maybeSingle();
-      if (data) return { id: data.id, code: data.code || '', status: data.status || '', buyerEmail: data.buyer_email || '' };
+      const { data } = await client.from('coupons').select('id, code, status, buyer_email, sold_payment_id').eq('id', String(couponId)).maybeSingle();
+      if (data) return {
+        id: data.id, code: data.code || '', status: data.status || '',
+        buyerEmail: data.buyer_email || '', soldPaymentId: data.sold_payment_id || '',
+      };
     } catch (e) { /* fall through to the sheet */ }
   }
   const fresh = await db.findRowsFresh(db.SHEETS.COUPONS, 'id', String(couponId));
   const c = (fresh || [])[0];
-  return c ? { id: c.id, code: c.code || '', status: c.status || '', buyerEmail: c.buyer_email || '' } : null;
+  return c ? {
+    id: c.id, code: c.code || '', status: c.status || '',
+    buyerEmail: c.buyer_email || '', soldPaymentId: c.sold_payment_id || '',
+  } : null;
 }
 
 /** Park a payment for a human. Used when a value didn't match exactly. */

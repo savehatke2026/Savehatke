@@ -50,6 +50,7 @@ const store = require('../services/paymentStore');
 const upi = require('../services/upi');
 const verifier = require('../services/paymentVerifier');
 const dynamicPricing = require('../services/dynamicPricing');
+const { safeRateLimitHandler } = require('../utils/rateLimit');
 
 const router = express.Router();
 
@@ -62,6 +63,7 @@ function fail(res, status, code, error, extra = {}) {
 }
 
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
+const STORAGE_UNAVAILABLE_MESSAGE = 'Payment storage is temporarily unavailable. Please try again later.';
 
 // The instant a payment stops being matchable by the backend checker: the
 // 6-hour check_expires_at when present, else the legacy 10-minute expires_at.
@@ -97,10 +99,19 @@ function cronAuthorized(req) {
 // transient failures) but still bounded per IP.
 const createLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  max: 40,
-  standardHeaders: true,
+  max: 20,
+  standardHeaders: false,
   legacyHeaders: false,
-  message: { error: 'Too many payment attempts. Please wait a moment.', code: 'RATE_LIMITED' },
+  handler: safeRateLimitHandler('Too many payment attempts. Please wait before trying again.'),
+});
+
+const createAccountLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 5,
+  standardHeaders: false,
+  legacyHeaders: false,
+  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
+  handler: safeRateLimitHandler('Too many payment attempts for this account. Please wait before trying again.'),
 });
 
 // /verify reaches out to the payment mailbox. A mailbox read is expensive and
@@ -109,10 +120,30 @@ const createLimiter = rateLimit({
 const verifyLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 6,
-  standardHeaders: true,
+  standardHeaders: false,
   legacyHeaders: false,
-  message: { error: 'Please wait a moment before checking again.', code: 'RATE_LIMITED' },
+  handler: safeRateLimitHandler('Please wait before checking this payment again.'),
 });
+
+const verifyAccountLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 6,
+  standardHeaders: false,
+  legacyHeaders: false,
+  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
+  handler: safeRateLimitHandler('Please wait before checking this payment again.'),
+});
+
+const streamAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: false,
+  legacyHeaders: false,
+  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
+  handler: safeRateLimitHandler('Too many payment status streams. Please wait before reconnecting.'),
+});
+const activePaymentStreams = new Map();
+const MAX_STREAMS_PER_ACCOUNT = 3;
 
 // ── Load a coupon (Supabase first, then the Sheets mirror) ─────────────────
 async function loadCoupon(couponId) {
@@ -228,14 +259,13 @@ async function presentPayment(payment, { coupon = null, order = null } = {}) {
     }
   }
 
-  const code = await safeCouponCode(payment.couponId, payment.status, coupon);
-
   // The order carries the human Order ID (order_code = SH-PUR-YYYYMMDD-XXXXXX)
   // and the canonical Transaction ID (TXN-YYYYMMDD-XXXXXXXX). Reads are cached,
   // so resolving it here for /status and /stream is cheap. Callers that already
   // have the order can pass it to skip the lookup.
   const ord = order
     || (payment.orderId ? await store.findOrderById(payment.orderId).catch(() => null) : null);
+  const code = await safeCouponCode(payment, ord);
 
   return {
     payment_id: payment.paymentId,
@@ -286,12 +316,21 @@ async function presentPayment(payment, { coupon = null, order = null } = {}) {
 }
 
 /** The coupon code is only ever returned once the payment is PAID. */
-async function safeCouponCode(couponId, paymentStatus, coupon = null) {
-  if (paymentStatus !== 'PAID') return '';
-  if (coupon && coupon.code) return coupon.code;
+async function safeCouponCode(payment, order) {
+  if (!payment || String(payment.status || '').toUpperCase() !== 'PAID' || !payment.paymentId || !payment.orderId ||
+      !order || String(order.status || '').toUpperCase() !== 'PAID' ||
+      String(order.id) !== String(payment.orderId) || String(order.couponId) !== String(payment.couponId) ||
+      String(payment.couponId || '') === '') return '';
+  const orderUserId = String(order.userId || '').trim();
+  const paymentUserId = String(payment.userId || '').trim();
+  if (orderUserId && paymentUserId && orderUserId !== paymentUserId) return '';
+  if (!store.moneyEquals(order.amount, payment.amount)) return '';
   try {
-    const c = await loadCoupon(couponId);
-    return (c && c.code) || '';
+    const c = await store.readCoupon(payment.couponId);
+    if (!c || String(c.status || '').toLowerCase() !== 'sold' ||
+        String(c.soldPaymentId || '') !== String(payment.paymentId) ||
+        String(c.buyerEmail || '').toLowerCase() !== String(payment.userEmail || '').toLowerCase()) return '';
+    return c.code || '';
   } catch (e) {
     return '';
   }
@@ -302,7 +341,7 @@ async function loadOwnedPayment(paymentId, req) {
   const payment = await store.findPaymentById(paymentId);
   if (!payment) return { ok: false, status: 404, code: 'PAYMENT_NOT_FOUND', error: 'Payment not found.' };
 
-  const userId = String(req.user.userId || '');
+  const userId = String(req.user.id || req.user.userId || '');
   const email = String(req.user.email || '').toLowerCase();
 
   // Ownership is by user id; the email is an accepted fallback for accounts
@@ -340,11 +379,11 @@ router.get('/config', (req, res) => {
 });
 
 // ── Start a payment ────────────────────────────────────────────────────────
-router.post('/create', createLimiter, authenticateToken, async (req, res) => {
+router.post('/create', createLimiter, authenticateToken, createAccountLimiter, async (req, res) => {
   try {
     const ready = await store.ensureReady();
     if (!ready.ok) {
-      return fail(res, 503, 'STORAGE_UNAVAILABLE', ready.reason);
+      return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
     }
 
     const payee = upi.getPayee();
@@ -357,7 +396,7 @@ router.post('/create', createLimiter, authenticateToken, async (req, res) => {
       );
     }
 
-    const userId = String(req.user.userId || '');
+    const userId = String(req.user.id || req.user.userId || '');
     const userEmail = String(req.user.email || '');
     if (!userId && !userEmail) {
       return fail(res, 401, 'UNAUTHENTICATED', 'Please log in to continue.');
@@ -470,8 +509,8 @@ router.post('/create', createLimiter, authenticateToken, async (req, res) => {
       userEmail,
       couponId,
       amount,
-      buyerName: String(req.body.buyerName || '').slice(0, 120),
-      buyerEmail: String(req.body.buyerEmail || userEmail).slice(0, 160),
+      buyerName: String(req.user.name || '').slice(0, 120),
+      buyerEmail: userEmail.slice(0, 160),
       buyerPhone: String(req.body.buyerPhone || '').slice(0, 20),
       couponCode: (coupon && coupon.code) || '',
       couponBrand: (coupon && coupon.brand) || '',
@@ -587,7 +626,7 @@ router.get('/status', authenticateToken, async (req, res) => {
   try {
     const ready = await store.ensureReady();
     if (!ready.ok) {
-      return fail(res, 503, 'STORAGE_UNAVAILABLE', ready.reason);
+      return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
     }
 
     const paymentId = String(req.query.payment_id || '').trim();
@@ -600,7 +639,7 @@ router.get('/status', authenticateToken, async (req, res) => {
       if (!couponId) {
         return fail(res, 400, 'INVALID_INPUT', 'payment_id, order_id or coupon_id is required.');
       }
-      const userId = String(req.user.userId || '');
+      const userId = String(req.user.id || req.user.userId || '');
       const live = await store.findLivePaymentForUserCoupon(userId, couponId);
       // Only auto-resume inside the 10-minute on-screen window. A window whose
       // countdown already hit 0:00 is left PENDING (the backend keeps checking
@@ -620,7 +659,7 @@ router.get('/status', authenticateToken, async (req, res) => {
     } else {
       const order = await store.findOrderById(orderId);
       if (!order) return fail(res, 404, 'ORDER_NOT_FOUND', 'Order not found.');
-      const userId = String(req.user.userId || '');
+      const userId = String(req.user.id || req.user.userId || '');
       const email = String(req.user.email || '').toLowerCase();
       const owns =
         (order.userId && userId && String(order.userId) === userId) ||
@@ -660,12 +699,12 @@ router.get('/status', authenticateToken, async (req, res) => {
 router.get('/active', authenticateToken, async (req, res) => {
   try {
     const ready = await store.ensureReady();
-    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', ready.reason);
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
 
     const couponId = String(req.query.coupon_id || '').trim();
     if (!couponId) return fail(res, 400, 'INVALID_INPUT', 'coupon_id is required.');
 
-    const userId = String(req.user.userId || '');
+    const userId = String(req.user.id || req.user.userId || '');
     const email = String(req.user.email || '').toLowerCase();
 
     // A paid one wins over a live one: if the buyer already paid, the modal
@@ -698,10 +737,10 @@ router.get('/active', authenticateToken, async (req, res) => {
 // transaction id from the client as proof — only an independent FamApp credit
 // email (matched on amount, server-side) or a signed webhook can settle a
 // payment.
-router.post('/verify', verifyLimiter, authenticateToken, async (req, res) => {
+router.post('/verify', verifyLimiter, authenticateToken, verifyAccountLimiter, async (req, res) => {
   try {
     const ready = await store.ensureReady();
-    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', ready.reason);
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
 
     const paymentId = String((req.body && req.body.payment_id) || '').trim();
     if (!paymentId) return fail(res, 400, 'INVALID_INPUT', 'payment_id is required.');
@@ -743,7 +782,7 @@ router.post('/verify', verifyLimiter, authenticateToken, async (req, res) => {
       ...presented,
       verification: {
         mailboxChecked: Boolean(mail.ok),
-        mailboxReason: mail.ok ? '' : mail.reason || '',
+        mailboxReason: mail.ok ? '' : 'Payment verification is temporarily unavailable. Please try again later or contact support.',
         settled: payment.status === 'PAID',
         // True when the payment still needs a human — the modal can say so
         // instead of implying the money is lost.
@@ -760,7 +799,7 @@ router.post('/verify', verifyLimiter, authenticateToken, async (req, res) => {
 router.post('/cancel', authenticateToken, async (req, res) => {
   try {
     const ready = await store.ensureReady();
-    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', ready.reason);
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
 
     const paymentId = String((req.body && req.body.payment_id) || '').trim();
     if (!paymentId) return fail(res, 400, 'INVALID_INPUT', 'payment_id is required.');
@@ -813,12 +852,32 @@ router.post('/cancel', authenticateToken, async (req, res) => {
 // The server therefore relays changes over one authenticated stream. Multiple
 // tabs each open their own stream and all receive the same backend state, so a
 // PAID in one tab updates every other tab with no refresh.
-router.get('/stream', authenticateToken, async (req, res) => {
+router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) => {
   const paymentId = String(req.query.payment_id || '').trim();
   if (!paymentId) return fail(res, 400, 'INVALID_INPUT', 'payment_id is required.');
 
   const owned = await loadOwnedPayment(paymentId, req).catch(() => ({ ok: false }));
   if (!owned.ok) return fail(res, 404, 'PAYMENT_NOT_FOUND', 'Payment not found.');
+
+  const streamKey = String(req.user.id || req.user.userId || '');
+  const activeCount = activePaymentStreams.get(streamKey) || 0;
+  if (activeCount >= MAX_STREAMS_PER_ACCOUNT) {
+    res.set('Retry-After', '10').set('Cache-Control', 'no-store');
+    return fail(res, 429, 'RATE_LIMITED', 'Too many payment status streams. Close another checkout window and try again.');
+  }
+  activePaymentStreams.set(streamKey, activeCount + 1);
+  let released = false;
+  let interval = null;
+  const releaseStream = () => {
+    if (released) return;
+    released = true;
+    const current = activePaymentStreams.get(streamKey) || 0;
+    if (current <= 1) activePaymentStreams.delete(streamKey);
+    else activePaymentStreams.set(streamKey, current - 1);
+    if (interval) clearInterval(interval);
+  };
+  res.on('close', releaseStream);
+  res.on('finish', releaseStream);
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -846,6 +905,8 @@ router.get('/stream', authenticateToken, async (req, res) => {
       let payment = await store.findPaymentById(paymentId);
       if (!payment) {
         send('error', { code: 'PAYMENT_NOT_FOUND' });
+        closed = true;
+        res.end();
         return;
       }
 
@@ -892,7 +953,8 @@ router.get('/stream', authenticateToken, async (req, res) => {
 
   // Push the current state immediately so the subscriber is never guessing.
   await poll();
-  const interval = setInterval(async () => {
+  if (closed || released) return;
+  interval = setInterval(async () => {
     if (closed) {
       clearInterval(interval);
       return;
@@ -907,9 +969,9 @@ router.get('/stream', authenticateToken, async (req, res) => {
     }
   }, 2500);
 
-  req.on('close', () => {
+  res.on('close', () => {
     closed = true;
-    clearInterval(interval);
+    releaseStream();
   });
 });
 
@@ -963,7 +1025,7 @@ router.all('/cron/scan', async (req, res) => {
   if (!cronAuthorized(req)) return fail(res, 401, 'CRON_UNAUTHORIZED', 'Unauthorized.');
   try {
     const ready = await store.ensureReady();
-    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', ready.reason);
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
 
     let expired = 0;
     try { expired = await store.expireOverduePayments({ limit: 100 }); } catch (e) {}
@@ -1039,7 +1101,7 @@ const webhookHandler = async (req, res) => {
     }
 
     const ready = await store.ensureReady();
-    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', ready.reason);
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
 
     const candidate = verifier.buildCandidateFromWebhook(req.body || {});
     if (candidate.direction !== 'credit') {
@@ -1052,10 +1114,22 @@ const webhookHandler = async (req, res) => {
     // Underpayments are also a successful verdict from the gateway's POV:
     // we recorded the partial credit and queued the refund. The gateway
     // should stop retrying; only true failures keep that envelope open.
+    //
+    // The `reason` is a server-internal diagnostic. For a normal verdict it is
+    // a fixed, safe sentence ('settled', 'already processed', 'held for
+    // review'), but the error paths build it from a raw provider/database
+    // message ('Could not record the notification: ' + e.message, 'Settlement
+    // refused by the database (CODE)'). Those must not travel over the wire, so
+    // the reason is only echoed for the known-safe actions; anything else gets
+    // a generic sentence. The action and payment_id still give the gateway
+    // (which holds the HMAC secret) what it needs to reconcile.
+    const safeActions = new Set(['settled', 'duplicate', 'underpayment_recorded', 'review', 'ignored']);
     res.json({
       ok: verdict.action === 'settled' || verdict.action === 'duplicate' || verdict.action === 'underpayment_recorded',
       action: verdict.action,
-      reason: verdict.reason,
+      reason: safeActions.has(verdict.action)
+        ? verdict.reason
+        : 'Could not process this notification.',
       payment_id: (verdict.payment && verdict.payment.paymentId) || undefined,
     });
   } catch (err) {

@@ -1199,7 +1199,7 @@
       setTimeout(() => { liveRegion.textContent = text; }, 30);
     }
 
-    function isSignedIn() { return !!LS.get('sh_token'); }
+    function isSignedIn() { return LS.get('sh_authenticated') === '1'; }
 
     /** Opaque per-account key — compared, never displayed (§38 privacy rule). */
     function userKey() {
@@ -1863,11 +1863,8 @@
         const body = { message: trimmed };
         if (conversationId) body.conversationId = conversationId;
 
-        // Attach the session token so the backend can identify logged-in
-        // users (user-tier rate limits + their own account data via tools)
+        // The server identifies signed-in users from the HttpOnly session cookie.
         const headers = { 'Content-Type': 'application/json' };
-        const token = LS.get('sh_token');
-        if (token) headers['Authorization'] = 'Bearer ' + token;
 
         const res = await fetch('/api/chat', {
           method: 'POST',

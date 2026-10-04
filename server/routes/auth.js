@@ -3,15 +3,13 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const crypto = require('crypto');
 const UAParser = require('ua-parser-js');
+const { OAuth2Client } = require('google-auth-library');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 const {
   authenticateToken,
   requireAdmin,
-  generateToken,
-  refreshToken,
-  decodeTokenIgnoreExpiry,
   generateSessionToken,
   hashSessionToken,
   setSessionCookie,
@@ -26,78 +24,237 @@ const deviceRecognition = require('../services/deviceRecognition');
 const getClientIP = require('../middleware/getClientIP');
 const sessionCleanup = require('../services/sessionCleanup');
 const twoFactor = require('../services/twoFactorService');
+const { getAdminAccount, getJwtSecret, normalizeEmail } = require('../config/security');
 
 const router = express.Router();
 
-/**
- * Second-factor gate for every login path.
- *
- * Called after the primary factor (email OTP, Google) has already proved the
- * account. When the account has an authenticator enrolled, this returns a
- * challenge instead of letting the caller mint a session — so no session, JWT
- * or cookie is created until routes/twoFactor.js POST /login verifies a code.
- *
- * A lookup failure deliberately falls through to a normal login rather than
- * locking the user out: the sheets store being unreachable is an availability
- * problem, and every other login path in this file degrades the same way.
- *
- * @returns {Promise<{required:boolean, body?:object}>} body is the response to
- *          send verbatim when required is true.
- */
-async function twoFactorGate(req, sheetUser, { email, method, role = 'user' }) {
-  const cleanEmail = twoFactor.normEmail(email);
-  const userId = (sheetUser && (sheetUser.user_id || sheetUser.id)) || '';
+// Google-only authentication. Register the secure handlers before any legacy
+// These are the only login handlers. Email and client-token login endpoints
+// are retired and cannot create sessions.
+const GOOGLE_STATE_COOKIE = 'sh_google_oauth_state';
+const GOOGLE_STATE_TTL_SECONDS = 600;
+const GOOGLE_OAUTH_REDIRECT_PATH = '/api/auth/google-redirect';
+const GOOGLE_CLIENT_ID_FALLBACK = '930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com';
 
-  let record = null;
-  try {
-    record = await twoFactor.findRecord({ userId, email: cleanEmail });
-  } catch (e) {
-    console.warn('[auth] 2FA lookup failed, continuing without a challenge:', e.message);
-    return { required: false };
+function googleRedirectUri() {
+  const configuredBase = String(process.env.APP_BASE_URL || process.env.SITE_URL || '').trim();
+  if (configuredBase) {
+    const base = new URL(configuredBase);
+    if (base.username || base.password || (process.env.NODE_ENV === 'production' && base.protocol !== 'https:')) {
+      throw new Error('Invalid OAuth base URL configuration.');
+    }
+    return `${base.origin}${GOOGLE_OAUTH_REDIRECT_PATH}`;
   }
-  if (!record || !twoFactor.truthy(record.enabled)) return { required: false };
-
-  // twoFactorService binds the challenge to the caller's IP + User-Agent, so it
-  // needs the same resolved IP the 2FA route will compute on the way back in.
-  req.clientIpForTwoFactor = getClientIP(req);
-
-  const name = (sheetUser && sheetUser.name) || cleanEmail.split('@')[0];
-  const challengeToken = twoFactor.issueLoginChallengeToken({
-    uid: userId,
-    email: cleanEmail,
-    name,
-    username: (sheetUser && sheetUser.username) || cleanEmail.split('@')[0],
-    status: (sheetUser && sheetUser.status) || 'active',
-    role,
-    method,
-  }, req);
-
-  return {
-    required: true,
-    body: {
-      twoFactorRequired: true,
-      challengeToken,
-      maskedEmail: twoFactor.maskEmail(cleanEmail),
-      message: 'Enter the 6-digit code from your authenticator app.',
-    },
-  };
+  if (process.env.NODE_ENV === 'production') return `https://savehatke.com${GOOGLE_OAUTH_REDIRECT_PATH}`;
+  return `http://localhost:${String(process.env.PORT || '3000')}${GOOGLE_OAUTH_REDIRECT_PATH}`;
 }
+
+function setOAuthStateCookie(res, state) {
+  const encoded = Buffer.from(JSON.stringify(state)).toString('base64url');
+  const signature = crypto.createHmac('sha256', getJwtSecret()).update(encoded).digest('base64url');
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.append('Set-Cookie', `${GOOGLE_STATE_COOKIE}=${encoded}.${signature}; Path=${GOOGLE_OAUTH_REDIRECT_PATH}; HttpOnly; SameSite=Lax; Max-Age=${GOOGLE_STATE_TTL_SECONDS}${secure}`);
+}
+
+function clearOAuthStateCookie(res) {
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
+  res.append('Set-Cookie', `${GOOGLE_STATE_COOKIE}=; Path=${GOOGLE_OAUTH_REDIRECT_PATH}; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
+}
+
+function readOAuthStateCookie(req) {
+  const part = String(req.headers.cookie || '').split(';').map((value) => value.trim())
+    .find((value) => value.startsWith(`${GOOGLE_STATE_COOKIE}=`));
+  if (!part) return null;
+  const value = part.slice(GOOGLE_STATE_COOKIE.length + 1);
+  const dot = value.lastIndexOf('.');
+  if (dot < 1) return null;
+  const encoded = value.slice(0, dot);
+  const supplied = Buffer.from(value.slice(dot + 1));
+  const expected = Buffer.from(crypto.createHmac('sha256', getJwtSecret()).update(encoded).digest('base64url'));
+  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return null;
+  try {
+    const state = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
+    const age = Math.floor(Date.now() / 1000) - Number(state.issuedAt || 0);
+    return age >= 0 && age <= GOOGLE_STATE_TTL_SECONDS ? state : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function safeScriptJson(value) {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (char) => ({
+    '<': '\\u003c', '>': '\\u003e', '&': '\\u0026', '\u2028': '\\u2028', '\u2029': '\\u2029',
+  })[char]);
+}
+
+function sendGoogleLoginHandoff(res, user, destination) {
+  const isAdmin = user.role === 'admin';
+  const target = isAdmin ? '/vault' : destination;
+  res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
+  return res.status(200).send(`<!doctype html><html><head><meta charset="utf-8"><title>SaveHatke</title></head><body><script>
+    try {
+      localStorage.removeItem('sh_token');
+      localStorage.removeItem('sh_admin_token');
+      localStorage.setItem('sh_authenticated', '1');
+      localStorage.setItem('sh_user', ${safeScriptJson(user)});
+      ${isAdmin ? `localStorage.setItem('sh_admin_user', ${safeScriptJson(user)});` : `localStorage.removeItem('sh_admin_user');`}
+    } catch (e) {}
+    window.location.replace(${safeScriptJson(target)});
+  </script></body></html>`);
+}
+
+async function finishGoogleLogin(req, res, identity) {
+  const email = normalizeEmail(identity.email);
+  const googleSub = String(identity.sub || '').trim();
+  const googleName = String(identity.name || email.split('@')[0]).trim().slice(0, 120);
+  const picture = String(identity.picture || '').trim().slice(0, 1000);
+  if (!email || !googleSub || identity.email_verified !== true) {
+    return res.status(401).json({ error: 'Google authentication failed.', code: 'GOOGLE_IDENTITY_INVALID' });
+  }
+
+  const adminAccount = getAdminAccount(email);
+  if (adminAccount) {
+    let adminData = null;
+    try {
+      const AdminModel = require('../models/Admin');
+      adminData = await AdminModel.findOne({ email });
+    } catch (e) { /* allowlisted identities do not depend on optional profile storage */ }
+    if (adminData && adminData.is_active === false) {
+      return res.status(403).json({ error: 'This administrator account is inactive.' });
+    }
+    const name = String((adminData && (adminData.name || adminData.full_name)) || adminAccount.name || googleName).slice(0, 120);
+    const session = await createLoginSession(req, adminAccount.id, 'Google Admin', email, name, res, googleSub);
+    setSessionCookie(res, session.token, session.ttlMs);
+    return sendGoogleLoginHandoff(res, {
+      id: session.userId, userId: session.userId, email, name, picture, role: 'admin',
+    }, '/vault');
+  }
+
+  let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', email);
+  const now = new Date().toISOString();
+  let isNewUser = false;
+  if (sheetUser) {
+    if (sheetUser.status && String(sheetUser.status).toLowerCase() !== 'active') {
+      return res.status(403).json({ error: 'This account is not active.' });
+    }
+    if (sheetUser.google_sub && String(sheetUser.google_sub) !== googleSub) {
+      return res.status(403).json({ error: 'This Google identity is not linked to this account.' });
+    }
+    await db.updateRow(db.SHEETS.USERS, 'email', email, {
+      google_sub: googleSub,
+      last_login_at: now,
+      updated_at: now,
+      ...(picture ? { profile_picture: picture } : {}),
+    });
+  } else {
+    isNewUser = true;
+    const id = uuidv4();
+    sheetUser = {
+      user_ID: id, user_id: id, id, name: googleName, preferred_name: '',
+      username: email.split('@')[0], email, google_sub: googleSub, status: 'active',
+      ...(picture ? { profile_picture: picture } : {}),
+      created_at: now, updated_at: now, last_login_at: now, last_logout_at: '',
+    };
+    await db.appendRow(db.SHEETS.USERS, sheetUser);
+    if (supabase.isConfigured()) {
+      await supabase.createUser({ user_id: id, name: googleName, email, username: sheetUser.username })
+        .catch(() => console.warn('[auth] Supabase profile sync failed.'));
+    }
+  }
+
+  const userId = String(sheetUser.user_id || sheetUser.user_ID || sheetUser.id || '').trim();
+  if (!userId) return res.status(503).json({ error: 'Account storage is temporarily unavailable.' });
+  const name = String(sheetUser.preferred_name || sheetUser.name || googleName).trim().slice(0, 120);
+  const session = await createLoginSession(req, userId, 'Google', email, name, res, googleSub);
+  setSessionCookie(res, session.token, session.ttlMs);
+  const user = {
+    id: userId, userId, email, name, preferred_name: sheetUser.preferred_name || '',
+    google_name: googleName,
+    needs_name_setup: isNewUser || !String(sheetUser.preferred_name || '').trim(),
+    username: sheetUser.username || email.split('@')[0], picture,
+    status: 'active', role: 'user',
+  };
+  return sendGoogleLoginHandoff(res, user, user.needs_name_setup ? '/onboarding.html' : '/dashboard.html');
+}
+
+router.post(['/register', '/login'], (req, res) => {
+  return res.status(410).json({ error: 'Google Login is required.', code: 'GOOGLE_LOGIN_REQUIRED' });
+});
+router.post(['/google', '/google-redirect'], (req, res) => {
+  return res.status(401).json({ error: 'Use the Google sign-in flow.', code: 'GOOGLE_OAUTH_REQUIRED' });
+});
+router.get('/google-redirect', async (req, res) => {
+  const clientId = String(process.env.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID_FALLBACK).trim();
+  const clientSecret = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
+  if (!clientId || !clientSecret) return res.status(503).send('Google sign-in is temporarily unavailable.');
+
+  try {
+    const redirectUri = googleRedirectUri();
+    const oauth = new OAuth2Client(clientId, clientSecret, redirectUri);
+    const code = String(req.query.code || '').trim();
+    if (!code) {
+      if (req.query.error) {
+        clearOAuthStateCookie(res);
+        return res.redirect(303, '/login?google=failed');
+      }
+      const state = crypto.randomBytes(32).toString('base64url');
+      const nonce = crypto.randomBytes(32).toString('base64url');
+      const verifier = crypto.randomBytes(32).toString('base64url');
+      const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+      setOAuthStateCookie(res, { state, nonce, verifier, redirectUri, issuedAt: Math.floor(Date.now() / 1000) });
+      return res.redirect(302, oauth.generateAuthUrl({
+        response_type: 'code', redirect_uri: redirectUri,
+        scope: ['openid', 'email', 'profile'], state, nonce,
+        code_challenge: challenge, code_challenge_method: 'S256',
+        prompt: 'select_account', access_type: 'online',
+      }));
+    }
+
+    const saved = readOAuthStateCookie(req);
+    clearOAuthStateCookie(res);
+    const returnedState = String(req.query.state || '');
+    if (!saved || !saved.state || !returnedState || saved.state.length !== returnedState.length ||
+        !crypto.timingSafeEqual(Buffer.from(saved.state), Buffer.from(returnedState)) ||
+        saved.redirectUri !== redirectUri || !saved.nonce || !saved.verifier) {
+      return res.redirect(303, '/login?google=failed');
+    }
+
+    const { tokens } = await oauth.getToken({ code, codeVerifier: saved.verifier, redirect_uri: redirectUri });
+    if (!tokens || !tokens.id_token) return res.redirect(303, '/login?google=failed');
+    const ticket = await oauth.verifyIdToken({ idToken: tokens.id_token, audience: clientId });
+    const identity = ticket.getPayload();
+    const now = Math.floor(Date.now() / 1000);
+    const issuerOkay = identity && ['accounts.google.com', 'https://accounts.google.com'].includes(identity.iss);
+    const issuedAtOkay = identity && Number.isFinite(Number(identity.iat)) &&
+      Number(identity.iat) >= Number(saved.issuedAt) - 60 && Number(identity.iat) <= now + 60;
+    const nonceOkay = identity && typeof identity.nonce === 'string' && identity.nonce.length === saved.nonce.length &&
+      crypto.timingSafeEqual(Buffer.from(identity.nonce), Buffer.from(saved.nonce));
+    if (!issuerOkay || !issuedAtOkay || !nonceOkay || identity.email_verified !== true || !identity.sub || !identity.email) {
+      return res.redirect(303, '/login?google=failed');
+    }
+    return await finishGoogleLogin(req, res, identity);
+  } catch (err) {
+    console.error('[auth] Google OAuth callback failed.');
+    clearOAuthStateCookie(res);
+    if (res.headersSent) return;
+    return res.redirect(303, '/login?google=failed');
+  }
+});
 
 /**
  * Extract device info from User-Agent and create a server-side 48-hour
  * session in Supabase. Called on EVERY successful login (users and admins).
  *
- * The returned object carries the raw session token (which the caller embeds
- * in the JWT `sid` claim and the HttpOnly cookie) plus the session id and
+ * The returned object carries the raw session token (which the caller places
+ * only in the HttpOnly cookie) plus the session id and
  * expiry. The database stores only a SHA-256 hash of the token.
  *
  * The user_id is resolved against the Users Google Sheet first (by email),
  * so Supabase always stores the real user id that exists in the sheet.
  * Geo-IP enrichment runs in the background â€” it never delays the login.
  *
- * @returns {Promise<{token:string, sessionId:string, expiresAt:string}|null>}
- *   null when Supabase is unreachable (login still succeeds; the JWT is
- *   issued without a sid and still hard-expires 48h after login).
+ * @returns {Promise<{token:string, sessionId:string, expiresAt:string}>}
+ *   Throws when no enforceable server-side session could be created.
  */
 
 /**
@@ -349,9 +506,11 @@ function withDeadline(promise, ms) {
 
 const GEO_WAIT_FOR_EMAIL_MS = 3500;
 
-async function createLoginSession(req, userId, loginMethod, email, userName, res) {
+async function createLoginSession(req, userId, loginMethod, email, userName, res, googleSub) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
+    const verifiedGoogleSub = String(googleSub || '').trim();
+    if (!verifiedGoogleSub) throw new Error('Verified Google subject is required.');
     const isAdminLogin = /admin/i.test(String(loginMethod || ''));
 
     const { deviceStr, osStr, browserStr, raw: userAgentRaw } = parseUserAgent(req);
@@ -383,7 +542,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     // The "New device detected" alert, to the account's own address (user or
     // admin) from the SaveHatke Security mailbox. It fires only when the
     // device is genuinely unrecognised, and only here — after the
-    // OTP / Google / second factor has already been accepted, so it can never
+    // Google's server-verified OAuth result has already been accepted, so it can never
     // precede a successful authentication or follow a rejected one. A
     // recognised device sends nothing. Opt-out via SIGNIN_ALERT_DISABLED=true.
     if (!deviceCheck.evaluated) {
@@ -421,12 +580,13 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
         .catch((e) => console.warn('[Auth] New-device alert unexpected error:', e && e.message ? e.message : e));
     }
 
-    // Cryptographically random session identifier. The raw value goes into
-    // the JWT and cookie; only its SHA-256 hash is stored in the database.
+    // Cryptographically random session identifier. The raw value goes only in
+    // the HttpOnly cookie; only its SHA-256 hash is stored in the database.
     const rawToken = generateSessionToken();
 
     const { realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail);
-    const finalUserId = realUserId || ('user_' + Date.now());
+    const finalUserId = realUserId || String(userId || '').trim();
+    if (!finalUserId) throw new Error('Authenticated account has no stable user id.');
 
     // Admin sessions are short-lived: automatic logout 2 hours after login.
     // User sessions last 48 hours.
@@ -440,15 +600,14 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
       browser: browserStr,
       ip_address: ip,
       login_method: loginMethod || 'Email',
+      google_sub: verifiedGoogleSub,
       user_agent: userAgentRaw,
       session_token: hashSessionToken(rawToken),
     }, ttlMs);
 
     if (!sessionResult || !sessionResult.session_token) {
-      // Row created without the session_token column (pre-migration DB) or
-      // insert failed entirely â€” no enforceable session for this login.
-      console.warn('âš ï¸ Login session not enforceable (Supabase session_token unavailable) â€” issuing time-limited JWT only.');
-      return null;
+      // No enforceable server-side row means no login.
+      throw new Error('Could not create an enforceable session.');
     }
 
     console.log(`âœ… Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
@@ -470,290 +629,19 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     return {
       token: rawToken,
       sessionId: sessionResult.session_id,
+      userId: finalUserId,
       expiresAt: sessionResult.expires_at,
       ttlMs,
     };
   } catch (err) {
-    console.warn('Session creation notice:', err.message);
-    return null;
+    console.warn('Session creation failed.');
+    throw new Error('Could not create an enforceable session.');
   }
-}
-
-/**
- * Mint the login JWT. Every token records its login time (`lgn`) so refresh
- * can never extend past the session's hard limit, and carries the session
- * token (`sid`) for server-side validation. User tokens live 48h; admin
- * tokens live 2h (automatic admin logout) and refresh within the same
- * 2-hour session window.
- */
-function issueLoginToken(user, session) {
-  const payload = {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role || 'user',
-    lgn: Math.floor(Date.now() / 1000),
-  };
-  if (session && session.token) payload.sid = session.token;
-  const expiresIn = user.role === 'admin' ? '2h' : '48h';
-  return generateToken(payload, expiresIn);
 }
 
 // ─── Login ────────────────────────────────────────────────────────────
-// Sign-in is passwordless: email only (POST /login below) or Google
-// (/google-redirect). No password is ever stored or checked for an account;
-// the 8-digit enrolment codes used by 2FA setup live in
-// routes/twoFactor.js and are unaffected.
-
-function getSheetsFallbackError(message) {
-  return db.getWriteAvailabilityError(message);
-}
-
-// POST /api/auth/register â€” Save user EXCLUSIVELY to Google Sheets (Users tab)
-router.post('/register', async (req, res) => {
-  try {
-    const { email, name, username } = req.body;
-
-    if (!email || !name) {
-      return res.status(400).json({ error: 'Email and name are required.' });
-    }
-
-    const cleanEmail = email.toLowerCase().trim();
-    const cleanName = name.trim();
-    const cleanUsername = (username || cleanEmail.split('@')[0]).trim();
-
-    // Check for existing user in Google Sheets
-    const existingSheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail);
-    if (existingSheetUser) {
-      return res.status(409).json({ error: 'An account with this email already exists.' });
-    }
-
-    const now = new Date().toISOString();
-    const userId = uuidv4();
-
-    const sheetUser = {
-      user_ID: userId,
-      user_id: userId,
-      id: userId,
-      name: cleanName,
-      username: cleanUsername,
-      email: cleanEmail,
-      status: 'active',
-      created_at: now,
-      updated_at: now,
-      last_login_at: now,
-      last_logout_at: '',
-    };
-
-    // Save profile details to Google Sheets (Users tab)
-    await db.appendRow(db.SHEETS.USERS, sheetUser);
-
-    // Sync the profile to Supabase (not stored in Sheets)
-    if (supabase.isConfigured()) {
-      try {
-        await supabase.createUser({
-          user_id: userId,
-          name: cleanName,
-          email: cleanEmail,
-          username: cleanUsername,
-        });
-      } catch (spErr) {
-        console.warn('Supabase user sync notice:', spErr.message);
-      }
-    }
-
-    // Create the server-side 48h session
-    const session = await createLoginSession(req, userId, 'Email', cleanEmail, cleanName, res).catch(() => null);
-
-    // Generate token (48h hard limit, sid-bound to the session)
-    const token = issueLoginToken({ id: userId, email: cleanEmail, name: cleanName, role: 'user' }, session);
-    if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-    // Send welcome email to the newly registered user (fire-and-forget â€” never blocks the response)
-    emailService.sendWelcomeEmail(cleanEmail, cleanName)
-      .then((r) => {
-        if (r.success) console.log(`ðŸ“§ Welcome email queued for new user: ${cleanEmail}`);
-        else if (!r.isSimulated) console.warn(`ðŸ“§ Welcome email failed for ${cleanEmail}: ${r.error}`);
-      })
-      .catch((e) => console.warn('Welcome email notice:', e.message));
-
-    res.status(201).json({
-      message: 'Account created successfully in Google Sheets! ðŸ“Š',
-      token,
-      session_id: session ? session.sessionId : undefined,
-      session_expires_at: session ? session.expiresAt : undefined,
-      user: {
-        id: userId,
-        user_id: userId,
-        name: cleanName,
-        username: cleanUsername,
-        email: cleanEmail,
-        status: 'active',
-        role: 'user',
-      },
-    });
-  } catch (err) {
-    console.error('Registration error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
-});
-
-// POST /api/auth/login â€” Read user EXCLUSIVELY from Google Sheets
-router.post('/login', async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ error: 'Email is required.' });
-    }
-
-    const loginEmail = email.toLowerCase().trim();
-
-    // â”€â”€ 1. Check MongoDB Admin collection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    let Admin;
-    try {
-      Admin = require('../models/Admin');
-    } catch (e) {}
-
-    // An administrator's address must never pick up a session from the
-    // passwordless email path: an email alone proves nothing about identity,
-    // and a session here would both grant admin powers for a guessable public
-    // address and mail its owner a "new device detected" alert. Admins sign
-    // in with Google (verified address, see /google-redirect) or a backup
-    // code (the SOS flow).
-
-    let isAdminAddress = false;
-
-    if (Admin) {
-      try {
-        const dbAdmin = await Admin.findOne({ email: loginEmail });
-        if (dbAdmin) {
-          if (!dbAdmin.is_active) {
-            return res.status(403).json({ error: 'This admin account is currently deactivated.' });
-          }
-          isAdminAddress = true;
-        }
-      } catch (e) {
-        // Admin store unreachable — the hardcoded list below still guards the
-        // built-in owners; an unlisted admin simply continues to the user paths.
-      }
-    }
-
-    // â”€â”€ 2. Hardcoded admin fallback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    const hardcodedAdminEmails = ['rupayandas2024@gmail.com', 'jaggik8888@gmail.com'];
-    if (hardcodedAdminEmails.includes(loginEmail)) isAdminAddress = true;
-
-    if (isAdminAddress) {
-      logLoginFailure(req, { email: loginEmail, detail: 'Admin address used the passwordless email path' });
-      return res.status(403).json({
-        error: 'Admin accounts sign in with Google or a backup code.',
-        code: 'ADMIN_USES_GOOGLE',
-      });
-    }
-
-    // â”€â”€ 3. Read user EXCLUSIVELY from Google Sheets (Users tab) â”€â”€â”€â”€â”€â”€
-    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', loginEmail);
-
-    if (sheetUser) {
-      if (sheetUser.status && sheetUser.status !== 'active') {
-        return res.status(403).json({ error: `Account is ${sheetUser.status}. Please contact support.` });
-      }
-
-      const now = new Date().toISOString();
-      // Non-blocking background timestamp update to ensure instant response
-      db.updateRow(db.SHEETS.USERS, 'email', loginEmail, {
-        last_login_at: now,
-        updated_at: now,
-      }).catch((e) => console.warn('Background timestamp update notice:', e.message));
-
-      // Second-factor gate — stop before any session exists.
-      const gate = await twoFactorGate(req, sheetUser, {
-        email: loginEmail,
-        method: 'Email + 2FA',
-      });
-      if (gate.required) return res.json(gate.body);
-
-      // Server-side 48h session
-      const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Email', loginEmail, sheetUser.name, res).catch(() => null);
-      const token = issueLoginToken({
-        id: sheetUser.user_id || sheetUser.id,
-        email: sheetUser.email,
-        name: sheetUser.name,
-        role: 'user',
-      }, session);
-      if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-      return res.json({
-        message: 'Login successful.',
-        token,
-        session_id: session ? session.sessionId : undefined,
-        session_expires_at: session ? session.expiresAt : undefined,
-        user: {
-          id: sheetUser.user_id || sheetUser.id,
-          user_id: sheetUser.user_id || sheetUser.id,
-          email: sheetUser.email,
-          name: sheetUser.name || 'User',
-          username: sheetUser.username || sheetUser.email.split('@')[0],
-          status: sheetUser.status || 'active',
-          role: 'user',
-        },
-      });
-    }
-
-    // â”€â”€ 4. Auto-register user in Google Sheets if email-only flow â”€â”€â”€â”€
-    const nameFromEmail = loginEmail.split('@')[0];
-    const displayName = nameFromEmail.charAt(0).toUpperCase() + nameFromEmail.slice(1);
-    const newUserId = uuidv4();
-    const now = new Date().toISOString();
-
-    sheetUser = {
-      user_ID: newUserId,
-      user_id: newUserId,
-      id: newUserId,
-      name: displayName,
-      username: nameFromEmail,
-      email: loginEmail,
-      status: 'active',
-      created_at: now,
-      updated_at: now,
-      last_login_at: now,
-      last_logout_at: '',
-    };
-    await db.appendRow(db.SHEETS.USERS, sheetUser);
-
-    // Server-side 48h session
-    const session = await createLoginSession(req, newUserId, 'Email', loginEmail, displayName, res).catch(() => null);
-    const token = issueLoginToken({ id: newUserId, email: loginEmail, name: displayName, role: 'user' }, session);
-    if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-    // Send welcome email to the auto-registered user (fire-and-forget)
-    emailService.sendWelcomeEmail(loginEmail, displayName)
-      .then((r) => {
-        if (r.success) console.log(`ðŸ“§ Welcome email queued for new user: ${loginEmail}`);
-        else if (!r.isSimulated) console.warn(`ðŸ“§ Welcome email failed for ${loginEmail}: ${r.error}`);
-      })
-      .catch((e) => console.warn('Welcome email notice:', e.message));
-
-    res.json({
-      message: 'Login successful.',
-      token,
-      session_id: session ? session.sessionId : undefined,
-      session_expires_at: session ? session.expiresAt : undefined,
-      user: {
-        id: newUserId,
-        user_id: newUserId,
-        name: displayName,
-        username: nameFromEmail,
-        email: loginEmail,
-        status: 'active',
-        role: 'user',
-      },
-    });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
-});
+// Sign-in is Google OAuth only. Email input is retained by the existing page
+// for compatibility, but the email-only API endpoints are disabled.
 
 // GET /api/auth/google-config
 router.get('/google-config', (req, res) => {
@@ -764,544 +652,34 @@ router.get('/google-config', (req, res) => {
   });
 });
 
-// GET /api/auth/google-redirect â€” Handle OAuth fragment redirects (#access_token=... or #id_token=...)
-// OAuth handoff page â€” stores auth state and redirects immediately.
-// Renders no visible "logging in" window: just the site background and the
-// same top progress bar every page shows, so the hop reads as a page load.
-// Google hands us the account's own avatar URL in the ID token. Persisting it
-// is what lets the admin panel show the real Gmail profile photo next to an
-// email address instead of guessing one from a third-party avatar service.
-//
-// It is re-written on every Google login because Google rotates these URLs,
-// and it is only written when Google actually sent one -- a Google account
-// with no photo, or a later email-OTP login, must never blank a photo we
-// already have on file.
-function googlePictureFields(picture) {
-  const url = String(picture || '').trim();
-  return url ? { profile_picture: url } : {};
-}
-
-function sendAuthHandoff(res, innerScript) {
-  res.setHeader('Content-Type', 'text/html');
-  res.send(`<!DOCTYPE html>
-<html>
-<head>
-<meta charset="UTF-8">
-<title>SaveHatke</title>
-<style>
-  body{background:#060d1f;margin:0;min-height:100vh}
-  #shPageProgressBar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;
-    background:linear-gradient(90deg,#00e676,#00c853);box-shadow:0 0 10px rgba(0,230,118,.7);
-    border-radius:0 3px 3px 0;transition:width .25s ease,opacity .4s ease;opacity:1;pointer-events:none}
-</style>
-</head>
-<body>
-<div id="shPageProgressBar"></div>
-<script>
-(function(){
-  var bar=document.getElementById('shPageProgressBar');
-  requestAnimationFrame(function(){bar.style.width='35%';});
-  setTimeout(function(){bar.style.width='70%';},160);
-})();
-</script>
-<script>${innerScript}</script>
-</body>
-</html>`);
-}
-
-router.get('/google-redirect', (req, res) => {
-  sendAuthHandoff(res, `
-    (async function() {
-      const hash = window.location.hash;
-      if (hash && (hash.includes('id_token=') || hash.includes('access_token='))) {
-        const params = new URLSearchParams(hash.substring(1));
-        const idToken = params.get('id_token');
-        const accessToken = params.get('access_token');
-        try {
-          let payload = {};
-          if (idToken) {
-            payload = { credential: idToken };
-          } else if (accessToken) {
-            const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo?access_token=' + accessToken);
-            const profile = await res.json();
-            if (profile.email) {
-              payload = { email: profile.email, name: profile.name, picture: profile.picture };
-            }
-          }
-          if (payload.credential || payload.email) {
-            const apiRes = await fetch('/api/auth/google', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
-            const data = await apiRes.json();
-            if (data.token && data.user) {
-              localStorage.setItem('sh_token', data.token);
-              localStorage.setItem('sh_user', JSON.stringify(data.user));
-              if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-                localStorage.setItem('sh_admin_token', data.token);
-                localStorage.setItem('sh_admin_user', JSON.stringify(data.user));
-                window.location.replace('/vault');
-              } else {
-                const target = (data.user && data.user.needs_name_setup) ? '/onboarding.html' : '/dashboard.html';
-                window.location.replace(data.redirectTo || target);
-              }
-              return;
-            }
-          }
-        } catch(e) {
-          console.error(e);
-        }
-      }
-      window.location.replace('/login');
-    })();
-  `);
-});
-
-// POST /api/auth/google-redirect â€” Handle Google OAuth redirect mode (same-page login)
-router.post('/google-redirect', async (req, res) => {
+// Logout is always scoped to the authenticated request's current session.
+router.post('/logout', authenticateToken, async (req, res) => {
   try {
-    // Google form_post sends the token as 'id_token', but we also support 'credential'
-    const credential = req.body.credential || req.body.id_token;
-    let userEmail = '';
-    let userName = '';
-    let userPicture = '';
-
-    if (credential) {
-      try {
-        let payloadBase64 = credential.split('.')[1];
-        if (payloadBase64) {
-          payloadBase64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
-          const pad = payloadBase64.length % 4;
-          if (pad) payloadBase64 += '='.repeat(4 - pad);
-          const decodedJson = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
-          if (decodedJson.email) userEmail = decodedJson.email;
-          if (decodedJson.name) userName = decodedJson.name;
-          if (decodedJson.picture) userPicture = decodedJson.picture;
-        }
-      } catch (e) {}
+    const rawSessionToken = String(req.authSessionToken || '');
+    if (!rawSessionToken || !req.sessionId || !req.user || !req.user.id) {
+      return res.status(401).json({ error: 'An active session is required.' });
     }
-
-    if (!userEmail) {
-      return res.status(400).send('<h3>Google authentication failed: Email missing.</h3><a href="/login">Return to Login</a>');
-    }
-
-    userEmail = userEmail.toLowerCase();
-    userName = userName || userEmail.split('@')[0];
-
-    // Admin check
-    const adminEmails = ['rupayandas2024@gmail.com', 'jaggik8888@gmail.com'];
-    let isAdmin = adminEmails.includes(userEmail);
-    let adminData = null;
-
-    if (!isAdmin) {
-      try {
-        const AdminModel = require('../models/Admin');
-        adminData = await AdminModel.findOne({ email: userEmail });
-        if (adminData && adminData.is_active) isAdmin = true;
-      } catch (e) {}
-    }
-
-    if (isAdmin) {
-      const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
-      const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
-
-      // Persist the Google profile picture on the MongoDB admin document so
-      // the admin panel can render the real Google avatar from the database
-      // rather than from this one login response. Google rotates these URLs,
-      // so the newest one from each Google sign-in wins; a login with no
-      // picture never blanks a photo already on file.
-      if (adminData && userPicture) {
-        try {
-          if (adminData.profile_image !== userPicture) {
-            adminData.profile_image = userPicture;
-            await adminData.save();
-          }
-        } catch (e) {
-          console.warn('Admin Google profile image persist failed:', e.message);
-        }
-      }
-
-      // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName, res).catch(() => null);
-      const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
-      if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-      const adminUser = {
-        id: adminId,
-        email: userEmail,
-        name: adminName,
-        picture: userPicture || (adminData ? adminData.profile_image : '') || '',
-        role: 'admin',
-      };
-
-      return sendAuthHandoff(res, `
-        try {
-          localStorage.setItem('sh_token', ${JSON.stringify(token)});
-          localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(adminUser)}));
-          localStorage.setItem('sh_admin_token', ${JSON.stringify(token)});
-          localStorage.setItem('sh_admin_user', JSON.stringify(${JSON.stringify(adminUser)}));
-        } catch(e) {}
-        window.location.replace('/vault');
-      `);
-    }
-
-    // Save/Find user in Google Sheets (Users tab) asynchronously
     const now = new Date().toISOString();
-    let isNewUser = false;
-    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
-    if (!sheetUser) {
-      // Paranoid pre-create scan — see the email login path for rationale.
-      const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
-      const existingDup = (allRows || []).find((r) => {
-        const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
-        return v && v === userEmail;
-      });
-      if (existingDup) {
-        sheetUser = existingDup;
-        db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
-          last_login_at: now,
-          updated_at: now,
-          ...googlePictureFields(userPicture),
-        }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
-      } else {
-        isNewUser = true;
-        const userId = uuidv4();
-        sheetUser = {
-          user_ID: userId,
-          user_id: userId,
-          id: userId,
-          name: userName,
-          preferred_name: '',
-          username: userEmail.split('@')[0],
-          email: userEmail,
-          status: 'active',
-          ...googlePictureFields(userPicture),
-          created_at: now,
-          updated_at: now,
-          last_login_at: now,
-          last_logout_at: '',
-        };
-        db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
-      }
-    } else {
-      db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
-        last_login_at: now,
-        updated_at: now,
-        ...googlePictureFields(userPicture),
-      }).catch((e) => console.warn('GSheet update notice:', e.message));
+    const revoked = await supabase.endSessionByToken(hashSessionToken(rawSessionToken), 'Logged out');
+    if (!revoked) {
+      return res.status(503).json({ error: 'Could not revoke this session. Please try again.' });
     }
-
-    const userId = sheetUser.user_id || sheetUser.id;
-
-    // Second-factor gate — stop before any session exists.
-    const gate = await twoFactorGate(req, sheetUser, {
-      email: userEmail,
-      method: 'Google + 2FA',
-    });
-    if (gate.required) return res.json(gate.body);
-
-    const hasPreferredName = Boolean(sheetUser.preferred_name && String(sheetUser.preferred_name).trim());
-    const needsNameSetup = isNewUser || !hasPreferredName;
-    const targetUrl = needsNameSetup ? '/onboarding.html' : '/dashboard.html';
-
-    // Server-side 48h session
-    const session = await createLoginSession(req, userId, 'Google', userEmail, sheetUser.preferred_name || sheetUser.name || userName, res).catch(() => null);
-    const token = issueLoginToken({
-      id: userId,
-      email: userEmail,
-      name: sheetUser.preferred_name || sheetUser.name || userName,
-      role: 'user',
-    }, session);
-    if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-    const regularUser = {
-      id: userId,
-      email: userEmail,
-      name: sheetUser.preferred_name || sheetUser.name || userName,
-      preferred_name: sheetUser.preferred_name || '',
-      google_name: userName || '',
-      needs_name_setup: needsNameSetup,
-      username: sheetUser.username || userEmail.split('@')[0],
-      picture: userPicture || '',
-      role: 'user',
-    };
-
-    return sendAuthHandoff(res, `
-      try {
-        localStorage.setItem('sh_token', ${JSON.stringify(token)});
-        localStorage.setItem('sh_user', JSON.stringify(${JSON.stringify(regularUser)}));
-      } catch(e) {}
-      window.location.replace(${JSON.stringify(targetUrl)});
-    `);
-  } catch (err) {
-    console.error('Google redirect handler error:', err);
-    res.status(500).send('<h3>Google authentication failed.</h3><a href="/login">Return to Login</a>');
-  }
-});
-
-// POST /api/auth/google â€” Google login stored EXCLUSIVELY to Google Sheets
-router.post('/google', async (req, res) => {
-  try {
-    const { credential, email, name, picture } = req.body;
-
-    let userEmail = email;
-    let userName = name;
-    let userPicture = picture;
-
-    // Parse payload if credential passed
-    if (credential) {
-      try {
-        let payloadBase64 = credential.split('.')[1];
-        if (payloadBase64) {
-          payloadBase64 = payloadBase64.replace(/-/g, '+').replace(/_/g, '/');
-          const pad = payloadBase64.length % 4;
-          if (pad) payloadBase64 += '='.repeat(4 - pad);
-          const decodedJson = JSON.parse(Buffer.from(payloadBase64, 'base64').toString('utf8'));
-          if (decodedJson.email) userEmail = decodedJson.email;
-          if (decodedJson.name) userName = decodedJson.name;
-          if (decodedJson.picture) userPicture = decodedJson.picture;
-        }
-      } catch (e) {}
-    }
-
-    if (!userEmail) {
-      return res.status(400).json({ error: 'Google authentication failed: Email missing.' });
-    }
-
-    userEmail = userEmail.toLowerCase();
-    userName = userName || userEmail.split('@')[0];
-
-    // Admin check
-    const adminEmails = ['rupayandas2024@gmail.com', 'jaggik8888@gmail.com'];
-    let isAdmin = adminEmails.includes(userEmail);
-    let adminData = null;
-
-    if (!isAdmin) {
-      try {
-        const AdminModel = require('../models/Admin');
-        adminData = await AdminModel.findOne({ email: userEmail });
-        if (adminData && adminData.is_active) isAdmin = true;
-      } catch (e) {}
-    }
-
-    if (isAdmin) {
-      const adminName = adminData ? (adminData.name || adminData.full_name) : userName;
-      const adminId = adminData ? (adminData.id || adminData._id.toString()) : uuidv4();
-
-      // Persist the Google profile picture on the MongoDB admin document —
-      // same policy as the /google-redirect admin branch: newest URL from a
-      // Google sign-in wins, a picture-less login never blanks an existing
-      // photo, and the panel later reads it back from the database.
-      if (adminData && userPicture) {
-        try {
-          if (adminData.profile_image !== userPicture) {
-            adminData.profile_image = userPicture;
-            await adminData.save();
-          }
-        } catch (e) {
-          console.warn('Admin Google profile image persist failed:', e.message);
-        }
-      }
-
-      // Server-side 48h session for the admin login
-      const session = await createLoginSession(req, adminId, 'Google Admin', userEmail, adminName, res).catch(() => null);
-      const token = issueLoginToken({ id: adminId, email: userEmail, name: adminName, role: 'admin' }, session);
-      if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-      return res.json({
-        message: 'Admin Google login successful.',
-        token,
-        session_id: session ? session.sessionId : undefined,
-        session_expires_at: session ? session.expires_at : undefined,
-        user: {
-          id: adminId,
-          email: userEmail,
-          name: adminName,
-          picture: userPicture || (adminData ? adminData.profile_image : '') || '',
-          role: 'admin',
-        },
-      });
-    }
-
-    // Save/Find user in Google Sheets (Users tab) asynchronously
-    const now = new Date().toISOString();
-    let isNewUser = false;
-    let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', userEmail).catch(() => null);
-    if (!sheetUser) {
-      // Paranoid pre-create scan — see the email login path for rationale.
-      const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
-      const existingDup = (allRows || []).find((r) => {
-        const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
-        return v && v === userEmail;
-      });
-      if (existingDup) {
-        sheetUser = existingDup;
-        db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
-          last_login_at: now,
-          updated_at: now,
-          ...googlePictureFields(userPicture),
-        }).catch((e) => console.warn('GSheet dedup update notice:', e.message));
-      } else {
-        isNewUser = true;
-        const userId = uuidv4();
-        sheetUser = {
-          user_ID: userId,
-          user_id: userId,
-          id: userId,
-          name: userName,
-          preferred_name: '',
-          username: userEmail.split('@')[0],
-          email: userEmail,
-          status: 'active',
-          ...googlePictureFields(userPicture),
-          created_at: now,
-          updated_at: now,
-          last_login_at: now,
-          last_logout_at: '',
-        };
-        db.appendRow(db.SHEETS.USERS, sheetUser).catch((e) => console.warn('GSheet write notice:', e.message));
-      }
-    } else {
-      db.updateRow(db.SHEETS.USERS, 'email', userEmail, {
-        last_login_at: now,
-        updated_at: now,
-        ...googlePictureFields(userPicture),
-      }).catch((e) => console.warn('GSheet update notice:', e.message));
-    }
-
-    // Second-factor gate — stop before any session exists.
-    const gate = await twoFactorGate(req, sheetUser, {
-      email: userEmail,
-      method: 'Google + 2FA',
-    });
-    if (gate.required) return res.json(gate.body);
-
-    const hasPreferredName = Boolean(sheetUser.preferred_name && String(sheetUser.preferred_name).trim());
-    const needsNameSetup = isNewUser || !hasPreferredName;
-    const targetUrl = needsNameSetup ? '/onboarding.html' : '/dashboard.html';
-
-    // Server-side 48h session
-    const session = await createLoginSession(req, sheetUser.user_id || sheetUser.id, 'Google', userEmail, sheetUser.preferred_name || sheetUser.name || userName, res).catch(() => null);
-    const token = issueLoginToken({
-      id: sheetUser.user_id || sheetUser.id,
-      email: userEmail,
-      name: sheetUser.preferred_name || sheetUser.name || userName,
-      role: 'user',
-    }, session);
-    if (session) setSessionCookie(res, session.token, session.ttlMs);
-
-    res.json({
-      message: 'Google login successful.',
-      token,
-      session_id: session ? session.sessionId : undefined,
-      session_expires_at: session ? session.expiresAt : undefined,
-      redirectTo: targetUrl,
-      user: {
-        id: sheetUser.user_id || sheetUser.id,
-        user_id: sheetUser.user_id || sheetUser.id,
-        email: userEmail,
-        name: sheetUser.preferred_name || sheetUser.name || userName,
-        preferred_name: sheetUser.preferred_name || '',
-        google_name: userName || '',
-        needs_name_setup: needsNameSetup,
-        username: sheetUser.username || userEmail.split('@')[0],
-        picture: userPicture,
-        status: sheetUser.status || 'active',
-        role: 'user',
-      },
-    });
-  } catch (err) {
-    console.error('Google auth error:', err);
-    res.status(500).json({ error: 'Failed to authenticate with Google.' });
-  }
-});
-
-// POST /api/auth/logout â€” Revoke the current session, record last_logout_at
-// in the G Sheet, and clear the session cookie.
-// Priority: the Bearer token's session (logs out only THIS device), then an
-// explicit body.session_id, then the legacy email/user_id fallback (ends all
-// of the user's sessions).
-router.post('/logout', async (req, res) => {
-  try {
     clearSessionCookie(res);
-    const { email, user_id, session_id } = req.body;
-    const now = new Date().toISOString();
-
-    // 1) Best: revoke the session bound to the presented token (this device)
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    let revokedByToken = false;
-    if (token) {
-      const decoded = decodeTokenIgnoreExpiry(token);
-      if (decoded && decoded.sid) {
-        await supabase.endSessionByToken(hashSessionToken(decoded.sid), 'Logged out').catch(() => {});
-        revokedByToken = true;
-      }
-    }
-
-    // 2) Explicit session_id (e.g. "Log out this device" on the sessions page)
-    if (!revokedByToken && session_id) {
-      supabase.endSession(session_id).catch(() => {});
-    }
-
-    // 3) Legacy fallback â€” no session info available: end ALL sessions
-    if (!revokedByToken && !session_id) {
-      if (user_id) {
-        supabase.endAllUserSessions(user_id).catch(() => {});
-      } else if (email) {
-        const sheetUser = await db.findRow(db.SHEETS.USERS, 'email', email.toLowerCase().trim()).catch(() => null);
-        if (sheetUser && (sheetUser.user_id || sheetUser.id)) {
-          supabase.endAllUserSessions(sheetUser.user_id || sheetUser.id).catch(() => {});
-        }
-      }
-    }
-
-    // Update G Sheet user record
-    if (email) {
-      db.updateRow(db.SHEETS.USERS, 'email', email.toLowerCase().trim(), {
+    db.updateRow(db.SHEETS.USERS, 'email', normalizeEmail(req.user.email), {
         last_logout_at: now,
         updated_at: now,
-      }).catch((e) => console.warn('Logout G Sheet notice:', e.message));
-    }
-
+      }).catch(() => {});
     res.json({ message: 'Logged out successfully.' });
   } catch (err) {
-    console.warn('Logout notice:', err.message);
-    res.json({ message: 'Logged out.' });
+    console.warn('Logout session revocation failed.');
+    res.status(503).json({ error: 'Could not revoke this session. Please try again.' });
   }
 });
 
-// POST /api/auth/refresh â€” Issue a new token from an expired one.
-// The new token can NEVER outlive the 48-hour session window that started
-// at login; if the session was revoked or has expired, refresh is refused
-// with SESSION_EXPIRED and the user must log in again.
-router.post('/refresh', async (req, res) => {
-  try {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-
-    if (!token) {
-      return res.status(401).json({ error: 'No token provided.' });
-    }
-
-    const result = await refreshToken(token);
-    if (!result) {
-      const stale = decodeTokenIgnoreExpiry(token);
-      const msg = (stale && String(stale.role).toLowerCase() === 'admin')
-        ? 'Your 2-hour admin session has expired. Please log in again.'
-        : 'Your 2-day login session has expired. Please log in again.';
-      return res.status(401).json({
-        error: msg,
-        code: 'SESSION_EXPIRED',
-      });
-    }
-
-    res.json({ token: result.token, message: 'Token refreshed.' });
-  } catch (err) {
-    console.error('Token refresh error:', err);
-    res.status(500).json({ error: 'Token refresh failed.' });
-  }
+// JWT bearer refresh is retired with localStorage token storage. Sessions are
+// authenticated exclusively through the revocable HttpOnly cookie.
+router.post('/refresh', (req, res) => {
+  res.status(410).json({ error: 'Bearer-token sessions are no longer supported.' });
 });
 
 // â”€â”€ Device / session management (user-facing) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1563,8 +941,8 @@ router.get('/security-events', authenticateToken, async (req, res) => {
 // recovery sessions in MongoDB. Idempotent — safe to run repeatedly.
 //
 // Authentication, in order:
-//   1. SESSION_CLEANUP_SECRET (query `secret` or `x-cleanup-secret` header) —
-//      the dedicated key for this endpoint;
+//   1. SESSION_CLEANUP_SECRET in the `x-cleanup-secret` header — the dedicated
+//      key for this endpoint (never accept secrets in URLs);
 //   2. CRON_SECRET as `Authorization: Bearer <secret>` (what Vercel Cron
 //      sends automatically) or `x-cron-key` — the same contract as the monthly
 //      report run;
@@ -1579,13 +957,15 @@ router.all('/session-cleanup', async (req, res, next) => {
 
   const dedicatedSecret = process.env.SESSION_CLEANUP_SECRET;
   if (dedicatedSecret) {
-    const provided = req.query.secret || req.headers['x-cleanup-secret'];
+    const provided = req.headers['x-cleanup-secret'];
     const a = Buffer.from(String(provided || ''));
     const b = Buffer.from(String(dedicatedSecret));
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-      return res.status(401).json({ error: 'Unauthorized.' });
+    if (provided) {
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return res.status(401).json({ error: 'Unauthorized.' });
+      }
+      return handleSessionCleanupRun(req, res);
     }
-    return handleSessionCleanupRun(req, res);
   }
 
   const cronSecret = String(process.env.CRON_SECRET || '').trim();
@@ -1628,9 +1008,8 @@ async function handleSessionCleanupRun(req, res) {
 // GET /api/auth/me
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    // The JWT is issued at login and never changes, so the account status has
-    // to be read live — otherwise an admin suspending the account is invisible
-    // to the logged-in browser until the user signs out and back in.
+    // Read account status live so a suspension takes effect without waiting
+    // for the fixed server-side session expiry.
     let status = 'active';
     let suspendReason = '';
     try {
@@ -1976,12 +1355,10 @@ router.put('/profile', authenticateToken, handleUpdatePreferredName);
 
 module.exports = router;
 
-// The 2FA login exchange in routes/twoFactor.js has to mint exactly the same
-// session, JWT and cookie that a normal login does — the whole point is that no
-// session exists until the second factor is verified. Publishing the two
-// helpers here keeps a single implementation of "log this user in" instead of a
-// second copy that could drift.
+// These helpers are also referenced by unmounted legacy recovery routes. The
+// session creator requires a verified Google subject, so those routes cannot
+// mint an alternate authentication session if accidentally mounted.
 module.exports.createLoginSession = createLoginSession;
-module.exports.issueLoginToken = issueLoginToken;
+module.exports.issueLoginToken = () => { throw new Error('Bearer session tokens are retired.'); };
 module.exports.setSessionCookie = setSessionCookie;
 

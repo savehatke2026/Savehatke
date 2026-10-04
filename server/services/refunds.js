@@ -333,38 +333,68 @@ async function createOrUpdateRefund({
   });
 
   // Dual-write: Sheets first (operator mirror), then Supabase (structured
-  // store). A Supabase failure never fails the call: the Sheets row is the
-  // primary, and the dashboard can read from Sheets while the structured
-  // store catches up.
+  // store).
+  //
+  // The Sheets write is STRICT. A refund is money owed to a buyer, so "the
+  // mirror was unreachable" must not be reported as "recorded": a non-strict
+  // updateRow silently falls back to this instance's in-memory copy, which
+  // returns ok:true for a row that exists nowhere authoritative and is gone
+  // after a restart — while a buyer-facing "your refund is being processed"
+  // message has already gone out.
   let sheetsSaved = false;
+  let sheetsError = '';
   try {
     if (existing) {
-      await db.updateRow(SHEETS.REFUNDS, 'id', existing.refundId || existing.id, toSheetsRow(merged));
+      await db.updateRow(SHEETS.REFUNDS, 'id', existing.refundId || existing.id, toSheetsRow(merged), { strict: true });
     } else {
-      await db.appendRow(SHEETS.REFUNDS, toSheetsRow(merged));
+      await db.appendRow(SHEETS.REFUNDS, toSheetsRow(merged), { strict: true });
     }
     sheetsSaved = true;
   } catch (e) {
-    console.warn('[refunds] Sheets write notice:', e.message);
+    sheetsError = e && e.message ? e.message : 'Sheets write failed';
+    console.warn('[refunds] Sheets write notice:', sheetsError);
   }
 
+  // Supabase carries a unique index on payment_id, which is what actually makes
+  // "one refund per payment" true across instances. The result used to be
+  // discarded, so a duplicate insert failed invisibly and the caller still got
+  // ok:true. It is now inspected: a unique-constraint violation means another
+  // writer already created this refund, which is reported, not swallowed.
+  let supabaseSaved = false;
+  let supabaseConflict = false;
+  let supabaseError = '';
   if (supabase.isConfigured()) {
     try {
       const client = supabase.getClient();
       if (client) {
-        if (existing) {
-          await client.from('refunds').update(toSupabaseRow(merged)).eq('refund_id', merged.refundId);
+        const { error } = existing
+          ? await client.from('refunds').update(toSupabaseRow(merged)).eq('refund_id', merged.refundId)
+          : await client.from('refunds').insert(toSupabaseRow(merged));
+        if (error) {
+          supabaseError = error.message || 'Supabase write failed';
+          if (error.code === '23505' || /duplicate key|unique constraint/i.test(supabaseError)) {
+            supabaseConflict = true;
+          }
+          console.warn('[refunds] Supabase write notice:', supabaseError);
         } else {
-          await client.from('refunds').insert(toSupabaseRow(merged));
+          supabaseSaved = true;
         }
       }
     } catch (e) {
-      console.warn('[refunds] Supabase write notice:', e.message);
+      supabaseError = e && e.message ? e.message : 'Supabase write failed';
+      console.warn('[refunds] Supabase write notice:', supabaseError);
     }
   }
 
-  if (!sheetsSaved && !supabase.isConfigured()) {
-    return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'Neither Sheets nor Supabase is configured.' };
+  // Fail closed. At least one authoritative store must have accepted the row.
+  if (!sheetsSaved && !supabaseSaved) {
+    return {
+      ok: false,
+      code: supabaseConflict ? 'REFUND_ALREADY_EXISTS' : 'STORAGE_UNAVAILABLE',
+      error: supabaseConflict
+        ? 'A refund for this payment already exists.'
+        : 'The refund record could not be saved. No refund was created.',
+    };
   }
 
   return { ok: true, created: !existing, refund: merged };
@@ -386,6 +416,25 @@ async function updateRefundStatus(refundId, { status, adminNote, refundReference
   const existing = all.find((r) => (r.refundId || r.id) === refundId);
   if (!existing) return { ok: false, code: 'NOT_FOUND', error: 'Refund not found.' };
 
+  // ── Terminal states are final ────────────────────────────────────────────
+  // 'refunded' and 'rejected' are set by an administrator and record that money
+  // has (or has not) moved. Without this guard the whole row was rebuilt from a
+  // stale snapshot with no precondition, so a buyer's own
+  // POST /api/refunds/:id/request racing an admin's "mark refunded" could write
+  // 'processing' over 'refunded' — erasing the audit trail of a completed
+  // payout. Re-opening a terminal refund is a deliberate admin action, not a
+  // side effect of a status update.
+  const currentStatus = clampStatus(existing.status);
+  const currentTerminal = currentStatus === 'refunded' || currentStatus === 'rejected';
+  if (currentTerminal && clamped !== currentStatus) {
+    return {
+      ok: false,
+      code: 'REFUND_FINALISED',
+      error: `This refund is already marked "${currentStatus}" and cannot be changed.`,
+      refund: existing,
+    };
+  }
+
   const now = new Date().toISOString();
   const isTerminal = clamped === 'refunded' || clamped === 'rejected';
   const updated = normalize({
@@ -398,21 +447,40 @@ async function updateRefundStatus(refundId, { status, adminNote, refundReference
     updated_at: now,
   });
 
-  // Sheets first, then Supabase (same dual-write pattern).
+  // Sheets first, then Supabase (same dual-write pattern). Both are checked:
+  // reporting success for a status change that no authoritative store accepted
+  // would tell an admin the money is marked refunded when it is not.
+  let sheetsSaved = false;
   try {
-    await db.updateRow(SHEETS.REFUNDS, 'id', existing.refundId || existing.id, toSheetsRow(updated));
+    await db.updateRow(SHEETS.REFUNDS, 'id', existing.refundId || existing.id, toSheetsRow(updated), { strict: true });
+    sheetsSaved = true;
   } catch (e) {
     console.warn('[refunds] Sheets status update notice:', e.message);
   }
+  let supabaseSaved = false;
   if (supabase.isConfigured()) {
     try {
       const client = supabase.getClient();
       if (client) {
-        await client.from('refunds').update(toSupabaseRow(updated)).eq('refund_id', updated.refundId);
+        const { error } = await client.from('refunds').update(toSupabaseRow(updated)).eq('refund_id', updated.refundId);
+        if (error) console.warn('[refunds] Supabase status update notice:', error.message);
+        else supabaseSaved = true;
       }
     } catch (e) {
       console.warn('[refunds] Supabase status update notice:', e.message);
     }
+  }
+
+  // Fail closed: a status change that no authoritative store accepted must not
+  // be reported as done, or an admin is told the money is marked refunded while
+  // the ledger still shows it pending.
+  if (!sheetsSaved && !supabaseSaved) {
+    return {
+      ok: false,
+      code: 'STORAGE_UNAVAILABLE',
+      error: 'The refund status could not be saved. Nothing was changed — please try again.',
+      refund: existing,
+    };
   }
 
   return { ok: true, refund: updated };

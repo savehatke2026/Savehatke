@@ -22,10 +22,10 @@
        ════════════════════════════════════════════════════════════════════════ */
     (function checkFirstLoginGate() {
       try {
-        const token = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
+        const authenticated = localStorage.getItem('sh_authenticated') === '1';
         const userRaw = localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user');
 
-        if (!token || !userRaw) {
+        if (!authenticated || !userRaw) {
           document.documentElement.style.display = 'none';
           window.location.replace('/login.html');
           return;
@@ -694,7 +694,6 @@
       continueBtn.classList.add('is-loading');
 
       try {
-        const token = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token') || '';
         const user = getStoredUser() || {};
 
         // Call backend API to persist preferred display name
@@ -702,7 +701,6 @@
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
           },
           credentials: 'include',
           body: JSON.stringify({

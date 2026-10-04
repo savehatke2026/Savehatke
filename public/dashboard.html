@@ -3431,7 +3431,7 @@
     purchases: [],          // /api/coupons/my-purchases → coupons
     tickets: [],            // /api/support/tickets
     payouts: [],            // /api/payouts/my → seller's payouts
-    payoutsSummary: { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 },
+    payoutsSummary: { totalPaid: 0, pending: 0, available: 0, rejected: 0, totalCount: 0 },
     refunds: [],            // /api/refunds → this buyer's refund records
     refundsSummary: {},     // /api/refunds summary block
     reviews: [],            // /api/reviews/my → this buyer's own reviews
@@ -5351,10 +5351,8 @@
     try {
       const mHeaders = { 'Accept': 'application/json' };
       try {
-        const tok = (localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token') || '').trim();
-        if (tok) mHeaders['Authorization'] = 'Bearer ' + tok;
       } catch (e) { /* localStorage blocked — treat as anonymous */ }
-      const mRes = await fetch('/api/maintenance/status', { headers: mHeaders, cache: 'no-store' });
+      const mRes = await fetch('/api/maintenance/status', { headers: mHeaders, cache: 'no-store', credentials: 'same-origin' });
       const mData = await mRes.json();
       // canAccess = maintenance OFF, or caller is admin / on the whitelist
       if (mData && mData.enabled && !mData.canAccess) {
@@ -6008,9 +6006,10 @@
 
   function openRequestPayoutModal() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
-    const summary = STATE.payoutsSummary || { pending: 0 };
-    document.getElementById('requestPayoutAvailable').textContent = inr(summary.pending);
-    document.getElementById('rpAmount').value = summary.pending > 0 ? String(summary.pending) : '';
+    const summary = STATE.payoutsSummary || { available: 0 };
+    const available = Number(summary.available) || 0;
+    document.getElementById('requestPayoutAvailable').textContent = inr(available);
+    document.getElementById('rpAmount').value = available > 0 ? String(available) : '';
     openModal('requestPayoutModal');
     setTimeout(() => document.getElementById('rpAmount')?.focus(), 200);
   }
@@ -6023,7 +6022,7 @@
       showToast('Minimum payout request is ₹50.', 'error');
       return;
     }
-    const available = (STATE.payoutsSummary && Number(STATE.payoutsSummary.pending)) || 0;
+    const available = (STATE.payoutsSummary && Number(STATE.payoutsSummary.available)) || 0;
     if (amount > available) {
       showToast(`You can only request up to ${inr(available)} right now.`, 'error');
       return;

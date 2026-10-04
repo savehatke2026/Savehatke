@@ -1,0 +1,28 @@
+{
+  "brand": "Amazon",
+  "lastUpdated": "2026-10-01",
+  "coupons": [
+    {
+      "code": "SAVE10",
+      "description": "Flat 10% off on Amazon",
+      "discount": "10%",
+      "minOrder": 499,
+      "maxDiscount": 200,
+      "category": "all",
+      "expiresAt": "2026-12-31",
+      "verified": false,
+      "lastTested": null
+    },
+    {
+      "code": "FIRST50",
+      "description": "₹50 off on first Amazon order",
+      "discount": "₹50",
+      "minOrder": 299,
+      "maxDiscount": 50,
+      "category": "new-user",
+      "expiresAt": "2026-12-31",
+      "verified": false,
+      "lastTested": null
+    }
+  ]
+}

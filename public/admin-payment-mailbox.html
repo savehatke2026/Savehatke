@@ -69,7 +69,14 @@
   var countdownTimer = null;
 
   function getAdminToken() {
-    return localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token') || '';
+    return '';
+  }
+  function hasAdminSession() {
+    try {
+      const raw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
+      const user = raw ? JSON.parse(raw) : null;
+      return localStorage.getItem('sh_authenticated') === '1' && String((user && user.role) || '').toLowerCase() === 'admin';
+    } catch (e) { return false; }
   }
   function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
   function fmt(ts){ if(!ts) return '—'; try { return new Date(ts).toLocaleString(); } catch(e){ return String(ts); } }
@@ -189,16 +196,15 @@
   }
 
   async function loadStatus(){
-    var token = getAdminToken();
     var rows = document.getElementById('rows');
     var btn = document.getElementById('reconnect');
-    if (!token) {
+    if (!hasAdminSession()) {
       rows.innerHTML = '<div class="row"><span class="k">Not signed in</span><span class="v"><a href="admin-login.html">Admin login</a></span></div>';
       return;
     }
     try {
       var res = await fetch('/api/admin/gmail/payment-status', {
-        headers: { Authorization: 'Bearer ' + token }
+        credentials: 'same-origin'
       });
       var data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to load status');
@@ -240,14 +246,13 @@
   }
 
   async function reconnect(){
-    var token = getAdminToken();
     var btn = document.getElementById('reconnect');
-    if (!token) { window.location.href = 'admin-login.html'; return; }
+    if (!hasAdminSession()) { window.location.href = 'admin-login.html'; return; }
     btn.disabled = true; var label = btn.textContent; btn.textContent = 'Starting…';
     try {
       var res = await fetch('/api/admin/gmail/payment-connect', {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin'
       });
       var data = await res.json();
       if (!res.ok || !data.url) throw new Error(data.error || 'Could not start the connection.');

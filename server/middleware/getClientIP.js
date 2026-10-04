@@ -35,31 +35,75 @@ function normalize(ip) {
 
 /**
  * Extract the real client IP address from an Express request.
- * Priority: CDN-provided client IP headers first (Cloudflare, Akamai),
- * then the x-forwarded-for chain (first valid PUBLIC address wins,
- * so spoofed or internal entries are skipped), then socket addresses.
+ *
+ * SECURITY — why the header list is this short.
+ *
+ * This value is not cosmetic: it is the rate-limit key for the chatbot
+ * (services/chatbotService.js), the IP written into every session row and shown
+ * on the user's and admin's login-history screens, the input to the
+ * new-device/new-location alerts, and the `remoteip` sent to Cloudflare
+ * Turnstile. A caller-controlled value therefore lets an attacker rotate the
+ * key to defeat per-IP throttling AND forge the IP recorded for incident
+ * response.
+ *
+ * `cf-connecting-ip`, `true-client-ip` and `x-real-ip` are NOT set by Vercel,
+ * so any client can send them. They used to be read first, which meant a
+ * request with `cf-connecting-ip: <random public IP>` overrode the genuine
+ * `x-vercel-forwarded-for` and the app's own `app.set('trust proxy', 1)`.
+ * They are deliberately no longer consulted: Cloudflare/Akamai-style headers
+ * only become trustworthy once a proxy that strips inbound copies is actually
+ * in front of the app, and none is configured here.
+ *
+ * The order is now:
+ *   1. x-vercel-forwarded-for — set by Vercel's edge from the proxy's own view.
+ *      Overridable with TRUSTED_IP_HEADER for a deployment that fronts the app
+ *      with a different proxy that sets its own single-value header.
+ *   2. req.ip — Express's answer, bounded to exactly one trusted hop by
+ *      `app.set('trust proxy', 1)`.
+ *   3. raw socket address — accurate when nothing is in front (local dev).
+ *
+ * The subtle part is step 2. `trust proxy: 1` makes Express read the LEFTMOST
+ * entry of X-Forwarded-For. That is only safe if the trusted proxy OVERWRITES
+ * the header with the real client address. If a proxy instead APPENDS the real
+ * address to an inbound header, a caller who sends `X-Forwarded-For: <fake>`
+ * ends up leftmost, and Express hands back the fake — which is a fresh
+ * rate-limit bucket and a forged audit IP on every request.
+ *
+ * Since that behaviour depends on the platform and cannot be verified from
+ * here, the X-Forwarded-For chain is NOT trusted as a fallback: when a caller
+ * supplies X-Forwarded-For but no trusted single-value header, the chain is
+ * ignored and the real socket address is used. Under Vercel that case does not
+ * arise (the edge always sets x-vercel-forwarded-for), so legitimate traffic
+ * keeps its true IP; an off-platform or misconfigured deployment degrades to
+ * over-limiting a shared address, which is the safe direction.
  *
  * @param {import('express').Request} req
  * @returns {string} Client IP address
  */
+// A deployment that uses a different proxy can name its own single-value
+// client-IP header (e.g. 'cf-connecting-ip' behind a Cloudflare setup that
+// strips inbound copies). Unset by default.
+const TRUSTED_IP_HEADER = String(process.env.TRUSTED_IP_HEADER || '').trim().toLowerCase();
+
 function getClientIP(req) {
-  const headers = req.headers || {};
+  const headers = (req && req.headers) || {};
   const candidates = [];
 
-  // CDN / trusted-proxy headers that carry the true client IP
-  for (const h of ['cf-connecting-ip', 'true-client-ip', 'x-vercel-forwarded-for', 'x-real-ip']) {
-    const v = String(headers[h] || '').split(',')[0].trim();
-    if (v) candidates.push(v);
+  // The proxy's own single-value header — the only proxy input trusted here.
+  const trustedHeader = TRUSTED_IP_HEADER || 'x-vercel-forwarded-for';
+  const fromTrustedProxy = String(headers[trustedHeader] || '').split(',')[0].trim();
+  if (fromTrustedProxy) candidates.push(fromTrustedProxy);
+
+  // Express's answer, but only when the request did not arrive with an
+  // untrusted X-Forwarded-For chain to poison it (see the note above).
+  const hasUntrustedChain = !fromTrustedProxy && Boolean(String(headers['x-forwarded-for'] || '').trim());
+  if (!hasUntrustedChain) {
+    candidates.push(req && req.ip);
   }
 
-  // x-forwarded-for: full chain, left to right
-  for (const part of String(headers['x-forwarded-for'] || '').split(',')) {
-    const v = part.trim();
-    if (v) candidates.push(v);
-  }
-
-  // Transport-level addresses (accurate when no proxy is in front)
-  candidates.push(req.connection?.remoteAddress, req.socket?.remoteAddress, req.ip);
+  // Transport-level addresses (accurate when no proxy is in front).
+  candidates.push(req && req.connection && req.connection.remoteAddress,
+    req && req.socket && req.socket.remoteAddress);
 
   // 1st pass — first valid PUBLIC IP (the real visitor)
   for (const c of candidates) {

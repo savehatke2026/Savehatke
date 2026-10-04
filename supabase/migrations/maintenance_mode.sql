@@ -18,14 +18,15 @@ INSERT INTO site_settings (key, value, updated_by)
 VALUES ('maintenance_mode', '{"enabled": false, "message": ""}', 'system')
 ON CONFLICT (key) DO NOTHING;
 
--- Allow the service role full access (RLS is off by default for new tables
--- accessed via the service key, but this is explicit for clarity).
+-- Settings contain operator-controlled values. Only the server's service
+-- role may access this table; browser anon/authenticated roles receive no grants.
 ALTER TABLE site_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE site_settings FROM anon, authenticated;
+GRANT ALL ON TABLE site_settings TO service_role;
 
--- Service-role policy: the server uses the service key, so it bypasses RLS
--- automatically. This policy is a safety net for any future anon/authenticated
--- access patterns.
+DROP POLICY IF EXISTS "Service role full access" ON site_settings;
 CREATE POLICY "Service role full access" ON site_settings
+  TO service_role
   FOR ALL
   USING (true)
   WITH CHECK (true);

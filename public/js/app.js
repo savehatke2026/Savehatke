@@ -5,6 +5,17 @@
 
 const API_BASE = '/api';
 
+// Remove bearer credentials left by older builds. The server now accepts only
+// the revocable HttpOnly cookie; this non-secret marker is used for UI state.
+try {
+  const hadBearerToken = Boolean(localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token'));
+  localStorage.removeItem('sh_token');
+  localStorage.removeItem('sh_admin_token');
+  if (hadBearerToken && (localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user'))) {
+    localStorage.setItem('sh_authenticated', '1');
+  }
+} catch (e) {}
+
 // ── Page Loading Progress Bar ───────────────────────────────────────────
 // Website-green bar at the very top: creeps forward while the page loads
 // and completes the full width once everything has loaded.
@@ -58,9 +69,9 @@ initPageProgressBar();
     const adminPages = ['vault.html', 'vault', 'login.html', 'login', 'admin-gmail.html', 'admin-gmail', 'admin-review.html', 'admin-review'];
     if (adminPages.includes(filename)) return;
 
-    const adminToken = localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
+    const authenticated = localStorage.getItem('sh_authenticated') === '1';
     const adminUserRaw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
-    if (!adminToken || !adminUserRaw) return;
+    if (!authenticated || !adminUserRaw) return;
 
     const user = JSON.parse(adminUserRaw);
     const isAdmin = user && (
@@ -130,7 +141,7 @@ window.addEventListener('pageshow', (event) => {
 // ── Auth State Management ───────────────────────────────────────────────
 const Auth = {
   getToken() {
-    return localStorage.getItem('sh_token');
+    return '';
   },
 
   getUser() {
@@ -138,23 +149,26 @@ const Auth = {
     return user ? JSON.parse(user) : null;
   },
 
-  setAuth(token, user) {
-    localStorage.setItem('sh_token', token);
+  setAuth(_token, user) {
+    localStorage.removeItem('sh_token');
+    localStorage.removeItem('sh_admin_token');
+    localStorage.setItem('sh_authenticated', '1');
     localStorage.setItem('sh_user', JSON.stringify(user));
   },
 
   clear() {
+    localStorage.removeItem('sh_authenticated');
     localStorage.removeItem('sh_token');
     localStorage.removeItem('sh_user');
   },
 
   isLoggedIn() {
-    return !!this.getToken();
+    return localStorage.getItem('sh_authenticated') === '1' && !!this.getUser();
   },
 
   // Admin auth
   getAdminToken() {
-    return localStorage.getItem('sh_admin_token') || localStorage.getItem('sh_token');
+    return '';
   },
 
   getAdminUser() {
@@ -165,14 +179,16 @@ const Auth = {
     return null;
   },
 
-  setAdminAuth(token, user) {
-    localStorage.setItem('sh_admin_token', token);
+  setAdminAuth(_token, user) {
+    localStorage.removeItem('sh_admin_token');
+    localStorage.removeItem('sh_token');
+    localStorage.setItem('sh_authenticated', '1');
     localStorage.setItem('sh_admin_user', JSON.stringify(user));
-    localStorage.setItem('sh_token', token);
     localStorage.setItem('sh_user', JSON.stringify(user));
   },
 
   clearAdmin() {
+    localStorage.removeItem('sh_authenticated');
     localStorage.removeItem('sh_admin_token');
     localStorage.removeItem('sh_admin_user');
     localStorage.removeItem('sh_token');
@@ -180,12 +196,9 @@ const Auth = {
   },
 
   isAdminLoggedIn() {
-    const adminToken = localStorage.getItem('sh_admin_token');
     const adminUser = this.getAdminUser();
-    if (adminToken && adminUser) return true;
-
-    const user = this.getUser();
-    return !!(user && (user.role === 'admin' || user.role === 'Super Admin' || user.role === 'Admin' || user.role === 'Support'));
+    return localStorage.getItem('sh_authenticated') === '1' && !!(adminUser &&
+      ['admin', 'super admin', 'support'].includes(String(adminUser.role || '').toLowerCase()));
   },
 };
 
@@ -205,62 +218,9 @@ function handleSessionExpired() {
   }
 }
 
-// ── Token Refresh ───────────────────────────────────────────────────────
-// Exchanges an expired (or nearly expired) JWT for a fresh one via
-// /api/auth/refresh. A refresh can never extend the session past 48 hours
-// from the original login — when the session is over, the server refuses
-// with SESSION_EXPIRED and the user is redirected to log in again.
-let refreshPromise = null;
-
-function getTokenExpiry(token) {
-  try {
-    const payload = token.split('.')[1];
-    if (!payload) return null;
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
-    return decoded.exp ? decoded.exp * 1000 : null;
-  } catch (e) {
-    return null;
-  }
-}
-
-async function refreshAuthToken() {
-  if (!refreshPromise) {
-    refreshPromise = (async () => {
-      const adminToken = localStorage.getItem('sh_admin_token');
-      const token = adminToken || localStorage.getItem('sh_token');
-      if (!token) return false;
-      try {
-        const res = await fetch(`${API_BASE}/auth/refresh`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (data && data.code === 'SESSION_EXPIRED') {
-          handleSessionExpired();
-          return false;
-        }
-        if (!res.ok) return false;
-        if (!data.token) return false;
-        localStorage.setItem('sh_token', data.token);
-        if (adminToken) localStorage.setItem('sh_admin_token', data.token);
-        return true;
-      } catch (e) {
-        return false;
-      } finally {
-        refreshPromise = null;
-      }
-    })();
-  }
-  return refreshPromise;
-}
-
 // ── API Client ──────────────────────────────────────────────────────────
 async function api(endpoint, options = {}) {
   const url = `${API_BASE}${endpoint}`;
-  const getToken = () => (options.useAdmin ? Auth.getAdminToken() : Auth.getToken());
 
   const doRequest = async () => {
     const headers = {
@@ -268,15 +228,10 @@ async function api(endpoint, options = {}) {
       ...options.headers,
     };
 
-    // Add auth token if available
-    const token = getToken();
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const res = await fetch(url, {
       ...options,
       headers,
+      credentials: options.credentials || 'same-origin',
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
 
@@ -325,6 +280,13 @@ async function api(endpoint, options = {}) {
         err.status = 429;
         err.isRateLimited = true;
         err.data = data;
+        if (data && data.code === 'RATE_LIMITED' && window.location.pathname !== '/429.html') {
+          const retryAfter = Math.max(0, Number(res.headers.get('Retry-After')) || 0);
+          const currentPath = window.location.pathname + window.location.search + window.location.hash;
+          const params = new URLSearchParams({ from: currentPath });
+          if (retryAfter) params.set('retry', String(retryAfter));
+          window.location.assign(`/429.html?${params.toString()}`);
+        }
         throw err;
       }
       const err = new Error(data.error || `HTTP ${res.status}`);
@@ -340,26 +302,8 @@ async function api(endpoint, options = {}) {
   };
 
   try {
-    // Proactively refresh tokens expiring within the next 5 minutes
-    const token = getToken();
-    if (token) {
-      const expiry = getTokenExpiry(token);
-      if (expiry && expiry - Date.now() < 5 * 60 * 1000) {
-        await refreshAuthToken();
-      }
-    }
-
     return await doRequest();
   } catch (err) {
-    // Token expired mid-session — refresh once and retry the request.
-    // (A SESSION_EXPIRED error is never retried: the session is gone.)
-    if ((err.status === 401 || err.status === 403) && !err.sessionExpired && getToken()) {
-      const refreshed = await refreshAuthToken();
-      if (refreshed) {
-        return await doRequest();
-      }
-    }
-
     if (err.message.includes('Failed to fetch')) {
       throw new Error('Network error. Please check your connection.');
     }
@@ -541,10 +485,11 @@ function updateNavAuth() {
 
   if (Auth.isLoggedIn()) {
     const user = Auth.getUser() || {};
-    const name = user.name || 'User';
-    const displayName = firstNameOf(name);
-    const email = user.email || '';
-    const initials = name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U';
+    const name = String(user.name || 'User');
+    const safeName = escapeHtmlText(name);
+    const displayName = escapeHtmlText(firstNameOf(name));
+    const email = escapeHtmlText(user.email || '');
+    const initials = escapeHtmlText(name ? name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) : 'U');
 
     // Account status tag — 'Active' by default, 'Suspended' when the account is suspended
     const accountStatus = String(user.status || 'active').toLowerCase();
@@ -553,18 +498,19 @@ function updateNavAuth() {
       ? '<span class="npd-status suspended">Suspended</span>'
       : '<span class="npd-status">Active</span>';
 
-    const avatarHtmlBtn = user.picture 
-      ? `<img src="${user.picture}" alt="${name}" />`
+    const picture = safeGoogleProfilePicture(user.picture);
+    const avatarHtmlBtn = picture
+      ? `<img src="${picture}" alt="${safeName}" referrerpolicy="no-referrer" />`
       : initials;
 
-    const avatarHtmlDropdown = user.picture
-      ? `<img src="${user.picture}" alt="${name}" />`
+    const avatarHtmlDropdown = picture
+      ? `<img src="${picture}" alt="${safeName}" referrerpolicy="no-referrer" />`
       : initials;
 
     const profileDiv = document.createElement('div');
     profileDiv.className = 'nav-profile-wrapper';
     profileDiv.innerHTML = `
-        <button class="nav-profile-btn" id="navProfileCircleBtn" title="${name} (${email})">
+        <button class="nav-profile-btn" id="navProfileCircleBtn" title="${safeName} (${email})">
           ${avatarHtmlBtn}
         </button>
         <div class="nav-profile-dropdown" id="navProfileDropdown">
@@ -604,17 +550,18 @@ function updateNavAuth() {
     }
 
     if (logoutBtn) {
-      logoutBtn.addEventListener('click', () => {
-        // Fire-and-forget logout API call (don't wait for it)
+      logoutBtn.addEventListener('click', async () => {
+        logoutBtn.disabled = true;
         try {
-          api('/auth/logout', {
-            method: 'POST',
-            body: { userId: user.user_id || user.id, email: user.email },
-          }).catch(() => {});
-        } catch (e) {}
-        // Instant clear and redirect
+          await api('/auth/logout', { method: 'POST' });
+        } catch (e) {
+          logoutBtn.disabled = false;
+          showToast('Logout could not be confirmed. Please retry.', 'error');
+          return;
+        }
         Auth.clear();
-        window.location.href = 'index';
+        Auth.clearAdmin();
+        window.location.href = 'login.html';
       });
     }
   } else {
@@ -651,50 +598,7 @@ async function fetchGoogleClientId() {
 }
 
 async function authenticateGoogleCredential(response, { closeModalOnSuccess = false } = {}) {
-  try {
-    const data = await api('/auth/google', {
-      method: 'POST',
-      body: { credential: response.credential }
-    });
-
-    // The account has an authenticator enrolled, so the server withheld the
-    // session and returned a short-lived challenge instead of a token. Nothing
-    // goes into Auth until the second factor has been verified.
-    if (data.twoFactorRequired) {
-      // The login page owns the 2FA UI; everywhere else (the navbar sign-in
-      // modal) hands off to it. The challenge travels through sessionStorage
-      // rather than the URL so it never lands in history, logs or a referrer.
-      if (typeof window.onTwoFactorRequired === 'function') {
-        window.onTwoFactorRequired(data);
-        return;
-      }
-      try {
-        sessionStorage.setItem('sh_2fa_challenge', data.challengeToken || '');
-      } catch (e) { /* storage blocked — the user can simply sign in again */ }
-      window.location.replace('login.html?step=2fa');
-      return;
-    }
-
-    Auth.setAuth(data.token, data.user);
-
-    if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-      Auth.setAdminAuth(data.token, data.user);
-      if (closeModalOnSuccess) closeAuthModal();
-      window.location.replace('vault');
-      return;
-    }
-
-    if (closeModalOnSuccess) {
-      closeAuthModal();
-      updateNavAuth();
-      window.location.reload();
-      return;
-    }
-
-    updateNavAuth();
-  } catch (err) {
-    showToast(err.message || 'Google authentication failed.', 'error');
-  }
+  window.location.assign('/api/auth/google-redirect');
 }
 
 async function initAuthGoogleButton() {
@@ -732,21 +636,7 @@ async function initAuthGoogleButton() {
       btn.disabled = true;
       btn.textContent = 'Redirecting to Google…';
 
-      const redirectUri = window.location.origin + '/api/auth/google-redirect';
-      const scope = 'openid email profile';
-      const nonce = Math.random().toString(36).substring(2, 15);
-
-      const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
-        client_id: clientId,
-        redirect_uri: redirectUri,
-        response_type: 'id_token',
-        scope: scope,
-        nonce: nonce,
-        response_mode: 'form_post',
-        prompt: 'select_account',
-      }).toString();
-
-      window.location.href = authUrl;
+      window.location.assign('/api/auth/google-redirect');
     });
 
     btn.addEventListener('mouseenter', () => {
@@ -822,15 +712,32 @@ function formatTimeAgo(isoString) {
   return formatDate(isoString);
 }
 
+function escapeHtmlText(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+}
+
+function safeGoogleProfilePicture(value) {
+  try {
+    const url = new URL(String(value || ''));
+    const host = url.hostname.toLowerCase();
+    if (url.protocol !== 'https:' || !(host === 'googleusercontent.com' || host.endsWith('.googleusercontent.com'))) return '';
+    return escapeHtmlText(url.href);
+  } catch (e) {
+    return '';
+  }
+}
+
 // ── Coupon Terms & How-to-Use Modal ──────────────────────────────────────
 function openCouponTermsModal(couponData) {
   let c = typeof couponData === 'object' ? couponData : { id: couponData };
 
-  const brand = c.brand || 'Store';
-  const category = c.category || 'General';
-  const description = c.description || 'Special Discount Coupon';
-  const originalValue = c.originalValue || '200';
-  const sellingPrice = c.source === 'auto-scraped' ? 'FREE' : `₹${c.sellingPrice || '20'}`;
+  const brand = escapeHtmlText(c.brand || 'Store');
+  const category = escapeHtmlText(c.category || 'General');
+  const description = escapeHtmlText(c.description || 'Special Discount Coupon');
+  const originalValue = escapeHtmlText(c.originalValue || '200');
+  const sellingPrice = escapeHtmlText(c.source === 'auto-scraped' ? 'FREE' : `₹${c.sellingPrice || '20'}`);
 
   // Remove existing modal
   document.querySelector('.modal-overlay')?.remove();

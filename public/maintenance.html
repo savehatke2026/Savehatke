@@ -207,16 +207,15 @@
   const MAINT_API_BASE = window.location.origin;
 
   function getCallerToken() {
-    try {
-      return (localStorage.getItem('sh_admin_token')
-            || localStorage.getItem('sh_token')
-            || '').trim();
-    } catch (e) { return ''; }
+    return '';
   }
 
   function adminLooksLoggedIn() {
     try {
-      return !!localStorage.getItem('sh_admin_token');
+      if (localStorage.getItem('sh_authenticated') !== '1') return false;
+      const raw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
+      const user = raw ? JSON.parse(raw) : null;
+      return Boolean(user && String(user.role || '').toLowerCase() === 'admin');
     } catch (e) { return false; }
   }
   // ── The page's action ──────────────────────────────────────────────────
@@ -232,8 +231,6 @@
     let data = null;
     try {
       const headers = { 'Accept': 'application/json' };
-      const token = getCallerToken();
-      if (token) headers['Authorization'] = 'Bearer ' + token;
       const res = await fetch(`${MAINT_API_BASE}/api/maintenance/status`, { headers, cache: 'no-store', credentials: 'include' });
       data = await res.json();
     } catch (e) {

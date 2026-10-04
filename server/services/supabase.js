@@ -268,6 +268,7 @@ function fromSupabaseCoupon(r) {
     addedAt: r.added_at || new Date().toISOString(),
     soldAt: r.sold_at || '',
     buyerEmail: r.buyer_email || '',
+    soldPaymentId: r.sold_payment_id || '',
     proofUrl: r.proof_url || '',
     adminNotes: r.admin_notes || '',
     verifiedAt: r.verified_at || '',
@@ -342,10 +343,65 @@ async function getCoupons(filters = {}) {
 
   const { data, error } = await query;
   if (error) {
+    if (filters.strict) throw new Error('Coupon records are unavailable');
     console.warn('Supabase getCoupons warning:', error.message);
     return [];
   }
   return (data || []).map(fromSupabaseCoupon);
+}
+
+// Financial payout reservations are kept in Postgres rather than process memory
+// or Google Sheets so requests and admin settlement share one per-seller lock
+// across Vercel instances. The matching RPCs are service-role only.
+async function getActiveSellerPayoutReservations(sellerEmail) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase not configured');
+  const email = String(sellerEmail || '').toLowerCase().trim();
+  if (!email) throw new Error('Seller identity is required');
+  const { data, error } = await client
+    .from('seller_payout_reservations')
+    .select('reservation_id, payout_id, seller_email, amount, status')
+    .eq('seller_email', email)
+    .in('status', ['reserved', 'processing']);
+  if (error) throw new Error('Payout reservation ledger unavailable');
+  return data || [];
+}
+
+async function reserveSellerPayout({ reservationId, payoutId, sellerEmail, amount, earnedAmount, paidAmount }) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase not configured');
+  const { data, error } = await client.rpc('reserve_seller_payout', {
+    p_reservation_id: reservationId,
+    p_payout_id: payoutId,
+    p_seller_email: String(sellerEmail || '').toLowerCase().trim(),
+    p_amount: amount,
+    p_earned_amount: earnedAmount,
+    p_paid_amount: paidAmount,
+  });
+  if (error) throw new Error('Payout reservation could not be confirmed');
+  return data === true;
+}
+
+async function claimSellerPayoutReservation(reservationId) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase not configured');
+  const { data, error } = await client.rpc('claim_seller_payout_reservation', {
+    p_reservation_id: reservationId,
+  });
+  if (error) throw new Error('Payout settlement could not be claimed');
+  return data === true;
+}
+
+async function finishSellerPayoutReservation(reservationId, status) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase not configured');
+  if (!['settled', 'released'].includes(status)) throw new Error('Invalid payout reservation state');
+  const { data, error } = await client.rpc('finish_seller_payout_reservation', {
+    p_reservation_id: reservationId,
+    p_status: status,
+  });
+  if (error) throw new Error('Payout reservation could not be finalized');
+  return data === true;
 }
 
 /**
@@ -463,7 +519,7 @@ async function countCoupons(filters = {}) {
 // ── Session Tracking Operations ─────────────────────────────────────────
 // Sessions are the server-side source of truth for authentication.
 // Every login creates a row with a 48-hour expires_at; the raw session
-// token lives only in the JWT `sid` claim + HttpOnly cookie — the database
+// raw token is carried only by the HttpOnly cookie — the database
 // stores a SHA-256 hash so a database leak cannot forge valid sessions.
 
 // 48 hours, in milliseconds — the maximum lifetime of any USER login session.
@@ -489,10 +545,10 @@ function sessionTableFor(loginMethod) {
 }
 
 // Matches PostgREST errors raised when the sessions table hasn't been
-// upgraded yet (missing session_token / revoked_at / user_agent columns).
+// upgraded yet (missing columns required to validate a Google-bound session).
 function isMissingColumnError(err) {
   const msg = String((err && err.message) || err || '');
-  return /session_token|revoked_at|user_agent|42703|could not find the column/i.test(msg);
+  return /session_token|revoked_at|user_agent|google_sub|42703|could not find the column/i.test(msg);
 }
 
 /**
@@ -507,7 +563,7 @@ async function ensureSessionsTable() {
     try {
       // Lightweight probe — if it succeeds, the table (and the session_token
       // column added by the 48h-session upgrade) exists.
-      await client.from(table).select('session_id, session_token').limit(1);
+      await client.from(table).select('session_id, session_token, google_sub').limit(1);
     } catch (err) {
       console.warn(`Sessions table probe failed for "${table}" (may need manual creation):`, err.message);
       console.warn('Run server/setup_sessions_table.sql in Supabase SQL Editor.');
@@ -542,6 +598,7 @@ async function createSession(sessionData, ttlMs) {
     city: sessionData.city || '',
     ip_address: sessionData.ip_address || '',
     login_method: sessionData.login_method || 'Email',
+    google_sub: sessionData.google_sub || '',
     user_agent: sessionData.user_agent || '',
     session_token: sessionData.session_token || '',
     login_time: now.toISOString(),
@@ -565,9 +622,8 @@ async function createSession(sessionData, ttlMs) {
 
     if (result.error) {
       // Table created before a column existed — retry without the missing ones
-      // so logins still work before/without the migration. A session row
-      // without session_token cannot be validated server-side; the caller
-      // detects this and falls back to a legacy (non-session) JWT.
+      // so logins still work before/without the migration. Authentication
+      // fails closed if the session row cannot be validated server-side.
       let retryRow = null;
       if (isMissingColumnError(result.error)) {
         const { session_token: _t, user_agent: _u, revoked_at: _r, ...rest } = row;
@@ -598,9 +654,8 @@ async function createSession(sessionData, ttlMs) {
  * @returns {Promise<object|null|{unavailable:true}>}
  *   - row object when found
  *   - null when no session matches
- *   - { unavailable: true } when the session_token column is missing
- *     (pre-migration database) so callers can fail open instead of
- *     locking every user out.
+ *   - { unavailable: true } when the session schema is missing a required
+ *     column. Callers fail closed until the migration is deployed.
  */
 async function findSessionByToken(tokenHash) {
   const client = getClient();
@@ -612,7 +667,7 @@ async function findSessionByToken(tokenHash) {
     try {
       const { data, error } = await client
         .from(table)
-        .select('session_id, user_id, email, status, expires_at, login_time, last_active, login_method')
+        .select('session_id, user_id, email, status, expires_at, login_time, last_active, login_method, google_sub')
         .eq('session_token', tokenHash)
         .limit(1);
 
@@ -627,8 +682,8 @@ async function findSessionByToken(tokenHash) {
     }
   }
 
-  // Every table reported the session_token column missing (pre-migration DB)
-  // so callers can fail open instead of locking every user out.
+  // A missing required session column means revocation cannot be enforced.
+  // Callers refuse authentication until the schema migration is deployed.
   if (sawMissingColumn) return { unavailable: true };
   return null;
 }
@@ -662,27 +717,31 @@ async function findSessionById(sessionId) {
  */
 async function endSessionByToken(tokenHash, reason = 'Logged out') {
   const client = getClient();
-  if (!client) return;
+  if (!client) return false;
 
   const now = new Date().toISOString();
   const base = { status: reason, last_active: now };
   const updates = reason === 'Logged out' ? { ...base, logged_out_at: now } : base;
 
+  let updateSucceeded = false;
   for (const table of SESSION_TABLES) {
     try {
-      let { error } = await client
+      let { data, error } = await client
         .from(table)
         .update({ ...updates, revoked_at: now })
         .eq('session_token', tokenHash)
-        .eq('status', 'Active');
+        .eq('status', 'Active')
+        .select('session_id');
       if (error && isMissingColumnError(error)) {
-        ({ error } = await client
+        ({ data, error } = await client
           .from(table)
           .update(updates)
           .eq('session_token', tokenHash)
-          .eq('status', 'Active'));
+          .eq('status', 'Active')
+          .select('session_id'));
       }
       if (error) console.warn('End session by token warning:', error.message);
+      else if (data && data.length) updateSucceeded = true;
     } catch (err) {
       console.warn('End session by token exception:', err.message);
     }
@@ -690,6 +749,7 @@ async function endSessionByToken(tokenHash, reason = 'Logged out') {
   // Honor the revocation immediately on this instance (other instances
   // pick it up within the validation-cache TTL).
   sessionCache.remove(tokenHash);
+  return updateSucceeded;
 }
 
 /**
@@ -1271,10 +1331,9 @@ async function stampBackupCodeUsage(id, { ip = '', reason = '' } = {}) {
 // middleware doesn't hit the DB on every request. Writes invalidate the cache
 // immediately so admin toggles take effect instantly on this server instance.
 //
-// There is no email whitelist any more. The only callers that bypass the
-// maintenance guard are admins (role admin / super admin / support), and
-// that decision is made server-side from the JWT — there is no list of
-// privileged user emails to manage or to mis-seed by accident.
+// The maintenance whitelist only controls access while maintenance mode is
+// enabled. Admin bypass decisions use the server-side fixed two-account
+// allowlist and the verified SaveHatke session.
 
 const MAINTENANCE_CACHE_TTL_MS = 10 * 1000; // 10 seconds
 let maintenanceCache = null;  // { data, fetchedAt }
@@ -1526,6 +1585,10 @@ module.exports = {
   // Coupon methods
   createCoupon,
   getCoupons,
+  getActiveSellerPayoutReservations,
+  reserveSellerPayout,
+  claimSellerPayoutReservation,
+  finishSellerPayoutReservation,
   findCouponById,
   findCouponByCode,
   updateCoupon,

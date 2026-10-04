@@ -6,6 +6,7 @@
 
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { adminMutationLimiter } = require('../utils/adminRateLimit');
 const chatbot = require('../services/chatbotService');
 const gemini = require('../services/geminiService');
 
@@ -33,7 +34,7 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 // ── PUT /api/chatbot/settings ─────────────────────────────────────────────
-router.put('/settings', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/settings', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const settings = await chatbot.saveSettings(req.body || {}, req.user);
     res.json({ settings, message: 'Chatbot settings saved.' });
@@ -66,7 +67,7 @@ router.get('/knowledge', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/knowledge', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/knowledge', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { category, question, answer, keywords } = req.body || {};
     if (!question || !answer) {
@@ -80,7 +81,7 @@ router.post('/knowledge', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-router.put('/knowledge/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/knowledge/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const entry = await chatbot.updateKnowledge(req.params.id, req.body || {}, req.user);
     if (!entry) return res.status(404).json({ error: 'Knowledge entry not found.' });
@@ -91,7 +92,7 @@ router.put('/knowledge/:id', authenticateToken, requireAdmin, async (req, res) =
   }
 });
 
-router.delete('/knowledge/:id', authenticateToken, requireAdmin, async (req, res) => {
+router.delete('/knowledge/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const deleted = await chatbot.deleteKnowledge(req.params.id, req.user);
     if (!deleted) return res.status(404).json({ error: 'Knowledge entry not found.' });
@@ -125,7 +126,7 @@ router.get('/conversations/:id', authenticateToken, requireAdmin, async (req, re
   }
 });
 
-router.put('/conversations/:id/flag', authenticateToken, requireAdmin, async (req, res) => {
+router.put('/conversations/:id/flag', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { flagged } = req.body || {};
     const conv = await chatbot.flagConversation(req.params.id, flagged, req.user);

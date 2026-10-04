@@ -1,15 +1,9 @@
 // ============================================
 // SaveHatke — Session Validation Cache
 // ============================================
-// Shared, per-instance cache of validated session rows so authenticated
-// requests don't hit Supabase every time. Lives in its own module (not the
-// auth middleware) so the Supabase session writers can invalidate entries
-// the moment a session is revoked — a logout takes effect immediately on
-// this server instance. Other instances (serverless) notice within the
-// 60-second TTL at most.
-//
-// Expiry itself never depends on this cache: the JWT `exp` equals the
-// session expiry and is verified against the server clock on every request.
+// Per-instance cache used only to throttle last_active writes. Session rows
+// are always re-read from Supabase before authorization, so revocation is
+// effective across Vercel instances on the next request.
 
 const SESSION_CACHE_TTL_MS = 60 * 1000;
 
@@ -26,7 +20,11 @@ function get(tokenHash) {
 }
 
 function set(tokenHash, row) {
-  cache.set(tokenHash, { row, cachedAt: Date.now(), lastTouchAt: 0 });
+  const previous = cache.get(tokenHash);
+  const lastTouchAt = previous && previous.row && previous.row.session_id === row.session_id
+    ? previous.lastTouchAt
+    : 0;
+  cache.set(tokenHash, { row, cachedAt: Date.now(), lastTouchAt });
   prune();
 }
 

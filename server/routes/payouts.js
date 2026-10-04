@@ -19,8 +19,10 @@
 // account number per request.
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { adminFinancialLimiter, adminBulkLimiter } = require('../utils/adminRateLimit');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const googleDrive = require('../services/googleDrive');
@@ -36,8 +38,22 @@ const { sniffImage, looksComplete } = require('../utils/imageSniff');
 const sellerPayout = require('../services/sellerPayout');
 // Canonical Order ID / Transaction ID minting (SH-PAY-... / TXN-...).
 const ids = require('../utils/identifiers');
+const { safeRateLimitHandler } = require('../utils/rateLimit');
 
 const router = express.Router();
+
+// A user can submit at most two payout requests per hour across IP changes.
+// The API-level IP limiter adds a second, separate budget at the app mount.
+// This in-process limiter is supplementary; the database reservation RPC is
+// the cross-instance financial concurrency control.
+const payoutRequestAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 2,
+  keyGenerator: (req) => `seller:${String(req.user && (req.user.id || req.user.email) || 'unknown').toLowerCase()}`,
+  standardHeaders: false,
+  legacyHeaders: false,
+  handler: safeRateLimitHandler('Too many payout requests. Please try again later.'),
+});
 
 // ── Seller payout amount ─────────────────────────────────────────────────
 // SELLER PAYOUT = 7% OF COUPON FACE VALUE. Period. Marketplace `sellingPrice`
@@ -258,6 +274,103 @@ async function sumPayoutsByStatus(payouts) {
   return out;
 }
 
+// The balance used for payout requests and settlement is derived from sold,
+// non-invalidated coupons, not from the browser or a seller-supplied amount.
+// Google Sheets remains the human-readable ledger, while Supabase serializes
+// reservations across Vercel instances. Missing financial stores fail closed.
+async function calculateSellerPayoutBalance(email, payoutRows = null) {
+  if (!supabase.isConfigured() || !db.isSheetsConnected()) {
+    throw new Error('Payout storage is unavailable');
+  }
+  const cleanEmail = String(email || '').toLowerCase().trim();
+  if (!cleanEmail) throw new Error('Seller identity is required');
+
+  const [coupons, allPayouts, auditRows, reservations] = await Promise.all([
+    supabase.getCoupons({ sellerEmail: cleanEmail, strict: true }),
+    payoutRows || db.getRowsFresh(db.SHEETS.PAYOUTS),
+    db.getRowsFresh(db.SHEETS.COUPON_AUDIT),
+    supabase.getActiveSellerPayoutReservations(cleanEmail),
+  ]);
+
+  const uniqueCoupons = new Map();
+  for (const coupon of coupons) {
+    if (!coupon || !coupon.id || String(coupon.sellerEmail || '').toLowerCase().trim() !== cleanEmail) continue;
+    uniqueCoupons.set(String(coupon.id), coupon);
+  }
+
+  let earned = 0;
+  for (const coupon of uniqueCoupons.values()) {
+    if (String(coupon.status || '').toLowerCase() !== 'sold') continue;
+    const invalidation = describeCouponInvalidation(coupon, auditRows, allPayouts);
+    if (invalidation.invalidated || invalidation.paymentWithheld) continue;
+    const result = await resolveCouponPayoutAmount(coupon);
+    if (!result.ok || !Number.isSafeInteger(result.amount) || result.amount <= 0) {
+      throw new Error('A seller earning could not be verified');
+    }
+    earned += result.amount;
+    if (!Number.isSafeInteger(earned)) throw new Error('Seller balance is out of range');
+  }
+
+  const ownPayouts = allPayouts.filter((p) => String(p.sellerEmail || '').toLowerCase().trim() === cleanEmail);
+  let paid = 0;
+  for (const payout of ownPayouts) {
+    if (String(payout.status || '').toLowerCase() !== 'paid') continue;
+    const amount = Number(payout.amount);
+    if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('Payout ledger is invalid');
+    paid += amount;
+    if (!Number.isSafeInteger(paid)) throw new Error('Payout balance is out of range');
+  }
+
+  let reserved = 0;
+  for (const reservation of reservations) {
+    const amount = Number(reservation.amount);
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Payout reservation ledger is invalid');
+    reserved += amount;
+    if (!Number.isSafeInteger(reserved)) throw new Error('Payout reservation total is out of range');
+  }
+
+  return { earned, paid, reserved, available: Math.max(0, earned - paid - reserved), payouts: ownPayouts };
+}
+
+async function reservePayoutAmount({ reservationId, payoutId, email, amount, balance }) {
+  return supabase.reserveSellerPayout({
+    reservationId,
+    payoutId,
+    sellerEmail: email,
+    amount,
+    earnedAmount: balance.earned,
+    paidAmount: balance.paid,
+  });
+}
+
+async function reservePayoutForSettlement(payout, { forRejection = false } = {}) {
+  const email = String(payout.sellerEmail || '').toLowerCase().trim();
+  const amount = Number(payout.amount);
+  if (!email || !Number.isSafeInteger(amount) || amount <= 0) throw new Error('Payout record is invalid');
+  const active = await supabase.getActiveSellerPayoutReservations(email);
+  const existing = active.find((item) => item.payout_id === String(payout.id)
+    || (payout.reservationId && item.reservation_id === payout.reservationId));
+  if (existing) {
+    if (Number(existing.amount) !== amount || (payout.reservationId && existing.reservation_id !== payout.reservationId)) {
+      throw new Error('Payout reservation is inconsistent');
+    }
+    return existing.reservation_id;
+  }
+  if (payout.reservationId) throw new Error('Payout reservation is inconsistent');
+
+  const balance = await calculateSellerPayoutBalance(email);
+  const reservationId = uuidv4();
+  // Rejecting a legacy payout does not transfer money, but still needs the
+  // same one-row claim so an approval cannot race the rejection.
+  const reservationBalance = forRejection
+    ? { ...balance, earned: Math.max(balance.earned, balance.paid + balance.reserved + amount) }
+    : balance;
+  const reserved = await reservePayoutAmount({
+    reservationId, payoutId: String(payout.id), email, amount, balance: reservationBalance,
+  });
+  return reserved ? reservationId : null;
+}
+
 function getStartOfCurrentMonthIso() {
   const d = new Date();
   return new Date(d.getFullYear(), d.getMonth(), 1).toISOString();
@@ -466,15 +579,36 @@ router.get('/admin/payouts/stats', authenticateToken, requireAdmin, async (req, 
 });
 
 // POST /api/admin/payouts/:id/approve — mark a payout as paid
-router.post('/admin/payouts/:id/approve', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/admin/payouts/:id/approve', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { paymentReference, notes } = req.body || {};
     const payout = await findPayoutById(id);
     if (!payout) return res.status(404).json({ error: 'Payout not found.' });
     if (String(payout.status).toLowerCase() === 'paid') {
+      if (payout.settlementReservationId) {
+        try { await supabase.finishSellerPayoutReservation(payout.settlementReservationId, 'settled'); } catch (e) {}
+      }
       return res.status(400).json({ error: 'This payout is already marked as paid.' });
     }
+    if (String(payout.status || '').toLowerCase() !== 'pending') {
+      return res.status(409).json({ error: 'Only pending payouts can be approved.' });
+    }
+
+    let settlementReservationId;
+    try {
+      settlementReservationId = await reservePayoutForSettlement(payout);
+    } catch (e) {
+      console.error('Payout settlement reservation error:', e.message);
+      return res.status(503).json({ error: 'Payout settlement is temporarily unavailable.' });
+    }
+    if (!settlementReservationId) {
+      return res.status(409).json({ error: 'This payout exceeds the seller’s verified unpaid earnings.' });
+    }
+    let claimed = false;
+    try { claimed = await supabase.claimSellerPayoutReservation(settlementReservationId); }
+    catch (e) { return res.status(503).json({ error: 'Payout settlement is temporarily unavailable.' }); }
+    if (!claimed) return res.status(409).json({ error: 'This payout is already being processed.' });
 
     const updates = {
       status: 'paid',
@@ -482,9 +616,24 @@ router.post('/admin/payouts/:id/approve', authenticateToken, requireAdmin, async
       processedBy: req.user.email || req.user.name || 'admin',
       paymentReference: String(paymentReference || '').slice(0, 120),
       notes: String(notes || payout.notes || '').slice(0, 500),
+      settlementReservationId,
     };
 
-    await db.updateRow(db.SHEETS.PAYOUTS, 'id', id, updates);
+    try {
+      await db.updateRow(db.SHEETS.PAYOUTS, 'id', id, updates, { strict: true });
+    } catch (e) {
+      // The remote write may have committed before a network timeout. Keep the
+      // reservation active; releasing it here could enable a second payout.
+      console.error('Payout approval write failed; reservation retained.');
+      return res.status(503).json({ error: 'Payout status could not be confirmed. Reconcile before retrying.' });
+    }
+
+    try {
+      await supabase.finishSellerPayoutReservation(settlementReservationId, 'settled');
+    } catch (e) {
+      console.error('Payout approved but reservation finalization is pending.');
+      return res.status(503).json({ error: 'Payout was recorded and is awaiting financial reconciliation.' });
+    }
 
     const updated = await findPayoutById(id);
     res.json({ message: 'Payout marked as paid.', payout: sanitize(updated) });
@@ -495,7 +644,7 @@ router.post('/admin/payouts/:id/approve', authenticateToken, requireAdmin, async
 });
 
 // POST /api/admin/payouts/:id/reject — mark a payout as rejected
-router.post('/admin/payouts/:id/reject', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/admin/payouts/:id/reject', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
     const { id } = req.params;
     const { reason } = req.body || {};
@@ -504,15 +653,51 @@ router.post('/admin/payouts/:id/reject', authenticateToken, requireAdmin, async 
     if (String(payout.status).toLowerCase() === 'paid') {
       return res.status(400).json({ error: 'Cannot reject a payout that is already paid.' });
     }
+    if (String(payout.status || '').toLowerCase() === 'rejected') {
+      const reservationId = payout.settlementReservationId || payout.reservationId;
+      if (reservationId) {
+        try { await supabase.finishSellerPayoutReservation(reservationId, 'released'); } catch (e) {}
+      }
+      return res.status(400).json({ error: 'This payout is already rejected.' });
+    }
+    if (String(payout.status || '').toLowerCase() !== 'pending') {
+      return res.status(409).json({ error: 'Only pending payouts can be rejected.' });
+    }
+
+    let settlementReservationId;
+    try {
+      settlementReservationId = await reservePayoutForSettlement(payout, { forRejection: true });
+    } catch (e) {
+      console.error('Payout rejection reservation error:', e.message);
+      return res.status(503).json({ error: 'Payout settlement is temporarily unavailable.' });
+    }
+    if (!settlementReservationId) return res.status(409).json({ error: 'This payout is already being processed.' });
+    let claimed = false;
+    try { claimed = await supabase.claimSellerPayoutReservation(settlementReservationId); }
+    catch (e) { return res.status(503).json({ error: 'Payout settlement is temporarily unavailable.' }); }
+    if (!claimed) return res.status(409).json({ error: 'This payout is already being processed.' });
 
     const updates = {
       status: 'rejected',
       processedAt: nowIso(),
       processedBy: req.user.email || req.user.name || 'admin',
       rejectionReason: String(reason || '').slice(0, 500),
+      settlementReservationId,
     };
 
-    await db.updateRow(db.SHEETS.PAYOUTS, 'id', id, updates);
+    try {
+      await db.updateRow(db.SHEETS.PAYOUTS, 'id', id, updates, { strict: true });
+    } catch (e) {
+      console.error('Payout rejection write failed.');
+      return res.status(503).json({ error: 'Payout status could not be confirmed. Reconcile before retrying.' });
+    }
+    if (settlementReservationId) {
+      try { await supabase.finishSellerPayoutReservation(settlementReservationId, 'released'); }
+      catch (e) {
+        console.error('Payout rejected but reservation release is pending.');
+        return res.status(503).json({ error: 'Payout was recorded and is awaiting financial reconciliation.' });
+      }
+    }
 
     const updated = await findPayoutById(id);
     res.json({ message: 'Payout rejected.', payout: sanitize(updated) });
@@ -523,7 +708,7 @@ router.post('/admin/payouts/:id/reject', authenticateToken, requireAdmin, async 
 });
 
 // POST /api/admin/payouts/batch-process — approve multiple pending payouts
-router.post('/admin/payouts/batch-process', authenticateToken, requireAdmin, async (req, res) => {
+router.post('/admin/payouts/batch-process', authenticateToken, requireAdmin, adminFinancialLimiter, adminBulkLimiter, async (req, res) => {
   try {
     const { ids, paymentReference } = req.body || {};
     if (!Array.isArray(ids) || ids.length === 0) {
@@ -541,8 +726,18 @@ router.post('/admin/payouts/batch-process', authenticateToken, requireAdmin, asy
       try {
         const payout = await findPayoutById(id);
         if (!payout) { results.skipped.push({ id, reason: 'not_found' }); continue; }
-        if (String(payout.status).toLowerCase() !== 'pending') {
+        if (String(payout.status || '').toLowerCase() !== 'pending') {
           results.skipped.push({ id, reason: `status_${payout.status}` });
+          continue;
+        }
+        const settlementReservationId = await reservePayoutForSettlement(payout);
+        if (!settlementReservationId) {
+          results.skipped.push({ id, reason: 'insufficient_verified_earnings' });
+          continue;
+        }
+        const claimed = await supabase.claimSellerPayoutReservation(settlementReservationId);
+        if (!claimed) {
+          results.skipped.push({ id, reason: 'already_processing' });
           continue;
         }
         await db.updateRow(db.SHEETS.PAYOUTS, 'id', id, {
@@ -550,10 +745,13 @@ router.post('/admin/payouts/batch-process', authenticateToken, requireAdmin, asy
           processedAt: nowIso(),
           processedBy: admin,
           paymentReference: ref,
-        });
+          settlementReservationId,
+        }, { strict: true });
+        await supabase.finishSellerPayoutReservation(settlementReservationId, 'settled');
         results.processed += 1;
       } catch (e) {
-        results.errors.push({ id, error: e.message });
+        console.error('Batch payout item failed:', String(id).slice(0, 80));
+        results.errors.push({ id, error: 'settlement_pending_reconciliation' });
       }
     }
 
@@ -749,14 +947,16 @@ router.put('/payouts/details', authenticateToken, async (req, res) => {
 router.get('/payouts/my', authenticateToken, async (req, res) => {
   try {
     const email = (req.user.email || '').toLowerCase().trim();
-    const all = await getAllPayouts();
+    const all = await db.getRowsFresh(db.SHEETS.PAYOUTS);
     const mine = all
       .filter((p) => String(p.sellerEmail || '').toLowerCase() === email)
       .sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
+    const balance = await calculateSellerPayoutBalance(email, all);
 
     const summary = {
       totalPaid: mine.filter((p) => String(p.status).toLowerCase() === 'paid').reduce((s, p) => s + Number(p.amount || 0), 0),
       pending: mine.filter((p) => String(p.status || 'pending').toLowerCase() === 'pending').reduce((s, p) => s + Number(p.amount || 0), 0),
+      available: balance.available,
       rejected: mine.filter((p) => String(p.status).toLowerCase() === 'rejected').length,
       totalCount: mine.length,
     };
@@ -838,7 +1038,9 @@ router.get('/payouts/coupon-status', authenticateToken, async (req, res) => {
 // Only the amount is read from the body. The destination comes from the seller's
 // stored account details, so a client cannot redirect a payout by posting its own
 // UPI id or account number — any payment field sent here is ignored on purpose.
-router.post('/payouts/request', authenticateToken, async (req, res) => {
+router.post('/payouts/request', authenticateToken, payoutRequestAccountLimiter, async (req, res) => {
+  let reservationId = '';
+  let appendStarted = false;
   try {
     const { amount } = req.body || {};
     const email = (req.user.email || '').toLowerCase().trim();
@@ -847,12 +1049,20 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
     // Each sold coupon auto-creates a payout entry for the price the seller set;
     // a manual request is a separate row with sourceType='manual' that the admin
     // settles by amount.
-    const requestedAmount = Number(amount);
-    if (!Number.isFinite(requestedAmount) || requestedAmount < 50) {
+    const requestedAmount = amount;
+    if (typeof requestedAmount !== 'number' || !Number.isSafeInteger(requestedAmount) || requestedAmount < 50) {
       return res.status(400).json({ error: 'Minimum payout request is ₹50.' });
     }
     if (requestedAmount > 100000) {
       return res.status(400).json({ error: 'Maximum payout request is ₹100,000 per request.' });
+    }
+
+    const balance = await calculateSellerPayoutBalance(email);
+    if (requestedAmount > balance.available) {
+      return res.status(409).json({
+        error: 'The requested amount exceeds your verified available balance.',
+        code: 'INSUFFICIENT_PAYOUT_BALANCE',
+      });
     }
 
     const stored = await loadSellerPayoutDetails(email);
@@ -867,9 +1077,17 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
 
     // The stored destination is copied onto the row exactly as before, so the
     // admin payout screens and sanitize() keep reading one place.
+    reservationId = uuidv4();
+    const reserved = await reservePayoutAmount({
+      reservationId, payoutId: reservationId, email, amount: requestedAmount, balance,
+    });
+    if (!reserved) {
+      return res.status(409).json({ error: 'Your available balance changed. Refresh and try again.' });
+    }
+
     const payoutIds = await mintPayoutIdentifiers();
     const payout = {
-      id: uuidv4(),
+      id: reservationId,
       orderId: payoutIds.orderId,
       transactionId: payoutIds.transactionId,
       transactionType: payoutIds.transactionType,
@@ -890,9 +1108,20 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
       paymentReference: '',
       rejectionReason: '',
       notes: 'Manual payout request from seller dashboard.',
+      reservationId,
     };
 
-    await db.appendRow(db.SHEETS.PAYOUTS, payout);
+    // Financial writes cannot fall back to process memory: that would make a
+    // request appear accepted while a separate Vercel instance sees no row.
+    try {
+      appendStarted = true;
+      await db.appendRow(db.SHEETS.PAYOUTS, payout, { strict: true });
+    } catch (writeError) {
+      // An ambiguous Sheets timeout may have committed the row. Keep the
+      // reservation held for reconciliation instead of risking a duplicate.
+      console.error('[payouts/request] ledger write failed; reservation retained for reconciliation.');
+      return res.status(503).json({ error: 'Payout requests are temporarily unavailable. Please contact support if this persists.' });
+    }
 
     // Admin alert: noreply → the configured admin emails. Awaited rather than
     // fire-and-forget (Vercel freezes the function as soon as the response is
@@ -917,8 +1146,14 @@ router.post('/payouts/request', authenticateToken, async (req, res) => {
 
     res.status(201).json({ message: 'Payout request submitted successfully.', payout: sanitizeForSeller(payout) });
   } catch (err) {
-    console.error('Request payout error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    console.error('Request payout error:', err && err.message ? err.message : 'Error');
+    // If reservation creation succeeded but a later operation failed before
+    // an append was attempted, release it. The append path deliberately keeps
+    // ambiguous writes reserved.
+    if (reservationId && !appendStarted) {
+      try { await supabase.finishSellerPayoutReservation(reservationId, 'released'); } catch (releaseError) {}
+    }
+    res.status(503).json({ error: 'Payout requests are temporarily unavailable.' });
   }
 });
 

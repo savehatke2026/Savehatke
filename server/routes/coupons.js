@@ -3,10 +3,12 @@
 // ============================================
 
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const paymentStore = require('../services/paymentStore');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const googleDrive = require('../services/googleDrive');
@@ -18,8 +20,28 @@ const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerP
 // remaining). Applied uniformly to admin and seller coupons, never stored on
 // the coupon row — every read site computes it from originalValue + expiryDate.
 const dynamicPricing = require('../services/dynamicPricing');
+const { safeRateLimitHandler } = require('../utils/rateLimit');
 
 const router = express.Router();
+
+// IP limits are applied in server.js; these account buckets stop a seller from
+// evading them by rotating addresses after authenticating with Google.
+const scanAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 15,
+  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
+  standardHeaders: false,
+  legacyHeaders: false,
+  handler: safeRateLimitHandler('Too many screenshot scans. Please try again later.'),
+});
+const sellerAccountLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
+  standardHeaders: false,
+  legacyHeaders: false,
+  handler: safeRateLimitHandler('Too many coupon submissions. Please try again later.'),
+});
 
 // Every coupon shows a live "expires in" countdown that starts at 2 weeks.
 // When a coupon has no explicit expiry we anchor the 14-day window to its
@@ -220,7 +242,7 @@ router.get('/categories', async (req, res) => {
 // Sign-in gated: the scanner exists only to fill the sell form, and each call
 // spends paid Gemini Vision quota — a signed-out visitor has no legitimate
 // use for it.
-router.post('/scan', authenticateToken, async (req, res) => {
+router.post('/scan', authenticateToken, scanAccountLimiter, async (req, res) => {
   try {
     const maySell = await canSellCoupons(req.user);
     if (!maySell) {
@@ -301,7 +323,7 @@ router.post('/scan', authenticateToken, async (req, res) => {
 // Sign-in gated: proof uploads exist only for coupon submissions, and each one
 // costs a Drive round-trip and storage — a signed-out visitor has no
 // legitimate use for it.
-router.post('/proof', authenticateToken, async (req, res) => {
+router.post('/proof', authenticateToken, sellerAccountLimiter, async (req, res) => {
   try {
     const maySell = await canSellCoupons(req.user);
     if (!maySell) {
@@ -764,7 +786,7 @@ const handleCouponSubmission = async (req, res) => {
         const info = couponPayoutInfo(c);
         return {
           id: c.id,
-          code: c.code,
+          code: String(c.status || '').toLowerCase() === 'sold' ? '' : c.code,
           brand: c.brand,
           status: c.status,
           ...info,
@@ -781,97 +803,16 @@ const handleCouponSubmission = async (req, res) => {
   }
 };
 
-router.post('/sell', authenticateToken, handleCouponSubmission);
-router.post('/submit', authenticateToken, handleCouponSubmission);
+router.post('/sell', authenticateToken, sellerAccountLimiter, handleCouponSubmission);
+router.post('/submit', authenticateToken, sellerAccountLimiter, handleCouponSubmission);
 
-// POST /api/coupons/buy/:id — Purchase a coupon (authenticated)
-router.post('/buy/:id', authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    let coupon = null;
-    if (supabase.isConfigured()) {
-      try {
-        coupon = await supabase.findCouponById(id);
-      } catch (e) {}
-    }
-    if (!coupon) {
-      coupon = await db.findRow(db.SHEETS.COUPONS, 'id', id);
-    }
-
-    if (!coupon) {
-      return res.status(404).json({ error: 'Coupon not found.' });
-    }
-    if (coupon.status !== 'available') {
-      return res.status(400).json({ error: 'This coupon is no longer available.' });
-    }
-    if (coupon.sellerEmail === req.user.email) {
-      return res.status(400).json({ error: 'You cannot buy your own coupon.' });
-    }
-
-    const updates = {
-      status: 'sold',
-      soldAt: new Date().toISOString(),
-      buyerEmail: req.user.email,
-    };
-
-    if (supabase.isConfigured()) {
-      try {
-        await supabase.updateCoupon(id, updates);
-      } catch (e) {}
-    }
-    try {
-      await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
-    } catch (e) {}
-
-    // Auto-create a payout entry for the seller so the admin can pay them for
-    // this sale — for the price the seller set on the coupon. Failure here
-    // never breaks the buy flow: payouts are best-effort and can be retried
-    // from the admin panel.
-    try {
-      const { createAutoPayout } = require('./payouts');
-      await createAutoPayout({
-        // Carry the authoritative face value and its 7% payout alongside the
-        // untouched marketplace sellingPrice, so the payout resolver never has
-        // to fall back to a price the seller did not agree to.
-        coupon: {
-          id: coupon.id,
-          code: coupon.code,
-          brand: coupon.brand,
-          sellingPrice: coupon.sellingPrice,
-          originalValue: coupon.originalValue,
-          sellerPayout: coupon.sellerPayout,
-        },
-        sellerEmail: coupon.sellerEmail,
-        sellerUserId: coupon.sellerUserId,
-      });
-    } catch (e) {
-      console.warn('Auto-payout on buy notice:', e.message);
-    }
-
-    // Authoritative price for the order summary — recomputed server-side so
-    // the receipt and the marketplace card cannot disagree. The stored
-    // sellingPrice is intentionally not echoed back.
-    const paidPrice = dynamicPricing.getBuyerPrice(coupon);
-
-    res.json({
-      message: 'Coupon purchased successfully!',
-      coupon: {
-        id: coupon.id,
-        code: coupon.code, // Reveal the code to the buyer
-        category: coupon.category,
-        brand: coupon.brand,
-        description: coupon.description,
-        originalValue: coupon.originalValue,
-        pricePaid: paidPrice.price,
-        pricingRate: paidPrice.rate,
-        pricingBand: paidPrice.bandLabel,
-      },
-    });
-  } catch (err) {
-    console.error('Buy coupon error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
+// Retire the legacy direct-buy route. Coupon codes are only revealed from the
+// payment API after the exact order has been marked PAID server-side.
+router.post('/buy/:id', authenticateToken, (req, res) => {
+  return res.status(409).json({
+    error: 'Start checkout to pay for this coupon before it can be revealed.',
+    code: 'PAYMENT_REQUIRED',
+  });
 });
 
 // GET /api/coupons/my-sales — User's sold coupons
@@ -910,7 +851,9 @@ router.get('/my-sales', authenticateToken, async (req, res) => {
         const displayPayout = payoutGenerated ? payout : null;
         return {
           id: c.id,
-          code: c.code,
+          // Sellers may still view pending submissions, but a sold code is
+          // withheld after ownership transfers to the verified buyer.
+          code: status === 'sold' ? '' : c.code,
           category: c.category,
           brand: c.brand,
           title: c.title,
@@ -966,31 +909,57 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
     // shows the real financial identifiers instead of the coupon UUID. Reads are
     // cached; a missing order just leaves the fields blank (legacy purchases).
     const email = String(req.user.email || '').toLowerCase();
+    const userId = String(req.user.id || req.user.userId || '').trim();
     const ordersByCoupon = new Map();
     try {
-      const orderRows = await db.getRows(db.SHEETS.ORDERS);
-      for (const o of orderRows || []) {
-        const cid = String(o.coupon_id || '');
-        if (!cid) continue;
-        const buyer = String(o.buyer_email || o.user_email || '').toLowerCase();
-        if (buyer && email && buyer !== email) continue;
-        const prev = ordersByCoupon.get(cid);
-        const isPaid = String(o.status || '').toUpperCase() === 'PAID';
-        const prevPaid = prev && String(prev.status || '').toUpperCase() === 'PAID';
-        if (!prev
-            || (isPaid && !prevPaid)
-            || (isPaid === prevPaid && new Date(o.created_at || 0) > new Date(prev.created_at || 0))) {
-          ordersByCoupon.set(cid, o);
+      const [orderRows, paymentRows] = await Promise.all([
+        db.getRowsFresh(db.SHEETS.ORDERS),
+        db.getRowsFresh(db.SHEETS.PAYMENTS),
+      ]);
+      const belongsToCurrentUser = (row) => {
+        const rowUserId = String(row.user_id || row.userId || '').trim();
+        if (rowUserId) return !!userId && rowUserId === userId;
+        const rowEmail = String(row.user_email || row.buyer_email || row.buyerEmail || '').trim().toLowerCase();
+        return !!email && rowEmail === email;
+      };
+      const paidPaymentsByOrder = new Map();
+      for (const row of paymentRows || []) {
+        const payment = paymentStore.fromPayment(row);
+        if (!payment || String(payment.status).toUpperCase() !== 'PAID' || !payment.orderId ||
+            !payment.couponId || !belongsToCurrentUser(row)) continue;
+        const existing = paidPaymentsByOrder.get(String(payment.orderId));
+        if (!existing || new Date(payment.updatedAt || payment.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
+          paidPaymentsByOrder.set(String(payment.orderId), payment);
+        }
+      }
+      for (const row of orderRows || []) {
+        const order = paymentStore.fromOrder(row);
+        if (!order || String(order.status).toUpperCase() !== 'PAID' || !order.couponId || !belongsToCurrentUser(row)) continue;
+        const payment = paidPaymentsByOrder.get(String(order.id));
+        if (!payment || String(payment.couponId) !== String(order.couponId) ||
+            !paymentStore.moneyEquals(payment.amount, order.amount)) continue;
+        const cid = String(order.couponId);
+        const previous = ordersByCoupon.get(cid);
+        if (!previous || new Date(order.paidAt || order.updatedAt || 0) > new Date(previous.order.paidAt || previous.order.updatedAt || 0)) {
+          ordersByCoupon.set(cid, { order, payment });
         }
       }
     } catch (e) { /* best effort — dashboard falls back gracefully */ }
 
     res.json({
       coupons: coupons.map((c) => {
-        const ord = ordersByCoupon.get(String(c.id)) || {};
+        const purchase = ordersByCoupon.get(String(c.id));
+        const ord = purchase ? purchase.order : {};
+        const buyerEmail = String(c.buyerEmail || c.buyer_email || '').toLowerCase();
+        const ownsSoldCoupon = !!purchase && String(c.status || '').toLowerCase() === 'sold' &&
+          String(c.soldPaymentId || '') === String(purchase.payment.paymentId) &&
+          (!buyerEmail || buyerEmail === email);
         return {
           id: c.id,
-          code: c.code,
+          // Fail closed: coupon code requires both a PAID order and its linked
+          // PAID payment belonging to this verified session. A partial Sheets
+          // write, stale buyer_email field, or failed lookup returns no code.
+          code: ownsSoldCoupon ? c.code : '',
           category: c.category,
           brand: c.brand,
           title: c.title,

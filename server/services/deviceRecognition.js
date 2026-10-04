@@ -23,6 +23,7 @@
 const crypto = require('crypto');
 const UAParser = require('ua-parser-js');
 const supabase = require('./supabase');
+const { getJwtSecret } = require('../config/security');
 
 // Per-account cookie name, so signing into a second account in the same
 // browser does not overwrite the first account's device token.
@@ -40,7 +41,7 @@ const ALERT_DEDUPE_TTL_MS = 10 * 60 * 1000;
 const recentAlerts = new Map();
 
 function deviceSecret() {
-  return process.env.DEVICE_ID_SECRET || process.env.JWT_SECRET || 'savehatke_dev_secret_key';
+  return process.env.DEVICE_ID_SECRET || getJwtSecret();
 }
 
 // Namespaced so a value computed for one purpose can never collide with

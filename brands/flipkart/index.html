@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Flipkart coupons, promo codes & deals — verified live by SaveHatke. Save money on every Flipkart order.">
+  <title>Flipkart Coupons & Promo Codes — SaveHatke</title>
+
+  <!-- Design System -->
+  <link rel="stylesheet" href="../../public/css/global.css">
+  <link rel="stylesheet" href="brand.css">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ─── Navbar ─── -->
+  <nav class="nav" id="main-nav">
+    <div class="nav__inner">
+      <a href="/" class="nav__brand">
+        <span class="nav__logo">S</span>
+        <span class="nav__name">Save<span class="nav__name--accent">Hatke</span></span>
+      </a>
+      <div class="nav__links">
+        <a href="/">Home</a>
+        <a href="/public/about.html">About</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ─── Brand Hero ─── -->
+  <header class="brand-hero" id="brand-hero">
+    <div class="brand-hero__glow"></div>
+    <div class="brand-hero__inner">
+      <div class="brand-hero__logo">
+        <div class="brand-hero__logo-placeholder" id="brand-logo-placeholder">F</div>
+      </div>
+      <div class="brand-hero__text">
+        <h1 class="brand-hero__title">Flipkart Coupons & Deals</h1>
+        <p class="brand-hero__subtitle">Verified promo codes updated daily. Tested live with our auto-verification engine.</p>
+        <div class="brand-hero__badges">
+          <span class="badge badge--green"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg> Auto-Verified</span>
+          <span class="badge badge--blue"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg> Updated Today</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ─── Main Content ─── -->
+  <main class="brand-main" id="brand-main">
+
+    <!-- Coupon List -->
+    <section class="coupon-section" id="coupon-section">
+      <h2 class="section-title">Active Coupons</h2>
+      <div class="coupon-grid" id="coupon-grid">
+        <!-- Populated by JS from coupons.json -->
+        <div class="coupon-grid__loading" id="coupons-loading">
+          <div class="pulse-loader"><span></span><span></span><span></span></div>
+          <p>Loading coupons…</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Auto-Verify Section -->
+    <section class="verify-section" id="verify-section">
+      <div class="verify-card">
+        <div class="verify-card__header">
+          <div class="verify-card__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              <path d="M9 12l2 2 4-4"/>
+            </svg>
+          </div>
+          <div>
+            <h2 class="verify-card__title">Auto-Verify a Coupon</h2>
+            <p class="verify-card__desc">Enter any coupon code and we'll test it live on Flipkart's checkout page using headless automation.</p>
+          </div>
+        </div>
+        <div class="verify-card__body">
+          <div class="verify-input-group">
+            <input
+              type="text"
+              id="verify-coupon-input"
+              class="verify-input"
+              placeholder="Enter coupon code…"
+              autocomplete="off"
+              spellcheck="false"
+            >
+            <button id="verify-coupon-btn" class="btn btn--verify">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+              Test Coupon
+            </button>
+          </div>
+          <div id="verify-spinner" class="verify-spinner" style="display:none">
+            <div class="orbit-spinner"><div></div><div></div><div></div></div>
+            <span>Testing on Flipkart…</span>
+          </div>
+          <div id="verify-result" class="verify-result">
+            <span id="verify-result-icon" class="verify-result__icon"></span>
+            <span id="verify-result-text" class="verify-result__text"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ─── Footer ─── -->
+  <footer class="footer" id="footer">
+    <p>&copy; 2026 SaveHatke. All rights reserved.</p>
+  </footer>
+
+  <!-- ─── Scripts ─── -->
+  <script>
+    /* Load coupons from coupons.json and render cards */
+    (async () => {
+      const grid    = document.getElementById('coupon-grid');
+      const loading = document.getElementById('coupons-loading');
+      try {
+        const res     = await fetch('./coupons.json');
+        const data    = await res.json();
+        loading.remove();
+        if (!data.coupons || data.coupons.length === 0) {
+          grid.innerHTML = '<p class="coupon-grid__empty">No active coupons right now. Check back soon!</p>';
+          return;
+        }
+        grid.innerHTML = data.coupons.map(c => couponCard(c)).join('');
+      } catch (e) {
+        loading.innerHTML = '<p class="coupon-grid__empty">Failed to load coupons.</p>';
+      }
+    })();
+
+    function couponCard(c) {
+      const verified = c.verified
+        ? '<span class="badge badge--green badge--sm">✓ Verified</span>'
+        : '<span class="badge badge--slate badge--sm">Unverified</span>';
+      return `
+        <article class="coupon-card" data-code="${c.code}">
+          <div class="coupon-card__accent"></div>
+          <div class="coupon-card__body">
+            <div class="coupon-card__top">
+              <span class="coupon-card__discount">${c.discount}</span>
+              ${verified}
+            </div>
+            <p class="coupon-card__desc">${c.description}</p>
+            <div class="coupon-card__meta">
+              <span>Min. ₹${c.minOrder}</span>
+              <span>Expires ${c.expiresAt}</span>
+            </div>
+          </div>
+          <div class="coupon-card__footer">
+            <code class="coupon-card__code">${c.code}</code>
+            <button class="btn btn--copy" onclick="copyCode(this, '${c.code}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+          </div>
+        </article>`;
+    }
+
+    function copyCode(btn, code) {
+      navigator.clipboard.writeText(code).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 12l2 2 4-4"/></svg> Copied!';
+        btn.classList.add('btn--copied');
+        setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('btn--copied'); }, 1800);
+      });
+    }
+  </script>
+  <script src="./auto-verify/verify.js"></script>
+</body>
+</html>

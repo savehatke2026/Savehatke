@@ -127,11 +127,14 @@ async function refreshAdminProfile() {
   }
 }
 
-function adminLogout() {
-  // Revoke the server-side 48h session (fire-and-forget; navigation follows)
+async function adminLogout() {
+  // Revoke the server-side session before clearing its local UI marker.
   try {
-    api('/auth/logout', { method: 'POST', useAdmin: true }).catch(() => {});
-  } catch (e) {}
+    await api('/auth/logout', { method: 'POST', useAdmin: true });
+  } catch (e) {
+    showToast('Logout could not be confirmed. Please retry.', 'error');
+    return;
+  }
   Auth.clearAdmin();
   Auth.clear();
   window.location.href = 'login.html';

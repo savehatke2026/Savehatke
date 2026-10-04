@@ -22,9 +22,15 @@
     // Logged-in users never see the login page — always send them to home
     (function redirectIfLoggedIn() {
       try {
-        const token = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
         const userRaw = localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user');
-        if (token && userRaw) {
+        const legacyBearer = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
+        if (legacyBearer) {
+          localStorage.removeItem('sh_token');
+          localStorage.removeItem('sh_admin_token');
+          if (userRaw) localStorage.setItem('sh_authenticated', '1');
+        }
+        const authenticated = localStorage.getItem('sh_authenticated') === '1';
+        if (authenticated && userRaw) {
           const u = JSON.parse(userRaw);
           if (u && (u.email || u.id || u.name)) {
             document.documentElement.style.display = 'none';
@@ -410,10 +416,7 @@
         </button>
       </form>
 
-      <!-- Shown when a visitor tries the (temporarily disabled) email login.
-           Only the email → OTP path is off; Google sign-in and the backup-code
-           (SOS) admin path still work. Remove this notice + the guard in
-           handleAuthSubmit to re-enable email login. -->
+      <!-- Shown when a visitor tries the retired email-only authentication path. -->
       <div id="emailUnavailableNotice" style="display:none;margin-top:14px;background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.2);border-radius:10px;padding:12px 14px;font-size:.83rem;color:#fbbf24;line-height:1.55;text-align:center">
         Email login is currently unavailable. Please continue with <strong>Google login</strong> below. 👇
       </div>
@@ -566,13 +569,8 @@
       </button>
     </div>
 
-    <!-- ═══════════════════════════════════════════════
-         Two-Factor State
-         Reached only when the account has an authenticator enrolled. The
-         primary factor has already been verified here, but NO session exists
-         yet — the server returned a short-lived challenge instead of a token,
-         and only POST /api/auth/2fa/login can turn it into a real session.
-    ═══════════════════════════════════════════════ -->
+    <!-- Hidden legacy challenge markup. Google OAuth is the only active
+         sign-in flow, and these elements have no active backend route. -->
     <div id="twofaState" style="display:none;">
       <div class="auth-hdr">
         <div class="auth-icon">
@@ -799,25 +797,9 @@
       btn.innerHTML = '<span class="g-btn-text">Authenticating&hellip;</span>';
     }
 
-    const clientId = loginPageActiveGoogleClientId;
-
-    // Build the Google OAuth2 redirect URL — opens in same tab
-    const redirectUri = window.location.origin + '/api/auth/google-redirect';
-    const scope = 'openid email profile';
-    const nonce = Math.random().toString(36).substring(2, 15);
-
-    const authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
-      client_id: clientId,
-      redirect_uri: redirectUri,
-      response_type: 'id_token',
-      scope: scope,
-      nonce: nonce,
-      response_mode: 'form_post',
-      prompt: 'select_account',
-    }).toString();
-
-    // Navigate in the same tab — Google accounts page opens here
-    window.location.href = authUrl;
+    // The backend creates and validates OAuth state, nonce and PKCE values.
+    // Keep the existing button and page design; only the flow target changes.
+    window.location.assign('/api/auth/google-redirect');
   }
 
   /* ══════════════════════════════════════════
@@ -946,108 +928,15 @@
   }
 
   /* ══════════════════════════════════════════
-     EMAIL-ONLY LOGIN (PASSWORDLESS)
+     GOOGLE-ONLY LOGIN
   ══════════════════════════════════════════ */
   async function handleAuthSubmit(e) {
     e.preventDefault();
-    const btn = document.getElementById('submitBtn');
     const raw = document.getElementById('inputEmail')?.value?.trim() || '';
-    const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw);
-
-    // ── Backup-code path (SOS access). The form itself is not the gate: the
-    //    code is sent to /sos/check-code and the SOS screens open only if the
-    //    server recognises it. Typing anything else — including a mistyped
-    //    address — gets the ordinary "enter a valid email" answer, so the
-    //    break-glass path stays invisible to anyone without a code.
-    if (!looksLikeEmail && !isBackupCodeFormat(raw)) {
-      showToast('Enter a valid email address to continue.', 'error');
-      return;
-    }
-    pendingSubmitKind = looksLikeEmail ? 'login' : 'sos';
-
-    // ── Email OTP login TEMPORARILY DISABLED ───────────────────────────────
-    // Only the email → OTP path is turned off. The backup-code (SOS) admin
-    // path further down still runs, and Google sign-in is unaffected. Show the
-    // notice + a toast and stop before any CAPTCHA or /auth/login request fires.
-    // To re-enable email login: delete this block and #emailUnavailableNotice.
-    if (looksLikeEmail) {
-      const notice = document.getElementById('emailUnavailableNotice');
-      if (notice) notice.style.display = 'block';
-      showToast('Email login is currently unavailable. Please use Google login.', 'warning');
-      restoreLoginSubmitBtn();
-      return;
-    }
-
-    // First click: reveal the CAPTCHA below the email box. The visitor does not
-    // press Continue again — solving the challenge submits for them (and if the
-    // challenge cannot load, the request goes out straight away).
-    if (!loginTurnstileShown) {
-      if (btn) { btn.disabled = true; btn.textContent = 'Loading security check…'; }
-      loginSubmitPending = true;
-      await showLoginTurnstile();
-      if (isLoginCaptchaUnavailable()) {
-        // Nothing to solve — no callback will ever fire, so send the request now.
-        loginSubmitPending = false;
-      } else {
-        if (btn) { btn.disabled = true; btn.textContent = 'Complete the security check…'; }
-        return;
-      }
-    }
-
-    // The challenge is on screen already: it must be solved before we send.
-    if (!isLoginCaptchaUnavailable() && !getLoginTurnstileToken()) {
-      loginSubmitPending = true;
-      if (btn) { btn.disabled = true; btn.textContent = 'Complete the security check…'; }
-      showToast('Complete the security check to continue.', 'warning');
-      return;
-    }
-
-    await runPendingLoginSubmit();
-  }
-
-  async function runPendingLoginSubmit() {
-    if (pendingSubmitKind === 'sos') await checkBackupCodeAndOpenSos();
-    else await submitEmailLogin();
-  }
-
-  // Sends the email to /auth/login with whatever CAPTCHA token is available.
-  // Called by handleAuthSubmit and by the Turnstile success callback.
-  async function submitEmailLogin() {
-    const btn = document.getElementById('submitBtn');
-    const email = document.getElementById('inputEmail')?.value?.trim() || '';
-    if (!email) { restoreLoginSubmitBtn(); return; }
-
-    if (btn) { btn.disabled = true; btn.textContent = 'Signing in...'; }
-    try {
-      const data = await api('/auth/login', { method: 'POST', body: { email } });
-
-      // The account has an authenticator enrolled: the server withheld the
-      // session and returned a challenge instead. Nothing is stored in Auth
-      // until the second factor is verified.
-      if (data.twoFactorRequired) {
-        enterTwoFactorState(data);
-        return;
-      }
-
-      Auth.setAuth(data.token, data.user);
-      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
-        Auth.setAdminAuth(data.token, data.user);
-        window.location.replace('vault');
-      } else {
-        window.location.replace('index');
-      }
-    } catch (err) {
-      // Admin addresses cannot use the email-only path — the server rejects
-      // them with ADMIN_USES_GOOGLE because an email alone proves nothing for
-      // an admin account. Point the admin at the Google button / SOS code.
-      if (err && err.data && err.data.code === 'ADMIN_USES_GOOGLE') {
-        showToast('Admin accounts sign in with Google or a backup code. Use the Google button below.', 'warning');
-      } else {
-        showToast(err.message || 'Login failed. Please try again.', 'error');
-      }
-      resetLoginTurnstile(); // tokens are single-use — refresh for the retry
-      restoreLoginSubmitBtn();
-    }
+    const notice = document.getElementById('emailUnavailableNotice');
+    if (notice) notice.style.display = 'block';
+    showToast(raw ? 'Use Continue with Google to sign in.' : 'Google Login is required.', 'warning');
+    restoreLoginSubmitBtn();
   }
 
   /* ══════════════════════════════════════════
@@ -1463,20 +1352,20 @@
     showAuthenticatorCodeEntry();
   }
 
-  // Google sign-in can start from any page. app.js calls this hook when it is
-  // defined, and otherwise stashes the challenge and redirects here.
-  window.onTwoFactorRequired = enterTwoFactorState;
+  // SaveHatke authentication is Google-only. Retired TOTP/OTP challenge
+  // handoffs must never replace the login screen or become an auth path.
+  window.onTwoFactorRequired = function () {};
 
   // Pick up a challenge handed over from another page.
   (function resumeTwoFactorHandoff() {
     try {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('step') !== '2fa') return;
-      const token = sessionStorage.getItem('sh_2fa_challenge');
-      // Single use: remove it before doing anything with it, so a reload cannot
-      // resurrect a challenge the user abandoned.
       sessionStorage.removeItem('sh_2fa_challenge');
-      if (token) enterTwoFactorState({ challengeToken: token });
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('step') === '2fa') {
+        params.delete('step');
+        const suffix = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${suffix ? `?${suffix}` : ''}`);
+      }
     } catch (e) { /* nothing to resume */ }
   })();
 

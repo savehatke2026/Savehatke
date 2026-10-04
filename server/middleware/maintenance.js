@@ -13,21 +13,11 @@
 // frontend api() helper recognises and uses to redirect to
 // /maintenance.html.
 //
-// This guard is mounted BEFORE the per-route authenticateToken (see
-// server.js), so req.user is NOT populated when we run. We therefore resolve
-// the caller ourselves, from either credential a request can carry:
-//
-//   1. Authorization: Bearer <jwt> — the API path. The signature is VERIFIED,
-//      not just decoded, so a self-crafted token with role:"admin" cannot
-//      buy a bypass. An expired token is still accepted for the role check
-//      only: the route's own authenticateToken is the real auth gate, and
-//      maintenance should never mint a spurious 503 for a user whose token
-//      merely aged out.
-//   2. the sh_session HttpOnly cookie — the HTML-page path. Page navigations
-//      (navbar clicks, browser Back/Forward, address bar) never send an
-//      Authorization header; the session cookie is the only credential they
-//      have. The raw session token is validated against the session table,
-//      which carries the login method and therefore the role. Without this,
+// This guard is mounted before route authentication, so it resolves the caller
+// from the sh_session HttpOnly cookie. Page navigations never send an
+// Authorization header; the session cookie is the only credential they have.
+// The raw token is validated against the server-side session row, and admin
+// status is derived from the server-owned two-account allowlist. Without this,
 //      an ADMIN opening /dashboard during maintenance would be redirected to
 //      /maintenance, whose own guard (correctly) recognises the admin and
 //      sends them straight back — an infinite redirect loop.
@@ -37,16 +27,12 @@
 // unresolvable caller is treated as a normal user and checked by the real
 // auth gate downstream.
 
-const jwt = require('jsonwebtoken');
 const supabase = require('../services/supabase');
+const { isAuthorizedAdminEmail } = require('../config/security');
 const {
   SESSION_COOKIE_NAME,
   validateSessionToken,
 } = require('./auth');
-
-function getJwtSecret() {
-  return process.env.JWT_SECRET || 'savehatke_dev_secret_key';
-}
 
 /** Read + decode the session cookie without throwing. */
 function parseSessionCookie(req) {
@@ -54,49 +40,19 @@ function parseSessionCookie(req) {
   if (!cookieHeader) return null;
   for (const part of cookieHeader.split(';')) {
     const [name, ...rest] = part.trim().split('=');
-    if (name === SESSION_COOKIE_NAME) return decodeURIComponent(rest.join('='));
+    if (name === SESSION_COOKIE_NAME) {
+      try { return decodeURIComponent(rest.join('=')); } catch (e) { return null; }
+    }
   }
   return null;
 }
 
-/**
- * Pull a best-effort `{ role, email, id }` out of the Authorization header
- * without throwing. The signature is verified first (so a forged role claim
- * cannot pass); a token that only failed because it EXPIRED is still decoded,
- * since an aged-out token must land in the normal 401 SESSION_EXPIRED path
- * downstream, not in a maintenance 503.
- */
-function decodeCaller(req) {
-  const authHeader = req && req.headers && req.headers.authorization;
-  if (!authHeader || !/^Bearer\s+/i.test(authHeader)) return null;
-  const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  if (!token) return null;
-  try {
-    let decoded = null;
-    try {
-      decoded = jwt.verify(token, getJwtSecret());
-    } catch (err) {
-      if (err && err.name === 'TokenExpiredError') {
-        decoded = jwt.verify(token, getJwtSecret(), { ignoreExpiration: true });
-      }
-    }
-    if (!decoded) return null;
-    return {
-      role: decoded.role ? String(decoded.role).toLowerCase() : '',
-      email: decoded.email ? String(decoded.email).toLowerCase().trim() : '',
-      id: decoded.id || '',
-    };
-  } catch (e) {
-    return null;
-  }
-}
+/** Bearer tokens are retired; authentication is cookie-only. */
+async function decodeCaller() { return null; }
 
 /** True when the caller's claimed role grants admin-level maintenance bypass. */
 function isAdminRole(caller) {
-  if (!caller || !caller.role) return false;
-  return caller.role === 'admin'
-      || caller.role === 'super admin'
-      || caller.role === 'support';
+  return Boolean(caller && isAuthorizedAdminEmail(caller.email));
 }
 
 /**
@@ -111,35 +67,25 @@ async function isWhitelistedEmail(caller) {
   return whitelist.includes(String(caller.email).toLowerCase().trim());
 }
 
-// Per-request cache: header-credential and cookie-credential lookups share
-// one resolution. Keys are the request object itself (WeakMap so entries
+// Per-request cache: resolution is keyed by the request object itself (WeakMap so entries
 // are garbage-collected with the request).
 const resolvedCache = new WeakMap();
 
 /**
- * Resolve the caller for maintenance purposes. Order:
- *   1. a cached answer for this exact request
- *   2. the Authorization header (verified JWT) — cheapest, no DB call
- *   3. the sh_session cookie — validated against the session table, because
- *      that is the only credential an HTML page navigation carries
- * Returns null when neither credential resolves to a caller.
+ * Resolve the caller for maintenance purposes from the HttpOnly cookie.
+ * The cookie is validated against the same session table as protected APIs.
  */
 async function resolveCaller(req) {
   if (!req) return null;
   if (resolvedCache.has(req)) return resolvedCache.get(req);
 
   const promise = (async () => {
-    const headerCaller = decodeCaller(req);
-    if (headerCaller) return headerCaller;
-
     const cookieToken = parseSessionCookie(req);
     if (!cookieToken) return null;
 
     try {
       // validateSessionToken is the same helper authenticateToken uses —
-      // it enforces status Active + expires_at and consults the 60-second
-      // session cache, so a logged-out or expired session never grants a
-      // bypass and hot paths stay cheap.
+      // it enforces status Active + expires_at against Supabase on every call.
       const validation = await validateSessionToken(cookieToken);
       if (!validation || !validation.ok || !validation.user) return null;
       return {
@@ -202,9 +148,8 @@ async function maintenanceGuard(req, res, next) {
  *   { allowed: true }                                       — render the page
  *   { allowed: false, redirect: '/maintenance.html' }       — maintenance is ON
  *
- * The bypass works for BOTH credentials a page request can carry — the
- * verified Bearer JWT and the HttpOnly session cookie — because a plain page
- * navigation (navbar link, Back button, address bar) only has the cookie.
+ * Page navigation carries the HttpOnly session cookie. Admin status is
+ * derived from the server-owned allowlist, never from a browser role claim.
  * Admins pass because of their role; whitelisted users because of their
  * email, so a whitelisted login from the maintenance page lands straight on
  * the normal site.

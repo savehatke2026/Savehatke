@@ -329,18 +329,15 @@
     // stay on this origin so the page can't be used as an open redirect.
     function safeInternalPath(raw) {
       if (!raw) return '';
-      // Reject protocol-relative ("//evil") and absolute URLs outright.
-      if (/^https?:/i.test(raw) || raw.indexOf('//') === 0) {
-        // Allow a full URL only when it is the SAME origin.
-        try {
-          var u = new URL(raw, window.location.origin);
-          if (u.origin === window.location.origin) return u.pathname + u.search + u.hash;
-        } catch (e) {}
-        return '';
-      }
-      // A normal path must start with a single "/".
-      if (raw.charAt(0) === '/' && raw.charAt(1) !== '/') return raw;
-      return '';
+      // Reject backslashes/control characters because URL parsers treat
+      // backslashes as separators for special schemes in some browsers.
+      if (/[\\\u0000-\u001f\u007f]/.test(raw) || raw.indexOf('//') === 0) return '';
+      try {
+        var u = new URL(raw, window.location.origin);
+        if (u.origin !== window.location.origin || u.username || u.password) return '';
+        if (!(raw.charAt(0) === '/' || /^https?:\/\//i.test(raw))) return '';
+        return u.pathname + u.search + u.hash;
+      } catch (e) { return ''; }
     }
 
     function sameOriginReferrer() {

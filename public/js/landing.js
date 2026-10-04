@@ -64,14 +64,16 @@ function renderCoupons(grid, coupons) {
     'Food': 'badge-food',
   };
 
-  grid.innerHTML = coupons.map((c) => {
+  const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  })[char]);
+
+  grid.innerHTML = coupons.map((c, index) => {
     const emoji = categoryEmojis[c.category] || '🏷️';
     const bClass = badgeClass[c.category] || 'badge-electronics';
     const isFree = c.source === 'auto-scraped';
     const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '20'}`;
     const origVal = c.originalValue || '500';
-    const cJson = JSON.stringify(c).replace(/"/g, '&quot;');
-
     // Calculate discount % estimate
     const origNum = Number(origVal) || 500;
     const sellNum = isFree ? 0 : (Number(c.sellingPrice) || 20);
@@ -80,23 +82,23 @@ function renderCoupons(grid, coupons) {
     return `
       <div class="coupon-card">
         <div class="coupon-card-top">
-          <div class="coupon-brand">${emoji} ${c.brand}</div>
-          <span class="coupon-category-badge ${bClass}">${c.category}</span>
+          <div class="coupon-brand">${emoji} ${escapeHtml(c.brand)}</div>
+          <span class="coupon-category-badge ${bClass}">${escapeHtml(c.category)}</span>
         </div>
-        <div class="coupon-value">₹${origVal} OFF</div>
-        <div class="coupon-value-label">${c.description || 'Face Value Discount'}</div>
+        <div class="coupon-value">₹${escapeHtml(origVal)} OFF</div>
+        <div class="coupon-value-label">${escapeHtml(c.description || 'Face Value Discount')}</div>
         <div class="coupon-price-row">
           <div>
-            <div class="coupon-price">${priceText}</div>
+            <div class="coupon-price">${escapeHtml(priceText)}</div>
             <div class="coupon-price-label">Our Price</div>
           </div>
           <span class="coupon-discount-badge">Save ${savePct}%</span>
         </div>
         <div class="coupon-code-row">
-          <span class="coupon-code">${c.code ? c.code.slice(0, 6) : 'SAVE2026'}</span>
+          <span class="coupon-code">${escapeHtml(c.code ? c.code.slice(0, 6) : 'SAVE2026')}</span>
           <span class="coupon-code-label">🔒 Unlock to reveal</span>
         </div>
-        <button class="coupon-tc-btn" onclick="openCouponTermsModal(${cJson})">
+        <button class="coupon-tc-btn" data-coupon-preview="${index}">
           📜 Terms & How to Use
         </button>
         <button class="btn-coupon" onclick="window.location.href='marketplace.html'">
@@ -105,6 +107,13 @@ function renderCoupons(grid, coupons) {
       </div>
     `;
   }).join('');
+
+  grid.querySelectorAll('[data-coupon-preview]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const index = Number(button.getAttribute('data-coupon-preview'));
+      if (Number.isInteger(index) && coupons[index]) openCouponTermsModal(coupons[index]);
+    });
+  });
 }
 
 // ── Category Pills ──────────────────────────────────────────────────────
