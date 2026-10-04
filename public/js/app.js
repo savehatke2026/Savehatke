@@ -58,6 +58,18 @@ function initPageProgressBar() {
 }
 initPageProgressBar();
 
+// ── Post-login destination ────────────────────────────────────────────────
+// Where a signed-in account belongs: admins in the admin vault, everyone else
+// on their dashboard (or the name-setup step of a brand-new account). Shared by
+// every "already signed in" redirect so the Google handoff, the login page and
+// the public-page bounce can never disagree about the destination.
+function homePathForUser(user) {
+  const role = String((user && user.role) || '').toLowerCase();
+  if (role === 'admin' || role === 'super admin' || role === 'support') return '/vault';
+  if (user && user.needs_name_setup) return '/onboarding.html';
+  return '/dashboard.html';
+}
+
 // ── Immediate Admin Redirect for Public Pages ─────────────────────────────
 (function checkAdminRedirectImmediate() {
   try {
@@ -65,7 +77,8 @@ initPageProgressBar();
     // Admin review pages (/admin/coupons/:id) must stay reachable — never bounce away
     if (path.startsWith('/admin/')) return;
     const filename = path.split('/').pop() || 'index.html';
-    // Login pages handle their own logged-in redirect (to index) — never bounce admins to vault from there
+    // Login pages run their own signed-in redirect in app.js (it knows the
+    // admin/user split) — never bounce an admin to the vault from there.
     const adminPages = ['vault.html', 'vault', 'login.html', 'login', 'admin-gmail.html', 'admin-gmail', 'admin-review.html', 'admin-review'];
     if (adminPages.includes(filename)) return;
 

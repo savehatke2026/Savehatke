@@ -261,6 +261,14 @@ router.get('/google-redirect', async (req, res) => {
     if (!saved || !saved.state || !returnedState || saved.state.length !== returnedState.length ||
         !crypto.timingSafeEqual(Buffer.from(saved.state), Buffer.from(returnedState)) ||
         saved.redirectUri !== redirectUri || !saved.nonce || !saved.verifier) {
+      // The usual causes, in order: consent was abandoned long enough for the
+      // 10-minute state cookie to expire, the callback landed on a different
+      // host than the one that started the flow (so the SameSite=Lax cookie
+      // was never sent), or GOOGLE_REDIRECT_URI changed between the two legs.
+      console.warn(
+        `[auth] Google OAuth callback rejected: OAuth state cookie ${saved ? 'did not match the returned state' : 'was missing'}` +
+        ` (redirect_uri=${redirectUri}); the sign-in flow must start and finish on the same host.`
+      );
       return res.redirect(303, '/login?google=failed');
     }
 
@@ -279,7 +287,9 @@ router.get('/google-redirect', async (req, res) => {
     }
     return await finishGoogleLogin(req, res, identity);
   } catch (err) {
-    console.error('[auth] Google OAuth callback failed.');
+    // Logged with the real reason so a broken login is diagnosable from the
+    // deploy logs; the visitor only ever sees the generic failed-login banner.
+    console.error('[auth] Google OAuth callback failed:', (err && err.message) || err);
     clearOAuthStateCookie(res);
     if (res.headersSent) return;
     return res.redirect(303, '/login?google=failed');

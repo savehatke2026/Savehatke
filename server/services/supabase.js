@@ -554,20 +554,44 @@ function isMissingColumnError(err) {
 /**
  * Ensure the session tables exist in Supabase.
  * Called once on startup; silently succeeds if already present.
+ *
+ * Every column the login callback WRITES and the auth middleware READS is
+ * probed here, not just the table. A table that exists without
+ * `google_sub` accepts logins but can never validate one — sessions are
+ * refused as "cannot enforce revocation", so the browser is bounced back to
+ * the login page after every Google sign-in with no server error to point
+ * at. Probing the exact columns turns that silent loop into one loud boot
+ * line naming the migration to run.
  */
+const SESSION_SCHEMA_COLUMNS = Object.freeze(['session_id', 'session_token', 'google_sub', 'status', 'expires_at']);
+
+async function sessionSchemaGaps(client, table) {
+  const missing = [];
+  for (const column of SESSION_SCHEMA_COLUMNS) {
+    try {
+      const { error } = await client.from(table).select(column).limit(1);
+      if (error && isMissingColumnError(error)) missing.push(column);
+    } catch (err) {
+      missing.push(`${column} (${err.message})`);
+    }
+  }
+  return missing;
+}
+
 async function ensureSessionsTable() {
   const client = getClient();
   if (!client) return;
 
   for (const table of SESSION_TABLES) {
-    try {
-      // Lightweight probe — if it succeeds, the table (and the session_token
-      // column added by the 48h-session upgrade) exists.
-      await client.from(table).select('session_id, session_token, google_sub').limit(1);
-    } catch (err) {
-      console.warn(`Sessions table probe failed for "${table}" (may need manual creation):`, err.message);
-      console.warn('Run server/setup_sessions_table.sql in Supabase SQL Editor.');
-    }
+    const missing = await sessionSchemaGaps(client, table);
+    if (!missing.length) continue;
+    console.error(
+      `[sessions] "${table}" is missing required column(s): ${missing.join(', ')}. ` +
+      'Google sign-in will create sessions that cannot be validated, so every ' +
+      'login will bounce back to the login page until this is fixed. Run ' +
+      'supabase/migrations/20261002_google_only_sessions.sql in the Supabase ' +
+      'SQL Editor (Dashboard → SQL Editor → New query), then redeploy.'
+    );
   }
 }
 

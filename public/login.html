@@ -19,24 +19,28 @@
   <!-- Cloudflare Turnstile CAPTCHA -->
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onLoginTurnstileLoad" async defer></script>
   <script>
-    // Logged-in users never see the login page — always send them to home
+    // A signed-in visitor never needs the login form — send them to the page
+    // their role owns: /vault for an admin, /dashboard.html (or the name-setup
+    // step) for a user. The legacy-bearer cleanup below cannot prove a role, so
+    // it waits for app.js instead of guessing a destination here.
     (function redirectIfLoggedIn() {
       try {
-        const userRaw = localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user');
         const legacyBearer = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
-        if (legacyBearer) {
+        if (legacyBearer && !(localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user'))) {
           localStorage.removeItem('sh_token');
           localStorage.removeItem('sh_admin_token');
-          if (userRaw) localStorage.setItem('sh_authenticated', '1');
         }
-        const authenticated = localStorage.getItem('sh_authenticated') === '1';
-        if (authenticated && userRaw) {
-          const u = JSON.parse(userRaw);
-          if (u && (u.email || u.id || u.name)) {
-            document.documentElement.style.display = 'none';
-            window.location.replace('index.html');
-          }
-        }
+        if (localStorage.getItem('sh_authenticated') !== '1') return;
+
+        const userRaw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
+        if (!userRaw) return;
+        const u = JSON.parse(userRaw);
+        if (!u || !(u.email || u.id || u.name)) return;
+
+        const role = String(u.role || '').toLowerCase();
+        const isAdmin = role === 'admin' || role === 'super admin' || role === 'support';
+        document.documentElement.style.display = 'none';
+        window.location.replace(isAdmin ? '/vault' : (u.needs_name_setup ? '/onboarding.html' : '/dashboard.html'));
       } catch (e) {}
     })();
   </script>
@@ -697,6 +701,25 @@
       if (params.get('expired') === '1') {
         window.history.replaceState({}, '', window.location.pathname);
       }
+    } catch (e) {}
+  })();
+
+  /* ── Failed Google sign-in notice (?google=failed from the OAuth callback) ──
+     Every rejection in the callback — cancelled consent, an expired state
+     cookie, or a server that cannot verify the identity — lands back here.
+     Silently showing an untouched form is what makes it look like the login
+     "did nothing", so say plainly that the attempt failed, then strip the
+     param so a refresh cannot replay it. */
+  (function noticeFailedGoogleSignIn() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('google') !== 'failed') return;
+      params.delete('google');
+      const suffix = params.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${suffix ? `?${suffix}` : ''}`);
+      const notice = document.getElementById('emailUnavailableNotice');
+      if (notice) notice.style.display = 'block';
+      setTimeout(() => showToast('Google sign-in did not complete. Please try again.', 'error'), 400);
     } catch (e) {}
   })();
 
