@@ -139,7 +139,7 @@ function getPublicOrigin(req) {
   }
 
   const allowed = new Set([
-    'https://savehatke.com', 'https://www.savehatke.com', 'https://savehatke.vercel.app',
+    'https://savehatke.vercel.app',
     ...(process.env.ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean),
   ]);
   const forwardedProto = String(req?.headers?.['x-forwarded-proto'] || req?.protocol || '').split(',')[0].trim().toLowerCase();
@@ -154,7 +154,10 @@ function getPublicOrigin(req) {
     } catch (e) { /* use fixed fallback below */ }
   }
 
-  if (process.env.NODE_ENV === 'production') return 'https://savehatke.com';
+  // No hardcoded production fallback — rely on APP_BASE_URL / SITE_URL / host
+  // negotiation. A boot-time guard in assertSecurityConfiguration logs a
+  // warning if no APP_BASE_URL is set, so a missing env var is loud rather
+  // than silent.
   return `http://localhost:${String(process.env.PORT || '3000')}`;
 }
 
@@ -168,6 +171,21 @@ function getJwtSecret() {
 
 function assertSecurityConfiguration() {
   getJwtSecret();
+
+  // Production needs an explicit APP_BASE_URL / SITE_URL: getPublicOrigin()
+  // no longer falls back to a hardcoded production domain, so a missing
+  // env var would silently turn into a localhost-derived origin. Warn
+  // loudly at boot so the misconfiguration is visible in deploy logs.
+  if (process.env.NODE_ENV === 'production'
+      && !String(process.env.APP_BASE_URL || '').trim()
+      && !String(process.env.SITE_URL || '').trim()) {
+    console.warn(
+      '[security] APP_BASE_URL / SITE_URL are both unset in production. ' +
+      'Public-URL helpers will fall back to the request header, which works ' +
+      'behind a proxy but can drift between hosts. Set APP_BASE_URL in your ' +
+      'hosting environment to a stable URL.',
+    );
+  }
 
   // Google OAuth callback sanity check. In production the redirect_uri sent to
   // Google is the *only* thing that decides whether sign-in works or fails with

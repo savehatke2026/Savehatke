@@ -148,8 +148,6 @@ app.use((req, res, next) => {
 });
 
 const allowedOrigins = new Set([
-  'https://savehatke.com',
-  'https://www.savehatke.com',
   'https://savehatke.vercel.app',
   ...(process.env.APP_BASE_URL ? [new URL(process.env.APP_BASE_URL).origin] : []),
   ...(process.env.ALLOWED_ORIGINS || '').split(',').map((value) => value.trim()).filter(Boolean),

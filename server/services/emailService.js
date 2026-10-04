@@ -1031,9 +1031,9 @@ Regards,
   // Optional DKIM signing — only activates when the operator has set the
   // DKIM_DOMAIN + DKIM_SELECTOR + DKIM_PRIVATE_KEY env vars (e.g. once the
   // support mailbox is moved to a real transactional service that allows
-  // custom DKIM for savehatke.com). With Gmail's free SMTP the message
-  // is still signed by gmail.com — this just lets a future migration
-  // re-sign with savehatke.com without code changes.
+  // custom DKIM for the operator's own domain). With Gmail's free SMTP the
+  // message is still signed by gmail.com — this just lets a future migration
+  // re-sign with a custom domain without code changes.
   if (
     process.env.DKIM_DOMAIN &&
     process.env.DKIM_SELECTOR &&
@@ -3032,7 +3032,7 @@ ${EMAIL_GREEN_DARK_RULES}
   // Feedback-ID, DKIM/SPF/DMARC or other delivery/auth headers. The
   // authenticated Gmail account generates the correct ones (and signs the
   // message with gmail.com DKIM), which is exactly why the From is a real
-  // Gmail address rather than a spoofed savehatke.com one. No Reply-To
+  // Gmail address rather than a spoofed custom-domain one. No Reply-To
   // override — replies go to the Payments account itself. nodemailer emits a
   // valid multipart/alternative body (plain text + HTML) in UTF-8.
   try {

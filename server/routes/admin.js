@@ -114,7 +114,7 @@ function payoutSummary(coupon, payout) {
   };
 }
 
-const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
+const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.vercel.app').replace(/\/$/, '');
 
 // Write an audit row for every admin coupon action (best-effort, never blocks)
 async function logCouponAudit(couponId, adminEmail, action, notes) {
@@ -343,7 +343,11 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
     }
 
     const cleanCode = code.toUpperCase().trim();
-    const sellerEmail = req.user?.email || 'admin@savehatke.com';
+    // `req.user?.email` is always populated for an authenticated admin route
+    // (authenticateToken ran upstream). The empty-string fallback forces a
+    // clear 401 if that contract ever breaks instead of silently attributing
+    // the row to a phantom address.
+    const sellerEmail = req.user?.email || '';
 
     // Face value from any accepted alias; the seller payout is always derived
     // from it here. An admin marketplace coupon may sit outside the ₹100–₹10,000

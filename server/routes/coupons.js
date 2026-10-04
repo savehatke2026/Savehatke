@@ -70,7 +70,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const MIN_EXPIRY_DAYS = 10;
 const MIN_EXPIRY_FLOOR_DAYS = MIN_EXPIRY_DAYS - 1;
 
-const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.com').replace(/\/$/, '');
+const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.vercel.app').replace(/\/$/, '');
 
 // ── Sell eligibility — open to every signed-in user ──
 // Selling is available to any authenticated user: there is no seller

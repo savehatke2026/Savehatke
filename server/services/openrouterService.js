@@ -85,7 +85,7 @@ function buildHeaders() {
   if (!isConfigured()) {
     throw new Error('OpenRouter API key is not set (OPENROUTER_API_KEY).');
   }
-  const site = (process.env.SITE_URL || 'https://savehatke.com').replace(/\/+$/, '');
+  const site = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
   return {
     'Content-Type': 'application/json',
     'Authorization': 'Bearer ' + process.env.OPENROUTER_API_KEY,
