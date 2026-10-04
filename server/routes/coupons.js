@@ -228,20 +228,21 @@ router.get('/categories', async (req, res) => {
   }
 });
 
-// POST /api/coupons/scan — Read a coupon screenshot with Gemini Vision and
-// return the fields it could actually see, each with a confidence score.
+// POST /api/coupons/scan — Read a coupon screenshot with OpenRouter vision
+// and return the fields it could actually see, each with a confidence score.
 //
-// SECURITY: the Gemini key never leaves the server; the image is forwarded to
-// Google from here, not from the browser. The model's JSON is whitelisted and
-// type-checked in services/couponVision.js before any of it is returned.
+// SECURITY: the OpenRouter key never leaves the server; the image is forwarded
+// to OpenRouter from here, not from the browser. The model's JSON is
+// whitelisted and type-checked in services/couponVision.js before any of it
+// is returned.
 //
 // This endpoint only reads. It never creates a coupon, and it deliberately
 // returns no selling price, source or status — those stay with the seller and
 // the submit route.
 //
 // Sign-in gated: the scanner exists only to fill the sell form, and each call
-// spends paid Gemini Vision quota — a signed-out visitor has no legitimate
-// use for it.
+// spends free-tier OpenRouter vision quota — a signed-out visitor has no
+// legitimate use for it.
 router.post('/scan', authenticateToken, scanAccountLimiter, async (req, res) => {
   try {
     const maySell = await canSellCoupons(req.user);

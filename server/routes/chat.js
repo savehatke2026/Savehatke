@@ -1,11 +1,11 @@
 // ============================================
 // SaveHatke — Public Chat Endpoints (/api/chat)
 // ============================================
-// The homepage chatbot widget talks ONLY to this backend. The Gemini API
+// The homepage chatbot widget talks ONLY to this backend. The OpenRouter API
 // key, system prompt and tools stay server-side. Pipeline per message:
 // auth (optional) → enabled check → guest policy → validation → rate
 // limiting → injection scan → conversation handling → knowledge retrieval
-// → permitted tool calls → Gemini API → output validation → response.
+// → permitted tool calls → OpenRouter → output validation → response.
 
 const express = require('express');
 const { optionalAuth } = require('../middleware/auth');

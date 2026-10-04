@@ -5,7 +5,7 @@
 // limiting, prompt-injection detection, guarded tools, logging and audit.
 //
 // SECURITY MODEL:
-// - The Gemini API key, system prompt and tool internals never leave the
+// - The OpenRouter API key, system prompt and tool internals never leave the
 //   server. The public /api/chat endpoint only ever receives a message and
 //   returns sanitized AI text.
 // - Tools NEVER let the AI (or the user) query arbitrary data. User-scoped
@@ -15,11 +15,11 @@
 const { v4: uuidv4 } = require('uuid');
 const db = require('./googleSheets');
 const supabaseService = require('./supabase');
-const gemini = require('./geminiService');
+const openrouter = require('./openrouterService');
 const prompts = require('./chatbotPrompts');
 // The custom SaveHatke AI engine. provider.js is the single seam: this service
 // asks it for a reply and never talks to a reasoning layer directly, so
-// SAVEHATKE_AI and GEMINI stay interchangeable via the AI_PROVIDER env var.
+// SAVEHATKE_AI and OPENROUTER stay interchangeable via the AI_PROVIDER env var.
 const aiProvider = require('./ai/provider');
 const aiConfig = require('./ai/config');
 // The ONE seller payout formula: 7% of a coupon's face value. Shared with the
@@ -61,7 +61,10 @@ const DEFAULT_SETTINGS = {
   botAvatar: '🤖',
   suggestedQuestions: prompts.DEFAULT_SUGGESTED_QUESTIONS,
   maintenanceMessage: 'Our AI assistant is temporarily unavailable. Please check back soon or contact support.',
-  model: 'gemini-3.6-flash',
+  // Default model. The OpenRouter wrapper falls back to OPENROUTER_FALLBACK_MODEL
+  // (default `openrouter/free`) automatically when the primary returns a
+  // transient error (429 / 5xx / timeout / network).
+  model: 'nvidia/nemotron-3-ultra:free',
   maxOutputTokens: 1024,
   temperature: 0.4,
   timeoutSeconds: 30,
@@ -109,12 +112,15 @@ async function getSettings() {
     }
   });
   // Invalid model sanitization:
-  // - Old NVIDIA-style names (contain '/') are not valid Gemini models.
-  // - gemini-2.5-flash was retired by Google (404 for new API keys) — if a
-  //   saved settings row still holds it, fall back to the env/default model
-  //   instead of sending a model the API rejects.
-  if (typeof merged.model === 'string' && (merged.model.includes('/') || merged.model === 'gemini-2.5-flash')) {
-    merged.model = gemini.getDefaultModel();
+  // - gemini-* model names are retired; fall back to the env/default model.
+  // - Anything else (e.g. an empty string, whitespace, a typo) also resets
+  //   to the default so a bad settings row cannot 400 every request.
+  // - The model id is then handed to openrouter.isModelAllowed() so an admin
+  //   who set an arbitrary / paid-only id cannot drain the free quota.
+  if (typeof merged.model !== 'string' || !merged.model.trim() ||
+      /^gemini/i.test(merged.model) ||
+      !openrouter.isModelAllowed(merged.model)) {
+    merged.model = openrouter.getDefaultModel();
   }
   return merged;
 }
@@ -165,7 +171,13 @@ async function saveSettings(updates, admin) {
 // Admin-facing settings include API key status, never the key itself
 async function getSettingsForAdmin() {
   const s = await getSettings();
-  return { ...s, apiKeyConfigured: gemini.isConfigured(), defaultModel: gemini.getDefaultModel() };
+  return {
+    ...s,
+    apiKeyConfigured: openrouter.isConfigured(),
+    defaultModel: openrouter.getDefaultModel(),
+    fallbackModel: openrouter.getFallbackModel(),
+    visionModel: openrouter.getVisionModel(),
+  };
 }
 
 // Public-facing config: only what the homepage widget needs — nothing sensitive
@@ -824,7 +836,7 @@ async function handleMessage({ message, conversationId, user, ip }) {
   }
 
   // If AI not configured, fall back
-  if (!gemini.isConfigured()) {
+  if (!openrouter.isConfigured()) {
     if (settings.fallbackBehavior === 'knowledge_only' && knowledgeMatches.length > 0) {
       const reply = knowledgeMatches[0].answer;
       await addMessage(conv.id, 'assistant', reply, { model: 'knowledge-base', status: 'ok', responseTimeMs: Date.now() - started });
@@ -858,10 +870,17 @@ async function handleMessage({ message, conversationId, user, ip }) {
   };
 
   try {
-    let result = await gemini.chatCompletion(aiMessages, callOpts);
+    // The OpenRouter wrapper handles the primary → fallback chain internally on
+    // transient errors (429 / 5xx / timeout / network). We call it once here;
+    // the wrapper does NOT retry the same model, so a single free-provider
+    // outage cannot ping-pong against the budget.
+    let result = await openrouter.chatCompletion(aiMessages, callOpts);
     let loop = 0;
 
-    // 9. Permitted tool-call loop (max 2 rounds)
+    // 9. Permitted tool-call loop (max 2 rounds). After the first call already
+    //    fell back if needed, every round-trip in this loop uses the PRIMARY
+    //    only — a tool-call round on a fallback model can otherwise burn the
+    //    budget twice. chatCompletionPrimary enforces that.
     while (result.ok && result.toolCalls && result.toolCalls.length > 0 && loop < 2) {
       loop += 1;
       aiMessages.push({ role: 'assistant', content: result.content || '', tool_calls: result.toolCalls });
@@ -872,19 +891,30 @@ async function handleMessage({ message, conversationId, user, ip }) {
         const toolResult = await executeTool(fnName, fnArgs, settings, user);
         aiMessages.push({ role: 'tool', name: fnName, content: JSON.stringify(toolResult).slice(0, 4000), tool_call_id: tc.id || ('call_' + loop) });
       }
-      result = await gemini.chatCompletion(aiMessages, callOpts);
+      result = await openrouter.chatCompletionPrimary(aiMessages, callOpts);
     }
 
     // 9b. Tool rounds exhausted but the model still wants to call tools (or
     // produced no text) — ask once more WITHOUT tools so it must give the
     // user a real answer instead of an empty reply.
     if (result.ok && !result.content && (!result.toolCalls || result.toolCalls.length === 0 || loop >= 2)) {
-      result = await gemini.chatCompletion(aiMessages, { ...callOpts, tools: undefined });
+      result = await openrouter.chatCompletionPrimary(aiMessages, { ...callOpts, tools: undefined });
     }
 
     if (!result.ok) {
       const errorType = result.error || 'api_error';
-      const fallback = errorType === 'timeout' ? 'The connection timed out. This sometimes happens during peak hours — please try again.' : settings.fallbackMessage;
+      // Friendly copy for the most common failure shapes. Never echo the raw
+      // provider detail to the user — that is logged below for ops.
+      let fallback;
+      if (errorType === 'timeout') {
+        fallback = 'The connection timed out. This sometimes happens during peak hours — please try again.';
+      } else if (errorType === 'rate_limited') {
+        fallback = 'Our AI assistant is receiving a lot of requests right now. Please try again in a moment.';
+      } else if (errorType === 'auth_error') {
+        fallback = settings.fallbackMessage; // ops problem; do not alarm the user
+      } else {
+        fallback = settings.fallbackMessage;
+      }
       await addMessage(conv.id, 'assistant', fallback, { model: settings.model, status: 'error', responseTimeMs: Date.now() - started });
       await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conv.id, model: settings.model, responseTimeMs: Date.now() - started, status: 'error', errorType });
       return { ok: true, reply: fallback, conversationId: conv.id, requestId };

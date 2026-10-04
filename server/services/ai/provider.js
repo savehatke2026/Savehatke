@@ -3,18 +3,19 @@
 // ============================================
 // One interface, two implementations behind it:
 //
-//   SAVEHATKE_AI (default) — the custom engine in services/ai/
-//   GEMINI                 — the previous reasoning layer, kept selectable
-//                            during development so the two can be compared
-//                            in place before Gemini is retired.
+//   SAVEHATKE_AI — the custom engine in services/ai/ (CPU-only, no external
+//                  AI service; uses local knowledge + deterministic tools)
+//   OPENROUTER   — OpenRouter-hosted free models (NVIDIA Nemotron 3 Ultra
+//                  primary, with the openrouter/free tag as the fallback).
+//                  Replaces the previous Gemini provider.
 //
 // The chatbot service depends on THIS module, never on a provider directly, so
 // swapping or removing a provider is a change in one file. Both providers
 // return the same shape, which is what keeps /api/chat's contract stable.
 //
-// SECURITY: this module never touches an API key. The Gemini provider reads its
-// own key from the environment internally; nothing here logs, returns or
-// forwards a credential.
+// SECURITY: this module never touches an API key. The OpenRouter provider
+// reads its own key from the environment internally; nothing here logs,
+// returns or forwards a credential.
 
 const config = require('./config');
 const savehatkeAI = require('./savehatkeAI');
@@ -24,9 +25,9 @@ function getProviderName() {
 }
 
 function isConfigured() {
-  if (getProviderName() === 'GEMINI') {
+  if (getProviderName() === 'OPENROUTER') {
     // eslint-disable-next-line global-require
-    return require('../geminiService').isConfigured();
+    return require('../openrouterService').isConfigured();
   }
   return config.enabled;
 }
@@ -39,8 +40,8 @@ function isConfigured() {
  * @param {string} [input.conversationId]
  * @param {object|null} [input.user]
  * @param {Array} [input.adminKnowledge]
- * @param {object} [input.geminiContext] — { settings, history, toolDefs, callOpts,
- *        executeTool } supplied by the caller when the Gemini provider is
+ * @param {object} [input.openrouterContext] — { settings, aiMessages, callOpts,
+ *        executeTool } supplied by the caller when the OpenRouter provider is
  *        selected, because that path needs the pre-existing prompt/tool wiring.
  * @param {Function} [input.log]
  * @returns {Promise<object>} a normalised result
@@ -48,8 +49,8 @@ function isConfigured() {
 async function generate(input = {}) {
   const provider = getProviderName();
 
-  if (provider === 'GEMINI') {
-    return generateWithGemini(input);
+  if (provider === 'OPENROUTER') {
+    return generateWithOpenRouter(input);
   }
   return generateWithSaveHatkeAI(input);
 }
@@ -78,30 +79,33 @@ async function generateWithSaveHatkeAI(input) {
 }
 
 /**
- * The Gemini path, preserved so the previous behaviour remains available.
- * It executes the tool loop the chatbot service used to own; the caller passes
- * everything it needs because the prompt assembly stays where it already lives.
+ * The OpenRouter path, replacing the previous Gemini call. The provider
+ * wrapper handles the primary → fallback chain on transient errors and the
+ * server-side timeout, so this method only orchestrates the tool-call loop.
  */
-async function generateWithGemini(input) {
+async function generateWithOpenRouter(input) {
   // eslint-disable-next-line global-require
-  const gemini = require('../geminiService');
-  const ctx = input.geminiContext || {};
+  const openrouter = require('../openrouterService');
+  const ctx = input.openrouterContext || {};
   const { settings, aiMessages, callOpts, executeTool } = ctx;
 
-  if (!gemini.isConfigured()) {
+  if (!openrouter.isConfigured()) {
     return {
-      provider: 'GEMINI',
+      provider: 'OPENROUTER',
       ok: false,
       error: 'not_configured',
       text: '',
       cards: [],
       chips: [],
-      model: settings ? settings.model : 'gemini',
+      model: settings ? settings.model : 'openrouter',
       meta: {},
     };
   }
 
-  let result = await gemini.chatCompletion(aiMessages, callOpts);
+  // The wrapper already retried the fallback if the primary returned a
+  // transient error. We do NOT re-enter chatCompletion() (which would loop
+  // the fallback chain), only chatCompletionPrimary() for follow-up calls.
+  let result = await openrouter.chatCompletion(aiMessages, callOpts);
   let loop = 0;
   const maxLoop = config.toolRounds;
 
@@ -120,17 +124,17 @@ async function generateWithGemini(input) {
         tool_call_id: tc.id || ('call_' + loop),
       });
     }
-    result = await gemini.chatCompletion(aiMessages, callOpts);
+    result = await openrouter.chatCompletionPrimary(aiMessages, callOpts);
   }
 
   // Tool rounds exhausted but no text produced — ask once more without tools.
   if (result.ok && !result.content && (!result.toolCalls || result.toolCalls.length === 0 || loop >= maxLoop)) {
-    result = await gemini.chatCompletion(aiMessages, { ...callOpts, tools: undefined });
+    result = await openrouter.chatCompletionPrimary(aiMessages, { ...callOpts, tools: undefined });
   }
 
   if (!result.ok) {
     return {
-      provider: 'GEMINI',
+      provider: 'OPENROUTER',
       ok: false,
       error: result.error || 'api_error',
       text: '',
@@ -142,7 +146,7 @@ async function generateWithGemini(input) {
   }
 
   return {
-    provider: 'GEMINI',
+    provider: 'OPENROUTER',
     ok: true,
     text: result.content || '',
     cards: [],
@@ -154,6 +158,8 @@ async function generateWithGemini(input) {
 
 /** Provider status for the admin surface. Never returns a key. */
 function describeProviders() {
+  // eslint-disable-next-line global-require
+  const openrouter = require('../openrouterService');
   return [
     {
       name: 'SAVEHATKE_AI',
@@ -164,12 +170,14 @@ function describeProviders() {
       status: savehatkeAI.describe(),
     },
     {
-      name: 'GEMINI',
-      active: config.provider === 'GEMINI',
-      // eslint-disable-next-line global-require
-      configured: require('../geminiService').isConfigured(),
+      name: 'OPENROUTER',
+      active: config.provider === 'OPENROUTER',
+      configured: openrouter.isConfigured(),
       requiresKey: true,
-      description: 'Previous reasoning layer. Kept selectable during development.',
+      description: 'Free OpenRouter-hosted models (NVIDIA Nemotron 3 Ultra primary, openrouter/free fallback).',
+      primaryModel: openrouter.getDefaultModel(),
+      fallbackModel: openrouter.getFallbackModel(),
+      visionModel: openrouter.getVisionModel(),
     },
   ];
 }

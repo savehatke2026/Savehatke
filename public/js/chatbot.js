@@ -23,8 +23,8 @@
 // only when the message came from a quick action / chip that always maps to that
 // lookup; everything else says "Thinking…".
 //
-// SECURITY: talks only to our own /api/chat endpoints. The Gemini API key is
-// server-side only and never reaches the browser. Every string that reaches
+// SECURITY: talks only to our own /api/chat endpoints. The OpenRouter API key
+// is server-side only and never reaches the browser. Every string that reaches
 // innerHTML goes through escHtml() first — including backend card values.
 
 (function SaveHatkeChatbotWidget() {

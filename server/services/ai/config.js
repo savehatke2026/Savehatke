@@ -5,7 +5,7 @@
 // be adjusted by environment (Vercel dashboard) without touching engine code.
 //
 // SECURITY: no secret is ever defined here. Provider keys are read from the
-// environment by the provider they belong to (e.g. geminiService), never
+// environment by the provider they belong to (e.g. openrouterService), never
 // re-exported through this module, and never surfaced to a client.
 
 function bool(value, fallback) {
@@ -25,13 +25,19 @@ function float(value, fallback) {
 
 /**
  * Provider selection.
- *   SAVEHATKE_AI — the custom engine (default)
- *   GEMINI       — the previous reasoning layer, kept selectable during
- *                  development so the two can be compared in place.
+ *   SAVEHATKE_AI — the custom engine (CPU-only, no external AI service)
+ *   OPENROUTER   — OpenRouter-hosted free models (NVIDIA Nemotron 3 Ultra
+ *                  primary, openrouter/free fallback). The previous Gemini
+ *                  provider was retired in favour of this when the free
+ *                  Gemini quota started to choke the chatbot.
  */
 function getProvider() {
-  const raw = String(process.env.AI_PROVIDER || 'SAVEHATKE_AI').trim().toUpperCase();
-  return raw === 'GEMINI' ? 'GEMINI' : 'SAVEHATKE_AI';
+  const raw = String(process.env.AI_PROVIDER || 'OPENROUTER').trim().toUpperCase();
+  if (raw === 'OPENROUTER' || raw === 'SAVEHATKE_AI') return raw;
+  // Legacy env values (e.g. GEMINI) map to OPENROUTER so an old .env does not
+  // silently disable the assistant.
+  if (raw === 'GEMINI') return 'OPENROUTER';
+  return 'SAVEHATKE_AI';
 }
 
 const config = {

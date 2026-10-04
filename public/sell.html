@@ -644,9 +644,10 @@
   <div class="container-sm">
 
     <!-- ── AI Screenshot Scanner ──
-         Optional first step: upload a coupon screenshot and let Gemini Vision
-         (server-side) fill Coupon 1 below. The existing form stays exactly as it
-         was and works on its own, so this card can be ignored entirely. -->
+         Optional first step: upload a coupon screenshot and let the AI vision
+         (server-side, via OpenRouter) fill Coupon 1 below. The existing form
+         stays exactly as it was and works on its own, so this card can be
+         ignored entirely. -->
     <div class="ai-card fu in" id="aiCard">
       <input type="file" id="aiFileInput" accept="image/png,image/jpeg,image/webp" hidden>
 
@@ -1767,11 +1768,11 @@ function fileToBase64(file) {
    AI SCREENSHOT SCANNER
    ──────────────────────────────────────────────────────────────────────────
    Optional path into the same form: the seller uploads a coupon screenshot,
-   the SERVER (POST /api/coupons/scan) asks Gemini Vision to read it, and the
-   fields it could actually see are written into Coupon 1 for review.
+   the SERVER (POST /api/coupons/scan) asks OpenRouter vision to read it, and
+   the fields it could actually see are written into Coupon 1 for review.
 
    Rules this implements:
-   • No Gemini key in the browser. The image goes to our own endpoint, which
+   • No provider key in the browser. The image goes to our own endpoint, which
      holds the key and validates the model's JSON before replying.
    • The image is checked before anything is filled — resolution, brightness and
      sharpness here, "is this even a coupon" on the server via the model.
@@ -2094,7 +2095,7 @@ async function runAiScan(file, opts = {}) {
     return;
   }
 
-  // ── 3. Ask the server (which holds the Gemini key) to read it ──
+  // ── 3. Ask the server (which holds the OpenRouter key) to read it ──
   setAiWorking('🔍 Analyzing Coupon...', 'Reading coupon details...');
 
   let scanBlob;

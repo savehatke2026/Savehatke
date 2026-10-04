@@ -8,7 +8,7 @@ const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { adminMutationLimiter } = require('../utils/adminRateLimit');
 const chatbot = require('../services/chatbotService');
-const gemini = require('../services/geminiService');
+const openrouter = require('../services/openrouterService');
 
 const router = express.Router();
 
@@ -16,9 +16,12 @@ const router = express.Router();
 // SECURITY: never returns the API key itself, only whether it is configured.
 router.get('/status', authenticateToken, requireAdmin, (req, res) => {
   res.json({
-    apiKeyConfigured: gemini.isConfigured(),
-    defaultModel: gemini.getDefaultModel(),
-    configuredBaseUrl: gemini.isConfigured() ? 'secure server-side env' : 'not set',
+    apiKeyConfigured: openrouter.isConfigured(),
+    defaultModel: openrouter.getDefaultModel(),
+    fallbackModel: openrouter.getFallbackModel(),
+    visionModel: openrouter.getVisionModel(),
+    configuredBaseUrl: openrouter.isConfigured() ? 'secure server-side env' : 'not set',
+    provider: 'openrouter',
   });
 });
 

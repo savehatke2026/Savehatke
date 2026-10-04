@@ -1,12 +1,14 @@
 // ============================================
 // SaveHatke — Coupon Screenshot Vision Service (Server-Only)
 // ============================================
-// Reads a coupon/voucher screenshot with Gemini Vision and returns structured,
-// per-field values with a confidence score each.
+// Reads a coupon/voucher screenshot through OpenRouter's chat/completions
+// endpoint (OpenAI-compatible) using an image_url content type and returns
+// structured, per-field values with a confidence score each.
 //
-// SECURITY: GEMINI_API_KEY is read from server-side env only. It is never
+// SECURITY: OPENROUTER_API_KEY is read from server-side env only. It is never
 // returned to a client, never logged, and never embedded in frontend code.
-// The image bytes are forwarded inline to Google and are not persisted here.
+// The image bytes are forwarded inline to OpenRouter and are not persisted
+// here.
 //
 // TRUST MODEL: the model's JSON is treated as untrusted input. Nothing reaches
 // the client until it has been parsed, whitelisted, type-coerced, length-capped
@@ -17,7 +19,7 @@
 // The model is explicitly told never to guess: an unreadable field must come
 // back as { "value": null, "confidence": 0 }.
 
-const gemini = require('./geminiService');
+const openrouter = require('./openrouterService');
 
 // ── Limits ─────────────────────────────────────────────────────────────────
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;      // 10 MB, matches the sell page
@@ -65,11 +67,11 @@ const MAX_LEN = {
 };
 
 function isConfigured() {
-  return gemini.isConfigured();
+  return openrouter.isConfigured();
 }
 
 function getVisionModel() {
-  return process.env.GEMINI_VISION_MODEL || gemini.getDefaultModel();
+  return process.env.OPENROUTER_VISION_MODEL || openrouter.getVisionModel();
 }
 
 // ── Image sniffing (no third-party image library) ───────────────────────────
@@ -241,25 +243,21 @@ HARD RULES — follow them exactly:
 
 // ── Model call ─────────────────────────────────────────────────────────────
 
-// Google meters the Gemini free tier PER MODEL, so one model running out of
-// quota does not exhaust its siblings. Verified against this deployment's key:
-// with gemini-3.6-flash answering 429 RESOURCE_EXHAUSTED on every call,
-// gemini-3.5-flash and gemini-3.1-flash-lite still returned 200 in the same
-// minute. Trying a sibling model is therefore the cheapest way to keep a scan
-// alive instead of failing the seller outright.
-//
-// Order matters: these are the models measured to answer quickly. The 3.7/3.8
-// Flash models took longer than 20s per call on the same key, so they are not
-// useful as a fallback — a slow rescue still reads as a broken scanner.
-const DEFAULT_FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+// OpenRouter meters its free-tier traffic per upstream provider, so one model
+// running out of quota does not exhaust its siblings. Trying a sibling is
+// therefore the cheapest way to keep a scan alive instead of failing the
+// seller outright. These are the vision-capable defaults known to be on the
+// free tier at the time of writing; OPENROUTER_VISION_FALLBACK_MODELS can
+// override them per environment (e.g. paid tier).
+const DEFAULT_FALLBACK_MODELS = ['google/gemma-3-4b:free', 'qwen/qwen2.5-vl-3b-instruct:free'];
 
 // Statuses that mean "try again", not "this request is wrong".
 const TRANSIENT_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
-// Extraction is deterministic, so a thinking budget buys nothing and costs
-// latency plus output tokens. 3.x models accept thinkingConfig; older ones
-// reject it, hence the guard (and the 400-retry below for anything else).
-const THINKING_MODEL_RE = /^gemini-3\.\d/;
+// OpenRouter's chat/completions endpoint does not accept a Gemini-style
+// `thinkingConfig`, and an unsupported parameter is a 400 — which is not
+// transient and would otherwise abort the model walk after one model. The
+// previous Gemini-specific reasoning here is gone with the migration.
 
 // Whole-call budget. Stays comfortably inside the serverless function limit.
 const VISION_TOTAL_BUDGET_MS = 45000;
@@ -270,7 +268,7 @@ const VISION_MAX_WAIT_MS = 6000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function getFallbackModels() {
-  const raw = process.env.GEMINI_VISION_FALLBACK_MODELS;
+  const raw = process.env.OPENROUTER_VISION_FALLBACK_MODELS;
   const list = (raw ? String(raw).split(',') : DEFAULT_FALLBACK_MODELS)
     .map((s) => s.trim())
     .filter(Boolean);
@@ -283,13 +281,14 @@ function visionModelChain() {
 }
 
 /**
- * Pull Google's own retry hint out of a 429/503 body, in milliseconds.
- * The API returns both a structured `retryDelay` and a "Please retry in 29s"
- * sentence; either is good enough.
+ * Pull OpenRouter's own retry hint out of a 429/503 body, in milliseconds.
+ * OpenRouter usually exposes `Retry-After` as a top-level response header
+ * (seconds); the body may also carry a structured `retry_after` (seconds) or
+ * a free-form "Please retry in Ns" sentence. Any of those is good enough.
  */
 function parseRetryAfterMs(text) {
   const s = String(text || '');
-  const m = s.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/i) ||
+  const m = s.match(/"retry[_-]?after"\s*:\s*"?(\d+(?:\.\d+)?)/i) ||
     s.match(/retry in (\d+(?:\.\d+)?)s/i);
   if (!m) return null;
   const secs = Number(m[1]);
@@ -304,106 +303,52 @@ function parseRetryAfterMs(text) {
  *   | {ok:false, error:string, status?:number, model:string, transient:boolean,
  *      retryAfterMs:number|null, detail?:string}>}
  */
-async function callVisionOnce(buffer, mimeType, model, { timeoutMs, thinking } = {}) {
-  const payload = {
-    contents: [{
-      role: 'user',
-      parts: [
-        { text: EXTRACTION_PROMPT },
-        { inline_data: { mime_type: mimeType, data: buffer.toString('base64') } },
-      ],
-    }],
-    generationConfig: {
-      temperature: 0,                       // extraction, not creativity
-      // Thinking tokens are billed against this same budget on 3.x models, so
-      // a tight cap can truncate the JSON mid-object. Keep generous headroom.
-      maxOutputTokens: 4096,
-      responseMimeType: 'application/json',
-    },
-  };
-  if (thinking) payload.generationConfig.thinkingConfig = { thinkingBudget: 0 };
+async function callVisionOnce(buffer, mimeType, model, { timeoutMs } = {}) {
+  // Delegate to the OpenRouter wrapper. The wrapper already handles auth,
+  // attribution headers, AbortController timeout and HTTP error
+  // classification — this call would otherwise duplicate four-and-a-half
+  // separate code paths the chatbot service is also using.
+  const result = await openrouter.visionCompletion(
+    { text: EXTRACTION_PROMPT, imageBase64: buffer.toString('base64'), mimeType },
+    { model, timeoutMs, maxTokens: 4096 }
+  );
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const res = await fetch(
-      `${gemini.getBaseUrl()}/models/${encodeURIComponent(model)}:generateContent`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // SECURITY: server-side key, sent as a header so it never lands in a
-          // URL, a log line or a response body.
-          'x-goog-api-key': process.env.GEMINI_API_KEY,
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      }
-    );
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      const transient = TRANSIENT_STATUSES.has(res.status);
-      let error = 'api_error';
-      if (res.status === 429) error = 'quota_exhausted';
-      else if (res.status === 500 || res.status === 502 || res.status === 503 || res.status === 504) error = 'overloaded';
-      else if (res.status === 401 || res.status === 403 || /api key not valid/i.test(errText)) error = 'auth_error';
-      // Detail is logged by the caller, never returned to the client.
-      return {
-        ok: false,
-        error,
-        status: res.status,
-        model,
-        transient,
-        retryAfterMs: transient ? parseRetryAfterMs(errText) : null,
-        detail: errText.slice(0, 300),
-      };
-    }
-
-    const data = await res.json();
-    const candidate = data.candidates && data.candidates[0];
-    if (!candidate || !candidate.content) {
-      const blocked = (data.promptFeedback && data.promptFeedback.blockReason) ||
-        (candidate && candidate.finishReason) || 'empty_response';
-      return { ok: false, error: 'content_blocked', model, transient: false, retryAfterMs: null, detail: String(blocked).slice(0, 120) };
-    }
-
-    let text = '';
-    for (const part of candidate.content.parts || []) {
-      if (typeof part.text === 'string') text += part.text;
-    }
-
-    const raw = parseJsonLoosely(text);
-    if (!raw) {
-      // A thinking model that ran out of output budget truncates mid-object.
-      // That is a capacity problem, not a verdict about the image, so it is
-      // worth one more model rather than telling the seller their coupon is
-      // unreadable.
-      const truncated = String(candidate.finishReason || '').toUpperCase() === 'MAX_TOKENS';
-      return {
-        ok: false,
-        error: 'bad_json',
-        model,
-        transient: truncated,
-        retryAfterMs: null,
-        detail: text.slice(0, 200),
-      };
-    }
-
-    return { ok: true, raw, model: data.modelVersion || model };
-  } catch (err) {
-    if (err && err.name === 'AbortError') {
-      return { ok: false, error: 'timeout', model, transient: true, retryAfterMs: null };
-    }
-    return { ok: false, error: 'network_error', model, transient: true, retryAfterMs: null, detail: err && err.message };
-  } finally {
-    clearTimeout(timer);
+  if (!result.ok) {
+    const transient = result.error === 'timeout' || result.error === 'network_error' ||
+      (result.status != null && TRANSIENT_STATUSES.has(result.status));
+    let error = result.error;
+    // Map the wrapper's auth_error to the same name couponVision historically
+    // returned to the seller-facing branch.
+    if (result.error === 'auth_error') error = 'auth_error';
+    else if (result.status === 429) error = 'quota_exhausted';
+    else if (result.status && [500, 502, 503, 504].includes(result.status)) error = 'overloaded';
+    return {
+      ok: false,
+      error,
+      status: result.status,
+      model,
+      transient,
+      retryAfterMs: transient ? parseRetryAfterMs(result.detail || '') : null,
+      detail: (result.detail || '').slice(0, 300),
+    };
   }
+
+  const raw = parseJsonLoosely(result.content);
+  if (!raw) {
+    return {
+      ok: false,
+      error: 'bad_json',
+      model,
+      transient: true,
+      retryAfterMs: null,
+      detail: (result.content || '').slice(0, 200),
+    };
+  }
+  return { ok: true, raw, model: result.model || model };
 }
 
 /**
- * Send the image to Gemini Vision and return the raw parsed JSON object.
+ * Send the image to OpenRouter and return the raw parsed JSON object.
  *
  * Walks the model chain on any transient failure (quota, overload, timeout) so
  * one busy model cannot take the scanner down. If every model is busy but the
@@ -429,24 +374,16 @@ async function callVision(buffer, mimeType, opts = {}) {
     // model will do better.
     if (last && last.error === 'auth_error') break;
 
-    const thinkingSupported = THINKING_MODEL_RE.test(model);
-    // Try with the thinking budget disabled first; only a rejected parameter is
-    // worth a second attempt on the same model.
-    for (const thinking of thinkingSupported ? [true, false] : [false]) {
-      const remaining = deadline - Date.now();
-      if (remaining <= 2000) break;
+    const remaining = deadline - Date.now();
+    if (remaining <= 2000) break;
 
-      const r = await callVisionOnce(buffer, mimeType, model, {
-        timeoutMs: Math.min(perCallTimeout, remaining),
-        thinking,
-      });
-      if (r.ok) return r;
+    const r = await callVisionOnce(buffer, mimeType, model, {
+      timeoutMs: Math.min(perCallTimeout, remaining),
+    });
+    if (r.ok) return r;
 
-      last = r;
-      if (r.retryAfterMs && (!retryHintMs || r.retryAfterMs < retryHintMs)) retryHintMs = r.retryAfterMs;
-      // 400 with the thinking flag set means the model rejects thinkingConfig.
-      if (!(r.status === 400 && thinking)) break;
-    }
+    last = r;
+    if (r.retryAfterMs && (!retryHintMs || r.retryAfterMs < retryHintMs)) retryHintMs = r.retryAfterMs;
   }
 
   // Everything was busy. Honour the provider's retry hint once, if it fits in
@@ -458,7 +395,6 @@ async function callVision(buffer, mimeType, opts = {}) {
       const model = chain[0];
       const r = await callVisionOnce(buffer, mimeType, model, {
         timeoutMs: Math.min(perCallTimeout, Math.max(deadline - Date.now(), 5000)),
-        thinking: THINKING_MODEL_RE.test(model),
       });
       if (r.ok) return r;
       last = r;
@@ -728,7 +664,7 @@ function validateExtraction(raw) {
 }
 
 /**
- * Full pipeline: preflight → Gemini Vision → validate.
+ * Full pipeline: preflight → OpenRouter vision → validate.
  *
  * @param {{buffer:Buffer, mimeType:string, model?:string, timeoutMs?:number}} args
  * @returns {Promise<object>} { ok:true, fields, quality, filledCount, model, image }
@@ -745,7 +681,7 @@ async function analyzeCouponImage({ buffer, mimeType, model, timeoutMs } = {}) {
   const call = await callVision(buffer, pre.info.type, { model, timeoutMs });
   if (!call.ok) {
     // Log the provider detail server-side only.
-    console.warn(`[coupon-vision] Gemini call failed (${call.error}${call.status ? ' ' + call.status : ''}, model ${call.model})${call.detail ? ': ' + call.detail : ''}`);
+    console.warn(`[coupon-vision] call failed (${call.error}${call.status ? ' ' + call.status : ''}, model ${call.model})${call.detail ? ': ' + call.detail : ''}`);
     // Capacity problems and image verdicts read very differently to a seller,
     // so they keep separate reasons (and separate HTTP statuses upstream).
     const messages = {

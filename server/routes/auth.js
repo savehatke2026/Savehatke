@@ -37,6 +37,15 @@ const GOOGLE_OAUTH_REDIRECT_PATH = '/api/auth/google-redirect';
 const GOOGLE_CLIENT_ID_FALLBACK = '930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com';
 
 function googleRedirectUri() {
+  // VERCEL_URL is set automatically on every Vercel deployment
+  // (e.g. "savehatke.vercel.app" or "savehatke-staging.vercel.app"). Prefer it
+  // when present, so the redirect_uri sent to Google always matches the URL the
+  // user is actually visiting — without this, an APP_BASE_URL of savehatke.com
+  // combined with a vercel.app preview URL produces "redirect_uri_mismatch".
+  const vercelHost = String(process.env.VERCEL_URL || '').trim();
+  if (vercelHost) {
+    return `https://${vercelHost}${GOOGLE_OAUTH_REDIRECT_PATH}`;
+  }
   const configuredBase = String(process.env.APP_BASE_URL || process.env.SITE_URL || '').trim();
   if (configuredBase) {
     const base = new URL(configuredBase);
