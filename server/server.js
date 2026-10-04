@@ -32,12 +32,10 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { safeRateLimitHandler } = require('./utils/rateLimit');
 
-const mongoose = require('mongoose');
 const db = require('./services/googleSheets');
-const { connectDB } = require('./config/db');
-
-// Connect to MongoDB
-connectDB();
+// MongoDB is being cut over to Supabase / Google Sheets. connectDB() is
+// temporarily kept as an import so existing initialiseServer() call sites
+// still resolve; the shim is a no-op (see server/config/db.js).
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -783,9 +781,6 @@ let initialized = false;
 async function initServices() {
   if (initialized) return;
   initialized = true;
-
-  // Connect to MongoDB Atlas
-  await connectDB();
 
   // Initialize Google Sheets connection
   const sheetsConnected = await db.initialize();
