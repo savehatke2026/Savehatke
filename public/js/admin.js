@@ -107,18 +107,34 @@ async function refreshAdminProfile() {
     if (!admin || !admin.email) return;
 
     const cached = Auth.getAdminUser() || {};
-    const merged = { ...cached, ...admin };
+
+    // Only override the cached avatar when the server actually returned a
+    // non-empty `profile_image`. An empty string means "no row in MongoDB yet"
+    // and must NOT clobber the Google-login `picture` we already have in
+    // localStorage — otherwise the header would fall back to initials on
+    // every refresh for any admin without an Admin collection document.
+    const serverPic = String(admin.profile_image || '').trim();
+    const cachedPic = String(cached.profile_image || cached.picture || '').trim();
+
+    let merged = { ...cached, ...admin };
+    if (serverPic) {
+      merged.profile_image = serverPic;
+      // Server is the authoritative source once it has a value, so drop the
+      // legacy Google-login `picture` to avoid drift.
+      delete merged.picture;
+    } else if (cachedPic && !serverPic) {
+      // No server value yet, but we DO have a Google-login avatar — keep it
+      // and don't let the empty server field overwrite us.
+      delete merged.profile_image;
+    }
 
     // Only re-render (and re-cache) when something actually changed, so an
     // unchanged profile doesn't thrash the header on every visit.
-    const changed = (admin.profile_image || '') !== (cached.profile_image || cached.picture || '')
+    const changed = (merged.profile_image || '') !== (cached.profile_image || cached.picture || '')
       || (admin.name || '') !== (cached.name || cached.full_name || '')
       || (admin.role || '') !== (cached.role || '');
     if (!changed) return;
 
-    // Keep the Google-login `picture` field from overriding the fresher
-    // server value on the next render.
-    delete merged.picture;
     Auth.setAdminAuth(Auth.getAdminToken(), merged);
     renderCurrentAdminProfile();
   } catch (e) {

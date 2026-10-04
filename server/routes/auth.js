@@ -132,6 +132,19 @@ function safeScriptJson(value) {
   })[char]);
 }
 
+// Same allowlist the client uses in safeProfilePictureUrl — keep the two in
+// lock-step so a server-persisted avatar can never bypass the panel's CSP.
+function isAllowedAvatarUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw) return false;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:') return false;
+    return /(^|\.)googleusercontent\.com$/.test(u.hostname)
+        || /(^|\.)google\.com$/.test(u.hostname);
+  } catch (e) { return false; }
+}
+
 function sendGoogleLoginHandoff(res, user, destination) {
   const isAdmin = user.role === 'admin';
   const target = isAdmin ? '/vault' : destination;
@@ -175,6 +188,32 @@ async function finishGoogleLogin(req, res, identity) {
       return res.status(403).json({ error: 'This administrator account is inactive.' });
     }
     const name = String((adminData && (adminData.name || adminData.full_name)) || adminAccount.name || googleName).slice(0, 120);
+    // Persist the Google avatar to the Admin profile so the panel header keeps
+    // the photo across logins. Only Google's own image hosts are accepted
+    // (same allowlist safeProfilePictureUrl applies on the client); anything
+    // else is left untouched so a hand-edited sheet cell is never clobbered.
+    try {
+      const AdminModel = require('../models/Admin');
+      const safePicture = isAllowedAvatarUrl(picture) ? String(picture).trim().slice(0, 1000) : '';
+      if (safePicture) {
+        if (adminData && adminData.profile_image !== safePicture) {
+          adminData.profile_image = safePicture;
+          await adminData.save().catch(() => { /* non-fatal — panel falls back to initials */ });
+        } else if (!adminData) {
+          // First-time Google login for an allowlisted admin with no Mongo
+          // document yet — create a minimal profile so the photo has a home.
+          await AdminModel.create({
+            id: adminAccount.id,
+            name,
+            email,
+            role: 'Admin',
+            profile_image: safePicture,
+            last_login: new Date(),
+            email_verified: true,
+          }).catch(() => { /* dup-key / validation — non-fatal */ });
+        }
+      }
+    } catch (e) { /* avatar persistence is best-effort */ }
     const session = await createLoginSession(req, adminAccount.id, 'Google Admin', email, name, res, googleSub);
     setSessionCookie(res, session.token, session.ttlMs);
     return sendGoogleLoginHandoff(res, {
