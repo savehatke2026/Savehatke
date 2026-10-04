@@ -7,11 +7,24 @@ const fs = require('fs');
 require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const { assertSecurityConfiguration, ADMIN_ACCOUNTS } = require('./config/security');
+const { assertSecurityConfiguration, refreshAdminRoster, startAdminRosterAutoRefresh, isAdminRosterStale, getAdminAccount } = require('./config/security');
 assertSecurityConfiguration();
-if (ADMIN_ACCOUNTS.length !== 2 || new Set(ADMIN_ACCOUNTS.map((account) => account.email)).size !== 2) {
-  throw new Error('SaveHatke must have exactly two unique, server-configured administrator accounts.');
-}
+
+// Hydrate the admin roster from Supabase (server/config/security.js also seeds
+// from ADMIN_ALLOWLIST_EMAILS if Supabase is unconfigured/unreachable). The
+// 60s auto-refresh keeps it fresh without changing any caller.
+refreshAdminRoster()
+  .then(() => {
+    const stale = isAdminRosterStale();
+    const count = getAdminAccount('any') !== null ? 'n/a' : '0'; // (placeholder — only used for log line)
+    console.log(`[security] admin allowlist source=${stale ? 'env-fallback' : 'supabase'}`);
+    if (stale) {
+      console.warn('[security] admin sign-in is BLOCKED until Supabase admin_allowlist is reachable. ' +
+        'Set ADMIN_ALLOWLIST_EMAILS in Vercel env vars to lift the block in an emergency.');
+    }
+  })
+  .catch((e) => console.warn('[security] initial admin roster refresh failed:', (e && e.message) || e));
+startAdminRosterAutoRefresh();
 
 const express = require('express');
 const cors = require('cors');

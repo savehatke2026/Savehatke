@@ -8,6 +8,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin, generateToken } = require('../middleware/auth');
 const { adminMutationLimiter } = require('../utils/adminRateLimit');
+const { getActiveAdminEmails, isAdminRosterStale } = require('../config/security');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
@@ -152,9 +153,11 @@ function reportDebug(hypothesisId, location, msg, data = {}, runId = process.env
   } catch {}
 }
 
-// The administrator roster is fixed to the two server-configured Google
-// identities. Roster changes are deployment/database operations, never public
-// application actions.
+// The administrator roster lives in Supabase (table: admin_allowlist). The
+// in-process cache (server/config/security.js) is hydrated at boot and
+// refreshed every 60s; admins can edit the table directly in Supabase and the
+// change takes effect within a minute. The /api/admin/admins endpoint lets
+// the panel inspect the live roster.
 router.post('/create-admin', authenticateToken, requireAdmin, (req, res) => {
   return res.status(403).json({ error: 'Administrator creation is disabled.', code: 'ADMIN_ROSTER_LOCKED' });
 });
@@ -165,13 +168,17 @@ router.delete('/delete-admin/:id', authenticateToken, requireAdmin, (req, res) =
   return res.status(403).json({ error: 'Administrator roster changes are disabled.', code: 'ADMIN_ROSTER_LOCKED' });
 });
 router.get('/list-admins', authenticateToken, requireAdmin, (req, res) => {
-  return res.json({ admins: FALLBACK_ADMINS(), total: 2, source: 'server-allowlist' });
+  // Live view of the in-process roster cache.
+  const emails = getActiveAdminEmails();
+  return res.json({
+    admins: emails.map((email, idx) => ({
+      id: String(idx + 1), name: '', email, is_active: true, role: 'Admin',
+      phone: '', created_at: null, last_login: null,
+    })),
+    total: emails.length,
+    source: isAdminRosterStale() ? 'env-fallback' : 'supabase',
+  });
 });
-
-const FALLBACK_ADMINS = () => [
-  { id: '1', name: 'Rupayan', email: 'rupayandas2024@gmail.com', role: 'Admin', is_active: true, phone: '', created_at: null, last_login: null },
-  { id: '2', name: 'Jaggik', email: 'jaggik8888@gmail.com', role: 'Admin', is_active: true, phone: '', created_at: null, last_login: null },
-];
 // GET /api/admin/me — The AUTHENTICATED admin's own profile.
 //
 // Identity comes exclusively from the verified JWT that authenticateToken

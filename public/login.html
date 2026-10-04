@@ -713,13 +713,21 @@
   (function noticeFailedGoogleSignIn() {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('google') !== 'failed') return;
+      const reason = params.get('google');
+      if (reason !== 'failed' && reason !== 'admin_blocked') return;
       params.delete('google');
       const suffix = params.toString();
       window.history.replaceState({}, '', `${window.location.pathname}${suffix ? `?${suffix}` : ''}`);
       const notice = document.getElementById('emailUnavailableNotice');
       if (notice) notice.style.display = 'block';
-      setTimeout(() => showToast('Google sign-in did not complete. Please try again.', 'error'), 400);
+      if (reason === 'admin_blocked') {
+        // Admin sign-in was attempted while the Supabase roster was unreachable.
+        // Block, don't fall through to user login — the same email would now be
+        // treated as a regular user, which is exactly the kind of drift we guard.
+        showToast('Admin sign-in is temporarily paused so the roster stays accurate. Please try again shortly.', 'error', 5000);
+      } else {
+        setTimeout(() => showToast('Google sign-in did not complete. Please try again.', 'error'), 400);
+      }
     } catch (e) {}
   })();
 

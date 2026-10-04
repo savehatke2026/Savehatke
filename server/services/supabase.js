@@ -175,6 +175,73 @@ function isConfigured() {
   return !!(SUPABASE_URL && SUPABASE_SERVICE_KEY);
 }
 
+// ── Admin Allowlist ────────────────────────────────────────────────────
+// The administrator roster lives in Supabase so it can be edited without a
+// redeploy. Schema: server/setup_admin_allowlist.sql.
+
+const ADMIN_ALLOWLIST_TABLE = 'admin_allowlist';
+const ADMIN_ALLOWLIST_COLUMNS = Object.freeze(['email', 'name', 'active', 'created_at']);
+
+/**
+ * Idempotently create the admin_allowlist table. Safe to call at boot; a
+ * missing table should never brick a deploy — a fresh Supabase project will
+ * run the SQL by hand via the file referenced above.
+ */
+async function ensureAdminAllowlistTable() {
+  const client = getClient();
+  if (!client) return false;
+  try {
+    const { error } = await client.from(ADMIN_ALLOWLIST_TABLE).select('email').limit(1);
+    if (!error) return true; // already there
+  } catch (e) { /* fall through to create */ }
+  try {
+    const { error } = await client.rpc('exec_sql', {
+      sql: `create table if not exists public.${ADMIN_ALLOWLIST_TABLE} (
+        email      text        primary key,
+        name       text        not null default '',
+        active     boolean     not null default true,
+        created_at timestamptz not null default now()
+      )`,
+    });
+    if (error) {
+      console.warn('[supabase] admin_allowlist ensure-table:', error.message);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn('[supabase] admin_allowlist ensure-table:', (e && e.message) || e);
+    return false;
+  }
+}
+
+/**
+ * Fetch the current admin roster. Returns [] if Supabase is unconfigured
+ * OR the table does not exist (so the server can keep booting from the
+ * env-var fallback in config/security.js).
+ */
+async function getAdminAllowlist() {
+  const client = getClient();
+  if (!client) return [];
+  try {
+    const { data, error } = await client
+      .from(ADMIN_ALLOWLIST_TABLE)
+      .select(ADMIN_ALLOWLIST_COLUMNS.join(','))
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.warn('[supabase] admin_allowlist read failed:', error.message);
+      return [];
+    }
+    return (data || []).map((row) => ({
+      email: String(row.email || '').trim().toLowerCase(),
+      name: String(row.name || '').trim(),
+      active: row.active !== false,
+    })).filter((row) => row.email);
+  } catch (e) {
+    console.warn('[supabase] admin_allowlist read threw:', (e && e.message) || e);
+    return [];
+  }
+}
+
 // ── Coupon Mapping Helpers ──────────────────────────────────────────────
 // Supabase intentionally has NO seller_payout column — Google Sheets is the
 // source of truth for payout fields. The mapping therefore only carries the
@@ -1652,6 +1719,11 @@ module.exports = {
   setMaintenanceWhitelist,
   getSiteSetting,
   setSiteSetting,
+  // Admin allowlist (Supabase-backed roster — server/config/security.js is the
+  // primary reader; both stay coherent via the shared cache there).
+  ensureAdminAllowlistTable,
+  getAdminAllowlist,
+  ADMIN_ALLOWLIST_TABLE,
   // Test helpers
   _clearMaintenanceCachesForTests,
 };

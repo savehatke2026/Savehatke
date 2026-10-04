@@ -24,7 +24,7 @@ const deviceRecognition = require('../services/deviceRecognition');
 const getClientIP = require('../middleware/getClientIP');
 const sessionCleanup = require('../services/sessionCleanup');
 const twoFactor = require('../services/twoFactorService');
-const { getAdminAccount, getJwtSecret, normalizeEmail } = require('../config/security');
+const { getAdminAccount, getJwtSecret, normalizeEmail, isAdminRosterStale } = require('../config/security');
 
 const router = express.Router();
 
@@ -159,6 +159,13 @@ async function finishGoogleLogin(req, res, identity) {
 
   const adminAccount = getAdminAccount(email);
   if (adminAccount) {
+    // Block admin sign-in while the roster is stale (Supabase unreachable, on
+    // the env-var fallback). A stale env list must NEVER grant admin access
+    // the Supabase roster would have denied.
+    if (isAdminRosterStale()) {
+      console.warn(`[auth] admin sign-in blocked for ${email} — admin allowlist is on env fallback.`);
+      return res.redirect(303, '/login?google=admin_blocked');
+    }
     let adminData = null;
     try {
       const AdminModel = require('../models/Admin');
@@ -219,7 +226,18 @@ async function finishGoogleLogin(req, res, identity) {
     username: sheetUser.username || email.split('@')[0], picture,
     status: 'active', role: 'user',
   };
-  return sendGoogleLoginHandoff(res, user, user.needs_name_setup ? '/onboarding.html' : '/dashboard.html');
+  // Post-Google-login destination:
+  //   admin  → /vault       (set in sendGoogleLoginHandoff when role === 'admin')
+  //   user   → /index       ← landing page / marketplace (the only place we want
+  //                                  a freshly-signed-in visitor to arrive).
+  // We used to send users to /dashboard.html (or /onboarding.html when their
+  // preferred display name was still empty). Both pages have an auth-gate that
+  // bounces a missing session back to /login.html, so a user whose cookie or
+  // localStorage write raced with the redirect would land on the login screen
+  // and look like the sign-in "did nothing". Landing on /index is a static
+  // page that doesn't bounce on auth, so every successful Google login ends in
+  // a consistent, working marketplace view regardless of account state.
+  return sendGoogleLoginHandoff(res, user, '/index');
 }
 
 router.post(['/register', '/login'], (req, res) => {
