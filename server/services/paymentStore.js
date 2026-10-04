@@ -50,8 +50,7 @@ const PAYMENT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes, per the checkout UI
 // Backend checking deadline — how long a payment stays matchable/settleable
 // AFTER it was created, independent of the 10-minute frontend window. A buyer
 // who pays a few minutes (up to this long) after the on-screen timer hit 0:00
-// is still detected and processed. Kept short enough that an abandoned order is
-// swept eventually (see expireOverduePayments). Overridable via env.
+// is still detected and processed. Overridable via env.
 const PAYMENT_CHECK_WINDOW_MS = (() => {
   const n = Number(process.env.PAYMENT_CHECK_WINDOW_MS);
   return Number.isFinite(n) && n > 0 ? n : 6 * 60 * 60 * 1000; // 6 hours
@@ -1056,32 +1055,6 @@ async function flagForReview(paymentId, { notes = '', source = '', raw = null } 
 // ── Maintenance ────────────────────────────────────────────────────────────
 
 /**
- * Sweep PENDING payments whose BACKEND checking window (6h) has closed. Called
- * opportunistically (and by the cron reconciler) so an abandoned order still
- * leaves an EXPIRED (not PENDING) row eventually, and a very-late payment cannot
- * settle a long-dead window. Payments inside the 6h window are left PENDING so
- * the checker keeps watching them.
- */
-async function expireOverduePayments({ limit = 50 } = {}) {
-  const now = Date.now();
-  const rows = await rowsFresh(PAYMENTS);
-  const overdue = rows
-    .filter((r) => r.status === 'PENDING' && checkDeadline(r) <= now)
-    .slice(0, limit);
-
-  let expired = 0;
-  for (const row of overdue) {
-    try {
-      const done = await expireIfDue(row.payment_id);
-      if (done) expired++;
-    } catch (e) {
-      console.warn('[paymentStore] expire sweep failed for', row.payment_id, e.message);
-    }
-  }
-  return expired;
-}
-
-/**
  * Enforce "one active payment-checking session per user". Any OTHER live
  * (PENDING) payment this user holds is retired to CANCELLED so it can no longer
  * be matched or settled — this is what makes opening a new payment window
@@ -1226,7 +1199,6 @@ module.exports = {
   finalizePayment,
   finalizeUnderpayment,
   flagForReview,
-  expireOverduePayments,
   supersedeLivePaymentsForUser,
   unlockCoupon,
   readCoupon,

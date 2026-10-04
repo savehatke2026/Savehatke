@@ -13,7 +13,6 @@
 //   GET  /stream    live status push (SSE)        (auth)
 //   POST /webhook   gateway confirmation          (HMAC, no user auth)
 //   POST /gmail-push          Gmail Pub/Sub push  (shared-secret, no user auth)
-//   GET/POST /cron/scan       reconciler sweep+scan            (CRON_SECRET)
 //   GET/POST /cron/gmail-watch renew the Gmail push watch      (CRON_SECRET)
 //   GET/POST /gmail-watch/start arm the Gmail push watch once  (CRON_SECRET)
 //
@@ -21,9 +20,8 @@
 //   * The 10-minute `expires_at` is only the on-screen countdown. A payment
 //     stays PENDING and matchable until `check_expires_at` (6h), so a credit
 //     that lands AFTER the timer hits 0:00 is still detected and settled.
-//   * Detection is instant via Gmail push (/gmail-push) with a cron reconciler
-//     (/cron/scan) as a safety net; while a tab is open the SSE/poll paths also
-//     drive the same coalesced scan.
+//   * Detection is instant via Gmail push (/gmail-push); while a tab is open
+//     the SSE/poll paths also drive the same coalesced scan.
 //   * One active checker per user: opening a new payment window supersedes the
 //     user's previous PENDING session (paymentStore.supersedeLivePaymentsForUser).
 //
@@ -1014,35 +1012,7 @@ router.post('/gmail-push', async (req, res) => {
   return res.status(204).end();
 });
 
-// ── /cron/scan — safety-net reconciler (Vercel Cron) ────────────────────────
-// The hybrid's fallback: even if a push is missed (renewal gap, transient
-// Pub/Sub failure), this sweeps on a schedule — retiring 6-hour-abandoned
-// windows and running one coalesced mailbox scan so any live payment is still
-// detected. CRON_SECRET-authenticated (Bearer), the same contract as the other
-// crons in this app.
-router.all('/cron/scan', async (req, res) => {
-  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
-  if (!cronAuthorized(req)) return fail(res, 401, 'CRON_UNAUTHORIZED', 'Unauthorized.');
-  try {
-    const ready = await store.ensureReady();
-    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
 
-    let expired = 0;
-    try { expired = await store.expireOverduePayments({ limit: 100 }); } catch (e) {}
-
-    let scan = { ok: false };
-    try { scan = await verifier.triggerMailboxScan({ force: true }); } catch (e) { scan = { ok: false, reason: e.message }; }
-
-    return res.json({
-      ok: true,
-      expired,
-      scan: { ok: !!scan.ok, scanned: scan.scanned || 0, settled: scan.settled || 0, idle: !!scan.idle },
-    });
-  } catch (err) {
-    console.error('[payment] cron scan error:', err);
-    return fail(res, 500, 'CRON_SCAN_FAILED', 'Cron scan failed.');
-  }
-});
 
 // ── /cron/gmail-watch — renew the Gmail push watch (Vercel Cron, daily) ─────
 // A users.watch registration lasts ~7 days; re-arming it daily keeps pushes
