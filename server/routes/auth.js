@@ -802,8 +802,13 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     }, ttlMs);
 
     if (!sessionResult || !sessionResult.session_token) {
-      // No enforceable server-side row means no login.
-      throw new Error('Could not create an enforceable session.');
+      // No enforceable server-side row means no login. Surface a slug-safe
+      // prefix so the failure reason shows up in /login?google=failed&reason=
+      // instead of the generic "couldnotcreateenforceablessession" — which
+      // gives the user (and us) no way to tell whether the table is missing,
+      // a column is wrong, RLS is blocking, or the Supabase client itself
+      // is unconfigured. The actual Supabase message stays in the Vercel log.
+      throw new Error('Could not create an enforceable session: no row returned from createSession');
     }
 
     console.log(`âœ… Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
@@ -830,8 +835,15 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
       ttlMs,
     };
   } catch (err) {
-    console.warn('Session creation failed.');
-    throw new Error('Could not create an enforceable session.');
+    // Re-throw with the underlying Supabase message so the failure slug
+    // surfaces a real reason in /login?google=failed&reason=server_<slug>.
+    // The slug-cleaning regex strips punctuation, so any colons/parentheses
+    // get normalised but the diagnostic tokens (table missing / RLS denied /
+    // schema mismatch) are preserved.
+    console.warn('[auth] Session creation failed:', (err && err.message) || err);
+    const upstream = String((err && err.message) || 'Could not create an enforceable session.')
+      .replace(/^Could not create an enforceable session:?\s*/, '');
+    throw new Error(`Could not create an enforceable session: ${upstream || 'no upstream detail'}`);
   }
 }
 

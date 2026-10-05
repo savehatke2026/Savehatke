@@ -729,13 +729,31 @@ async function createSession(sessionData, ttlMs) {
     }
 
     if (result.error) {
-      console.warn('Create session warning:', result.error.message);
-      return null;
+      // Carry the actual Supabase message out of createSession() so it surfaces
+      // in the deploy log AND in /login?google=failed&reason=server_<slug>.
+      // Without this, every session-creation failure looks identical to the
+      // caller ("Could not create an enforceable session") and triage requires
+      // hunting through Vercel logs. Surface a brief, slug-safe fragment of the
+      // error so the user-facing URL and the deploy log agree on the cause.
+      const safe = String(result.error.message || result.error.code || 'unknown')
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '')
+        .slice(0, 24);
+      console.warn(`Create session warning: [${safe}]`, result.error.message);
+      const e = new Error(`Could not create an enforceable session: ${safe}`);
+      e.code = safe;
+      throw e;
     }
     return result.data;
   } catch (err) {
-    console.warn('Create session exception:', err.message);
-    return null;
+    const safe = String((err && err.message) || 'unknown')
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, 24);
+    console.warn(`Create session exception: [${safe}]`, (err && err.message) || err);
+    const e = new Error(`Could not create an enforceable session: ${safe}`);
+    e.code = safe;
+    throw e;
   }
 }
 
