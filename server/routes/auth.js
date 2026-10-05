@@ -98,31 +98,45 @@ function setOAuthStateCookie(res, state) {
   const encoded = Buffer.from(JSON.stringify(state)).toString('base64url');
   const signature = crypto.createHmac('sha256', getJwtSecret()).update(encoded).digest('base64url');
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  res.append('Set-Cookie', `${GOOGLE_STATE_COOKIE}=${encoded}.${signature}; Path=${GOOGLE_OAUTH_REDIRECT_PATH}; HttpOnly; SameSite=Lax; Max-Age=${GOOGLE_STATE_TTL_SECONDS}${secure}`);
+  // Path=/ (not /api/auth/google-redirect). The narrower path is RFC-correct but
+  // can drop the cookie on some browser/proxy combos when the redirect lands on
+  // a slightly different path (trailing slash, query param parsing). Path=/ is
+  // the standard for OAuth state cookies and the cookie is HttpOnly + signed +
+  // 10-minute Max-Age, so widening the path does not weaken the security
+  // posture. readOAuthStateCookie() then verifies the HMAC on every read.
+  res.append('Set-Cookie', `${GOOGLE_STATE_COOKIE}=${encoded}.${signature}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${GOOGLE_STATE_TTL_SECONDS}${secure}`);
 }
 
 function clearOAuthStateCookie(res) {
   const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  res.append('Set-Cookie', `${GOOGLE_STATE_COOKIE}=; Path=${GOOGLE_OAUTH_REDIRECT_PATH}; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
+  // Match the attributes of setOAuthStateCookie so the browser treats this as
+  // the same cookie and deletes the existing record rather than leaving a stale
+  // one behind.
+  res.append('Set-Cookie', `${GOOGLE_STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
 }
 
 function readOAuthStateCookie(req) {
   const part = String(req.headers.cookie || '').split(';').map((value) => value.trim())
     .find((value) => value.startsWith(`${GOOGLE_STATE_COOKIE}=`));
-  if (!part) return null;
+  if (!part) return { state: null, reason: 'absent' };
   const value = part.slice(GOOGLE_STATE_COOKIE.length + 1);
   const dot = value.lastIndexOf('.');
-  if (dot < 1) return null;
+  if (dot < 1) return { state: null, reason: 'malformed' };
   const encoded = value.slice(0, dot);
   const supplied = Buffer.from(value.slice(dot + 1));
   const expected = Buffer.from(crypto.createHmac('sha256', getJwtSecret()).update(encoded).digest('base64url'));
-  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return null;
+  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+    return { state: null, reason: 'bad_signature' };
+  }
   try {
     const state = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'));
     const age = Math.floor(Date.now() / 1000) - Number(state.issuedAt || 0);
-    return age >= 0 && age <= GOOGLE_STATE_TTL_SECONDS ? state : null;
+    if (age < 0 || age > GOOGLE_STATE_TTL_SECONDS) {
+      return { state: null, reason: 'expired', age };
+    }
+    return { state, reason: 'ok' };
   } catch (e) {
-    return null;
+    return { state: null, reason: 'unparseable' };
   }
 }
 
@@ -354,19 +368,41 @@ router.get('/google-redirect', async (req, res) => {
       }));
     }
 
-    const saved = readOAuthStateCookie(req);
+    const savedResult = readOAuthStateCookie(req);
     clearOAuthStateCookie(res);
+    const saved = savedResult && savedResult.state;
     const returnedState = String(req.query.state || '');
     if (!saved || !saved.state || !returnedState || saved.state.length !== returnedState.length ||
         !crypto.timingSafeEqual(Buffer.from(saved.state), Buffer.from(returnedState)) ||
         saved.redirectUri !== redirectUri || !saved.nonce || !saved.verifier) {
+      // Diagnostic — printed in the deploy log so a future "stuck loop" can be
+      // triaged from Vercel logs without redeploying with extra logging. The
+      // full state payload is NEVER logged (it carries nonce + PKCE verifier
+      // that should not leak); only the salt + length + the saved/returned
+      // state prefix.
+      const sl = saved && saved.state ? saved.state.length : 0;
+      const rl = returnedState.length;
+      const headerName = (req && req.headers && req.headers['x-forwarded-host'])
+        || (req && req.get && req.get('host'))
+        || '<unknown>';
+      const probeLog = {
+        hostHeader: String(headerName).slice(0, 80),
+        cookieHeaderPresent: Boolean(req && req.headers && req.headers.cookie),
+        cookieReadReason: savedResult ? savedResult.reason : 'no_reader',
+        savedStateLen: sl,
+        returnedStateLen: rl,
+        savedRedirectUri: saved && saved.redirectUri,
+        currentRedirectUri: redirectUri,
+        ageSeconds: savedResult && savedResult.age,
+      };
+      console.warn('[auth] OAuth state validation failed:', probeLog);
       // The usual causes, in order: consent was abandoned long enough for the
       // 10-minute state cookie to expire, the callback landed on a different
       // host than the one that started the flow (so the SameSite=Lax cookie
       // was never sent), or GOOGLE_REDIRECT_URI changed between the two legs.
       return fail(
         !saved ? 'state_missing' : 'state_mismatch',
-        `OAuth state cookie ${saved ? 'did not match the returned state' : 'was missing'} (redirect_uri=${redirectUri}); the sign-in flow must start and finish on the same host.`,
+        `OAuth state cookie ${saved ? 'did not match the returned state' : 'was missing'} (host=${probeLog.hostHeader}, cookie_present=${probeLog.cookieHeaderPresent}, read_reason=${probeLog.cookieReadReason}, redirect_uri=${redirectUri}); the sign-in flow must start and finish on the same host.`,
       );
     }
 
