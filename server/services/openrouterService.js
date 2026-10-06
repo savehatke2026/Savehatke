@@ -23,12 +23,16 @@
 //   can never select an arbitrary OpenRouter model.
 //
 // RELIABILITY
-// - One primary + one fallback model, configurable via env. On a transient
-//   provider failure (408/425/429/5xx) the fallback is tried exactly once.
-//   Non-transient failures (400/401/403) are returned without a fallback so a
-//   bad request or invalid key is not silently retried against another model.
-// - Whole-call timeout enforced server-side via `AbortController` so a hung
-//   socket cannot stall the serverless function past its wall-clock budget.
+// - Fixed model chains, configurable via env. Chat walks Nemotron 3 Ultra →
+//   Nemotron 3 Super → Gemma 4 31B → Gemma 4 26B; vision walks Gemma 4 31B →
+//   Gemma 4 26B → Nemotron 3 Nano Omni. One attempt per model, first success
+//   wins. A transient provider failure (429/5xx/timeout/network) moves to the
+//   next model; non-transient failures (400/401/403) are returned without a
+//   fallback so a bad request or invalid key is not retried against other
+//   models and other quotas are not consumed.
+// - Whole-call timeout enforced server-side via `AbortController`; each
+//   attempt gets only the time remaining, and a fallback that cannot
+//   reasonably finish is skipped, so the chain can never exceed the budget.
 //
 // USAGE
 //   const or = require('./openrouterService');
@@ -42,12 +46,26 @@
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
 const DEFAULT_PRIMARY_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
-const DEFAULT_FALLBACK_MODEL = 'openrouter/free';
+// Fixed fallback chain for normal text chat. One attempt per model, in order,
+// first success wins — a model is never retried and the walk stops as soon as
+// one answers. (Verified live against the OpenRouter catalog: the shorter
+// `nvidia/nemotron-3-super:free` id does not exist; this is the same model.)
+const DEFAULT_CHAT_FALLBACKS = [
+  'nvidia/nemotron-3-super-120b-a12b:free',
+  'google/gemma-4-31b-it:free',
+  'google/gemma-4-26b-a4b-it:free',
+];
 // A free vision-capable default. The user can override with
 // OPENROUTER_VISION_MODEL. The previous Gemini Vision call accepted JPEG/PNG/
 // WebP; OpenRouter's image_url content type uses the same MIME types, so the
-// upstream client (couponVision.js) sends them through unchanged.
+// upstream client (couponVision.js) sends them through unchanged. Deliberately
+// separate from the chat chain: chat models are text-only, the scanner needs
+// image input.
 const DEFAULT_VISION_MODEL = 'google/gemma-4-31b-it:free';
+const DEFAULT_VISION_FALLBACKS = [
+  'google/gemma-4-26b-a4b-it:free',
+  'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free',
+];
 
 // Free models are rate-limited per provider; the response header
 // `Retry-After` (seconds) is the right value to surface to the caller when a
@@ -64,16 +82,51 @@ function getDefaultModel() {
   return process.env.OPENROUTER_MODEL || DEFAULT_PRIMARY_MODEL;
 }
 
-function getFallbackModel() {
-  // Explicit empty string disables the fallback. The chatbot service treats
-  // `null` as "no fallback configured".
-  const raw = process.env.OPENROUTER_FALLBACK_MODEL;
-  if (raw === '' || raw === 'none') return null;
-  return raw || DEFAULT_FALLBACK_MODEL;
+function parseModelList(raw) {
+  return String(raw || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// Fallback chain for normal text chat. OPENROUTER_CHAT_FALLBACK_MODELS
+// (comma-separated) overrides the defaults; an explicit empty value or 'none'
+// disables fallbacks entirely. The legacy single-model
+// OPENROUTER_FALLBACK_MODEL variable (previously `openrouter/free`) is no
+// longer read — the goal is to always know exactly which model answered.
+function getChatFallbackModels() {
+  const raw = process.env.OPENROUTER_CHAT_FALLBACK_MODELS;
+  if (raw !== undefined) {
+    if (raw.trim() === '' || raw.trim().toLowerCase() === 'none') return [];
+    return parseModelList(raw);
+  }
+  return DEFAULT_CHAT_FALLBACKS.slice();
+}
+
+// Fallback chain for coupon screenshot scanning (image-capable models only).
+// couponVision.js delegates here so the scanner and the model allowlist share
+// one source of truth.
+function getVisionFallbackModels() {
+  const raw = process.env.OPENROUTER_VISION_FALLBACK_MODELS;
+  if (raw !== undefined) {
+    if (raw.trim() === '' || raw.trim().toLowerCase() === 'none') return [];
+    return parseModelList(raw);
+  }
+  return DEFAULT_VISION_FALLBACKS.slice();
 }
 
 function getVisionModel() {
   return process.env.OPENROUTER_VISION_MODEL || DEFAULT_VISION_MODEL;
+}
+
+// Structured, safe AI logging: request id + model + outcome metadata only.
+// Never logs API keys, authorization headers, message contents or user data.
+function aiLog(opts, event, fields) {
+  const reqId = (opts && opts.requestId) || '-';
+  const extra = Object.entries(fields || {})
+    .map(([k, v]) => `${k}=${v}`)
+    .join(' ');
+  console.log(`[ai] req=${reqId} ${event}${extra ? ' ' + extra : ''}`);
 }
 
 // ── Headers ────────────────────────────────────────────────────────────────
@@ -124,49 +177,89 @@ function normaliseToolCall(tc) {
 
 // ── Chat completion ────────────────────────────────────────────────────────
 // @param {Array} messages — OpenAI-style: [{role:'system'|'user'|'assistant'|'tool', content}]
-// @param {object} opts   — { model, temperature, maxTokens, timeoutMs, tools, tool_choice }
+// @param {object} opts   — { model, temperature, maxTokens, timeoutMs, tools, tool_choice, requestId }
 // @returns {Promise<{ok, content, toolCalls, model, finishReason, error?, status?, detail?}>}
 async function chatCompletion(messages, opts = {}) {
-  return chatCompletionWith(messages, opts, /* allowFallback */ true);
+  return chatCompletionWith(messages, opts, /* walk */ 'full');
 }
 
-// Same as chatCompletion but skips the fallback — used by the chatbot service
-// after it has already decided to try the fallback, so it does not recurse.
+// Continue the chat chain FROM a specific model — the model that is already
+// answering (e.g. the one that requested a tool call). Used for tool-call
+// follow-ups so the same model writes the final answer. The canonical chain is
+// the one the caller configured (opts.model = the configured head model, e.g.
+// the admin's settings.model); the walk starts at opts.fromModel's position in
+// it and moves forward only: earlier positions just failed seconds ago, so
+// re-trying them would only burn quota. A from-model outside the configured
+// chain heads it.
+async function chatCompletionFrom(messages, opts = {}) {
+  return chatCompletionWith(messages, opts, 'from');
+}
+
+// Single model, single attempt, no walk. Kept for callers that manage their
+// own retry policy.
 async function chatCompletionPrimary(messages, opts = {}) {
-  return chatCompletionWith(messages, opts, /* allowFallback */ false);
+  return chatCompletionWith(messages, opts, 'single');
 }
 
-async function chatCompletionWith(messages, opts = {}, allowFallback) {
+// Minimum wall-clock a chat attempt needs before it is worth starting. When
+// less than this remains of the whole-call budget, further fallbacks are
+// skipped — a request that cannot reasonably finish would only push the
+// serverless function closer to its hard timeout without ever answering.
+const MIN_ATTEMPT_MS = 5000;
+
+function fullChatChain(opts) {
+  const primary = opts.model || getDefaultModel();
+  return [...new Set([primary, ...getChatFallbackModels()])].filter(Boolean);
+}
+
+async function chatCompletionWith(messages, opts = {}, walk) {
   if (!isConfigured()) {
     return { ok: false, error: 'not_configured', model: opts.model || getDefaultModel() };
   }
 
-  const primary = opts.model || getDefaultModel();
-  const fallback = allowFallback ? getFallbackModel() : null;
-  const budgetMs = clampTimeout(opts.timeoutMs);
-  // The caller's timeout is a WHOLE-CALL budget, not per attempt. When the
-  // chain has two models, split it so a hung primary cannot leave the fallback
-  // with no time left and push the serverless function past its wall clock
-  // (worst case stays at `budgetMs`, comfortably under Vercel maxDuration).
-  const timeoutMs = fallback && fallback !== primary ? Math.ceil(budgetMs / 2) : budgetMs;
-  const chain = fallback && fallback !== primary ? [primary, fallback] : [primary];
+  // The caller's timeout is a WHOLE-CALL budget spanning every model attempt,
+  // so primary + fallbacks can never exceed it and the serverless function
+  // stays inside its wall clock. Each attempt gets whatever time remains;
+  // attempts that cannot reasonably finish are skipped (see MIN_ATTEMPT_MS).
+  const deadline = Date.now() + clampTimeout(opts.timeoutMs);
+  let chain;
+  if (walk === 'single') {
+    chain = [opts.model || getDefaultModel()];
+  } else if (walk === 'from') {
+    const from = opts.fromModel || opts.model || getDefaultModel();
+    const full = [...new Set([opts.model || getDefaultModel(), ...getChatFallbackModels()])].filter(Boolean);
+    const idx = full.indexOf(from);
+    chain = idx === -1 ? [...new Set([from, ...full])] : full.slice(idx);
+  } else {
+    chain = fullChatChain(opts);
+  }
 
   let last = null;
-  for (const model of chain) {
-    const result = await callOnce(messages, { ...opts, model, timeoutMs });
+  for (let i = 0; i < chain.length; i++) {
+    const model = chain[i];
+    const remaining = deadline - Date.now();
+    if (i > 0 && remaining < MIN_ATTEMPT_MS) {
+      aiLog(opts, 'AI fallback skipped', { model, reason: 'insufficient_time_remaining', remaining_ms: Math.round(remaining) });
+      break;
+    }
+    aiLog(opts, 'AI request started', { model, attempt: `${i + 1}/${chain.length}`, budget_ms: Math.round(remaining) });
+    const result = await callOnce(messages, { ...opts, model, timeoutMs: remaining });
     last = result;
-    if (result.ok) return result;
+    if (result.ok) {
+      aiLog(opts, 'AI request succeeded', { model, latency_ms: result.latencyMs, fallback_index: i });
+      return result;
+    }
+    aiLog(opts, 'AI model failed', { model, reason: result.error || 'error', status: result.status || '-', latency_ms: result.latencyMs });
 
-    // Do not retry on non-transient errors. A bad request (400) is the
-    // caller's fault; an invalid key (401/403) cannot succeed on another
-    // model; a content-blocked response (the model refused) is a verdict,
-    // not a capacity problem.
+    // Do not retry on non-transient errors, and never retry the same model:
+    // one attempt per model, walk stops at the first success. A bad request
+    // (400) is the caller's fault; an invalid key (401/403) cannot succeed on
+    // another model; a content-blocked response (the model refused) is a
+    // verdict, not a capacity problem.
     if (!isTransient(result)) return result;
-
-    // Surface a one-line warning so a misconfigured model is easy to spot in
-    // server logs. The full error detail stays in `result.detail` for the
-    // chatbot service's existing log row.
-    console.warn(`[openrouter] model ${model} returned ${result.error || 'error'} ${result.status || ''} — trying ${fallback ? 'fallback' : 'no further fallback'}.`);
+    if (i < chain.length - 1) {
+      aiLog(opts, 'Trying fallback', { model: chain[i + 1] });
+    }
   }
 
   return last;
@@ -386,28 +479,27 @@ function clamp(value, min, max, fallback) {
 
 // ── Server-side model allowlist ─────────────────────────────────────────────
 // The frontend must never be able to select an arbitrary OpenRouter model.
-// The chatbot settings row already coerces the model name (it rejects names
-// containing '/' or the retired gemini-2.5-flash) before it reaches here, but
-// a second guard here keeps a bypass from a misconfigured admin panel or a
-// future caller from silently spending the free quota on an unrelated model.
 //
 // Allowlists:
 //   - OPENROUTER_ALLOWED_MODELS  comma-separated; if non-empty, only these
-//                                exact model ids are accepted. Empty (default)
-//                                means "any of the configured primary /
-//                                fallback / vision defaults are allowed" —
-//                                which is the documented SaveHatke AI surface.
-//
+//                                exact model ids are accepted.
 //   - OPENROUTER_BLOCKED_MODELS  comma-separated; these are always refused,
 //                                so a compromised admin row that points at a
 //                                paid-only model cannot drain quota.
+//
+// With both unset (the default) the gate is CLOSED: only the documented
+// chat chain (Nemotron 3 Ultra / Super, Gemma 4 31B / 26B) and vision chain
+// (Gemma 4 31B / 26B, Nemotron 3 Nano Omni) are accepted. Paid models,
+// unknown models, embedding / reranker / safety-only models and any other id
+// are rejected, so no caller — admin panel included — can steer free quota
+// to an arbitrary model.
 function isModelAllowed(model) {
   if (!model || typeof model !== 'string') return false;
-  const allowed = (process.env.OPENROUTER_ALLOWED_MODELS || '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (allowed.length > 0 && !allowed.includes(model)) return false;
-  const blocked = (process.env.OPENROUTER_BLOCKED_MODELS || '').split(',').map((s) => s.trim()).filter(Boolean);
+  const blocked = parseModelList(process.env.OPENROUTER_BLOCKED_MODELS);
   if (blocked.includes(model)) return false;
-  return true;
+  const allowed = parseModelList(process.env.OPENROUTER_ALLOWED_MODELS);
+  if (allowed.length > 0) return allowed.includes(model);
+  return [...new Set([...fullChatChain({}), getVisionModel(), ...getVisionFallbackModels()])].includes(model);
 }
 
 module.exports = {
@@ -415,15 +507,17 @@ module.exports = {
   isConfigured,
   getBaseUrl,
   getDefaultModel,
-  getFallbackModel,
+  getChatFallbackModels,
+  getVisionFallbackModels,
   getVisionModel,
   isModelAllowed,
 
   // Calls
   chatCompletion,
+  chatCompletionFrom,
   chatCompletionPrimary,
   visionCompletion,
 
   // Exposed for tests / advanced callers
-  _internal: { classifyStatus, isTransient, clampTimeout },
+  _internal: { classifyStatus, isTransient, clampTimeout, aiLog },
 };

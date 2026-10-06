@@ -26,9 +26,9 @@ function float(value, fallback) {
 /**
  * Provider selection.
  *   SAVEHATKE_AI — the custom engine (CPU-only, no external AI service)
- *   OPENROUTER   — OpenRouter-hosted free models (NVIDIA Nemotron 3 Ultra
- *                  primary, openrouter/free fallback). The previous Gemini
- *                  provider was retired in favour of this when the free
+ *   OPENROUTER   — OpenRouter-hosted free models (Nemotron 3 Ultra primary;
+ *                  Super → Gemma 4 chain on transient errors). The previous
+ *                  Gemini provider was retired in favour of this when the free
  *                  Gemini quota started to choke the chatbot.
  */
 function getProvider() {

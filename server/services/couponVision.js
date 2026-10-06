@@ -246,10 +246,11 @@ HARD RULES — follow them exactly:
 // OpenRouter meters its free-tier traffic per upstream provider, so one model
 // running out of quota does not exhaust its siblings. Trying a sibling is
 // therefore the cheapest way to keep a scan alive instead of failing the
-// seller outright. These are the vision-capable defaults known to be on the
-// free tier at the time of writing; OPENROUTER_VISION_FALLBACK_MODELS can
-// override them per environment (e.g. paid tier).
-const DEFAULT_FALLBACK_MODELS = ['google/gemma-3-4b:free', 'qwen/qwen2.5-vl-3b-instruct:free'];
+// seller outright. The vision chain (Gemma 4 31B → Gemma 4 26B → Nemotron 3
+// Nano Omni, all image-capable free models) lives in openrouterService
+// (getVisionFallbackModels) so the scanner and the model allowlist share one
+// source of truth; OPENROUTER_VISION_FALLBACK_MODELS can override it per
+// environment.
 
 // Statuses that mean "try again", not "this request is wrong".
 const TRANSIENT_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
@@ -268,11 +269,7 @@ const VISION_MAX_WAIT_MS = 6000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function getFallbackModels() {
-  const raw = process.env.OPENROUTER_VISION_FALLBACK_MODELS;
-  const list = (raw ? String(raw).split(',') : DEFAULT_FALLBACK_MODELS)
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return list;
+  return openrouter.getVisionFallbackModels();
 }
 
 /** Primary model first, then the fallbacks, with no duplicates. */
@@ -344,7 +341,7 @@ async function callVisionOnce(buffer, mimeType, model, { timeoutMs } = {}) {
       detail: (result.content || '').slice(0, 200),
     };
   }
-  return { ok: true, raw, model: result.model || model };
+  return { ok: true, raw, model: result.model || model, latencyMs: result.latencyMs };
 }
 
 /**
@@ -380,7 +377,10 @@ async function callVision(buffer, mimeType, opts = {}) {
     const r = await callVisionOnce(buffer, mimeType, model, {
       timeoutMs: Math.min(perCallTimeout, remaining),
     });
-    if (r.ok) return r;
+    if (r.ok) {
+      console.log(`[ai] req=${opts.requestId || '-'} AI vision succeeded model=${r.model} latency_ms=${r.latencyMs || '-'}`);
+      return r;
+    }
 
     last = r;
     if (r.retryAfterMs && (!retryHintMs || r.retryAfterMs < retryHintMs)) retryHintMs = r.retryAfterMs;

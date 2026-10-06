@@ -61,9 +61,9 @@ const DEFAULT_SETTINGS = {
   botAvatar: '🤖',
   suggestedQuestions: prompts.DEFAULT_SUGGESTED_QUESTIONS,
   maintenanceMessage: 'Our AI assistant is temporarily unavailable. Please check back soon or contact support.',
-  // Default model. The OpenRouter wrapper falls back to OPENROUTER_FALLBACK_MODEL
-  // (default `openrouter/free`) automatically when the primary returns a
-  // transient error (429 / 5xx / timeout / network).
+  // Default model. The OpenRouter wrapper walks the fixed fallback chain
+  // (Nemotron 3 Super → Gemma 4 31B → Gemma 4 26B) automatically when the
+  // primary returns a transient error (429 / 5xx / timeout / network).
   model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
   maxOutputTokens: 1024,
   temperature: 0.4,
@@ -175,7 +175,7 @@ async function getSettingsForAdmin() {
     ...s,
     apiKeyConfigured: openrouter.isConfigured(),
     defaultModel: openrouter.getDefaultModel(),
-    fallbackModel: openrouter.getFallbackModel(),
+    fallbackModels: openrouter.getChatFallbackModels(),
     visionModel: openrouter.getVisionModel(),
   };
 }
@@ -867,6 +867,7 @@ async function handleMessage({ message, conversationId, user, ip }) {
     maxTokens: settings.maxOutputTokens,
     timeoutMs: settings.timeoutSeconds * 1000,
     tools: toolDefs.length ? toolDefs : undefined,
+    requestId,
   };
 
   try {
@@ -877,10 +878,12 @@ async function handleMessage({ message, conversationId, user, ip }) {
     let result = await openrouter.chatCompletion(aiMessages, callOpts);
     let loop = 0;
 
-    // 9. Permitted tool-call loop (max 2 rounds). After the first call already
-    //    fell back if needed, every round-trip in this loop uses the PRIMARY
-    //    only — a tool-call round on a fallback model can otherwise burn the
-    //    budget twice. chatCompletionPrimary enforces that.
+    // 9. Permitted tool-call loop (max 2 rounds). The follow-up round stays on
+    //    the SAME model that requested the tool call (chatCompletionFrom), so
+    //    one model writes the whole answer. If that model then hits a
+    //    transient error the walk continues with the models after it — the
+    //    tool result is already in the transcript, so switching models never
+    //    re-executes a tool.
     while (result.ok && result.toolCalls && result.toolCalls.length > 0 && loop < 2) {
       loop += 1;
       aiMessages.push({ role: 'assistant', content: result.content || '', tool_calls: result.toolCalls });
@@ -891,14 +894,14 @@ async function handleMessage({ message, conversationId, user, ip }) {
         const toolResult = await executeTool(fnName, fnArgs, settings, user);
         aiMessages.push({ role: 'tool', name: fnName, content: JSON.stringify(toolResult).slice(0, 4000), tool_call_id: tc.id || ('call_' + loop) });
       }
-      result = await openrouter.chatCompletionPrimary(aiMessages, callOpts);
+      result = await openrouter.chatCompletionFrom(aiMessages, { ...callOpts, fromModel: result.model });
     }
 
     // 9b. Tool rounds exhausted but the model still wants to call tools (or
     // produced no text) — ask once more WITHOUT tools so it must give the
     // user a real answer instead of an empty reply.
     if (result.ok && !result.content && (!result.toolCalls || result.toolCalls.length === 0 || loop >= 2)) {
-      result = await openrouter.chatCompletionPrimary(aiMessages, { ...callOpts, tools: undefined });
+      result = await openrouter.chatCompletionFrom(aiMessages, { ...callOpts, fromModel: result.model, tools: undefined });
     }
 
     if (!result.ok) {
@@ -915,8 +918,8 @@ async function handleMessage({ message, conversationId, user, ip }) {
       } else {
         fallback = settings.fallbackMessage;
       }
-      await addMessage(conv.id, 'assistant', fallback, { model: settings.model, status: 'error', responseTimeMs: Date.now() - started });
-      await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conv.id, model: settings.model, responseTimeMs: Date.now() - started, status: 'error', errorType });
+      await addMessage(conv.id, 'assistant', fallback, { model: (result && result.model) || settings.model, status: 'error', responseTimeMs: Date.now() - started });
+      await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conv.id, model: (result && result.model) || settings.model, responseTimeMs: Date.now() - started, status: 'error', errorType });
       return { ok: true, reply: fallback, conversationId: conv.id, requestId };
     }
 

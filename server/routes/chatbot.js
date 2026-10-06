@@ -18,7 +18,7 @@ router.get('/status', authenticateToken, requireAdmin, (req, res) => {
   res.json({
     apiKeyConfigured: openrouter.isConfigured(),
     defaultModel: openrouter.getDefaultModel(),
-    fallbackModel: openrouter.getFallbackModel(),
+    fallbackModels: openrouter.getChatFallbackModels(),
     visionModel: openrouter.getVisionModel(),
     configuredBaseUrl: openrouter.isConfigured() ? 'secure server-side env' : 'not set',
     provider: 'openrouter',

@@ -6,8 +6,9 @@
 //   SAVEHATKE_AI — the custom engine in services/ai/ (CPU-only, no external
 //                  AI service; uses local knowledge + deterministic tools)
 //   OPENROUTER   — OpenRouter-hosted free models (NVIDIA Nemotron 3 Ultra
-//                  primary, with the openrouter/free tag as the fallback).
-//                  Replaces the previous Gemini provider.
+//                  primary; Nemotron 3 Super → Gemma 4 31B → Gemma 4 26B take
+//                  over on transient errors). Replaces the previous Gemini
+//                  provider.
 //
 // The chatbot service depends on THIS module, never on a provider directly, so
 // swapping or removing a provider is a change in one file. Both providers
@@ -102,9 +103,10 @@ async function generateWithOpenRouter(input) {
     };
   }
 
-  // The wrapper already retried the fallback if the primary returned a
-  // transient error. We do NOT re-enter chatCompletion() (which would loop
-  // the fallback chain), only chatCompletionPrimary() for follow-up calls.
+  // The wrapper already walked the fallback chain if the primary returned a
+  // transient error. We do NOT re-enter chatCompletion() (which would restart
+  // the chain from the top), only chatCompletionFrom() so follow-up rounds
+  // stay on the model that is already answering.
   let result = await openrouter.chatCompletion(aiMessages, callOpts);
   let loop = 0;
   const maxLoop = config.toolRounds;
@@ -124,12 +126,12 @@ async function generateWithOpenRouter(input) {
         tool_call_id: tc.id || ('call_' + loop),
       });
     }
-    result = await openrouter.chatCompletionPrimary(aiMessages, callOpts);
+    result = await openrouter.chatCompletionFrom(aiMessages, { ...callOpts, fromModel: result.model });
   }
 
   // Tool rounds exhausted but no text produced — ask once more without tools.
   if (result.ok && !result.content && (!result.toolCalls || result.toolCalls.length === 0 || loop >= maxLoop)) {
-    result = await openrouter.chatCompletionPrimary(aiMessages, { ...callOpts, tools: undefined });
+    result = await openrouter.chatCompletionFrom(aiMessages, { ...callOpts, fromModel: result.model, tools: undefined });
   }
 
   if (!result.ok) {
@@ -174,9 +176,9 @@ function describeProviders() {
       active: config.provider === 'OPENROUTER',
       configured: openrouter.isConfigured(),
       requiresKey: true,
-      description: 'Free OpenRouter-hosted models (NVIDIA Nemotron 3 Ultra primary, openrouter/free fallback).',
+      description: 'Free OpenRouter-hosted models (Nemotron 3 Ultra primary; Super → Gemma 4 chain on transient errors).',
       primaryModel: openrouter.getDefaultModel(),
-      fallbackModel: openrouter.getFallbackModel(),
+      fallbackModels: openrouter.getChatFallbackModels(),
       visionModel: openrouter.getVisionModel(),
     },
   ];
