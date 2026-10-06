@@ -143,7 +143,12 @@ async function chatCompletionWith(messages, opts = {}, allowFallback) {
 
   const primary = opts.model || getDefaultModel();
   const fallback = allowFallback ? getFallbackModel() : null;
-  const timeoutMs = clampTimeout(opts.timeoutMs);
+  const budgetMs = clampTimeout(opts.timeoutMs);
+  // The caller's timeout is a WHOLE-CALL budget, not per attempt. When the
+  // chain has two models, split it so a hung primary cannot leave the fallback
+  // with no time left and push the serverless function past its wall clock
+  // (worst case stays at `budgetMs`, comfortably under Vercel maxDuration).
+  const timeoutMs = fallback && fallback !== primary ? Math.ceil(budgetMs / 2) : budgetMs;
   const chain = fallback && fallback !== primary ? [primary, fallback] : [primary];
 
   let last = null;
