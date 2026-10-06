@@ -41,13 +41,13 @@
 //   { ok, content, toolCalls, model, error?, status?, finishReason?, detail? }
 
 const DEFAULT_BASE_URL = 'https://openrouter.ai/api/v1';
-const DEFAULT_PRIMARY_MODEL = 'nvidia/nemotron-3-ultra:free';
+const DEFAULT_PRIMARY_MODEL = 'nvidia/nemotron-3-ultra-550b-a55b:free';
 const DEFAULT_FALLBACK_MODEL = 'openrouter/free';
 // A free vision-capable default. The user can override with
 // OPENROUTER_VISION_MODEL. The previous Gemini Vision call accepted JPEG/PNG/
 // WebP; OpenRouter's image_url content type uses the same MIME types, so the
 // upstream client (couponVision.js) sends them through unchanged.
-const DEFAULT_VISION_MODEL = 'google/gemma-3-27b-it:free';
+const DEFAULT_VISION_MODEL = 'google/gemma-4-31b-it:free';
 
 // Free models are rate-limited per provider; the response header
 // `Retry-After` (seconds) is the right value to surface to the caller when a

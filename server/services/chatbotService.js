@@ -64,7 +64,7 @@ const DEFAULT_SETTINGS = {
   // Default model. The OpenRouter wrapper falls back to OPENROUTER_FALLBACK_MODEL
   // (default `openrouter/free`) automatically when the primary returns a
   // transient error (429 / 5xx / timeout / network).
-  model: 'nvidia/nemotron-3-ultra:free',
+  model: 'nvidia/nemotron-3-ultra-550b-a55b:free',
   maxOutputTokens: 1024,
   temperature: 0.4,
   timeoutSeconds: 30,
