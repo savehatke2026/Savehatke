@@ -64,13 +64,6 @@ async function validateSessionToken(rawToken) {
 
   if (!row) return { ok: false };
 
-  // Invalidate sessions from pre-Google-only login routes. A session is
-  // accepted only when its row carries the subject verified at login.
-  if (!String(row.google_sub || '').trim()) {
-    sessionCache.remove(tokenHash);
-    return { ok: false, user: rowUser(row) };
-  }
-
   const expiresMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
   if (row.status !== 'Active' || expiresMs <= now) {
     // Lazily flip expired-but-still-Active rows between scheduled sweeps.

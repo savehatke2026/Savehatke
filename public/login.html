@@ -17,6 +17,11 @@
   <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <!-- Cloudflare Turnstile CAPTCHA -->
+  <!-- The onload callback must exist before the async API script executes,
+       or Turnstile logs "Unable to find onload callback" twice and never
+       fires it (leaving the login page's ready-promise unresolved). The
+       login script below replaces this stub with its real resolver. -->
+  <script>window.onLoginTurnstileLoad = window.onLoginTurnstileLoad || function () {};</script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onLoginTurnstileLoad" async defer></script>
   <script>
     // A signed-in visitor never needs the login form — send them to the page
@@ -445,13 +450,6 @@
         <span class="g-btn-text">Continue with Google</span>
       </button>
 
-      <!-- Hidden GSI onload div -->
-      <div id="g_id_onload"
-           data-client_id=""
-           data-callback="handleLoginPageGoogleCredentialResponse"
-           data-auto_prompt="false"
-           style="display:none;">
-      </div>
     </div>
 
     <!-- Backup-Code Reason State (SOS access) -->

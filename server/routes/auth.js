@@ -228,7 +228,14 @@ async function finishGoogleLogin(req, res, identity) {
         }
       }
     } catch (e) { /* avatar persistence is best-effort */ }
-    const session = await createLoginSession(req, adminAccount.id, 'Google Admin', email, name, res, googleSub);
+    // The Supabase roster rows carry { email, name, active } and no id column
+    // (the pre-roster hardcoded list had id: '1'/'2'), so adminAccount.id is
+    // undefined today — which made createLoginSession throw "Authenticated
+    // account has no stable user id." for every admin sign-in. The allowlist
+    // email is the roster's primary key and a stable identifier; historical
+    // admin sessions each carried a fresh random UUID, so no specific value
+    // is load-bearing and an email user_id is backward-compatible.
+    const session = await createLoginSession(req, adminAccount.id || adminAccount.email, 'Google Admin', email, name, res, googleSub);
     setSessionCookie(res, session.token, session.ttlMs);
     return sendGoogleLoginHandoff(res, {
       id: session.userId, userId: session.userId, email, name, picture, role: 'admin',

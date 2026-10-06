@@ -612,7 +612,7 @@ function sessionTableFor(loginMethod) {
 }
 
 // Matches PostgREST errors raised when the sessions table hasn't been
-// upgraded yet (missing columns required to validate a Google-bound session).
+// upgraded yet (missing columns required to validate a login session).
 function isMissingColumnError(err) {
   const msg = String((err && err.message) || err || '');
   return /session_token|revoked_at|user_agent|google_sub|42703|could not find the column/i.test(msg);
@@ -623,14 +623,10 @@ function isMissingColumnError(err) {
  * Called once on startup; silently succeeds if already present.
  *
  * Every column the login callback WRITES and the auth middleware READS is
- * probed here, not just the table. A table that exists without
- * `google_sub` accepts logins but can never validate one — sessions are
- * refused as "cannot enforce revocation", so the browser is bounced back to
- * the login page after every Google sign-in with no server error to point
- * at. Probing the exact columns turns that silent loop into one loud boot
- * line naming the migration to run.
+ * probed here, not just the table. Probing the exact columns turns a silent
+ * login loop into one loud boot line naming the schema file to apply.
  */
-const SESSION_SCHEMA_COLUMNS = Object.freeze(['session_id', 'session_token', 'google_sub', 'status', 'expires_at']);
+const SESSION_SCHEMA_COLUMNS = Object.freeze(['session_id', 'session_token', 'status', 'expires_at']);
 
 async function sessionSchemaGaps(client, table) {
   const missing = [];
@@ -654,10 +650,9 @@ async function ensureSessionsTable() {
     if (!missing.length) continue;
     console.error(
       `[sessions] "${table}" is missing required column(s): ${missing.join(', ')}. ` +
-      'Google sign-in will create sessions that cannot be validated, so every ' +
-      'login will bounce back to the login page until this is fixed. Run ' +
-      'supabase/migrations/20261002_google_only_sessions.sql in the Supabase ' +
-      'SQL Editor (Dashboard → SQL Editor → New query), then redeploy.'
+      'Login sessions cannot be validated, so every sign-in will bounce back ' +
+      'to the login page until this is fixed. Run server/setup_sessions_table.sql ' +
+      '(matches the deployed schema) in the Supabase SQL Editor.'
     );
   }
 }
@@ -689,7 +684,6 @@ async function createSession(sessionData, ttlMs) {
     city: sessionData.city || '',
     ip_address: sessionData.ip_address || '',
     login_method: sessionData.login_method || 'Email',
-    google_sub: sessionData.google_sub || '',
     user_agent: sessionData.user_agent || '',
     session_token: sessionData.session_token || '',
     login_time: now.toISOString(),
@@ -776,7 +770,7 @@ async function findSessionByToken(tokenHash) {
     try {
       const { data, error } = await client
         .from(table)
-        .select('session_id, user_id, email, status, expires_at, login_time, last_active, login_method, google_sub')
+        .select('session_id, user_id, email, status, expires_at, login_time, last_active, login_method')
         .eq('session_token', tokenHash)
         .limit(1);
 
