@@ -159,7 +159,17 @@ const Auth = {
 
   getUser() {
     const user = localStorage.getItem('sh_user');
-    return user ? JSON.parse(user) : null;
+    if (!user) return null;
+    try {
+      return JSON.parse(user);
+    } catch (e) {
+      // Handoffs before the stringify fix stored "[object Object]" (setItem
+      // coerced the object). Purge the corrupt record so the nav falls back
+      // to logged-out instead of crashing every page; refreshAccountStatus
+      // then rebuilds it from the still-live cookie session via /auth/me.
+      try { localStorage.removeItem('sh_user'); } catch (e2) {}
+      return null;
+    }
   },
 
   setAuth(_token, user) {
@@ -409,10 +419,23 @@ function initNavigation() {
  * error must never blank out the nav.
  */
 async function refreshAccountStatus() {
-  if (!Auth.isLoggedIn()) return;
+  // Self-heal: sh_authenticated can outlive an unreadable sh_user record
+  // (pre-fix handoffs stored "[object Object]"). The HttpOnly cookie session
+  // is independent of localStorage — restore the record from /auth/me so the
+  // profile box reappears without forcing a re-login.
+  if (localStorage.getItem('sh_authenticated') !== '1') return;
   try {
     const data = await api('/auth/me');
     const fresh = (data && data.user) || {};
+
+    if (!Auth.getUser()) {
+      if (fresh && fresh.email) {
+        Auth.setAuth(Auth.getToken(), fresh);
+        updateNavAuth();
+      }
+      return;
+    }
+
     if (!fresh.status) return;
 
     const cached = Auth.getUser() || {};

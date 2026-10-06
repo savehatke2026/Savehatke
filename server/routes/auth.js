@@ -168,8 +168,8 @@ function sendGoogleLoginHandoff(res, user, destination) {
       localStorage.removeItem('sh_token');
       localStorage.removeItem('sh_admin_token');
       localStorage.setItem('sh_authenticated', '1');
-      localStorage.setItem('sh_user', ${safeScriptJson(user)});
-      ${isAdmin ? `localStorage.setItem('sh_admin_user', ${safeScriptJson(user)});` : `localStorage.removeItem('sh_admin_user');`}
+      localStorage.setItem('sh_user', ${safeScriptJson(JSON.stringify(user))});
+      ${isAdmin ? `localStorage.setItem('sh_admin_user', ${safeScriptJson(JSON.stringify(user))});` : `localStorage.removeItem('sh_admin_user');`}
     } catch (e) {}
     window.location.replace(${safeScriptJson(target)});
   </script></body></html>`);
