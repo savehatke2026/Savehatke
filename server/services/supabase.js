@@ -180,7 +180,12 @@ function isConfigured() {
 // redeploy. Schema: server/setup_admin_allowlist.sql.
 
 const ADMIN_ALLOWLIST_TABLE = 'admin_allowlist';
-const ADMIN_ALLOWLIST_COLUMNS = Object.freeze(['email', 'name', 'active', 'created_at']);
+const ADMIN_ALLOWLIST_COLUMNS = Object.freeze(['email', 'name', 'role', 'active', 'created_at']);
+
+// Roles the Admin & Role Management page can assign. 'owner' is the platform
+// owner; the sign-in gate only ever checks membership + active, so role is
+// descriptive today and reserved for finer authorization tomorrow.
+const ADMIN_ROLES = Object.freeze(['owner', 'admin', 'support']);
 
 /**
  * Idempotently create the admin_allowlist table. Safe to call at boot; a
@@ -199,6 +204,7 @@ async function ensureAdminAllowlistTable() {
       sql: `create table if not exists public.${ADMIN_ALLOWLIST_TABLE} (
         email      text        primary key,
         name       text        not null default '',
+        role       text        not null default 'admin',
         active     boolean     not null default true,
         created_at timestamptz not null default now()
       )`,
@@ -207,9 +213,14 @@ async function ensureAdminAllowlistTable() {
       console.warn('[supabase] admin_allowlist ensure-table:', error.message);
       return false;
     }
+    // Tables created before the role column existed get it added in place.
+    const { error: alterError } = await client.rpc('exec_sql', {
+      sql: `alter table public.${ADMIN_ALLOWLIST_TABLE} add column if not exists role text not null default 'admin'`,
+    });
+    if (alterError) console.warn('[supabase] admin_allowlist role column:', alterError.message);
     return true;
   } catch (e) {
-    console.warn('[supabase] admin_allowlist ensure-table:', (e && e.message) || e);
+    console.warn('[supabase] admin_allowlist ensure-table threw:', (e && e.message) || e);
     return false;
   }
 }
@@ -231,14 +242,121 @@ async function getAdminAllowlist() {
       console.warn('[supabase] admin_allowlist read failed:', error.message);
       return [];
     }
-    return (data || []).map((row) => ({
-      email: String(row.email || '').trim().toLowerCase(),
-      name: String(row.name || '').trim(),
-      active: row.active !== false,
-    })).filter((row) => row.email);
+    return (data || []).map(mapAdminAllowlistRow).filter((row) => row.email);
   } catch (e) {
     console.warn('[supabase] admin_allowlist read threw:', (e && e.message) || e);
     return [];
+  }
+}
+
+function mapAdminAllowlistRow(row) {
+  const role = String(row.role || '').trim().toLowerCase();
+  return {
+    email: String(row.email || '').trim().toLowerCase(),
+    name: String(row.name || '').trim(),
+    role: ADMIN_ROLES.includes(role) ? role : 'admin',
+    active: row.active !== false,
+    createdAt: row.created_at || null,
+  };
+}
+
+function normalizeAdminEmail(email) {
+  const value = String(email || '').trim().toLowerCase();
+  if (!value || value.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return null;
+  return value;
+}
+
+/**
+ * Add (or reactivate) an administrator. The email is the primary key, so an
+ * existing row is refreshed with the new name/role/active instead of failing —
+ * the caller decides whether that is an error (route checks existence first).
+ */
+async function upsertAdminAllowlist({ email, name, role, active }) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase is not configured');
+  const normalized = normalizeAdminEmail(email);
+  if (!normalized) throw new Error('A valid email address is required');
+  const safeRole = ADMIN_ROLES.includes(String(role || '').toLowerCase()) ? String(role).toLowerCase() : 'admin';
+  const { error } = await client.from(ADMIN_ALLOWLIST_TABLE).upsert({
+    email: normalized,
+    name: String(name || '').trim().slice(0, 120),
+    role: safeRole,
+    active: active !== false,
+  });
+  if (error) throw new Error(error.message);
+  return { email: normalized, name: String(name || '').trim(), role: safeRole, active: active !== false };
+}
+
+/**
+ * Patch an existing administrator (name, role, active). Returns the updated
+ * row, or null when the email is not on the roster.
+ */
+async function updateAdminAllowlist(email, patch = {}) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase is not configured');
+  const normalized = normalizeAdminEmail(email);
+  if (!normalized) throw new Error('A valid email address is required');
+  const update = {};
+  if (patch.name !== undefined) update.name = String(patch.name || '').trim().slice(0, 120);
+  if (patch.role !== undefined) {
+    const role = String(patch.role || '').toLowerCase();
+    if (!ADMIN_ROLES.includes(role)) throw new Error('Unknown role');
+    update.role = role;
+  }
+  if (patch.active !== undefined) update.active = patch.active === true || patch.active === 'true';
+  if (Object.keys(update).length === 0) return null;
+  const { data, error } = await client
+    .from(ADMIN_ALLOWLIST_TABLE)
+    .update(update)
+    .eq('email', normalized)
+    .select(ADMIN_ALLOWLIST_COLUMNS.join(','));
+  if (error) throw new Error(error.message);
+  const row = (data || [])[0];
+  return row ? mapAdminAllowlistRow(row) : null;
+}
+
+/**
+ * Remove an administrator from the roster entirely.
+ * Returns true when a row was deleted, false when it did not exist.
+ */
+async function deleteAdminAllowlist(email) {
+  const client = getClient();
+  if (!client) throw new Error('Supabase is not configured');
+  const normalized = normalizeAdminEmail(email);
+  if (!normalized) throw new Error('A valid email address is required');
+  const { data, error } = await client
+    .from(ADMIN_ALLOWLIST_TABLE)
+    .delete()
+    .eq('email', normalized)
+    .select('email');
+  if (error) throw new Error(error.message);
+  return (data || []).length > 0;
+}
+
+/**
+ * Most recent admin-panel login per email, from admin_sessions. Used by the
+ * Admin & Role Management page for a REAL "Last Login" column — the roster
+ * table itself does not track logins, the session records do.
+ */
+async function getLastAdminLogins() {
+  const client = getClient();
+  if (!client) return {};
+  try {
+    const { data, error } = await client
+      .from(ADMIN_SESSIONS_TABLE)
+      .select('email, login_time')
+      .order('login_time', { ascending: false })
+      .limit(200);
+    if (error) return {};
+    const latest = {};
+    for (const row of data || []) {
+      const email = String(row.email || '').trim().toLowerCase();
+      if (email && !latest[email]) latest[email] = row.login_time || null;
+    }
+    return latest;
+  } catch (e) {
+    console.warn('[supabase] admin last-login read failed:', (e && e.message) || e);
+    return {};
   }
 }
 
@@ -1735,6 +1853,11 @@ module.exports = {
   // primary reader; both stay coherent via the shared cache there).
   ensureAdminAllowlistTable,
   getAdminAllowlist,
+  upsertAdminAllowlist,
+  updateAdminAllowlist,
+  deleteAdminAllowlist,
+  getLastAdminLogins,
+  ADMIN_ROLES,
   ADMIN_ALLOWLIST_TABLE,
   // Test helpers
   _clearMaintenanceCachesForTests,

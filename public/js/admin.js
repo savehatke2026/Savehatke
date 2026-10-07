@@ -2892,7 +2892,7 @@ function debounce(fn, ms) {
   };
 }
 
-// ── Admin User Management (MongoDB Atlas) ───────────────────────────────
+// ── Admin User Management (Supabase roster: admin_allowlist) ────────────
 function initCreateAdminForm() {
   const form = document.getElementById('createAdminForm');
   if (!form) return;
@@ -2911,21 +2911,32 @@ function initCreateAdminForm() {
           name: document.getElementById('newAdminName').value.trim(),
           email: document.getElementById('newAdminEmail').value.trim(),
           role: document.getElementById('newAdminRole').value,
-          phone: document.getElementById('newAdminPhone').value.trim(),
-          profile_image: document.getElementById('newAdminAvatar').value.trim(),
         },
       });
 
       showToast(data.message, 'success');
       form.reset();
+      closeAddAdminModal();
       loadAdminsList();
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
       btn.disabled = false;
-      btn.textContent = '➕ Create Admin in MongoDB Atlas';
+      btn.textContent = '💾 Add Administrator';
     }
   });
+}
+
+function openAddAdminModal() {
+  const modal = document.getElementById('addAdminModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  const first = document.getElementById('newAdminName');
+  if (first) first.focus();
+}
+function closeAddAdminModal() {
+  const modal = document.getElementById('addAdminModal');
+  if (modal) modal.style.display = 'none';
 }
 
 // ────────────────────────────────────────────────────────────────
@@ -2934,9 +2945,9 @@ function initCreateAdminForm() {
 
 // In-memory cache so the search filter doesn't re-fetch
 let ADMINS_CACHE = [];
-// 'mongodb' when Atlas answered, 'fallback' when the API served built-in owner
-// accounts because Atlas was unreachable. Drives the notice above the table so
-// the blank Phone / Last Login / Joined cells are explained, not mysterious.
+// 'supabase' when the live roster answered, 'unavailable' when Supabase was
+// unreachable or the roster is empty. Drives the notice above the table so a
+// blank list is explained, not mysterious.
 let ADMINS_SOURCE = '';
 
 // Tiny escape helper (used in HTML string templates)
@@ -2982,53 +2993,64 @@ function adminInitials(name, email) {
   return src.slice(0, 2).toUpperCase();
 }
 
-// Role → badge color (matches the existing palette in vault.html)
+// Role → badge color (matches the existing palette in vault.html). Roles come
+// from the Supabase roster as lowercase: owner | admin | support.
 function adminRoleClass(role) {
-  if (role === 'Super Admin') return 'purple';
-  if (role === 'Support') return 'teal';
+  const r = String(role || '').toLowerCase();
+  if (r === 'owner') return 'purple';
+  if (r === 'support') return 'teal';
   return 'blue';
 }
+function adminRoleLabel(role) {
+  const r = String(role || '').toLowerCase();
+  if (r === 'owner') return 'Owner';
+  if (r === 'support') return 'Support';
+  return 'Admin';
+}
 
-// Build a single row's HTML
+// Build a single row's HTML. The row id IS the admin's email (the roster's
+// primary key); it is URL-encoded inside inline handlers because emails
+// contain @ and occasionally quotes.
 function adminRowHtml(a) {
-  const realId = a.id || a._id || '';
-  const shortId = realId ? realId.slice(0, 8).toUpperCase() : '—';
-  const name = a.name || a.full_name || 'Admin';
-  const email = a.email || '—';
-  const role = a.role || 'Admin';
-  const phone = a.phone || '';
+  const realId = a.id || '';
+  const shortId = realId ? realId.slice(0, 8) : '—';
+  const name = a.name || realId.split('@')[0] || 'Admin';
+  const email = a.email || realId;
+  const role = String(a.role || 'admin').toLowerCase();
   const initials = adminInitials(name, email);
-  // Google's avatar host rejects referer-carrying requests and rotates its
-  // URLs — a failed load falls back to the initials tile.
-  const avatar = a.profile_image
-    ? `<img src="${escHtml(a.profile_image)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.replace(document.createTextNode('${escHtml(initials).replace(/'/g, '')}'))">`
-    : escHtml(initials);
   const lastLogin = fmtDateTime(a.last_login);
   const lastLoginRel = fmtRelative(a.last_login);
   const joined = fmtDate(a.created_at);
   const roleClass = adminRoleClass(role);
   const statusClass = a.is_active ? 'green' : 'red';
   const statusLabel = a.is_active ? 'Active' : 'Inactive';
+  const em = encodeURIComponent(realId);
 
   return `
     <tr data-admin-id="${escHtml(realId)}">
       <td>
-        <span class="admin-id" title="Click to copy full ID" onclick="copyAdminId(this, '${escHtml(realId)}')">
+        <span class="admin-id" title="Click to copy full email" onclick="copyAdminId(this, '${escHtml(realId)}')">
           <span>${escHtml(shortId)}…</span>
           <span style="font-size:.85em;opacity:.7">⧉</span>
         </span>
       </td>
       <td>
         <div class="admin-cell">
-          <div class="admin-avatar">${avatar}</div>
+          <div class="admin-avatar">${escHtml(initials)}</div>
           <div style="min-width:0">
             <div class="admin-name">${escHtml(name)}</div>
             <div class="admin-email">${escHtml(email)}</div>
           </div>
         </div>
       </td>
-      <td><span class="badge badge-${roleClass}">${escHtml(role)}</span></td>
-      <td class="admin-phone nowrap">${phone ? escHtml(phone) : '<span class="admin-muted">—</span>'}</td>
+      <td>
+        <select class="form-select btn-sm" style="min-width:108px" onchange="changeAdminRole('${em}', this.value)" title="Change this admin's role">
+          <option value="owner" ${role === 'owner' ? 'selected' : ''}>Owner</option>
+          <option value="admin" ${role === 'admin' ? 'selected' : ''}>Admin</option>
+          <option value="support" ${role === 'support' ? 'selected' : ''}>Support</option>
+        </select>
+      </td>
+      <td><span class="badge badge-${roleClass}">${escHtml(adminRoleLabel(role))}</span></td>
       <td><span class="badge badge-${statusClass}">${statusLabel}</span></td>
       <td class="nowrap">
         <div class="admin-dt">
@@ -3039,10 +3061,10 @@ function adminRowHtml(a) {
       <td class="admin-dt admin-dt-time nowrap">${escHtml(joined)}</td>
       <td>
         <div class="admin-actions ta-right">
-          <button class="btn btn-ghost btn-xs" onclick="toggleAdminStatus('${escHtml(realId)}', ${!a.is_active})" title="${a.is_active ? 'Deactivate this admin' : 'Activate this admin'}">
+          <button class="btn btn-ghost btn-xs" onclick="toggleAdminStatus('${em}', ${!a.is_active})" title="${a.is_active ? 'Deactivate this admin' : 'Activate this admin'}">
             ${a.is_active ? '⏸ Deactivate' : '▶ Activate'}
           </button>
-          <button class="btn btn-danger btn-xs" onclick="deleteAdminUser('${escHtml(realId)}')" title="Delete this admin permanently">
+          <button class="btn btn-danger btn-xs" onclick="deleteAdminUser('${em}')" title="Remove this admin from the Supabase roster">
             🗑 Delete
           </button>
         </div>
@@ -3060,16 +3082,16 @@ function renderAdminsTable() {
   const filtered = !q
     ? ADMINS_CACHE
     : ADMINS_CACHE.filter((a) => {
-        const blob = ((a.name || '') + ' ' + (a.email || '') + ' ' + (a.role || '') + ' ' + (a.phone || '')).toLowerCase();
+        const blob = ((a.name || '') + ' ' + (a.email || '') + ' ' + (a.role || '')).toLowerCase();
         return blob.includes(q);
       });
 
-  // Shown above the table whenever the rows didn't come from Atlas
-  const notice = ADMINS_SOURCE === 'fallback'
+  // Shown above the table whenever Supabase could not be reached
+  const notice = ADMINS_SOURCE === 'unavailable'
     ? `<div class="admin-notice">
          <span>⚠️</span>
-         <span><strong>MongoDB Atlas is unreachable</strong> — showing the built-in owner accounts so you can still sign in.
-         Phone, Last Login and Joined are blank because that data lives in Atlas. Check the cluster's IP allow-list, then
+         <span><strong>The Supabase admin roster is unreachable or empty.</strong> Check that the
+         <code>admin_allowlist</code> table exists and SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY are set, then
          <a href="javascript:loadAdminsList(true)" style="color:#ffcc80;text-decoration:underline">retry</a>.</span>
        </div>`
     : '';
@@ -3082,21 +3104,21 @@ function renderAdminsTable() {
         <div class="admin-empty-title">${q ? 'No admins match your search' : 'No admin accounts yet'}</div>
         <div class="admin-empty-hint">${q
           ? 'Try a different name, email, or role.'
-          : 'Use the "Create Admin in MongoDB Atlas" button above to add the first one.'}</div>
+          : 'Use the "Add Administrator" button above to add the first one.'}</div>
       </div>
     `;
     return;
   }
 
-  const store = ADMINS_SOURCE === 'fallback' ? 'built-in fallback' : 'MongoDB Atlas';
+  const store = 'the Supabase roster';
 
   container.innerHTML = `
     ${notice}
     <div class="overflow-x">
       <table class="data-table">
         <colgroup>
-          <col style="width:118px"><col style="width:250px"><col style="width:124px">
-          <col style="width:132px"><col style="width:100px"><col style="width:158px">
+          <col style="width:118px"><col style="width:250px"><col style="width:120px">
+          <col style="width:100px"><col style="width:100px"><col style="width:158px">
           <col style="width:110px"><col style="width:188px">
         </colgroup>
         <thead>
@@ -3104,7 +3126,7 @@ function renderAdminsTable() {
             <th>ID</th>
             <th>Admin</th>
             <th>Role</th>
-            <th>Phone</th>
+            <th>Type</th>
             <th>Status</th>
             <th>Last Login</th>
             <th>Joined</th>
@@ -3118,7 +3140,7 @@ function renderAdminsTable() {
     </div>
     <div class="admin-tfoot">
       <span>Showing <strong>${filtered.length}</strong> of <strong>${ADMINS_CACHE.length}</strong> admin${ADMINS_CACHE.length === 1 ? '' : 's'} from ${store}${q ? ` matching "<strong style="color:#4fc3f7">${escHtml(q)}</strong>"` : ''}.</span>
-      <span>Click any ID chip to copy the full admin ID.</span>
+      <span>Click any ID chip to copy the admin's email. Last Login comes from the admin session records.</span>
     </div>
   `;
 }
@@ -3167,7 +3189,7 @@ async function loadAdminsList(force) {
     container.innerHTML = `
       <div style="padding:24px;text-align:center;color:#6b88aa;font-size:.85rem">
         <span style="display:inline-block;width:16px;height:16px;border:2px solid rgba(0,230,118,.2);border-top-color:#00e676;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle"></span>
-        Loading admins from MongoDB Atlas…
+        Loading admins from Supabase…
       </div>
     `;
   }
@@ -3189,28 +3211,43 @@ async function loadAdminsList(force) {
   }
 }
 
-async function toggleAdminStatus(id, newActiveState) {
+async function toggleAdminStatus(email, newActiveState) {
   try {
-    await api(`/admin/update-admin/${id}`, {
+    await api(`/admin/update-admin/${encodeURIComponent(email)}`, {
       method: 'PUT',
       useAdmin: true,
       body: { is_active: newActiveState },
     });
-    showToast(`Admin account status updated.`, 'success');
+    showToast(`Admin ${newActiveState ? 'activated' : 'deactivated'}: ${email}`, 'success');
     loadAdminsList();
   } catch (err) {
     showToast(err.message, 'error');
   }
 }
 
-async function deleteAdminUser(id) {
-  if (!confirm('Are you sure you want to delete this admin account from MongoDB Atlas?')) return;
+async function changeAdminRole(email, role) {
   try {
-    await api(`/admin/delete-admin/${id}`, {
+    await api(`/admin/update-admin/${encodeURIComponent(email)}`, {
+      method: 'PUT',
+      useAdmin: true,
+      body: { role },
+    });
+    showToast(`Role updated to ${role} for ${email}`, 'success');
+    loadAdminsList();
+  } catch (err) {
+    showToast(err.message, 'error');
+    loadAdminsList(); // re-render so the select snaps back to the stored role
+  }
+}
+
+async function deleteAdminUser(email) {
+  if (!confirm(`Remove ${email} from the administrator roster in Supabase? They will lose admin-panel access at their next sign-in.`)) return;
+  try {
+    await api(`/admin/delete-admin/${encodeURIComponent(email)}`, {
       method: 'DELETE',
       useAdmin: true,
     });
-    showToast('Admin account deleted.', 'info');
+    showToast('Administrator removed from the roster.', 'info');
     loadAdminsList();
   } catch (err) {
     showToast(err.message, 'error');

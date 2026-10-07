@@ -8,7 +8,7 @@ const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin, generateToken } = require('../middleware/auth');
 const { adminMutationLimiter } = require('../utils/adminRateLimit');
-const { getActiveAdminEmails, isAdminRosterStale } = require('../config/security');
+const { getActiveAdminEmails, isAdminRosterStale, refreshAdminRoster } = require('../config/security');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
@@ -153,31 +153,126 @@ function reportDebug(hypothesisId, location, msg, data = {}, runId = process.env
   } catch {}
 }
 
-// The administrator roster lives in Supabase (table: admin_allowlist). The
-// in-process cache (server/config/security.js) is hydrated at boot and
-// refreshed every 60s; admins can edit the table directly in Supabase and the
-// change takes effect within a minute. The /api/admin/admins endpoint lets
-// the panel inspect the live roster.
-router.post('/create-admin', authenticateToken, requireAdmin, (req, res) => {
-  return res.status(403).json({ error: 'Administrator creation is disabled.', code: 'ADMIN_ROSTER_LOCKED' });
+// The administrator roster lives in Supabase (table: admin_allowlist). These
+// endpoints give the Admin & Role Management page a live, editable view of the
+// REAL credentials: membership, name, role, active flag and joined date come
+// from the roster table; Last Login comes from the admin_sessions records.
+// Every mutation re-hydrates the in-process sign-in cache (normally refreshed
+// every 60s) so a roster change takes effect on the next sign-in immediately.
+// Self-protection guards: an admin cannot deactivate or delete their own
+// account here, and the last active admin can never be removed or disabled —
+// those actions would otherwise lock the panel permanently.
+
+function adminMutationGuard(targetEmail, callerEmail, currentRoster) {
+  if (targetEmail === callerEmail) {
+    return 'You cannot change your own account status or remove yourself from the roster. Ask another admin, or edit the roster directly in Supabase.';
+  }
+  const activeOthers = currentRoster.filter((a) => a.active && a.email !== targetEmail);
+  if (activeOthers.length === 0) {
+    return 'This is the last active administrator. Add and activate another admin first, or edit the roster directly in Supabase.';
+  }
+  return null;
+}
+
+router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const [roster, lastLogins] = await Promise.all([
+      supabase.getAdminAllowlist(),
+      supabase.getLastAdminLogins(),
+    ]);
+    if (!roster.length) {
+      // Supabase unreachable or roster empty — say so rather than showing a
+      // fabricated list. The panel shows the notice and a retry button.
+      return res.json({ admins: [], total: 0, source: 'unavailable' });
+    }
+    const admins = roster.map((a) => ({
+      // The email is the roster's primary key, so it doubles as the row id.
+      id: a.email,
+      name: a.name,
+      email: a.email,
+      role: a.role,
+      is_active: a.active,
+      phone: '',
+      profile_image: '',
+      created_at: a.createdAt,
+      last_login: lastLogins[a.email] || null,
+    }));
+    return res.json({ admins, total: admins.length, source: 'supabase' });
+  } catch (e) {
+    console.warn('[admin] list-admins failed:', e.message);
+    return res.status(502).json({ error: 'Could not read the administrator roster from Supabase.', code: 'ROSTER_UNAVAILABLE' });
+  }
 });
-router.put('/update-admin/:id', authenticateToken, requireAdmin, (req, res) => {
-  return res.status(403).json({ error: 'Administrator roster changes are disabled.', code: 'ADMIN_ROSTER_LOCKED' });
+
+router.post('/create-admin', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
+  try {
+    const name = String(req.body.name || '').trim();
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const role = String(req.body.role || 'admin').trim().toLowerCase();
+    if (!supabase.ADMIN_ROLES.includes(role)) {
+      return res.status(400).json({ error: 'Role must be owner, admin or support.', code: 'INVALID_ROLE' });
+    }
+    const existing = await supabase.getAdminAllowlist();
+    if (existing.some((a) => a.email === email)) {
+      return res.status(409).json({ error: 'That email is already on the administrator roster.', code: 'ADMIN_EXISTS' });
+    }
+    const created = await supabase.upsertAdminAllowlist({ email, name, role, active: true });
+    await refreshAdminRoster().catch(() => {});
+    console.log(`[admin] roster add ${created.email} role=${created.role} by=${req.user.email}`);
+    return res.json({ message: `Administrator ${created.email} added to the Supabase roster.`, admin: created });
+  } catch (e) {
+    console.warn('[admin] create-admin failed:', e.message);
+    return res.status(400).json({ error: e.message || 'Could not add the administrator.', code: 'ROSTER_WRITE_FAILED' });
+  }
 });
-router.delete('/delete-admin/:id', authenticateToken, requireAdmin, (req, res) => {
-  return res.status(403).json({ error: 'Administrator roster changes are disabled.', code: 'ADMIN_ROSTER_LOCKED' });
+
+router.put('/update-admin/:email', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
+  try {
+    const target = String(req.params.email || '').trim().toLowerCase();
+    const patch = {};
+    if (req.body.role !== undefined) patch.role = String(req.body.role).trim().toLowerCase();
+    if (req.body.is_active !== undefined) patch.active = req.body.is_active === true;
+    if (req.body.name !== undefined) patch.name = String(req.body.name).trim();
+    if (patch.role !== undefined && !supabase.ADMIN_ROLES.includes(patch.role)) {
+      return res.status(400).json({ error: 'Role must be owner, admin or support.', code: 'INVALID_ROLE' });
+    }
+    const roster = await supabase.getAdminAllowlist();
+    const entry = roster.find((a) => a.email === target);
+    if (!entry) {
+      return res.status(404).json({ error: 'That email is not on the administrator roster.', code: 'ADMIN_NOT_FOUND' });
+    }
+    if (patch.active === false) {
+      const guard = adminMutationGuard(entry.email, String(req.user.email || '').toLowerCase(), roster);
+      if (guard) return res.status(403).json({ error: guard, code: 'ROSTER_SELF_LOCKOUT' });
+    }
+    const updated = await supabase.updateAdminAllowlist(target, patch);
+    await refreshAdminRoster().catch(() => {});
+    console.log(`[admin] roster update ${target} fields=${Object.keys(patch).join('+')} by=${req.user.email}`);
+    return res.json({ message: `Administrator ${target} updated.`, admin: updated });
+  } catch (e) {
+    console.warn('[admin] update-admin failed:', e.message);
+    return res.status(400).json({ error: e.message || 'Could not update the administrator.', code: 'ROSTER_WRITE_FAILED' });
+  }
 });
-router.get('/list-admins', authenticateToken, requireAdmin, (req, res) => {
-  // Live view of the in-process roster cache.
-  const emails = getActiveAdminEmails();
-  return res.json({
-    admins: emails.map((email, idx) => ({
-      id: String(idx + 1), name: '', email, is_active: true, role: 'Admin',
-      phone: '', created_at: null, last_login: null,
-    })),
-    total: emails.length,
-    source: isAdminRosterStale() ? 'env-fallback' : 'supabase',
-  });
+
+router.delete('/delete-admin/:email', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
+  try {
+    const target = String(req.params.email || '').trim().toLowerCase();
+    const roster = await supabase.getAdminAllowlist();
+    const entry = roster.find((a) => a.email === target);
+    if (!entry) {
+      return res.status(404).json({ error: 'That email is not on the administrator roster.', code: 'ADMIN_NOT_FOUND' });
+    }
+    const guard = adminMutationGuard(entry.email, String(req.user.email || '').toLowerCase(), roster);
+    if (guard) return res.status(403).json({ error: guard, code: 'ROSTER_SELF_LOCKOUT' });
+    const removed = await supabase.deleteAdminAllowlist(target);
+    await refreshAdminRoster().catch(() => {});
+    console.log(`[admin] roster remove ${target} by=${req.user.email}`);
+    return res.json({ message: `Administrator ${target} removed from the Supabase roster.`, removed });
+  } catch (e) {
+    console.warn('[admin] delete-admin failed:', e.message);
+    return res.status(400).json({ error: e.message || 'Could not remove the administrator.', code: 'ROSTER_WRITE_FAILED' });
+  }
 });
 // GET /api/admin/me — The AUTHENTICATED admin's own profile.
 //
