@@ -180,12 +180,11 @@ function isConfigured() {
 // redeploy. Schema: server/setup_admin_allowlist.sql.
 
 const ADMIN_ALLOWLIST_TABLE = 'admin_allowlist';
-const ADMIN_ALLOWLIST_COLUMNS = Object.freeze(['email', 'name', 'role', 'active', 'created_at']);
-
-// Roles the Admin & Role Management page can assign. 'owner' is the platform
-// owner; the sign-in gate only ever checks membership + active, so role is
-// descriptive today and reserved for finer authorization tomorrow.
-const ADMIN_ROLES = Object.freeze(['owner', 'admin', 'support']);
+// admin_id is a stable public identifier (admin_xxxxxxxx) written on insert and
+// backfilled on read; until the operator adds the column, ids are derived
+// deterministically from the email so they are unique and never change either
+// way. The roster intentionally has NO role column — every entry is an admin.
+const ADMIN_ALLOWLIST_COLUMNS = Object.freeze(['email', 'name', 'admin_id', 'active', 'created_at']);
 
 /**
  * Idempotently create the admin_allowlist table. Safe to call at boot; a
@@ -195,14 +194,15 @@ const ADMIN_ROLES = Object.freeze(['owner', 'admin', 'support']);
 async function ensureAdminAllowlistTable() {
   const client = getClient();
   if (!client) return false;
-  // Probe with the role column, not just email: a pre-role table must NOT be
-  // reported as ready. (This project has no exec_sql rpc, so DDL cannot run
-  // from the server — the operator runs the ALTER by hand; see the .sql file.)
+  // Probe with the admin_id column: a table without it still works (ids are
+  // derived from the email), but the operator should add it so ids persist.
+  // (This project has no exec_sql rpc, so DDL cannot run from the server —
+  // the operator runs the ALTER by hand; see the .sql file.)
   try {
-    const { error } = await client.from(ADMIN_ALLOWLIST_TABLE).select('email,role').limit(1);
-    if (!error) return true; // table present, role column present
+    const { error } = await client.from(ADMIN_ALLOWLIST_TABLE).select('email,admin_id').limit(1);
+    if (!error) return true; // table present, admin_id column present
     if (/does not exist|could not find/i.test(String(error.message))) {
-      console.warn('[supabase] admin_allowlist is missing the role column — run the ALTER TABLE statement from server/setup_admin_allowlist.sql in the Supabase dashboard. Sign-in keeps working with the default role until then.');
+      console.warn('[supabase] admin_allowlist is missing the admin_id column — ids are derived from emails until the ALTER TABLE from server/setup_admin_allowlist.sql is run.');
       return false;
     }
   } catch (e) { /* fall through to create attempt */ }
@@ -211,7 +211,7 @@ async function ensureAdminAllowlistTable() {
       sql: `create table if not exists public.${ADMIN_ALLOWLIST_TABLE} (
         email      text        primary key,
         name       text        not null default '',
-        role       text        not null default 'admin',
+        admin_id   text        unique,
         active     boolean     not null default true,
         created_at timestamptz not null default now()
       )`,
@@ -232,6 +232,17 @@ async function ensureAdminAllowlistTable() {
  * OR the table does not exist (so the server can keep booting from the
  * env-var fallback in config/security.js).
  */
+const crypto = require('crypto');
+
+// Stable public identifier for an admin: admin_ + 8 hex chars derived from the
+// email. Deterministic means the id is identical whether or not the admin_id
+// column has been added yet, so rows never change identity across the
+// migration. Collision space (16^8 ≈ 4.3B) is far beyond roster sizes.
+function deterministicAdminId(email) {
+  const hash = crypto.createHash('sha256').update(String(email || '').trim().toLowerCase()).digest('hex');
+  return `admin_${hash.slice(0, 8)}`;
+}
+
 async function getAdminAllowlist() {
   const client = getClient();
   if (!client) return [];
@@ -241,20 +252,29 @@ async function getAdminAllowlist() {
       .select(ADMIN_ALLOWLIST_COLUMNS.join(','))
       .order('created_at', { ascending: true });
     if (!error) {
-      return (data || []).map(mapAdminAllowlistRow).filter((row) => row.email);
+      const rows = (data || []).map(mapAdminAllowlistRow).filter((row) => row.email);
+      // Backfill: persist derived ids for rows that predate the admin_id
+      // column. Best-effort — a failed write only delays persistence.
+      const missing = rows.filter((row) => !row.adminIdPersisted);
+      if (missing.length) {
+        await Promise.all(missing.map((row) =>
+          client.from(ADMIN_ALLOWLIST_TABLE).update({ admin_id: row.adminId }).eq('email', row.email)
+            .then(({ error: upErr }) => { if (upErr) console.warn('[supabase] admin_id backfill failed for', row.email, upErr.message); })
+        ).map((p) => p.catch(() => {})));
+      }
+      return rows;
     }
-    // Schema drift: a roster created before the role column exists fails the
-    // full-column select ("column ... does not exist"). That must never block
-    // admin sign-in, so fall back to the base columns and treat everyone as
-    // the default role. The retry is same-call and stateless, so the read
-    // self-heals the moment the column is added — no restart needed.
+    // Schema drift: a roster created before the admin_id column exists fails
+    // the full-column select. That must never block admin sign-in, so fall
+    // back to the base columns and derive ids from emails (identical values —
+    // see deterministicAdminId). The read self-heals the moment the column is
+    // added — no restart needed.
     if (/does not exist|could not find/i.test(String(error.message))) {
       const retry = await client
         .from(ADMIN_ALLOWLIST_TABLE)
         .select('email,name,active,created_at')
         .order('created_at', { ascending: true });
       if (!retry.error) {
-        console.warn('[supabase] admin_allowlist: role column missing — reading base columns (run the ALTER TABLE from server/setup_admin_allowlist.sql to enable roles).');
         return (retry.data || []).map(mapAdminAllowlistRow).filter((row) => row.email);
       }
       console.warn('[supabase] admin_allowlist base-column read failed:', retry.error.message);
@@ -269,11 +289,11 @@ async function getAdminAllowlist() {
 }
 
 function mapAdminAllowlistRow(row) {
-  const role = String(row.role || '').trim().toLowerCase();
   return {
     email: String(row.email || '').trim().toLowerCase(),
     name: String(row.name || '').trim(),
-    role: ADMIN_ROLES.includes(role) ? role : 'admin',
+    adminId: String(row.admin_id || '').trim() || deterministicAdminId(row.email),
+    adminIdPersisted: Boolean(String(row.admin_id || '').trim()),
     active: row.active !== false,
     createdAt: row.created_at || null,
   };
@@ -286,37 +306,38 @@ function normalizeAdminEmail(email) {
 }
 
 /**
- * Add (or reactivate) an administrator. The email is the primary key, so an
- * existing row is refreshed with the new name/role/active instead of failing —
- * the caller decides whether that is an error (route checks existence first).
+ * Add (or refresh) an administrator. The email is the primary key, so an
+ * existing row is refreshed with the new name instead of failing — the caller
+ * decides whether that is an error (route checks existence first).
  */
-async function upsertAdminAllowlist({ email, name, role, active }) {
+async function upsertAdminAllowlist({ email, name, active }) {
   const client = getClient();
   if (!client) throw new Error('Supabase is not configured');
   const normalized = normalizeAdminEmail(email);
   if (!normalized) throw new Error('A valid email address is required');
-  const safeRole = ADMIN_ROLES.includes(String(role || '').toLowerCase()) ? String(role).toLowerCase() : 'admin';
   const row = {
     email: normalized,
     name: String(name || '').trim().slice(0, 120),
-    role: safeRole,
+    admin_id: deterministicAdminId(normalized),
     active: active !== false,
   };
   let { error } = await client.from(ADMIN_ALLOWLIST_TABLE).upsert(row);
-  if (error && /does not exist|could not find/i.test(String(error.message)) && /role/i.test(String(error.message))) {
-    // Pre-role table: write without the role field so Add/Activate still works.
-    const withoutRole = { ...row };
-    delete withoutRole.role;
-    ({ error } = await client.from(ADMIN_ALLOWLIST_TABLE).upsert(withoutRole));
-    if (!error) console.warn('[supabase] admin_allowlist: wrote without role (role column missing — see server/setup_admin_allowlist.sql).');
+  if (error && /does not exist|could not find/i.test(String(error.message)) && /admin_id/i.test(String(error.message))) {
+    // Pre-admin_id table: write without the id field; it backfills on read
+    // once the column exists.
+    const withoutId = { ...row };
+    delete withoutId.admin_id;
+    ({ error } = await client.from(ADMIN_ALLOWLIST_TABLE).upsert(withoutId));
+    if (!error) console.warn('[supabase] admin_allowlist: wrote without admin_id (column missing — see server/setup_admin_allowlist.sql).');
   }
   if (error) throw new Error(error.message);
-  return { email: normalized, name: row.name, role: safeRole, active: row.active };
+  return { email: normalized, name: row.name, adminId: row.admin_id, active: row.active };
 }
 
 /**
- * Patch an existing administrator (name, role, active). Returns the updated
- * row, or null when the email is not on the roster.
+ * Rename an existing administrator. Returns the updated row, or null when the
+ * email is not on the roster. (Roster entries are plain admins — there is no
+ * role or active toggling from the panel.)
  */
 async function updateAdminAllowlist(email, patch = {}) {
   const client = getClient();
@@ -325,25 +346,16 @@ async function updateAdminAllowlist(email, patch = {}) {
   if (!normalized) throw new Error('A valid email address is required');
   const update = {};
   if (patch.name !== undefined) update.name = String(patch.name || '').trim().slice(0, 120);
-  if (patch.role !== undefined) {
-    const role = String(patch.role || '').toLowerCase();
-    if (!ADMIN_ROLES.includes(role)) throw new Error('Unknown role');
-    update.role = role;
-  }
-  if (patch.active !== undefined) update.active = patch.active === true || patch.active === 'true';
   if (Object.keys(update).length === 0) return null;
   let { data, error } = await client
     .from(ADMIN_ALLOWLIST_TABLE)
     .update(update)
     .eq('email', normalized)
     .select(ADMIN_ALLOWLIST_COLUMNS.join(','));
-  if (error && /does not exist|could not find/i.test(String(error.message)) && /role/i.test(String(error.message))) {
-    // Pre-role table: retry without touching the role field.
-    const withoutRole = { ...update };
-    delete withoutRole.role;
+  if (error && /does not exist|could not find/i.test(String(error.message)) && /admin_id/i.test(String(error.message))) {
     ({ data, error } = await client
       .from(ADMIN_ALLOWLIST_TABLE)
-      .update(withoutRole)
+      .update(update)
       .eq('email', normalized)
       .select('email,name,active,created_at'));
   }
@@ -1894,7 +1906,7 @@ module.exports = {
   updateAdminAllowlist,
   deleteAdminAllowlist,
   getLastAdminLogins,
-  ADMIN_ROLES,
+  deterministicAdminId,
   ADMIN_ALLOWLIST_TABLE,
   // Test helpers
   _clearMaintenanceCachesForTests,

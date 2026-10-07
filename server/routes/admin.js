@@ -155,23 +155,45 @@ function reportDebug(hypothesisId, location, msg, data = {}, runId = process.env
 
 // The administrator roster lives in Supabase (table: admin_allowlist). These
 // endpoints give the Admin & Role Management page a live, editable view of the
-// REAL credentials: membership, name, role, active flag and joined date come
-// from the roster table; Last Login comes from the admin_sessions records.
-// Every mutation re-hydrates the in-process sign-in cache (normally refreshed
-// every 60s) so a roster change takes effect on the next sign-in immediately.
-// Self-protection guards: an admin cannot deactivate or delete their own
-// account here, and the last active admin can never be removed or disabled —
-// those actions would otherwise lock the panel permanently.
+// REAL credentials: name, admin_id, active flag and joined date come from the
+// roster table, Last Login from admin_sessions, and the avatar (the Google
+// photo persisted at sign-in) from the admin profile store. Every entry is a
+// plain admin — there are no roles and no deactivation from the panel; access
+// is purely "on the roster and active". Every mutation re-hydrates the
+// in-process sign-in cache (normally refreshed every 60s) so a roster change
+// takes effect on the next sign-in immediately. Self-protection guards: an
+// admin cannot delete their own account here, and the last remaining admin can
+// never be removed — those actions would otherwise lock the panel permanently.
 
 function adminMutationGuard(targetEmail, callerEmail, currentRoster) {
   if (targetEmail === callerEmail) {
-    return 'You cannot change your own account status or remove yourself from the roster. Ask another admin, or edit the roster directly in Supabase.';
+    return 'You cannot remove your own account from the roster. Ask another admin, or edit the roster directly in Supabase.';
   }
-  const activeOthers = currentRoster.filter((a) => a.active && a.email !== targetEmail);
-  if (activeOthers.length === 0) {
-    return 'This is the last active administrator. Add and activate another admin first, or edit the roster directly in Supabase.';
+  const remaining = currentRoster.filter((a) => a.email !== targetEmail);
+  if (remaining.length === 0) {
+    return 'This is the last administrator. Add another admin first, or edit the roster directly in Supabase.';
   }
   return null;
+}
+
+async function getAdminAvatarsByEmail(emails) {
+  // Google photos are persisted to the admin profile at every sign-in
+  // (routes/auth.js), so the panel shows the same picture Google verified —
+  // read-only here; missing profiles simply fall back to the initials tile.
+  if (!Array.isArray(emails) || emails.length === 0) return {};
+  try {
+    const docs = await Admin.find({ email: { $in: emails } })
+      .select('email profile_image')
+      .lean();
+    const map = {};
+    for (const d of docs || []) {
+      if (d && d.email && d.profile_image) map[String(d.email).toLowerCase()] = d.profile_image;
+    }
+    return map;
+  } catch (e) {
+    console.warn('[admin] avatar lookup failed (falling back to initials):', e.message);
+    return {};
+  }
 }
 
 router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => {
@@ -185,15 +207,14 @@ router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => 
       // fabricated list. The panel shows the notice and a retry button.
       return res.json({ admins: [], total: 0, source: 'unavailable' });
     }
+    const avatars = await getAdminAvatarsByEmail(roster.map((a) => a.email));
     const admins = roster.map((a) => ({
-      // The email is the roster's primary key, so it doubles as the row id.
-      id: a.email,
+      // Stable public identifier (admin_xxxxxxxx): derived from the email and
+      // persisted in the roster once the admin_id column exists.
+      id: a.adminId,
       name: a.name,
       email: a.email,
-      role: a.role,
-      is_active: a.active,
-      phone: '',
-      profile_image: '',
+      avatar_url: avatars[a.email] || '',
       created_at: a.createdAt,
       last_login: lastLogins[a.email] || null,
     }));
@@ -208,17 +229,13 @@ router.post('/create-admin', authenticateToken, requireAdmin, adminMutationLimit
   try {
     const name = String(req.body.name || '').trim();
     const email = String(req.body.email || '').trim().toLowerCase();
-    const role = String(req.body.role || 'admin').trim().toLowerCase();
-    if (!supabase.ADMIN_ROLES.includes(role)) {
-      return res.status(400).json({ error: 'Role must be owner, admin or support.', code: 'INVALID_ROLE' });
-    }
     const existing = await supabase.getAdminAllowlist();
     if (existing.some((a) => a.email === email)) {
       return res.status(409).json({ error: 'That email is already on the administrator roster.', code: 'ADMIN_EXISTS' });
     }
-    const created = await supabase.upsertAdminAllowlist({ email, name, role, active: true });
+    const created = await supabase.upsertAdminAllowlist({ email, name, active: true });
     await refreshAdminRoster().catch(() => {});
-    console.log(`[admin] roster add ${created.email} role=${created.role} by=${req.user.email}`);
+    console.log(`[admin] roster add ${created.email} (${created.adminId}) by=${req.user.email}`);
     return res.json({ message: `Administrator ${created.email} added to the Supabase roster.`, admin: created });
   } catch (e) {
     console.warn('[admin] create-admin failed:', e.message);
@@ -230,22 +247,14 @@ router.put('/update-admin/:email', authenticateToken, requireAdmin, adminMutatio
   try {
     const target = String(req.params.email || '').trim().toLowerCase();
     const patch = {};
-    if (req.body.role !== undefined) patch.role = String(req.body.role).trim().toLowerCase();
-    if (req.body.is_active !== undefined) patch.active = req.body.is_active === true;
     if (req.body.name !== undefined) patch.name = String(req.body.name).trim();
-    if (patch.role !== undefined && !supabase.ADMIN_ROLES.includes(patch.role)) {
-      return res.status(400).json({ error: 'Role must be owner, admin or support.', code: 'INVALID_ROLE' });
-    }
-    const roster = await supabase.getAdminAllowlist();
-    const entry = roster.find((a) => a.email === target);
-    if (!entry) {
-      return res.status(404).json({ error: 'That email is not on the administrator roster.', code: 'ADMIN_NOT_FOUND' });
-    }
-    if (patch.active === false) {
-      const guard = adminMutationGuard(entry.email, String(req.user.email || '').toLowerCase(), roster);
-      if (guard) return res.status(403).json({ error: guard, code: 'ROSTER_SELF_LOCKOUT' });
+    if (Object.keys(patch).length === 0) {
+      return res.status(400).json({ error: 'Nothing to update — only the display name can be changed here.', code: 'NOTHING_TO_UPDATE' });
     }
     const updated = await supabase.updateAdminAllowlist(target, patch);
+    if (!updated) {
+      return res.status(404).json({ error: 'That email is not on the administrator roster.', code: 'ADMIN_NOT_FOUND' });
+    }
     await refreshAdminRoster().catch(() => {});
     console.log(`[admin] roster update ${target} fields=${Object.keys(patch).join('+')} by=${req.user.email}`);
     return res.json({ message: `Administrator ${target} updated.`, admin: updated });

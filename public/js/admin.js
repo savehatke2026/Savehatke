@@ -2910,7 +2910,6 @@ function initCreateAdminForm() {
         body: {
           name: document.getElementById('newAdminName').value.trim(),
           email: document.getElementById('newAdminEmail').value.trim(),
-          role: document.getElementById('newAdminRole').value,
         },
       });
 
@@ -2993,65 +2992,41 @@ function adminInitials(name, email) {
   return src.slice(0, 2).toUpperCase();
 }
 
-// Role → badge color (matches the existing palette in vault.html). Roles come
-// from the Supabase roster as lowercase: owner | admin | support.
-function adminRoleClass(role) {
-  const r = String(role || '').toLowerCase();
-  if (r === 'owner') return 'purple';
-  if (r === 'support') return 'teal';
-  return 'blue';
-}
-function adminRoleLabel(role) {
-  const r = String(role || '').toLowerCase();
-  if (r === 'owner') return 'Owner';
-  if (r === 'support') return 'Support';
-  return 'Admin';
-}
-
-// Build a single row's HTML. The row id IS the admin's email (the roster's
-// primary key); it is URL-encoded inside inline handlers because emails
-// contain @ and occasionally quotes.
+// Build a single row's HTML. The row id is the admin's stable admin_id
+// (admin_xxxxxxxx); mutations address the row by its email (the roster's
+// primary key), URL-encoded in inline handlers because emails contain @.
 function adminRowHtml(a) {
-  const realId = a.id || '';
-  const shortId = realId ? realId.slice(0, 8) : '—';
-  const name = a.name || realId.split('@')[0] || 'Admin';
-  const email = a.email || realId;
-  const role = String(a.role || 'admin').toLowerCase();
+  const adminId = a.id || '';
+  const name = a.name || (a.email || '').split('@')[0] || 'Admin';
+  const email = a.email || '';
   const initials = adminInitials(name, email);
+  // The avatar is the Google photo persisted to the admin profile at sign-in;
+  // a failed load (rotated URL, blocked host) falls back to the initials tile.
+  const avatar = a.avatar_url
+    ? `<img src="${escHtml(a.avatar_url)}" alt="" referrerpolicy="no-referrer" loading="lazy" onerror="this.replaceWith(document.createTextNode('${escHtml(initials)}'))">`
+    : escHtml(initials);
   const lastLogin = fmtDateTime(a.last_login);
   const lastLoginRel = fmtRelative(a.last_login);
   const joined = fmtDate(a.created_at);
-  const roleClass = adminRoleClass(role);
-  const statusClass = a.is_active ? 'green' : 'red';
-  const statusLabel = a.is_active ? 'Active' : 'Inactive';
-  const em = encodeURIComponent(realId);
+  const em = encodeURIComponent(email);
 
   return `
-    <tr data-admin-id="${escHtml(realId)}">
+    <tr data-admin-id="${escHtml(adminId)}">
       <td>
-        <span class="admin-id" title="Click to copy full email" onclick="copyAdminId(this, '${escHtml(realId)}')">
-          <span>${escHtml(shortId)}…</span>
+        <span class="admin-id" title="Click to copy the admin ID" onclick="copyAdminId(this, '${escHtml(adminId)}')">
+          <span>${escHtml(adminId)}</span>
           <span style="font-size:.85em;opacity:.7">⧉</span>
         </span>
       </td>
       <td>
         <div class="admin-cell">
-          <div class="admin-avatar">${escHtml(initials)}</div>
+          <div class="admin-avatar">${avatar}</div>
           <div style="min-width:0">
             <div class="admin-name">${escHtml(name)}</div>
             <div class="admin-email">${escHtml(email)}</div>
           </div>
         </div>
       </td>
-      <td>
-        <select class="form-select btn-sm" style="min-width:108px" onchange="changeAdminRole('${em}', this.value)" title="Change this admin's role">
-          <option value="owner" ${role === 'owner' ? 'selected' : ''}>Owner</option>
-          <option value="admin" ${role === 'admin' ? 'selected' : ''}>Admin</option>
-          <option value="support" ${role === 'support' ? 'selected' : ''}>Support</option>
-        </select>
-      </td>
-      <td><span class="badge badge-${roleClass}">${escHtml(adminRoleLabel(role))}</span></td>
-      <td><span class="badge badge-${statusClass}">${statusLabel}</span></td>
       <td class="nowrap">
         <div class="admin-dt">
           <div class="admin-dt-time">${escHtml(lastLogin)}</div>
@@ -3061,9 +3036,6 @@ function adminRowHtml(a) {
       <td class="admin-dt admin-dt-time nowrap">${escHtml(joined)}</td>
       <td>
         <div class="admin-actions ta-right">
-          <button class="btn btn-ghost btn-xs" onclick="toggleAdminStatus('${em}', ${!a.is_active})" title="${a.is_active ? 'Deactivate this admin' : 'Activate this admin'}">
-            ${a.is_active ? '⏸ Deactivate' : '▶ Activate'}
-          </button>
           <button class="btn btn-danger btn-xs" onclick="deleteAdminUser('${em}')" title="Remove this admin from the Supabase roster">
             🗑 Delete
           </button>
@@ -3082,7 +3054,7 @@ function renderAdminsTable() {
   const filtered = !q
     ? ADMINS_CACHE
     : ADMINS_CACHE.filter((a) => {
-        const blob = ((a.name || '') + ' ' + (a.email || '') + ' ' + (a.role || '')).toLowerCase();
+        const blob = ((a.name || '') + ' ' + (a.email || '') + ' ' + (a.id || '')).toLowerCase();
         return blob.includes(q);
       });
 
@@ -3103,7 +3075,7 @@ function renderAdminsTable() {
         <div class="admin-empty-icon">${q ? '🔍' : '👥'}</div>
         <div class="admin-empty-title">${q ? 'No admins match your search' : 'No admin accounts yet'}</div>
         <div class="admin-empty-hint">${q
-          ? 'Try a different name, email, or role.'
+          ? 'Try a different name, email, or ID.'
           : 'Use the "Add Administrator" button above to add the first one.'}</div>
       </div>
     `;
@@ -3117,17 +3089,13 @@ function renderAdminsTable() {
     <div class="overflow-x">
       <table class="data-table">
         <colgroup>
-          <col style="width:118px"><col style="width:250px"><col style="width:120px">
-          <col style="width:100px"><col style="width:100px"><col style="width:158px">
-          <col style="width:110px"><col style="width:188px">
+          <col style="width:170px"><col style="width:280px"><col style="width:170px">
+          <col style="width:120px"><col style="width:140px">
         </colgroup>
         <thead>
           <tr>
-            <th>ID</th>
+            <th>Admin ID</th>
             <th>Admin</th>
-            <th>Role</th>
-            <th>Type</th>
-            <th>Status</th>
             <th>Last Login</th>
             <th>Joined</th>
             <th class="ta-right">Actions</th>
@@ -3140,7 +3108,7 @@ function renderAdminsTable() {
     </div>
     <div class="admin-tfoot">
       <span>Showing <strong>${filtered.length}</strong> of <strong>${ADMINS_CACHE.length}</strong> admin${ADMINS_CACHE.length === 1 ? '' : 's'} from ${store}${q ? ` matching "<strong style="color:#4fc3f7">${escHtml(q)}</strong>"` : ''}.</span>
-      <span>Click any ID chip to copy the admin's email. Last Login comes from the admin session records.</span>
+      <span>Click an ID chip to copy it. Last Login comes from the admin session records; avatars are the Google photos saved at sign-in.</span>
     </div>
   `;
 }
@@ -3208,35 +3176,6 @@ async function loadAdminsList(force) {
         <button class="btn btn-ghost btn-sm" style="margin-top:14px" onclick="loadAdminsList(true)">🔄 Retry</button>
       </div>
     `;
-  }
-}
-
-async function toggleAdminStatus(email, newActiveState) {
-  try {
-    await api(`/admin/update-admin/${encodeURIComponent(email)}`, {
-      method: 'PUT',
-      useAdmin: true,
-      body: { is_active: newActiveState },
-    });
-    showToast(`Admin ${newActiveState ? 'activated' : 'deactivated'}: ${email}`, 'success');
-    loadAdminsList();
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-
-async function changeAdminRole(email, role) {
-  try {
-    await api(`/admin/update-admin/${encodeURIComponent(email)}`, {
-      method: 'PUT',
-      useAdmin: true,
-      body: { role },
-    });
-    showToast(`Role updated to ${role} for ${email}`, 'success');
-    loadAdminsList();
-  } catch (err) {
-    showToast(err.message, 'error');
-    loadAdminsList(); // re-render so the select snaps back to the stored role
   }
 }
 

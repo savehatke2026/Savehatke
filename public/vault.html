@@ -2276,7 +2276,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ ADMINS & ROLES (Supabase roster) ════════════════ -->
     <div class="section-view" id="sec-admins">
       <div class="page-title-row">
-        <div><div class="page-title">Admin &amp; Role <span class="gtext">Management</span></div><div class="page-subtitle">Live Supabase roster (admin_allowlist) — sign-in access, roles and status</div></div>
+        <div><div class="page-title">Admin &amp; Role <span class="gtext">Management</span></div><div class="page-subtitle">Live Supabase roster (admin_allowlist) — every entry is a full admin with a unique Admin ID</div></div>
         <button class="btn btn-primary btn-lg" onclick="openAddAdminModal()">➕ Add Administrator</button>
       </div>
 
@@ -2285,7 +2285,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div class="table-header">
           <h3>Administrator Roster</h3>
           <div class="table-header-actions">
-            <input class="form-input btn-sm" id="adminsSearch" style="width:220px" placeholder="🔍 Search name, email, role..." oninput="filterAdmins()">
+            <input class="form-input btn-sm" id="adminsSearch" style="width:220px" placeholder="🔍 Search name, email, ID..." oninput="filterAdmins()">
             <button class="btn btn-ghost btn-sm" onclick="loadAdminsList()">🔄 Refresh</button>
           </div>
         </div>
@@ -6192,24 +6192,14 @@ function maybeLoadPayouts() {
 
     <form id="createAdminForm" autocomplete="off">
       <div style="padding:22px 24px;max-height:calc(85vh - 150px);overflow-y:auto;">
-        <div class="form-grid form-grid-2">
-          <div class="form-group">
-            <label class="form-label" for="newAdminName">Name</label>
-            <input class="form-input" type="text" id="newAdminName" maxlength="120" placeholder="e.g. Rupayan Das">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="newAdminRole">Role</label>
-            <select class="form-select" id="newAdminRole">
-              <option value="admin" selected>Admin — full panel access</option>
-              <option value="owner">Owner — platform owner</option>
-              <option value="support">Support — support operations</option>
-            </select>
-          </div>
+        <div class="form-group">
+          <label class="form-label" for="newAdminName">Name</label>
+          <input class="form-input" type="text" id="newAdminName" maxlength="120" placeholder="e.g. Rupayan Das">
         </div>
         <div class="form-group">
           <label class="form-label" for="newAdminEmail">Google Email *</label>
           <input class="form-input" type="email" id="newAdminEmail" required maxlength="254" placeholder="the email they sign in with">
-          <small style="color:#6b88aa">Must match the Google account they use for "Sign in with Google".</small>
+          <small style="color:#6b88aa">Must match the Google account they use for "Sign in with Google". A unique Admin ID is generated automatically.</small>
         </div>
       </div>
 
