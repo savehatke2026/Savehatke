@@ -104,8 +104,13 @@ function payoutSummary(coupon, payout) {
   // value (never the marketplace sellingPrice, never the stored value). The
   // stored value is also returned so a discrepancy is visible — admin can see
   // the row's stored payout next to the formula-correct one.
+  //
+  // The coupon itself is spread in first: this summary is also the LIST row
+  // shape for GET /admin/coupons and the review-record payload, so dropping
+  // the coupon fields would blank every card (brand, code, title, prices...).
   const info = couponPayoutInfo(coupon);
   return {
+    ...coupon,
     ...info,
     sellerPayout: info.payoutEligible ? info.sellerPayout : null,
     sellerPayoutStored: coupon && coupon.sellerPayout !== undefined ? coupon.sellerPayout : null,
