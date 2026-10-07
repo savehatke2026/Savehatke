@@ -53,7 +53,7 @@ const GmailApp = (() => {
     if (status === 'connected') {
       toast('Support mailbox connected!', 'success');
       if (params.get('ephemeral') === '1') {
-        toast('Token is temporary — use "Show token" to store GMAIL_REFRESH_TOKEN permanently.', 'warning');
+        toast('Token is temporary — it will be stored permanently in Supabase once the credential table is reachable.', 'warning');
       }
     }
     if (status === 'error') toast(`Gmail connection failed: ${params.get('msg') || 'unknown error'}`, 'error');
@@ -120,19 +120,19 @@ const GmailApp = (() => {
       return `
         <div class="gm-setup">
           <h3>⚠️ The saved Gmail token was rejected</h3>
-          <p>Google refused the stored refresh token — access was probably revoked from the Google account, or <code>GMAIL_REFRESH_TOKEN</code> is stale.</p>
-          <p>Click <strong>Connect Gmail</strong> above and sign in again with the support mailbox${data.expectedEmail ? ` (<code>${esc(data.expectedEmail)}</code>)` : ''}.</p>
+          <p>Google refused the stored refresh token — access was probably revoked from the Google account, or the token expired (Google "Testing" OAuth apps expire tokens weekly).</p>
+          <p>Click <strong>Connect Gmail</strong> above and sign in again with the support mailbox${data.expectedEmail ? ` (<code>${esc(data.expectedEmail)}</code>)` : ''}. The new token is stored encrypted in Supabase automatically.</p>
           <p style="opacity:.7">Server detail: <em>${esc(serverMessage || '')}</em></p>
         </div>`;
     }
     if (reason === 'not-connected') {
       return `
         <div class="gm-setup">
-          <h3>📮 No database required</h3>
-          <p>Sign in once with the support mailbox${data.expectedEmail ? ` <code>${esc(data.expectedEmail)}</code>` : ''}. The server keeps only Google's refresh token — messages are always read live from Gmail, nothing is copied into a database.</p>
+          <h3>📮 Connect once — Supabase remembers</h3>
+          <p>Sign in with the support mailbox${data.expectedEmail ? ` <code>${esc(data.expectedEmail)}</code>` : ''}. The server keeps only Google's encrypted refresh token (AES‑256‑GCM in Supabase) — messages are always read live from Gmail, nothing is copied into a database.</p>
           <p>Make sure this exact redirect URI is registered on the OAuth client in Google Cloud Console:</p>
           <pre>${esc(redirectUri)}</pre>
-          <p style="opacity:.7">After connecting, you'll get the token value to store as <code>GMAIL_REFRESH_TOKEN</code> so the connection survives restarts and redeploys.</p>
+          <p style="opacity:.7">After connecting, the token is stored encrypted in Supabase automatically — no environment variable to copy.</p>
         </div>`;
     }
     if (reason === 'server-error') {
@@ -160,10 +160,11 @@ const GmailApp = (() => {
     $('gmAccountBadge').textContent = `✅ ${email}`;
   }
 
-  // ── Token durability banner (replaces the old DB connection record) ───────
-  // tokenSource: 'env'    → permanent, nothing to do
-  //              'file'   → saved on this server's disk
-  //              'memory' → lost on restart/redeploy (serverless) → prompt
+  // ── Token durability banner ───────────────────────────────────────────────
+  // tokenSource: 'supabase'       → permanent (encrypted in Supabase) — nothing to do
+  //              'env-deprecated' → legacy env var → run the migration script
+  //              'file'           → saved on this server's disk (dev)
+  //              'memory'         → lost on restart/redeploy (serverless) → prompt
   function renderTokenBanner(data) {
     let bar = $('gmTokenBar');
     if (!bar) {
@@ -179,7 +180,8 @@ const GmailApp = (() => {
       ? `<div style="margin-top:6px">⚠️ Connected as <strong>${esc(data.gmailEmail || '')}</strong>, but the configured support address is <strong>${esc(data.expectedEmail || '')}</strong>.</div>`
       : '';
 
-    if (!data || data.tokenSource === 'env') {
+    if (!data || data.tokenSource === 'supabase' || data.tokenSource === 'env') {
+      // Permanent storage — nothing for the admin to do.
       if (mismatchNote) {
         bar.style.display = '';
         bar.innerHTML = mismatchNote;
@@ -190,32 +192,19 @@ const GmailApp = (() => {
       return;
     }
 
-    bar.style.display = '';
-    bar.innerHTML = `
-      ${data.durable === false
-        ? '⚠️ This connection is <strong>temporary</strong> — it will be lost when the server restarts or redeploys.'
-        : 'ℹ️ The Gmail token is saved on this server\'s disk only.'}
-      Store it as <code>GMAIL_REFRESH_TOKEN</code> to make it permanent.
-      <button class="btn btn-sm" style="margin-left:8px" onclick="GmailApp.revealToken()">Show token</button>
-      ${mismatchNote}
-      <div id="gmTokenReveal" style="margin-top:8px"></div>`;
-  }
-
-  // Fetch the refresh token once so the admin can paste it into the server env.
-  async function revealToken() {
-    try {
-      const data = await api('/refresh-token');
-      const box = $('gmTokenReveal');
-      if (!box) return;
-      box.innerHTML = `
-        <div style="background:#0a1120;border:1px solid rgba(0,230,118,.25);border-radius:10px;padding:10px">
-          <div style="color:#8fa8c8;margin-bottom:6px">Add this to the server environment, then redeploy / restart:</div>
-          <textarea readonly rows="3" onclick="this.select()" style="width:100%;background:#060d1f;color:#00e676;border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:8px;font-family:'JetBrains Mono',monospace;font-size:.72rem">GMAIL_REFRESH_TOKEN=${esc(data.refreshToken || '')}</textarea>
-          <div style="color:#6b88aa;margin-top:6px;font-size:.72rem">Treat this like a password — it grants ongoing access to ${esc(data.gmailEmail || 'the mailbox')}.</div>
-        </div>`;
-    } catch (err) {
-      toast(err.message || 'Could not read the refresh token.', 'error');
+    let note;
+    if (data.tokenSource === 'env-deprecated') {
+      note = 'ℹ️ The Gmail token still comes from the deprecated <code>GMAIL_REFRESH_TOKEN</code> environment variable. ' +
+        'Run <code>node server/scripts/migrate-support-gmail-to-supabase.js</code> to store it encrypted in Supabase, then remove that env var.';
+    } else if (data.durable === false) {
+      note = '⚠️ This connection is <strong>temporary</strong> — it will be lost when the server restarts or redeploys. ' +
+        'Reconnect once Supabase is reachable so the token is stored encrypted there.';
+    } else {
+      note = 'ℹ️ The Gmail token is saved on this server\'s disk only (dev mode). It is stored encrypted in Supabase in production.';
     }
+
+    bar.style.display = '';
+    bar.innerHTML = `${note}${mismatchNote}`;
   }
 
   // ── OAuth connect / disconnect ───────────────────────────────────────────
@@ -796,6 +785,6 @@ const GmailApp = (() => {
     openCompose, reply, replyAll, forward, toggleCcBcc, closeCompose,
     addFiles, removeAtt, sendCompose, saveDraft,
     confirmDialog, closeConfirm, toggleSide,
-    loadStatus, revealToken,
+    loadStatus,
   };
 })();

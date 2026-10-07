@@ -1,9 +1,10 @@
 // ============================================
 // SaveHatke — Gmail Admin Routes
 // Mounted at /api/admin/gmail behind JWT admin auth.
-// All Gmail tokens stay server-side. NO DATABASE:
-// the single support mailbox's refresh token is held by
-// services/gmailTokenStore (GMAIL_REFRESH_TOKEN env var or local token file).
+// All Gmail tokens stay server-side: the single support mailbox's refresh
+// token is stored AES-256-GCM encrypted in Supabase (security_credentials,
+// service='support_gmail', via services/supportMailboxStore); the
+// GMAIL_REFRESH_TOKEN env var and the local token file are fallbacks only.
 // ============================================
 
 const express = require('express');
@@ -97,6 +98,9 @@ function handleGmailError(res, err, context = 'Gmail request failed') {
   const status = err?.response?.status || err?.code || 500;
   const msg = err?.response?.data?.error?.message || err?.message || '';
   if (status === 401 || /invalid_grant|Token has been expired|re-authenticate/i.test(msg)) {
+    // Record the revoked/expired state on the stored credential (safe message
+    // only) so the panel reports "reconnect required" even outside /status.
+    tokenStore.markReauthRequired('Support Mailbox Google refresh token is invalid or revoked. Reconnect Gmail.');
     return res.status(401).json({ error: 'Gmail connection expired. Please disconnect and reconnect Gmail.', expired: true });
   }
   if (status === 403) {
@@ -140,7 +144,7 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
       });
     }
 
-    const conn = tokenStore.getConnection();
+    const conn = await tokenStore.getConnection();
     if (!conn) {
       return res.json({
         configured: true,
@@ -166,6 +170,9 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
       // Token present but Gmail rejected it — tell the panel to reconnect.
       const msg = e?.response?.data?.error_description || e?.message || '';
       if (/invalid_grant|unauthorized|invalid_client/i.test(msg)) {
+        // Flag the stored credential (Supabase) so the panel shows a clear
+        // authentication-required state. Never logs the token.
+        tokenStore.markReauthRequired('Support Mailbox Google refresh token is invalid or revoked. Reconnect Gmail.');
         return res.json({
           configured: true,
           connected: false,
@@ -185,7 +192,8 @@ router.get('/status', authenticateToken, requireAdmin, async (req, res) => {
       unreadCounts,
       watchExpiration: conn.watch_expiration,
       connectedAt: conn.connected_at,
-      // How durable the stored token is: 'env' | 'file' | 'memory'
+      // How durable the stored token is:
+      // 'supabase' | 'env-deprecated' | 'file' | 'memory'
       tokenSource: conn.source,
       durable: conn.durable,
       expectedEmail: expected || null,
@@ -401,8 +409,10 @@ router.get('/callback', gmailAuthLimiter, authenticateToken, requireAdmin, admin
     const gmailEmail = String(profile.data.emailAddress || '').toLowerCase();
     if (!gmailEmail) return done(false, 'Could not read the Gmail address.');
 
-    // No database — store the refresh token in the env var / local token file.
-    const saved = tokenStore.saveConnection({
+    // Supabase-first storage — the refresh token is encrypted and UPSERTed into
+    // security_credentials (service='support_gmail'; file/memory only when
+    // Supabase is absent).
+    const saved = await tokenStore.saveConnection({
       refresh_token: tokens.refresh_token,
       gmail_email: gmailEmail,
       history_id: String(profile.data.historyId || ''),
@@ -423,13 +433,13 @@ router.get('/callback', gmailAuthLimiter, authenticateToken, requireAdmin, admin
 // POST /api/admin/gmail/disconnect
 router.post('/disconnect', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
-    const conn = tokenStore.getConnection();
+    const conn = await tokenStore.getConnection();
     const result = await gmailService.disconnect();
     audit(req, 'gmail.disconnect', conn?.gmail_email || '');
     res.json({
       ok: true,
       revoked: result.revoked,
-      // When the token came from an env var, it must be removed there too.
+      // When the token came from the deprecated env var, it must be removed there too.
       envStillSet: Boolean(result.envStillSet),
       message: result.envStillSet
         ? 'Access revoked at Google. GMAIL_REFRESH_TOKEN is still set on the server — remove it to fully disconnect.'
@@ -441,32 +451,14 @@ router.post('/disconnect', authenticateToken, requireAdmin, adminMutationLimiter
   }
 });
 
-// GET /api/admin/gmail/refresh-token — reveal the refresh token ONCE so the
-// admin can paste it into GMAIL_REFRESH_TOKEN (Vercel → Environment Variables)
-// and make the connection permanent.
-//
-// Security: admin JWT + rate limited + audit logged, and it refuses to echo a
-// token that is already stored in the environment (nothing left to set up).
+// GET /api/admin/gmail/refresh-token — RETIRED. The refresh token now lives
+// AES-256-GCM encrypted in Supabase (security_credentials, service='support_gmail')
+// and is never echoed to the browser. The connection is durable automatically:
+// there is nothing to paste into GMAIL_REFRESH_TOKEN anymore.
 router.get('/refresh-token', gmailAuthLimiter, authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const conn = tokenStore.getConnection();
-    if (!conn) return res.status(400).json({ error: 'The support mailbox is not connected.' });
-    if (conn.source === 'env') {
-      return res.status(409).json({
-        error: 'GMAIL_REFRESH_TOKEN is already set on the server. The connection is permanent — nothing to copy.',
-      });
-    }
-    audit(req, 'gmail.token.reveal', conn.gmail_email, 'refresh token revealed for env setup');
-    res.json({
-      gmailEmail: conn.gmail_email,
-      envVar: 'GMAIL_REFRESH_TOKEN',
-      refreshToken: conn.refresh_token,
-      note: 'Add this as GMAIL_REFRESH_TOKEN in your server environment (Vercel → Settings → Environment Variables, or .env locally), then redeploy/restart.',
-    });
-  } catch (err) {
-    console.error('Gmail token reveal error:', err.message);
-    res.status(500).json({ error: 'Failed to read the refresh token.' });
-  }
+  res.status(410).json({
+    error: 'The support mailbox token is now stored encrypted in Supabase. There is nothing to copy — reconnect Gmail from this panel if the mailbox shows as disconnected, and remove the legacy GMAIL_REFRESH_TOKEN environment variable after running scripts/migrate-support-gmail-to-supabase.js.',
+  });
 });
 
 // ── Labels ───────────────────────────────────────────────────────────────────
@@ -973,7 +965,7 @@ router.post('/push', async (req, res) => {
     const email = String(payload.emailAddress || '').toLowerCase();
     const pushToken = String(msg.attributes?.pushToken || req.query.token || '');
 
-    const conn = tokenStore.getConnection();
+    const conn = await tokenStore.getConnection();
     if (!email || !pushToken || !conn || String(conn.gmail_email || '').toLowerCase() !== email ||
         !safeTokenEquals(conn.watch_push_token, pushToken)) {
       // Never reveal whether the account exists.

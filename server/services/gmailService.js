@@ -1,9 +1,10 @@
 // ============================================
 // SaveHatke — Gmail Service
 // Google OAuth 2.0 + Gmail API helpers.
-// All token handling stays server-side. No database is used:
-// the single support mailbox's refresh token lives in
-// GMAIL_REFRESH_TOKEN / the local token file (see gmailTokenStore).
+// All token handling stays server-side. The single support mailbox's refresh
+// token lives in Supabase (security_credentials, service='support_gmail') via
+// gmailTokenStore; the GMAIL_REFRESH_TOKEN env var / local token file are
+// fallbacks only.
 // ============================================
 
 const { google } = require('googleapis');
@@ -93,23 +94,27 @@ async function exchangeCode(code, requestBase) {
 /**
  * Return an authorized Gmail API client for the shared support mailbox.
  * Returns null when the mailbox has not been connected yet.
- * No database lookup — the refresh token comes from gmailTokenStore.
+ * The refresh token comes from gmailTokenStore (Supabase first, then the
+ * deprecated env var / token file / memory fallbacks).
  */
 async function getAuthorizedClient() {
-  const conn = tokenStore.getConnection();
+  const conn = await tokenStore.getConnection();
   if (!conn || !conn.refresh_token) return null;
 
   const oauth2 = getOAuth2Client();
   oauth2.setCredentials({ refresh_token: conn.refresh_token });
 
   // Keep access-token metadata and any rotated refresh token in step.
+  // Google only returns a new refresh token on SOME refreshes (and never on a
+  // plain access-token grant) — rotateRefreshToken persists it only when present.
   oauth2.on('tokens', (tokens) => {
     try {
       if (tokens.expiry_date) {
         tokenStore.updateMeta({ access_token_expires_at: new Date(tokens.expiry_date).toISOString() });
       }
       if (tokens.refresh_token && tokens.refresh_token !== conn.refresh_token) {
-        tokenStore.rotateRefreshToken(tokens.refresh_token);
+        tokenStore.rotateRefreshToken(tokens.refresh_token)
+          .catch((e) => console.warn('Gmail token rotation notice:', e.message));
       }
     } catch (e) {
       console.warn('Gmail token metadata update failed:', e.message);
@@ -124,7 +129,7 @@ async function getAuthorizedClient() {
  * Revoke the token with Google and forget it locally.
  */
 async function disconnect() {
-  const conn = tokenStore.getConnection();
+  const conn = await tokenStore.getConnection();
   if (!conn) return { revoked: false, envStillSet: false };
 
   // Best-effort revoke on Google's side
@@ -138,7 +143,7 @@ async function disconnect() {
     console.warn('Gmail token revoke notice:', e.message);
   }
 
-  const cleared = tokenStore.clearConnection();
+  const cleared = await tokenStore.clearConnection();
   return { revoked, ...cleared };
 }
 

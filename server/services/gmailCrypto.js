@@ -155,6 +155,70 @@ function isPaymentKeyConfigured() {
   return Boolean(getCredentialEncryptionKey());
 }
 
+// ── Support mailbox credential key (Supabase-stored token) ──────────────────
+// The Support Mailbox refresh token is stored AES-256-GCM encrypted in the
+// Supabase security_credentials table (service='support_gmail'). Its key
+// resolves from SUPPORT_MAILBOX_TOKEN_ENCRYPTION_KEY first, falling back to the
+// shared GMAIL_TOKEN_ENCRYPTION_KEY so a deploy that only set the shared key
+// keeps working. The key lives ONLY in the server env — never in Supabase, the
+// browser, or Git.
+function getSupportEncryptionKey() {
+  return deriveKey(
+    process.env.SUPPORT_MAILBOX_TOKEN_ENCRYPTION_KEY ||
+    process.env.GMAIL_TOKEN_ENCRYPTION_KEY
+  );
+}
+
+// DECRYPTION tries every configured candidate key (deduped). The AES-GCM auth
+// tag guarantees only the correct key yields a value, so a wrong key just
+// returns null and we move on — a token encrypted before the dedicated key was
+// introduced still round-trips.
+function getSupportKeyCandidates() {
+  const raws = [
+    process.env.SUPPORT_MAILBOX_TOKEN_ENCRYPTION_KEY,
+    process.env.GMAIL_TOKEN_ENCRYPTION_KEY,
+  ];
+  const seen = new Set();
+  const keys = [];
+  for (const raw of raws) {
+    const s = String(raw || '');
+    if (!s || seen.has(s)) continue; // skip empty and duplicate secrets
+    seen.add(s);
+    const key = deriveKey(s);
+    if (key) keys.push(key);
+  }
+  return keys;
+}
+
+/**
+ * Encrypt a plaintext secret with the SUPPORT mailbox credential key.
+ * Returns "v1.<iv>.<authTag>.<ciphertext>" (base64 parts).
+ * Throws if no encryption key is configured — tokens must never be stored in plaintext.
+ */
+function encryptSupportSecret(plaintext) {
+  const key = getSupportEncryptionKey();
+  if (!key) {
+    throw new Error(
+      'SUPPORT_MAILBOX_TOKEN_ENCRYPTION_KEY (or GMAIL_TOKEN_ENCRYPTION_KEY) is not configured.'
+    );
+  }
+  return encryptWithKey(key, plaintext);
+}
+
+/**
+ * Decrypt a value produced by encryptSupportSecret(). Returns null on failure.
+ * Tries every configured candidate key so a token encrypted under any accepted
+ * alias still round-trips.
+ */
+function decryptSupportSecret(payload) {
+  return decryptWithAnyKey(getSupportKeyCandidates(), payload);
+}
+
+/** True when the support mailbox encryption key is configured. */
+function isSupportKeyConfigured() {
+  return Boolean(getSupportEncryptionKey());
+}
+
 // ── Generic security-credentials encrypt/decrypt ────────────────────────────
 // Preferred names for the multi-service security_credentials table. They are
 // exact aliases of encryptPaymentSecret/decryptPaymentSecret (same key, same
@@ -192,6 +256,9 @@ module.exports = {
   encryptPaymentSecret,
   decryptPaymentSecret,
   isPaymentKeyConfigured,
+  encryptSupportSecret,
+  decryptSupportSecret,
+  isSupportKeyConfigured,
   encryptCredentialSecret,
   decryptCredentialSecret,
   isCredentialKeyConfigured,

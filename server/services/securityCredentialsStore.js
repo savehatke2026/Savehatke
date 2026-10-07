@@ -5,6 +5,7 @@
 // credential, discriminated by `service`:
 //   * service = 'payment_gmail'  → payment mailbox   (rupayandas2025@gmail.com)
 //   * service = 'google_drive'   → Drive uploads acct (database.savehatke@gmail.com)
+//   * service = 'support_gmail'  → support mailbox    (services/supportMailboxStore)
 //
 // Every lookup is scoped by (service, email) so a Google Drive error can never
 // touch the Payment Gmail row and vice-versa. This module is the single source
@@ -31,7 +32,11 @@ const { encryptCredentialSecret, decryptCredentialSecret } = require('./gmailCry
 const PREFERRED_TABLE = 'security_credentials';
 const LEGACY_TABLE = 'payment_mailbox_credentials';
 
-const SERVICES = Object.freeze({ PAYMENT_GMAIL: 'payment_gmail', GOOGLE_DRIVE: 'google_drive' });
+const SERVICES = Object.freeze({
+  PAYMENT_GMAIL: 'payment_gmail',
+  GOOGLE_DRIVE: 'google_drive',
+  SUPPORT_GMAIL: 'support_gmail',
+});
 const RECONNECT_SOON_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
 
 const BASE_COLS = 'email, status, connected_at, last_verified_at, last_used_at, last_error, updated_at';
