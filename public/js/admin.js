@@ -441,17 +441,6 @@ function cmOfferBadge(c) {
   return `<span class="cm2-offer">${escHtml(offer)}</span>`;
 }
 
-/** Brand logo (falls back to the coloured initial), shared by card + table. */
-function cmLogoHtml(brand) {
-  const logoUrl = getBrandLogo(brand);
-  const logoClass = getBrandLogoClass(logoUrl);
-  const initial = escHtml(getBrandInitial(brand));
-  if (logoUrl) {
-    return `<img class="${logoClass ? logoClass + ' ' : ''}" src="${escHtml(logoUrl)}" alt="${escHtml(brand)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="cm2-initial" style="display:none">${initial}</span>`;
-  }
-  return `<span class="cm2-initial">${initial}</span>`;
-}
-
 /** One card-view item — a marketplace-style box with the real coupon image,
  * every real detail (brand, title, description, code, category, value, price,
  * live expiry countdown, status + source badges, coupon ID) and a pencil that
@@ -484,7 +473,6 @@ function cmCardHtml(c) {
         <div class="cmbx-art-fallback" style="display:none"><span>${escHtml(brand) || 'SaveHatke'}</span></div>
         <div class="cmbx-hero-shade"></div>
         <div class="cmbx-badges">${cmSourceBadge(c)}${cmStatusBadge(c)}</div>
-        <div class="cmbx-logo" title="${escHtml(brand)}">${cmLogoHtml(brand)}</div>
         <div class="cmbx-offer">${cmOfferBadge(c)}</div>
       </div>
       <div class="cmbx-body">
@@ -802,7 +790,7 @@ function activeRowHtml(c) {
         ${banner}
       </div>
       <div class="vault-body">
-        <div class="vault-brandline">${cmBrandCellHtml(brand)}<code class="vault-code">${escHtml(c.code || '—')}</code></div>
+        <div class="vault-brandline"><span class="vault-brand-name" title="${escHtml(brand)}">${escHtml(brand) || '—'}</span><code class="vault-code">${escHtml(c.code || '—')}</code></div>
         <h3 class="vault-title">${escHtml(title)}</h3>
         <p class="vault-description" title="${escHtml(description)}">${escHtml(description)}</p>
         <div class="vault-price-row">
