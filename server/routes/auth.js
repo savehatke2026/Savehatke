@@ -268,19 +268,21 @@ async function finishGoogleLogin(req, res, identity) {
     if (sheetUser.google_sub && String(sheetUser.google_sub) !== googleSub) {
       return res.status(403).json({ error: 'This Google identity is not linked to this account.' });
     }
-    try {
-      await db.updateRow(db.SHEETS.USERS, 'email', email, {
-        google_sub: googleSub,
-        last_login_at: now,
-        updated_at: now,
-        ...(picture ? { profile_picture: picture } : {}),
-      });
-    } catch (e) {
+    // Non-critical mirror write (last-login bookkeeping). It used to be
+    // awaited, which put a full Sheets write round-trip on the sign-in path;
+    // failures were already tolerated below, so it now runs fire-and-forget
+    // and the login response no longer waits on it.
+    db.updateRow(db.SHEETS.USERS, 'email', email, {
+      google_sub: googleSub,
+      last_login_at: now,
+      updated_at: now,
+      ...(picture ? { profile_picture: picture } : {}),
+    }).catch((e) => {
       // Mirror write failed — keep going with the existing Sheets row. The
       // session can still be issued; the next successful Sheets read sees the
       // previous values, which is fine for a non-critical mirror.
       console.warn(`[auth] Sheets updateRow failed for ${email} (${e.message}); continuing with cached row.`);
-    }
+    });
   } else {
     isNewUser = true;
     const id = uuidv4();
@@ -309,7 +311,11 @@ async function finishGoogleLogin(req, res, identity) {
   const userId = String(sheetUser.user_id || sheetUser.user_ID || sheetUser.id || '').trim();
   if (!userId) return res.status(503).json({ error: 'Account storage is temporarily unavailable.' });
   const name = String(sheetUser.preferred_name || sheetUser.name || googleName).trim().slice(0, 120);
-  const session = await createLoginSession(req, userId, 'Google', email, name, res, googleSub);
+  // sheetUser is the row this handler already resolved for the exact same
+  // email — hand it to createLoginSession so resolveSessionUserId can skip
+  // its redundant Sheets re-read. Admin logins (above) keep the original
+  // lookup path.
+  const session = await createLoginSession(req, userId, 'Google', email, name, res, googleSub, sheetUser);
   setSessionCookie(res, session.token, session.ttlMs);
   const user = {
     id: userId, userId, email, name, preferred_name: sheetUser.preferred_name || '',
@@ -490,12 +496,24 @@ function extractUserIdFromSheetUser(sheetUser) {
   return '';
 }
 
-async function resolveSessionUserId(userId, cleanEmail) {
+/**
+ * Resolve the canonical user_id for a session.
+ *
+ * `preknownRow` is the Users-sheet row the caller already fetched by the same
+ * email moments earlier (finishGoogleLogin reads it on every login). Passing
+ * it in skips a redundant Sheets round-trip on the sign-in path; the row is
+ * the same object the second lookup would have returned, so the resolved id,
+ * the backfill branch and the source label are all unchanged. When no row is
+ * handed in (admin logins, or the caller's own read failed) the original
+ * lookup path runs exactly as before.
+ */
+async function resolveSessionUserId(userId, cleanEmail, preknownRow) {
   let realUserId = String(userId || '');
   let userIdSource = 'passed-in';
   if (!cleanEmail) return { realUserId, userIdSource };
 
-  let sheetUser = await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
+  let sheetUser = preknownRow
+    || await db.findRow(db.SHEETS.USERS, 'email', cleanEmail).catch(() => null);
   if (!sheetUser) {
     // Retry case/whitespace-insensitive â€” sheet rows may hold mixed-case emails
     const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
@@ -716,7 +734,7 @@ function withDeadline(promise, ms) {
 
 const GEO_WAIT_FOR_EMAIL_MS = 3500;
 
-async function createLoginSession(req, userId, loginMethod, email, userName, res, googleSub) {
+async function createLoginSession(req, userId, loginMethod, email, userName, res, googleSub, knownUserRow) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const verifiedGoogleSub = String(googleSub || '').trim();
@@ -794,7 +812,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     // the HttpOnly cookie; only its SHA-256 hash is stored in the database.
     const rawToken = generateSessionToken();
 
-    const { realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail);
+    const { realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail, knownUserRow);
     const finalUserId = realUserId || String(userId || '').trim();
     if (!finalUserId) throw new Error('Authenticated account has no stable user id.');
 

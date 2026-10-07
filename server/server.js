@@ -29,6 +29,7 @@ startAdminRosterAutoRefresh();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const { safeRateLimitHandler } = require('./utils/rateLimit');
 
@@ -68,6 +69,20 @@ const supabase = require('./services/supabase');
 const { getPublicSettings, renderLandingStats } = require('./services/publicSettings');
 
 const app = express();
+
+// gzip/br for HTML, JS, CSS and JSON responses — the biggest transfer win for
+// the large hand-written pages and the server-rendered landing page. Paths
+// that must NOT be buffered are excluded: /api/payment/stream is Server-Sent
+// Events (events would sit in the compression buffer instead of arriving
+// live), and /api/proxy/drive pipes already-compressed binaries with an exact
+// Content-Length.
+app.use(compression({
+  filter: (req, res) => {
+    const raw = String(req.originalUrl || req.url || '').split('?')[0].toLowerCase();
+    if (raw === '/api/payment/stream' || raw.startsWith('/api/proxy/drive')) return false;
+    return compression.filter(req, res);
+  },
+}));
 
 // Behind Vercel's edge proxy — exactly one trusted hop between the client and
 // this server. Trusting only that first hop makes req.ip resolve the real
@@ -553,6 +568,12 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+    } else {
+      // Static assets are immutable per deploy and referenced by stable paths,
+      // so let browsers skip re-fetching them for a day (the CDN keeps serving
+      // stale copies for up to a week while it revalidates in the background).
+      // HTML above stays no-cache so a deploy is picked up immediately.
+      res.setHeader('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800');
     }
   },
 }));
