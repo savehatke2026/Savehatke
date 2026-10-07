@@ -1089,5 +1089,17 @@
 <script src="js/app.js"></script>
 <script src="js/chatbot.js"></script>
   <script src="js/site-footer.js"></script>
+
+<style>
+/* ── Mobile responsive hardening (CSS-only; desktop unchanged) ──
+   1) 16px minimum font size for form controls at mobile widths prevents
+      iOS Safari from auto-zooming the page when an input is focused.
+   2) Modals cap to the viewport height and scroll internally so tall
+      dialogs stay fully reachable on small screens. */
+@media(max-width:768px){
+  input,select,textarea{font-size:16px !important}
+  .modal{max-height:92vh;max-height:calc(100dvh - 32px);overflow-y:auto}
+}
+</style>
 </body>
 </html>
