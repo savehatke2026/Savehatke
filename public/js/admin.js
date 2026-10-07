@@ -804,7 +804,7 @@ function activeRowHtml(c) {
       <div class="vault-body">
         <div class="vault-brandline">${cmBrandCellHtml(brand)}<code class="vault-code">${escHtml(c.code || '—')}</code></div>
         <h3 class="vault-title">${escHtml(title)}</h3>
-        <p class="vault-description">${escHtml(description)}</p>
+        <p class="vault-description" title="${escHtml(description)}">${escHtml(description)}</p>
         <div class="vault-price-row">
           <div>
             <div class="vault-price-label">Price</div>
