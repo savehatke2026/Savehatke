@@ -143,31 +143,49 @@
     .cpill:hover { border-color:rgba(0,230,118,.35); color:#e2ecff; }
     .cpill.active { background:linear-gradient(135deg,#00e676,#00c853); border-color:transparent; color:#060d1f; }
     .coupon-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
-    /* Premium marketplace card: gradient body, bigger brand zone, save-pill, ribbon sticker */
-    .coupon-card { padding:0; border-radius:20px; background:linear-gradient(160deg, rgba(15,30,58,.82) 0%, rgba(10,22,50,.78) 100%); border:1px solid rgba(79,195,247,.14); transition:transform .25s cubic-bezier(.2,.7,.2,1), border-color .25s ease, box-shadow .25s ease; cursor:pointer; position:relative; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,.18); }
-    .coupon-card:hover { border-color:rgba(0,226,114,.6); transform:translateY(-6px); box-shadow:0 24px 60px rgba(0,0,0,.42), 0 0 0 1px rgba(0,226,114,.2), 0 0 36px rgba(0,226,114,.24); }
+    /* Marketplace coupon boxes — same anatomy as public/marketplace.html */
+    .coupon-card { min-width:0; padding:0; border-radius:16px; background:#0d1930; border:1px solid #17364b; transition:all .3s; cursor:pointer; position:relative; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 6px 24px rgba(0,0,0,.18); }
+    .coupon-card:hover { border-color:rgba(0,230,118,.28); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.35); }
     .coupon-card:focus-visible { outline:2px solid #00e676; outline-offset:3px; }
-    /* Top accent line that fades in on hover */
-    .coupon-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg, transparent 0%, rgba(0,230,118,.75) 50%, transparent 100%); opacity:0; transition:opacity .25s ease; pointer-events:none; z-index:5; }
-    .coupon-card:hover::before { opacity:1; }
-    /* "Top Deal" corner sticker — pure CSS, no markup change */
-    .coupon-card::after { content:'🔥 Top Deal'; position:absolute; top:0; right:0; z-index:4; font-size:.6rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:6px 14px; border-radius:0 18px 0 14px; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; box-shadow:0 4px 12px rgba(0,230,118,.3); pointer-events:none; }
-    .ctop { display:flex; justify-content:space-between; align-items:center; gap:14px; padding:26px 20px 18px; background:linear-gradient(135deg, rgba(79,195,247,.1) 0%, rgba(0,230,118,.05) 100%); border-bottom:1px solid rgba(79,195,247,.12); }
-    .cbrand { display:flex; align-items:center; min-width:0; flex:1; }
-    /* Brand zone: bigger glass plate, subtle inner glow on hover */
-    .cbrand-logo-wrap { height:88px; min-width:88px; max-width:160px; flex:1; flex-shrink:1; display:flex; align-items:center; justify-content:center; padding:10px 14px; border-radius:14px; background:linear-gradient(160deg, rgba(255,255,255,.05) 0%, rgba(79,195,247,.06) 100%); border:1px solid rgba(79,195,247,.1); box-shadow:inset 0 0 0 1px rgba(255,255,255,.02); transition:box-shadow .25s ease, border-color .25s ease, background .25s ease; }
-    .coupon-card:hover .cbrand-logo-wrap { border-color:rgba(0,230,118,.28); background:linear-gradient(160deg, rgba(0,230,118,.07) 0%, rgba(79,195,247,.08) 100%); box-shadow:inset 0 0 28px rgba(0,230,118,.1), 0 6px 18px rgba(0,0,0,.2); }
-    .cbrand-logo { max-width:100%; width:auto; height:100%; object-fit:contain; background:transparent; padding:0; }
-    .cbrand-initial { width:64px; height:64px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:1.4rem; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); border-radius:50%; }
-    /* Save-ribbon pill: green gradient, dark text, soft outer glow */
-    .coff { font-family:'JetBrains Mono',monospace; font-size:.78rem; font-weight:800; color:#060d1f; flex-shrink:0; white-space:nowrap; padding:8px 14px; border-radius:9999px; background:linear-gradient(135deg,#00e676 0%, #00c853 100%); letter-spacing:.04em; box-shadow:0 6px 18px rgba(0,230,118,.28), inset 0 1px 0 rgba(255,255,255,.18); text-transform:uppercase; }
-    .cdesc { font-size:.85rem; color:#b8cce4; padding:16px 20px 0; margin:0 0 16px; line-height:1.6; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    .cmeta { display:flex; justify-content:space-between; align-items:center; padding:14px 20px 16px; margin:0; border-top:1px solid rgba(79,195,247,.1); background:linear-gradient(180deg, transparent 0%, rgba(79,195,247,.04) 100%); }
-    .clbl { font-size:.68rem; color:#6b88aa; display:block; margin-bottom:2px; letter-spacing:.04em; text-transform:uppercase; }
-    .cval { font-family:'JetBrains Mono',monospace; font-size:1.2rem; font-weight:800; color:#00e676; font-variant-numeric:tabular-nums; letter-spacing:.01em; }
-    .ccat { font-size:.66rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:5px 12px; border-radius:8px; background:rgba(79,195,247,.1); color:#4fc3f7; border:1px solid rgba(79,195,247,.18); max-width:140px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    @media(max-width:900px){.coupon-grid{grid-template-columns:repeat(2,1fr)}.cbrand-logo-wrap{height:72px;min-width:72px;max-width:140px;padding:8px 12px}}
-    @media(max-width:600px){.coupon-grid{grid-template-columns:1fr}.cbrand-logo-wrap{height:64px;min-width:64px;max-width:120px;padding:8px 10px;border-radius:10px}.ctop{padding:24px 16px 14px;gap:10px}.cdesc{padding:14px 16px 0;font-size:.83rem}.cmeta{padding:12px 16px 14px}.cbrand-initial{width:48px;height:48px;font-size:1.1rem}.coff{font-size:.7rem;padding:6px 10px}.cval{font-size:1.1rem}.ccat{font-size:.62rem;padding:4px 10px}.coupon-card::after{font-size:.56rem;padding:5px 10px}}
+    .coupon-banner { position:relative; height:111px; background:#070e1e; flex-shrink:0; }
+    .coupon-artwork { display:block; width:100%; height:111px; object-fit:cover; }
+    .coupon-fallback { height:111px; align-items:center; padding:34px 22px 12px; background-image:radial-gradient(ellipse at top right,#ffffff10,transparent 75%); }
+    .coupon-brand { display:block; font-size:30px; line-height:1.2; font-weight:800; color:#9fb6d6; }
+    .coupon-offer { position:absolute; right:14px; bottom:6px; color:#00e676; font-family:'JetBrains Mono',monospace; font-size:17px; font-weight:700; }
+    .coupon-badges { position:absolute; top:10px; left:10px; display:flex; gap:6px; }
+    .coupon-verified { padding:2px 6px; border:1px solid #27445a; border-radius:5px; background:#070e1ecc; color:#a6d9fb; font-size:10px; font-weight:800; }
+    .coupon-sale { padding:2px 7px; border-radius:5px; background:#ff4c13; color:#fff; font-size:10px; font-weight:800; }
+    .coupon-body { padding:16px; display:flex; flex-direction:column; flex:1; }
+    .coupon-title { min-height:40px; margin:0 0 7px; font-size:14px; line-height:1.45; font-weight:700; color:#e2ecff; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .coupon-description { overflow:hidden; white-space:nowrap; text-overflow:ellipsis; margin:0 0 9px; color:#a6d9fb; font-size:12px; line-height:1.5; }
+    .coupon-price-row { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:auto; margin-bottom:0; }
+    .coupon-price-label { color:#93a8c3; font-size:11px; line-height:1.45; margin:0; }
+    .coupon-price { color:#e2ecff; font-weight:700; font-size:15px; line-height:1.5; margin:0; }
+    .coupon-category { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border:1px solid #00617d; border-radius:6px; background:#073047; color:#00d6ff; font-size:10px; line-height:1.6; font-weight:800; box-shadow:0 0 13px #00bffb18; white-space:nowrap; }
+    .coupon-category svg { width:11px; height:11px; }
+    .coupon-gaming { color:#9398ff; border-color:#3f457d; background:#202541; }
+    .coupon-finance { color:#00e676; border-color:#00674b; background:#07342e; }
+    .cexpiry { display:flex; align-items:center; justify-content:center; gap:7px; margin-top:12px; padding:5px 10px; border-radius:999px; border:1px solid transparent; }
+    .cexp-head { display:flex; align-items:center; gap:5px; min-width:0; }
+    .cexp-icon { width:12px; height:12px; flex-shrink:0; animation:cexpBreathe 2.4s ease-in-out infinite; }
+    @keyframes cexpBreathe { 0%,100% { opacity:.95; } 50% { opacity:.42; } }
+    .cexp-label { font-size:.6rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; opacity:.75; white-space:nowrap; }
+    .cexp-clock { display:flex; align-items:baseline; gap:4px; }
+    .cexp-tile { display:inline-flex; align-items:baseline; }
+    .cexp-tile b { font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; font-size:.76rem; font-weight:700; line-height:1; min-width:2ch; text-align:right; }
+    .cexp-tile i { font-style:normal; font-size:.56rem; font-weight:700; text-transform:lowercase; opacity:.55; line-height:1; margin-left:1px; }
+    .cexp-no-days .cexp-tile-d { display:none; }
+    .cexp-over { display:none; font-size:.66rem; font-weight:700; letter-spacing:.04em; }
+    .cexpiry-expired .cexp-label, .cexpiry-expired .cexp-clock { display:none; }
+    .cexpiry-expired .cexp-over { display:block; }
+    .cexpiry-expired .cexp-icon { opacity:.55; animation:none; }
+    .cexpiry-green   { color:#00e676; background:rgba(0,230,118,.08);   border-color:rgba(0,230,118,.22); box-shadow:0 0 14px rgba(0,230,118,.10); }
+    .cexpiry-yellow  { color:#ffd740; background:rgba(255,215,64,.09);  border-color:rgba(255,215,64,.30); }
+    .cexpiry-red     { color:#ff5252; background:rgba(255,82,82,.11);   border-color:rgba(255,82,82,.40); }
+    .cexpiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.20); }
+    @media(max-width:900px){.coupon-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:600px){.coupon-grid{grid-template-columns:1fr}.coupon-title{min-height:0}}
+    @media(max-width:380px) { .coupon-category { padding:3px 6px; font-size:9px; } }
 
     /* SELL CTA */
     .sell-card { border-radius:24px; padding:72px 60px; text-align:center; background:linear-gradient(135deg,rgba(0,230,118,.08) 0%,rgba(79,195,247,.06) 100%); border:1px solid rgba(0,230,118,.2); position:relative; overflow:hidden; }
@@ -870,6 +888,77 @@
     }
   }
 
+  // ── Marketplace-style card helpers (mirrors js/marketplace.js) ────────
+  function couponHeroImage(c) {
+    const raw = String(c.backgroundImage || '').trim();
+    if (/^https?:\/\/\S+$/i.test(raw)) return raw;
+    if (/^\/[\w\-./~%#?=&+]*$/.test(raw) && !raw.includes('"') && !raw.includes("'")) return raw;
+    const brandBg = typeof getBrandBackground === 'function' ? getBrandBackground(c.brand) : '';
+    return brandBg || '/images/coupons/default.svg';
+  }
+
+  const CATEGORY_ICONS = {
+    'e-commerce': '🛒', 'fashion': '👗', 'beauty & personal care': '💄', 'beauty': '💄',
+    'food & delivery': '🍔', 'food & dining': '🍔', 'food': '🍔',
+    'travel & transport': '✈️', 'travel': '✈️', 'hotels & stays': '🏨',
+    'electronics & gadgets': '📱', 'mobiles & electronics': '📱', 'electronics': '📱',
+    'gaming & entertainment': '🎮', 'gaming': '🎮', 'entertainment': '🎬',
+    'fitness & sports': '🏋️', 'fitness': '🏋️', 'education': '📚',
+    'health & pharmacy': '💊', 'health & fitness': '💊', 'health': '💊',
+    'finance & payments': '💰', 'furniture & home': '🛋️', 'home & living': '🏠',
+    'automotive': '🚗', 'general': '🏷️',
+  };
+  function categoryIconFor(category) {
+    return CATEGORY_ICONS[String(category || '').trim().toLowerCase()] || '🏷️';
+  }
+
+  function indexExpiryPill(c) {
+    if (c.timerOn === false) return '';
+    const at = parseExpiry(c.expiryDate);
+    if (at === null) return '';
+    const p = expiryParts(at - Date.now());
+    const dayDigits = (dd) => dd ? String(dd).replace(/d$/i, '') : '';
+    return `<div class="cexpiry cexpiry-${expiryBand(at - Date.now())}${p.dd ? '' : ' cexp-no-days'}" data-expiry="${at}">
+              <span class="cexp-head">
+                <svg class="cexp-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
+                  <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="cexp-label">Ends in</span>
+              </span>
+              <span class="cexp-clock">
+                <span class="cexp-tile cexp-tile-d"><b class="cexp-d">${dayDigits(p.dd)}</b><i>d</i></span>
+                <span class="cexp-tile"><b class="cexp-n cexp-h">${p.hh}</b><i>h</i></span>
+                <span class="cexp-tile"><b class="cexp-n cexp-m">${p.mm}</b><i>m</i></span>
+                <span class="cexp-tile"><b class="cexp-n cexp-s">${p.ss}</b><i>s</i></span>
+              </span>
+              <span class="cexp-over">◷ Offer ended</span>
+            </div>`;
+  }
+
+  let indexExpiryTimerId = null;
+  function startIndexExpiryTicker() {
+    if (indexExpiryTimerId !== null) return;
+    const setText = (el, value) => { if (el && el.textContent !== value) el.textContent = value; };
+    const tick = () => {
+      const nodes = document.querySelectorAll('#couponGrid .cexpiry[data-expiry]');
+      if (nodes.length === 0) return;
+      const now = Date.now();
+      nodes.forEach((el) => {
+        const msLeft = Number(el.dataset.expiry) - now;
+        const p = expiryParts(msLeft);
+        setText(el.querySelector('.cexp-d'), String(p.dd || '').replace(/d$/i, ''));
+        setText(el.querySelector('.cexp-h'), p.hh);
+        setText(el.querySelector('.cexp-m'), p.mm);
+        setText(el.querySelector('.cexp-s'), p.ss);
+        const cls = `cexpiry cexpiry-${expiryBand(msLeft)}${p.dd ? '' : ' cexp-no-days'}`;
+        if (el.className !== cls) el.className = cls;
+      });
+    };
+    tick();
+    indexExpiryTimerId = setInterval(tick, 1000);
+  }
+
   function renderCoupons() {
     const grid = document.getElementById('couponGrid');
     if (!grid) return;
@@ -901,34 +990,48 @@
       const isFree = c.source === 'auto-scraped';
       const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '15'}`;
       const offText = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`) : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
-      const logoUrl = getBrandLogo(c.brand);
-      const logoClass = getBrandLogoClass(logoUrl);
-      const initial = getBrandInitial(c.brand);
+      const hero = couponHeroImage(c);
+      const onSale = c.onSale !== false;
+      const title = c.title || c.description || 'Verified Discount Offer';
+      const desc = c.description && c.description !== title ? c.description : '';
+      const catClass = isFree
+        ? 'coupon-finance'
+        : (/gaming|entertainment/i.test(c.category || '')
+            ? 'coupon-gaming'
+            : /finance/i.test(c.category || '')
+              ? 'coupon-finance'
+              : '');
 
       return `
         <div class="coupon-card" style="cursor:pointer" onclick="goToCheckout('${c.id}')">
-          <div class="ctop">
-            <div class="cbrand" title="${c.brand}">
-              <span class="cbrand-logo-wrap">
-                ${logoUrl
-                  ? `<img class="cbrand-logo${logoClass ? ' ' + logoClass : ''}" src="${logoUrl}" alt="${c.brand}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><span class="cbrand-initial" style="display:none">${initial}</span>`
-                  : `<span class="cbrand-initial">${initial}</span>`
-                }
-              </span>
+          <div class="coupon-banner">
+            <img class="coupon-artwork" src="${hero}" alt="" loading="lazy" decoding="async"
+                 onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex');">
+            <div class="coupon-fallback" style="display:none">
+              <span class="coupon-brand">${c.brand || ''}</span>
+              <span class="coupon-offer">${offText}</span>
             </div>
-            <div class="coff">${offText}</div>
+            <div class="coupon-badges">
+              ${isFree ? '<span class="coupon-verified">✓ FREE CODE</span>' : '<span class="coupon-verified">✓ VERIFIED DEAL</span>'}
+              ${!isFree && onSale ? '<span class="coupon-sale">🔥 SALE</span>' : ''}
+            </div>
           </div>
-          <div class="cdesc">${c.title || c.description || 'Verified Discount Offer'}</div>
-          <div class="cmeta">
-            <div>
-              <span class="clbl">Selling Price</span>
-              <span class="cval">${priceText}</span>
+          <div class="coupon-body">
+            <h3 class="coupon-title">${title}</h3>
+            ${desc ? `<p class="coupon-description" title="${desc}">${desc}</p>` : ''}
+            <div class="coupon-price-row">
+              <div>
+                <p class="coupon-price-label">Price</p>
+                <p class="coupon-price">${priceText}</p>
+              </div>
+              ${c.category ? `<span class="coupon-category ${catClass}"><span aria-hidden="true">${categoryIconFor(c.category)}</span>${c.category}</span>` : ''}
             </div>
-            <span class="ccat">${c.category}</span>
+            ${indexExpiryPill(c)}
           </div>
         </div>
       `;
     }).join('');
+    startIndexExpiryTicker();
   }
 
   function goToCheckout(id) {
