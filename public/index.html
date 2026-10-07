@@ -138,10 +138,53 @@
     @media(max-width:768px){.steps-grid{grid-template-columns:1fr}}
 
     /* COUPONS */
-    .cpills { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-bottom:36px; }
-    .cpill { padding:8px 20px; border-radius:9999px; font-size:.85rem; font-weight:600; border:1.5px solid rgba(79,195,247,.18); background:transparent; color:#a8c0dc; cursor:pointer; transition:all .2s; font-family:'Outfit',sans-serif; }
-    .cpill:hover { border-color:rgba(0,230,118,.35); color:#e2ecff; }
-    .cpill.active { background:linear-gradient(135deg,#00e676,#00c853); border-color:transparent; color:#060d1f; }
+  .search-row { display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  .search-field { flex:1; min-width:220px; position:relative; }
+  .search-field .s-ico { position:absolute; left:14px; top:50%; transform:translateY(-50%); font-size:1rem; pointer-events:none; }
+  .search-input { width:100%; padding:12px 16px 12px 42px; border-radius:11px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem; transition:border-color .2s,background .2s; outline:none; }
+  .search-input:focus { border-color:rgba(0,230,118,.45); background:rgba(0,230,118,.03); }
+  .search-input::placeholder { color:#6b88aa; }
+  .filter-select { padding:12px 36px 12px 16px; border-radius:11px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.88rem; outline:none; cursor:pointer; appearance:none; -webkit-appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b88aa' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; transition:border-color .2s; min-width:160px; }
+  .filter-select:focus { border-color:rgba(0,230,118,.4); }
+  .filter-select option { background:#0c1835; color:#e2ecff; }
+  .search-card { border-radius:18px; background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.14); padding:8px; margin-bottom:8px; display:flex; align-items:center; gap:4px; flex-wrap:wrap; }
+  .search-row { display:flex; align-items:center; gap:10px; flex:1 1 280px; min-width:220px; padding:8px 14px; min-height:48px; }
+  .search-row .s-ico { color:#9bddb5; flex-shrink:0; }
+  .search-input { flex:1; min-width:0; padding:8px 0; background:transparent; border:none; outline:none; color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.95rem; }
+  .search-input::placeholder { color:#8b9eb7; }
+  .search-clear { background:transparent; border:none; color:#6b88aa; cursor:pointer; padding:4px; border-radius:6px; display:flex; align-items:center; justify-content:center; transition:color .15s; }
+  .search-clear[hidden] { display:none; }
+  .search-clear:hover { color:#fff; }
+  .source-row { display:flex; align-items:center; gap:8px; padding:8px 12px; min-width:200px; position:relative; border-left:1px solid rgba(79,195,247,.14); }
+  .source-row .s-ico { color:#6b88aa; flex-shrink:0; }
+  .filter-select { background:transparent; border:none; outline:none; color:#c0d0e5; font-family:'Outfit',sans-serif; font-size:.85rem; padding:8px 26px 8px 4px; appearance:none; cursor:pointer; min-width:148px; flex:1; }
+  .filter-select option { background:#0c1835; color:#e2ecff; }
+  .source-row .src-chev { position:absolute; right:14px; pointer-events:none; color:#6b88aa; }
+
+  /* Popular searches — Amazon/Myntra/Swiggy/Nykaa tags under the search */
+  .popular-row { display:flex; align-items:center; flex-wrap:wrap; column-gap:14px; row-gap:6px; padding:6px 8px 16px; font-size:.72rem; }
+  .popular-label { color:#6b88aa; }
+  .popular-row button { background:transparent; border:none; color:#c0d0e5; font-family:'Outfit',sans-serif; font-size:.72rem; font-weight:500; cursor:pointer; padding:0; display:inline-flex; align-items:center; gap:3px; transition:color .15s; }
+  .popular-row button:hover { color:#00e676; }
+  .popular-row button .arrow { color:#596c86; font-size:.85em; }
+  .popular-row .trust-tag { margin-left:auto; color:#8aa196; display:none; align-items:center; gap:6px; font-size:.72rem; }
+  @media(min-width:600px){ .popular-row .trust-tag { display:inline-flex; } }
+  @media(max-width:600px){
+    .search-card { flex-direction:column; align-items:stretch; gap:0; }
+    .search-row { border-bottom:1px solid rgba(79,195,247,.08); }
+    .source-row { border-left:none; min-width:0; }
+  }
+  .cat-pills { display:flex; flex-wrap:wrap; align-items:center; gap:8px; border-bottom:1px solid rgba(79,195,247,.08); padding-bottom:18px; margin-bottom:24px; }
+  .cpill { display:flex; align-items:center; gap:6px; height:36px; padding:0 14px; border-radius:8px; border:1px solid rgba(79,195,247,.12); background:rgba(15,30,58,.5); color:#a4b6cd; font-family:'Outfit',sans-serif; font-size:.78rem; font-weight:500; cursor:pointer; transition:all .15s; }
+  .cpill:hover { border-color:rgba(0,230,118,.28); color:#e2ecff; }
+  .cpill.active { background:#b8f3d0; border-color:#b8f3d0; color:#0b3020; font-weight:600; }
+  .cpill svg { flex-shrink:0; }
+  .cat-more-wrap { position:relative; display:inline-flex; align-items:center; }
+  .cat-more { height:36px; padding:0 32px 0 14px; border-radius:8px; border:1px solid rgba(79,195,247,.12); background:rgba(15,30,58,.5); color:#a4b6cd; font-family:'Outfit',sans-serif; font-size:.78rem; font-weight:500; appearance:none; cursor:pointer; min-width:160px; }
+  .cat-more:focus { outline:none; border-color:rgba(0,230,118,.3); }
+  .cat-more option { background:#0c1835; color:#e2ecff; }
+  .cat-more-wrap .cat-chev { position:absolute; right:12px; top:50%; transform:translateY(-50%); pointer-events:none; color:#6b88aa; }
+  .screen-reader-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
     .coupon-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
     /* Premium marketplace card: gradient body, bigger brand zone, save-pill, ribbon sticker */
     .coupon-card { padding:0; border-radius:20px; background:linear-gradient(160deg, rgba(15,30,58,.82) 0%, rgba(10,22,50,.78) 100%); border:1px solid rgba(79,195,247,.14); transition:transform .25s cubic-bezier(.2,.7,.2,1), border-color .25s ease, box-shadow .25s ease; cursor:pointer; position:relative; overflow:hidden; box-shadow:0 6px 24px rgba(0,0,0,.18); }
@@ -513,12 +556,108 @@
       <h2 class="stitle">Discounted Coupons for <span class="gtext">Everyday Shopping</span></h2>
       <p class="ssub">Browse coupons submitted by sellers and reviewed before approval. Check each coupon's details and terms before purchasing.</p>
     </div>
-    <div class="cpills fu">
-      <button class="cpill active" data-cat="all">All</button>
-      <button class="cpill" data-cat="Makeup">💄 Makeup</button>
-      <button class="cpill" data-cat="Electronics">⚡ Electronics</button>
-      <button class="cpill" data-cat="Fashion">Fashion</button>
-      <button class="cpill" data-cat="Food">🍔 Food</button>
+    <div class="search-card fu in">
+      <div class="search-row">
+        <svg class="s-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/>
+        </svg>
+        <input class="search-input" type="text" id="searchInput" aria-label="Search coupons" placeholder="Search a brand, category or your next great deal…" autocomplete="off">
+        <button type="button" class="search-clear" id="searchClear" aria-label="Clear search" hidden>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m6 6 12 12M6 18 18 6"/>
+          </svg>
+        </button>
+      </div>
+      <div class="source-row">
+        <svg class="s-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/>
+        </svg>
+        <select class="filter-select" id="sourceFilter" aria-label="Filter coupon sources">
+          <option value="">All Sources</option>
+          <option value="user-submitted">User Submitted</option>
+          <option value="admin">Verified</option>
+          <option value="auto-scraped">Free Codes</option>
+        </select>
+        <svg class="src-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Popular searches — quick tags under the search -->
+    <div class="popular-row fu in d1">
+      <span class="popular-label">Popular searches</span>
+      <button type="button" data-search="Amazon">Amazon<span class="arrow">↗</span></button>
+      <button type="button" data-search="Myntra">Myntra<span class="arrow">↗</span></button>
+      <button type="button" data-search="Swiggy">Swiggy<span class="arrow">↗</span></button>
+      <button type="button" data-search="Nykaa">Nykaa<span class="arrow">↗</span></button>
+      <span class="trust-tag" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m8 12 3 3 5-6"/><path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6l8-4Z"/>
+        </svg>
+        Discover. Compare. Save.
+      </span>
+    </div>
+    <div class="cat-pills fu in d2" id="categoryPills">
+      <button type="button" class="cpill active" data-category="all" aria-pressed="true">
+        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        All
+      </button>
+      <button type="button" class="cpill" data-category="E-Commerce" aria-pressed="false">
+        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 8h14l1 13H4L5 8Z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/>
+        </svg>
+        E-Commerce
+      </button>
+      <button type="button" class="cpill" data-category="Fashion" aria-pressed="false">
+        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4a4 4 0 0 1-8 0Z"/>
+        </svg>
+        Fashion
+      </button>
+      <button type="button" class="cpill" data-category="Beauty &amp; Personal Care" aria-pressed="false">
+        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4m-2-2h4"/>
+        </svg>
+        Beauty
+      </button>
+      <button type="button" class="cpill" data-category="Food &amp; Delivery" aria-pressed="false">
+        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 3v7m3-7v7m3-7v7M5 7h6M8 10v11M19 3c-5 3-5 8 0 9V3Zm0 9v9"/>
+        </svg>
+        Food
+      </button>
+      <button type="button" class="cpill" data-category="Travel &amp; Transport" aria-pressed="false">
+        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m22 2-7 20-4-9-9-4L22 2Zm0 0L11 13"/>
+        </svg>
+        Travel
+      </button>
+      <button type="button" class="cpill" data-category="Electronics &amp; Gadgets" aria-pressed="false">
+        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/>
+        </svg>
+        Electronics
+      </button>
+      <div class="cat-more-wrap">
+        <label class="screen-reader-only" for="moreCategories">More categories</label>
+        <select class="cat-more" id="moreCategories">
+          <option value="">More categories</option>
+          <option value="Hotels &amp; Stays">Hotels</option>
+          <option value="Gaming &amp; Entertainment">Entertainment</option>
+          <option value="Fitness &amp; Sports">Fitness</option>
+          <option value="Education">Education</option>
+          <option value="Health &amp; Pharmacy">Health</option>
+          <option value="Finance &amp; Payments">Finance</option>
+          <option value="General">General</option>
+        </select>
+        <svg class="cat-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </div>
     </div>
     <div class="coupon-grid fu" id="couponGrid"></div>
     <div class="text-center mt-10 fu">
@@ -677,11 +816,19 @@
       ? liveCoupons
       : liveCoupons.filter(c => (c.category || '').toLowerCase() === activeCat.toLowerCase());
 
+    const query = document.getElementById('searchInput').value.trim().toLowerCase();
+    const source = document.getElementById('sourceFilter').value;
+    filtered = filtered.filter(c => {
+      const matchesQuery = !query || [c.brand, c.category, c.title, c.description]
+        .some(value => String(value || '').toLowerCase().includes(query));
+      return matchesQuery && (!source || c.source === source);
+    });
+
     if (filtered.length === 0) {
       grid.innerHTML = `
         <div class="empty-state" style="grid-column:1/-1;text-align:center;padding:30px;background:rgba(255,255,255,0.02);border:1px solid rgba(79,195,247,0.1);border-radius:16px;">
           <div style="font-size:2rem;margin-bottom:8px;">🏷️</div>
-          <div style="font-weight:700;color:#e2ecff;margin-bottom:4px;">No coupons found in database</div>
+          <div style="font-weight:700;color:#e2ecff;margin-bottom:4px;">${liveCoupons.length ? 'No matching coupons found' : 'No coupons found in database'}</div>
           <div style="font-size:0.82rem;color:#6b88aa;">Check out the marketplace for all available offers!</div>
         </div>
       `;
@@ -743,14 +890,49 @@
 
   document.addEventListener('DOMContentLoaded', loadIndexCoupons);
 
-  document.querySelectorAll('.cpill').forEach(pill => {
-    pill.addEventListener('click', () => {
-      document.querySelectorAll('.cpill').forEach(p => p.classList.remove('active'));
-      pill.classList.add('active');
-      activeCat = pill.dataset.cat || 'all';
-      renderCoupons();
+  const searchInput = document.getElementById('searchInput');
+  const searchClear = document.getElementById('searchClear');
+
+  function updateSearch() {
+    searchClear.hidden = searchInput.value.length === 0;
+    renderCoupons();
+  }
+
+  searchInput.addEventListener('input', updateSearch);
+  searchClear.addEventListener('click', () => {
+    searchInput.value = '';
+    updateSearch();
+    searchInput.focus();
+  });
+  document.getElementById('sourceFilter').addEventListener('change', renderCoupons);
+  document.querySelectorAll('.popular-row [data-search]').forEach(button => {
+    button.addEventListener('click', () => {
+      searchInput.value = button.dataset.search;
+      updateSearch();
+      searchInput.focus();
     });
   });
+
+  const categoryPills = document.querySelectorAll('#categoryPills .cpill');
+  const moreCategories = document.getElementById('moreCategories');
+
+  function selectCategory(category) {
+    activeCat = category || 'all';
+    categoryPills.forEach(pill => {
+      const selected = pill.dataset.category === activeCat;
+      pill.classList.toggle('active', selected);
+      pill.setAttribute('aria-pressed', String(selected));
+    });
+    renderCoupons();
+  }
+
+  categoryPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      moreCategories.value = '';
+      selectCategory(pill.dataset.category);
+    });
+  });
+  moreCategories.addEventListener('change', () => selectCategory(moreCategories.value));
 
   // Scroll reveal
   const obs = new IntersectionObserver(entries => {
