@@ -13,7 +13,7 @@ const crypto = require('crypto');
 const supabaseService = require('../services/supabase');
 const sessionCache = require('../services/sessionCache');
 const { maybeRunSessionCleanup } = require('../services/sessionCleanup');
-const { getJwtSecret, isAuthorizedAdminEmail } = require('../config/security');
+const { getJwtSecret, isAuthorizedAdminEmail, ensureAdminRosterReady } = require('../config/security');
 
 // 48 hours — maximum session lifetime, starts at successful login.
 const SESSION_TTL_MS = supabaseService.SESSION_TTL_MS;
@@ -51,6 +51,12 @@ const SESSION_TOUCH_INTERVAL_MS = 2 * 60 * 1000;
  * @returns {Promise<{ok:boolean, user?:{id,email,role}, sessionId?:string, expiresAt?:string, unavailable?:boolean}>}
  */
 async function validateSessionToken(rawToken) {
+  // Cold-start gate: rowUser() derives the admin/user role from the roster
+  // cache, and on a fresh serverless instance the boot-time roster read may
+  // still be in flight. Waiting here (no-op once hydrated) prevents a real
+  // admin's session from being rebuilt with role 'user' — which would bounce
+  // them off /vault back to the index page.
+  await ensureAdminRosterReady();
   const tokenHash = hashSessionToken(rawToken);
   const now = Date.now();
 

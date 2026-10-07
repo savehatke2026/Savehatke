@@ -24,7 +24,7 @@ const deviceRecognition = require('../services/deviceRecognition');
 const getClientIP = require('../middleware/getClientIP');
 const sessionCleanup = require('../services/sessionCleanup');
 const twoFactor = require('../services/twoFactorService');
-const { getAdminAccount, getJwtSecret, normalizeEmail, isAdminRosterStale } = require('../config/security');
+const { getAdminAccount, getJwtSecret, normalizeEmail, isAdminRosterStale, ensureAdminRosterReady } = require('../config/security');
 
 const router = express.Router();
 
@@ -185,6 +185,11 @@ async function finishGoogleLogin(req, res, identity) {
     return res.status(401).json({ error: 'Google authentication failed.', code: 'GOOGLE_IDENTITY_INVALID' });
   }
 
+  // Cold-start gate: on a fresh serverless instance the roster read from boot
+  // may still be in flight. Without this await, getAdminAccount misses and a
+  // real admin is silently demoted to a regular user (redirected to / instead
+  // of /vault). Resolves instantly once the cache is hydrated.
+  await ensureAdminRosterReady();
   const adminAccount = getAdminAccount(email);
   if (adminAccount) {
     // Block admin sign-in while the roster is stale (Supabase unreachable, on

@@ -77,6 +77,23 @@ function isAuthorizedAdminEmail(email) {
   return !!(account && account.active);
 }
 
+// ── Cold-start hydration gate ────────────────────────────────────────────
+// server.js kicks off refreshAdminRoster() fire-and-forget, and on Vercel a
+// cold-started function can receive a sign-in or session-validation request
+// BEFORE that read finishes. Deciding admin identity from a not-yet-hydrated
+// cache silently demotes every admin to a regular user (the "admin lands on
+// index" bug). Async entry points await this gate first: it resolves
+// immediately once hydrated, otherwise it shares the single in-flight
+// hydration so concurrent first requests don't stampede Supabase.
+let hydrationPromise = null;
+function ensureAdminRosterReady() {
+  if (ADMIN_CACHE_HYDRATED) return Promise.resolve();
+  if (!hydrationPromise) {
+    hydrationPromise = refreshAdminRoster().finally(() => { hydrationPromise = null; });
+  }
+  return hydrationPromise;
+}
+
 /**
  * True while the server is running off the env-var fallback (Supabase has not
  * given us a fresh roster). Callers should refuse admin sign-in in this mode
@@ -236,6 +253,7 @@ module.exports = {
   normalizeEmail,
   getAdminAccount,
   isAuthorizedAdminEmail,
+  ensureAdminRosterReady,
   getActiveAdminEmails,
   refreshAdminRoster,
   startAdminRosterAutoRefresh,
