@@ -22,6 +22,11 @@ const prompts = require('./chatbotPrompts');
 // SAVEHATKE_AI and OPENROUTER stay interchangeable via the AI_PROVIDER env var.
 const aiProvider = require('./ai/provider');
 const aiConfig = require('./ai/config');
+// The strict SH-SEC-CHATBOT-4.0 security engine: input normalisation +
+// screening and output scrubbing for EVERY provider path, not only the custom
+// engine. detectInjection() below remains for other call sites; the live chat
+// pipeline uses this engine.
+const securityEngine = require('./ai/securityEngine');
 // The ONE seller payout formula: 7% of a coupon's face value. Shared with the
 // custom AI engine so the chatbot and the dashboard never disagree.
 const sellerPayout = require('./sellerPayout');
@@ -517,7 +522,40 @@ const INJECTION_PATTERNS = [
 
 function detectInjection(message) {
   const text = String(message || '');
-  return INJECTION_PATTERNS.some((re) => re.test(text));
+  return INJECTION_PATTERNS.some((re) => testInjection(re, text));
+}
+// The regexes above are global-free, but the security engine's rules are
+// module-level objects reused across requests; keep a tiny guard here so a
+// future global-flag regex cannot leak lastIndex between requests.
+function testInjection(re, text) {
+  re.lastIndex = 0;
+  return re.test(text);
+}
+
+// ── §4 multi-turn injection correlation ───────────────────────────────────
+// Gradual payload assembly across turns is scored per CONVERSATION, not per
+// message. Best-effort in-memory (Vercel instances are ephemeral), bounded to
+// keep the map from growing without limit; the durable signals remain the
+// flagged-conversation row and the writeLog errorType.
+const INJECTION_REPEAT_ESCALATION = 3;
+const INJECTION_WINDOW_MS = 10 * 60 * 1000;
+const injectionStrikes = new Map();
+function noteInjectionBlock(conversationId) {
+  const key = String(conversationId || 'unknown');
+  const now = Date.now();
+  const entry = injectionStrikes.get(key) || { count: 0, first: now };
+  if (now - entry.first > INJECTION_WINDOW_MS) {
+    entry.count = 0;
+    entry.first = now;
+  }
+  entry.count += 1;
+  injectionStrikes.set(key, entry);
+  if (injectionStrikes.size > 5000) {
+    for (const [k, v] of injectionStrikes) {
+      if (now - v.first > INJECTION_WINDOW_MS) injectionStrikes.delete(k);
+    }
+  }
+  return entry.count;
 }
 
 // ── Guarded tools (AI never touches the DB directly) ─────────────────────
@@ -713,7 +751,7 @@ async function handleMessage({ message, conversationId, user, ip }) {
   }
 
   // 3. Input validation
-  const text = String(message || '').trim();
+  let text = String(message || '').trim();
   if (!text) return respondError('blocked', 'invalid_input', settings.fallbackMessage);
   if (text.length > settings.maxMessageLength) {
     return respondError('blocked', 'invalid_input', `Message too long. Please keep it under ${settings.maxMessageLength} characters.`);
@@ -738,13 +776,24 @@ async function handleMessage({ message, conversationId, user, ip }) {
     }
   }
 
-  // 5. Prompt-injection scan
-  if (detectInjection(text)) {
+  // 5. Prompt-injection screen (SH-SEC-CHATBOT-4.0 §4). The strict engine
+  //    normalises first (NFKC, invisible characters, fake delimiters,
+  //    homoglyphs), then applies the full rule set. The returned cleaned text
+  //    is what proceeds into the pipeline, so a disguised payload is scanned
+  //    AND stored/forwarded in its true form.
+  const scan = securityEngine.scanInput(text);
+  text = scan.cleaned;
+  if (scan.blocked) {
     const conv = await findOrCreateConversation(conversationId, user);
     await db.updateRow(db.SHEETS.CHATBOT_CONVERSATIONS, 'id', conv.id, { flagged: true }).catch(() => {});
     await addMessage(conv.id, 'user', text.slice(0, 500));
-    await respondError('blocked', 'prompt_injection', "I can't share internal instructions or credentials. If you have a SaveHatke question, I'm happy to help!");
-    return { ok: false, blocked: true, reply: "I can't share internal instructions or credentials. If you have a SaveHatke question, I'm happy to help!", conversationId: conv.id, requestId, flagged: true };
+    // §4 multi-turn correlation: repeated blocks in one conversation are a
+    // gradual-assembly signal, not N unrelated one-offs. Refusal copy stays
+    // consistent (§4 refusal consistency) — only the logged error type and the
+    // conversation flag escalate.
+    const strikes = noteInjectionBlock(conv.id);
+    await respondError('blocked', strikes >= INJECTION_REPEAT_ESCALATION ? 'prompt_injection_repeat' : (scan.category || 'prompt_injection'), scan.reply);
+    return { ok: false, blocked: true, reply: scan.reply, conversationId: conv.id, requestId, flagged: true };
   }
 
   // 6. Conversation + history
@@ -848,12 +897,14 @@ async function handleMessage({ message, conversationId, user, ip }) {
     return { ok: true, reply: settings.fallbackMessage, conversationId: conv.id, requestId };
   }
 
-  // 8. Build messages with bounded history
+  // 8. Build messages with bounded history. §6: an extended transcript is
+  //    untrusted input — it is normalised on reload with the same controls as
+  //    a fresh message, so nothing hidden in earlier turns re-enters context.
   const detail = await getConversationDetail(conv.id);
   const history = (detail ? detail.messages : [])
     .filter((m) => m.status === 'ok' || m.status === 'fallback' || m.role === 'user')
     .slice(-settings.maxConversationHistory)
-    .map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: String(m.content).slice(0, 2000) }));
+    .map((m) => ({ role: m.role === 'assistant' ? 'assistant' : 'user', content: securityEngine.normaliseInput(String(m.content)).slice(0, 2000) }));
 
   const aiMessages = [
     { role: 'system', content: buildSystemPrompt(settings, knowledgeMatches, user) },
@@ -923,7 +974,15 @@ async function handleMessage({ message, conversationId, user, ip }) {
       return { ok: true, reply: fallback, conversationId: conv.id, requestId };
     }
 
-    const reply = sanitizeOutput(result.content) || settings.unknownQuestionMessage;
+    // §9 output security: sanitizeOutput keeps the legacy contract; the strict
+    // engine scrub (secret patterns, code-leak backstop, internal IDs,
+    // overclaims) runs on every reply before it reaches the user or the log.
+    const raw = sanitizeOutput(result.content) || settings.unknownQuestionMessage;
+    const filtered = securityEngine.filterOutput(raw, { maxLength: aiConfig.maxReplyLength });
+    if (filtered.redacted.length > 0) {
+      console.warn(`[ai] req=${requestId} AI output redacted rules=${filtered.redacted.join(',')}`);
+    }
+    const reply = filtered.text || settings.unknownQuestionMessage;
     await addMessage(conv.id, 'assistant', reply, { model: result.model, status: 'ok', responseTimeMs: Date.now() - started });
     await writeLog({ requestId, user: user ? user.email : `ip:${ip || 'unknown'}`, conversationId: conv.id, model: result.model, responseTimeMs: Date.now() - started, status: 'ok' });
     return { ok: true, reply, conversationId: conv.id, requestId };

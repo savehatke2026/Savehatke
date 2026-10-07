@@ -19,6 +19,43 @@
 
 const config = require('./config');
 
+// ── Input normalisation (SH-SEC-CHATBOT-4.0 §4) ───────────────────────────
+// Untrusted text is normalised BEFORE scanning and BEFORE it can enter model
+// context:
+//   1. NFKC normalisation — folds full-width and compatibility forms so an
+//      attacker cannot smuggle "ｉｇｎｏｒｅ" (U+FF49…) past keyword matching.
+//   2. Zero-width / bidi / control-character stripping — invisible-character
+//      and bidirectional-override vectors.
+//   3. Prompt-delimiter neutralisation — fake block markers, closing tags and
+//      chat-template sentinels ("</system>", "<|im_start|>", "[INST]", "###")
+//      are delimiters the runtime owns; in user text they are inert data, so
+//      they are rewritten to a harmless visible form and can never break out
+//      of the data region.
+//   4. Homoglyph-cluster flagging — confusable Cyrillic/Greek letters inside
+//      otherwise-Latin words are folded to their Latin look-alikes so the
+//      rules below see the attacker's real words.
+const HOMOGLYPH_FOLDS = new Map(Object.entries({
+  // Cyrillic look-alikes
+  'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p', 'с': 'c', 'у': 'y', 'х': 'x', 'і': 'i', 'ѕ': 's', 'ԁ': 'd', 'ɡ': 'g',
+  // Greek look-alikes
+  'ο': 'o', 'α': 'a', 'ε': 'e', 'ρ': 'p', 'ν': 'v', 'τ': 't', 'κ': 'k',
+}));
+
+const PROMPT_DELIMITERS = [
+  /<\|?(?:im_start|im_end|endoftext|system|user|assistant)\|?>/gi,
+  /<\/?\s*(?:system|assistant|developer|instruction|instructions|policy|context|tools?)\s*>/gi,
+  /\[(?:\/?)(?:INST|SYS|SYSTEM|ASST|CONTEXT)\]/gi,
+  /###\s*(?:system|assistant|instructions?)\b/gi,
+];
+
+function normaliseInput(text) {
+  let out = String(text || '').normalize('NFKC');
+  out = out.replace(/[\u200B-\u200D\u2060\uFEFF\u202A-\u202E\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '');
+  for (const [from, to] of HOMOGLYPH_FOLDS) out = out.split(from).join(to);
+  for (const re of PROMPT_DELIMITERS) out = out.replace(re, '(block)');
+  return out;
+}
+
 // ── Input screening ───────────────────────────────────────────────────────
 // Each rule carries a category so logs and the admin security view can
 // distinguish an injection attempt from a data-extraction probe.
@@ -80,15 +117,12 @@ const CODE_DISCLOSURE_PROBE = /\b(show|give|tell|reveal|send|share|what\s+is|pre
  * @returns {{blocked:boolean, category:string|null, severity:string, reply:string|null}}
  */
 function scanInput(text) {
-  const raw = String(text || '');
-  if (!raw.trim()) {
-    return { blocked: false, category: null, severity: 'none', reply: null };
+  // §4: normalise first — NFKC, invisible characters, delimiters, homoglyphs —
+  // so the rules below evaluate the attacker's real words, not a disguise.
+  const cleaned = normaliseInput(text);
+  if (!cleaned.trim()) {
+    return { blocked: false, category: null, severity: 'none', reply: null, cleaned };
   }
-
-  // Zero-width / bidi characters are an obfuscation vector. Their presence is
-  // not itself malicious in a normal sentence, so they are stripped and the
-  // cleaned text is what gets scanned.
-  const cleaned = raw.replace(/[\u200B-\u200D\u2060\uFEFF\u202A-\u202E]/g, '');
 
   for (const rule of INJECTION_RULES) {
     if (rule.re.test(cleaned)) {
@@ -97,6 +131,7 @@ function scanInput(text) {
         category: rule.category,
         severity: rule.category === 'cross_user_access' || rule.category === 'secret_extraction' ? 'high' : 'medium',
         reply: refusalFor(rule.category),
+        cleaned,
       };
     }
   }
@@ -109,10 +144,11 @@ function scanInput(text) {
       category: 'coupon_code_prepurchase',
       severity: 'low',
       reply: "Coupon codes are shared only after a completed purchase — that's what keeps the marketplace fair. Once you buy a coupon it appears instantly in your purchased list. Want me to help you find one?",
+      cleaned,
     };
   }
 
-  return { blocked: false, category: null, severity: 'none', reply: null };
+  return { blocked: false, category: null, severity: 'none', reply: null, cleaned };
 }
 
 /**
@@ -262,6 +298,7 @@ function stripInvisible(text) {
 
 module.exports = {
   scanInput,
+  normaliseInput,
   filterOutput,
   findCodeLikeTokens,
   verifyGrounded,
