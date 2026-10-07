@@ -1595,6 +1595,10 @@ function tmCardHtml(t, index, last) {
   const id = escapeHtml(t.id);
   const rating = Math.max(1, Math.min(5, Number(t.rating) || 5));
   const off = 'disabled style="opacity:.35;pointer-events:none"';
+  const extras = [
+    t.brand ? escapeHtml(t.brand) : '',
+    t.savings ? `Saved ₹${escapeHtml(String(t.savings))}` : '',
+  ].filter(Boolean).join(' · ');
 
   return `
     <div class="tm-card${t.isVisible ? '' : ' hidden-card'}" data-testimonial-id="${id}">
@@ -1605,8 +1609,9 @@ function tmCardHtml(t, index, last) {
         <div class="tm-author">
           <div class="tm-avatar">${escapeHtml(t.initials || '★')}</div>
           <div style="min-width:0">
-            <div class="tm-name">${escapeHtml(t.name)}</div>
+            <div class="tm-name">${escapeHtml(t.name)}${t.verified ? ' <span title="Verified" style="color:#4fc3f7">✔</span>' : ''}</div>
             <div class="tm-role">${escapeHtml(t.role || '—')}</div>
+            ${extras ? `<div class="tm-role" style="color:#00e676">${extras}</div>` : ''}
           </div>
         </div>
       </div>
@@ -1671,6 +1676,12 @@ function openTestimonialModal(id) {
   document.getElementById('tmRole').value = existing ? existing.role : '';
   document.getElementById('tmQuote').value = existing ? existing.quote : '';
   document.getElementById('tmRating').value = String(existing ? existing.rating || 5 : 5);
+  document.getElementById('tmPhoto').value = existing ? (existing.photo || '') : '';
+  document.getElementById('tmBrand').value = existing ? (existing.brand || '') : '';
+  document.getElementById('tmOffer').value = existing ? (existing.offer || '') : '';
+  document.getElementById('tmDetail').value = existing ? (existing.detail || '') : '';
+  document.getElementById('tmSavings').value = existing && existing.savings ? String(existing.savings) : '';
+  document.getElementById('tmVerified').checked = existing ? Boolean(existing.verified) : true;
   document.getElementById('tmVisible').checked = existing ? existing.isVisible : true;
   tmUpdateQuoteCount();
 
@@ -1691,6 +1702,12 @@ async function saveTestimonial() {
     role: document.getElementById('tmRole').value.trim(),
     quote: document.getElementById('tmQuote').value.trim(),
     rating: Number(document.getElementById('tmRating').value) || 5,
+    photo: document.getElementById('tmPhoto').value,
+    brand: document.getElementById('tmBrand').value.trim(),
+    offer: document.getElementById('tmOffer').value.trim(),
+    detail: document.getElementById('tmDetail').value.trim(),
+    savings: Number(document.getElementById('tmSavings').value) || 0,
+    verified: document.getElementById('tmVerified').checked,
     isVisible: document.getElementById('tmVisible').checked,
   };
 

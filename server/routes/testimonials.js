@@ -19,29 +19,26 @@ const router = express.Router();
 const MAX_NAME = 60;
 const MAX_ROLE = 80;
 const MAX_QUOTE = 400;
+const MAX_BRAND = 40;
+const MAX_OFFER = 80;
+const MAX_DETAIL = 120;
+const PHOTO_KEYS = ['', 'priya', 'arjun', 'neha'];
 
-// Written once into an empty Testimonials tab so a fresh install shows the same
-// three cards the homepage used to hard-code. Deleting them all is respected —
-// the settings row records that seeding already happened.
+// Written once into an empty Testimonials tab so a fresh install shows the
+// same ten review cards the homepage carousel ships with. Deleting them all is
+// respected — the settings row records that seeding already happened.
+// `role` holds the location line; photo '' renders the initials tile.
 const STARTER_TESTIMONIALS = [
-  {
-    name: 'Rahul Kumar',
-    role: 'Software Engineer, Bangalore',
-    quote: 'I had ₹500 worth of Nykaa coupons I was never going to use. Sold them all on SaveHatke and got cash instantly. Genius concept!',
-    rating: 5,
-  },
-  {
-    name: 'Priya Sharma',
-    role: 'College Student, Delhi',
-    quote: 'The price tracker saved me ₹4,000 on a laptop! It alerted me the moment the price dropped on Flipkart. Absolutely recommend.',
-    rating: 5,
-  },
-  {
-    name: 'Aditya Mehta',
-    role: 'Freelancer, Mumbai',
-    quote: "Bought a Puma coupon for ₹20 that gave ₹500 off. That's a 25x return! SaveHatke is my go-to before any online purchase now.",
-    rating: 5,
-  },
+  { name: 'Priya Singh', role: 'Kolkata, India', quote: 'Got 50% off on my Myntra order using a coupon from SaveHatke. The code worked instantly. Really happy with the service!', rating: 5, verified: 'true', photo: 'priya', brand: 'Myntra', offer: 'Myntra Fashion Coupon', detail: '50% OFF on selected styles', savings: '800' },
+  { name: 'Arjun Mehta', role: 'Delhi, India', quote: 'Saved ₹300 on my food order with a Swiggy coupon from SaveHatke. The code worked perfectly and the prices are very reasonable. Great platform!', rating: 5, verified: 'true', photo: 'arjun', brand: 'Swiggy', offer: 'Swiggy Food Coupon', detail: '₹300 OFF on orders above ₹599', savings: '300' },
+  { name: 'Neha Kapoor', role: 'Mumbai, India', quote: 'Bought an Amazon coupon and saved a lot on my purchase. Instant delivery and genuine coupons. Will definitely buy again!', rating: 5, verified: 'true', photo: 'neha', brand: 'Amazon', offer: 'Amazon Electronics', detail: 'Up to 70% OFF', savings: '500' },
+  { name: 'Rahul Sharma', role: 'Bengaluru, India', quote: 'Found a Zomato offer just before ordering dinner. Checkout was quick, and the discount applied without any hassle.', rating: 5, verified: 'true', photo: '', brand: 'Zomato', offer: 'Zomato Dining Coupon', detail: '₹200 OFF on your next order', savings: '200' },
+  { name: 'Ananya Gupta', role: 'Pune, India', quote: 'My weekend shopping cost less with an AJIO coupon. Clear terms, quick delivery, and a code that worked first time.', rating: 5, verified: 'true', photo: '', brand: 'AJIO', offer: 'AJIO Fashion Coupon', detail: 'Extra discount on selected styles', savings: '650' },
+  { name: 'Vikram Rao', role: 'Hyderabad, India', quote: 'Used a Flipkart coupon for my new headphones. It was easy to find the right offer and check the details before buying.', rating: 5, verified: 'true', photo: '', brand: 'Flipkart', offer: 'Flipkart Electronics', detail: 'Save on selected electronics', savings: '450' },
+  { name: 'Sneha Joshi', role: 'Ahmedabad, India', quote: 'Picked up a Nykaa coupon for my skincare order. The savings were a lovely bonus, and the whole process was simple.', rating: 5, verified: 'true', photo: '', brand: 'Nykaa', offer: 'Nykaa Beauty Coupon', detail: 'Discount on your beauty essentials', savings: '350' },
+  { name: 'Karan Malhotra', role: 'Chandigarh, India', quote: 'Booked a short trip using a travel coupon. The offer details were easy to understand and helped me stay within budget.', rating: 5, verified: 'true', photo: '', brand: 'MakeMyTrip', offer: 'MakeMyTrip Travel Coupon', detail: 'Save on eligible hotel bookings', savings: '1200' },
+  { name: 'Pooja Nair', role: 'Kochi, India', quote: 'Found a useful BigBasket coupon for our weekly groceries. Easy checkout and a little extra saved on the essentials.', rating: 5, verified: 'true', photo: '', brand: 'BigBasket', offer: 'BigBasket Grocery Coupon', detail: 'Discount on your grocery basket', savings: '250' },
+  { name: 'Aditya Sen', role: 'Jaipur, India', quote: 'Used a Tata CLiQ offer for a birthday gift. The coupon arrived quickly and the discount made the purchase even better.', rating: 5, verified: 'true', photo: '', brand: 'Tata CLiQ', offer: 'Tata CLiQ Shopping Coupon', detail: 'Save on selected products', savings: '700' },
 ];
 
 function nowIso() {
@@ -67,6 +64,7 @@ function initialsFor(name) {
 
 function sanitize(row) {
   const rating = Number(row.rating);
+  const savings = Number(row.savings);
   return {
     id: row.id,
     name: row.name || '',
@@ -74,6 +72,12 @@ function sanitize(row) {
     quote: row.quote || '',
     rating: Number.isFinite(rating) && rating >= 1 && rating <= 5 ? Math.round(rating) : 5,
     initials: initialsFor(row.name),
+    verified: toBool(row.verified, false),
+    photo: PHOTO_KEYS.includes(String(row.photo || '')) ? String(row.photo) : '',
+    brand: row.brand || '',
+    offer: row.offer || '',
+    detail: row.detail || '',
+    savings: Number.isFinite(savings) && savings >= 0 ? Math.round(savings) : 0,
     isVisible: toBool(row.isVisible),
     sortOrder: Number(row.sortOrder) || 0,
     createdAt: row.createdAt || '',
@@ -111,9 +115,39 @@ function validate(body) {
     }
   }
 
+  const brand = String(body.brand == null ? '' : body.brand).trim();
+  if (brand.length > MAX_BRAND) return { ok: false, error: `The brand must be ${MAX_BRAND} characters or fewer.` };
+
+  const offer = String(body.offer == null ? '' : body.offer).trim();
+  if (offer.length > MAX_OFFER) return { ok: false, error: `The coupon name must be ${MAX_OFFER} characters or fewer.` };
+
+  const detail = String(body.detail == null ? '' : body.detail).trim();
+  if (detail.length > MAX_DETAIL) return { ok: false, error: `The offer details must be ${MAX_DETAIL} characters or fewer.` };
+
+  const photo = String(body.photo == null ? '' : body.photo).trim();
+  if (!PHOTO_KEYS.includes(photo)) return { ok: false, error: 'Unknown photo choice.' };
+
+  let savings = 0;
+  if (body.savings !== undefined && body.savings !== '') {
+    savings = Number(body.savings);
+    if (!Number.isFinite(savings) || savings < 0 || savings > 10000000) {
+      return { ok: false, error: 'The savings amount must be a number between 0 and 1,00,00,000.' };
+    }
+  }
+
   return {
     ok: true,
-    value: { name, role, quote, rating, isVisible: toBool(body.isVisible) },
+    value: {
+      name, role, quote,
+      rating,
+      isVisible: toBool(body.isVisible),
+      verified: toBool(body.verified, false),
+      photo,
+      brand,
+      offer,
+      detail,
+      savings: Math.round(savings),
+    },
   };
 }
 
@@ -217,6 +251,12 @@ router.post('/', authenticateToken, requireAdmin, adminMutationLimiter, async (r
       role: valid.value.role,
       quote: valid.value.quote,
       rating: String(valid.value.rating),
+      verified: String(valid.value.verified),
+      photo: valid.value.photo,
+      brand: valid.value.brand,
+      offer: valid.value.offer,
+      detail: valid.value.detail,
+      savings: String(valid.value.savings),
       isVisible: String(valid.value.isVisible),
       sortOrder: String(nextSortOrder(testimonials)),
       createdAt: nowIso(),
@@ -247,6 +287,12 @@ router.put('/:id', authenticateToken, requireAdmin, adminMutationLimiter, async 
       quote: body.quote !== undefined ? body.quote : existing.quote,
       rating: body.rating !== undefined ? body.rating : existing.rating,
       isVisible: body.isVisible !== undefined ? body.isVisible : existing.isVisible,
+      verified: body.verified !== undefined ? body.verified : existing.verified,
+      photo: body.photo !== undefined ? body.photo : existing.photo,
+      brand: body.brand !== undefined ? body.brand : existing.brand,
+      offer: body.offer !== undefined ? body.offer : existing.offer,
+      detail: body.detail !== undefined ? body.detail : existing.detail,
+      savings: body.savings !== undefined ? body.savings : existing.savings,
     });
     if (!valid.ok) return res.status(400).json({ error: valid.error });
 
@@ -255,6 +301,12 @@ router.put('/:id', authenticateToken, requireAdmin, adminMutationLimiter, async 
       role: valid.value.role,
       quote: valid.value.quote,
       rating: String(valid.value.rating),
+      verified: String(valid.value.verified),
+      photo: valid.value.photo,
+      brand: valid.value.brand,
+      offer: valid.value.offer,
+      detail: valid.value.detail,
+      savings: String(valid.value.savings),
       isVisible: String(valid.value.isVisible),
       updatedAt: nowIso(),
     };

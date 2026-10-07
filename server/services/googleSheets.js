@@ -246,9 +246,27 @@ const HEADERS = {
   [SHEETS.TESTIMONIALS]: [
     'id',
     'name',
+    // The location line shown under the reviewer's name on the homepage card
+    // (e.g. "Kolkata, India"). Historic rows may hold a job title instead —
+    // readers treat it as a free-form subtitle either way.
     'role',
     'quote',
     'rating',
+    // Review-carousel extras (added after the carousel replaced the static
+    // three-card grid). ensureSheets() appends these headers to the right of
+    // the live tab, so older rows simply read back empty here.
+    //   verified — 'true' renders the blue check beside the name
+    //   photo    — sprite key: 'priya' | 'arjun' | 'neha' | '' (initials tile)
+    //   brand    — coupon store chip (e.g. "Myntra")
+    //   offer    — coupon name (e.g. "Myntra Fashion Coupon")
+    //   detail   — offer terms line (e.g. "50% OFF on selected styles")
+    //   savings  — amount the reviewer saved, rendered as "Saved ₹800"
+    'verified',
+    'photo',
+    'brand',
+    'offer',
+    'detail',
+    'savings',
     'isVisible',
     'sortOrder',
     'createdAt',

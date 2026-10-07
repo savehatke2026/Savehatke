@@ -983,6 +983,28 @@
   reducedMotion.addEventListener('change', startAuto);
   render();
   startAuto();
+  // The demo list above renders instantly so the section never flashes empty.
+  // The admin-curated list lives in the Testimonials sheet tab (managed from
+  // the vault's Reviews section) — when the API serves it, take it over.
+  fetch('/api/testimonials').then((response) => (response.ok ? response.json() : null)).then((data) => {
+    const live = data && Array.isArray(data.testimonials) ? data.testimonials : [];
+    if (!live.length) return;
+    reviews = live.map((t) => ({
+      name: t.name,
+      location: t.role,
+      rating: t.rating,
+      photo: t.photo || '',
+      verified: t.verified === true,
+      quote: t.quote,
+      brand: t.brand || '',
+      offer: t.offer || '',
+      detail: t.detail || '',
+      savings: t.savings || 0,
+      initials: t.initials || '',
+    }));
+    current = 0;
+    render();
+  }).catch(() => {});
 })();
 </script>
 </body>
