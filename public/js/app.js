@@ -198,7 +198,7 @@ const Auth = {
     const adminUser = localStorage.getItem('sh_admin_user');
     if (adminUser) return JSON.parse(adminUser);
     const user = this.getUser();
-    if (user && (user.role === 'admin' || user.role === 'Super Admin' || user.role === 'Admin' || user.role === 'Support')) return user;
+    if (user && ['admin', 'owner', 'Super Admin', 'Admin', 'Support', 'Owner'].includes(user.role)) return user;
     return null;
   },
 
@@ -221,7 +221,7 @@ const Auth = {
   isAdminLoggedIn() {
     const adminUser = this.getAdminUser();
     return localStorage.getItem('sh_authenticated') === '1' && !!(adminUser &&
-      ['admin', 'super admin', 'support'].includes(String(adminUser.role || '').toLowerCase()));
+      ['admin', 'owner', 'super admin', 'support'].includes(String(adminUser.role || '').toLowerCase()));
   },
 };
 

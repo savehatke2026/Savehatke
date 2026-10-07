@@ -160,7 +160,8 @@ function isAllowedAvatarUrl(url) {
 }
 
 function sendGoogleLoginHandoff(res, user, destination) {
-  const isAdmin = user.role === 'admin';
+  const adminRole = String(user.role || '').toLowerCase();
+  const isAdmin = ['admin', 'owner', 'super admin', 'support'].includes(adminRole);
   const target = isAdmin ? '/vault' : destination;
   res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
   return res.status(200).send(`<!doctype html><html><head><meta charset="utf-8"><title>SaveHatke</title></head><body><script>
@@ -238,7 +239,8 @@ async function finishGoogleLogin(req, res, identity) {
     const session = await createLoginSession(req, adminAccount.id || adminAccount.email, 'Google Admin', email, name, res, googleSub);
     setSessionCookie(res, session.token, session.ttlMs);
     return sendGoogleLoginHandoff(res, {
-      id: session.userId, userId: session.userId, email, name, picture, role: 'admin',
+      id: session.userId, userId: session.userId, email, name, picture,
+      role: adminAccount.role || 'admin',
     }, '/vault');
   }
 

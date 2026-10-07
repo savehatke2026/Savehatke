@@ -43,7 +43,7 @@
         if (!u || !(u.email || u.id || u.name)) return;
 
         const role = String(u.role || '').toLowerCase();
-        const isAdmin = role === 'admin' || role === 'super admin' || role === 'support';
+        const isAdmin = role === 'admin' || role === 'owner' || role === 'super admin' || role === 'support';
         document.documentElement.style.display = 'none';
         window.location.replace(isAdmin ? '/vault' : (u.needs_name_setup ? '/onboarding.html' : '/dashboard.html'));
       } catch (e) {}
@@ -1481,7 +1481,8 @@
         } catch (e) { /* storage unavailable — the emailed notice still covers it */ }
       }
 
-      if (data.user.role === 'admin' || data.user.role === 'Super Admin' || data.user.role === 'Admin') {
+      const adminRole = String(data.user.role || '').toLowerCase();
+      if (['admin', 'owner', 'super admin', 'support'].includes(adminRole)) {
         Auth.setAdminAuth(data.token, data.user);
         window.location.replace('vault');
       } else {

@@ -195,10 +195,17 @@ const ADMIN_ROLES = Object.freeze(['owner', 'admin', 'support']);
 async function ensureAdminAllowlistTable() {
   const client = getClient();
   if (!client) return false;
+  // Probe with the role column, not just email: a pre-role table must NOT be
+  // reported as ready. (This project has no exec_sql rpc, so DDL cannot run
+  // from the server — the operator runs the ALTER by hand; see the .sql file.)
   try {
-    const { error } = await client.from(ADMIN_ALLOWLIST_TABLE).select('email').limit(1);
-    if (!error) return true; // already there
-  } catch (e) { /* fall through to create */ }
+    const { error } = await client.from(ADMIN_ALLOWLIST_TABLE).select('email,role').limit(1);
+    if (!error) return true; // table present, role column present
+    if (/does not exist|could not find/i.test(String(error.message))) {
+      console.warn('[supabase] admin_allowlist is missing the role column — run the ALTER TABLE statement from server/setup_admin_allowlist.sql in the Supabase dashboard. Sign-in keeps working with the default role until then.');
+      return false;
+    }
+  } catch (e) { /* fall through to create attempt */ }
   try {
     const { error } = await client.rpc('exec_sql', {
       sql: `create table if not exists public.${ADMIN_ALLOWLIST_TABLE} (
@@ -213,11 +220,6 @@ async function ensureAdminAllowlistTable() {
       console.warn('[supabase] admin_allowlist ensure-table:', error.message);
       return false;
     }
-    // Tables created before the role column existed get it added in place.
-    const { error: alterError } = await client.rpc('exec_sql', {
-      sql: `alter table public.${ADMIN_ALLOWLIST_TABLE} add column if not exists role text not null default 'admin'`,
-    });
-    if (alterError) console.warn('[supabase] admin_allowlist role column:', alterError.message);
     return true;
   } catch (e) {
     console.warn('[supabase] admin_allowlist ensure-table threw:', (e && e.message) || e);
@@ -238,11 +240,28 @@ async function getAdminAllowlist() {
       .from(ADMIN_ALLOWLIST_TABLE)
       .select(ADMIN_ALLOWLIST_COLUMNS.join(','))
       .order('created_at', { ascending: true });
-    if (error) {
-      console.warn('[supabase] admin_allowlist read failed:', error.message);
+    if (!error) {
+      return (data || []).map(mapAdminAllowlistRow).filter((row) => row.email);
+    }
+    // Schema drift: a roster created before the role column exists fails the
+    // full-column select ("column ... does not exist"). That must never block
+    // admin sign-in, so fall back to the base columns and treat everyone as
+    // the default role. The retry is same-call and stateless, so the read
+    // self-heals the moment the column is added — no restart needed.
+    if (/does not exist|could not find/i.test(String(error.message))) {
+      const retry = await client
+        .from(ADMIN_ALLOWLIST_TABLE)
+        .select('email,name,active,created_at')
+        .order('created_at', { ascending: true });
+      if (!retry.error) {
+        console.warn('[supabase] admin_allowlist: role column missing — reading base columns (run the ALTER TABLE from server/setup_admin_allowlist.sql to enable roles).');
+        return (retry.data || []).map(mapAdminAllowlistRow).filter((row) => row.email);
+      }
+      console.warn('[supabase] admin_allowlist base-column read failed:', retry.error.message);
       return [];
     }
-    return (data || []).map(mapAdminAllowlistRow).filter((row) => row.email);
+    console.warn('[supabase] admin_allowlist read failed:', error.message);
+    return [];
   } catch (e) {
     console.warn('[supabase] admin_allowlist read threw:', (e && e.message) || e);
     return [];
@@ -277,14 +296,22 @@ async function upsertAdminAllowlist({ email, name, role, active }) {
   const normalized = normalizeAdminEmail(email);
   if (!normalized) throw new Error('A valid email address is required');
   const safeRole = ADMIN_ROLES.includes(String(role || '').toLowerCase()) ? String(role).toLowerCase() : 'admin';
-  const { error } = await client.from(ADMIN_ALLOWLIST_TABLE).upsert({
+  const row = {
     email: normalized,
     name: String(name || '').trim().slice(0, 120),
     role: safeRole,
     active: active !== false,
-  });
+  };
+  let { error } = await client.from(ADMIN_ALLOWLIST_TABLE).upsert(row);
+  if (error && /does not exist|could not find/i.test(String(error.message)) && /role/i.test(String(error.message))) {
+    // Pre-role table: write without the role field so Add/Activate still works.
+    const withoutRole = { ...row };
+    delete withoutRole.role;
+    ({ error } = await client.from(ADMIN_ALLOWLIST_TABLE).upsert(withoutRole));
+    if (!error) console.warn('[supabase] admin_allowlist: wrote without role (role column missing — see server/setup_admin_allowlist.sql).');
+  }
   if (error) throw new Error(error.message);
-  return { email: normalized, name: String(name || '').trim(), role: safeRole, active: active !== false };
+  return { email: normalized, name: row.name, role: safeRole, active: row.active };
 }
 
 /**
@@ -305,11 +332,21 @@ async function updateAdminAllowlist(email, patch = {}) {
   }
   if (patch.active !== undefined) update.active = patch.active === true || patch.active === 'true';
   if (Object.keys(update).length === 0) return null;
-  const { data, error } = await client
+  let { data, error } = await client
     .from(ADMIN_ALLOWLIST_TABLE)
     .update(update)
     .eq('email', normalized)
     .select(ADMIN_ALLOWLIST_COLUMNS.join(','));
+  if (error && /does not exist|could not find/i.test(String(error.message)) && /role/i.test(String(error.message))) {
+    // Pre-role table: retry without touching the role field.
+    const withoutRole = { ...update };
+    delete withoutRole.role;
+    ({ data, error } = await client
+      .from(ADMIN_ALLOWLIST_TABLE)
+      .update(withoutRole)
+      .eq('email', normalized)
+      .select('email,name,active,created_at'));
+  }
   if (error) throw new Error(error.message);
   const row = (data || [])[0];
   return row ? mapAdminAllowlistRow(row) : null;
