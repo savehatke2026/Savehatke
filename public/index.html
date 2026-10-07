@@ -278,8 +278,8 @@
     @media(prefers-reduced-motion:reduce) { #testimonials .tcard { transition:none; } }
 
     #testimonials .tgrid { display:block; width:81%; margin:0 auto; padding:12px 0; overflow:hidden; }
-    .review-track { display:flex; width:100%; align-items:center; transform:translate3d(-33.333333%,0,0); will-change:transform; }
-    #testimonials .review-track > .tcard { display:flex; flex:0 0 33.333333%; height:328px; min-height:0; margin:0; transform:scale(.9); z-index:0; transition:transform 950ms cubic-bezier(.45,0,.2,1),opacity 950ms ease,border-color 950ms ease; }
+    .review-track { display:flex; width:100%; align-items:center; transform:translate3d(-33.333333%,0,0); will-change:transform; backface-visibility:hidden; }
+    #testimonials .review-track > .tcard { display:flex; flex:0 0 33.333333%; height:328px; min-height:0; margin:0; transform:scale(.9); z-index:0; transition:transform 1150ms cubic-bezier(.45,.05,.2,1),opacity 1150ms ease,border-color 1150ms ease; backface-visibility:hidden; }
     #testimonials .review-track > .tcard.is-current { transform:scale(1); z-index:1; }
     #testimonials .review-track .ttext { min-height:0; overflow:auto; }
     @media(max-width:1100px) { #testimonials .tgrid { width:100%; } #testimonials .review-track > .tcard { height:362px; } }
@@ -1312,7 +1312,7 @@
     const animation = track.animate([
       { transform:'translate3d(' + initial + '%,0,0)' },
       { transform:'translate3d(' + (initial - step * distance) + '%,0,0)' }
-    ], { duration:950, easing:'cubic-bezier(.45,0,.2,1)', fill:'forwards' });
+    ], { duration:1150, easing:'cubic-bezier(.45,.05,.2,1)', fill:'forwards' });
     await animation.finished.catch(() => {});
     current = target;
     render();
