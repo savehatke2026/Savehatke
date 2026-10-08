@@ -3673,7 +3673,12 @@ tbody td strong{color:#e2ecff;font-weight:600}
 <script src="js/gmail.js"></script>
 <script>
 // ── Time-Based Greeting with Admin First Name ──
-(function initAdminGreeting() {
+// The name comes from the authenticated admin session record (sh_admin_user,
+// written by the server login handoff). applyAdminGreeting also re-runs when
+// app.js refreshes that record from /auth/me, so a browser whose cached copy
+// was lost still shows the signed-in admin's name without a reload. Greeting
+// text, markup and styling are unchanged.
+function applyAdminGreeting() {
   const hour = new Date().getHours();
   let greeting;
   if (hour >= 5 && hour < 12) greeting = 'Good morning';
@@ -3693,9 +3698,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
   const nameSpan = document.getElementById('adminNameSpan');
   if (nameSpan) nameSpan.textContent = firstName;
   if (greetingEl) {
-    greetingEl.innerHTML = `${greeting}, <span class="gtext" id="adminNameSpan">${firstName}</span> 👋`;
+    greetingEl.innerHTML = `${greeting}, <span class="gtext" id="adminNameSpan">${escapeHtmlText(firstName)}</span> 👋`;
   }
-})();
+}
+applyAdminGreeting();
+window.addEventListener('sh:auth-user-updated', applyAdminGreeting);
 
 /* ════════════════════════════
    NAVIGATION

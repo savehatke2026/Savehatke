@@ -432,6 +432,9 @@ async function refreshAccountStatus() {
       if (fresh && fresh.email) {
         Auth.setAuth(Auth.getToken(), fresh);
         updateNavAuth();
+        // Pages with session-derived identity UI (e.g. the admin dashboard
+        // greeting) can re-apply the now-restored record without a reload.
+        window.dispatchEvent(new CustomEvent('sh:auth-user-updated', { detail: fresh }));
       }
       return;
     }

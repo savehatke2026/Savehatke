@@ -2,6 +2,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const UAParser = require('ua-parser-js');
 const { OAuth2Client } = require('google-auth-library');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -199,11 +200,20 @@ async function finishGoogleLogin(req, res, identity) {
       console.warn(`[auth] admin sign-in blocked for ${email} — admin allowlist is on env fallback.`);
       return res.redirect(303, '/login?google=admin_blocked');
     }
+    // Optional Mongo profile storage (being migrated to the admin_allowlist
+    // table). Mongoose buffers every operation while no connection exists —
+    // with Mongo decoupled from boot (config/db.js is a no-op shim) each of
+    // the two writes below stalled ~10s waiting for a connection that never
+    // arrives, then failed identically. Skip them while the connection is
+    // down: same null-adminData outcome the timeout produced, minus the dead
+    // wait. Full behavior resumes automatically if Mongo is attached again.
     let adminData = null;
-    try {
-      const AdminModel = require('../models/Admin');
-      adminData = await AdminModel.findOne({ email });
-    } catch (e) { /* allowlisted identities do not depend on optional profile storage */ }
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const AdminModel = require('../models/Admin');
+        adminData = await AdminModel.findOne({ email });
+      } catch (e) { /* allowlisted identities do not depend on optional profile storage */ }
+    }
     if (adminData && adminData.is_active === false) {
       return res.status(403).json({ error: 'This administrator account is inactive.' });
     }
@@ -212,28 +222,31 @@ async function finishGoogleLogin(req, res, identity) {
     // the photo across logins. Only Google's own image hosts are accepted
     // (same allowlist safeProfilePictureUrl applies on the client); anything
     // else is left untouched so a hand-edited sheet cell is never clobbered.
-    try {
-      const AdminModel = require('../models/Admin');
-      const safePicture = isAllowedAvatarUrl(picture) ? String(picture).trim().slice(0, 1000) : '';
-      if (safePicture) {
-        if (adminData && adminData.profile_image !== safePicture) {
-          adminData.profile_image = safePicture;
-          await adminData.save().catch(() => { /* non-fatal — panel falls back to initials */ });
-        } else if (!adminData) {
-          // First-time Google login for an allowlisted admin with no Mongo
-          // document yet — create a minimal profile so the photo has a home.
-          await AdminModel.create({
-            id: adminAccount.id,
-            name,
-            email,
-            role: 'Admin',
-            profile_image: safePicture,
-            last_login: new Date(),
-            email_verified: true,
-          }).catch(() => { /* dup-key / validation — non-fatal */ });
+    // Skipped while Mongo is disconnected — see the note above the findOne.
+    if (mongoose.connection.readyState === 1) {
+      try {
+        const AdminModel = require('../models/Admin');
+        const safePicture = isAllowedAvatarUrl(picture) ? String(picture).trim().slice(0, 1000) : '';
+        if (safePicture) {
+          if (adminData && adminData.profile_image !== safePicture) {
+            adminData.profile_image = safePicture;
+            await adminData.save().catch(() => { /* non-fatal — panel falls back to initials */ });
+          } else if (!adminData) {
+            // First-time Google login for an allowlisted admin with no Mongo
+            // document yet — create a minimal profile so the photo has a home.
+            await AdminModel.create({
+              id: adminAccount.id,
+              name,
+              email,
+              role: 'Admin',
+              profile_image: safePicture,
+              last_login: new Date(),
+              email_verified: true,
+            }).catch(() => { /* dup-key / validation — non-fatal */ });
+          }
         }
-      }
-    } catch (e) { /* avatar persistence is best-effort */ }
+      } catch (e) { /* avatar persistence is best-effort */ }
+    }
     // The Supabase roster rows carry { email, name, active } and no id column
     // (the pre-roster hardcoded list had id: '1'/'2'), so adminAccount.id is
     // undefined today — which made createLoginSession throw "Authenticated
@@ -812,7 +825,17 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     // the HttpOnly cookie; only its SHA-256 hash is stored in the database.
     const rawToken = generateSessionToken();
 
-    const { realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail, knownUserRow);
+    // Admin identities come fully resolved from the in-memory allowlist
+    // roster — the email is the roster's primary key and a stable session id
+    // (the documented fallback below). The Users-sheet resolution is for
+    // marketplace users; for an admin login it only adds a full-sheet Google
+    // Sheets round trip that ends at the same email whenever the admin has
+    // no row there (verified for every current roster admin).
+    let realUserId = String(userId || '').trim();
+    let userIdSource = 'admin-roster-identity';
+    if (!isAdminLogin) {
+      ({ realUserId, userIdSource } = await resolveSessionUserId(userId, cleanEmail, knownUserRow));
+    }
     const finalUserId = realUserId || String(userId || '').trim();
     if (!finalUserId) throw new Error('Authenticated account has no stable user id.');
 
@@ -1252,6 +1275,8 @@ router.get('/me', authenticateToken, async (req, res) => {
     // for the fixed server-side session expiry.
     let status = 'active';
     let suspendReason = '';
+    let preferredName = '';
+    let displayName = req.user.name;
     try {
       let row = null;
       if (req.user.id) {
@@ -1261,8 +1286,6 @@ router.get('/me', authenticateToken, async (req, res) => {
       if (!row && req.user.email) {
         row = await db.findRow(db.SHEETS.USERS, 'email', String(req.user.email).toLowerCase().trim());
       }
-      let preferredName = '';
-      let displayName = req.user.name;
       if (row) {
         status = String(row.status || 'active').toLowerCase();
         if (status !== 'active') suspendReason = String(row.suspend_reason || '');
@@ -1277,6 +1300,15 @@ router.get('/me', authenticateToken, async (req, res) => {
       // Sheet unreachable — fall back to 'active' rather than locking the user
       // out of their own dashboard on a transient read failure.
       console.warn('[auth/me] account status lookup failed:', e.message);
+    }
+
+    // Admin sessions are identified by the allowlist roster, not the Users
+    // sheet, so the lookup above always misses for them and used to return a
+    // name-less profile. Serve the display name from the same in-memory
+    // roster cache the sign-in handoff used — no extra lookup required.
+    if (!String(displayName || '').trim() && String(req.user.role || '').toLowerCase() === 'admin') {
+      const adminAccount = getAdminAccount(String(req.user.email || '').toLowerCase().trim());
+      if (adminAccount && adminAccount.name) displayName = String(adminAccount.name).trim();
     }
 
     res.json({
