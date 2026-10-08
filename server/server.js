@@ -141,12 +141,14 @@ app.use((req, res, next) => {
     "frame-ancestors 'self'",
     "form-action 'self'",
     // Google Identity Services, Cloudflare Turnstile, the QR image data URLs on
-    // checkout, and the font stylesheet the pages link.
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com",
+    // checkout, the font stylesheet the pages link, and the Tesseract.js CDN
+    // (sell page's client-side coupon OCR: script + its wasm/model fetches;
+    // its worker already runs from blob:, which worker-src allows).
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com",
+    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net",
     "frame-src https://accounts.google.com https://challenges.cloudflare.com",
     "worker-src 'self' blob:",
   ].join('; '));

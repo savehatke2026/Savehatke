@@ -10,7 +10,8 @@
     "verify:security": "node verify-security.cjs",
     "verify:fail-closed": "node verify-fail-closed.cjs",
     "verify:ratelimit": "node verify-ratelimit.cjs",
-    "verify:all": "npm run verify:security && npm run verify:fail-closed && npm run verify:ratelimit",
+    "verify:coupon-ocr": "node verify-coupon-ocr.cjs",
+    "verify:all": "npm run verify:security && npm run verify:fail-closed && npm run verify:ratelimit && npm run verify:coupon-ocr",
     "audit:prod": "npm audit --omit=dev",
     "cron-secret": "node scripts/ensure-cron-secret.cjs",
     "create-brand": "node scripts/create-brand.js",
@@ -54,6 +55,7 @@
     "jsqr": "^1.4.0",
     "pdfjs-dist": "^4.0.379",
     "pngjs": "^5.0.0",
-    "puppeteer": "^23.11.1"
+    "puppeteer": "^23.11.1",
+    "tesseract.js": "^5.1.1"
   }
 }

@@ -908,6 +908,10 @@
      the page script so the brand field can show a brand's real logo as the
      seller types, using the same local /logos/* files as the marketplace. -->
 <script src="js/coupon-meta.js"></script>
+<!-- Client-side coupon screenshot OCR (Tesseract.js, loaded lazily from CDN
+     on the first scan — nothing runs at page load). Exposes window.CouponOCR;
+     the scan card feeds its result into the same auto-fill flow as before. -->
+<script src="js/coupon-ocr.js"></script>
 <script>
 /* ══════════════════════════════════════
    TOAST
@@ -1768,16 +1772,17 @@ function fileToBase64(file) {
    AI SCREENSHOT SCANNER
    ──────────────────────────────────────────────────────────────────────────
    Optional path into the same form: the seller uploads a coupon screenshot,
-   the SERVER (POST /api/coupons/scan) asks OpenRouter vision to read it, and
-   the fields it could actually see are written into Coupon 1 for review.
+   Tesseract.js OCR reads it LOCALLY in the browser (public/js/coupon-ocr.js —
+   no paid AI API, no server round-trip for the reading itself), and the fields
+   it could actually see are written into Coupon 1 for review.
 
    Rules this implements:
-   • No provider key in the browser. The image goes to our own endpoint, which
-     holds the key and validates the model's JSON before replying.
-   • The image is checked before anything is filled — resolution, brightness and
-     sharpness here, "is this even a coupon" on the server via the model.
-   • Nothing is guessed. A field the model could not read stays empty.
-   • Selling Price is never AI-controlled: it stays the seller's own value.
+   • No provider key anywhere. The image is read on-device; only the proof
+     copy still goes to our own Drive endpoint (unchanged).
+   • The image is checked before anything is filled — resolution, brightness
+     and sharpness here, then OCR confidence per field.
+   • Nothing is guessed. A field the OCR could not read stays empty.
+   • Selling Price is never auto-controlled: it stays the seller's own value.
    • Low-confidence values are marked "Please verify", and the four critical
      fields must be acknowledged before the seller can reach the review step.
    • Nothing is submitted automatically. The existing Review → Submit flow runs
@@ -1789,7 +1794,7 @@ const AI_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 const AI_MIN_EDGE = 300;          // below this, text is unreadable
 const AI_DARK_LUMA = 30;          // mean luma 0–255 under this is "too dark"
 const AI_BLUR_VARIANCE = 45;      // Laplacian variance under this is "too blurry"
-const AI_SCAN_MAX_EDGE = 1600;    // what we send to the model (cheaper, faster)
+const AI_SCAN_MAX_EDGE = 1600;    // fallback proof size (was the old model cap)
 const AI_PROOF_MAX_EDGE = 2000;   // what we keep as proof when the original is huge
 const AI_PROOF_MAX_BYTES = 2.8 * 1024 * 1024;   // server /proof cap is 3 MB
 
@@ -2095,68 +2100,43 @@ async function runAiScan(file, opts = {}) {
     return;
   }
 
-  // ── 3. Ask the server (which holds the OpenRouter key) to read it ──
+  // ── 3. Read the coupon locally (Tesseract.js OCR — no API, no server call) ──
   setAiWorking('🔍 Analyzing Coupon...', 'Reading coupon details...');
-
-  let scanBlob;
-  try {
-    scanBlob = await imageToJpegBlob(img, AI_SCAN_MAX_EDGE, 0.85);
-  } catch (e) {
-    URL.revokeObjectURL(url);
-    showAiError('quality', '⚠️ Could not process the image',
-      'Something went wrong preparing that screenshot. Please try another image, or enter the details manually.');
-    return;
-  }
 
   let result;
   try {
-    const dataBase64 = await fileToBase64(scanBlob);
-    result = await api('/coupons/scan', {
-      method: 'POST',
-      body: { filename: file.name, contentType: 'image/jpeg', dataBase64 },
+    result = await CouponOCR.extract(img, {
+      onProgress: (pct, note) => {
+        if (note) setAiWorking('🔍 Analyzing Coupon...', note);
+      },
     });
   } catch (err) {
     URL.revokeObjectURL(url);
-    if (err && err.status === 401) {
-      showAiError('quality', '⚠️ Please log in first',
-        'You need to be logged in before we can scan a coupon screenshot for you.');
-      setTimeout(() => { window.location.href = 'login.html?next=sell.html'; }, 1400);
-      return;
-    }
-    const msg = (err && err.message) || 'Please try again.';
-    // The server sends a machine-readable `reason` beside the message. Trust it
-    // first — the message patterns below are only a fallback for responses that
-    // predate it. The distinction that matters: a verdict about the image needs
-    // a different screenshot, a capacity problem just needs another try.
-    const reason = (err && err.data && err.data.reason) || '';
-
-    if (reason === 'not_coupon') {
-      showAiError('invalid', '❌ Invalid Image', msg);
-    } else if (reason === 'too_dark' || reason === 'blurry' || reason === 'low_resolution' || reason === 'cropped') {
-      showAiError('quality', '⚠️ Image is too blurry', msg);
-    } else if (reason === 'insufficient_data') {
-      showAiError('quality', '⚠️ Not enough detail', msg);
-    } else if (reason === 'quota_exhausted' || reason === 'overloaded' || reason === 'timeout'
-      || reason === 'network_error' || reason === 'auth_error' || reason === 'not_configured'
-      || reason === 'bad_json' || reason === 'ai_unavailable'
-      || err.status === 429 || err.status === 503 || err.status === 504) {
-      showAiError('busy', '⏳ AI reader is busy', msg);
-    } else if (/coupon or voucher/i.test(msg)) {
-      showAiError('invalid', '❌ Invalid Image', msg);
-    } else if (/blurr|dark|resolution|cut off|corrupt/i.test(msg)) {
-      showAiError('quality', '⚠️ Image is too blurry', msg);
-    } else if (/enough coupon information/i.test(msg)) {
-      showAiError('quality', '⚠️ Not enough detail', msg);
+    if (err && err.code === 'busy') {
+      showAiError('busy', '⏳ AI reader is busy',
+        'The previous scan is still running. Please wait a moment, then try again.');
+    } else if (err && (err.code === 'ocr_unreadable' || err.code === 'tesseract_cdn_failed' || err.code === 'tesseract_missing')) {
+      showAiError('quality', '⚠️ Image is difficult to read',
+        'The image is difficult to read. Try uploading a clearer photo.');
     } else {
-      showAiError('quality', '⚠️ Could not read the coupon', msg);
+      showAiError('quality', '⚠️ Could not read the coupon',
+        "Couldn't read the coupon code from this image. Please enter it manually.");
     }
     return;
   }
 
-  if (!result || !result.fields) {
+  if (!result || !result.fields || Object.keys(result.fields).length === 0) {
     URL.revokeObjectURL(url);
-    showAiError('quality', '⚠️ Could not read the coupon',
-      "We couldn't extract the coupon details from that image. Please try another screenshot or enter the details manually.");
+    // Low-confidence code: never auto-filled — surface the candidate so the
+    // seller can confirm it by hand (spec: manual confirmation path).
+    if (result && result.candidate) {
+      showAiError('quality', '⚠️ Please check the coupon code',
+        'We found a possible coupon code: ' + result.candidate.value +
+        ' — but we are not confident enough to fill it in automatically. Please enter it manually, or try a clearer image.');
+    } else {
+      showAiError('quality', '⚠️ Could not read the coupon',
+        "Couldn't read the coupon code from this image. Please enter it manually.");
+    }
     return;
   }
 
