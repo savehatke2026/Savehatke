@@ -111,15 +111,15 @@
       },
       {
         kind: 'step',
-        target: () => q('#couponGrid .coupon-card .c-icon-btn') || q('#couponGrid .coupon-card') || q('#couponGrid'),
-        title: 'Coupon details',
-        body: 'Tap the ⓘ for the terms, or the 📖 for how to use the coupon — both open right here, without leaving the marketplace.',
+        target: () => q('#couponGrid .coupon-card .match-claim') || q('#couponGrid .coupon-card') || q('#couponGrid'),
+        title: 'Claim a coupon',
+        body: 'Tap Claim Coupon to purchase the coupon securely and receive your coupon details.',
       },
       {
         kind: 'step',
-        target: () => q('#couponGrid .coupon-card .cbuy-btn') || q('#couponGrid .coupon-card') || q('#couponGrid'),
-        title: 'Buy coupon',
-        body: 'Purchase the coupon securely and receive your coupon details.',
+        target: () => q('#couponGrid .coupon-card .match-timer') || q('#couponGrid .coupon-card') || q('#couponGrid'),
+        title: 'Validity',
+        body: 'Each coupon shows how long it stays valid — compare the timers before choosing.',
       },
       {
         kind: 'step',

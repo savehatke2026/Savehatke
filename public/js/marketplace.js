@@ -186,6 +186,8 @@ function renderCouponGrid(gridId, coupons) {
     return;
   }
 
+  claimTimers.clear();
+
   grid.innerHTML = coupons
     .map((c) => {
       const isFree = c.source === 'auto-scraped';
@@ -193,74 +195,44 @@ function renderCouponGrid(gridId, coupons) {
       const origVal = c.discount
         ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`)
         : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
-      // Admin-controlled per-coupon switch (Coupon Management → Sale column).
-      // Defaults to on, so coupons from a pre-migration database keep the badge.
-      const onSale = c.onSale !== false;
       // The description only renders as its own line when it carries text the
       // title doesn't already show, so the card never repeats itself.
       const title = c.title || c.description || 'Verified Discount Offer';
       const desc = c.description && c.description !== title ? c.description : '';
       const id = String(c.id);
-      const isSaved = savedIds.has(id);
-
-      // Brand tile — the brand's logo when one is on file, its initial
-      // otherwise. The letter sits underneath the img, so a failed logo load
-      // just reveals the letter instead of leaving an empty white tile.
       const brand = c.brand || '';
-      const initial = typeof getBrandInitial === 'function'
-        ? getBrandInitial(brand)
-        : (brand.charAt(0) || '?').toUpperCase();
-      const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
-      const logoExtra = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
+
+      // Countdown — "2d 6h left" in the meta row, urgent under 48h and warning
+      // under a week, refreshed by the shared ticker. Omitted when the admin
+      // turned the timer off or the coupon has no expiry.
+      const expiresAt = c.timerOn === false ? null : parseExpiry(c.expiryDate);
+      let timerHtml = '';
+      if (expiresAt !== null) {
+        claimTimers.set(id, expiresAt);
+        const h = Math.max(0, Math.floor((expiresAt - Date.now()) / 3600000));
+        const band = h < 48 ? 'urgent' : h < 168 ? 'warning' : '';
+        timerHtml = `<span class="match-timer ${band}">${CLAIM_TIMER_SVG}<span data-timer="${escapeCoupon(id)}">${Math.floor(h / 24)}d ${h % 24}h left</span></span>`;
+      }
+
+      const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeCoupon(c.originalValue)}</del>` : '';
 
       return `
         <article class="coupon-card" data-coupon-id="${id}" style="cursor:pointer" onclick="buyCoupon('${id}', ${isFree})">
-          <div class="match-banner">
-            <div class="match-fallback" aria-hidden="true">
-              <b>${escapeCoupon(initial)}</b>
-              <span>${escapeCoupon(origVal)}</span>
-            </div>
-            <div class="coupon-badges">
-              ${isFree ? '<span class="coupon-verified">✓ FREE CODE</span>' : '<span class="coupon-verified">✓ VERIFIED DEAL</span>'}
-              ${!isFree && onSale ? '<span class="coupon-sale">🔥 SALE</span>' : ''}
-            </div>
-            <div class="coupon-actions">
-              <button type="button" class="coupon-icon" aria-label="View Terms and Conditions" title="Terms &amp; Conditions"
-                      onclick="event.stopPropagation(); openCouponTerms('${id}')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><path d="M12 7h.01"/>
-                </svg>
-              </button>
-              <button type="button" class="coupon-icon" aria-label="View How to Use" title="How to Use"
-                      onclick="event.stopPropagation(); openCouponHowTo('${id}')">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
-                </svg>
-              </button>
-              <button type="button" class="coupon-icon coupon-save-btn" data-action="save" aria-pressed="${isSaved}" aria-label="${isSaved ? 'Unsave coupon' : 'Save coupon'}" title="${isSaved ? 'Saved' : 'Save'}"
-                      onclick="event.stopPropagation(); toggleSaved('${id}', this)">
-                <svg viewBox="0 0 24 24" fill="${isSaved ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M6 3h12v18l-6-4-6 4V3Z"/>
-                </svg>
-              </button>
-            </div>
-          </div>
+          <div class="match-banner banner-${escapeCoupon(id)}" role="img" aria-label="${escapeCoupon(brand)} promotional banner"></div>
           <div class="match-body">
             <div class="match-info">
-              <span class="match-logo" aria-hidden="true"><b>${escapeCoupon(initial)}</b>${logoUrl ? `<img src="${escapeCoupon(logoUrl)}" alt="" class="${logoExtra}" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}</span>
-              <div class="match-copy">
+              <div class="match-logo logo-${escapeCoupon(id)}" role="img" aria-label="${escapeCoupon(brand)} logo"></div>
+              <div>
                 <h3 class="match-title">${escapeCoupon(title)}</h3>
                 ${desc ? `<p class="match-description" title="${escapeCoupon(desc)}">${escapeCoupon(desc)}</p>` : ''}
               </div>
             </div>
             <div class="match-meta">
               <span class="match-discount">${escapeCoupon(origVal)}</span>
-              <span class="match-cost">${escapeCoupon(priceText)}</span>
+              <span class="match-cost">${escapeCoupon(priceText)}${origPrice}</span>
+              ${timerHtml}
             </div>
-            ${renderExpiryTimer(c.expiryDate, c.timerOn)}
-            <button type="button" class="match-claim" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">
-              ${isFree ? 'Get Free Coupon →' : 'Buy Coupon →'}
-            </button>
+            <button type="button" class="match-claim" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">Claim Coupon</button>
           </div>
         </article>
       `;
@@ -298,96 +270,36 @@ function toggleSaved(id, btn) {
   if (savedOnly) renderFilteredCoupons();
 }
 
-// ── Expiry Countdown ────────────────────────────────────────────────────
-// parseExpiry / expiryBand / expiryParts live in js/coupon-meta.js so the admin
-// Coupon Management table shares the exact same maths and colour bands:
-//   Timer starts at 2 weeks (auto-set when no expiry is configured).
-//   ≥ 7 days → DDd HH:MM:SS (green/yellow)   < 7 days → HH:MM:SS (red)
-
-/** Card-level colour class for the time remaining. */
-function expiryClass(msLeft) {
-  return `cexpiry-${expiryBand(msLeft)}`;
-}
-
-/**
- * Markup for one card's compact countdown pill. Empty string when no expiry is
- * set, or when the admin turned this coupon's timer off in Coupon Management —
- * the expiry date stays stored either way, so switching it back on restores it.
- *
- * One slim line inside a rounded pill: clock icon, "Ends in", then every unit
- * inline as value+letter ("48d 01h 43m 40s"). The digits live in their own
- * long-lived spans and the "Offer ended" copy ships with every pill, hidden by
- * CSS. That way the ticker below only ever writes `textContent`: the unit spans
- * and the breathing clock icon are never replaced, so the animation keeps
- * running instead of restarting every second, and both the expired state and
- * the "no days left to show" state are reached by a class swap rather than a
- * re-render.
- */
-function renderExpiryTimer(raw, timerOn) {
-  if (timerOn === false) return '';
-  const at = parseExpiry(raw);
-  if (at === null) return '';
-  const msLeft = at - Date.now();
-  const p = expiryParts(msLeft);
-  const when = new Date(at).toLocaleString('en-IN', {
-    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
-  });
-  return `<div class="cexpiry ${expiryClass(msLeft)}${p.dd ? '' : ' cexp-no-days'}" data-expiry="${at}" title="Expires ${when}">
-            <span class="cexp-head">
-              <svg class="cexp-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
-                <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="cexp-label">Ends in</span>
-            </span>
-            <span class="cexp-clock">
-              <span class="cexp-tile cexp-tile-d"><b class="cexp-d">${dayDigits(p.dd)}</b><i>d</i></span>
-              <span class="cexp-tile"><b class="cexp-n cexp-h">${p.hh}</b><i>h</i></span>
-              <span class="cexp-tile"><b class="cexp-n cexp-m">${p.mm}</b><i>m</i></span>
-              <span class="cexp-tile"><b class="cexp-n cexp-s">${p.ss}</b><i>s</i></span>
-            </span>
-            <span class="cexp-over">◷ Offer ended</span>
-          </div>`;
-}
-
-/**
- * expiryParts() returns the day count with its own 'd' suffix ('12d') because
- * the admin chip renders it as one string. The card tiles carry the unit letter
- * in their own element, so strip it here.
- */
-function dayDigits(dd) {
-  return dd ? String(dd).replace(/d$/i, '') : '';
-}
+// ── Claim-card countdown ────────────────────────────────────────────────
+// The card's "2d 6h left" timer. Deadlines live in claimTimers so the shared
+// 60s interval below can re-derive the text and urgency band (urgent < 48h,
+// warning < a week) without re-rendering the grid. parseExpiry lives in
+// js/coupon-meta.js, shared with the admin Coupon Management table.
+const claimTimers = new Map();
+const CLAIM_TIMER_SVG = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="16" cy="18" r="12"/><path d="M16 10v8l5 4M13 2h6M16 2v4M25 6l3 3"/></svg>';
 
 let expiryTimerId = null;
 
-/** Tick every countdown on the page once a second (single shared interval). */
+/** Refresh every visible claim-card timer once a minute (single interval). */
 function startExpiryTicker() {
-  if (expiryTimerId !== null) return; // already running — re-renders are picked up on the next tick
-  const setText = (el, value) => {
-    if (el && el.textContent !== value) el.textContent = value;
-  };
+  if (expiryTimerId !== null) return;
   const tick = () => {
-    const nodes = document.querySelectorAll('.cexpiry[data-expiry]');
-    if (nodes.length === 0) return;
     const now = Date.now();
-    nodes.forEach((el) => {
-      const msLeft = Number(el.dataset.expiry) - now;
-      const p = expiryParts(msLeft);
-      // Digits only — never innerHTML, or the unit letters and the icon's
-      // breathing animation would be rebuilt (and restarted) every second.
-      setText(el.querySelector('.cexp-d'), dayDigits(p.dd));
-      setText(el.querySelector('.cexp-h'), p.hh);
-      setText(el.querySelector('.cexp-m'), p.mm);
-      setText(el.querySelector('.cexp-s'), p.ss);
-      // Colour band, the clock → "Offer ended" swap, and hiding the days unit
-      // once under a week remains all ride on this one class string.
-      const cls = `cexpiry ${expiryClass(msLeft)}${p.dd ? '' : ' cexp-no-days'}`;
-      if (el.className !== cls) el.className = cls;
+    document.querySelectorAll('.match-timer [data-timer]').forEach((el) => {
+      const at = claimTimers.get(el.dataset.timer);
+      if (!at) return;
+      const h = Math.max(0, Math.floor((at - now) / 3600000));
+      const text = `${Math.floor(h / 24)}d ${h % 24}h left`;
+      if (el.textContent !== text) el.textContent = text;
+      const wrap = el.closest('.match-timer');
+      if (wrap) {
+        const cls = `match-timer ${h < 48 ? 'urgent' : h < 168 ? 'warning' : ''}`.trim();
+        if (wrap.className !== cls) wrap.className = cls;
+      }
     });
   };
   tick();
-  expiryTimerId = setInterval(tick, 1000);
+  expiryTimerId = setInterval(tick, 60000);
 }
 
 function renderPagination(totalPages) {
@@ -793,33 +705,6 @@ function showCouponModal(coupon) {
 }
 
 function initFilters() {
-  // Category pills — visible row (the main six categories + All)
-  document.querySelectorAll('#categoryPills .cpill').forEach((pill) => {
-    pill.addEventListener('click', () => {
-      currentCategory = pill.dataset.category || 'all';
-      // Reset the "More categories" dropdown so the user can see they picked
-      // a main pill, not a long-tail one.
-      const more = document.getElementById('moreCategories');
-      if (more) more.value = '';
-      currentPage = 1;
-      syncCategoryUI(currentCategory);
-      syncPanelFilterControls();
-      renderFilteredCoupons();
-    });
-  });
-
-  // "More categories" dropdown — for the long-tail categories that don't get
-  // a dedicated pill. Picking one here syncs the same UI state as a pill click.
-  document.getElementById('moreCategories')?.addEventListener('change', (e) => {
-    const value = e.target.value;
-    if (!value) return;
-    currentCategory = value;
-    currentPage = 1;
-    syncCategoryUI(value);
-    syncPanelFilterControls();
-    renderFilteredCoupons();
-  });
-
   // Search input — debounced. The visible clear button shows only when
   // there's something to clear.
   const searchInput = document.getElementById('searchInput');
