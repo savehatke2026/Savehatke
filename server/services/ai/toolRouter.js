@@ -88,7 +88,7 @@ async function readAvailableCoupons() {
   const available = [];
   if (supabase.isConfigured()) {
     try {
-      const supa = await supabase.getCoupons({ status: 'available' });
+      const supa = await supabase.getCoupons({ status: 'available', excludeReserved: true });
       if (Array.isArray(supa)) available.push(...supa);
     } catch (e) { /* Sheets mirror below may still answer */ }
   }

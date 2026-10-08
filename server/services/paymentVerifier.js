@@ -494,6 +494,7 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
  * `mismatchPath`.
  */
 async function settleMatch({ payment, candidate, notification, pendingPayments, mismatchPath, reject }) {
+  console.log(`[PAYMENT_EMAIL] payment detected session=${payment.paymentId} amount=${candidate.amount.toFixed(2)} source=${candidate.source}${mismatchPath ? ' (order-code mismatch path)' : ''}`);
   // 6) Replay: this transaction must not already have settled something else.
   if (candidate.transactionId) {
     try {
@@ -517,15 +518,22 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
 
   // 7) Time window. finalizePayment() enforces this again inside the process
   //    lock; checking here too lets a clearly-out-of-window notification be
-  //    parked for review rather than bouncing off the store.
+  //    parked for review rather than bouncing off the store. The deadline is
+  //    the 20-minute backend window (check_expires_at) — never the 10-minute
+  //    on-screen timer — so a payment made in the backend-only second half of
+  //    the session is still accepted. Legacy rows without the column keep
+  //    their expires_at + 30 min grace.
   const occurred = new Date(candidate.occurredAt).getTime();
   const created = new Date(payment.createdAt).getTime();
-  const expires = new Date(payment.expiresAt).getTime();
-  if (Number.isFinite(occurred) && Number.isFinite(created) && Number.isFinite(expires)) {
-    if (occurred < created - 5 * 60 * 1000 || occurred > expires + 30 * 60 * 1000) {
+  const explicitDeadline = payment.checkExpiresAt ? new Date(payment.checkExpiresAt).getTime() : NaN;
+  const deadline = Number.isFinite(explicitDeadline)
+    ? explicitDeadline
+    : new Date(payment.expiresAt).getTime() + 30 * 60 * 1000;
+  if (Number.isFinite(occurred) && Number.isFinite(created) && Number.isFinite(deadline)) {
+    if (occurred < created - 5 * 60 * 1000 || occurred > deadline) {
       return reject(
         'REVIEW',
-        `Payment time ${candidate.occurredAt} is outside the payment window (${payment.createdAt} → ${payment.expiresAt}).`
+        `Payment time ${candidate.occurredAt} is outside the payment window (${payment.createdAt} → ${new Date(deadline).toISOString()}).`
       );
     }
   }
@@ -625,6 +633,10 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
       notes: `${isUnderpayment ? 'Underpayment recorded' : 'Settled payment'} ${payment.paymentId} (${result.code})${refundRecord ? `; refund ${refundRecord.refundId} created for ${refundRecord.mismatchType}` : ''}.`,
     });
   } catch (e) {}
+
+  if (result && result.ok && !isUnderpayment) {
+    console.log(`[PAYMENT_EMAIL] payment verified session=${payment.paymentId} status=PAID code=${result.code}`);
+  }
 
   // Payment is genuinely settled to PAID — send the buyer their confirmation
   // receipt. Skipped for idempotent replays so a redelivered webhook never
@@ -862,6 +874,7 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
   if (!pending.length) {
     return { ok: true, scanned: 0, settled: 0, reason: 'No active payment session.', idle: true };
   }
+  console.log(`[PAYMENT_EMAIL] checking pending=${pending.length}`);
 
   // The read helpers (listMessages / getMessageFull) live on gmailService and
   // take a `gmail` client as their first argument, so they work against ANY

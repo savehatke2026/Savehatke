@@ -48,12 +48,14 @@ const ids = require('../utils/identifiers');
 const PAYMENT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes, per the checkout UI
 
 // Backend checking deadline — how long a payment stays matchable/settleable
-// AFTER it was created, independent of the 10-minute frontend window. A buyer
-// who pays a few minutes (up to this long) after the on-screen timer hit 0:00
-// is still detected and processed. Overridable via env.
+// AFTER it was created, independent of the 10-minute frontend window. The
+// checkout shows its Expired state at 10 minutes; the server keeps verifying
+// for the second half of the same 20-minute session (10–20 min) and stops
+// permanently at backend_expiry_at. The coupon reservation lives exactly as
+// long. Overridable via env.
 const PAYMENT_CHECK_WINDOW_MS = (() => {
   const n = Number(process.env.PAYMENT_CHECK_WINDOW_MS);
-  return Number.isFinite(n) && n > 0 ? n : 6 * 60 * 60 * 1000; // 6 hours
+  return Number.isFinite(n) && n > 0 ? n : 20 * 60 * 1000; // 20 minutes total
 })();
 
 const ORDERS = db.SHEETS.ORDERS;
@@ -85,7 +87,7 @@ function moneyEquals(a, b) {
 
 /**
  * The moment a payment stops being matchable by the backend checker. Prefers
- * the explicit 6-hour `check_expires_at`; falls back to the 10-minute
+ * the explicit 20-minute `check_expires_at`; falls back to the 10-minute
  * `expires_at` for legacy rows written before that column existed, so their
  * behaviour is unchanged.
  */
@@ -688,20 +690,25 @@ async function transitionOrder(orderId, fromStatus, toStatus, extra = {}) {
  * deadline. The deadline is compared against the server's own clock, so a
  * drifting client cannot expire a payment early.
  *
- * The coupon is deliberately NOT touched: an expired payment must not unlock
- * it, and must not reserve it either.
+ * The coupon reservation is released here (ownership-checked), which makes the
+ * coupon visible again in the public listings once the 20-minute backend
+ * window closes with no payment.
  */
 async function expireIfDue(paymentId, { now = new Date().toISOString() } = {}) {
   const current = await findPaymentById(paymentId);
   if (!current || current.status !== 'PENDING') return null;
-  // Only retire once the BACKEND checking window (6h) has closed — NOT at the
-  // 10-minute frontend timer. Until then the payment stays PENDING so a late
-  // credit can still settle it.
+  // Only retire once the BACKEND checking window (20 min) has closed — NOT at
+  // the 10-minute frontend timer. Until then the payment stays PENDING so a
+  // late credit can still settle it.
   if (checkDeadline(current) > toTime(now)) return null;
 
   const expired = await transitionPayment(paymentId, 'PENDING', 'EXPIRED', { updated_at: now });
   if (expired) {
     await transitionOrder(expired.orderId, 'PENDING', 'EXPIRED', { updated_at: now });
+    console.log(`[PAYMENT_SESSION] backend expiry reached sessionId=${paymentId} verification stopped`);
+    if (expired.couponId) {
+      await releaseCouponReservation({ couponId: expired.couponId, paymentId }).catch(() => {});
+    }
   }
   return expired;
 }
@@ -715,6 +722,9 @@ async function cancelPayment(paymentId, { reason = 'Cancelled by buyer' } = {}) 
   });
   if (cancelled) {
     await transitionOrder(cancelled.orderId, 'PENDING', 'CANCELLED', { updated_at: now });
+    if (cancelled.couponId) {
+      await releaseCouponReservation({ couponId: cancelled.couponId, paymentId }).catch(() => {});
+    }
   }
   return cancelled;
 }
@@ -867,9 +877,16 @@ async function finalizePayment({
     }
 
     // Settlement window: a confirmation that claims to have happened before the
-    // request was raised or long after the window closed is not this payment.
+    // request was raised or after the backend verification deadline is not this
+    // payment. The deadline is the 20-minute backend window (check_expires_at,
+    // = created + 20 min) — never the 10-minute on-screen timer. Rows written
+    // before that column existed keep their legacy expires_at + 30 min grace.
     const at = toTime(settledAt);
-    if (at && ((at < toTime(payment.createdAt) - 5 * 60 * 1000) || (at > toTime(payment.expiresAt) + 30 * 60 * 1000))) {
+    const explicitCheck = payment.checkExpiresAt || '';
+    const settleDeadline = explicitCheck
+      ? toTime(explicitCheck)
+      : toTime(payment.expiresAt) + 30 * 60 * 1000;
+    if (at && ((at < toTime(payment.createdAt) - 5 * 60 * 1000) || (at > settleDeadline))) {
       return { ok: false, code: 'OUTSIDE_WINDOW', payment_status: payment.status };
     }
 
@@ -982,6 +999,11 @@ async function finalizeUnderpayment({
       status: 'REVIEW',
       updated_at: occurredAt,
     }, STRICT);
+    // The buyer is getting a refund and there is no live session left; hand the
+    // coupon's visibility back to the marketplace (best-effort).
+    if (payment.couponId) {
+      try { await releaseCouponReservation({ couponId: payment.couponId, paymentId: payment.paymentId }); } catch (e) {}
+    }
 
     return { ok: true, code: 'UNDERPAYMENT_RECORDED', payment_status: 'REVIEW' };
   });
@@ -1017,6 +1039,14 @@ async function markPaid({ payment, txn, reference, source, notes, settledAt, rec
     paid_at: settledAt,
     updated_at: new Date().toISOString(),
   }, STRICT);
+  console.log(`[PAYMENT_STATUS] sessionId=${payment.paymentId} status=PAID`);
+  // The sale itself removes the coupon from every listing; dropping the
+  // reservation row fields keeps the record clean. Best-effort: the sold flip
+  // above is the authoritative state change and must not be undermined if the
+  // reservation schema is missing.
+  if (payment.couponId) {
+    try { await releaseCouponReservation({ couponId: payment.couponId, paymentId: payment.paymentId }); } catch (e) {}
+  }
 }
 
 async function readCoupon(couponId) {
@@ -1036,6 +1066,114 @@ async function readCoupon(couponId) {
     id: c.id, code: c.code || '', status: c.status || '',
     buyerEmail: c.buyer_email || '', soldPaymentId: c.sold_payment_id || '',
   } : null;
+}
+
+// ── Coupon reservation — hide a listed coupon while its payment window is open ──
+//
+// A coupon under an active payment session must disappear from the
+// marketplace/index listings for the FULL backend session (20 minutes), not
+// just the 10-minute on-screen timer. Reservations are stored ON THE COUPON ROW
+// (reserved_until / reserved_payment_id / reserved_by — see
+// setup_coupon_reservation.sql) and every write is a single conditional UPDATE
+// in Postgres, so two buyers racing for the same coupon are serialised by the
+// database exactly like the sold-flip in unlockCoupon().
+//
+// The coupon's `status` deliberately stays 'available' while reserved — the
+// sold-flip's `WHERE status = 'available'` precondition keeps working and no
+// existing reader has to learn a new status. Listings hide reserved coupons by
+// filtering `reserved_until` (see supabase.getCoupons excludeReserved), and a
+// lapsed reservation simply drops out of that filter on its own — visibility is
+// restored by the timestamp, not by a background job.
+//
+// Every helper here is BEST-EFFORT: until setup_coupon_reservation.sql has been
+// applied the columns don't exist, the writes fail, and the payment flow
+// continues unreserved (as it behaved before). A reservation problem must never
+// break a legitimate purchase or a settlement.
+
+/**
+ * Atomically reserve a coupon for one payment session.
+ *
+ * The conditional UPDATE wins only when the coupon is still available AND
+ * (no active reservation OR the reservation already belongs to this payment
+ * or this buyer — which is what lets the same buyer refresh or reopen their
+ * own window). Two different buyers racing get exactly one winner.
+ *
+ * Returns { ok:true } when THIS payment owns the reservation, { ok:false }
+ * when somebody else holds it, and throws on storage/schema problems.
+ */
+async function reserveCouponForPayment({ couponId, userId, userEmail, paymentId, until }) {
+  const client = supabase.isConfigured() ? supabase.getClient() : null;
+  if (!client) throw new Error('Atomic coupon storage is required to reserve coupons.');
+  if (!couponId || !paymentId) throw new Error('couponId and paymentId are required.');
+
+  const nowIso = new Date().toISOString();
+  const untilIso = until || new Date(Date.now() + PAYMENT_CHECK_WINDOW_MS).toISOString();
+  const byId = String(userId || '');
+
+  const { data, error } = await client
+    .from('coupons')
+    .update({ reserved_until: untilIso, reserved_payment_id: String(paymentId), reserved_by: byId })
+    .eq('id', String(couponId))
+    .eq('status', 'available')
+    .or([
+      'reserved_until.is.null',
+      `reserved_until.lte.${nowIso}`,
+      `reserved_payment_id.eq.${String(paymentId)}`,
+      ...(byId ? [`reserved_by.eq.${byId}`] : []),
+    ].join(','))
+    .select('id, code, reserved_until, reserved_payment_id, reserved_by');
+
+  if (error) throw new Error('Atomic coupon reservation failed: ' + error.message);
+  const row = (data || [])[0];
+  if (row && String(row.reserved_payment_id) === String(paymentId)) {
+    console.log(`[COUPON_RESERVATION] reserved coupon=${couponId} payment=${paymentId} until=${untilIso}`);
+    return { ok: true, until: row.reserved_until || untilIso };
+  }
+  console.log(`[COUPON_RESERVATION] rejected coupon=${couponId} payment=${paymentId} — held by ${row ? row.reserved_payment_id || 'another buyer' : 'another buyer'}`);
+  return { ok: false };
+}
+
+/**
+ * Release the reservation a payment session holds on a coupon. The
+ * `reserved_payment_id` precondition is the ownership check: a superseded or
+ * expired old session can never release the reservation that belongs to the
+ * buyer's NEW session (spec §9). Returns true when this call released it.
+ */
+async function releaseCouponReservation({ couponId, paymentId }) {
+  const client = supabase.isConfigured() ? supabase.getClient() : null;
+  if (!client) throw new Error('Atomic coupon storage is required to release reservations.');
+  if (!couponId || !paymentId) return false;
+
+  const { data, error } = await client
+    .from('coupons')
+    .update({ reserved_until: null, reserved_payment_id: null, reserved_by: null })
+    .eq('id', String(couponId))
+    .eq('reserved_payment_id', String(paymentId))
+    .select('id');
+
+  if (error) throw new Error('Reservation release failed: ' + error.message);
+  const released = (data || []).length > 0;
+  if (released) console.log(`[COUPON_RESERVATION] released coupon=${couponId} payment=${paymentId}`);
+  return released;
+}
+
+/**
+ * Clear every lapsed reservation in one sweep. Visibility is already restored
+ * lazily by the reserved_until filter, so this only tidies the rows — the
+ * reconcile cron calls it. Returns the number of rows cleared.
+ */
+async function clearExpiredCouponReservations() {
+  const client = supabase.isConfigured() ? supabase.getClient() : null;
+  if (!client) return 0;
+
+  const { data, error } = await client
+    .from('coupons')
+    .update({ reserved_until: null, reserved_payment_id: null, reserved_by: null })
+    .lt('reserved_until', new Date().toISOString())
+    .select('id');
+
+  if (error) throw new Error('Reservation cleanup failed: ' + error.message);
+  return (data || []).length;
 }
 
 /** Park a payment for a human. Used when a value didn't match exactly. */
@@ -1086,12 +1224,49 @@ async function supersedeLivePaymentsForUser(userId, { keepPaymentId = null, reas
         try {
           await transitionOrder(moved.orderId, 'PENDING', 'CANCELLED', { updated_at: new Date().toISOString() });
         } catch (e) { /* best effort: a stale order row is harmless */ }
+        // The retired session must not keep hiding its coupon: release ONLY the
+        // reservation this payment owns, so a newer session's reservation on
+        // the same coupon (the buyer re-opened the window) survives untouched.
+        if (moved.couponId) {
+          try { await releaseCouponReservation({ couponId: moved.couponId, paymentId: moved.paymentId }); } catch (e) {}
+        }
       }
     } catch (e) {
       console.warn('[paymentStore] supersede failed for', row.payment_id, e.message);
     }
   }
   return superseded;
+}
+
+/**
+ * Reconcile pass for the payment lifecycle — safe to run from a cron or after
+ * any deployment/restart. Everything here is derived from stored timestamps,
+ * so the pass is idempotent and recoverable:
+ *   1. expire every PENDING payment whose BACKEND checking window (20 min)
+ *      has closed (releases its coupon reservation too),
+ *   2. tidy lapsed coupon reservations.
+ * Returns a summary for the caller to log.
+ */
+async function reconcileExpiredPayments() {
+  const nowIso = new Date().toISOString();
+  const rows = await rowsFresh(PAYMENTS);
+  const due = rows.filter((r) => r.status === 'PENDING' && checkDeadline(r) <= toTime(nowIso));
+  let expired = 0;
+  for (const row of due) {
+    try {
+      const moved = await expireIfDue(row.payment_id, { now: nowIso });
+      if (moved) expired++;
+    } catch (e) {
+      console.warn('[paymentStore] reconcile expire failed for', row.payment_id, e.message);
+    }
+  }
+  let reservationsCleared = 0;
+  try {
+    reservationsCleared = await clearExpiredCouponReservations();
+  } catch (e) {
+    console.warn('[paymentStore] reconcile reservation cleanup notice:', e.message);
+  }
+  return { expired, reservationsCleared };
 }
 
 // ── Notification inbox ─────────────────────────────────────────────────────
@@ -1202,6 +1377,10 @@ module.exports = {
   supersedeLivePaymentsForUser,
   unlockCoupon,
   readCoupon,
+  reserveCouponForPayment,
+  releaseCouponReservation,
+  clearExpiredCouponReservations,
+  reconcileExpiredPayments,
   // notification inbox
   recordNotification,
   findNotificationByFingerprint,

@@ -103,10 +103,12 @@ router.get('/', optionalAuth, async (req, res) => {
     const { category, search, source } = req.query;
     let available = [];
 
-    // Primary source: Supabase database
+    // Primary source: Supabase database. excludeReserved keeps a coupon whose
+    // payment window is open out of this buyer-facing listing for the full
+    // 20-minute reservation period.
     if (supabase.isConfigured()) {
       try {
-        const supaCoupons = await supabase.getCoupons({ status: 'available' });
+        const supaCoupons = await supabase.getCoupons({ status: 'available', excludeReserved: true });
         if (Array.isArray(supaCoupons)) {
           available = supaCoupons;
         }
@@ -207,7 +209,7 @@ router.get('/categories', async (req, res) => {
     let available = [];
     if (supabase.isConfigured()) {
       try {
-        available = await supabase.getCoupons({ status: 'available' });
+        available = await supabase.getCoupons({ status: 'available', excludeReserved: true });
       } catch (e) {}
     }
 

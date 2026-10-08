@@ -511,6 +511,11 @@ function fromSupabaseCoupon(r) {
     whatsappSid: r.whatsapp_sid || '',
     whatsappLastAttempt: r.whatsapp_last_attempt || '',
     whatsappError: r.whatsapp_error || '',
+    // Payment-window reservation (setup_coupon_reservation.sql). Empty when the
+    // columns are missing (pre-migration) or the coupon is not reserved.
+    reservedUntil: r.reserved_until || '',
+    reservedPaymentId: r.reserved_payment_id || '',
+    reservedBy: r.reserved_by || '',
   };
 }
 
@@ -571,6 +576,18 @@ async function getCoupons(filters = {}) {
   }
   if (filters.buyerEmail) {
     query = query.eq('buyer_email', filters.buyerEmail);
+  }
+  // Buyer-facing listings must not surface a coupon whose payment window is
+  // open — it is temporarily reserved for another session (20 minutes from
+  // window creation). Opt-in via excludeReserved so admin/finance readers keep
+  // seeing the full inventory. Rows whose reservation has already lapsed pass
+  // the filter, which is what makes the coupon visible again without any
+  // background job having to write anything first. Tolerates a pre-migration
+  // database: the OR fragment only references columns that
+  // setup_coupon_reservation.sql creates, and a failed filter degrades to an
+  // unfiltered (pre-existing) listing rather than an error.
+  if (filters.excludeReserved) {
+    query = query.or(`reserved_until.is.null,reserved_until.lte.${new Date().toISOString()}`);
   }
 
   query = query.order('added_at', { ascending: false });

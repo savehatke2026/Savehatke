@@ -15,15 +15,22 @@
 //   POST /gmail-push          Gmail Pub/Sub push  (shared-secret, no user auth)
 //   GET/POST /cron/gmail-watch renew the Gmail push watch      (CRON_SECRET)
 //   GET/POST /gmail-watch/start arm the Gmail push watch once  (CRON_SECRET)
+//   GET/POST /cron/reconcile   expire due sessions + release
+//                              reservations + one safe scan   (CRON_SECRET)
 //
 // Continuous checking (see paymentStore.PAYMENT_CHECK_WINDOW_MS)
 //   * The 10-minute `expires_at` is only the on-screen countdown. A payment
-//     stays PENDING and matchable until `check_expires_at` (6h), so a credit
-//     that lands AFTER the timer hits 0:00 is still detected and settled.
+//     stays PENDING and matchable until `check_expires_at` (20 minutes from
+//     creation), so a credit that lands AFTER the timer hits 0:00 — but inside
+//     the backend-only second half of the session — is still detected and
+//     settled.
 //   * Detection is instant via Gmail push (/gmail-push); while a tab is open
 //     the SSE/poll paths also drive the same coalesced scan.
 //   * One active checker per user: opening a new payment window supersedes the
 //     user's previous PENDING session (paymentStore.supersedeLivePaymentsForUser).
+//   * Coupon reservation: creating the payment window atomically reserves the
+//     coupon (hidden from the public listings) for the same 20-minute backend
+//     window, and releases it on cancel/supersede/expiry.
 //
 // Security posture
 //   * /create accepts the amount the checkout is displaying, but treats it as
@@ -64,7 +71,7 @@ const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
 const STORAGE_UNAVAILABLE_MESSAGE = 'Payment storage is temporarily unavailable. Please try again later.';
 
 // The instant a payment stops being matchable by the backend checker: the
-// 6-hour check_expires_at when present, else the legacy 10-minute expires_at.
+// 20-minute check_expires_at when present, else the legacy 10-minute expires_at.
 // This is what lets verification continue after the on-screen timer hits 0:00.
 function checkDeadlineMs(payment) {
   const raw = payment && (payment.checkExpiresAt || payment.check_expires_at);
@@ -186,6 +193,22 @@ function evaluateCoupon(coupon, { userId, userEmail }) {
       status: 409,
       code: 'COUPON_UNAVAILABLE',
       error: 'This coupon is no longer available.',
+    };
+  }
+
+  // An active payment-window reservation hides the coupon from every other
+  // buyer. The reservation's own buyer (same user id) passes — that is what
+  // lets a page refresh or a reopened window resume the session it created.
+  // A lapsed reservation (past reserved_until) blocks nobody: visibility and
+  // purchasability both come back automatically at the 20-minute mark.
+  const reservedUntilMs = coupon.reservedUntil ? new Date(coupon.reservedUntil).getTime() : 0;
+  if (Number.isFinite(reservedUntilMs) && reservedUntilMs > Date.now() &&
+      String(coupon.reservedBy || '') !== String(userId)) {
+    return {
+      ok: false,
+      status: 409,
+      code: 'COUPON_UNAVAILABLE',
+      error: 'This coupon is temporarily reserved by another buyer. Please try again in a few minutes.',
     };
   }
 
@@ -499,23 +522,70 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
 
     const now = Date.now();
     const expiresAt = new Date(now + store.PAYMENT_WINDOW_MS).toISOString();
-    // How long the backend keeps checking after the on-screen timer hits 0:00.
+    // How long the backend keeps checking after the on-screen timer hits 0:00 —
+    // the second half of this session's 20-minute lifetime. The coupon
+    // reservation below lives exactly as long.
     const checkExpiresAt = new Date(now + store.PAYMENT_CHECK_WINDOW_MS).toISOString();
 
-    const order = await store.createOrder({
-      userId,
-      userEmail,
-      couponId,
-      amount,
-      buyerName: String(req.user.name || '').slice(0, 120),
-      buyerEmail: userEmail.slice(0, 160),
-      buyerPhone: String(req.body.buyerPhone || '').slice(0, 20),
-      couponCode: (coupon && coupon.code) || '',
-      couponBrand: (coupon && coupon.brand) || '',
-      expiresAt,
-    });
-
     const paymentId = store.newPaymentId();
+
+    // ── Reserve the coupon for this session (atomic, buyer-facing) ──────────
+    // The moment the payment window is created the coupon disappears from the
+    // marketplace/index listings and stays hidden for the FULL backend window
+    // (20 minutes), not just the visible 10-minute timer. The conditional
+    // UPDATE makes two concurrent buyers for the same coupon get exactly one
+    // reservation; the same buyer re-opening their own window always wins.
+    // A reservation is denied only when ANOTHER buyer holds it — that maps to
+    // the existing COUPON_UNAVAILABLE behavior instead of a new error shape.
+    let reserved = false;
+    if (couponId) {
+      try {
+        const verdict = await store.reserveCouponForPayment({
+          couponId,
+          userId,
+          userEmail,
+          paymentId,
+          until: checkExpiresAt,
+        });
+        reserved = verdict.ok;
+        if (!verdict.ok) {
+          return fail(
+            res,
+            409,
+            'COUPON_UNAVAILABLE',
+            'This coupon is temporarily reserved by another buyer. Please try again in a few minutes.'
+          );
+        }
+      } catch (e) {
+        // Reservation schema not applied / storage hiccup: proceed unreserved.
+        // The atomic sold-flip at settlement still prevents a double sale.
+        console.warn('[COUPON_RESERVATION] reserve unavailable, continuing unreserved:', e.message);
+      }
+    }
+
+    // Every failure below must not leave the coupon hidden for a session that
+    // never opened: release OUR reservation (ownership-scoped, so a concurrent
+    // session's reservation on the same coupon is never touched).
+    let order;
+    try {
+      order = await store.createOrder({
+        userId,
+        userEmail,
+        couponId,
+        amount,
+        buyerName: String(req.user.name || '').slice(0, 120),
+        buyerEmail: userEmail.slice(0, 160),
+        buyerPhone: String(req.body.buyerPhone || '').slice(0, 20),
+        couponCode: (coupon && coupon.code) || '',
+        couponBrand: (coupon && coupon.brand) || '',
+        expiresAt,
+      });
+    } catch (e) {
+      if (reserved) {
+        try { await store.releaseCouponReservation({ couponId, paymentId }); } catch (_) {}
+      }
+      throw e;
+    }
     // Exactly the four spec parameters — pa / pn / am / cu. The order code is
     // deliberately NOT smuggled in as `tr`/`tn`: see buildUpiUri() for why the
     // extra parameters were dropped, and what reconciliation gives up. The
@@ -559,11 +629,39 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
         } catch (cleanupErr) {
           // Best effort: a stale order row is harmless, a failed response is not.
         }
+        // Hand the reservation to the session that actually won the race, so
+        // the coupon stays hidden under the live window (same buyer → the
+        // conditional UPDATE always accepts). If that transfer fails, fall back
+        // to releasing ours; either way the winner is not left unreserved.
+        if (couponId && raced.couponId && String(raced.couponId) === String(couponId)) {
+          try {
+            await store.reserveCouponForPayment({
+              couponId,
+              userId,
+              userEmail,
+              paymentId: raced.paymentId,
+              until: raced.checkExpiresAt || checkExpiresAt,
+            });
+          } catch (_) {
+            try { await store.releaseCouponReservation({ couponId, paymentId }); } catch (_) {}
+          }
+        } else if (reserved) {
+          try { await store.releaseCouponReservation({ couponId, paymentId }); } catch (_) {}
+        }
         const presented = await presentPayment(raced, { coupon });
         return res.set(NO_STORE).json({ ...presented, reused: true });
       }
+      if (reserved) {
+        try { await store.releaseCouponReservation({ couponId, paymentId }); } catch (_) {}
+      }
       throw e;
     }
+
+    // Session is live: log the lifecycle anchors and open the checking loop
+    // immediately (the SSE tick keeps it going while the window is open; the
+    // scan itself is coalesced, so this never multiplies Gmail calls).
+    console.log(`[PAYMENT_SESSION] created sessionId=${paymentId} couponId=${couponId || '-'} userExpiry=${expiresAt} backendExpiry=${checkExpiresAt}`);
+    try { verifier.triggerMailboxScan().catch(() => {}); } catch (_) {}
 
     let presented;
     try {
@@ -670,7 +768,7 @@ router.get('/status', authenticateToken, async (req, res) => {
     // Poll-fallback verification: when the browser cannot hold an SSE stream
     // open it polls /status. Drive the same on-demand FamApp scan from here so
     // those buyers also get near-instant verification. This now runs for the
-    // whole 6-hour backend window (checkDeadlineMs), NOT just the 10-minute
+    // whole 20-minute backend window (checkDeadlineMs), NOT just the 10-minute
     // on-screen timer, so a tab left open past 0:00 keeps verifying. The scan is
     // globally coalesced, so this never multiplies Gmail calls.
     if (payment.status === 'PENDING' && checkDeadlineMs(payment) > Date.now()) {
@@ -678,9 +776,9 @@ router.get('/status', authenticateToken, async (req, res) => {
       payment = (await store.findPaymentById(payment.paymentId)) || payment;
     }
 
-    // The server owns expiry — but only at the 6-hour backend deadline, never
-    // at the 10-minute on-screen timer. Until then the payment stays PENDING so
-    // a late credit can still settle it.
+    // The server owns expiry — but only at the 20-minute backend deadline,
+    // never at the 10-minute on-screen timer. Until then the payment stays
+    // PENDING so a late credit can still settle it.
     if (payment.status === 'PENDING' && checkDeadlineMs(payment) <= Date.now()) {
       await store.expireIfDue(payment.paymentId);
       payment = await store.findPaymentById(payment.paymentId);
@@ -753,7 +851,11 @@ router.post('/verify', verifyLimiter, authenticateToken, verifyAccountLimiter, a
       return res.set(NO_STORE).json(await presentPayment(payment));
     }
 
-    if (new Date(payment.expiresAt).getTime() <= Date.now()) {
+    // Backend verification deadline — NOT the 10-minute on-screen timer. The
+    // "I've paid — check status" button must keep scanning the mailbox through
+    // the whole 20-minute backend window, including after the buyer's Expired
+    // state, or a payment that already landed would sit undetected.
+    if (checkDeadlineMs(payment) <= Date.now()) {
       await store.expireIfDue(payment.paymentId);
       payment = await store.findPaymentById(payment.paymentId);
       return res.set(NO_STORE).json(await presentPayment(payment));
@@ -887,6 +989,7 @@ router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) 
   let closed = false;
   let lastStatus = '';
   let ticks = 0;
+  let frontendExpiryLogged = false;
 
   const send = (event, data) => {
     if (closed) return;
@@ -909,13 +1012,7 @@ router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) 
       }
 
       // Opening the payment window starts verification: while this stream is
-      // live and the window is open, check the FamApp mailbox each tick and
-      // settle the instant a matching credit email arrives. Verification stops
-      // automatically once the payment leaves PENDING or the window closes (the
-      // stream ends below). The scan is globally coalesced across all concurrent
-      // streams, so simultaneous buyers never multiply Gmail calls.
-      // Opening the payment window starts verification: while this stream is
-      // live and the payment is still inside its 6-hour backend window, check
+      // live and the payment is still inside its 20-minute backend window, check
       // the FamApp mailbox each tick and settle the instant a matching credit
       // arrives — even after the 10-minute on-screen timer has hit 0:00. The
       // scan is globally coalesced across all concurrent streams.
@@ -927,6 +1024,14 @@ router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) 
       if (payment.status === 'PENDING' && checkDeadlineMs(payment) <= Date.now()) {
         await store.expireIfDue(payment.paymentId);
         payment = await store.findPaymentById(payment.paymentId);
+      }
+
+      // One-time diagnostic: the buyer's on-screen window closed while the
+      // backend verification continues (the two lifecycles are independent).
+      if (!frontendExpiryLogged && payment.status === 'PENDING' &&
+          new Date(payment.expiresAt).getTime() <= Date.now()) {
+        frontendExpiryLogged = true;
+        console.log(`[PAYMENT_SESSION] frontend expiry reached sessionId=${paymentId} backend verification continuing`);
       }
 
       if (payment.status !== lastStatus) {
@@ -959,8 +1064,10 @@ router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) 
     }
     await poll();
     // Safety cap: a browser that never closes its tab must not hold a
-    // serverless invocation open forever.
-    if (ticks > 240) {
+    // serverless invocation open forever. 800 ticks at 1.5s covers the full
+    // 20-minute backend verification window; the browser falls back to polling
+    // when the stream drops (serverless caps end it sooner in production).
+    if (ticks > 800) {
       closed = true;
       clearInterval(interval);
       try { res.end(); } catch (e) {}
@@ -1026,6 +1133,33 @@ router.all('/cron/gmail-watch', async (req, res) => {
   } catch (err) {
     console.error('[payment] gmail watch renew error:', err);
     return fail(res, 500, 'WATCH_RENEW_FAILED', 'Watch renewal failed.');
+  }
+});
+
+// ── /cron/reconcile — payment lifecycle reconciliation (Vercel Cron) ────────
+// Recovery pass, safe to run at any cadence and idempotent (everything derives
+// from stored timestamps, so a restart/deployment loses nothing):
+//   1. expire every PENDING payment whose 20-minute backend window closed
+//      (which also releases its coupon reservation),
+//   2. tidy lapsed coupon reservations,
+//   3. force one mailbox scan so a session left unwatched (buyer closed the
+//      tab, push not configured) still gets a chance to settle.
+router.all('/cron/reconcile', async (req, res) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
+  if (!cronAuthorized(req)) return fail(res, 401, 'CRON_UNAUTHORIZED', 'Unauthorized.');
+  try {
+    const ready = await store.ensureReady();
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
+    const summary = await store.reconcileExpiredPayments();
+    let scan = { ok: false, reason: 'not attempted' };
+    try { scan = await verifier.triggerMailboxScan({ force: true }); } catch (e) {
+      scan = { ok: false, reason: e.message };
+    }
+    console.log(`[PAYMENT_SESSION] reconcile expired=${summary.expired} reservationsCleared=${summary.reservationsCleared} scan=${scan.ok ? 'ok' : scan.reason || 'failed'}`);
+    return res.status(200).json({ ok: true, ...summary, scan: { ok: scan.ok, settled: scan.settled || 0 } });
+  } catch (err) {
+    console.error('[payment] reconcile error:', err);
+    return fail(res, 500, 'RECONCILE_FAILED', 'Payment reconciliation failed.');
   }
 });
 
