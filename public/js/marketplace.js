@@ -2,6 +2,27 @@
 // SaveHatke — Real-Time Marketplace Logic
 // ============================================
 
+// Marketplace-only brand imagery helpers. The shared helpers in coupon-meta.js
+// (getBrandBackground / getBrandLogo) keep a multi-tier fallback chain (Drive
+// → local library → clearbit) so older surfaces without Drive assets keep
+// rendering. The marketplace card has its own graceful fallbacks (gradient
+// block with brand initial + offer, white logo tile with first letter) and
+// we treat Google Drive as the SINGLE source of truth here: if a brand has
+// no Drive file yet, the card shows the fallback — never a stale local copy.
+// Both helpers are pure consumers of the per-brand cache that coupon-meta.js
+// builds via ensureBrandAssets(), so no extra Drive calls are introduced.
+function getDriveBrandBackground(brand) {
+  if (typeof getDriveAsset !== 'function') return '';
+  const cached = getDriveAsset(brand);
+  return (cached && cached.background) || '';
+}
+
+function getDriveBrandLogo(brand) {
+  if (typeof getDriveAsset !== 'function') return '';
+  const cached = getDriveAsset(brand);
+  return (cached && cached.logo) || '';
+}
+
 let allCoupons = [];
 let currentCategory = 'all';
 let currentSource = '';
@@ -222,13 +243,14 @@ function renderCouponGrid(gridId, coupons) {
 
       const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeCoupon(c.originalValue)}</del>` : '';
 
-      // Brand imagery — the brand's promotional banner fills the top block and
-      // its logo fills the white tile, both looked up from the brand library in
-      // coupon-meta.js. Per-coupon background images are deliberately ignored.
-      // When a brand has no artwork the banner falls back to the gradient
-      // initial block and the tile to the brand's first letter.
-      const brandImg = typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '';
-      const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+      // Brand imagery — the marketplace serves brand logos and coupon-card
+      // backgrounds from Google Drive ONLY. When a brand has no Drive asset
+      // yet the banner falls back to the gradient initial block and the tile
+      // to the brand's first letter, so a missing Drive file never breaks a
+      // card. The shared coupon-meta helpers (with their local/clearbit
+      // fallbacks) still serve every other surface on the site.
+      const brandImg = getDriveBrandBackground(brand);
+      const logoUrl = getDriveBrandLogo(brand);
       const initial = typeof getBrandInitial === 'function'
         ? getBrandInitial(brand)
         : (brand.charAt(0) || '?').toUpperCase();
