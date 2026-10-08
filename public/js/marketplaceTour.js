@@ -148,7 +148,7 @@
     const css = `
     .sh-tour-blocker{position:fixed;inset:0;z-index:4000;background:transparent;cursor:default}
     .sh-tour-spot{position:fixed;z-index:4001;border-radius:14px;pointer-events:none;
-      box-shadow:0 0 0 9999px rgba(4,9,22,.74),0 0 0 2px rgba(0,230,118,.75),0 0 28px rgba(0,230,118,.28);
+      box-shadow:0 0 0 9999px rgba(4,9,22,.74),0 0 0 2px rgba(0,226,114,.75),0 0 28px rgba(0,226,114,.28);
       transition:top .32s cubic-bezier(.4,0,.2,1),left .32s cubic-bezier(.4,0,.2,1),
         width .32s cubic-bezier(.4,0,.2,1),height .32s cubic-bezier(.4,0,.2,1),opacity .2s}
     .sh-tour-spot.is-hidden{opacity:0}
@@ -165,31 +165,31 @@
     .sh-tour-card.is-centred{left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 32px))}
     .sh-tour-card.is-centred.is-in{transform:translate(-50%,-50%)}
     .sh-tour-progress{font-size:.68rem;font-weight:700;letter-spacing:.11em;text-transform:uppercase;
-      color:#00e676;margin-bottom:9px}
+      color:#00E272;margin-bottom:9px}
     .sh-tour-title{font-family:'DM Serif Display',Georgia,serif;font-size:1.18rem;line-height:1.25;margin-bottom:9px}
     .sh-tour-body{font-size:.88rem;line-height:1.62;color:#a8c0dc;margin:0 0 18px}
     .sh-tour-dots{display:flex;gap:5px;margin-bottom:16px}
     .sh-tour-dot{height:3px;flex:1;border-radius:2px;background:rgba(107,136,170,.28)}
-    .sh-tour-dot.is-done{background:rgba(0,230,118,.45)}
-    .sh-tour-dot.is-now{background:#00e676}
+    .sh-tour-dot.is-done{background:rgba(0,226,114,.45)}
+    .sh-tour-dot.is-now{background:#00E272}
     .sh-tour-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
     .sh-tour-btn{font-family:'Outfit',system-ui,sans-serif;font-size:.84rem;font-weight:700;
       padding:9px 16px;border-radius:10px;cursor:pointer;transition:background .18s,color .18s,border-color .18s;
       border:1px solid rgba(79,195,247,.22);background:rgba(255,255,255,.04);color:#a8c0dc}
     .sh-tour-btn:hover{background:rgba(79,195,247,.12);color:#e2ecff}
-    .sh-tour-btn-primary{border-color:rgba(0,230,118,.45);
-      background:linear-gradient(135deg,rgba(0,230,118,.16),rgba(79,195,247,.08));color:#00e676}
-    .sh-tour-btn-primary:hover{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f}
+    .sh-tour-btn-primary{border-color:rgba(0,226,114,.45);
+      background:linear-gradient(135deg,rgba(0,226,114,.16),rgba(79,195,247,.08));color:#00E272}
+    .sh-tour-btn-primary:hover{background:linear-gradient(135deg,#00E272,#00E272);color:#060d1f}
     .sh-tour-btn-quiet{border-color:transparent;background:none;color:#6b88aa;padding:9px 6px;margin-left:auto}
     .sh-tour-btn-quiet:hover{background:none;color:#a8c0dc;text-decoration:underline}
-    .sh-tour-btn:focus-visible{outline:2px solid rgba(0,230,118,.7);outline-offset:2px}
+    .sh-tour-btn:focus-visible{outline:2px solid rgba(0,226,114,.7);outline-offset:2px}
 
     /* Replay control — muted text button, same voice as the results count */
     .sh-tour-replay{display:inline-flex;align-items:center;gap:6px;margin:12px 0 0;
       font-family:'Outfit',system-ui,sans-serif;font-size:.8rem;font-weight:600;color:#6b88aa;
       background:none;border:none;padding:4px 0;cursor:pointer;transition:color .18s}
-    .sh-tour-replay:hover{color:#00e676}
-    .sh-tour-replay:focus-visible{outline:2px solid rgba(0,230,118,.6);outline-offset:3px;border-radius:6px}
+    .sh-tour-replay:hover{color:#00E272}
+    .sh-tour-replay:focus-visible{outline:2px solid rgba(0,226,114,.6);outline-offset:3px;border-radius:6px}
 
     /* Touch target on phones. The button keeps its exact size and type; an
        absolutely-positioned invisible ::after grows only the tappable box, and

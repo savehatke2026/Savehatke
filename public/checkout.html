@@ -54,7 +54,7 @@
     .amazon #csBrandIco { width:100%; height:100%; display:grid; place-items:center; }
     .amazon #csBrandIco img { max-width:76%; max-height:76%; width:auto; height:auto; object-fit:contain; }
     .amazon #csBrandIco .blogo-lift { filter:none; }
-    .amazon .brand-initial { width:100%; height:100%; display:grid; place-items:center; font-size:58px; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00e676,#4fc3f7); }
+    .amazon .brand-initial { width:100%; height:100%; display:grid; place-items:center; font-size:58px; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00E272,#4fc3f7); }
     .coupon-copy { flex:1; min-width:0; }
     .page h2 { margin:0 0 10px; font-size:35px; letter-spacing:-.6px; }
     .coupon-copy h2 { padding-right:140px; }
@@ -100,7 +100,7 @@
     .agreement input { width:49px; height:49px; flex-shrink:0; margin:0; accent-color:var(--green); cursor:pointer; }
     .agreement a { color:#8fd0ff; }
     .pay { display:flex; justify-content:center; align-items:center; gap:29px; width:100%; min-height:109px; background:var(--green); color:#001721; border:0; border-radius:23px; font-size:35px; font-weight:700; box-shadow:0 0 32px #00E2720a; transition:background .2s,transform .2s; }
-    .pay:hover { background:#19E880; transform:translateY(-1px); }
+    .pay:hover { background:#00E272; transform:translateY(-1px); }
     .pay svg { width:40px; height:40px; stroke-width:2.6; }
     .pay:disabled { opacity:.55; cursor:not-allowed; transform:none; }
     .pay #payBtnText { display:inline-flex; align-items:center; justify-content:center; gap:14px; min-width:0; }
@@ -141,7 +141,7 @@
     .cc-expiry-expired .cc-exp-label, .cc-expiry-expired .cc-exp-clock { display:none; }
     .cc-expiry-expired .cc-exp-over { display:block; }
     .cc-expiry-expired .cc-exp-icon { opacity:.55; animation:none; }
-    .cc-expiry-green   { color:#00e676; background:rgba(0,230,118,.08);   border-color:rgba(0,230,118,.22); box-shadow:0 0 14px rgba(0,230,118,.10); }
+    .cc-expiry-green   { color:#00E272; background:rgba(0,226,114,.08);   border-color:rgba(0,226,114,.22); box-shadow:0 0 14px rgba(0,226,114,.10); }
     .cc-expiry-yellow  { color:#ffd740; background:rgba(255,215,64,.09);  border-color:rgba(255,215,64,.30); }
     .cc-expiry-red     { color:#ff5252; background:rgba(255,82,82,.11);   border-color:rgba(255,82,82,.40); }
     .cc-expiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.20); }
@@ -163,8 +163,8 @@
     .cc-cat[data-cat="Entertainment" i]{--cat-rgb:248,113,113}
     .cc-cat[data-cat="Fitness & Sports" i],.cc-cat[data-cat="Fitness" i]{--cat-rgb:163,230,53}
     .cc-cat[data-cat="Education" i]{--cat-rgb:250,204,21}
-    .cc-cat[data-cat="Health & Pharmacy" i],.cc-cat[data-cat="Health & Fitness" i],.cc-cat[data-cat="Health" i]{--cat-rgb:52,211,153}
-    .cc-cat[data-cat="Finance & Payments" i]{--cat-rgb:0,230,118}
+    .cc-cat[data-cat="Health & Pharmacy" i],.cc-cat[data-cat="Health & Fitness" i],.cc-cat[data-cat="Health" i]{--cat-rgb:0,226,114}
+    .cc-cat[data-cat="Finance & Payments" i]{--cat-rgb:0,226,114}
     .cc-cat[data-cat="Furniture & Home" i]{--cat-rgb:192,132,252}
     .cc-cat[data-cat="Home & Living" i]{--cat-rgb:244,114,182}
     .cc-cat[data-cat="Automotive" i]{--cat-rgb:148,163,184}
@@ -172,7 +172,7 @@
     /* ── UPI PAYMENT BOX ──────────────────────────────────────────────────
        The payment box the "Pay ₹X Securely" button opens. Layout and palette
        follow the agreed design: a #112747 → #0c1e35 card on the
-       rgba(0,230,118,.18) green hairline, with #00e676 as the single accent,
+       rgba(0,226,114,.18) green hairline, with #00E272 as the single accent,
        in Outfit + JetBrains Mono so it still reads as part of the existing
        Review & Pay surface rather than a second, foreign interface.
        Everything the buyer needs — amount, countdown, QR, UPI ID, both
@@ -180,7 +180,7 @@
        viewport scrolls, and the frame stays put while it does. */
     .upm-overlay { position:fixed; inset:0; z-index:340; background:rgba(6,13,31,.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .3s; }
     .upm-overlay.show { opacity:1; pointer-events:auto; }
-    .upm-box { position:relative; width:100%; max-width:440px; border-radius:24px; background:#0c1628; border:1px solid rgba(0,210,110,.25); box-shadow:0 0 0 1px rgba(0,210,110,.08),0 0 60px rgba(0,210,110,.06),0 30px 80px rgba(0,0,0,.6); padding:36px 28px 28px; text-align:center; font-family:'Inter',sans-serif; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
+    .upm-box { position:relative; width:100%; max-width:440px; border-radius:24px; background:#0c1628; border:1px solid rgba(0,226,114,.25); box-shadow:0 0 0 1px rgba(0,226,114,.08),0 0 60px rgba(0,226,114,.06),0 30px 80px rgba(0,0,0,.6); padding:36px 28px 28px; text-align:center; font-family:'Inter',sans-serif; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
     .upm-overlay.show .upm-box { transform:scale(1) translateY(0); }
 
     /* The × that opens the "Cancel Payment?" panel. Pinned to the corner so the
@@ -194,9 +194,9 @@
     .upm-body { overflow-y:auto; overscroll-behavior:contain; max-height:calc(100vh - 92px); padding:4px 2px 2px; }
 
     .upm-ttl { font-weight:800; font-size:26px; letter-spacing:-.3px; text-align:center; }
-    .upm-ttl .upm-green { color:#00d46a; }
+    .upm-ttl .upm-green { color:#00E272; }
     .upm-paysub { font-size:14px; color:#8a9dc0; margin-top:6px; text-align:center; }
-    .upm-paysub .upm-amt-inline { font-weight:700; color:#00d46a; }
+    .upm-paysub .upm-amt-inline { font-weight:700; color:#00E272; }
 
     /* QR area — a real matrix rendered server-side into #upmQr. White rounded
        plate, sized to the image, exactly like the reference. Padding is kept
@@ -204,7 +204,7 @@
     .upm-qr { background:#fff; border-radius:16px; padding:8px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; width:fit-content; }
     .upm-qr img { display:block; width:246px; height:246px; border-radius:4px; }
     .upm-qr-empty { width:246px; height:246px; display:flex; align-items:center; justify-content:center; }
-    .upm-qr-skel { width:26px; height:26px; border:3px solid rgba(6,13,31,.18); border-top-color:#00a152; border-radius:50%; animation:spin .7s linear infinite; }
+    .upm-qr-skel { width:26px; height:26px; border:3px solid rgba(6,13,31,.18); border-top-color:#00E272; border-radius:50%; animation:spin .7s linear infinite; }
 
     .upm-scan { font-size:13px; color:#8a9dc0; margin-bottom:20px; text-align:center; }
 
@@ -228,9 +228,9 @@
     .upm-vpa { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; padding:14px 16px; border-radius:14px; background:#101e34; border:1px solid rgba(255,255,255,.1); }
     .upm-vpa-lbl { font-size:13px; color:#8a9dc0; margin-right:8px; flex-shrink:0; }
     .upm-vpa-id { font-size:14px; font-weight:600; color:#fff; flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .upm-copy { background:none; border:none; cursor:pointer; padding:4px; margin-left:8px; flex-shrink:0; color:#00d46a; display:flex; align-items:center; transition:opacity .2s; }
+    .upm-copy { background:none; border:none; cursor:pointer; padding:4px; margin-left:8px; flex-shrink:0; color:#00E272; display:flex; align-items:center; transition:opacity .2s; }
     .upm-copy:hover { opacity:.75; }
-    .upm-copy svg { width:20px; height:20px; stroke:#00d46a; stroke-width:2; fill:none; display:block; }
+    .upm-copy svg { width:20px; height:20px; stroke:#00E272; stroke-width:2; fill:none; display:block; }
     .upm-copy .upm-copy-k { display:none; }
     .upm-copy.done .upm-copy-c { display:none; }
     .upm-copy.done .upm-copy-k { display:block; }
@@ -238,9 +238,9 @@
     /* Countdown — a rounded box (reference design), driven by the server's
        expires_at (never a local 10:00), so reopening resumes where it left off.
        Digits in Share Tech Mono; warn/danger tint the border, icon and digits. */
-    .upm-timer { display:flex; align-items:center; justify-content:center; gap:10px; width:fit-content; max-width:100%; margin:20px auto 8px; padding:10px 24px; border:2px solid #00d46a; border-radius:14px; background:rgba(0,212,106,.12); }
-    .upm-timer-ico { display:flex; align-items:center; flex-shrink:0; color:#00d46a; }
-    .upm-timer-val { font-family:'Share Tech Mono',monospace; font-size:30px; line-height:1; letter-spacing:3px; color:#00d46a; font-variant-numeric:tabular-nums; }
+    .upm-timer { display:flex; align-items:center; justify-content:center; gap:10px; width:fit-content; max-width:100%; margin:20px auto 8px; padding:10px 24px; border:2px solid #00E272; border-radius:14px; background:rgba(0,226,114,.12); }
+    .upm-timer-ico { display:flex; align-items:center; flex-shrink:0; color:#00E272; }
+    .upm-timer-val { font-family:'Share Tech Mono',monospace; font-size:30px; line-height:1; letter-spacing:3px; color:#00E272; font-variant-numeric:tabular-nums; }
     .upm-timer.warn { border-color:#ffd740; background:rgba(255,215,64,.1); }
     .upm-timer.warn .upm-timer-val, .upm-timer.warn .upm-timer-ico { color:#ffd740; }
     .upm-timer.danger { border-color:#ff5252; background:rgba(255,82,82,.1); }
@@ -252,9 +252,9 @@
     .upm-foot { display:flex; align-items:center; gap:12px; font-size:12px; color:#8a9dc0; margin-top:4px; }
     .upm-foot::before, .upm-foot::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.1); }
     .upm-foot-content { display:flex; align-items:center; gap:6px; white-space:nowrap; }
-    .upm-foot .upm-green { color:#00d46a; font-weight:700; }
+    .upm-foot .upm-green { color:#00E272; font-weight:700; }
     .upm-foot-ico { display:inline-flex; align-items:center; flex-shrink:0; }
-    .upm-foot-ico svg { width:16px; height:16px; fill:#00d46a; }
+    .upm-foot-ico svg { width:16px; height:16px; fill:#00E272; }
 
     /* (Reference design has no in-card action buttons — the app tiles above are
        the tap-to-open affordance and the server auto-confirms via the live
@@ -267,8 +267,8 @@
     .upm-state-ico { font-size:2.1rem; }
     .upm-state-ttl { font-weight:800; font-size:1.02rem; }
     .upm-state-sub { font-size:.79rem; color:#8ba2c4; line-height:1.6; max-width:272px; }
-    .upm-state-btn { margin-top:6px; height:44px; padding:0 22px; border-radius:12px; border:none; background:#00e676; color:#06131f; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .22s; }
-    .upm-state-btn:hover { background:#1eff8a; transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,230,118,.34); }
+    .upm-state-btn { margin-top:6px; height:44px; padding:0 22px; border-radius:12px; border:none; background:#00E272; color:#06131f; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:800; cursor:pointer; transition:all .22s; }
+    .upm-state-btn:hover { background:#00E272; transform:translateY(-2px); box-shadow:0 12px 30px rgba(0,226,114,.34); }
 
     /* "Cancel Payment?" confirmation — a panel inside the box, not a second
        modal, so the payment context stays visible behind it. */
@@ -317,7 +317,7 @@
        "coming back" on top of the success screen). */
     .success-overlay { position:fixed; inset:0; z-index:360; background:rgba(6,13,31,.96); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .35s; }
     .success-overlay.show { opacity:1; pointer-events:auto; }
-    .success-box { position:relative; max-width:440px; width:100%; border-radius:24px; padding:40px 32px 32px; background:#0c1628; border:1px solid rgba(0,210,110,.25); box-shadow:0 0 0 1px rgba(0,210,110,.08),0 0 60px rgba(0,210,110,.06),0 30px 80px rgba(0,0,0,.6); text-align:center; font-family:'Inter',sans-serif; transform:scale(.94); transition:transform .35s; }
+    .success-box { position:relative; max-width:440px; width:100%; border-radius:24px; padding:40px 32px 32px; background:#0c1628; border:1px solid rgba(0,226,114,.25); box-shadow:0 0 0 1px rgba(0,226,114,.08),0 0 60px rgba(0,226,114,.06),0 30px 80px rgba(0,0,0,.6); text-align:center; font-family:'Inter',sans-serif; transform:scale(.94); transition:transform .35s; }
     .success-overlay.show .success-box { transform:scale(1); }
 
     /* Close */
@@ -327,12 +327,12 @@
 
     /* Animated success check + ripples + confetti (reference design) */
     .succ-anim { position:relative; width:140px; height:140px; margin:0 auto 24px; display:flex; align-items:center; justify-content:center; }
-    .succ-check { position:relative; width:80px; height:80px; background:#00d46a; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:2; box-shadow:0 0 30px rgba(0,212,106,.4); animation:checkPop .5s cubic-bezier(.175,.885,.32,1.275) both; }
+    .succ-check { position:relative; width:80px; height:80px; background:#00E272; border-radius:50%; display:flex; align-items:center; justify-content:center; z-index:2; box-shadow:0 0 30px rgba(0,226,114,.4); animation:checkPop .5s cubic-bezier(.175,.885,.32,1.275) both; }
     .succ-check svg { width:36px; height:36px; stroke:#070d1c; stroke-width:4; stroke-linecap:round; stroke-linejoin:round; fill:none; }
-    .succ-ripple { position:absolute; inset:-15px; border:1px solid #00d46a; border-radius:50%; opacity:.3; z-index:1; }
-    .succ-ripple-2 { position:absolute; inset:-35px; border:1px solid #00d46a; border-radius:50%; opacity:.1; z-index:1; }
-    .succ-ripple-3 { position:absolute; inset:-55px; background:radial-gradient(circle, rgba(0,212,106,.1) 0%, transparent 70%); border-radius:50%; z-index:0; }
-    .succ-confetti { position:absolute; background:#00d46a; z-index:1; }
+    .succ-ripple { position:absolute; inset:-15px; border:1px solid #00E272; border-radius:50%; opacity:.3; z-index:1; }
+    .succ-ripple-2 { position:absolute; inset:-35px; border:1px solid #00E272; border-radius:50%; opacity:.1; z-index:1; }
+    .succ-ripple-3 { position:absolute; inset:-55px; background:radial-gradient(circle, rgba(0,226,114,.1) 0%, transparent 70%); border-radius:50%; z-index:0; }
+    .succ-confetti { position:absolute; background:#00E272; z-index:1; }
     .scf1{width:10px;height:10px;border-radius:50%;top:15px;left:10px}
     .scf2{width:6px;height:6px;border-radius:50%;top:5px;right:40px}
     .scf3{width:8px;height:8px;border-radius:50%;bottom:25px;left:-5px}
@@ -344,7 +344,7 @@
     .scf9{width:6px;height:6px;border-radius:50%;top:50px;right:-25px}
 
     .succ-title { font-size:28px; font-weight:800; letter-spacing:-.5px; margin-bottom:8px; }
-    .succ-title span { color:#00d46a; }
+    .succ-title span { color:#00E272; }
     .succ-subtitle { font-size:15px; color:#8a9dc0; margin-bottom:28px; }
 
     /* Details rows (Amount / Coupon Code / Order ID) */
@@ -356,9 +356,9 @@
     .succ-mono { font-family:'JetBrains Mono',monospace; font-size:14px; font-weight:600; word-break:break-all; text-align:right; }
     .succ-divider { height:1px; background:rgba(255,255,255,.1); width:100%; }
     .succ-code-wrap { display:flex; align-items:center; gap:10px; }
-    .succ-code { font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:800; letter-spacing:1px; color:#00d46a; }
-    .succ-copy { display:inline-flex; align-items:center; gap:5px; background:rgba(0,212,106,.1); border:1px solid rgba(0,212,106,.35); color:#00d46a; border-radius:8px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; transition:background .2s; }
-    .succ-copy:hover { background:rgba(0,212,106,.2); }
+    .succ-code { font-family:'JetBrains Mono',monospace; font-size:18px; font-weight:800; letter-spacing:1px; color:#00E272; }
+    .succ-copy { display:inline-flex; align-items:center; gap:5px; background:rgba(0,226,114,.1); border:1px solid rgba(0,226,114,.35); color:#00E272; border-radius:8px; padding:5px 10px; font-size:12px; font-weight:700; cursor:pointer; font-family:'Inter',sans-serif; transition:background .2s; }
+    .succ-copy:hover { background:rgba(0,226,114,.2); }
     .succ-emailnote { font-size:13px; color:#8a9dc0; margin-bottom:20px; }
     .succ-emailnote strong { color:#c8d8f2; }
 
@@ -366,8 +366,8 @@
     .succ-foot { display:flex; align-items:center; gap:12px; color:#8a9dc0; font-size:13px; margin-top:22px; }
     .succ-foot-line { flex:1; height:1px; background:rgba(255,255,255,.1); }
     .succ-foot-content { display:flex; align-items:center; gap:6px; white-space:nowrap; }
-    .succ-foot-brand { color:#00d46a; font-weight:700; }
-    .succ-shield { width:16px; height:16px; display:flex; align-items:center; justify-content:center; background:#00d46a; clip-path:polygon(50% 0%,100% 20%,100% 70%,50% 100%,0% 70%,0% 20%); }
+    .succ-foot-brand { color:#00E272; font-weight:700; }
+    .succ-shield { width:16px; height:16px; display:flex; align-items:center; justify-content:center; background:#00E272; clip-path:polygon(50% 0%,100% 20%,100% 70%,50% 100%,0% 70%,0% 20%); }
     .succ-shield svg { width:10px; height:10px; stroke:#070d1c; stroke-width:3; stroke-linecap:round; stroke-linejoin:round; fill:none; }
     .success-actions { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
 
@@ -386,8 +386,8 @@
     #successOverlay .ps-card {
       position:relative; width:min(100%,436px); max-width:436px;
       padding:67px 29px 34px; text-align:center;
-      border:1.5px solid rgba(0,154,103,.5); border-radius:25px; background:#0b1427;
-      box-shadow:0 28px 70px rgba(0,0,0,.3), inset 0 0 40px rgba(0,230,153,.012);
+      border:1.5px solid rgba(0,226,114,.5); border-radius:25px; background:#0b1427;
+      box-shadow:0 28px 70px rgba(0,0,0,.3), inset 0 0 40px rgba(0,226,114,.012);
       font-family:'Inter',sans-serif;
     }
     #successOverlay .ps-close {
@@ -398,29 +398,29 @@
       transition:transform .16s ease, border-color .16s ease, background .16s ease;
     }
     #successOverlay .ps-close:hover { transform:scale(1.04); border-color:#57789c; background:#0b1d34; }
-    #successOverlay .ps-close:focus-visible { outline:3px solid rgba(0,237,156,.36); outline-offset:3px; }
+    #successOverlay .ps-close:focus-visible { outline:3px solid rgba(0,226,114,.36); outline-offset:3px; }
     #successOverlay .ps-close svg { width:16px; height:16px; }
     #successOverlay .ps-icon {
       width:104px; height:104px; margin:0 auto 27px; display:grid; place-items:center;
-      border:2px solid rgba(0,223,141,.48); border-radius:50%;
-      background:linear-gradient(145deg,#20ef9d,#00c875);
-      box-shadow:0 0 0 11px rgba(0,226,138,.065),0 0 0 22px rgba(0,226,138,.025),0 0 34px rgba(0,230,141,.17);
+      border:2px solid rgba(0,226,114,.48); border-radius:50%;
+      background:linear-gradient(145deg,#00E272,#00E272);
+      box-shadow:0 0 0 11px rgba(0,226,114,.065),0 0 0 22px rgba(0,226,114,.025),0 0 34px rgba(0,226,114,.17);
       animation:psArrive 500ms cubic-bezier(.2,.85,.35,1.25) both;
     }
     #successOverlay .ps-icon svg { width:55px; height:55px; filter:drop-shadow(0 3px 3px rgba(0,99,61,.18)); }
     #successOverlay .ps-title { margin:0; font-size:clamp(1.55rem,6vw,1.9rem); line-height:1.12; letter-spacing:-.035em; font-weight:800; color:#f7f9ff; }
-    #successOverlay .ps-title span, #successOverlay .ps-accent { color:#00eb98; }
+    #successOverlay .ps-title span, #successOverlay .ps-accent { color:#00E272; }
     #successOverlay .ps-subtitle { margin:10px 0 31px; color:#9da8c0; font-size:.92rem; line-height:1.5; }
     #successOverlay .ps-details { margin:0; display:grid; gap:17px; text-align:left; }
     #successOverlay .ps-detail { display:grid; grid-template-columns:minmax(98px,.72fr) minmax(0,1.28fr); align-items:baseline; gap:14px; }
     #successOverlay .ps-detail dt { color:#8995af; font-size:.86rem; }
     #successOverlay .ps-detail dd { min-width:0; margin:0; color:#f8faff; font-size:.88rem; font-weight:600; text-align:right; overflow-wrap:anywhere; }
-    #successOverlay .ps-detail:first-child dd { font-size:1.24rem; font-weight:800; color:#00eb98; }
+    #successOverlay .ps-detail:first-child dd { font-size:1.24rem; font-weight:800; color:#00E272; }
     #successOverlay .ps-redirect { margin:32px 0 29px; color:#9da8c0; font-size:.82rem; }
     #successOverlay .ps-secured { margin:0; display:flex; align-items:center; justify-content:center; gap:9px; color:#8f9bb4; font-size:.77rem; }
     #successOverlay .ps-secured::before, #successOverlay .ps-secured::after { content:""; height:1px; flex:1; max-width:132px; background:#2b354d; }
     #successOverlay .ps-shield { width:17px; height:20px; flex:0 0 auto; }
-    #successOverlay .ps-secured strong { color:#00eb98; font-weight:700; }
+    #successOverlay .ps-secured strong { color:#00E272; font-weight:700; }
     @keyframes psArrive { from { opacity:0; transform:scale(.72); } to { opacity:1; transform:scale(1); } }
     @media (max-width:560px) {
       #successOverlay .ps-card { padding:64px 28px 32px; border-radius:22px; }
@@ -435,16 +435,16 @@
        exact same payment-window styling; only the refund-specific bits are new.
        Shown when the buyer paid more than the required amount, just before the
        coupon reveal. */
-    .xa-icon { position:relative; width:64px; height:64px; margin:4px auto 20px; border-radius:50%; background:rgba(0,212,106,.08); border:2px solid rgba(0,212,106,.35); display:flex; align-items:center; justify-content:center; }
-    .xa-icon svg { width:30px; height:30px; stroke:#00d46a; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    .xa-icon { position:relative; width:64px; height:64px; margin:4px auto 20px; border-radius:50%; background:rgba(0,226,114,.08); border:2px solid rgba(0,226,114,.35); display:flex; align-items:center; justify-content:center; }
+    .xa-icon svg { width:30px; height:30px; stroke:#00E272; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
     .xa-icon::after { content:'₹'; position:absolute; bottom:-5px; right:-5px; width:24px; height:24px; background:#f59e0b; color:#5a2b06; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; border:2px solid #0c1628; }
-    .xa-row-refund .succ-label, .xa-row-refund .succ-value { color:#00d46a; }
+    .xa-row-refund .succ-label, .xa-row-refund .succ-value { color:#00E272; }
     .xa-info { display:flex; align-items:flex-start; gap:10px; text-align:left; background:rgba(79,195,247,.07); border:1px solid rgba(79,195,247,.24); border-radius:12px; padding:12px 14px; margin:4px 0 16px; }
     .xa-info svg { width:20px; height:20px; flex-shrink:0; margin-top:1px; stroke:#4fc3f7; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
     .xa-info-text { font-size:13.5px; line-height:1.5; color:#c8d8f2; }
-    .xa-info-text b { color:#00d46a; font-weight:700; }
+    .xa-info-text b { color:#00E272; font-weight:700; }
     .xa-note { font-size:13px; color:#8a9dc0; line-height:1.45; margin-bottom:8px; }
-    .xa-redirect { font-size:12.5px; color:#00d46a; font-weight:600; margin:0; }
+    .xa-redirect { font-size:12.5px; color:#00E272; font-weight:600; margin:0; }
 
     /* INSUFFICIENT-PAYMENT (UNDERPAYMENT) OVERLAY
        Sits in the same .success-overlay / .success-box shell so it inherits
@@ -482,11 +482,11 @@
     .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; color:#e2ecff; text-decoration:none; }
     .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
     .brand-name { color:#e2ecff; }
-    .bhl { color:#00e676; }
+    .bhl { color:#00E272; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; text-decoration:none; }
     .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
-    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00e676; border-radius:1px; }
+    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00E272; border-radius:1px; }
     .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
     .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
     .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
@@ -501,7 +501,7 @@
     .fbrand p { font-size:.84rem; color:#6b88aa; line-height:1.6; margin-top:12px; max-width:320px; }
     .fcol h4 { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; color:#e2ecff; }
     .fcol a { display:block; font-size:.84rem; color:#6b88aa; margin-bottom:8px; transition:color .2s; text-decoration:none; }
-    .fcol a:hover { color:#00e676; }
+    .fcol a:hover { color:#00E272; }
     .fbot { border-top:1px solid rgba(79,195,247,.1); padding:14px 0; display:flex; justify-content:space-between; font-size:.78rem; color:#6b88aa; }
     @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:24px}}
     @media(max-width:600px){
@@ -908,7 +908,7 @@
 
     <p class="ps-secured">
       <svg class="ps-shield" viewBox="0 0 28 32" aria-hidden="true">
-        <path d="M14 1 26 5.5v8.7c0 7.7-4.7 13.3-12 16.8C6.7 27.5 2 21.9 2 14.2V5.5L14 1Z" fill="#00eb98" />
+        <path d="M14 1 26 5.5v8.7c0 7.7-4.7 13.3-12 16.8C6.7 27.5 2 21.9 2 14.2V5.5L14 1Z" fill="#00E272" />
         <path d="m8 15.5 4 4 8-9" fill="none" stroke="#063126" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
       </svg>
       <span>Secured by <strong>SaveHatke</strong></span>
@@ -2580,7 +2580,7 @@
 
   // Confetti
   function launchConfetti() {
-    const colors = ['#00e676','#4fc3f7','#ffd740','#ff6b6b','#c084fc','#34d399'];
+    const colors = ['#00E272','#4fc3f7','#ffd740','#ff6b6b','#c084fc','#00E272'];
     for (let i = 0; i < 80; i++) {
       setTimeout(() => {
         const piece = document.createElement('div');
@@ -2610,7 +2610,7 @@
     const existing = document.getElementById('shToast');
     if (existing) existing.remove();
 
-    const colors = { success: '#00e676', error: '#ff6b6b', warning: '#ffd740', info: '#4fc3f7' };
+    const colors = { success: '#00E272', error: '#ff6b6b', warning: '#ffd740', info: '#4fc3f7' };
     const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
     const toast = document.createElement('div');
     toast.id = 'shToast';

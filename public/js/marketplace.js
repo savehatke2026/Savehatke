@@ -723,8 +723,8 @@ function showCouponModal(coupon) {
       </div>
       <div style="margin-bottom: 20px;">
           <p style="color: #a8c0dc; margin-bottom: 14px;">Here's your coupon code for <strong style="color: #e2ecff;">${escapeCoupon(coupon.brand)}</strong>:</p>
-          <div style="background: rgba(0, 230, 118, 0.1); border: 2px dashed #00e676; border-radius: 12px; padding: 18px; margin-bottom: 16px;">
-          <code style="font-size: 1.6rem; font-weight: 800; color: #00e676; letter-spacing: 2px;">${escapeCoupon(coupon.code)}</code>
+          <div style="background: rgba(0,226,114, 0.1); border: 2px dashed #00E272; border-radius: 12px; padding: 18px; margin-bottom: 16px;">
+          <code style="font-size: 1.6rem; font-weight: 800; color: #00E272; letter-spacing: 2px;">${escapeCoupon(coupon.code)}</code>
           </div>
         <button class="btn btn-primary btn-sm" data-copy-purchased-code>
           📋 Copy Code

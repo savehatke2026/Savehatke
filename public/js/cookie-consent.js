@@ -303,7 +303,7 @@
   // Injected rather than added to each page's stylesheet: every page here
   // carries its own inline <style> block, so one shared injected sheet is the
   // only way to keep the banner identical everywhere. Values are taken from the
-  // existing pages — #060d1f background, #0c1835 panels, #00e676 green accent,
+  // existing pages — #060d1f background, #0c1835 panels, #00E272 green accent,
   // #4fc3f7 blue, #e2ecff text, #6b88aa muted, Outfit typeface, rgba(79,195,247,.x)
   // borders — so nothing new is introduced to the design language.
   //
@@ -328,9 +328,9 @@
 .shc-text a{color:#4fc3f7;text-decoration:underline;text-underline-offset:2px}
 .shc-actions{display:flex;align-items:center;gap:9px;flex-shrink:0;flex-wrap:wrap;margin-top:14px}
 .shc-btn{font-family:'Outfit',system-ui,sans-serif;font-size:.83rem;font-weight:700;padding:0 18px;height:40px;border-radius:10px;cursor:pointer;white-space:nowrap;transition:all .2s;border:1.5px solid transparent}
-.shc-btn:focus-visible{outline:2px solid rgba(0,230,118,.7);outline-offset:2px}
-.shc-btn-primary{background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;border-color:transparent}
-.shc-btn-primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,230,118,.32)}
+.shc-btn:focus-visible{outline:2px solid rgba(0,226,114,.7);outline-offset:2px}
+.shc-btn-primary{background:linear-gradient(135deg,#00E272,#00E272);color:#060d1f;border-color:transparent}
+.shc-btn-primary:hover{opacity:.9;transform:translateY(-1px);box-shadow:0 10px 24px rgba(0,226,114,.32)}
 .shc-btn-ghost{background:transparent;color:#e2ecff;border-color:rgba(79,195,247,.28)}
 .shc-btn-ghost:hover{border-color:rgba(79,195,247,.55);background:rgba(79,195,247,.08)}
 .shc-btn-link{background:none;border:none;color:#4fc3f7;font-size:.82rem;font-weight:600;text-decoration:underline;text-underline-offset:2px;cursor:pointer;padding:0 4px;height:40px;font-family:'Outfit',system-ui,sans-serif}
@@ -345,22 +345,22 @@
 .shc-modal-sub{font-size:.82rem;color:#6b88aa;line-height:1.55;margin:0 0 20px}
 .shc-close{background:none;border:none;color:#6b88aa;font-size:1.05rem;cursor:pointer;padding:2px 6px;line-height:1;border-radius:6px}
 .shc-close:hover{color:#e2ecff}
-.shc-close:focus-visible{outline:2px solid rgba(0,230,118,.7);outline-offset:2px}
+.shc-close:focus-visible{outline:2px solid rgba(0,226,114,.7);outline-offset:2px}
 
 .shc-cat{border:1px solid rgba(79,195,247,.12);background:rgba(255,255,255,.03);border-radius:12px;padding:15px 16px;margin-bottom:11px}
 .shc-cat-top{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .shc-cat-name{font-size:.9rem;font-weight:700;color:#e2ecff}
 .shc-cat-summary{font-size:.79rem;color:#a8c0dc;line-height:1.55;margin:7px 0 0}
 .shc-cat-detail{font-size:.78rem;color:#6b88aa;line-height:1.6;margin:8px 0 0}
-.shc-always{font-size:.66rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#00e676;background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.28);border-radius:9999px;padding:4px 11px;white-space:nowrap}
+.shc-always{font-size:.66rem;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:#00E272;background:rgba(0,226,114,.12);border:1px solid rgba(0,226,114,.28);border-radius:9999px;padding:4px 11px;white-space:nowrap}
 
 .shc-switch{position:relative;display:inline-block;width:44px;height:24px;flex-shrink:0}
 .shc-switch input{position:absolute;opacity:0;width:100%;height:100%;margin:0;cursor:pointer}
 .shc-track{position:absolute;inset:0;background:rgba(107,136,170,.32);border-radius:9999px;transition:background .22s;pointer-events:none}
 .shc-track::after{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#e2ecff;transition:transform .22s}
-.shc-switch input:checked+.shc-track{background:linear-gradient(135deg,#00e676,#00c853)}
+.shc-switch input:checked+.shc-track{background:linear-gradient(135deg,#00E272,#00E272)}
 .shc-switch input:checked+.shc-track::after{transform:translateX(20px);background:#060d1f}
-.shc-switch input:focus-visible+.shc-track{outline:2px solid rgba(0,230,118,.7);outline-offset:2px}
+.shc-switch input:focus-visible+.shc-track{outline:2px solid rgba(0,226,114,.7);outline-offset:2px}
 
 .shc-table{margin:11px 0 0;border-top:1px solid rgba(79,195,247,.1);padding-top:10px}
 .shc-row{display:grid;grid-template-columns:1fr auto;gap:4px 12px;padding:7px 0;border-bottom:1px solid rgba(79,195,247,.05)}

@@ -1626,7 +1626,7 @@ function tmCardHtml(t, index, last) {
           <div style="min-width:0">
             <div class="tm-name">${escapeHtml(t.name)}${t.verified ? ' <span title="Verified" style="color:#4fc3f7">✔</span>' : ''}</div>
             <div class="tm-role">${escapeHtml(t.role || '—')}</div>
-            ${extras ? `<div class="tm-role" style="color:#00e676">${extras}</div>` : ''}
+            ${extras ? `<div class="tm-role" style="color:#00E272">${extras}</div>` : ''}
           </div>
         </div>
       </div>
@@ -1666,7 +1666,7 @@ function renderTestimonialHeading() {
   ].filter(Boolean).join(' ');
 
   box.innerHTML = `
-    ${s.label ? `<div style="font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#00e676;margin-bottom:8px">${escapeHtml(s.label)}</div>` : ''}
+    ${s.label ? `<div style="font-size:.72rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#00E272;margin-bottom:8px">${escapeHtml(s.label)}</div>` : ''}
     ${heading ? `<div style="font-size:1.35rem;font-weight:800;color:#e2ecff;line-height:1.3">${heading}</div>` : ''}
     ${s.subtitle ? `<div style="color:#6b88aa;font-size:.85rem;margin-top:8px">${escapeHtml(s.subtitle)}</div>` : ''}
     ${s.label || heading || s.subtitle ? '' : '<div style="color:#6b88aa;font-size:.84rem">Every heading line is empty, so the cards appear with no heading above them.</div>'}
@@ -1923,7 +1923,7 @@ async function openReviewModal(couponId) {
         `;
       } else {
         dupEl.innerHTML = `
-          <div style="background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);border-radius:8px;padding:8px 12px;color:#00e676;">
+          <div style="background:rgba(0,226,114,.1);border:1px solid rgba(0,226,114,.25);border-radius:8px;padding:8px 12px;color:#00E272;">
             ✅ No other coupon with this code was found.
           </div>
         `;
@@ -2395,7 +2395,7 @@ function renderUsers() {
       <td style="text-align:center">${loginMethodBadge(u.loginMethod)}</td>
       <td style="text-align:center">${userSessionStatusBadge(u.sessionStatus, u.status)}</td>
       <td style="text-align:center"><span class="mono" style="font-weight:600;color:#ce93d8">${u.couponsBought || 0}</span></td>
-      <td style="text-align:center"><span class="mono" style="font-weight:600;color:#00e676">${u.couponsSold || 0}</span></td>
+      <td style="text-align:center"><span class="mono" style="font-weight:600;color:#00E272">${u.couponsSold || 0}</span></td>
       <td style="text-align:center">${toggleAction}</td>
     </tr>`;
   }).join('');
@@ -2506,7 +2506,7 @@ function viewUserDetail(userId) {
   const emailStr = escapeHtml(user.email || '');
   // The account's real Google photo, at panel size, keeping the green ring the
   // header already had. Falls back to the initials tile when none is on file.
-  const avatarHtml = userAvatarHtml(user, 52, 'border:2px solid rgba(0,230,118,.3)');
+  const avatarHtml = userAvatarHtml(user, 52, 'border:2px solid rgba(0,226,114,.3)');
 
   // Build modal HTML
   const html = `
@@ -2543,9 +2543,9 @@ function viewUserDetail(userId) {
             <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">🎟️ Coupons Bought</div>
             <div style="font-size:1.3rem;font-family:'JetBrains Mono',monospace;color:#ce93d8;font-weight:600">${user.couponsBought || 0}</div>
           </div>
-          <div style="background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.15);border-radius:10px;padding:12px 14px">
+          <div style="background:rgba(0,226,114,.06);border:1px solid rgba(0,226,114,.15);border-radius:10px;padding:12px 14px">
             <div style="font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#6b88aa;margin-bottom:4px">💰 Coupons Sold</div>
-            <div style="font-size:1.3rem;font-family:'JetBrains Mono',monospace;color:#00e676;font-weight:600">${user.couponsSold || 0}</div>
+            <div style="font-size:1.3rem;font-family:'JetBrains Mono',monospace;color:#00E272;font-weight:600">${user.couponsSold || 0}</div>
           </div>
         </div>
         <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -3171,7 +3171,7 @@ async function loadAdminsList(force) {
   if (force || !ADMINS_CACHE.length) {
     container.innerHTML = `
       <div style="padding:24px;text-align:center;color:#6b88aa;font-size:.85rem">
-        <span style="display:inline-block;width:16px;height:16px;border:2px solid rgba(0,230,118,.2);border-top-color:#00e676;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle"></span>
+        <span style="display:inline-block;width:16px;height:16px;border:2px solid rgba(0,226,114,.2);border-top-color:#00E272;border-radius:50%;animation:spin 1s linear infinite;margin-right:8px;vertical-align:middle"></span>
         Loading admins from Supabase…
       </div>
     `;
@@ -3464,18 +3464,18 @@ function applyMaintenanceUI(data) {
 
   if (label) {
     label.textContent = enabled ? 'ON' : 'OFF';
-    label.style.background = enabled ? 'rgba(255,183,77,.15)' : 'rgba(0,230,118,.12)';
-    label.style.color = enabled ? '#ffb74d' : '#00e676';
+    label.style.background = enabled ? 'rgba(255,183,77,.15)' : 'rgba(0,226,114,.12)';
+    label.style.color = enabled ? '#ffb74d' : '#00E272';
   }
 
   if (statusBox) {
-    statusBox.style.background = enabled ? 'rgba(255,183,77,.06)' : 'rgba(0,230,118,.06)';
-    statusBox.style.borderColor = enabled ? 'rgba(255,183,77,.22)' : 'rgba(0,230,118,.18)';
+    statusBox.style.background = enabled ? 'rgba(255,183,77,.06)' : 'rgba(0,226,114,.06)';
+    statusBox.style.borderColor = enabled ? 'rgba(255,183,77,.22)' : 'rgba(0,226,114,.18)';
   }
   if (statusIcon) statusIcon.textContent = enabled ? '⚠' : '✓';
   if (statusTitle) {
     statusTitle.textContent = enabled ? 'Maintenance Mode Active' : 'Website is Live';
-    statusTitle.style.color = enabled ? '#ffb74d' : '#00e676';
+    statusTitle.style.color = enabled ? '#ffb74d' : '#00E272';
   }
   if (statusDesc) {
     statusDesc.textContent = enabled

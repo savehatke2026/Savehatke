@@ -235,7 +235,7 @@ async function loadChatbotAudit() {
     if (!el) return;
     el.innerHTML = (data.entries || []).slice(0, 8).map(a => `
       <div class="activity-item">
-        <div class="activity-dot" style="background:${a.action?.includes('delete') || a.action?.includes('disable') ? '#ef9a9a' : '#00e676'}"></div>
+        <div class="activity-dot" style="background:${a.action?.includes('delete') || a.action?.includes('disable') ? '#ef9a9a' : '#00E272'}"></div>
         <div class="activity-text"><strong>${esc(a.admin_email || 'system')}</strong> — ${esc(formatAuditAction(a.action))} <span style="color:#6b88aa">${esc(a.setting || '')}</span></div>
         <div class="activity-time">${fmtDT(a.timestamp)}</div>
       </div>

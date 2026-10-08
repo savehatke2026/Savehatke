@@ -56,7 +56,7 @@
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: #060d1f; }
     ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+    ::-webkit-scrollbar-thumb:hover { background: #00E272; }
     a { text-decoration: none; color: inherit; }
 
     @keyframes shimmer { 0%{background-position:-200% center} 100%{background-position:200% center} }
@@ -82,9 +82,9 @@
     }
 
     .particles { position:absolute; inset:0; overflow:hidden; pointer-events:none; z-index:1; }
-    .particle { position:absolute; width:3px; height:3px; background:#00e676; border-radius:50%; opacity:0; animation:float-particle linear infinite; box-shadow:0 0 8px #00e676; }
+    .particle { position:absolute; width:3px; height:3px; background:#00E272; border-radius:50%; opacity:0; animation:float-particle linear infinite; box-shadow:0 0 8px #00E272; }
 
-    .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .gtext { background: linear-gradient(135deg,#00E272,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
     .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; width: 100%; }
 
     /* ── Navbar ── */
@@ -95,7 +95,7 @@
       width:34px; height:34px; object-fit:contain; flex-shrink:0;
     }
     .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
-.bhl { color:#00e676; }
+.bhl { color:#00E272; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; }
     .nav-links a:hover { color:#e2ecff; }
@@ -110,8 +110,8 @@
 
     /* ── Buttons ── */
     .btn { display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; width:100%; text-decoration:none; }
-    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
-    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+    .btn-primary { background:linear-gradient(135deg,#00E272,#00E272); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,226,114,.38); }
     .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); width:auto; }
     .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
     .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
@@ -141,7 +141,7 @@
       content: '';
       position: absolute;
       inset: 0;
-      background: linear-gradient(135deg, rgba(79,195,247,.06), rgba(0,230,118,.04));
+      background: linear-gradient(135deg, rgba(79,195,247,.06), rgba(0,226,114,.04));
       opacity: 0;
       transition: opacity .22s;
     }
@@ -199,17 +199,17 @@
       text-align:center;
       outline:none;
       transition:all .2s;
-      caret-color:#00e676;
+      caret-color:#00E272;
     }
-    .otp-input:focus { border-color:rgba(0,230,118,.5); background:rgba(255,255,255,.08); box-shadow:0 0 0 3px rgba(0,230,118,.12); }
-    .otp-input.filled { border-color:rgba(0,230,118,.4); background:rgba(255,255,255,.07); }
+    .otp-input:focus { border-color:rgba(0,226,114,.5); background:rgba(255,255,255,.08); box-shadow:0 0 0 3px rgba(0,226,114,.12); }
+    .otp-input.filled { border-color:rgba(0,226,114,.4); background:rgba(255,255,255,.07); }
     .otp-input.error { border-color:rgba(239,68,68,.55) !important; background:rgba(239,68,68,.06) !important; box-shadow:0 0 0 3px rgba(239,68,68,.12) !important; color:#f87171 !important; }
-    .otp-input.success { border-color:rgba(0,230,118,.5) !important; background:rgba(255,255,255,.08) !important; box-shadow:0 0 0 3px rgba(0,230,118,.12) !important; }
+    .otp-input.success { border-color:rgba(0,226,114,.5) !important; background:rgba(255,255,255,.08) !important; box-shadow:0 0 0 3px rgba(0,226,114,.12) !important; }
     .otp-group.shake { animation:shake .4s ease; }
 
     .resend-area { text-align:center; margin-top:14px; font-size:.83rem; color:#6b88aa; }
-    .resend-btn { background:none; border:none; font-family:'Outfit',sans-serif; font-size:.83rem; font-weight:700; color:#00e676; cursor:pointer; border-bottom:1px solid rgba(0,230,118,.3); transition:border-color .2s; padding:0; }
-    .resend-btn:hover { border-color:#00e676; }
+    .resend-btn { background:none; border:none; font-family:'Outfit',sans-serif; font-size:.83rem; font-weight:700; color:#00E272; cursor:pointer; border-bottom:1px solid rgba(0,226,114,.3); transition:border-color .2s; padding:0; }
+    .resend-btn:hover { border-color:#00E272; }
     .resend-btn:disabled { color:#6b88aa; border-bottom-color:rgba(107,136,170,.3); cursor:not-allowed; }
 
     .back-link { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:18px; font-size:.82rem; color:#6b88aa; cursor:pointer; transition:color .2s; background:none; border:none; font-family:'Outfit',sans-serif; width:100%; }
@@ -221,14 +221,14 @@
 
     /* ── Success ── */
     .success-state { text-align:center; display:none; }
-    .success-icon-wrap { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(79,195,247,.15)); border:1px solid rgba(0,230,118,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
+    .success-icon-wrap { width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg,rgba(0,226,114,.2),rgba(79,195,247,.15)); border:1px solid rgba(0,226,114,.3); display:flex; align-items:center; justify-content:center; margin:0 auto 16px; }
     .success-check { width:28px; height:28px; }
     .success-title { font-family:'DM Serif Display',serif; font-size:1.5rem; margin-bottom:8px; }
     .success-sub { font-size:.84rem; color:#a8c0dc; line-height:1.6; }
 
     /* ── Auth Section ── */
     .auth-section { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; padding: 88px 0 40px; overflow: hidden; }
-    .hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 70% 55% at 50% 30%,rgba(0,230,118,.09) 0%,transparent 65%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.08) 0%,transparent 65%); pointer-events:none; }
+    .hero-mesh { position:absolute; inset:0; background:radial-gradient(ellipse 70% 55% at 50% 30%,rgba(0,226,114,.09) 0%,transparent 65%),radial-gradient(ellipse 55% 70% at 85% 75%,rgba(79,195,247,.08) 0%,transparent 65%); pointer-events:none; }
     .hero-gridbg { position:absolute; inset:0; background-image:linear-gradient(rgba(79,195,247,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(79,195,247,.04) 1px,transparent 1px); background-size:52px 52px; pointer-events:none; }
 
     .auth-card { width:100%; max-width:440px; border-radius:22px; padding:36px 36px 32px; background:rgba(12,24,53,.92); backdrop-filter:blur(24px); border:1px solid rgba(79,195,247,.18); box-shadow:0 32px 80px rgba(0,0,0,.55); position:relative; z-index:10; animation:float 6s ease-in-out infinite; }
@@ -236,8 +236,8 @@
     .auth-hdr { text-align:center; margin-bottom:28px; }
     .auth-icon {
       width:44px; height:44px; border-radius:12px;
-      background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(79,195,247,.2));
-      border:1px solid rgba(0,230,118,.3);
+      background:linear-gradient(135deg,rgba(0,226,114,.2),rgba(79,195,247,.2));
+      border:1px solid rgba(0,226,114,.3);
       display:flex; align-items:center; justify-content:center;
       margin:0 auto 12px;
     }
@@ -248,7 +248,7 @@
     .fgroup { margin-bottom:16px; }
     .flabel { display:block; font-size:.8rem; font-weight:600; color:#a8c0dc; margin-bottom:7px; }
     .finput { width:100%; padding:12px 15px; border-radius:10px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.18); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem; transition:all .2s; outline:none; }
-    .finput:focus { border-color:rgba(0,230,118,.5); background:rgba(255,255,255,.08); box-shadow:0 0 0 3px rgba(0,230,118,.12); }
+    .finput:focus { border-color:rgba(0,226,114,.5); background:rgba(255,255,255,.08); box-shadow:0 0 0 3px rgba(0,226,114,.12); }
     .finput::placeholder { color:#5a789a; }
 
     .auth-divider { display:flex; align-items:center; text-align:center; margin:16px 0; color:#6b88aa; font-size:.7rem; font-weight:700; letter-spacing:.1em; }
@@ -258,7 +258,7 @@
     /* ── Toasts ── */
     .toast-container { position:fixed; bottom:28px; right:28px; z-index:999; display:flex; flex-direction:column; gap:10px; }
     .toast { padding:14px 20px; border-radius:12px; font-size:.88rem; font-weight:600; box-shadow:0 12px 40px rgba(0,0,0,.5); display:flex; align-items:center; gap:10px; max-width:320px; animation:fadeUp .3s ease; }
-    .toast-success { background:rgba(0,200,83,.15); border:1px solid rgba(0,200,83,.3); color:#00e676; }
+    .toast-success { background:rgba(0,226,114,.15); border:1px solid rgba(0,226,114,.3); color:#00E272; }
     .toast-error { background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.25); color:#f87171; }
     .toast-warning { background:rgba(251,191,36,.1); border:1px solid rgba(251,191,36,.2); color:#fbbf24; }
 
@@ -267,7 +267,7 @@
     .fbrand p { font-size:.84rem; color:#6b88aa; line-height:1.6; margin-top:12px; max-width:320px; }
     .fcol h4 { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; }
     .fcol a { display:block; font-size:.84rem; color:#6b88aa; margin-bottom:8px; transition:color .2s; }
-    .fcol a:hover { color:#00e676; }
+    .fcol a:hover { color:#00E272; }
     .fbot { border-top:1px solid rgba(79,195,247,.1); padding:14px 0; display:flex; justify-content:space-between; font-size:.78rem; color:#6b88aa; }
     @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:24px}}
     @media(max-width:600px){.footer-grid{grid-template-columns:1fr}.fbot{flex-direction:column;gap:6px;text-align:center}}
@@ -294,21 +294,21 @@
       transition:all .22s ease;
     }
     .backup-admin-btn:hover:not(:disabled) {
-      border-color:rgba(0,230,118,.55);
-      background:rgba(0,230,118,.06);
+      border-color:rgba(0,226,114,.55);
+      background:rgba(0,226,114,.06);
       transform:translateY(-2px);
-      box-shadow:0 12px 32px rgba(0,0,0,.45), 0 0 0 1px rgba(0,230,118,.18);
+      box-shadow:0 12px 32px rgba(0,0,0,.45), 0 0 0 1px rgba(0,226,114,.18);
     }
     .backup-admin-btn:active:not(:disabled) { transform:translateY(0); }
     .backup-admin-btn:disabled { opacity:.55; cursor:not-allowed; }
     .backup-admin-btn.is-picked {
-      border-color:rgba(0,230,118,.7);
-      background:rgba(0,230,118,.1);
-      box-shadow:0 0 0 1px rgba(0,230,118,.4), 0 12px 32px rgba(0,230,118,.18);
+      border-color:rgba(0,226,114,.7);
+      background:rgba(0,226,114,.1);
+      box-shadow:0 0 0 1px rgba(0,226,114,.4), 0 12px 32px rgba(0,226,114,.18);
     }
     .bab-avatar {
       width:42px; height:42px; border-radius:50%;
-      background:linear-gradient(135deg,#00e676,#00c853);
+      background:linear-gradient(135deg,#00E272,#00E272);
       color:#060d1f; font-weight:800; font-size:1rem;
       display:flex; align-items:center; justify-content:center;
       flex-shrink:0;
@@ -319,7 +319,7 @@
     .bab-role {
       margin-top:4px; font-size:.66rem; font-weight:700;
       letter-spacing:.1em; text-transform:uppercase;
-      color:#00e676;
+      color:#00E272;
     }
     .bab-arrow {
       flex-shrink:0; width:34px; height:34px; border-radius:50%;
@@ -329,8 +329,8 @@
     }
     .backup-admin-btn:hover:not(:disabled) .bab-arrow {
       transform:translateX(3px);
-      background:rgba(0,230,118,.18);
-      color:#00e676;
+      background:rgba(0,226,114,.18);
+      color:#00E272;
     }
     /* ── MOBILE TOUCH TARGETS ──
        Usability only, no redesign. Each control keeps its exact size, colour,
@@ -404,7 +404,7 @@
       <div class="auth-hdr">
         <div class="auth-icon">
           <!-- Lock icon -->
-          <svg viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#00E272" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
             <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
@@ -509,9 +509,9 @@
     <!-- Backup-Code Pick-Admin State -->
     <div id="backupPickState" style="display:none;">
       <div class="auth-hdr">
-        <div class="auth-icon" style="background:linear-gradient(135deg,rgba(0,230,118,.22),rgba(79,195,247,.2));border-color:rgba(0,230,118,.4);">
+        <div class="auth-icon" style="background:linear-gradient(135deg,rgba(0,226,114,.22),rgba(79,195,247,.2));border-color:rgba(0,226,114,.4);">
           <!-- User shield icon -->
-          <svg viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#00E272" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             <circle cx="12" cy="11" r="3"/>
           </svg>
@@ -536,7 +536,7 @@
     <!-- Backup-Code Security-Question State -->
     <div id="backupQuestionState" style="display:none;">
       <div class="auth-hdr">
-        <div class="auth-icon" style="background:linear-gradient(135deg,rgba(79,195,247,.2),rgba(0,230,118,.18));border-color:rgba(79,195,247,.4);">
+        <div class="auth-icon" style="background:linear-gradient(135deg,rgba(79,195,247,.2),rgba(0,226,114,.18));border-color:rgba(79,195,247,.4);">
           <!-- Lock / key icon -->
           <svg viewBox="0 0 24 24" fill="none" stroke="#4fc3f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="4" y="10" width="16" height="11" rx="2"/>
@@ -577,7 +577,7 @@
       <div class="auth-hdr">
         <div class="auth-icon">
           <!-- Shield icon -->
-          <svg viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#00E272" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
             <polyline points="9 12 11 14 15 10"/>
           </svg>
@@ -636,7 +636,7 @@
     <!-- Success State -->
     <div class="success-state" id="successState">
       <div class="success-icon-wrap">
-        <svg class="success-check" viewBox="0 0 24 24" fill="none" stroke="#00e676" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <svg class="success-check" viewBox="0 0 24 24" fill="none" stroke="#00E272" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <polyline points="20 6 9 17 4 12"/>
         </svg>
       </div>
@@ -1099,7 +1099,7 @@
           ? '<img src="' + escapeAttr(a.avatar) + '" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">'
           : initial;
         const status = a.online
-          ? '<span style="color:#00e676">&#9679; Online</span>'
+          ? '<span style="color:#00E272">&#9679; Online</span>'
           : '<span style="color:#6b88aa">&#9679; Unavailable</span>';
         btn.innerHTML =
           '<span class="bab-avatar">' + avatar + '</span>' +

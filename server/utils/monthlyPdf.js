@@ -14,7 +14,7 @@
 const PAGE = { w: 595.28, h: 841.89 };          // A4 in points
 const MARGIN = 56;
 
-const BRAND = { green: [0, 0.902, 0.463], ink: [0.09, 0.13, 0.22], mute: [0.42, 0.53, 0.67] };
+const BRAND = { green: [0, 0.886, 0.447], ink: [0.09, 0.13, 0.22], mute: [0.42, 0.53, 0.67] };
 
 /** Escape the three characters that terminate or shift a PDF string literal. */
 function esc(text) {

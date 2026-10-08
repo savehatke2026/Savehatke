@@ -13,9 +13,9 @@
   --navy:       #0a1628;
   --navy-2:     #0f1f3d;
   --navy-3:     #162040;
-  --green:      #10b981;
+  --green:      #00E272;
   --green-dark: #059669;
-  --green-light:#34d399;
+  --green-light:#00E272;
   --blue:       #3b82f6;
   --blue-dark:  #2563eb;
   --teal:       #0ea5e9;
@@ -46,7 +46,7 @@
   /* Shadows */
   --shadow:    0 4px 24px rgba(0,0,0,0.3);
   --shadow-lg: 0 8px 48px rgba(0,0,0,0.4);
-  --shadow-glow-green: 0 0 40px rgba(16,185,129,0.15);
+  --shadow-glow-green: 0 0 40px rgba(0,226,114,0.15);
   --shadow-glow-blue:  0 0 40px rgba(59,130,246,0.15);
 
   /* Glass */
@@ -231,9 +231,9 @@ body {
 }
 
 .badge--green {
-  background: rgba(16,185,129,0.12);
+  background: rgba(0,226,114,0.12);
   color: var(--green-light);
-  border: 1px solid rgba(16,185,129,0.2);
+  border: 1px solid rgba(0,226,114,0.2);
 }
 
 .badge--blue {
@@ -419,9 +419,9 @@ body {
 }
 
 .btn--copied {
-  background: rgba(16,185,129,0.15) !important;
+  background: rgba(0,226,114,0.15) !important;
   color: var(--green-light) !important;
-  border-color: rgba(16,185,129,0.3) !important;
+  border-color: rgba(0,226,114,0.3) !important;
 }
 
 .btn--verify {
@@ -430,12 +430,12 @@ body {
   padding: 14px 28px;
   font-size: 15px;
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(16,185,129,0.25);
+  box-shadow: 0 4px 20px rgba(0,226,114,0.25);
 }
 
 .btn--verify:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 32px rgba(16,185,129,0.35);
+  box-shadow: 0 8px 32px rgba(0,226,114,0.35);
 }
 
 .btn--verify:active {
@@ -487,8 +487,8 @@ body {
   flex-shrink: 0;
   width: 52px;
   height: 52px;
-  background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(14,165,233,0.15));
-  border: 1px solid rgba(16,185,129,0.2);
+  background: linear-gradient(135deg, rgba(0,226,114,0.15), rgba(14,165,233,0.15));
+  border: 1px solid rgba(0,226,114,0.2);
   border-radius: 14px;
   display: grid;
   place-items: center;
@@ -623,8 +623,8 @@ body {
 }
 
 .verify-result--success {
-  background: rgba(16,185,129,0.1);
-  border: 1px solid rgba(16,185,129,0.25);
+  background: rgba(0,226,114,0.1);
+  border: 1px solid rgba(0,226,114,0.25);
   color: var(--green-light);
 }
 

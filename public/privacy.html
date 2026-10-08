@@ -17,7 +17,7 @@
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: #060d1f; }
     ::-webkit-scrollbar-thumb { background: #1a3055; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #00e676; }
+    ::-webkit-scrollbar-thumb:hover { background: #00E272; }
     a { text-decoration: none; color: inherit; }
 
     @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
@@ -30,16 +30,16 @@
 
     .container { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
 
-    .gtext { background: linear-gradient(135deg,#00e676,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-    .shimmer { background: linear-gradient(90deg,#00e676 0%,#4fc3f7 35%,#00e676 70%,#4fc3f7 100%); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 3.5s linear infinite; }
+    .gtext { background: linear-gradient(135deg,#00E272,#4fc3f7); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .shimmer { background: linear-gradient(90deg,#00E272 0%,#4fc3f7 35%,#00E272 70%,#4fc3f7 100%); background-size:200% auto; -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; animation:shimmer 3.5s linear infinite; }
 
     /* BUTTONS */
     .btn { display:inline-flex; align-items:center; gap:8px; padding:0 28px; height:48px; border-radius:10px; font-family:'Outfit',sans-serif; font-size:.95rem; font-weight:700; border:none; cursor:pointer; white-space:nowrap; transition:all .22s; text-decoration:none; }
     .btn-sm { height:38px; padding:0 18px; font-size:.85rem; border-radius:8px; }
     .btn-ghost { background:transparent; color:#e2ecff; border:1.5px solid rgba(79,195,247,.25); }
     .btn-ghost:hover { border-color:rgba(79,195,247,.5); background:rgba(79,195,247,.07); }
-    .btn-primary { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
-    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,230,118,.38); }
+    .btn-primary { background:linear-gradient(135deg,#00E272,#00E272); color:#060d1f; }
+    .btn-primary:hover { opacity:.88; transform:translateY(-2px); box-shadow:0 10px 28px rgba(0,226,114,.38); }
 
     /* NAVBAR */
     .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; }
@@ -47,7 +47,7 @@
     .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; }
     .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
     .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
-.bhl { color:#00e676; }
+.bhl { color:#00E272; }
     .nav-links { display:flex; align-items:center; gap:26px; }
     .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; }
     .nav-links a:hover { color:#e2ecff; }
@@ -63,13 +63,13 @@
 
     /* ── Nav Profile (logged-in state) ── */
     .nav-profile-wrapper { position:relative; display:inline-block; }
-    .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00e676; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,230,118,.35); outline:none; overflow:hidden; }
-    .nav-profile-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(0,230,118,.65); border-color:#4fc3f7; }
+    .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00E272; background:linear-gradient(135deg,#00E272,#00E272); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,226,114,.35); outline:none; overflow:hidden; }
+    .nav-profile-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(0,226,114,.65); border-color:#4fc3f7; }
     .nav-profile-btn img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
     .nav-profile-dropdown { position:absolute; top:calc(100% + 12px); right:0; width:280px; max-width:calc(100vw - 32px); background:rgba(12,24,53,.96); backdrop-filter:blur(20px); border:1px solid rgba(79,195,247,.25); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.65); padding:10px; display:none; flex-direction:column; gap:6px; z-index:1000; }
     .nav-profile-dropdown.active { display:flex; }
     .npd-header { display:flex; align-items:center; gap:10px; padding:8px 10px 10px; border-bottom:1px solid rgba(79,195,247,.12); margin-bottom:4px; }
-    .npd-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
+    .npd-avatar { width:36px; height:36px; border-radius:50%; background:linear-gradient(135deg,#00E272,#00E272); color:#060d1f; font-weight:800; font-size:.85rem; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
     .npd-avatar img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
     .npd-name { font-weight:700; font-size:.88rem; color:#e2ecff; }
     .npd-email { font-size:.75rem; color:#6b88aa; white-space:normal; overflow-wrap:anywhere; word-break:break-word; line-height:1.4; }
@@ -88,7 +88,7 @@
     .page-hero-mesh {
       position:absolute; inset:0; pointer-events:none;
       background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(79,195,247,.06) 0%, transparent 65%),
-                  radial-gradient(ellipse 50% 60% at 10% 60%, rgba(0,230,118,.05) 0%, transparent 65%);
+                  radial-gradient(ellipse 50% 60% at 10% 60%, rgba(0,226,114,.05) 0%, transparent 65%);
     }
     .page-hero-grid {
       position:absolute; inset:0; pointer-events:none;
@@ -117,7 +117,7 @@
       border-radius:10px; padding:10px 18px;
       font-size:.82rem; color:#6b88aa; font-family:'JetBrains Mono',monospace;
     }
-    .page-meta span { color:#00e676; font-weight:600; }
+    .page-meta span { color:#00E272; font-weight:600; }
 
     /* TOC */
     .toc-card {
@@ -126,13 +126,13 @@
       border-radius:18px; padding:24px; position:sticky; top:88px;
       align-self:flex-start;
     }
-    .toc-title { font-size:.75rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#00e676; margin-bottom:16px; }
+    .toc-title { font-size:.75rem; font-weight:700; letter-spacing:.15em; text-transform:uppercase; color:#00E272; margin-bottom:16px; }
     .toc-list { list-style:none; }
     .toc-list li { margin-bottom:6px; }
     .toc-list a { font-size:.83rem; color:#6b88aa; transition:color .2s; display:flex; align-items:center; gap:8px; padding:4px 0; border-radius:6px; }
     .toc-list a:hover { color:#e2ecff; }
     .toc-list a::before { content:''; width:4px; height:4px; border-radius:50%; background:rgba(79,195,247,.4); flex-shrink:0; transition:background .2s; }
-    .toc-list a:hover::before { background:#00e676; }
+    .toc-list a:hover::before { background:#00E272; }
 
     @media(max-width:900px){
       .page-hero-inner { flex-direction:column; gap:32px; }
@@ -165,9 +165,9 @@
     .section-num {
       display:inline-flex; align-items:center; justify-content:center;
       width:34px; height:34px; border-radius:9px; flex-shrink:0;
-      background:linear-gradient(135deg,rgba(0,230,118,.15),rgba(79,195,247,.15));
-      border:1px solid rgba(0,230,118,.2);
-      font-family:'JetBrains Mono',monospace; font-size:.75rem; font-weight:700; color:#00e676;
+      background:linear-gradient(135deg,rgba(0,226,114,.15),rgba(79,195,247,.15));
+      border:1px solid rgba(0,226,114,.2);
+      font-family:'JetBrains Mono',monospace; font-size:.75rem; font-weight:700; color:#00E272;
     }
 
     .legal-section h3 {
@@ -192,25 +192,25 @@
     .legal-section ul li::before {
       content:''; position:absolute; left:16px; top:50%; transform:translateY(-50%);
       width:6px; height:6px; border-radius:50%;
-      background:linear-gradient(135deg,#00e676,#4fc3f7);
+      background:linear-gradient(135deg,#00E272,#4fc3f7);
     }
     .legal-section ul li strong { color:#e2ecff; font-weight:600; }
 
     .legal-section a { color:#4fc3f7; transition:color .2s; border-bottom:1px solid rgba(79,195,247,.25); padding-bottom:1px; }
-    .legal-section a:hover { color:#00e676; border-bottom-color:rgba(0,230,118,.4); }
+    .legal-section a:hover { color:#00E272; border-bottom-color:rgba(0,226,114,.4); }
 
     /* HIGHLIGHT CARD */
     .highlight-card {
-      background:rgba(0,230,118,.06); border:1px solid rgba(0,230,118,.18);
+      background:rgba(0,226,114,.06); border:1px solid rgba(0,226,114,.18);
       border-radius:14px; padding:20px 24px; margin:20px 0;
       font-size:.9rem; color:#a8c0dc; line-height:1.75;
     }
-    .highlight-card strong { color:#00e676; }
+    .highlight-card strong { color:#00E272; }
 
     /* NOT-SELL BANNER */
     .not-sell {
-      background:linear-gradient(135deg,rgba(0,230,118,.08),rgba(79,195,247,.06));
-      border:1px solid rgba(0,230,118,.2); border-radius:14px;
+      background:linear-gradient(135deg,rgba(0,226,114,.08),rgba(79,195,247,.06));
+      border:1px solid rgba(0,226,114,.2); border-radius:14px;
       padding:18px 22px; margin:20px 0; display:flex; align-items:center; gap:14px;
       font-size:.9rem; color:#a8c0dc;
     }
@@ -222,12 +222,12 @@
       background:rgba(15,30,58,.8); border:1px solid rgba(79,195,247,.12);
       border-radius:12px; padding:18px; text-align:center; transition:all .3s;
     }
-    .contact-item:hover { border-color:rgba(0,230,118,.25); transform:translateY(-3px); }
+    .contact-item:hover { border-color:rgba(0,226,114,.25); transform:translateY(-3px); }
     .contact-item .ci-icon { font-size:1.4rem; margin-bottom:8px; }
     .contact-item .ci-label { font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#6b88aa; margin-bottom:4px; }
     .contact-item .ci-val { font-size:.82rem; color:#4fc3f7; }
     .contact-item .ci-val a { color:#4fc3f7; border:none; }
-    .contact-item .ci-val a:hover { color:#00e676; }
+    .contact-item .ci-val a:hover { color:#00E272; }
     @media(max-width:600px){ .contact-grid { grid-template-columns:1fr; } }
 
     /* FOOTER */
@@ -236,10 +236,10 @@
     .fbrand p { font-size:.84rem; color:#6b88aa; line-height:1.6; margin-top:12px; max-width:320px; }
     .fcol h4 { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; }
     .fcol a { display:block; font-size:.84rem; color:#6b88aa; margin-bottom:8px; transition:color .2s; }
-    .fcol a:hover { color:#00e676; }
+    .fcol a:hover { color:#00E272; }
     .fbot { border-top:1px solid rgba(79,195,247,.1); padding:14px 0; display:flex; justify-content:space-between; font-size:.78rem; color:#6b88aa; }
     .fbot a { color:#6b88aa; transition:color .2s; }
-    .fbot a:hover { color:#00e676; }
+    .fbot a:hover { color:#00E272; }
     @media(max-width:900px){ .footer-grid{grid-template-columns:1fr 1fr;gap:24px} }
     @media(max-width:600px){ .footer-grid{grid-template-columns:1fr} .fbot{flex-direction:column;gap:6px;text-align:center} }
 
@@ -254,11 +254,11 @@
     .mclose:hover { color:#e2ecff; }
     .mtabs { display:flex; margin-bottom:28px; border-radius:10px; background:rgba(255,255,255,.04); padding:4px; }
     .mtab { flex:1; padding:10px; border-radius:8px; border:none; background:transparent; color:#6b88aa; font-family:'Outfit',sans-serif; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s; }
-    .mtab.active { background:linear-gradient(135deg,#00e676,#00c853); color:#060d1f; }
+    .mtab.active { background:linear-gradient(135deg,#00E272,#00E272); color:#060d1f; }
     .fgroup { margin-bottom:18px; }
     .flabel { display:block; font-size:.82rem; font-weight:600; color:#a8c0dc; margin-bottom:8px; }
     .finput { width:100%; padding:12px 16px; border-radius:10px; background:rgba(255,255,255,.05); border:1.5px solid rgba(79,195,247,.15); color:#e2ecff; font-family:'Outfit',sans-serif; font-size:.92rem; transition:border-color .2s; outline:none; }
-    .finput:focus { border-color:rgba(0,230,118,.45); }
+    .finput:focus { border-color:rgba(0,226,114,.45); }
     .finput::placeholder { color:#6b88aa; }
     .fsubmit { width:100%; margin-top:8px; font-size:1rem; height:50px; border-radius:12px; }
     /* ── MOBILE TOUCH TARGETS ──
@@ -331,7 +331,7 @@
   <div class="container">
     <div class="page-hero-inner">
       <div class="page-hero-content fu in">
-      <div class="page-badge" style="background:rgba(0,230,118,.1);border-color:rgba(0,230,118,.25);color:#00e676;text-transform:none;letter-spacing:0">🔥 Buy &amp; Sell Coupons — All in One Place!</div>
+      <div class="page-badge" style="background:rgba(0,226,114,.1);border-color:rgba(0,226,114,.25);color:#00E272;text-transform:none;letter-spacing:0">🔥 Buy &amp; Sell Coupons — All in One Place!</div>
         <div class="page-badge">🔒 Legal Document</div>
         <h1 class="page-title">Privacy <span class="gtext">Policy</span></h1>
         <p class="page-desc">At SaveHatke, we respect your privacy and are committed to protecting the personal information you provide when using our coupon marketplace. Here's everything we collect, why we collect it, and the choices you have.</p>
@@ -597,7 +597,7 @@
         <h2><span class="section-num">07</span> Data Sharing &amp; Third Parties</h2>
         <div class="not-sell">
           <span class="not-sell-icon">🛡️</span>
-          <span>We do <strong style="color:#00e676">NOT</strong> sell, rent, or trade your personal information.</span>
+          <span>We do <strong style="color:#00E272">NOT</strong> sell, rent, or trade your personal information.</span>
         </div>
         <p>We may share limited information when reasonably necessary to operate SaveHatke, complete transactions, or comply with legal obligations.</p>
 

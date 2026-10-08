@@ -25,7 +25,7 @@ function initPageProgressBar() {
   const style = document.createElement('style');
   style.textContent = `
     #shPageProgressBar{position:fixed;top:0;left:0;height:3px;width:0;z-index:10000;
-      background:linear-gradient(90deg,#00e676,#00c853);box-shadow:0 0 10px rgba(0,230,118,.7);
+      background:linear-gradient(90deg,#00E272,#00E272);box-shadow:0 0 10px rgba(0,226,114,.7);
       border-radius:0 3px 3px 0;transition:width .25s ease,opacity .4s ease;opacity:1;pointer-events:none}
     #shPageProgressBar.done{opacity:0}
   `;
@@ -463,11 +463,11 @@ function ensureNavProfileStyles() {
   style.id = 'shNavProfileStyle';
   style.textContent = `
     .nav-profile-wrapper{position:relative;display:inline-block}
-    .nav-profile-btn{width:38px;height:38px;border-radius:50%;padding:0;border:2px solid #00e676;
-      background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-family:'Outfit',sans-serif;
+    .nav-profile-btn{width:38px;height:38px;border-radius:50%;padding:0;border:2px solid #00E272;
+      background:linear-gradient(135deg,#00E272,#00E272);color:#060d1f;font-family:'Outfit',sans-serif;
       font-weight:800;font-size:.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer;
-      transition:all .22s ease;box-shadow:0 0 14px rgba(0,230,118,.35);outline:none;overflow:hidden}
-    .nav-profile-btn:hover{transform:scale(1.08);box-shadow:0 0 22px rgba(0,230,118,.65);border-color:#4fc3f7}
+      transition:all .22s ease;box-shadow:0 0 14px rgba(0,226,114,.35);outline:none;overflow:hidden}
+    .nav-profile-btn:hover{transform:scale(1.08);box-shadow:0 0 22px rgba(0,226,114,.65);border-color:#4fc3f7}
     .nav-profile-btn img{width:100%;height:100%;border-radius:50%;object-fit:cover}
     .nav-profile-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:280px;max-width:calc(100vw - 32px);
       background:rgba(12,24,53,.96);backdrop-filter:blur(20px);border:1px solid rgba(79,195,247,.25);
@@ -476,16 +476,16 @@ function ensureNavProfileStyles() {
     .nav-profile-dropdown.active{display:flex}
     @keyframes shDropdownFadeIn{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
     .npd-header{display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid rgba(79,195,247,.12);margin-bottom:4px;padding-bottom:10px}
-    .npd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00e676,#00c853);color:#060d1f;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+    .npd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00E272,#00E272);color:#060d1f;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
     .npd-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
     .npd-info{display:flex;flex-direction:column;overflow:hidden}
     .npd-name{font-size:.88rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:3px}
     .npd-email{font-size:.74rem;color:#6b88aa;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.4}
     .npd-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:#e2ecff;font-size:.86rem;font-weight:600;text-decoration:none;cursor:pointer;transition:all .18s;background:transparent;border:none;width:100%;text-align:left;font-family:'Outfit',sans-serif}
-    .npd-item:hover{background:rgba(0,230,118,.12);color:#00e676}
+    .npd-item:hover{background:rgba(0,226,114,.12);color:#00E272}
     .npd-item-logout{color:#ff6b6b}
     .npd-item-logout:hover{background:rgba(255,80,80,.12);color:#ff8585}
-    .npd-status{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:9999px;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;position:relative;top:-2px;background:rgba(0,230,118,.14);color:#00e676;border:1px solid rgba(0,230,118,.3)}
+    .npd-status{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:9999px;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;position:relative;top:-2px;background:rgba(0,226,114,.14);color:#00E272;border:1px solid rgba(0,226,114,.3)}
     .npd-status.suspended{background:rgba(255,80,80,.12);color:#ff6b6b;border-color:rgba(255,80,80,.3)}
     .npd-footer{margin-top:6px;padding-top:10px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.72rem;letter-spacing:.04em;color:inherit;font-weight:400}
   `;
@@ -896,8 +896,8 @@ function initParticles() {
     style.id = 'shParticlesStyle';
     style.textContent = `
       .particles{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
-      .particle{position:absolute;width:3px;height:3px;background:#00e676;border-radius:50%;opacity:0;
-        animation:shParticleFloat linear infinite;box-shadow:0 0 8px #00e676}
+      .particle{position:absolute;width:3px;height:3px;background:#00E272;border-radius:50%;opacity:0;
+        animation:shParticleFloat linear infinite;box-shadow:0 0 8px #00E272}
       @keyframes shParticleFloat{
         0%{transform:translateY(100vh) scale(0);opacity:0}
         20%{opacity:.6}

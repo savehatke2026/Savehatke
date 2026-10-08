@@ -167,16 +167,16 @@
     }
 
     .chatbot-fab, .chatbot-window {
-      --cb-green:#00e676;
-      --cb-green-2:#00c853;
+      --cb-green:#00E272;
+      --cb-green-2:#00E272;
       --cb-ink:#e2ecff;
       --cb-ink-2:#a8bcd8;
       --cb-ink-3:#6b88aa;
       --cb-surface:#0c1835;
       --cb-surface-2:rgba(15,30,58,.9);
-      --cb-hair:rgba(0,230,118,.12);
+      --cb-hair:rgba(0,226,114,.12);
       --cb-hair-2:rgba(255,255,255,.08);
-      --cb-hair-strong:rgba(0,230,118,.22);
+      --cb-hair-strong:rgba(0,226,114,.22);
       --cb-amber:#ffd740;
       --cb-red:#ff6b6b;
       --cb-blue:#4da3ff;
@@ -195,7 +195,7 @@
       width: 56px;
       height: 56px;
       border-radius: 50%;
-      background: linear-gradient(145deg, #00e676 0%, #00c853 55%, #00b248 100%);
+      background: linear-gradient(145deg, #00E272 0%, #00E272 55%, #00b248 100%);
       border: none;
       cursor: pointer;
       display: flex;
@@ -203,7 +203,7 @@
       justify-content: center;
       color: #052013;
       box-shadow:
-        0 8px 22px rgba(0, 200, 83, .36),
+        0 8px 22px rgba(0,226,114, .36),
         0 2px 5px rgba(0, 0, 0, .34),
         inset 0 1px 0 rgba(255, 255, 255, .34);
       transition: transform .24s cubic-bezier(.34, 1.5, .64, 1), box-shadow .24s ease, opacity .18s ease, visibility .18s ease;
@@ -213,20 +213,20 @@
       position: absolute;
       inset: 0;
       border-radius: 50%;
-      border: 1.5px solid rgba(0, 230, 118, .55);
+      border: 1.5px solid rgba(0,226,114, .55);
       animation: chatbot-halo 2.8s ease-out infinite;
       pointer-events: none;
     }
     .chatbot-fab:hover {
       transform: translateY(-3px);
       box-shadow:
-        0 14px 30px rgba(0, 200, 83, .48),
+        0 14px 30px rgba(0,226,114, .48),
         0 2px 5px rgba(0, 0, 0, .34),
         inset 0 1px 0 rgba(255, 255, 255, .4);
     }
     .chatbot-fab:active { transform: translateY(-1px); }
     .chatbot-fab:focus-visible {
-      outline: 2.5px solid #00e676;
+      outline: 2.5px solid #00E272;
       outline-offset: 3px;
     }
     .chatbot-fab .cb-icon-open { width: 27px; height: 27px; display: block; }
@@ -251,9 +251,9 @@
       max-width: calc(100vw - 32px);
       max-height: calc(100dvh - 40px);
       background: #0c1835;
-      border: 1px solid rgba(0,230,118,.18);
+      border: 1px solid rgba(0,226,114,.18);
       border-radius: 20px;
-      box-shadow: 0 32px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(0,230,118,.08);
+      box-shadow: 0 32px 90px rgba(0,0,0,.65), 0 0 0 1px rgba(0,226,114,.08);
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -304,8 +304,8 @@
       padding: 10px 12px;
       min-height: 56px;
       max-height: 60px;
-      background: linear-gradient(135deg, rgba(0,230,118,.1), rgba(0,200,83,.06));
-      border-bottom: 1px solid rgba(0,230,118,.15);
+      background: linear-gradient(135deg, rgba(0,226,114,.1), rgba(0,226,114,.06));
+      border-bottom: 1px solid rgba(0,226,114,.15);
       flex-shrink: 0;
     }
     .chatbot-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
@@ -316,14 +316,14 @@
       height: 32px;
       flex: 0 0 32px;
       border-radius: 50%;
-      background: linear-gradient(145deg, #00e676 0%, #00c853 55%, #00b248 100%);
+      background: linear-gradient(145deg, #00E272 0%, #00E272 55%, #00b248 100%);
       color: #052013;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow:
         inset 0 1px 0 rgba(255,255,255,.28),
-        0 2px 6px rgba(0,200,83,.28);
+        0 2px 6px rgba(0,226,114,.28);
     }
     .cb-header-logo svg { width: 18px; height: 18px; display: block; }
     .chatbot-header-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
@@ -376,8 +376,8 @@
       transition: background .15s, color .15s;
       font-family: var(--cb-font);
     }
-    .chatbot-icon-btn:hover { background: rgba(0,230,118,.1); color: #00e676; }
-    .chatbot-icon-btn:focus-visible { outline: 2px solid #00e676; outline-offset: 2px; }
+    .chatbot-icon-btn:hover { background: rgba(0,226,114,.1); color: #00E272; }
+    .chatbot-icon-btn:focus-visible { outline: 2px solid #00E272; outline-offset: 2px; }
 
     /* Touch targets on phones. The header buttons keep their exact 32px box,
        colour and hover state; an absolutely-positioned invisible ::after grows
@@ -426,10 +426,10 @@
       flex-direction: column;
       gap: 12px;
       scrollbar-width: thin;
-      scrollbar-color: rgba(0,230,118,.15) transparent;
+      scrollbar-color: rgba(0,226,114,.15) transparent;
     }
     .chatbot-messages::-webkit-scrollbar { width: 4px; }
-    .chatbot-messages::-webkit-scrollbar-thumb { background: rgba(0,230,118,.2); border-radius: 2px; }
+    .chatbot-messages::-webkit-scrollbar-thumb { background: rgba(0,226,114,.2); border-radius: 2px; }
 
     .cb-sr-only {
       position: absolute; width: 1px; height: 1px; margin: -1px;
@@ -461,7 +461,7 @@
        the "Thinking…" row. The user rail carries the signed-in Gmail photo
        when present and falls back to the neutral silhouette otherwise. */
     .cb-turn.cb-ai .cb-rail {
-      background: linear-gradient(145deg, #00e676 0%, #00c853 55%, #00b248 100%);
+      background: linear-gradient(145deg, #00E272 0%, #00E272 55%, #00b248 100%);
       color: #052013;
       box-shadow: inset 0 1px 0 rgba(255,255,255,.28);
     }
@@ -496,20 +496,20 @@
       border-top-left-radius: 6px;
     }
     .cb-turn.cb-user .cb-bubble {
-      background: linear-gradient(135deg, #00e676, #00c853);
+      background: linear-gradient(135deg, #00E272, #00E272);
       color: #060d1f;
       font-weight: 500;
       border-bottom-right-radius: 6px;
     }
-    .cb-turn.cb-ai .cb-bubble strong { color: #00e676; }
-    .cb-turn.cb-ai .cb-bubble em { color: #66ffa6; font-style: italic; }
+    .cb-turn.cb-ai .cb-bubble strong { color: #00E272; }
+    .cb-turn.cb-ai .cb-bubble em { color: #00E272; font-style: italic; }
     .cb-turn.cb-ai .cb-bubble code {
-      background: rgba(0,230,118,.08);
+      background: rgba(0,226,114,.08);
       padding: 1px 5px;
       border-radius: 4px;
       font-family: var(--cb-mono);
       font-size: .82em;
-      color: #69f0ae;
+      color: #00E272;
     }
     /* Lists — green dot markers, 5px gap */
     .cb-list { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 5px; }
@@ -617,16 +617,16 @@
       text-align: left;
       padding: 10px 11px;
       border-radius: 10px;
-      background: rgba(0,230,118,.07);
-      border: 1px solid rgba(0,230,118,.2);
+      background: rgba(0,226,114,.07);
+      border: 1px solid rgba(0,226,114,.2);
       color: var(--cb-green);
       cursor: pointer;
       transition: background .15s, border-color .15s;
       min-width: 0;
       overflow-wrap: anywhere;
     }
-    .cb-action:hover { background: rgba(0,230,118,.14); border-color: rgba(0,230,118,.4); }
-    .cb-action:focus-visible { outline: 2px solid #00e676; outline-offset: 2px; }
+    .cb-action:hover { background: rgba(0,226,114,.14); border-color: rgba(0,226,114,.4); }
+    .cb-action:focus-visible { outline: 2px solid #00E272; outline-offset: 2px; }
     .cb-welcome-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 
     /* ── UI-4 · Suggestion chips ── */
@@ -647,11 +647,11 @@
       transition: background .15s, border-color .15s, color .15s;
     }
     .cb-chip:hover, .cb-chip:focus-visible {
-      background: rgba(0,230,118,.12);
+      background: rgba(0,226,114,.12);
       border-color: var(--cb-green);
       color: var(--cb-green);
     }
-    .cb-chip:focus-visible { outline: 2px solid #00e676; outline-offset: 2px; }
+    .cb-chip:focus-visible { outline: 2px solid #00E272; outline-offset: 2px; }
 
     /* ── UI-7 … UI-10 · Response cards ── */
     .cb-cards { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
@@ -745,8 +745,8 @@
       line-height: 1.2;
       padding: 8px 11px;
       border-radius: 9px;
-      background: rgba(0,230,118,.09);
-      border: 1px solid rgba(0,230,118,.22);
+      background: rgba(0,226,114,.09);
+      border: 1px solid rgba(0,226,114,.22);
       color: var(--cb-green);
       text-decoration: none;
       cursor: pointer;
@@ -754,15 +754,15 @@
       align-items: center;
       transition: background .15s, border-color .15s;
     }
-    .cb-card-btn:hover { background: rgba(0,230,118,.16); border-color: rgba(0,230,118,.42); }
-    .cb-card-btn:focus-visible { outline: 2px solid #00e676; outline-offset: 2px; }
+    .cb-card-btn:hover { background: rgba(0,226,114,.16); border-color: rgba(0,226,114,.42); }
+    .cb-card-btn:focus-visible { outline: 2px solid #00E272; outline-offset: 2px; }
 
     /* UI-9 coupon card */
     .cb-coupon-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
     .cb-brand-plate {
       width: 26px; height: 26px; flex: 0 0 26px;
       border-radius: 8px;
-      background: rgba(0,230,118,.14);
+      background: rgba(0,226,114,.14);
       border: 1px solid var(--cb-hair);
       color: var(--cb-green);
       font-size: 12.5px;
@@ -779,7 +779,7 @@
       font-weight: 700;
       padding: 2px 7px;
       border-radius: 6px;
-      background: rgba(0,230,118,.12);
+      background: rgba(0,226,114,.12);
       border: 1px solid var(--cb-hair-strong);
       color: var(--cb-green);
       white-space: nowrap;
@@ -794,7 +794,7 @@
       font-variant-numeric: tabular-nums;
     }
     .cb-stock { margin-left: auto; font-size: 11.5px; color: var(--cb-ink-2); font-variant-numeric: tabular-nums; }
-    .cb-stock.cb-stock-green { color: #69f0ae; }
+    .cb-stock.cb-stock-green { color: #00E272; }
     .cb-stock.cb-stock-amber { color: var(--cb-amber); }
     .cb-stock.cb-stock-red { color: #ff8585; }
 
@@ -839,7 +839,7 @@
       align-items: flex-end;
       gap: 8px;
       padding: 10px 12px;
-      border-top: 1px solid rgba(0,230,118,.1);
+      border-top: 1px solid rgba(0,226,114,.1);
       background: rgba(6,13,31,.6);
       flex-shrink: 0;
     }
@@ -847,7 +847,7 @@
       flex: 1;
       min-width: 0;
       background: rgba(255,255,255,.05);
-      border: 1.5px solid rgba(0,230,118,.15);
+      border: 1.5px solid rgba(0,226,114,.15);
       border-radius: 12px;
       color: var(--cb-ink);
       font-family: var(--cb-font);
@@ -860,15 +860,15 @@
       transition: border-color .15s;
       overflow-y: hidden;
     }
-    .chatbot-textarea:focus { border-color: rgba(0,230,118,.45); }
-    .chatbot-textarea:focus-visible { outline: 2px solid #00e676; outline-offset: 1px; }
+    .chatbot-textarea:focus { border-color: rgba(0,226,114,.45); }
+    .chatbot-textarea:focus-visible { outline: 2px solid #00E272; outline-offset: 1px; }
     .chatbot-textarea::placeholder { color: var(--cb-ink-3); }
     .chatbot-textarea:disabled { opacity: .6; cursor: not-allowed; }
     .chatbot-send-btn {
       width: 42px;
       height: 42px;
       border-radius: 12px;
-      background: linear-gradient(135deg, #00e676, #00c853);
+      background: linear-gradient(135deg, #00E272, #00E272);
       border: none;
       color: #060d1f;
       font-size: 1.1rem;
@@ -881,7 +881,7 @@
     }
     .chatbot-send-btn:hover { opacity: .85; transform: scale(1.06); }
     .chatbot-send-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
-    .chatbot-send-btn:focus-visible { outline: 2px solid #00e676; outline-offset: 2px; }
+    .chatbot-send-btn:focus-visible { outline: 2px solid #00E272; outline-offset: 2px; }
 
     /* Composer touch targets, declared after the base rules above so the
        min-height actually wins. The send button keeps its exact 42px box and
@@ -916,7 +916,7 @@
       justify-content: space-between;
       gap: 10px;
       padding: 6px 14px 8px;
-      border-top: 1px solid rgba(0,230,118,.08);
+      border-top: 1px solid rgba(0,226,114,.08);
       flex-shrink: 0;
     }
     .chatbot-disclosure {
@@ -927,7 +927,7 @@
       min-width: 0;
       flex: 1;
     }
-    .chatbot-disclosure a { color: #00e676; text-decoration: underline; }
+    .chatbot-disclosure a { color: #00E272; text-decoration: underline; }
     .chatbot-char-count {
       font-family: var(--cb-font);
       font-size: 10px;
@@ -943,7 +943,7 @@
 
     /* Parity in high-contrast / forced-colours mode (§48) */
     @media (prefers-contrast: more) {
-      .chatbot-window { border-color: #00e676; }
+      .chatbot-window { border-color: #00E272; }
       .cb-card, .cb-chip, .cb-status-pill { border-color: rgba(255,255,255,.5); }
       .cb-turn.cb-ai .cb-bubble { border-color: rgba(255,255,255,.4); }
       .chatbot-disclosure, .cb-ts, .cb-eyebrow, .cb-fields dt { color: #cfe0f5; }
