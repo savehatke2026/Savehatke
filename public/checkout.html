@@ -475,9 +475,65 @@
 
     /* LOADING SPINNER */
     .spinner { width:18px; height:18px; border:2.5px solid rgba(6,13,31,.3); border-top-color:#060d1f; border-radius:50%; animation:spin .7s linear infinite; flex-shrink:0; }
+    /* NAVBAR + FOOTER (shared with index) */
+    .container { max-width:1160px; margin:0 auto; padding:0 24px; }
+    .navbar { position:fixed; top:0; left:0; right:0; z-index:100; height:68px; background:rgba(6,13,31,.85); backdrop-filter:blur(20px); border-bottom:1px solid rgba(79,195,247,.1); transition:background .3s; font-family:'Outfit',sans-serif; }
+    .navbar .container { height:100%; display:flex; align-items:center; gap:32px; }
+    .nav-brand { display:flex; align-items:center; gap:10px; font-size:1.25rem; font-weight:800; flex-shrink:0; color:#e2ecff; text-decoration:none; }
+    .brand-icon { width:34px; height:34px; object-fit:contain; flex-shrink:0; }
+    .brand-name { color:#e2ecff; }
+    .bhl { color:#00e676; }
+    .nav-links { display:flex; align-items:center; gap:26px; }
+    .nav-links a { font-size:.88rem; font-weight:500; color:#6b88aa; transition:color .2s; position:relative; padding-bottom:2px; text-decoration:none; }
+    .nav-links a:hover, .nav-links a.active { color:#e2ecff; }
+    .nav-links a.active::after { content:''; position:absolute; bottom:-4px; left:0; right:0; height:2px; background:#00e676; border-radius:1px; }
+    .nav-actions { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .nav-toggle { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:4px; margin-left:auto; }
+    .nav-toggle span { display:block; width:22px; height:2px; background:#e2ecff; border-radius:2px; transition:all .3s; }
+    @media(max-width:768px){
+      .nav-links,.nav-actions{display:none}
+      .nav-toggle{display:flex}
+      .nav-links.open{display:flex;flex-direction:column;position:absolute;top:68px;left:0;right:0;background:#0c1835;padding:20px 24px;border-bottom:1px solid rgba(79,195,247,.1);gap:18px;z-index:99}
+      .nav-actions.open{display:flex;position:absolute;top:240px;right:24px;flex-direction:column;gap:10px;z-index:99}
+    }
+    .footer { background:rgba(9,16,34,.95); border-top:1px solid rgba(79,195,247,.1); padding:36px 0 0; font-family:'Outfit',sans-serif; }
+    .footer-grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:32px; padding-bottom:28px; }
+    .fbrand p { font-size:.84rem; color:#6b88aa; line-height:1.6; margin-top:12px; max-width:320px; }
+    .fcol h4 { font-size:.78rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; margin-bottom:12px; color:#e2ecff; }
+    .fcol a { display:block; font-size:.84rem; color:#6b88aa; margin-bottom:8px; transition:color .2s; text-decoration:none; }
+    .fcol a:hover { color:#00e676; }
+    .fbot { border-top:1px solid rgba(79,195,247,.1); padding:14px 0; display:flex; justify-content:space-between; font-size:.78rem; color:#6b88aa; }
+    @media(max-width:900px){.footer-grid{grid-template-columns:1fr 1fr;gap:24px}}
+    @media(max-width:600px){
+      .footer-grid{grid-template-columns:1fr}
+      .fbot{flex-direction:column;gap:6px;text-align:center}
+    }
+    .page { padding-top:104px; padding-bottom:56px; }
+    @media(max-width:768px){ .page { padding-top:96px; } }
+    @media(max-width:560px){ .page { padding-top:92px; } }
   </style>
 </head>
 <body>
+<nav class="navbar" id="nav" role="navigation" aria-label="Main navigation">
+  <div class="container">
+    <a href="index" class="nav-brand" aria-label="SaveHatke home">
+      <img src="logo.png" alt="SaveHatke" class="brand-icon">
+      <span class="brand-name">Save<span class="bhl">Hatke</span></span>
+    </a>
+    <div class="nav-links" id="navLinks">
+      <a href="index">Home</a>
+      <a href="marketplace">Buy Coupons</a>
+      <a href="sell">Sell Coupons</a>
+      <a href="how-it-works">How it Works</a>
+      <a href="about">About</a>
+      <a href="support">Support</a>
+    </div>
+    <div class="nav-actions" id="navActions"></div>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
   <svg aria-hidden="true" style="display:none" xmlns="http://www.w3.org/2000/svg">
     <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h16M13 5l7 7-7 7"/></symbol>
     <symbol id="user" viewBox="0 0 24 24"><circle cx="12" cy="6" r="4"/><path d="M2 22v-2c0-7 20-7 20 0v2Z"/></symbol>
@@ -548,6 +604,42 @@
       <div class="trust-item"><svg><use href="#bolt"/></svg><span>Instant Delivery</span></div>
     </div>
   </main>
+  <footer class="footer" aria-label="Site footer">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="fbrand">
+          <a href="index" class="nav-brand" style="font-size:1.2rem" aria-label="SaveHatke home">
+            <img src="logo.png" alt="SaveHatke" class="brand-icon"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
+          </a>
+          <p>SaveHatke is a marketplace where users can discover available coupons and submit eligible unused coupons for review and potential sale.</p>
+        </div>
+        <div class="fcol">
+          <h4>Platform</h4>
+          <a href="marketplace">Coupon Marketplace</a>
+          <a href="sell">Sell Coupons</a>
+          <a href="how-it-works">How it Works</a>
+        </div>
+        <div class="fcol">
+          <h4>Company</h4>
+          <a href="support">Help Center</a>
+          <a href="support">Contact Us</a>
+          <a href="terms">Terms &amp; Conditions</a>
+          <a href="privacy">Privacy Policy</a>
+        </div>
+        <div class="fcol">
+          <h4>Categories</h4>
+          <a href="marketplace?cat=Makeup">Makeup Coupons</a>
+          <a href="marketplace?cat=Electronics">Electronics Deals</a>
+          <a href="marketplace?cat=Fashion">Fashion Codes</a>
+          <a href="marketplace?cat=Food">Food &amp; Delivery</a>
+        </div>
+      </div>
+      <div class="fbot">
+        <span>&copy; 2026 SaveHatke. All rights reserved.</span>
+        <span>Made with ❤️ in India</span>
+      </div>
+    </div>
+  </footer>
   <script>
     (function () {
       var back = document.getElementById('backBtn');
@@ -555,6 +647,13 @@
         if (window.history.length > 1) window.history.back();
         else window.location.href = 'marketplace';
       });
+      var navToggle = document.getElementById('navToggle');
+      if (navToggle) {
+        navToggle.addEventListener('click', function () {
+          document.getElementById('navLinks')?.classList.toggle('open');
+          document.getElementById('navActions')?.classList.toggle('open');
+        });
+      }
       var phone = document.getElementById('buyerPhone');
       if (phone) phone.addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); });
     })();
@@ -2539,6 +2638,7 @@
   }
 </script>
 <script src="js/chatbot.js"></script>
+<script src="js/site-footer.js"></script>
 <!-- Payer Name warning toggle — self-contained, independent of the payment
      script. Shows the amber note while #buyerName is focused, hides on blur. -->
 <script>
