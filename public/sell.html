@@ -1333,6 +1333,14 @@ function renderBrandButton(id) {
   }
 
   document.getElementById('bsel-btn-' + id)?.setAttribute('title', brand);
+  // Drive logo for the chosen brand: paint the fallback immediately, then
+  // repaint once when the batched resolution lands (cached, so this happens
+  // at most once per brand).
+  if (typeof ensureBrandAssets === 'function') {
+    ensureBrandAssets([brand]).then((changed) => {
+      if (changed) renderBrandButton(id);
+    }).catch(() => {});
+  }
   const logo = brandLogoImg(brand, () => appendBrandNameFallback(box, brand));
   if (logo) box.appendChild(logo);
   else appendBrandNameFallback(box, brand);
@@ -1378,6 +1386,17 @@ function renderBrandOptions(id, query) {
   const matches = q
     ? BRAND_OPTIONS.filter((b) => b.name.toLowerCase().includes(q) || b.category.toLowerCase().includes(q))
     : BRAND_OPTIONS;
+
+  // Brand logos come from Google Drive. Resolve this list's brands in one
+  // batched request (cached per brand in coupon-meta.js); when anything new
+  // lands, repaint the still-open list once so options pick up their logos.
+  if (typeof ensureBrandAssets === 'function' && matches.length) {
+    ensureBrandAssets(matches.map((b) => b.name)).then((changed) => {
+      if (!changed) return;
+      const stillOpen = document.getElementById('bsel-' + id)?.classList.contains('open');
+      if (stillOpen && document.getElementById('bsel-list-' + id)) renderBrandOptions(id, query);
+    }).catch(() => {});
+  }
 
   list.textContent = '';
   let group = '';

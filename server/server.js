@@ -62,6 +62,9 @@ const upiPaymentRoutes = require('./routes/payment');
 // receiving VPA can be echoed (and any problem with it reported) at boot.
 const upiService = require('./services/upi');
 const driveProxyRoutes = require('./routes/driveProxy');
+// Brand logos / coupon backgrounds resolved from the "SaveHatke Assets" Drive
+// folders (server-side resolution + public image endpoint).
+const brandAssetRoutes = require('./routes/brandAssets');
 const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
 const { checkPageAccess, resolveCaller, isAdminRole, isWhitelistedEmail } = require('./middleware/maintenance');
@@ -657,6 +660,9 @@ app.use('/api/payment/webhook', upiPaymentRoutes.webhookHandler);
 // Custom UPI checkout: /api/payment/{config,create,status,active,verify,cancel,stream}.
 app.use('/api/payment', apiLimiter, maintenanceGuard, upiPaymentRoutes);
 app.use('/api/proxy/drive', apiLimiter, maintenanceGuard, driveProxyRoutes); // Auth-protected Google Drive file streaming
+// Public brand-logo / coupon-background resolver + image streaming from the
+// "SaveHatke Assets" Drive folders. Resolution and credentials stay server-side.
+app.use('/api/brand-assets', apiLimiter, maintenanceGuard, brandAssetRoutes);
 // Read-only view of the visitor's cookie consent. Mounted before the generic
 // '/api' router below so it is not shadowed by it, and left off the rate limiter
 // on purpose: it is a cheap cookie read that any page may call on load, and

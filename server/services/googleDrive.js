@@ -629,6 +629,7 @@ async function saveConnection({ refresh_token, drive_email }) {
 
 module.exports = {
   isConfigured,
+  getDriveClient,
   uploadProofScreenshot,
   uploadSupportScreenshot,
   uploadCouponProofScreenshot,

@@ -881,6 +881,11 @@
     try {
       const data = await api('/coupons');
       liveCoupons = data.coupons || [];
+      // One batched Drive resolution for every brand on the landing grid
+      // (cached per brand in coupon-meta.js) before the first paint.
+      if (typeof ensureBrandAssets === 'function') {
+        await ensureBrandAssets(liveCoupons.map((c) => c.brand)).catch(() => {});
+      }
       renderCoupons();
     } catch (e) {
       liveCoupons = [];

@@ -359,21 +359,114 @@ Object.assign(BRAND_BGS_NORM, {
   urbancompany:'urban-company-bg.png',
 });
 
+// ── Google Drive brand assets ──────────────────────────────────────────
+// The canonical source of brand logos and coupon backgrounds is the connected
+// Google Drive ("SaveHatke Assets/Brand Logos" + "SaveHatke Assets/Coupon
+// Backgrounds", files named <normalized-brand>.png/.jpg). The backend resolves
+// a brand name to those files (credentials never leave the server) and this
+// layer caches the returned image references in the browser:
+//
+//   1. ensureBrandAssets([...brands]) — ONE batched GET for many brands,
+//      deduplicated against what is already cached or in flight.
+//   2. getBrandLogo / getBrandBackground return the Drive reference when the
+//      brand's resolution is cached, and fall back to the local library above
+//      (then clearbit) otherwise — a missing Drive asset never breaks a card.
+//
+// Resolution is per BRAND, never per coupon: a thousand Cult.fit coupons
+// produce one request for 'cultfit', and the map below caches confirmed
+// misses too so re-renders never re-ask for the same brand.
+
+const DRIVE_ASSETS_ENDPOINT = '/api/brand-assets';
+const DRIVE_ASSET_BATCH = 80;              // brands per request chunk
+const DRIVE_ASSET_FAIL_BACKOFF = 30_000;   // pause after a failed batch
+const driveAssetCache = new Map();         // normKey -> { logo, background }
+const DRIVE_URL_KEY = new Map();           // drive logo URL -> normKey (treatment lookup)
+let driveAssetChain = Promise.resolve();   // serialize batches, dedupe naturally
+let driveAssetLastFail = 0;
+
+function getDriveAsset(brand) {
+  const key = normBrandKey(brand);
+  return key ? (driveAssetCache.get(key) || null) : null;
+}
+
+async function fetchBrandAssetChunk(keys) {
+  if (Date.now() - driveAssetLastFail < DRIVE_ASSET_FAIL_BACKOFF) return false;
+  let changed = false;
+  for (let i = 0; i < keys.length; i += DRIVE_ASSET_BATCH) {
+    const chunk = keys.slice(i, i + DRIVE_ASSET_BATCH).filter((k) => !driveAssetCache.has(k));
+    if (!chunk.length) continue;
+    try {
+      const res = await fetch(
+        DRIVE_ASSETS_ENDPOINT + '?brands=' + encodeURIComponent(chunk.join(',')),
+        { credentials: 'same-origin' },
+      );
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json().catch(() => ({}));
+      const assets = (data && data.assets) || {};
+      for (const k of chunk) {
+        const a = assets[k];
+        // Cache hits AND confirmed misses, so repeated renders never re-ask.
+        driveAssetCache.set(k, {
+          logo: (a && a.logo) || null,
+          background: (a && a.background) || null,
+        });
+        if (a && a.logo) DRIVE_URL_KEY.set(a.logo, k);
+        changed = true;
+      }
+    } catch (e) {
+      // Network/5xx: keep whatever resolved, back off briefly, and leave the
+      // remaining keys uncached so a later render can retry them.
+      driveAssetLastFail = Date.now();
+      return changed;
+    }
+  }
+  return changed;
+}
+
+/**
+ * Resolve every not-yet-cached brand through the backend Drive resolver.
+ * Resolves to true when at least one brand gained a cached entry — callers
+ * use that to repaint once. Safe to call with any brand list, any number of
+ * times: duplicate calls collapse into the same serialized batch.
+ */
+function ensureBrandAssets(brands) {
+  const want = [];
+  const seen = new Set();
+  for (const b of (brands || [])) {
+    const k = normBrandKey(b);
+    if (k && !seen.has(k) && !driveAssetCache.has(k)) {
+      seen.add(k);
+      want.push(k);
+    }
+  }
+  if (!want.length) return Promise.resolve(false);
+  const run = driveAssetChain.then(() => fetchBrandAssetChunk(want));
+  driveAssetChain = run.then(() => {}, () => {});
+  return run;
+}
+
 /**
  * The marketplace card's hero background for a brand, or '' when the brand
  * has no background on file. Callers layer this under any coupon-specific
  * admin image: coupon.backgroundImage (set per coupon) always wins.
  */
 function getBrandBackground(brand) {
+  // 1) Google Drive reference when this brand's resolution is cached
+  const drive = getDriveAsset(brand);
+  if (drive && drive.background) return drive.background;
+  // 2) Local library fallback
   const file = BRAND_BGS[brand] || BRAND_BGS_NORM[normBrandKey(brand)];
   return file ? `/images/coupons/brands/${file}` : '';
 }
 
 function getBrandLogo(brand) {
-  // 1) Local file first (reliable, offline-friendly), exact key then squashed
+  // 1) Google Drive reference when this brand's resolution is cached
+  const drive = getDriveAsset(brand);
+  if (drive && drive.logo) return drive.logo;
+  // 2) Local file fallback (reliable, offline-friendly), exact key then squashed
   const local = BRAND_LOGOS[brand] || BRAND_LOGOS_NORM[normBrandKey(brand)];
   if (local) return local;
-  // 2) Fall back to clearbit's domain-based logo
+  // 3) Fall back to clearbit's domain-based logo
   const domain = BRAND_DOMAINS[brand] || BRAND_DOMAINS_NORM[normBrandKey(brand)];
   if (domain) return `https://logo.clearbit.com/${domain}`;
   return '';
@@ -414,6 +507,15 @@ const BRAND_LOGO_LIGHT_CHIP = new Set([
   '/logos/tata-cliq.jpg',
 ]);
 
+// The same two treatments, keyed on the NORMALIZED brand, applied to Google
+// Drive logos (the URL-keyed sets above can't match a Drive file reference).
+// Mirrors the local files these brands shipped with, so a Drive logo reads on
+// the dark surfaces exactly like its local predecessor did.
+const BRAND_LOGO_MONO_DARK_KEYS = new Set(['croma', 'uber', 'lakme', 'cred']);
+const BRAND_LOGO_LIGHT_CHIP_KEYS = new Set([
+  'booking', 'pizzahut', 'snapdeal', 'shopsy', 'tatacliq',
+]);
+
 /**
  * Extra class for a brand logo <img>, given whatever getBrandLogo returned.
  * Returns '' for logos that already read fine on a dark background.
@@ -421,6 +523,11 @@ const BRAND_LOGO_LIGHT_CHIP = new Set([
 function getBrandLogoClass(logoUrl) {
   if (BRAND_LOGO_MONO_DARK.has(logoUrl)) return 'blogo-lift';
   if (BRAND_LOGO_LIGHT_CHIP.has(logoUrl)) return 'blogo-chip';
+  const key = DRIVE_URL_KEY.get(String(logoUrl || ''));
+  if (key) {
+    if (BRAND_LOGO_MONO_DARK_KEYS.has(key)) return 'blogo-lift';
+    if (BRAND_LOGO_LIGHT_CHIP_KEYS.has(key)) return 'blogo-chip';
+  }
   return '';
 }
 

@@ -1627,6 +1627,9 @@
       }
 
       paintCoupon();
+      // Drive brand imagery: resolve the brand once (batched, cached in
+      // coupon-meta.js) and repaint the icon/hero when a Drive asset lands.
+      refreshBrandAssetsForCoupon();
 
       if (c.status && c.status !== 'available') {
         blockPurchase('This coupon is already sold.');
@@ -1638,11 +1641,24 @@
     }
   }
 
+  // ── Drive brand imagery ─────────────────────────────────────────────────
+  // The brand's logo/background live in Google Drive. Resolve this coupon's
+  // brand once (one batched request, cached per brand in coupon-meta.js) and
+  // repaint when a Drive asset actually lands — the paint above stays immediate
+  // on the local fallback so the page never waits on the resolver.
+  function refreshBrandAssetsForCoupon() {
+    if (typeof ensureBrandAssets !== 'function' || !currentCoupon.brand) return;
+    ensureBrandAssets([currentCoupon.brand]).then((changed) => {
+      if (changed && currentCoupon.brand) paintCoupon();
+    }).catch(() => {});
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
     // Paint immediately from the URL, then correct from the server, so the page
     // is never blank and never lies for long.
     paintCoupon();
     loadCouponFromServer();
+    refreshBrandAssetsForCoupon();
 
     // Load the UPI payment-gateway config. Checkout uses the custom UPI flow
     // exclusively — there is no hosted-checkout fallback on the platform.

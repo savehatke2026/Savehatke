@@ -49,6 +49,12 @@ async function loadCoupons() {
   try {
     const data = await api('/coupons');
     allCoupons = data.coupons || [];
+    // Brand logos/backgrounds now come from Google Drive: resolve every brand
+    // on the page in ONE batched request (cached per brand in coupon-meta.js)
+    // before the first paint, so cards render with their final imagery.
+    if (typeof ensureBrandAssets === 'function') {
+      await ensureBrandAssets(allCoupons.map((c) => c.brand)).catch(() => {});
+    }
     renderFilteredCoupons();
   } catch (err) {
     console.warn('Load coupons notice:', err.message);

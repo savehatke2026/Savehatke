@@ -156,6 +156,18 @@ async function adminLogout() {
   window.location.href = 'login.html';
 }
 
+// ── Google Drive brand assets ───────────────────────────────────────────
+// Brand logos/backgrounds resolve from the "SaveHatke Assets" Drive folders
+// via the backend. This is ONE batched request per data load (results cached
+// per brand in coupon-meta.js), so the inventory/review tables need no per-row
+// work and admins never paste image URLs — the plain brand name is enough.
+async function preloadBrandAssets(coupons) {
+  if (typeof ensureBrandAssets !== 'function') return;
+  try {
+    await ensureBrandAssets((coupons || []).map((c) => c && c.brand));
+  } catch (e) { /* resolver hiccup — local fallbacks still render */ }
+}
+
 // ── Admin Stats ─────────────────────────────────────────────────────────
 async function loadAdminStats() {
   try {
@@ -334,6 +346,10 @@ async function loadInventory() {
 
     const all = data.coupons || [];
     INVENTORY_ALL = all;
+    await preloadBrandAssets(all);
+    // A newer load may have started while brand assets resolved — drop out
+    // rather than rendering a stale set over it.
+    if (seq !== inventoryRequestSeq) return;
 
     // Unfiltered fetch already holds every coupon — keep the ⏳ Pending tab badge
     // honest (seller submissions only, matching what that tab renders).
@@ -699,6 +715,8 @@ async function loadActiveCoupons() {
     const data = await api('/admin/coupons?status=available', { useAdmin: true });
     if (seq !== activeCoupons.seq) return; // a newer load started while awaiting
     activeCoupons.rows = data.coupons || [];
+    await preloadBrandAssets(activeCoupons.rows);
+    if (seq !== activeCoupons.seq) return; // a newer load started while resolving
     renderActiveCoupons();
   } catch (err) {
     if (seq === activeCoupons.seq) {
@@ -907,6 +925,8 @@ async function loadPending() {
     const rows = (data.coupons || []).filter(
       (c) => c.status === 'pending' && isSellerSubmission(c),
     );
+    await preloadBrandAssets(rows);
+    if (seq !== pendingCoupons.seq) return; // a newer load started while resolving
     cmSetPendingBadge(rows.length);
 
     if (rows.length === 0) {

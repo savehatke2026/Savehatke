@@ -5280,6 +5280,16 @@
       STATE.refundsSummary = refundsData.summary;
       STATE.reviews = reviews;
 
+      // One batched Drive resolution for every brand shown in the reviews,
+      // listings and coupon-detail surfaces (cached per brand in coupon-meta.js).
+      try {
+        if (typeof ensureBrandAssets === 'function') {
+          await ensureBrandAssets(
+            [].concat(STATE.sales || [], STATE.purchases || []).map((c) => c && c.brand)
+          );
+        }
+      } catch (e) { /* resolver hiccup — local fallbacks still render */ }
+
       applyUserToUI(STATE.user);
       renderStats();
       // Both My Coupons panes are repainted so their stat tiles stay current
