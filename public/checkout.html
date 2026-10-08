@@ -2270,9 +2270,14 @@
 
   // Polling fallback. Reads the same server state, so it cannot diverge from
   // the stream — it is only a different transport.
+  // Real-time cadence: 1.5s tick + an immediate first read, so a payment that
+  // is already PAID when polling starts (e.g. the user just reopened the modal)
+  // is reflected in under a second instead of after one full 5s interval. The
+  // /status endpoint hits the same coalesced mailbox scan, so the heavier
+  // Gmail work stays bounded — only the read cadence changes.
   function startUpiPoll() {
     stopUpiPoll();
-    upiState.pollId = setInterval(async () => {
+    const tick = async () => {
       const paymentId = upiState.paymentId;
       if (!paymentId || upiState.status !== 'PENDING') { stopUpiPoll(); return; }
       try {
@@ -2285,7 +2290,11 @@
         // Transient network failure: keep waiting rather than showing a
         // scary state for a payment that may well still be pending.
       }
-    }, 5000);
+    };
+    // Immediate first read so a freshly-mounted poll surfaces the current
+    // server state without waiting for the first interval tick.
+    tick();
+    upiState.pollId = setInterval(tick, 1500);
   }
 
   function stopUpiPoll() {

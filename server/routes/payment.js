@@ -965,7 +965,7 @@ router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) 
       clearInterval(interval);
       try { res.end(); } catch (e) {}
     }
-  }, 2500);
+  }, 1500);
 
   res.on('close', () => {
     closed = true;
