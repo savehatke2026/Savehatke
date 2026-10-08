@@ -457,61 +457,68 @@ function cmOfferBadge(c) {
   return `<span class="cm2-offer">${escHtml(offer)}</span>`;
 }
 
-/** One card-view item — a marketplace-style box with the real coupon image,
- * every real detail (brand, title, description, code, category, value, price,
- * live expiry countdown, status + source badges, coupon ID) and a pencil that
- * opens the full edit interface. */
+/** One card-view item — the marketplace's coupon box: rounded brand banner,
+ * logo tile + title + description, lime discount pill + price with the struck
+ * value, live countdown chip, and the coupon CODE riding where the Claim
+ * button sits (click to copy). The admin-only edit pencil floats on the
+ * banner; status/source stay reachable through the filters and edit modal. */
 function cmCardHtml(c) {
   const brand = c.brand || '';
   const code = escHtml(c.code || '');
   const id = escHtml(c.id || '');
   // Same 3-layer background rule the marketplace card uses:
-  // coupon.backgroundImage -> brand background -> SaveHatke default.
+  // coupon.backgroundImage -> brand background -> gradient initial fallback.
   const bg = c.backgroundImage
-    || (typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '')
-    || '/images/coupons/default.svg';
+    || (typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '');
+  const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+  const logoExtra = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
+  const initial = typeof getBrandInitial === 'function'
+    ? getBrandInitial(brand)
+    : (brand.charAt(0) || '?').toUpperCase();
   const title = c.title || c.description || 'Verified Discount Offer';
   // A description line only when it adds something beyond the title.
   const descRaw = (c.description && String(c.description) !== String(title)) ? String(c.description) : '';
+  const discount = String(c.discount || '').trim();
   // Live countdown chip (the shared 1s ticker keeps it current).
   const expiryChip = (typeof invExpiryChip === 'function')
     ? invExpiryChip(c.expiryDate, c.timerOn !== false)
     : '';
-  const idStr = String(c.id || '');
-  const shortId = idStr ? (idStr.length > 12 ? idStr.slice(0, 10) + '…' : idStr) : '';
+  const origPrice = c.originalValue ? ` <del>₹${escHtml(c.originalValue)}</del>` : '';
+  const copySvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
   return `
-    <div class="cmbx-card" data-coupon-id="${id}">
-      <button type="button" class="cmbx-edit" title="Edit coupon" aria-label="Edit coupon" onclick="openCouponEdit('${id}')">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l4-1 13-13a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>
-      </button>
-      <div class="cmbx-hero">
-        <img class="cmbx-art" src="${escHtml(bg)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <div class="cmbx-art-fallback" style="display:none"><span>${escHtml(brand) || 'SaveHatke'}</span></div>
-        <div class="cmbx-hero-shade"></div>
-        <div class="cmbx-badges">${cmSourceBadge(c)}${cmStatusBadge(c)}</div>
-        <div class="cmbx-offer">${cmOfferBadge(c)}</div>
+    <article class="coupon-card" data-coupon-id="${id}">
+      <div class="match-banner">
+        <button type="button" class="cmbx-edit" title="Edit coupon" aria-label="Edit coupon" onclick="openCouponEdit('${id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l4-1 13-13a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>
+        </button>
+        ${bg
+          ? `<img src="${escHtml(bg)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+             <div class="match-fallback" style="display:none" aria-hidden="true"><b>${escHtml(initial)}</b>${discount ? `<span>${escHtml(discount)}</span>` : ''}</div>`
+          : `<div class="match-fallback" aria-hidden="true"><b>${escHtml(initial)}</b>${discount ? `<span>${escHtml(discount)}</span>` : ''}</div>`}
       </div>
-      <div class="cmbx-body">
-        <div class="cmbx-brand" title="${escHtml(brand)}">${escHtml(brand) || '—'}</div>
-        <div class="cmbx-title" title="${escHtml(title)}">${escHtml(title)}</div>
-        ${descRaw ? `<div class="cmbx-desc" title="${escHtml(descRaw)}">${escHtml(descRaw)}</div>` : ''}
-        <div class="cm2-code-line">
-          <span class="cm2-code" title="${code}">${code || '—'}</span>
-          <button type="button" class="cm2-copy" title="Copy code" onclick="cmCopyCode('${code}',this)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-          </button>
+      <div class="match-body">
+        <div class="match-info">
+          <div class="match-logo" role="img" aria-label="${escHtml(brand)} logo">
+            ${logoUrl
+              ? `<img src="${escHtml(logoUrl)}" alt="" class="${logoExtra}" loading="lazy" decoding="async" onerror="this.remove()">`
+              : `<b>${escHtml(initial)}</b>`}
+          </div>
+          <div>
+            <h3 class="match-title" title="${escHtml(title)}">${escHtml(title)}</h3>
+            ${descRaw ? `<p class="match-description" title="${escHtml(descRaw)}">${escHtml(descRaw)}</p>` : ''}
+          </div>
         </div>
-        <div class="cmbx-meta">
-          <span class="cm2-cat">${escHtml(c.category || '—')}</span>
+        <div class="match-meta">
+          ${discount ? `<span class="match-discount" title="${escHtml(discount)}">${escHtml(discount)}</span>` : ''}
+          <span class="match-cost">₹${escHtml(c.sellingPrice || '0')}${origPrice}</span>
           ${expiryChip ? `<span class="cmbx-expiry">${expiryChip}</span>` : ''}
         </div>
-        <div class="cmbx-pricerow">
-          <div class="cmbx-price-field"><span class="cm2-field-lbl">Value</span><span class="cm2-field-val">₹${escHtml(c.originalValue || '—')}</span></div>
-          <div class="cmbx-price-field"><span class="cm2-field-lbl">Price</span><span class="cm2-field-val price">₹${escHtml(c.sellingPrice || '0')}</span></div>
-        </div>
-        ${shortId ? `<div class="cmbx-foot"><span class="cmbx-id" title="Coupon ID: ${escHtml(idStr)}">ID ${escHtml(shortId)}</span></div>` : ''}
+        <button type="button" class="match-claim cmbx-code" ${code ? `title="Copy code" onclick="cmCopyCode('${code}',this)"` : 'title="No coupon code" disabled'}>
+          <span class="cmbx-code-txt">${code || '—'}</span>
+          ${code ? copySvg : ''}
+        </button>
       </div>
-    </div>`;
+    </article>`;
 }
 
 /* Table-view row removed with the view toggle — inventory renders as cards only. */
@@ -2738,7 +2745,7 @@ function findCouponById(id) {
 /** The rendered card node for a coupon id (data-coupon-id match, escape-safe). */
 function couponCardNode(id) {
   const key = String(id);
-  return Array.from(document.querySelectorAll('#inventoryTable .cmbx-card'))
+  return Array.from(document.querySelectorAll('#inventoryTable .coupon-card'))
     .find((n) => n.getAttribute('data-coupon-id') === key) || null;
 }
 
