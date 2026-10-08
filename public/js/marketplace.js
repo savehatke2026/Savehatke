@@ -216,12 +216,32 @@ function renderCouponGrid(gridId, coupons) {
 
       const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeCoupon(c.originalValue)}</del>` : '';
 
+      // Brand imagery — the brand's promotional banner fills the top block and
+      // its logo fills the white tile, both looked up from the brand library in
+      // coupon-meta.js. Per-coupon background images are deliberately ignored.
+      // When a brand has no artwork the banner falls back to the gradient
+      // initial block and the tile to the brand's first letter.
+      const brandImg = typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '';
+      const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+      const initial = typeof getBrandInitial === 'function'
+        ? getBrandInitial(brand)
+        : (brand.charAt(0) || '?').toUpperCase();
+      const logoExtra = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
+
       return `
         <article class="coupon-card" data-coupon-id="${id}" style="cursor:pointer" onclick="buyCoupon('${id}', ${isFree})">
-          <div class="match-banner banner-${escapeCoupon(id)}" role="img" aria-label="${escapeCoupon(brand)} promotional banner"></div>
+          <div class="match-banner banner-${escapeCoupon(id)}">
+            ${brandImg
+              ? `<img src="${escapeCoupon(brandImg)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
+              : `<div class="match-fallback" aria-hidden="true"><b>${escapeCoupon(initial)}</b><span>${escapeCoupon(origVal)}</span></div>`}
+          </div>
           <div class="match-body">
             <div class="match-info">
-              <div class="match-logo logo-${escapeCoupon(id)}" role="img" aria-label="${escapeCoupon(brand)} logo"></div>
+              <div class="match-logo logo-${escapeCoupon(id)}" role="img" aria-label="${escapeCoupon(brand)} logo">
+                ${logoUrl
+                  ? `<img src="${escapeCoupon(logoUrl)}" alt="" class="${logoExtra}" loading="lazy" decoding="async" onerror="this.remove()">`
+                  : `<b>${escapeCoupon(initial)}</b>`}
+              </div>
               <div>
                 <h3 class="match-title">${escapeCoupon(title)}</h3>
                 ${desc ? `<p class="match-description" title="${escapeCoupon(desc)}">${escapeCoupon(desc)}</p>` : ''}
