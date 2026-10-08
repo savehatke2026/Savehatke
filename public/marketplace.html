@@ -532,6 +532,20 @@
   .search-clear { background:transparent; border:none; color:#6b88aa; cursor:pointer; padding:4px; border-radius:6px; display:flex; align-items:center; justify-content:center; transition:color .15s; }
   .search-clear[hidden] { display:none; }
   .search-clear:hover { color:#fff; }
+  .search-microphone { --mic-accent:#00E272; position:relative; isolation:isolate; display:inline-flex; align-items:center; justify-content:center; flex:0 0 28px; width:28px; height:28px; border-radius:6px; color:#8b9eb7; transition:color .15s,background-color .15s; }
+  .search-microphone:hover { color:#9bddb5; background:rgba(155,221,181,.07); }
+  .search-microphone svg { position:relative; z-index:1; }
+  .search-microphone::before,.search-microphone::after { content:""; position:absolute; inset:3px; border:1px solid var(--mic-accent); border-radius:50%; opacity:0; pointer-events:none; }
+  .search-microphone:is(.is-listening,:active) { color:var(--mic-accent); background:rgba(0,226,114,.08); box-shadow:0 0 14px rgba(0,226,114,.18); }
+  .search-microphone:is(.is-listening,:active) svg { animation:mic-listening-pulse 1.8s ease-in-out infinite; }
+  .search-microphone:is(.is-listening,:active)::before,.search-microphone:is(.is-listening,:active)::after { animation:mic-listening-ripple 2.4s ease-out infinite; }
+  .search-microphone:is(.is-listening,:active)::after { animation-delay:-1.2s; }
+  @keyframes mic-listening-pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.08); } }
+  @keyframes mic-listening-ripple { 0% { transform:scale(.85); opacity:0; } 15% { opacity:.38; } 100% { transform:scale(1.65); opacity:0; } }
+  @media(prefers-reduced-motion:reduce){
+    .search-microphone { transition:none; }
+    .search-microphone:is(.is-listening,:active) svg,.search-microphone:is(.is-listening,:active)::before,.search-microphone:is(.is-listening,:active)::after { animation:none; }
+  }
   .source-row { display:flex; align-items:center; gap:8px; padding:8px 12px; min-width:200px; position:relative; border-left:1px solid rgba(79,195,247,.14); }
   .source-row .s-ico { color:#6b88aa; flex-shrink:0; }
   .filter-select { background:transparent; border:none; outline:none; color:#c0d0e5; font-family:'Outfit',sans-serif; font-size:.85rem; padding:8px 26px 8px 4px; appearance:none; cursor:pointer; min-width:148px; flex:1; }
@@ -605,6 +619,73 @@
     .explore-hdr { flex-direction:column; align-items:flex-start; }
     .explore-hdr-right { width:100%; justify-content:space-between; }
   }
+
+  /* === Ported from the approved marketplace mockup (2026-10) — two areas
+     only: the search-bar Filter panel and the coupon box cards. Card palette
+     variables are scoped to .coupon-grid so nothing else on the page picks
+     up the mockup's teal theme. === */
+
+  /* Author display rules (e.g. .empty-market's flex) must not override the
+     hidden attribute on #emptyMarket / #filterPanel / #searchClear. */
+  [hidden] { display:none !important; }
+
+  /* ── Filter panel, anchored to the popular row's Filter button ── */
+  .popular-filter-wrap { margin-left:auto; position:relative; }
+  .popular-row .filter-toggle { gap:6px; color:#c0d0e5; padding:5px 0; }
+  .popular-row .filter-toggle[aria-expanded="true"] { color:#00e676; background:transparent; border:0; }
+  .popular-row .trust-tag { margin-left:0; }
+  .filter-panel { position:absolute; top:calc(100% + 10px); right:0; z-index:30; width:270px; max-width:calc(100vw - 40px); padding:18px; border:1px solid #17364b; border-radius:14px; background:#0d1930; box-shadow:0 15px 40px #0007; }
+  .filter-panel h3 { margin:0 0 16px; font-size:16px; color:#e2ecff; }
+  .filter-panel label { display:block; margin:12px 0 6px; color:#a6d9fb; font-size:12px; }
+  .filter-panel select { width:100%; padding:10px; border:1px solid #29435a; border-radius:8px; background:#060d1f; color:#e2ecff; font:inherit; }
+  .filter-panel-actions { display:flex; justify-content:space-between; margin-top:18px; gap:12px; }
+  .popular-row .filter-panel-actions button { padding:9px 13px; border-radius:8px; font-size:12px; }
+  .popular-row .filter-panel-actions .apply-filters { background:#00e676; color:#060d1f; font-weight:700; }
+  .filter-toggle:focus-visible,.filter-panel button:focus-visible { outline:2px solid #00e676; outline-offset:4px; }
+
+  /* ── Coupon box cards — the mockup's "match" card: rounded banner on top,
+     logo tile + title + description, lime discount pill + price, countdown,
+     full-width CTA. Type sizes are in cqw (card-relative) exactly like the
+     mockup, so the card scales as one unit across the 3/2/1-column grid. === */
+  .coupon-grid { --card-bg:#001824; --card-border:#00628a; --card-muted:#b1c5f5; --lime:#a8ff5a; --cta:#00dfab; --ink:#00100b; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
+  @media(max-width:1000px){ .coupon-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  @media(max-width:620px){ .coupon-grid { grid-template-columns:minmax(0,1fr); } }
+
+  .coupon-card { container-type:inline-size; border-radius:19px; background:var(--card-bg); border:1px solid var(--card-border); }
+  .coupon-card:hover { border-color:var(--cta); transform:translateY(-3px); }
+  @media(prefers-reduced-motion:reduce){ .coupon-card:hover { transform:none; } }
+
+  /* Banner — rounded image block, badges and info chips overlay it (they keep
+     their existing classes and behaviour; only the anchor moves to the banner). */
+  .match-banner { position:relative; aspect-ratio:2.24; flex-shrink:0; border-radius:18px; background:#02121e; overflow:hidden; }
+  .match-banner img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
+  .match-fallback { display:none; width:100%; height:100%; align-items:center; justify-content:center; flex-direction:column; gap:1cqw; background:radial-gradient(ellipse at top right,#ffffff14,transparent 70%),linear-gradient(135deg,#02243a,#001824); }
+  .match-fallback b { font-size:12cqw; line-height:1; color:#b1c5f5; font-weight:800; }
+  .match-fallback span { font-family:'JetBrains Mono',monospace; font-size:4.6cqw; font-weight:700; color:var(--cta); }
+  .match-banner .coupon-badges { top:10px; left:10px; }
+  .match-banner .coupon-actions { top:9px; right:9px; }
+
+  /* Body */
+  .match-body { padding:3.4cqw; display:flex; flex-direction:column; flex:1; gap:3cqw; min-width:0; }
+  .match-info { display:flex; align-items:flex-start; gap:4.4cqw; min-height:24cqw; }
+  .match-logo { position:relative; width:21cqw; aspect-ratio:1; flex-shrink:0; border-radius:4cqw; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .match-logo b { font-size:9cqw; color:#001824; font-weight:800; }
+  .match-logo img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:2cqw; }
+  /* The mono-dark lift exists for logos on dark surfaces; on this white tile
+     the dark artwork is already readable, so neutralise the inversion. */
+  .match-logo img.blogo-lift { filter:none; }
+  .match-copy { min-width:0; }
+  .match-title { font-size:5.05cqw; line-height:1.3; font-weight:700; color:#f7f8fc; letter-spacing:-.035em; margin:0 0 2.6cqw; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .match-description { font-size:4.9cqw; line-height:1.28; color:var(--card-muted); margin:0; font-weight:500; letter-spacing:-.02em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+
+  .match-meta { display:flex; align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
+  .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
+  .match-cost { font-size:6.1cqw; color:#f8f9ff; font-weight:800; letter-spacing:-.04em; }
+
+  .match-claim { width:100%; border:0; border-radius:4cqw; background:var(--cta); color:var(--ink); font-family:'Outfit',sans-serif; font-size:5.8cqw; line-height:1.2; font-weight:800; letter-spacing:-.035em; padding:4.4cqw 2cqw; cursor:pointer; transition:filter .2s; margin-top:auto; }
+  .match-claim:hover { filter:brightness(1.12); }
+  .match-claim:focus-visible { outline:3px solid #fff; outline-offset:-6px; }
+  @media(prefers-reduced-motion:reduce){ .match-claim { transition:none; } }
   </style>
 </head>
 <body>
@@ -673,7 +754,8 @@
 <section class="section">
   <div class="container">
 
-    <!-- Search card — unified row: search + source filter in one card -->
+    <!-- Search card — clean search row only; category + source filtering live
+         in the Filter panel of the popular row below (mockup design) -->
     <div class="search-card fu in">
       <div class="search-row">
         <svg class="s-ico" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -685,30 +767,59 @@
             <path d="m6 6 12 12M6 18 18 6"/>
           </svg>
         </button>
-      </div>
-      <div class="source-row">
-        <svg class="s-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/>
-        </svg>
-        <select class="filter-select" id="sourceFilter">
-          <option value="">All Sources</option>
-          <option value="user-submitted">User Submitted</option>
-          <option value="admin">Verified</option>
-          <option value="auto-scraped">Free Codes</option>
-        </select>
-        <svg class="src-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
+        <span class="search-microphone" aria-hidden="true" title="Voice search is not available yet">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>
+          </svg>
+        </span>
       </div>
     </div>
 
-    <!-- Popular searches — quick tags under the search -->
+    <!-- Popular searches — quick tags + Filter dropdown panel (category & source) -->
     <div class="popular-row fu in d1">
       <span class="popular-label">Popular searches</span>
       <button type="button" data-search="Amazon">Amazon<span class="arrow">↗</span></button>
       <button type="button" data-search="Myntra">Myntra<span class="arrow">↗</span></button>
       <button type="button" data-search="Swiggy">Swiggy<span class="arrow">↗</span></button>
       <button type="button" data-search="Nykaa">Nykaa<span class="arrow">↗</span></button>
+      <div class="popular-filter-wrap">
+        <button type="button" class="filter-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterPanel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="#060d1f"/><circle cx="15" cy="17" r="2" fill="#060d1f"/></svg>
+          Filter
+        </button>
+        <div class="filter-panel" id="filterPanel" role="region" aria-labelledby="filterPanelTitle" hidden>
+          <h3 id="filterPanelTitle">Filter coupons</h3>
+          <label for="filterCategory">Category</label>
+          <select id="filterCategory">
+            <option value="">All categories</option>
+            <option value="E-Commerce">E-Commerce</option>
+            <option value="Fashion">Fashion</option>
+            <option value="Beauty &amp; Personal Care">Beauty &amp; Personal Care</option>
+            <option value="Food &amp; Delivery">Food &amp; Delivery</option>
+            <option value="Travel &amp; Transport">Travel &amp; Transport</option>
+            <option value="Electronics &amp; Gadgets">Electronics &amp; Gadgets</option>
+            <option value="Hotels &amp; Stays">Hotels &amp; Stays</option>
+            <option value="Gaming &amp; Entertainment">Gaming &amp; Entertainment</option>
+            <option value="Fitness &amp; Sports">Fitness &amp; Sports</option>
+            <option value="Education">Education</option>
+            <option value="Health &amp; Pharmacy">Health &amp; Pharmacy</option>
+            <option value="Finance &amp; Payments">Finance &amp; Payments</option>
+            <option value="General">General</option>
+          </select>
+          <label for="filterSource">Source</label>
+          <select id="filterSource">
+            <option value="">All sources</option>
+            <option value="admin">Verified</option>
+            <option value="user-submitted">User submitted</option>
+            <option value="auto-scraped">Free codes</option>
+          </select>
+          <div class="filter-panel-actions">
+            <button type="button" id="clearPanelFilters">Clear filters</button>
+            <button type="button" class="apply-filters" id="applyPanelFilters">Apply filters</button>
+          </div>
+        </div>
+      </div>
       <span class="trust-tag" aria-hidden="true">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
           <path d="m8 12 3 3 5-6"/><path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6l8-4Z"/>

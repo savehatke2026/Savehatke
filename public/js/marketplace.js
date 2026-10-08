@@ -204,25 +204,24 @@ function renderCouponGrid(gridId, coupons) {
       const heroUrl = escapeCoupon(heroImageFor(c));
       const isSaved = savedIds.has(id);
 
-      // Per-category accent — gaming and finance get a hue shift so they
-      // stand apart from the default cyan E-Commerce pill. Any unlisted
-      // category falls back to the default cyan styling.
-      const catClass = isFree
-        ? 'coupon-finance'
-        : (/gaming|entertainment/i.test(c.category || '')
-            ? 'coupon-gaming'
-            : /finance/i.test(c.category || '')
-              ? 'coupon-finance'
-              : '');
+      // Brand tile — the brand's logo when one is on file, its initial
+      // otherwise. The letter sits underneath the img, so a failed logo load
+      // just reveals the letter instead of leaving an empty white tile.
+      const brand = c.brand || '';
+      const initial = typeof getBrandInitial === 'function'
+        ? getBrandInitial(brand)
+        : (brand.charAt(0) || '?').toUpperCase();
+      const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+      const logoExtra = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
 
       return `
         <article class="coupon-card" data-coupon-id="${id}" style="cursor:pointer" onclick="buyCoupon('${id}', ${isFree})">
-          <div class="coupon-banner">
-            <img class="coupon-artwork" src="${heroUrl}" alt="" loading="lazy" decoding="async"
+          <div class="match-banner">
+            <img src="${heroUrl}" alt="" loading="lazy" decoding="async"
                  onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex');">
-            <div class="coupon-fallback" style="display:none">
-              <span class="coupon-brand">${escapeCoupon((c.brand || '').slice(0, 10))}</span>
-              <span class="coupon-offer">${escapeCoupon(origVal)}</span>
+            <div class="match-fallback" style="display:none" aria-hidden="true">
+              <b>${escapeCoupon(initial)}</b>
+              <span>${escapeCoupon(origVal)}</span>
             </div>
             <div class="coupon-badges">
               ${isFree ? '<span class="coupon-verified">✓ FREE CODE</span>' : '<span class="coupon-verified">✓ VERIFIED DEAL</span>'}
@@ -249,20 +248,20 @@ function renderCouponGrid(gridId, coupons) {
               </button>
             </div>
           </div>
-          <div class="coupon-body">
-            <h3 class="coupon-title">${escapeCoupon(title)}</h3>
-            ${desc ? `<p class="coupon-description" title="${escapeCoupon(desc)}">${escapeCoupon(desc)}</p>` : ''}
-            <div class="coupon-price-row">
-              <div>
-                <p class="coupon-price-label">Price</p>
-                <p class="coupon-price">${escapeCoupon(priceText)}</p>
+          <div class="match-body">
+            <div class="match-info">
+              <span class="match-logo" aria-hidden="true"><b>${escapeCoupon(initial)}</b>${logoUrl ? `<img src="${escapeCoupon(logoUrl)}" alt="" class="${logoExtra}" loading="lazy" decoding="async" onerror="this.style.display='none'">` : ''}</span>
+              <div class="match-copy">
+                <h3 class="match-title">${escapeCoupon(title)}</h3>
+                ${desc ? `<p class="match-description" title="${escapeCoupon(desc)}">${escapeCoupon(desc)}</p>` : ''}
               </div>
-              ${c.category
-                ? `<span class="coupon-category ${catClass}"><span aria-hidden="true">${categoryIconFor(c.category)}</span>${escapeCoupon(c.category)}</span>`
-                : ''}
+            </div>
+            <div class="match-meta">
+              <span class="match-discount">${escapeCoupon(origVal)}</span>
+              <span class="match-cost">${escapeCoupon(priceText)}</span>
             </div>
             ${renderExpiryTimer(c.expiryDate, c.timerOn)}
-            <button type="button" class="coupon-buy" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">
+            <button type="button" class="match-claim" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">
               ${isFree ? 'Get Free Coupon →' : 'Buy Coupon →'}
             </button>
           </div>
@@ -830,6 +829,7 @@ function initFilters() {
       if (more) more.value = '';
       currentPage = 1;
       syncCategoryUI(currentCategory);
+      syncPanelFilterControls();
       renderFilteredCoupons();
     });
   });
@@ -842,6 +842,7 @@ function initFilters() {
     currentCategory = value;
     currentPage = 1;
     syncCategoryUI(value);
+    syncPanelFilterControls();
     renderFilteredCoupons();
   });
 
@@ -881,11 +882,58 @@ function initFilters() {
     });
   });
 
-  // Source filter (unified card with the search input)
-  document.getElementById('sourceFilter')?.addEventListener('change', (e) => {
-    currentSource = e.target.value;
+  // Filter panel (popular row) — category + source dropdowns. Opening it
+  // always reflects the CURRENT filter state, so it stays truthful whichever
+  // surface (pills, panel, reset) changed the state last.
+  const filterToggle = document.getElementById('filterToggle');
+  const filterPanel = document.getElementById('filterPanel');
+  function syncPanelFilterControls() {
+    const catSel = document.getElementById('filterCategory');
+    const srcSel = document.getElementById('filterSource');
+    if (catSel) catSel.value = currentCategory === 'all' ? '' : currentCategory;
+    if (srcSel) srcSel.value = currentSource || '';
+  }
+  function setFilterPanel(open, restoreFocus = false) {
+    if (!filterPanel || !filterToggle) return;
+    filterPanel.hidden = !open;
+    filterToggle.setAttribute('aria-expanded', String(open));
+    if (open) {
+      syncPanelFilterControls();
+      document.getElementById('filterCategory')?.focus();
+    } else if (restoreFocus) {
+      filterToggle.focus();
+    }
+  }
+  filterToggle?.addEventListener('click', () => setFilterPanel(filterPanel.hidden));
+  document.getElementById('applyPanelFilters')?.addEventListener('click', () => {
+    const catSel = document.getElementById('filterCategory');
+    const srcSel = document.getElementById('filterSource');
+    currentCategory = (catSel && catSel.value) || 'all';
+    currentSource = (srcSel && srcSel.value) || '';
     currentPage = 1;
+    syncCategoryUI(currentCategory);
     renderFilteredCoupons();
+    setFilterPanel(false, true);
+  });
+  document.getElementById('clearPanelFilters')?.addEventListener('click', () => {
+    const catSel = document.getElementById('filterCategory');
+    const srcSel = document.getElementById('filterSource');
+    if (catSel) catSel.value = '';
+    if (srcSel) srcSel.value = '';
+    currentCategory = 'all';
+    currentSource = '';
+    currentPage = 1;
+    syncCategoryUI('all');
+    renderFilteredCoupons();
+  });
+  // Click anywhere outside the wrap closes the panel; Escape closes it and
+  // returns focus to the Filter button (same behaviour as the mockup).
+  document.addEventListener('click', (event) => {
+    if (!filterPanel || filterPanel.hidden) return;
+    if (!event.target.closest('.popular-filter-wrap')) setFilterPanel(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && filterPanel && !filterPanel.hidden) setFilterPanel(false, true);
   });
 
   // Sort dropdown — Recommended / Price: low to high / Expiring soon
@@ -929,6 +977,7 @@ function initFilters() {
     if (searchClear) searchClear.hidden = true;
     currentPage = 1;
     syncCategoryUI('all');
+    syncPanelFilterControls();
     renderFilteredCoupons();
   });
 }
