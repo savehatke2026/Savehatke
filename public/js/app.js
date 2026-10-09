@@ -466,31 +466,50 @@ function ensureNavProfileStyles() {
   style.id = 'shNavProfileStyle';
   style.textContent = `
     .nav-profile-wrapper{position:relative;display:inline-block}
-    .nav-profile-btn{width:38px;height:38px;border-radius:50%;padding:0;border:2px solid #00E272;
-      background:linear-gradient(135deg,#00E272,#00E272);color:#060d1f;font-family:'Outfit',sans-serif;
+    .nav-profile-btn{width:40px;height:40px;border-radius:50%;padding:0;border:1px solid #287657;
+      background:#112a36;color:#68e9b4;font-family:'Outfit',sans-serif;
       font-weight:800;font-size:.9rem;display:flex;align-items:center;justify-content:center;cursor:pointer;
-      transition:all .22s ease;box-shadow:0 0 14px rgba(0,226,114,.35);outline:none;overflow:hidden}
-    .nav-profile-btn:hover{transform:scale(1.08);box-shadow:0 0 22px rgba(0,226,114,.65);border-color:#4fc3f7}
+      transition:all .22s ease;box-shadow:0 0 0 4px rgba(0,226,114,.05);outline:none;overflow:hidden}
+    .nav-profile-btn:hover{transform:none;box-shadow:0 0 0 4px rgba(0,226,114,.12);border-color:#00e272}
+    .nav-profile-btn:focus-visible,.npd-item:focus-visible{outline:2px solid #00e272;outline-offset:4px}
     .nav-profile-btn img{width:100%;height:100%;border-radius:50%;object-fit:cover}
-    .nav-profile-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:280px;max-width:calc(100vw - 32px);
-      background:rgba(12,24,53,.96);backdrop-filter:blur(20px);border:1px solid rgba(79,195,247,.25);
-      border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.65);padding:10px;display:none;
-      flex-direction:column;gap:6px;z-index:1000;animation:shDropdownFadeIn .2s ease-out forwards}
+    .nav-profile-dropdown{position:absolute;top:calc(100% + 12px);right:0;width:272px;max-width:calc(100vw - 32px);
+      background:#0d1930;border:1px solid #263d55;
+      border-radius:14px;box-shadow:0 24px 64px #0008,0 4px 16px #0004;padding:6px;display:none;
+      flex-direction:column;gap:2px;z-index:1000;animation:shDropdownFadeIn .2s ease-out forwards}
     .nav-profile-dropdown.active{display:flex}
     @keyframes shDropdownFadeIn{from{opacity:0;transform:translateY(-8px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
-    .npd-header{display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid rgba(79,195,247,.12);margin-bottom:4px;padding-bottom:10px}
-    .npd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#00E272,#00E272);color:#060d1f;font-weight:800;font-size:.85rem;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
+    .npd-header{display:flex;align-items:center;gap:9px;padding:10px 8px 12px;border-bottom:1px solid #22334b;margin:0 4px 2px}
+    .npd-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(145deg,#124860,#0d2d49);color:#81d7f7;border:1px solid #26607a;font-size:16px;font-weight:500;box-shadow:inset 0 1px 0 #ffffff0a;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden}
     .npd-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover}
-    .npd-info{display:flex;flex-direction:column;overflow:hidden}
-    .npd-name{font-size:.88rem;font-weight:700;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-top:3px}
-    .npd-email{font-size:.74rem;color:#6b88aa;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.4}
-    .npd-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;color:#e2ecff;font-size:.86rem;font-weight:600;text-decoration:none;cursor:pointer;transition:all .18s;background:transparent;border:none;width:100%;text-align:left;font-family:'Outfit',sans-serif}
-    .npd-item:hover{background:rgba(0,226,114,.12);color:#00E272}
-    .npd-item-logout{color:#ff6b6b}
-    .npd-item-logout:hover{background:rgba(255,80,80,.12);color:#ff8585}
-    .npd-status{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:9999px;font-size:.6rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;position:relative;top:-2px;background:rgba(0,226,114,.14);color:#00E272;border:1px solid rgba(0,226,114,.3)}
-    .npd-status.suspended{background:rgba(255,80,80,.12);color:#ff6b6b;border-color:rgba(255,80,80,.3)}
-    .npd-footer{margin-top:6px;padding-top:10px;border-top:1px solid rgba(79,195,247,.12);text-align:center;font-size:.72rem;letter-spacing:.04em;color:inherit;font-weight:400}
+    .npd-info{flex:1;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+    .npd-name-row{display:flex;align-items:center;gap:9px;min-width:0}
+    .npd-name{font-size:16px;font-weight:600;letter-spacing:-.2px;color:#e2ecff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .npd-status{display:inline-flex;gap:5px;align-items:center;font-size:9px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;color:#58dea5;border:1px solid #22604b;background:#12382f;padding:3px 7px;border-radius:20px;margin-left:0;position:relative;top:0;flex-shrink:0}
+    .npd-status::before{content:'';width:4px;height:4px;background:#52e6a4;border-radius:50%}
+    .npd-status.suspended{color:#f38b93;border-color:#6b2f36;background:#3a1d22}
+    .npd-status.suspended::before{background:#f38b93}
+    .npd-email{color:#8a9bb5;font-size:12px;white-space:normal;overflow-wrap:anywhere;word-break:break-word;line-height:1.4}
+    .npd-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;color:#e2ecff;font-size:14px;font-weight:500;text-decoration:none;cursor:pointer;transition:all .18s;background:transparent;border:none;width:100%;text-align:left;font-family:'Outfit',sans-serif;min-height:44px}
+    .npd-item:hover{background:#152b3b;color:#9ae8c5}
+    .npd-icon{width:28px;height:28px;border-radius:7px;background:#182b43;color:#92accb;display:grid;place-items:center;flex-shrink:0}
+    .npd-icon svg{width:17px;height:17px}
+    .npd-item-logout{color:#f38b93}
+    .npd-item-logout .npd-icon{background:#352331;color:#f38b93}
+    .npd-item-logout:hover{background:#322031;color:#ffabb0}
+    .npd-footer{border-top:1px solid #22334b;padding:9px 0 5px;margin:3px 8px 0;display:flex;align-items:center;justify-content:center;gap:7px;color:#7b90ac;font-size:11px}
+    .npd-footer svg{width:13px;height:13px;color:#58b48f}
+    .npd-footer strong{color:#a8b9cf;font-weight:500}
+    .profile-dialog{border:1px solid #263d55;border-radius:18px;background:#0d1930;color:#e2ecff;padding:28px;width:min(400px,calc(100vw - 32px));margin:auto;font-family:'Outfit',sans-serif;box-shadow:0 24px 80px #0009}
+    .profile-dialog::backdrop{background:#030918b3;backdrop-filter:blur(5px)}
+    .profile-dialog h2{font-size:22px;margin-bottom:10px}
+    .profile-dialog p{color:#94a9c5;line-height:1.6;font-size:14px;margin-bottom:24px}
+    .profile-dialog-actions{display:flex;justify-content:flex-end;gap:10px}
+    .profile-dialog-actions button{height:38px;padding:0 18px;border-radius:8px;font-family:'Outfit',sans-serif;font-size:.85rem;font-weight:700;cursor:pointer;border:1.5px solid rgba(79,195,247,.25);background:transparent;color:#e2ecff;transition:all .2s}
+    .profile-dialog-actions button:hover{border-color:rgba(79,195,247,.5);background:rgba(79,195,247,.07)}
+    .profile-dialog-actions button.pd-confirm{background:#00E272;border-color:#00E272;color:#060d1f}
+    .profile-dialog-actions button.pd-confirm:hover{background:#00E272;opacity:.88}
+    @media(prefers-reduced-motion:reduce){.nav-profile-dropdown{animation:none}}
   `;
   document.head.appendChild(style);
 }
@@ -533,9 +552,7 @@ function updateNavAuth() {
     // Account status tag — 'Active' by default, 'Suspended' when the account is suspended
     const accountStatus = String(user.status || 'active').toLowerCase();
     const isSuspended = accountStatus !== 'active';
-    const statusTagHtml = isSuspended
-      ? '<span class="npd-status suspended">Suspended</span>'
-      : '<span class="npd-status">Active</span>';
+    const statusTagHtml = `<span class="npd-status${isSuspended ? ' suspended' : ''}">${isSuspended ? 'Suspended' : 'Active'}</span>`;
 
     const picture = safeGoogleProfilePicture(user.picture);
     const avatarHtmlBtn = picture
@@ -546,62 +563,106 @@ function updateNavAuth() {
       ? `<img src="${picture}" alt="${safeName}" referrerpolicy="no-referrer" />`
       : initials;
 
+    const dashboardIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>';
+    const logoutIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 17v3H4V4h6v3M9 12h12m-4-4 4 4-4 4"/></svg>';
+    const shieldIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg>';
+
     const profileDiv = document.createElement('div');
     profileDiv.className = 'nav-profile-wrapper';
+    profileDiv.id = 'profileWrapper';
     profileDiv.innerHTML = `
-        <button class="nav-profile-btn" id="navProfileCircleBtn" title="${safeName} (${email})">
+        <button class="nav-profile-btn" id="profileTrigger" type="button" aria-label="Open ${safeName}'s profile" aria-expanded="false" aria-controls="profileMenu" title="${safeName} (${email})">
           ${avatarHtmlBtn}
         </button>
-        <div class="nav-profile-dropdown" id="navProfileDropdown">
+        <div class="nav-profile-dropdown" id="profileMenu" aria-label="Account navigation">
           <div class="npd-header">
-            <div class="npd-avatar">${avatarHtmlDropdown}</div>
+            <div class="npd-avatar" aria-hidden="true">${avatarHtmlDropdown}</div>
             <div class="npd-info">
-              <div class="npd-name">${displayName}${statusTagHtml}</div>
-              <div class="npd-email">${email}</div>
+              <div class="npd-name-row"><span class="npd-name">${displayName}</span>${statusTagHtml}</div>
+              <span class="npd-email">${email}</span>
             </div>
           </div>
-          <a href="dashboard" class="npd-item">
-            <span>📊</span> Dashboard
-          </a>
-          <button class="npd-item npd-item-logout" id="npdLogoutBtn">
-            <span>🚪</span> Log Out
-          </button>
-          <div class="npd-footer">Secured by Savehatke</div>
+          <button class="npd-item" id="profileDashboard" type="button"><span class="npd-icon">${dashboardIcon}</span>Dashboard</button>
+          <button class="npd-item npd-item-logout" id="profileLogout" type="button"><span class="npd-icon">${logoutIcon}</span>Log out</button>
+          <div class="npd-footer">${shieldIcon}<span>Secured by <strong>SaveHatke</strong></span></div>
         </div>
+        <dialog class="profile-dialog" id="profileSignoutDialog">
+          <h2>Log out of SaveHatke?</h2>
+          <p>You'll be signed out on this device. You can sign in again anytime to see your dashboard and purchases.</p>
+          <div class="profile-dialog-actions">
+            <button type="button" id="profileSignoutCancel">Cancel</button>
+            <button type="button" class="pd-confirm" id="profileSignoutConfirm">Log out</button>
+          </div>
+        </dialog>
     `;
     navActions.appendChild(profileDiv);
 
-    const btn = document.getElementById('navProfileCircleBtn');
-    const dropdown = document.getElementById('navProfileDropdown');
-    const logoutBtn = document.getElementById('npdLogoutBtn');
+    const btn = document.getElementById('profileTrigger');
+    const dropdown = document.getElementById('profileMenu');
+    const dashboardBtn = document.getElementById('profileDashboard');
+    const logoutBtn = document.getElementById('profileLogout');
+    const dialog = document.getElementById('profileSignoutDialog');
 
     if (btn && dropdown) {
+      const closeDropdown = () => {
+        dropdown.classList.remove('active');
+        btn.setAttribute('aria-expanded', 'false');
+      };
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        dropdown.classList.toggle('active');
+        const open = dropdown.classList.toggle('active');
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
       });
 
       document.addEventListener('click', (e) => {
         if (!dropdown.contains(e.target) && !btn.contains(e.target)) {
-          dropdown.classList.remove('active');
+          closeDropdown();
+        }
+      });
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && dropdown.classList.contains('active')) {
+          closeDropdown();
         }
       });
     }
 
-    if (logoutBtn) {
-      logoutBtn.addEventListener('click', async () => {
-        logoutBtn.disabled = true;
-        try {
-          await api('/auth/logout', { method: 'POST' });
-        } catch (e) {
-          logoutBtn.disabled = false;
-          showToast('Logout could not be confirmed. Please retry.', 'error');
-          return;
-        }
-        Auth.clear();
-        Auth.clearAdmin();
-        window.location.href = 'login.html';
+    if (dashboardBtn) {
+      dashboardBtn.addEventListener('click', () => {
+        window.location.href = 'dashboard';
       });
+    }
+
+    if (logoutBtn && dialog) {
+      const cancelBtn = document.getElementById('profileSignoutCancel');
+      const confirmBtn = document.getElementById('profileSignoutConfirm');
+
+      logoutBtn.addEventListener('click', () => {
+        if (dropdown) dropdown.classList.remove('active');
+        dialog.showModal();
+      });
+
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => dialog.close());
+      }
+
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+          confirmBtn.disabled = true;
+          try {
+            await api('/auth/logout', { method: 'POST' });
+          } catch (e) {
+            confirmBtn.disabled = false;
+            dialog.close();
+            showToast('Logout could not be confirmed. Please retry.', 'error');
+            return;
+          }
+          dialog.close();
+          Auth.clear();
+          Auth.clearAdmin();
+          window.location.href = 'login.html';
+        });
+      }
     }
   } else {
     // Don't overwrite login page's custom nav-actions (← Home button)

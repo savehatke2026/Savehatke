@@ -498,6 +498,38 @@
     @media(max-width:700px) { .recent-purchases { padding:16px; } .recent-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } .recent-heading { gap:8px; } .recent-heading h3 { font-size:1.12rem; } .recent-subtitle { order:3; flex-basis:100%; } .recent-dot { width:16px; height:16px; } }
     @media(max-width:420px) { .recent-grid { grid-template-columns:1fr; } .recent-box { padding:8px 12px; } .recent-copy strong { font-size:.85rem; } }
   </style>
+<style>
+/* Profile refinement — all other index styles are preserved. */
+.nav-profile-btn { background:#112a36; color:#68e9b4; border:1px solid #287657; box-shadow:0 0 0 4px rgba(0,226,114,.05); width:40px; height:40px; }
+.nav-profile-btn:hover { transform:none; box-shadow:0 0 0 4px rgba(0,226,114,.12); border-color:#00e272; }
+.nav-profile-btn:focus-visible,.npd-item:focus-visible { outline:2px solid #00e272; outline-offset:4px; }
+.nav-profile-dropdown { width:272px; background:#0d1930; border:1px solid #263d55; border-radius:14px; padding:6px; gap:2px; box-shadow:0 24px 64px #0008,0 4px 16px #0004; }
+.npd-header { padding:10px 8px 12px; gap:9px; margin:0 4px 2px; border-bottom:1px solid #22334b; align-items:center; }
+.npd-avatar { width:34px; height:34px; background:linear-gradient(145deg,#124860,#0d2d49); color:#81d7f7; border:1px solid #26607a; font-size:16px; font-weight:500; box-shadow:inset 0 1px 0 #ffffff0a; }
+.npd-info { flex:1; gap:4px; }
+.npd-name-row { display:flex; align-items:center; gap:9px; }
+.npd-name { font-size:16px; font-weight:600; letter-spacing:-.2px; }
+.npd-status { display:inline-flex; gap:5px; align-items:center; font-size:9px; font-weight:600; letter-spacing:.5px; color:#58dea5; border:1px solid #22604b; background:#12382f; padding:3px 7px; border-radius:20px; }
+.npd-status::before { content:''; width:4px; height:4px; background:#52e6a4; border-radius:50%; }
+.npd-email { color:#8a9bb5; font-size:12px; }
+.npd-item { padding:8px 10px; gap:10px; border-radius:8px; font-size:14px; font-weight:500; min-height:44px; }
+.npd-item:hover { background:#152b3b; color:#9ae8c5; }
+.npd-icon { width:28px; height:28px; border-radius:7px; background:#182b43; color:#92accb; display:grid; place-items:center; flex-shrink:0; }
+.npd-icon svg { width:17px; height:17px; }
+.npd-item-logout { color:#f38b93; }
+.npd-item-logout .npd-icon { background:#352331; color:#f38b93; }
+.npd-item-logout:hover { background:#322031; color:#ffabb0; }
+.npd-footer { border-top:1px solid #22334b; padding:9px 0 5px; margin:3px 8px 0; display:flex; align-items:center; justify-content:center; gap:7px; color:#7b90ac; font-size:11px; }
+.npd-footer svg { width:13px; height:13px; color:#58b48f; }
+.npd-footer strong { color:#a8b9cf; font-weight:500; }
+.profile-dialog { border:1px solid #263d55; border-radius:18px; background:#0d1930; color:#e2ecff; padding:28px; width:min(400px,calc(100vw - 32px)); margin:auto; font-family:'Outfit',sans-serif; box-shadow:0 24px 80px #0009; }
+.profile-dialog::backdrop { background:#030918b3; backdrop-filter:blur(5px); }
+.profile-dialog h2 { font-size:22px; margin-bottom:10px; }
+.profile-dialog p { color:#94a9c5; line-height:1.6; font-size:14px; margin-bottom:24px; }
+.profile-dialog-actions { display:flex; justify-content:flex-end; gap:10px; }
+@media(max-width:768px) { .nav-actions { display:flex; } .nav-profile-dropdown { max-width:calc(100vw - 32px); } .nav-toggle { margin-left:4px; } }
+@media(prefers-reduced-motion:reduce) { .nav-profile-dropdown { animation:none; } }
+</style>
 </head>
 <body>
 
