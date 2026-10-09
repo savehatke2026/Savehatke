@@ -1450,6 +1450,26 @@
       .nav-links a::before{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
     }
   </style>
+<style>
+/* Sidebar-only visual refinement; dashboard layout and content are unchanged. */
+#sidebar { background:#0a1429; border-right:1px solid #1e2d45; }
+#sidebar .sb-inner { padding:20px 0 16px; }
+#sidebar .sb-nav { padding:0 12px 12px; }
+#sidebar .sb-section-label { padding:23px 12px 9px; font-size:9px; font-weight:600; letter-spacing:1.5px; color:#627692; }
+#sidebar .sb-section-label:first-child { padding-top:3px; padding-bottom:12px; }
+#sidebar .sb-item { position:relative; min-height:44px; padding:10px 12px; gap:12px; margin-bottom:4px; border:1px solid transparent; border-radius:9px; font-size:13px; font-weight:500; color:#94a7c1; transition:background .18s,color .18s,border-color .18s; }
+#sidebar .sb-item:hover { background:#132039; color:#e2ecff; }
+#sidebar .sb-item.active { background:linear-gradient(100deg,#10332e,#0d282b); border-color:#1c4b40; color:#63e5ae; }
+#sidebar .sb-item-ico { width:19px; height:19px; display:grid; place-items:center; color:#7e96b5; }
+#sidebar .sb-item-ico svg { width:18px; height:18px; }
+#sidebar .sb-item.active .sb-item-ico { color:#63e5ae; }
+#sidebar .sb-item:focus-visible { outline:2px solid #00e272; outline-offset:2px; }
+#sidebar .sb-sep { margin:8px 24px 12px; background:#1e2d45; }
+#sidebar .sb-footer-nav { padding:0 12px; }
+#sidebar .sb-item-logout,#sidebar .sb-item-logout .sb-item-ico { color:#e9919b; }
+#sidebar .sb-item-logout:hover { background:#2a1e2e; color:#ffb3ba; }
+@media(prefers-reduced-motion:reduce) { #sidebar,#sidebar .sb-item { transition:none; } }
+</style>
 </head>
 <body>
 
@@ -1503,46 +1523,42 @@
   <div class="sb-inner">
     <!-- The signed-in identity is already in the navbar profile menu, so the
          sidebar starts straight at the navigation. -->
-    <nav class="sb-nav">
+    <nav class="sb-nav" aria-label="Dashboard navigation">
 
       <div class="sb-section-label">Main</div>
 
-      <button class="sb-item active" data-view="dashboard" onclick="showView('dashboard')"><span class="sb-item-ico">🏠</span> Dashboard</button>
+      <button class="sb-item active" data-view="dashboard" onclick="showView('dashboard')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></span> Dashboard</button>
 
       <!-- Buying and selling share one destination; the two sides are tabs
            inside the My Coupons page, not separate navigation items. -->
-      <button class="sb-item" data-view="my-coupons" onclick="showView('my-coupons')"><span class="sb-item-ico">🏷️</span> My Coupons</button>
+      <button class="sb-item" data-view="my-coupons" onclick="showView('my-coupons')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 13 13 20a2 2 0 0 1-3 0L3 13V4h9l8 6a2 2 0 0 1 0 3Z"/><circle cx="7.5" cy="8" r="1"/></svg></span> My Coupons</button>
 
-      <button class="sb-item" data-view="wallet" onclick="showView('wallet')"><span class="sb-item-ico">💳</span> Transactions</button>
+      <button class="sb-item" data-view="wallet" onclick="showView('wallet')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M3 10h18M7 15h4"/></svg></span> Transactions</button>
 
       <div class="sb-section-label">Account</div>
 
-      <button class="sb-item" data-view="notifications" onclick="showView('notifications')"><span class="sb-item-ico">🔔</span> Notifications</button>
-      <button class="sb-item" data-view="reviews" onclick="showView('reviews')"><span class="sb-item-ico">⭐</span> Reviews</button>
-      <button class="sb-item" data-view="refunds" onclick="showView('refunds')"><span class="sb-item-ico">↩️</span> Refunds</button>
+      <button class="sb-item" data-view="notifications" onclick="showView('notifications')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg></span> Notifications</button>
+      <button class="sb-item" data-view="reviews" onclick="showView('reviews')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/></svg></span> Reviews</button>
+      <button class="sb-item" data-view="refunds" onclick="showView('refunds')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 4-4 4 4 4M3 8h11a6 6 0 0 1 0 12H9"/></svg></span> Refunds</button>
 
       <!-- Account Settings holds profile and account identity only. Anything
            that protects the account — verification, 2FA, sessions, last login —
            lives on the Security page instead, so a user always knows which of
            the two pages to open. -->
-      <button class="sb-item" data-view="account" onclick="showView('account')"><span class="sb-item-ico">⚙️</span> Account Settings</button>
+      <button class="sb-item" data-view="account" onclick="showView('account')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 3 2 2-1 4 3 2 3-1 2 4 3-2 1-3 4-1 1-4-3-2-1-4-4 1Z"/></svg></span> Account Settings</button>
 
       <div class="sb-section-label">Security</div>
 
       <!-- One page, no children. Sessions, 2FA and the last sign-in are cards on
            it, not sub-navigation: the two sub-items that used to sit here only
            scrolled to anchors on this same page. -->
-      <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico">🔐</span> Security</button>
+      <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></span> Security</button>
 
       <div class="sb-section-label">Support</div>
 
-      <button class="sb-item" data-view="support" onclick="showView('support')"><span class="sb-item-ico">🎧</span> Help &amp; Support</button>
+      <button class="sb-item" data-view="support" onclick="showView('support')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v-3a8 8 0 0 1 16 0v3M20 18v1a2 2 0 0 1-2 2h-4"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/></svg></span> Help &amp; Support</button>
 
     </nav>
-    <div class="sb-sep"></div>
-    <div class="sb-footer-nav">
-      <button class="sb-item sb-item-logout" onclick="openModal('logoutModal')"><span class="sb-item-ico">🚪</span> Log Out</button>
-    </div>
   </div>
 </aside>
 <div id="sidebarOverlay" onclick="closeSidebar()"></div>
