@@ -54,6 +54,7 @@ function persistSavedIds() {
 document.addEventListener('DOMContentLoaded', () => {
   loadCoupons();
   initFilters();
+  initVoiceSearch();
   spawnParticles();
 
   // Check URL query parameters
@@ -750,6 +751,131 @@ function showCouponModal(coupon) {
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) overlay.remove();
   });
+}
+
+// ── Voice search (search-bar microphone) ──────────────────────────────
+// Uses the browser's Web Speech API to fill the EXISTING search input and
+// trigger the EXISTING debounced search — no separate search system. The
+// mic is one shared recognition instance; a second click stops it, and it
+// is also stopped when the page is hidden/unloaded. Unsupported browsers
+// keep normal text search and get a plain message instead.
+function initVoiceSearch() {
+  const micBtn = document.getElementById('voiceSearchBtn');
+  const searchInput = document.getElementById('searchInput');
+  if (!micBtn || !searchInput) return;
+
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  function notify(message) {
+    if (typeof showToast === 'function') showToast(message, 'info');
+    else micBtn.title = message;
+  }
+
+  if (!SpeechRec) {
+    micBtn.title = 'Voice search is not supported in this browser';
+    micBtn.addEventListener('click', () => {
+      notify('Voice search is not supported in this browser — you can still type to search.');
+    });
+    return;
+  }
+
+  let recognition = null;
+  let listening = false;
+
+  function teardown() {
+    listening = false;
+    micBtn.classList.remove('is-listening');
+    micBtn.setAttribute('aria-pressed', 'false');
+    micBtn.setAttribute('aria-label', 'Search by voice');
+  }
+
+  // One path for every finish (final result, manual stop, error):
+  // whatever the bar shows is what the existing search runs against.
+  function runExistingSearch() {
+    const term = searchInput.value.trim();
+    if (!term) return;
+    searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  micBtn.addEventListener('click', () => {
+    if (!micBtn.isConnected || !searchInput.isConnected) return;
+    // Second click while listening stops recognition (no duplicate sessions).
+    if (listening) {
+      try { recognition && recognition.stop(); } catch (e) { /* already dead */ }
+      return;
+    }
+
+    try {
+      recognition = new SpeechRec();
+    } catch (e) {
+      notify('Voice search could not start. Please try again.');
+      return;
+    }
+
+    recognition.lang = 'en-IN';             // Indian English by default
+    recognition.interimResults = true;      // recognized words appear live
+    recognition.continuous = false;         // one phrase, then stop
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      listening = true;
+      micBtn.classList.add('is-listening');   // pulse + ripple indicator
+      micBtn.setAttribute('aria-pressed', 'true');
+      micBtn.setAttribute('aria-label', 'Stop voice search');
+    };
+
+    recognition.onresult = (event) => {
+      let interim = '';
+      let finalText = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = event.results[i][0].transcript || '';
+        if (event.results[i].isFinal) finalText += text;
+        else interim += text;
+      }
+      const shown = (finalText || interim).trim();
+      if (shown) searchInput.value = shown;
+    };
+
+    const ERROR_MESSAGES = {
+      'not-allowed': 'Microphone access was denied. Allow it in your browser settings to search by voice.',
+      'service-not-allowed': 'Voice search is blocked by your browser settings. Allow microphone access and try again.',
+      'no-speech': 'We didn\'t hear anything. Tap the microphone and try again.',
+      'audio-capture': 'No microphone was found. Connect one and try again.',
+      'network': 'Voice search needs a network connection. Please try again.',
+    };
+
+    recognition.onerror = (event) => {
+      // 'aborted' is our own stop() — silent by design.
+      if (event.error === 'aborted') return;
+      notify(ERROR_MESSAGES[event.error] || 'Voice search hit a problem. Please try again.');
+    };
+
+    recognition.onend = () => {
+      teardown();
+      recognition = null;
+      runExistingSearch();
+    };
+
+    try {
+      recognition.start();
+    } catch (e) {
+      // start() throws InvalidStateError if a session is somehow still alive —
+      // never spawn a second instance.
+      teardown();
+      recognition = null;
+      notify('Voice search is already running. Tap again to stop it.');
+    }
+  });
+
+  // Leave the marketplace → stop recognition and release the microphone.
+  const halt = () => {
+    if (listening) {
+      try { recognition && recognition.stop(); } catch (e) { /* already dead */ }
+      teardown();
+    }
+  };
+  window.addEventListener('pagehide', halt);
+  window.addEventListener('beforeunload', halt);
 }
 
 function initFilters() {
