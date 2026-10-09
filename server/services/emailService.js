@@ -381,7 +381,7 @@ async function sendWelcomeEmail(to, userName, opts = {}) {
   const textBody =
 `SaveHatke
 
-Hi ${displayName},
+Hi, ${displayName}
 
 Your account has been successfully created. You can now access your SaveHatke account and use the available features on the website.
 
@@ -393,8 +393,10 @@ Go to SaveHatke: ${siteUrl}
 
 If you did not create this account, please contact SaveHatke Support immediately.
 
-Regards,
-SaveHatke Team`;
+Best,
+SaveHatke
+
+You’re receiving this email because a SaveHatke account was created using this email address.`;
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -453,7 +455,7 @@ SaveHatke Team`;
       }
 
       .green {
-        color: #00e272;
+        color: #00E272;
         font-weight: 700;
       }
 
@@ -465,7 +467,7 @@ SaveHatke Team`;
         display: inline-block;
         padding: 14px 24px;
         border-radius: 6px;
-        background: #00e272;
+        background: #00E272;
         color: #000000;
         font-size: 16px;
         font-weight: 700;
@@ -493,7 +495,7 @@ SaveHatke Team`;
          the Admin Email Testing preview can toggle it. */
       @media (prefers-color-scheme: dark) {
         html, body, .page, .email, .content { background:#0F1115 !important; background-color:#0F1115 !important; }
-        body, p, .brand-text { color:#FFFFFF !important; }
+        body, p, .brand-text, .support-link { color:#FFFFFF !important; }
         .footer { border-top-color:#29302D !important; color:#B8B8B8 !important; }
 ${EMAIL_GREEN_DARK_RULES}
       }
@@ -524,7 +526,7 @@ ${EMAIL_GREEN_DARK_RULES}
                 </p>
 
                 <p>
-                  Hi <span class="green">${safeName}</span>,
+                  Hi, <strong>${safeName}</strong>
                 </p>
 
                 <p>
@@ -535,7 +537,7 @@ ${EMAIL_GREEN_DARK_RULES}
 
                 <p>
                   Your account was created using
-                  <span class="green">${safeEmail}</span> on ${signupDate}.
+                  <span style="color:#00E272;font-weight:700;">${safeEmail}</span> on ${signupDate}.
                 </p>
 
                 <p>
@@ -549,19 +551,31 @@ ${EMAIL_GREEN_DARK_RULES}
                     href="${siteUrl}"
                     target="_blank"
                     rel="noopener noreferrer"
-                    style="display:inline-block;padding:14px 24px;border-radius:6px;background:#00e272;color:#000000;font-size:16px;font-weight:700;text-decoration:none;"
+                    style="display:inline-block;padding:14px 24px;border-radius:6px;background:#00E272;color:#000000;font-size:16px;font-weight:700;text-decoration:none;"
                     >Go to SaveHatke &rarr;</a
                   >
                 </p>
 
                 <p>
-                  If you did not create this account, please contact SaveHatke
-                  Support immediately.
+                  If you did not create this account, please contact
+                  <a
+                    class="support-link"
+                    href="https://savehatke.vercel.app/support"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style="color:#222222;text-decoration:underline;"
+                    >SaveHatke Support</a
+                  > immediately.
                 </p>
 
                 <p>
-                  Regards,<br />
-                  SaveHatke Team
+                  Best,<br />
+                  <strong>SaveHatke</strong>
+                </p>
+
+                <p class="footer">
+                  You’re receiving this email because a SaveHatke account was
+                  created using this email address.
                 </p>
               </td>
             </tr>
