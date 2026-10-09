@@ -174,6 +174,31 @@ async function canSellCoupons(user) {
   return (await sellAccess(user)).canSell;
 }
 
+// ── Listing visibility contract ──────────────────────────────────────────────
+// The marketplace lists EVERY coupon except sold and expired ones. `status`
+// stays authoritative for sold (pending/reserved rows never reach these
+// readers anyway); expiry mirrors the card countdown — a bare "YYYY-MM-DD"
+// counts through the END of that day on the server clock, and a coupon with
+// no expiry never expires (the listing anchors a 14-day display countdown
+// via defaultExpiry). The admin Timer switch only hides the countdown chip:
+// an expired coupon is hidden even when its switch is off.
+const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function couponExpiryMs(c) {
+  const s = String((c && c.expiryDate) || '').trim();
+  if (!s) return null;
+  const m = DATE_ONLY_RE.exec(s);
+  const t = m ? Date.UTC(+m[1], +m[2] - 1, +m[3], 23, 59, 59, 999) : Date.parse(s);
+  return Number.isFinite(t) ? t : null;
+}
+
+function listingVisible(c) {
+  if (!c) return false;
+  if (String(c.status || '').toLowerCase() !== 'available') return false;
+  const t = couponExpiryMs(c);
+  return t === null || t > Date.now();
+}
+
 // GET /api/coupons — List available coupons (public, with optional auth)
 router.get('/', optionalAuth, async (req, res) => {
   try {
@@ -206,6 +231,9 @@ router.get('/', optionalAuth, async (req, res) => {
     } catch (e) {
       console.warn('G Sheet coupons read notice:', e.message);
     }
+
+    // Visibility contract: hide sold and expired coupons (see listingVisible).
+    available = available.filter(listingVisible);
 
     // Apply filters
     if (category && category !== 'all') {
@@ -294,6 +322,10 @@ router.get('/categories', async (req, res) => {
       const allCoupons = await db.getRows(db.SHEETS.COUPONS);
       available = allCoupons.filter((c) => c.status === 'available');
     }
+
+    // Same visibility contract as the listing — sold/expired coupons must not
+    // inflate category counts.
+    available = available.filter(listingVisible);
 
     const categories = {};
     available.forEach((c) => {

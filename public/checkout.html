@@ -104,9 +104,10 @@
     .pay svg { width:40px; height:40px; stroke-width:2.6; }
     .pay:disabled { opacity:.55; cursor:not-allowed; transform:none; }
     .pay #payBtnText { display:inline-flex; align-items:center; justify-content:center; gap:14px; min-width:0; }
-    .pay .spinner { width:46px; height:46px; border:0; border-radius:0; background:url("images/spinner.png") center/contain no-repeat; filter:brightness(0) opacity(.92); animation:paySpin .9s steps(12) infinite; }
-    @keyframes paySpin { to { transform:rotate(360deg); } }
-    @media (prefers-reduced-motion: reduce) { .pay .spinner { animation:none; } }
+    /* Processing animation — user-supplied GIF (white segments on black).
+       mix-blend-mode:screen drops the GIF's black box against the green
+       button; the segments fade toward the button colour exactly as designed. */
+    .pay .spinner { width:46px; height:46px; border:0; border-radius:0; background:url("images/processing-animation.gif") center/contain no-repeat; mix-blend-mode:screen; }
     .secured-by { margin-top:30px; text-align:center; color:var(--muted); font-size:clamp(14px,2.2vw,20px); }
     .trust { display:grid; grid-template-columns:1fr 1fr 1fr; margin-top:54px; }
     .trust-item { display:flex; align-items:center; justify-content:center; gap:29px; color:var(--muted); font-size:23px; line-height:1.55; min-height:79px; }
@@ -170,7 +171,7 @@
     .cc-cat[data-cat="Automotive" i]{--cat-rgb:148,163,184}
     .cc-cat[data-cat="General" i]{--cat-rgb:157,184,212}
     /* ── UPI PAYMENT BOX ──────────────────────────────────────────────────
-       The payment box the "Pay ₹X Securely" button opens. Layout and palette
+       The payment box the "Pay" button opens. Layout and palette
        follow the agreed design: a #112747 → #0c1e35 card on the
        rgba(0,226,114,.18) green hairline, with #00E272 as the single accent,
        in Outfit + JetBrains Mono so it still reads as part of the existing
@@ -594,7 +595,7 @@
         <div class="field"><label class="field-label" for="buyerEmail">Email Address <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#mail"/></svg></span><input id="buyerEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required></div></div>
         <div class="field"><label class="field-label" for="buyerPhone">Mobile Number <span class="required">*</span></label><div class="phone-row"><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#phone"/></svg></span><select name="country" aria-label="Country calling code"><option value="+91">+91</option><option value="+1">+1</option><option value="+44">+44</option></select></div><div class="input-wrap"><input id="buyerPhone" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10-digit number" pattern="[0-9]{10}" maxlength="10" title="Enter a 10-digit mobile number" required></div></div></div>
         <label class="agreement"><input type="checkbox" id="termsCheck" name="agreement" required checked><span>I agree to SaveHatke's <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy.html">Privacy Policy</a>.</span></label>
-        <button class="pay" id="payBtn" type="button" onclick="initiatePayment()"><svg aria-hidden="true"><use href="#lock"/></svg><span id="payBtnText" aria-live="polite">Pay Securely</span><svg aria-hidden="true"><use href="#arrow"/></svg></button>
+        <button class="pay" id="payBtn" type="button" onclick="initiatePayment()"><svg aria-hidden="true"><use href="#lock"/></svg><span id="payBtnText" aria-live="polite">Pay</span><svg aria-hidden="true"><use href="#arrow"/></svg></button>
       </form>
       <p class="secured-by">Secured by SaveHatke</p>
     </section>
@@ -1218,7 +1219,7 @@
     }
     const payBtn = document.getElementById('payBtn');
     if (payBtn && !payBtn.disabled) {
-      set('payBtnText', totalPrice ? 'Pay ' + formatRupees(totalPrice) + ' Securely' : 'Pay Securely');
+      set('payBtnText', 'Pay');
     }
 
     // Success-overlay scratch coupon — themed with THIS coupon's real values
@@ -1418,7 +1419,7 @@
   });
 
 // ── CUSTOM UPI PAYMENT ────────────────────────────────────────────────
-  // Everything below drives the existing "Pay ₹X Securely" button. The button,
+  // Everything below drives the existing "Pay" button. The button,
   // the summary card and the success overlay are unchanged; this only replaces
   // what happens after the click.
   //
@@ -2152,11 +2153,11 @@
     const payBtnText = upiEl('payBtnText');
     const resetBtn = () => {
       if (payBtn) payBtn.disabled = false;
-      if (payBtnText) payBtnText.innerHTML = 'Pay ₹' + totalPrice + ' Securely';
+      if (payBtnText) payBtnText.innerHTML = 'Pay';
     };
 
     if (payBtn) payBtn.disabled = true;
-    if (payBtnText) payBtnText.innerHTML = '<div class="spinner"></div> Creating secure payment...';
+    if (payBtnText) payBtnText.innerHTML = '<div class="spinner"></div><span>Processing</span>';
 
     // Open the box immediately with its loading state, so the click feels
     // instant and there is never a second, competing interface.
@@ -2282,7 +2283,7 @@
     const payBtn = upiEl('payBtn');
     const payBtnText = upiEl('payBtnText');
     if (payBtn) payBtn.disabled = true;
-    if (payBtnText) payBtnText.innerHTML = '<div class="spinner"></div> Creating secure payment...';
+    if (payBtnText) payBtnText.innerHTML = '<div class="spinner"></div><span>Processing</span>';
 
     // Resume an existing live window instead of minting a second one: a
     // refresh or a reopened modal must not restart the countdown.
