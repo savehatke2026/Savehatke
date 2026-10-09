@@ -168,6 +168,23 @@ async function preloadBrandAssets(coupons) {
   } catch (e) { /* resolver hiccup — local fallbacks still render */ }
 }
 
+// Drive-only brand imagery for the Coupons section — the marketplace's rule
+// (see marketplace.js): Google Drive is the SINGLE source of truth, so a brand
+// whose logo/background was just uploaded shows up here automatically, and a
+// brand with no Drive file yet falls back to the card's initial tile / gradient
+// block instead of a stale local-library or clearbit copy.
+function adminDriveBrandLogo(brand) {
+  if (typeof getDriveAsset !== 'function') return '';
+  const a = getDriveAsset(brand);
+  return (a && a.logo) || '';
+}
+
+function adminDriveBrandBackground(brand) {
+  if (typeof getDriveAsset !== 'function') return '';
+  const a = getDriveAsset(brand);
+  return (a && a.background) || '';
+}
+
 // ── Admin Stats ─────────────────────────────────────────────────────────
 async function loadAdminStats() {
   try {
@@ -466,11 +483,11 @@ function cmCardHtml(c) {
   const brand = c.brand || '';
   const code = escHtml(c.code || '');
   const id = escHtml(c.id || '');
-  // Same 3-layer background rule the marketplace card uses:
-  // coupon.backgroundImage -> brand background -> gradient initial fallback.
-  const bg = c.backgroundImage
-    || (typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '');
-  const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+  // Same rule the marketplace card uses (Drive-only brand imagery):
+  // per-coupon admin image (when one is set) -> Drive brand background ->
+  // gradient initial fallback. Never a stale local/clearbit copy.
+  const bg = c.backgroundImage || adminDriveBrandBackground(brand);
+  const logoUrl = adminDriveBrandLogo(brand);
   const logoExtra = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
   const initial = typeof getBrandInitial === 'function'
     ? getBrandInitial(brand)
@@ -790,8 +807,9 @@ function activeRowHtml(c) {
   const fallbackAt = c.addedAt || c.createdAt || '';
   const whenDate = approvedAt || fallbackAt;
 
-  // Banner: a per-coupon image wins, then the brand's marketplace background, else a flat panel.
-  const bg = c.backgroundImage || (typeof getBrandBackground === 'function' ? getBrandBackground(brand) : '');
+  // Banner: a per-coupon image wins, then the brand's Drive background
+  // (Drive-only, matching the coupon cards), else a flat panel.
+  const bg = c.backgroundImage || adminDriveBrandBackground(brand);
   const banner = bg
     ? `<img src="${escHtml(bg)}" alt="${escHtml(brand)} banner" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='block'"><div class="vault-banner-placeholder" style="display:none"></div>`
     : '<div class="vault-banner-placeholder"></div>';
@@ -1038,9 +1056,11 @@ function cmPagerHtml(page, totalPages, fnName) {
   `;
 }
 
-/** Brand logo + name, falling back to the initial tile when there's no logo. */
+/** Brand logo + name, falling back to the initial tile when there's no logo.
+ * Drive-only (marketplace rule): a brand with no Drive file yet shows the
+ * initial tile, never a stale local-library or clearbit copy. */
 function cmBrandCellHtml(brand) {
-  const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+  const logoUrl = adminDriveBrandLogo(brand);
   const logoClass = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
   const initial = escHtml(
     typeof getBrandInitial === 'function' ? getBrandInitial(brand) : (brand || '?').slice(0, 1).toUpperCase(),
