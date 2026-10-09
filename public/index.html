@@ -909,9 +909,18 @@
   let liveCoupons = [];
   let activeCat = 'all';
 
+  // The listing endpoint pages server-side (a five-figure inventory cannot fit
+  // in one response), so the homepage fetches the freshest page that already
+  // carries the active search/category/source filters and renders its top 6.
   async function loadIndexCoupons() {
     try {
-      const data = await api('/coupons');
+      const params = new URLSearchParams({ page: '1', pageSize: '60', sort: 'newest' });
+      if (activeCat && activeCat !== 'all') params.set('category', activeCat);
+      const query = document.getElementById('searchInput').value.trim().toLowerCase();
+      if (query) params.set('search', query);
+      const source = document.getElementById('sourceFilter').value;
+      if (source) params.set('source', source);
+      const data = await api('/coupons?' + params.toString());
       liveCoupons = data.coupons || [];
       // One batched Drive resolution for every brand on the landing grid
       // (cached per brand in coupon-meta.js) before the first paint.
@@ -1000,17 +1009,9 @@
     const grid = document.getElementById('couponGrid');
     if (!grid) return;
 
-    let filtered = activeCat === 'all'
-      ? liveCoupons
-      : liveCoupons.filter(c => (c.category || '').toLowerCase() === activeCat.toLowerCase());
-
-    const query = document.getElementById('searchInput').value.trim().toLowerCase();
-    const source = document.getElementById('sourceFilter').value;
-    filtered = filtered.filter(c => {
-      const matchesQuery = !query || [c.brand, c.category, c.title, c.description]
-        .some(value => String(value || '').toLowerCase().includes(query));
-      return matchesQuery && (!source || c.source === source);
-    });
+    // Filtering happens on the server (loadIndexCoupons sends the active
+    // search/category/source); liveCoupons is already the matching page.
+    const filtered = liveCoupons;
 
     if (filtered.length === 0) {
       grid.innerHTML = `
@@ -1097,7 +1098,15 @@
 
   function updateSearch() {
     searchClear.hidden = searchInput.value.length === 0;
-    renderCoupons();
+    scheduleIndexReload();
+  }
+
+  // Server-side filtering re-fetches on every keystroke — debounced so fast
+  // typing doesn't spam the API.
+  let indexReloadTimer = null;
+  function scheduleIndexReload() {
+    clearTimeout(indexReloadTimer);
+    indexReloadTimer = setTimeout(loadIndexCoupons, 250);
   }
 
   searchInput.addEventListener('input', updateSearch);
@@ -1106,7 +1115,7 @@
     updateSearch();
     searchInput.focus();
   });
-  document.getElementById('sourceFilter').addEventListener('change', renderCoupons);
+  document.getElementById('sourceFilter').addEventListener('change', loadIndexCoupons);
   document.querySelectorAll('.popular-row [data-search]').forEach(button => {
     button.addEventListener('click', () => {
       searchInput.value = button.dataset.search;
@@ -1125,7 +1134,7 @@
       pill.classList.toggle('active', selected);
       pill.setAttribute('aria-pressed', String(selected));
     });
-    renderCoupons();
+    loadIndexCoupons();
   }
 
   categoryPills.forEach(pill => {

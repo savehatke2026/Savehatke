@@ -452,6 +452,10 @@ function toSupabaseCoupon(c) {
     // when provided so writes tolerate databases where
     // setup_coupon_background_image.sql hasn't been applied yet.
     ...(c.backgroundImage !== undefined ? { background_image: c.backgroundImage || null } : {}),
+    // Per-coupon brand-logo override — only sent when provided so writes
+    // tolerate databases where
+    // 20261009_coupon_brand_logo_and_list_indexes.sql hasn't been applied yet.
+    ...(c.brandLogo !== undefined ? { brand_logo: c.brandLogo || null } : {}),
     ...(c.proofUrl !== undefined ? { proof_url: c.proofUrl || '' } : {}),
     ...(c.adminNotes !== undefined ? { admin_notes: c.adminNotes || '' } : {}),
     ...(c.verifiedAt !== undefined ? { verified_at: c.verifiedAt || null } : {}),
@@ -499,6 +503,10 @@ function fromSupabaseCoupon(r) {
     // Card hero image — empty string means "no image set" and the card falls
     // back to the default SaveHatke background.
     backgroundImage: r.background_image || '',
+    // Per-coupon brand-logo override — empty string means "no override" and
+    // the card keeps resolving the brand-level Drive logo (pre-migration rows
+    // and NULLs read the same way).
+    brandLogo: r.brand_logo || '',
     addedAt: r.added_at || new Date().toISOString(),
     soldAt: r.sold_at || '',
     buyerEmail: r.buyer_email || '',
@@ -718,6 +726,8 @@ async function updateCoupon(id, updates) {
   if (updates.expiryDate !== undefined) patch.expiry_date = updates.expiryDate || null;
   // Card hero image, edited from Coupon Management / Add Coupon
   if (updates.backgroundImage !== undefined) patch.background_image = updates.backgroundImage || null;
+  // Per-coupon brand-logo override, edited from Coupon Management
+  if (updates.brandLogo !== undefined) patch.brand_logo = updates.brandLogo || null;
 
   if (Object.keys(patch).length === 0) {
     throw new Error('No updatable fields were supplied.');

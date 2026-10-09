@@ -14,6 +14,7 @@ const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const monthlyReports = require('../services/monthlyReports');
+const couponListCache = require('../services/couponListCache');
 const googleDrive = require('../services/googleDrive');
 const securityStore = require('../services/securityCredentialsStore');
 const paymentMailbox = require('../services/paymentMailbox');
@@ -117,6 +118,196 @@ function payoutSummary(coupon, payout) {
     payoutStatus: payout ? String(payout.status || 'pending') : '',
     payoutAmount: payout ? Number(payout.amount || 0) : null,
   };
+}
+
+// ── Coupon-list cache (GET /admin/coupons) ───────────────────────────────
+// The list merges three independent full reads: Supabase coupons, the Coupons
+// sheet and the Payouts sheet (each a full network round trip). Tab switches,
+// pagination clicks, pill filters and search keystrokes all re-request this
+// endpoint even though the filtering itself happens client-side, so the same
+// three round trips were paid over and over — measured ~1.1s per load with
+// real data. A short in-process TTL cache of the final merged list makes
+// those repeats instant; every admin coupon mutation below clears it, so the
+// read that follows a change is always fresh. Payout LOCK checks in the PUT
+// route keep their own fresh read — this cache is display-only.
+// (Implementation lives in services/couponListCache.js so the coupon-image
+// upload route can invalidate it too without a route-to-route require.)
+function invalidateCouponListCache() {
+  couponListCache.invalidate();
+}
+
+// Seller-submission parity with the admin client's isSellerSubmission().
+function isSellerSubmissionRow(c) {
+  const src = String(c.source || '').toLowerCase();
+  return src === 'user-submitted' || src === 'user';
+}
+
+// Expiry parity with the admin client's couponIsExpired(): a row is expired
+// when its status says so, or its date is past (timerOn does not rescue it).
+const ADMIN_DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+function adminCouponExpired(c) {
+  if (String(c.status || '').toLowerCase() === 'expired') return true;
+  const s = String((c && c.expiryDate) || '').trim();
+  if (!s) return false;
+  const m = ADMIN_DATE_ONLY_RE.exec(s);
+  const t = m ? Date.UTC(+m[1], +m[2] - 1, +m[3], 23, 59, 59, 999) : Date.parse(s);
+  return Number.isFinite(t) && t < Date.now();
+}
+
+/**
+ * Merged admin coupon list — Supabase rows first (authoritative), then
+ * sheet-only rows, sorted newest first. Filtering/paging happen here so a
+ * five-figure inventory can never exceed the serverless response limit and
+ * every tab/pill/search combo is a cheap 20-row fetch.
+ *
+ * opts: { status, source, category, pill, search, pending, page, pageSize }
+ * Returns { coupons, total, page, pageSize, totalPages, summary, pendingBadge }
+ * — summary counts the status/source/category set BEFORE pill/search so the
+ * dashboard cards never flicker with a pill, and pendingBadge is the global
+ * seller-submission count.
+ */
+async function getAdminCouponList(opts = {}) {
+  const {
+    status, source, category, pill, search, pending,
+  } = opts;
+  const page = parseInt(opts.page, 10) || 1;
+  const pageSize = Math.min(200, Math.max(1, parseInt(opts.pageSize, 10) || 20));
+  // `legacy` is part of the key: a no-param caller and a paged caller that
+  // clamp to the same page/pageSize must never share a cached payload.
+  const legacy = opts.page === undefined && opts.pageSize === undefined;
+  const key = [status, source, category, pill, search, pending, page, pageSize, legacy ? 'L' : 'P']
+    .map((v) => String(v == null ? '' : v)).join('|');
+  const hit = couponListCache.get(key);
+  if (hit) return hit;
+
+  // The three reads are independent — run them concurrently instead of
+  // paying each round trip one after the other. Each helper already swallows
+  // its own errors (degrading to an empty set), so Promise.all cannot reject.
+  let supaCoupons = [];
+  let sheetCoupons = [];
+  let payoutMap = new Map();
+  await Promise.all([
+    (async () => {
+      if (supabase.isConfigured()) {
+        try {
+          supaCoupons = await supabase.getCoupons({ status, source, category });
+        } catch (e) {
+          console.warn('[admin/coupons] Supabase read failed:', e.message);
+        }
+      }
+    })(),
+    (async () => {
+      try {
+        sheetCoupons = await db.getRows(db.SHEETS.COUPONS);
+        if (status) sheetCoupons = sheetCoupons.filter((c) => String(c.status || '') === status);
+        if (source) sheetCoupons = sheetCoupons.filter((c) => String(c.source || '') === source);
+        if (category) {
+          sheetCoupons = sheetCoupons.filter(
+            (c) => String(c.category || '').toLowerCase() === String(category).toLowerCase(),
+          );
+        }
+      } catch (e) {
+        console.warn('[admin/coupons] Sheets read failed:', e.message);
+      }
+    })(),
+    (async () => {
+      payoutMap = await payoutsByCouponId();
+    })(),
+  ]);
+
+  // Supabase wins on a conflict: it is the store the marketplace reads, so its
+  // row is the one an admin action should act on. Matching is by id and then by
+  // coupon code — when the Supabase insert failed, the sheet row carries a
+  // locally minted uuid and the code is the only shared identity.
+  const merged = [];
+  const seenIds = new Set();
+  const seenCodes = new Set();
+  const codeKey = (c) => String(c.code || '').toUpperCase().trim();
+
+  const take = (c) => {
+    merged.push(c);
+    if (c.id) seenIds.add(String(c.id));
+    if (codeKey(c)) seenCodes.add(codeKey(c));
+  };
+
+  supaCoupons.forEach(take);
+  for (const c of sheetCoupons) {
+    if (c.id && seenIds.has(String(c.id))) continue;
+    if (codeKey(c) && seenCodes.has(codeKey(c))) continue;
+    take(c);
+  }
+
+  // Newest first, so a fresh submission sits at the top of the pending queue.
+  merged.sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
+
+  // Summary counts the status/source/category set — before pill/search/base
+  // exclusion — matching what the client's summary cards used to compute.
+  const summary = {
+    total: merged.length,
+    active: 0, seller: 0, sold: 0, expired: 0,
+  };
+  let pendingBadge = 0;
+  for (const c of merged) {
+    const st = String(c.status || '').toLowerCase();
+    const sellerSub = isSellerSubmissionRow(c);
+    if (st === 'available') summary.active++;
+    if (sellerSub) summary.seller++;
+    if (st === 'sold') summary.sold++;
+    if (adminCouponExpired(c)) summary.expired++;
+    if (st === 'pending' && sellerSub) pendingBadge++;
+  }
+
+  // Base set: everything except still-pending seller submissions (those live
+  // in the ⏳ Pending tab, so they aren't shown twice). A pending=1 request is
+  // exactly that hidden set; a pill narrows the base further, except 'seller'
+  // which spans the whole set (including pending) so the pill surfaces them.
+  let rows = merged;
+  if (pending === '1') {
+    rows = merged.filter((c) => String(c.status || '').toLowerCase() === 'pending' && isSellerSubmissionRow(c));
+  } else {
+    rows = merged.filter((c) => !(String(c.status || '').toLowerCase() === 'pending' && isSellerSubmissionRow(c)));
+    switch (pill) {
+      case 'active': rows = rows.filter((c) => String(c.status || '').toLowerCase() === 'available'); break;
+      case 'seller': rows = merged.filter(isSellerSubmissionRow); break;
+      case 'sold': rows = rows.filter((c) => String(c.status || '').toLowerCase() === 'sold'); break;
+      case 'expired': rows = rows.filter(adminCouponExpired); break;
+      default: break;
+    }
+  }
+
+  // Search across every field an admin might type — same field set the client
+  // search used before this moved server-side.
+  const q = String(search || '').trim().toLowerCase();
+  if (q) {
+    rows = rows.filter((c) => {
+      const fields = [
+        c.title, c.brand, c.id, c.category, c.code, c.sellerEmail,
+        c.status, c.description, c.discount,
+      ];
+      return fields.some((v) => String(v == null ? '' : v).toLowerCase().includes(q));
+    });
+  }
+
+  const total = rows.length;
+  // Legacy callers (no explicit page/pageSize — any client not yet converted)
+  // keep receiving the full merged list exactly as before the paging refactor.
+  const effectivePageSize = legacy ? Math.max(total, 1) : pageSize;
+  const totalPages = legacy ? 1 : Math.max(1, Math.ceil(total / pageSize));
+  const safePage = legacy ? 1 : Math.min(Math.max(1, parseInt(page, 10) || 1), totalPages);
+  const start = (safePage - 1) * effectivePageSize;
+
+  const payload = {
+    coupons: rows.slice(start, start + effectivePageSize).map((c) => payoutSummary(c, payoutMap.get(String(c.id)) || null)),
+    total,
+    page: safePage,
+    pageSize: effectivePageSize,
+    totalPages,
+    summary,
+    pendingBadge,
+  };
+
+  couponListCache.set(key, payload);
+  return payload;
 }
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.vercel.app').replace(/\/$/, '');
@@ -543,6 +734,8 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       if (!created) throw err; // nothing persisted anywhere — surface the failure
     }
 
+    invalidateCouponListCache();
+
     res.status(201).json({
       message: created
         ? 'Coupon published successfully! 🎟️'
@@ -558,7 +751,7 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
 // GET /api/admin/coupons — View all coupons with filters
 router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { status, source, category } = req.query;
+    const { status, source, category, pill, search, pending } = req.query;
 
     // Coupons live in two stores. A user submission writes to Supabase first and
     // then mirrors into the Coupons sheet, but the Supabase insert is
@@ -568,60 +761,20 @@ router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
     // Supabase returned nothing, so a sheet-only submission was invisible in
     // Coupon Management as soon as Supabase held even one row. Both stores are
     // merged now, so a pending coupon shows up wherever it managed to land.
-    let supaCoupons = [];
-    if (supabase.isConfigured()) {
-      try {
-        supaCoupons = await supabase.getCoupons({ status, source, category });
-      } catch (e) {
-        console.warn('[admin/coupons] Supabase read failed:', e.message);
-      }
-    }
-
-    let sheetCoupons = [];
-    try {
-      sheetCoupons = await db.getRows(db.SHEETS.COUPONS);
-    } catch (e) {
-      console.warn('[admin/coupons] Sheets read failed:', e.message);
-    }
-    if (status) sheetCoupons = sheetCoupons.filter((c) => String(c.status || '') === status);
-    if (source) sheetCoupons = sheetCoupons.filter((c) => String(c.source || '') === source);
-    if (category) {
-      sheetCoupons = sheetCoupons.filter(
-        (c) => String(c.category || '').toLowerCase() === String(category).toLowerCase(),
-      );
-    }
-
-    // Supabase wins on a conflict: it is the store the marketplace reads, so its
-    // row is the one an admin action should act on. Matching is by id and then by
-    // coupon code — when the Supabase insert failed, the sheet row carries a
-    // locally minted uuid and the code is the only shared identity.
-    const merged = [];
-    const seenIds = new Set();
-    const seenCodes = new Set();
-    const codeKey = (c) => String(c.code || '').toUpperCase().trim();
-
-    const take = (c) => {
-      merged.push(c);
-      if (c.id) seenIds.add(String(c.id));
-      if (codeKey(c)) seenCodes.add(codeKey(c));
-    };
-
-    supaCoupons.forEach(take);
-    for (const c of sheetCoupons) {
-      if (c.id && seenIds.has(String(c.id))) continue;
-      if (codeKey(c) && seenCodes.has(codeKey(c))) continue;
-      take(c);
-    }
-
-    // Newest first, so a fresh submission sits at the top of the pending queue.
-    merged.sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
-
-    // Attach the derived payout info and the payout's current status (joined
-    // from the existing Payouts tab by sourceCouponId) to every coupon.
-    const payoutMap = await payoutsByCouponId();
-    const withPayout = merged.map((c) => payoutSummary(c, payoutMap.get(String(c.id)) || null));
-
-    res.json({ coupons: withPayout, total: withPayout.length });
+    //
+    // The merge (plus the payout join) is served through getAdminCouponList,
+    // which runs the three source reads concurrently, caches the merged result
+    // briefly, and pages/filters server-side — every tab switch, pagination
+    // click, pill filter and search keystroke fetches one cheap 20-row page
+    // instead of the whole inventory.
+    const payload = await getAdminCouponList({
+      status, source, category, pill,
+      search: typeof search === 'string' ? search : '',
+      pending: pending === '1' ? '1' : '',
+      page: req.query.page,
+      pageSize: req.query.pageSize,
+    });
+    res.json(payload);
   } catch (err) {
     console.error('Admin list coupons error:', err);
     res.status(500).json({ error: 'Internal server error.' });
@@ -661,7 +814,7 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
     const COPYABLE = [
       'code', 'brand', 'category', 'title', 'description', 'type', 'discount',
       'sellingPrice', 'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
-      'terms', 'status', 'onSale', 'timerOn', 'backgroundImage', 'isFeatured',
+      'terms', 'status', 'onSale', 'timerOn', 'backgroundImage', 'brandLogo', 'isFeatured',
       'isExclusive', 'isVerified', 'adminNotes', 'proofUrl', 'soldAt', 'buyerEmail',
     ];
     for (const key of COPYABLE) {
@@ -763,6 +916,8 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
       }
     }
 
+    invalidateCouponListCache();
+
     res.json({ message: 'Coupon updated successfully.', coupon: updated || { id, ...updates } });
   } catch (err) {
     console.error('Admin update coupon error:', err);
@@ -784,6 +939,8 @@ router.delete('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimi
     try {
       await db.deleteRow(db.SHEETS.COUPONS, 'id', id);
     } catch (e) {}
+
+    invalidateCouponListCache();
 
     res.json({ message: 'Coupon deleted successfully.' });
   } catch (err) {
@@ -943,6 +1100,8 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
 
     await logCouponAudit(id, req.user.email, action, updates.adminNotes);
 
+    invalidateCouponListCache();
+
     res.json({
       message: action === 'approve'
         ? 'Coupon approved and is now live in the marketplace.'
@@ -1040,6 +1199,8 @@ router.post('/coupons/:id/invalidate', authenticateToken, requireAdmin, adminMut
 
     await logCouponAudit(id, admin, 'invalidate', cleanReason || 'Marked invalid by admin.');
 
+    invalidateCouponListCache();
+
     res.json({
       message: withheldPayouts.count
         ? `Coupon marked invalid. ₹${withheldPayouts.amount} of pending payout was withheld.`
@@ -1091,6 +1252,8 @@ router.post('/coupons/:id/notify-retry', authenticateToken, requireAdmin, adminM
     try {
       await db.updateRow(db.SHEETS.COUPONS, 'id', id, updates);
     } catch (e) {}
+
+    invalidateCouponListCache();
 
     await logCouponAudit(id, req.user.email, 'notify_retry', notify.success ? 'sent' : updates.whatsappError);
 

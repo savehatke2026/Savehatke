@@ -30,6 +30,11 @@ let searchQuery = '';
 let currentPage = 1;
 let currentSort = 'recommended';
 let savedOnly = false;
+// Server-driven paging state: /api/coupons returns one page at a time
+// (a five-figure inventory cannot fit in one response), so these mirror the
+// server's pagination facts for the pager + count chip.
+let serverTotal = 0;
+let serverPages = 1;
 // Saved coupon IDs persisted to localStorage — the only state that survives a
 // page reload. Coupon data itself is always re-fetched from /api/coupons so
 // prices and availability stay live.
@@ -52,25 +57,72 @@ function persistSavedIds() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Deep-link category (?cat=Fashion) must be applied BEFORE the first load
+  // so the opening fetch already carries it — otherwise the grid loads twice.
+  const params = new URLSearchParams(window.location.search);
+  const cat = params.get('cat');
+  if (cat) {
+    currentCategory = cat;
+  }
   loadCoupons();
   initFilters();
   initVoiceSearch();
   spawnParticles();
 
-  // Check URL query parameters
-  const params = new URLSearchParams(window.location.search);
-  const cat = params.get('cat');
   if (cat) {
-    currentCategory = cat;
     // Active state can land on either the visible pills or the "More" dropdown
     syncCategoryUI(cat);
   }
 });
 
+// Query the listing endpoint from the CURRENT filter state. The server does
+// the filtering, sorting and paging; the client renders the returned page.
+function buildCouponsQuery() {
+  const params = new URLSearchParams();
+  params.set('page', String(currentPage));
+  params.set('pageSize', String(PER_PAGE));
+  // The dropdown's "Price: low to high" sends 'price'; the server's sorter is
+  // 'price-low' — translate here so the markup stays untouched.
+  const SORT_MAP = { price: 'price-low', recommended: 'newest' };
+  params.set('sort', SORT_MAP[currentSort] || currentSort);
+  if (currentCategory && currentCategory !== 'all') params.set('category', currentCategory);
+  if (currentSource) params.set('source', currentSource);
+  const search = searchQuery || (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+  if (search) params.set('search', search);
+  return params;
+}
+
 async function loadCoupons() {
   try {
-    const data = await api('/coupons');
-    allCoupons = data.coupons || [];
+    // Saved-only view: fetch the user's bookmarked ids directly (the server
+    // restricts to those ids and returns every match unpaged).
+    if (savedOnly) {
+      const ids = Array.from(savedIds).slice(0, 200).join(',');
+      if (!ids) {
+        allCoupons = [];
+        serverTotal = 0;
+        serverPages = 1;
+        renderFilteredCoupons();
+        return;
+      }
+      const params = new URLSearchParams({ ids });
+      const SORT_MAP = { price: 'price-low', recommended: 'newest' };
+      params.set('sort', SORT_MAP[currentSort] || currentSort);
+      const data = await api('/coupons?' + params.toString());
+      allCoupons = data.coupons || [];
+      serverTotal = data.total || allCoupons.length;
+      serverPages = 1;
+    } else {
+      const data = await api('/coupons?' + buildCouponsQuery().toString());
+      allCoupons = data.coupons || [];
+      serverTotal = data.total || 0;
+      serverPages = data.totalPages || 1;
+      if (currentPage > serverPages) {
+        currentPage = serverPages;
+        const retry = await api('/coupons?' + buildCouponsQuery().toString());
+        allCoupons = retry.coupons || [];
+      }
+    }
     // Brand logos/backgrounds now come from Google Drive: resolve every brand
     // on the page in ONE batched request (cached per brand in coupon-meta.js)
     // before the first paint, so cards render with their final imagery.
@@ -81,46 +133,22 @@ async function loadCoupons() {
   } catch (err) {
     console.warn('Load coupons notice:', err.message);
     allCoupons = [];
+    serverTotal = 0;
+    serverPages = 1;
     renderFilteredCoupons();
   }
 }
 
 function renderFilteredCoupons() {
-  let filtered = [...allCoupons];
-
-  // Category filter
-  if (currentCategory !== 'all') {
-    filtered = filtered.filter((c) => (c.category || '').toLowerCase() === currentCategory.toLowerCase());
-  }
-
-  // Search filter
-  const search = document.getElementById('searchInput')?.value?.toLowerCase().trim() || searchQuery;
-  if (search) {
-    filtered = filtered.filter(
-      (c) =>
-        (c.brand || '').toLowerCase().includes(search) ||
-        (c.description || '').toLowerCase().includes(search) ||
-        (c.title || '').toLowerCase().includes(search) ||
-        (c.category || '').toLowerCase().includes(search)
-    );
-  }
-
-  // Source filter
-  const source = document.getElementById('sourceFilter')?.value || currentSource;
-  if (source) {
-    filtered = filtered.filter((c) => c.source === source);
-  }
-
-  // Saved-only filter (localStorage-backed)
+  // allCoupons already holds exactly the server's page for the active filters.
+  // The saved-only branch can still narrow locally when sort/filters apply.
+  let pageRows = [...allCoupons];
   if (savedOnly) {
-    filtered = filtered.filter((c) => savedIds.has(String(c.id)));
+    pageRows = pageRows.filter((c) => savedIds.has(String(c.id)));
   }
-
-  // Sort — recommended (default), price asc, or expiry asc
-  filtered = sortCoupons(filtered, currentSort);
 
   // Update the count chip in the Explore header
-  updateExploreCount(filtered.length);
+  updateExploreCount(savedOnly ? pageRows.length : serverTotal);
 
   // Empty-state visibility — toggled off the grid itself, so the grid is
   // left untouched and never flashes a wrong number of cards on rerender.
@@ -128,47 +156,18 @@ function renderFilteredCoupons() {
   if (emptyEl) {
     const h = emptyEl.querySelector('h3');
     const p = emptyEl.querySelector('p');
-    if (savedOnly && filtered.length === 0) {
+    if (savedOnly && pageRows.length === 0) {
       if (h) h.textContent = 'No saved coupons here yet';
       if (p) p.textContent = 'Tap the bookmark on a coupon to keep it for later.';
     } else {
       if (h) h.textContent = 'No coupons found';
       if (p) p.textContent = 'Try another brand or clear your filters for a fresh start.';
     }
-    emptyEl.hidden = filtered.length !== 0;
+    emptyEl.hidden = pageRows.length !== 0;
   }
 
-  // Separate paid and free coupons only for pagination — the unified grid
-  // renders everything (paid + free) together, with the FREE badge marking
-  // auto-scraped coupons in-card.
-  const paidCoupons = filtered.filter((c) => c.source !== 'auto-scraped');
-
-  // Pagination for paid coupons (free coupons don't consume a page slot —
-  // they're always shown alongside the paid ones).
-  const totalPages = Math.ceil(paidCoupons.length / PER_PAGE);
-  if (currentPage > totalPages) currentPage = Math.max(1, totalPages);
-  const pageSlice = paidCoupons.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
-
-  renderCouponGrid('couponGrid', pageSlice);
-  renderPagination(totalPages);
-}
-
-/** Stable, idempotent sort. Returns a NEW array — never mutates the input. */
-function sortCoupons(list, mode) {
-  const out = list.slice();
-  if (mode === 'price') {
-    // Free coupons (₹0) come first, then ascending by sellingPrice.
-    out.sort((a, b) => (Number(a.sellingPrice) || 0) - (Number(b.sellingPrice) || 0));
-  } else if (mode === 'expiry') {
-    // Soonest-to-expire first. Coupons with no expiry date sink to the end.
-    out.sort((a, b) => {
-      const ax = parseExpiry(a.expiryDate)?.valueOf() ?? Infinity;
-      const bx = parseExpiry(b.expiryDate)?.valueOf() ?? Infinity;
-      return ax - bx;
-    });
-  }
-  // 'recommended' = preserve the API order (insertion order).
-  return out;
+  renderCouponGrid('couponGrid', pageRows);
+  renderPagination(savedOnly ? 1 : serverPages);
 }
 
 function updateExploreCount(n) {
@@ -250,8 +249,12 @@ function renderCouponGrid(gridId, coupons) {
       // to the brand's first letter, so a missing Drive file never breaks a
       // card. The shared coupon-meta helpers (with their local/clearbit
       // fallbacks) still serve every other surface on the site.
-      const brandImg = getDriveBrandBackground(brand);
-      const logoUrl = getDriveBrandLogo(brand);
+      // Per-coupon background (set from Coupon Management) wins, then the
+      // brand-level Drive background — the same rule checkout's hero applies.
+      const brandImg = c.backgroundImage || getDriveBrandBackground(brand);
+      // Per-coupon uploaded logo (set from Coupon Management) wins; empty
+      // falls back to the brand-level Drive logo exactly as before.
+      const logoUrl = c.brandLogo || getDriveBrandLogo(brand);
       const initial = typeof getBrandInitial === 'function'
         ? getBrandInitial(brand)
         : (brand.charAt(0) || '?').toUpperCase();
@@ -316,7 +319,7 @@ function toggleSaved(id, btn) {
   // Only re-render when the saved-only filter is actually on; otherwise the
   // card the user just toggled would lose its position in the grid for no
   // visible reason.
-  if (savedOnly) renderFilteredCoupons();
+  if (savedOnly) loadCoupons();
 }
 
 // ── Claim-card countdown ────────────────────────────────────────────────
@@ -397,13 +400,13 @@ function renderPagination(totalPages) {
 
 function changePage(delta) {
   currentPage += delta;
-  renderFilteredCoupons();
+  loadCoupons();
   document.getElementById('couponGrid')?.scrollIntoView({ behavior: 'smooth' });
 }
 
 function goToPage(page) {
   currentPage = page;
-  renderFilteredCoupons();
+  loadCoupons();
   document.getElementById('couponGrid')?.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -887,7 +890,7 @@ function initFilters() {
     searchQuery = e.target.value.toLowerCase().trim();
     if (searchClear) searchClear.hidden = searchQuery.length === 0;
     currentPage = 1;
-    renderFilteredCoupons();
+    loadCoupons();
   }, 250));
   searchClear?.addEventListener('click', () => {
     if (!searchInput) return;
@@ -895,7 +898,7 @@ function initFilters() {
     searchQuery = '';
     searchClear.hidden = true;
     currentPage = 1;
-    renderFilteredCoupons();
+    loadCoupons();
     searchInput.focus();
   });
 
@@ -911,7 +914,7 @@ function initFilters() {
       searchQuery = term.toLowerCase().trim();
       if (searchClear) searchClear.hidden = term.length === 0;
       currentPage = 1;
-      renderFilteredCoupons();
+      loadCoupons();
     });
   });
 
@@ -945,7 +948,7 @@ function initFilters() {
     currentSource = (srcSel && srcSel.value) || '';
     currentPage = 1;
     syncCategoryUI(currentCategory);
-    renderFilteredCoupons();
+    loadCoupons();
     setFilterPanel(false, true);
   });
   document.getElementById('clearPanelFilters')?.addEventListener('click', () => {
@@ -957,7 +960,7 @@ function initFilters() {
     currentSource = '';
     currentPage = 1;
     syncCategoryUI('all');
-    renderFilteredCoupons();
+    loadCoupons();
   });
   // Click anywhere outside the wrap closes the panel; Escape closes it and
   // returns focus to the Filter button (same behaviour as the mockup).
@@ -973,7 +976,7 @@ function initFilters() {
   document.getElementById('sortSelect')?.addEventListener('change', (e) => {
     currentSort = e.target.value || 'recommended';
     currentPage = 1;
-    renderFilteredCoupons();
+    loadCoupons();
   });
 
   // Saved-only filter — shows only coupons the user has bookmarked.
@@ -983,7 +986,7 @@ function initFilters() {
     btn.setAttribute('aria-pressed', String(savedOnly));
     btn.classList.toggle('active', savedOnly);
     currentPage = 1;
-    renderFilteredCoupons();
+    loadCoupons();
   });
 
   // Reset button inside the empty-state — clears every filter and shows
@@ -1011,7 +1014,7 @@ function initFilters() {
     currentPage = 1;
     syncCategoryUI('all');
     syncPanelFilterControls();
-    renderFilteredCoupons();
+    loadCoupons();
   });
 }
 

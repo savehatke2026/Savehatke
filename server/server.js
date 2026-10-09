@@ -43,6 +43,7 @@ const authRoutes = require('./routes/auth');
 const couponRoutes = require('./routes/coupons');
 const trackerRoutes = require('./routes/priceTracker');
 const adminRoutes = require('./routes/admin');
+const couponImageRoutes = require('./routes/couponImages');
 const supportRoutes = require('./routes/support');
 const chatbotAdminRoutes = require('./routes/chatbot');
 const chatRoutes = require('./routes/chat');
@@ -215,13 +216,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Keep the base JSON limit small. These four routes accept bounded base64
+// Keep the base JSON limit small. These routes accept bounded base64
 // images, so each receives its own parser cap before this general parser.
 for (const uploadPath of [
   '/api/support/attachment',
   '/api/coupons/scan',
   '/api/coupons/proof',
   '/api/payouts/details/qr',
+  '/api/admin/coupon-images',
 ]) {
   app.use(uploadPath, express.json({ limit: '4.25mb', strict: true }));
 }
@@ -625,6 +627,7 @@ app.use('/api/admin/email-testing', adminApiLimiter, adminEmailTestingRoutes);
 // + settings + payouts) and the payouts page auto-refreshes every 30s, so a
 // 100/15min cap was causing "Too many requests" errors on the user / session
 // / coupon / payout pages.
+app.use('/api/admin/coupon-images', adminApiLimiter, couponImageRoutes); // image uploads; must precede /api/admin (own 4.25mb parser)
 app.use('/api/admin', adminApiLimiter, adminRoutes);
 
 // Admin payout routes live in routes/payouts.js (defined with paths like

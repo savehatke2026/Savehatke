@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Sell your unused reward coupons on SaveHatke. Enter the coupon's face value and earn 7% of it, paid within 24 hours of approval. PhonePe, Paytm, Nykaa — we buy them all.">
+  <meta name="description" content="Sell your unused reward coupons on SaveHatke. Enter the coupon's face value and get paid within 24 hours of approval. PhonePe, Paytm, Nykaa — we buy them all.">
   <title>Sell Your Coupons — SaveHatke</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💰</text></svg>">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -259,15 +259,15 @@
     .cat-auto.unknown { background:rgba(255,193,7,.06); border-color:rgba(255,193,7,.18); }
     .cat-auto.unknown .cat-auto-val { color:#ffd97a; }
 
-    /* ── Store / Brand picker ──
+    /* ── Brand picker ──
        A searchable dropdown rather than a free-text box, matching the admin
        panel's picker, so a listing always carries a brand we can show a logo
-       and derive a category for. Once picked, the closed button shows the logo
-       alone — the same logo-only rule as the marketplace cards and the admin
-       inventory table — and falls back to an initial chip plus the name for a
-       brand with no logo on file. Both logo slots have a definite height, which
-       is what the shared `img.blogo-chip` treatment (js/coupon-meta.js) sizes
-       itself against. */
+       and derive a category for. Once picked, the closed button shows the
+       Drive-fetched logo inside a small white tile — the same treatment as the
+       marketplace card's logo box, so any logo (dark artwork included) reads
+       on the dark button — and falls back to an initial chip plus the name
+       for a brand with no Drive logo on file. The tile has a definite size,
+       which is what the logo <img> sizes itself against. */
     .bsel { position:relative; }
     .bsel-btn {
       width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px;
@@ -283,7 +283,14 @@
       box-shadow:0 0 0 3px rgba(0,226,114,.12), 0 0 14px rgba(0,226,114,.18);
     }
     .bsel-val { display:flex; align-items:center; gap:10px; flex:1; min-width:0; height:34px; }
-    .bsel-val img { max-width:132px; width:auto; height:100%; object-fit:contain; }
+    /* Small white tile hosting the Drive-fetched brand logo (marketplace
+       logo-box treatment): a white surface keeps every logo readable on the
+       dark button, so no per-logo dark-background classes are needed here. */
+    .bsel-logo-box {
+      width:48px; height:34px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
+      background:#fff; border-radius:7px; overflow:hidden; padding:4px; box-sizing:border-box;
+    }
+    .bsel-logo-box img { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; }
     .bsel-ico {
       width:30px; height:30px; border-radius:7px; flex-shrink:0; display:inline-flex;
       align-items:center; justify-content:center; background:linear-gradient(135deg,#00E272,#4fc3f7);
@@ -322,7 +329,9 @@
     .bsel-group:not(:first-child) {
       margin-top:12px; padding-top:12px; border-top:1px solid rgba(79,195,247,.12);
     }
-    /* Brand row — [logo] [name], full-width tap target with comfy spacing. */
+    /* Brand row — [white logo tile] [name], full-width tap target with comfy
+       spacing. The tile is the small white box that hosts the Drive logo, so
+       the logo reads the same as it does on the marketplace card. */
     .bsel-opt {
       display:flex; align-items:center; gap:12px; width:100%; padding:10px; min-height:46px;
       border:none; border-radius:10px; background:none; color:#cfe0f5;
@@ -331,8 +340,12 @@
     }
     .bsel-opt:hover, .bsel-opt:focus-visible { background:rgba(0,226,114,.1); color:#fff; outline:none; }
     .bsel-opt.on { background:rgba(0,226,114,.18); color:#00E272; font-weight:700; }
-    .bsel-opt-logo { width:48px; height:26px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; }
-    .bsel-opt-logo img { max-width:100%; width:auto; height:100%; object-fit:contain; }
+    .bsel-opt-logo {
+      width:44px; height:26px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center;
+      background:#fff; border-radius:6px; overflow:hidden; padding:3px; box-sizing:border-box;
+      font-size:.85rem;
+    }
+    .bsel-opt-logo img { display:block; max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; }
     .bsel-empty { padding:14px 12px; font-size:.85rem; color:#6b88aa; text-align:center; }
     /* Mobile: bigger taps, and 16px search font to stop iOS auto-zoom. */
     @media(max-width:560px){
@@ -422,7 +435,6 @@
     .payout-preview-label { font-size:.76rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#00E272; }
     .payout-preview-amount { font-size:1.25rem; font-weight:800; color:#00E272; font-family:'JetBrains Mono',monospace; }
     .payout-preview.invalid .payout-preview-amount { color:#f87171; }
-    .payout-preview-rate { font-size:.75rem; color:#8fa8c8; margin-top:2px; }
     .payout-preview-note { font-size:.74rem; color:#f87171; margin-top:6px; display:none; }
     .payout-preview.invalid .payout-preview-note { display:block; }
 
@@ -779,7 +791,7 @@
         <div class="earn-pill">
           <div class="earn-icon">💰</div>
           <div class="earn-amount" id="earnTotal">₹0</div>
-          <div class="earn-sub">Your payout — 7% of each coupon's face value — paid to your account after verification (within 24 hours)</div>
+          <div class="earn-sub">Your payout — paid to your account after verification (within 24 hours)</div>
         </div>
 
         <div class="step-actions">
@@ -924,9 +936,10 @@
   </div>
 </div>
 
-<!-- Shared brand-logo helpers (getBrandLogo / getBrandInitial). Loaded before
-     the page script so the brand field can show a brand's real logo as the
-     seller types, using the same local /logos/* files as the marketplace. -->
+<!-- Shared brand-logo helpers (getDriveAsset / ensureBrandAssets /
+     getBrandInitial). Loaded before the page script so the brand field can
+     resolve logos from the SaveHatke Assets Drive — Google Drive is the
+     single source of truth here, exactly like the marketplace cards. -->
 <script src="js/coupon-meta.js"></script>
 <!-- Client-side coupon screenshot OCR (Tesseract.js, loaded lazily from CDN
      on the first scan — nothing runs at page load). Exposes window.CouponOCR;
@@ -1227,15 +1240,6 @@ const BRAND_OPTION_HIDE = new Set([
   'tata1mg',        // → 1mg
 ]);
 
-/** Emoji for a category group header, mirroring the marketplace filter pills. */
-const CATEGORY_ICON = {
-  'E-Commerce': '🛒', 'Fashion': '👗', 'Beauty & Personal Care': '💄',
-  'Food & Delivery': '🍔', 'Travel & Transport': '✈️', 'Hotels & Stays': '🏨',
-  'Electronics & Gadgets': '📱', 'Gaming & Entertainment': '🎮',
-  'Fitness & Sports': '🏋️', 'Education': '📚', 'Health & Pharmacy': '💊',
-  'Finance & Payments': '💰', 'General': '🏠',
-};
-
 /** "urban ladder" → "Urban Ladder", leaving "1mg" and "levi's" alone. */
 function titleCaseBrand(name) {
   return String(name).replace(/(^|\s)([a-z])/g, (m, sp, ch) => sp + ch.toUpperCase());
@@ -1279,7 +1283,7 @@ function createBrandSelect(id) {
   const group = document.createElement('div');
   group.className = 'fgroup';
   group.innerHTML = `
-    <label class="flabel" for="bsel-btn-${id}">Store / Brand <span class="frequired">*</span></label>
+    <label class="flabel" for="bsel-btn-${id}">Brand <span class="frequired">*</span></label>
     <input type="hidden" id="brand-${id}">
     <div class="bsel" id="bsel-${id}">
       <button type="button" class="bsel-btn" id="bsel-btn-${id}" aria-haspopup="listbox" aria-expanded="false">
@@ -1362,7 +1366,16 @@ function renderBrandButton(id) {
     }).catch(() => {});
   }
   const logo = brandLogoImg(brand, () => appendBrandNameFallback(box, brand));
-  if (logo) box.appendChild(logo);
+  if (logo) {
+    const tile = brandLogoBox(logo);
+    box.appendChild(tile);
+    // brandLogoImg's own error listener removes the <img> first, so if the
+    // tile is empty by the time this runs, drop it too — the fallback must
+    // never sit next to an empty white box.
+    logo.addEventListener('error', () => {
+      if (tile.isConnected && !tile.childElementCount) tile.remove();
+    }, { once: true });
+  }
   else appendBrandNameFallback(box, brand);
 }
 
@@ -1380,17 +1393,29 @@ function brandIcon(text) {
   return el;
 }
 
+/** Small white tile (marketplace logo-box treatment) hosting a logo <img>. */
+function brandLogoBox(img) {
+  const tile = document.createElement('span');
+  tile.className = 'bsel-logo-box';
+  tile.appendChild(img);
+  return tile;
+}
+
 /**
- * <img> for a brand, or null when no logo resolves. `onFail` runs if the file
+ * <img> for a brand, or null when no logo resolves. The logo comes from the
+ * SaveHatke Assets Drive ONLY (getDriveAsset, cached per brand by
+ * ensureBrandAssets) — never the stale local library or a clearbit copy,
+ * matching the marketplace's Drive-only rule. `onFail` runs if the file
  * itself fails to load, so a dead logo degrades to the brand's initial.
- * getBrandLogoClass adds the dark-background treatment (js/coupon-meta.js).
+ * No dark-background treatment class is applied: the logo always renders
+ * inside a small white tile, which keeps every logo readable.
  */
 function brandLogoImg(brand, onFail) {
-  const url = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+  const cached = typeof getDriveAsset === 'function' ? getDriveAsset(brand) : null;
+  const url = (cached && cached.logo) || '';
   if (!url) return null;
   const img = document.createElement('img');
   img.alt = brand;
-  img.className = typeof getBrandLogoClass === 'function' ? getBrandLogoClass(url) : '';
   img.addEventListener('error', () => { img.remove(); if (onFail) onFail(); });
   img.src = url;
   return img;
@@ -1404,7 +1429,7 @@ function renderBrandOptions(id, query) {
   const q = String(query || '').trim().toLowerCase();
   const current = (document.getElementById('brand-' + id)?.value || '').trim();
   const matches = q
-    ? BRAND_OPTIONS.filter((b) => b.name.toLowerCase().includes(q) || b.category.toLowerCase().includes(q))
+    ? BRAND_OPTIONS.filter((b) => b.name.toLowerCase().includes(q))
     : BRAND_OPTIONS;
 
   // Brand logos come from Google Drive. Resolve this list's brands in one
@@ -1419,12 +1444,7 @@ function renderBrandOptions(id, query) {
   }
 
   list.textContent = '';
-  let group = '';
   matches.forEach((b) => {
-    if (b.category !== group) {
-      group = b.category;
-      list.appendChild(brandOptGroup((CATEGORY_ICON[group] ? CATEGORY_ICON[group] + ' ' : '') + group));
-    }
     list.appendChild(brandOption(id, b.name, b.name === current));
   });
 
@@ -1517,7 +1537,7 @@ function renderCouponCard(id, index) {
 
   card.appendChild(header);
 
-  // ── Store / Brand + derived category ──
+  // ── Brand + derived category ──
   card.appendChild(createBrandSelect(id));
 
   // Category is derived from the brand — shown read-only so the seller can
@@ -1641,7 +1661,6 @@ function createPayoutPreview(id) {
       <span class="payout-preview-label">Seller Payout</span>
       <span class="payout-preview-amount" id="payout-amount-${id}">₹0.00</span>
     </div>
-    <div class="payout-preview-rate">7% of face value</div>
     <div class="payout-preview-note" id="payout-note-${id}"></div>`;
   return box;
 }
@@ -1842,7 +1861,7 @@ const AI_CRITICAL_FIELDS = ['code', 'expiry', 'discount', 'minorder'];
 
 /* Human labels for the "what the AI read" summary. */
 const AI_FIELD_LABELS = {
-  brand: 'Store / Brand',
+  brand: 'Brand',
   category: 'Category',
   coupon_title: 'Coupon Title',
   coupon_code: 'Coupon Code',
@@ -2897,7 +2916,7 @@ function validateCoupons() {
       return false;
     };
 
-    if (!c.brand) return fail('please pick a Store / Brand.', 'bsel-btn-' + c.id);
+    if (!c.brand) return fail('please pick a Brand.', 'bsel-btn-' + c.id);
     if (!c.title) return fail('Coupon Title is required.', 'title-' + c.id);
     if (!c.code) return fail('Coupon Code is required.', 'code-' + c.id);
     if (!c.discount) return fail('Discount Value is required.', 'discount-' + c.id);
@@ -2997,14 +3016,14 @@ function buildReviewSummary() {
     // for the seller to read. The server recomputes and stores the real value.
     const payout = sellerPayoutFor(c.faceValue);
     const rows = [
-      ['Store / Brand', c.brand],
+      ['Brand', c.brand],
       ['Category (auto)', c.category || '—'],
       ['Coupon Title', c.title || '—'],
       ['Coupon Code', c.code],
       ['Coupon Type', c.type || '—'],
       ['Discount Value', c.discount || '—'],
       ['Coupon Face Value', c.faceValue ? '₹' + c.faceValue : '—'],
-      ['Seller Payout (7% of face value)', payout === null ? '—' : formatPayout(payout)],
+      ['Seller Payout', payout === null ? '—' : formatPayout(payout)],
       ['Selling Price', c.sellingPrice ? '₹' + c.sellingPrice : '—'],
       ['Minimum Order', c.minOrderValue ? '₹' + c.minOrderValue : '—'],
       ['Expiry', c.expiryDate ? formatReviewDate(c.expiryDate) : '—'],

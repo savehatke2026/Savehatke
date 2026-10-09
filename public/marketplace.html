@@ -635,9 +635,10 @@
   /* ── Coupon box cards — the mockup's "match" card: rounded banner on top,
      logo tile + title + description, lime discount pill + price, countdown,
      full-width CTA. Type sizes are in cqw (card-relative) exactly like the
-     mockup, so the card scales as one unit across the 3/2/1-column grid. === */
-  .coupon-grid { --card-bg:#001824; --card-border:#00628a; --card-muted:#b1c5f5; --lime:#a8ff5a; --cta:#00E272; --ink:#00100b; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
-  @media(max-width:1000px){ .coupon-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+     mockup, so the card scales as one unit across the 4/3/2/1-column grid. === */
+  .coupon-grid { --card-bg:#001824; --card-border:#00628a; --card-muted:#b1c5f5; --lime:#a8ff5a; --cta:#00E272; --ink:#00100b; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+  @media(max-width:1000px){ .coupon-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media(max-width:760px){ .coupon-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   @media(max-width:620px){ .coupon-grid { grid-template-columns:minmax(0,1fr); } }
 
   .coupon-card { container-type:inline-size; border-radius:19px; background:var(--card-bg); border:1px solid var(--card-border); }
@@ -671,7 +672,7 @@
   .match-cost { font-size:6.1cqw; color:#f8f9ff; font-weight:800; letter-spacing:-.04em; }
   /* The mockup ships the timer with no dedicated styling; only the icon is
      sized here, because an unsized SVG would blow out the meta row. */
-  .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; }
+  .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; }
   .match-timer svg { width:3cqw; height:3cqw; flex-shrink:0; }
 
   .match-claim { width:100%; border:0; border-radius:4cqw; background:var(--cta); color:var(--ink); font-family:'Outfit',sans-serif; font-size:5.8cqw; line-height:1.2; font-weight:800; letter-spacing:-.035em; padding:4.4cqw 2cqw; cursor:pointer; transition:filter .2s; margin-top:auto; }

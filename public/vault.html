@@ -3566,7 +3566,30 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" min="0" id="ceMinOrder"></div>
       <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="ceExpiry"></div>
       <div class="form-group"><label class="form-label">Affiliate Link</label><input class="form-input" type="url" id="ceLink" placeholder="https://..."></div>
-      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Background Image URL</label><input class="form-input" type="text" id="ceBg" placeholder="/images/coupons/amazon.webp or https://..."><div class="form-hint">Hero image on the coupon card. Leave empty for the default SaveHatke background.</div></div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Brand Logo</label>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <div id="ceLogoPreview" style="width:52px;height:52px;border-radius:10px;background:#0d1b30;border:1px solid rgba(79,195,247,.2);display:none;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto"><img id="ceLogoPreviewImg" alt="" style="width:100%;height:100%;object-fit:contain"></div>
+          <input class="form-input" type="text" id="ceLogo" placeholder="Empty = use the brand's Drive logo" style="flex:1;min-width:200px">
+          <input type="file" id="ceLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="handleCouponImagePicked(event,'brandLogo')">
+          <button type="button" class="btn btn-ghost btn-sm" id="ceLogoUploadBtn" onclick="document.getElementById('ceLogoFile').click()">⬆ Upload Logo</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ceLogoClearBtn" style="display:none" onclick="clearCouponImage('brandLogo')">✕ Clear</button>
+        </div>
+        <div class="form-hint">PNG, JPG or WebP up to 3 MB. Uploading replaces this coupon's logo immediately (file goes to the Brand Logos folder in the SaveHatke Drive); leave empty to keep using the brand logo.</div>
+        <div class="form-hint" id="ceLogoStatus" style="display:none"></div>
+      </div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label class="form-label">Background Image URL</label>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <input class="form-input" type="text" id="ceBg" placeholder="/images/coupons/amazon.webp or https://..." style="flex:1;min-width:200px">
+          <input type="file" id="ceBgFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="handleCouponImagePicked(event,'backgroundImage')">
+          <button type="button" class="btn btn-ghost btn-sm" id="ceBgUploadBtn" onclick="document.getElementById('ceBgFile').click()">⬆ Upload Image</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="ceBgClearBtn" style="display:none" onclick="clearCouponImage('backgroundImage')">✕ Clear</button>
+          <div id="ceBgPreview" style="width:76px;height:44px;border-radius:8px;background:#0d1b30;border:1px solid rgba(79,195,247,.2);display:none;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto"><img id="ceBgPreviewImg" alt="" style="width:100%;height:100%;object-fit:cover"></div>
+        </div>
+        <div class="form-hint">Hero image on the coupon card. Leave empty for the default SaveHatke background. Upload accepts PNG, JPG or WebP up to 3 MB and applies immediately (file goes to the Coupon Backgrounds folder in the SaveHatke Drive).</div>
+        <div class="form-hint" id="ceBgStatus" style="display:none"></div>
+      </div>
       <div class="form-group" style="grid-column:1/-1"><label class="form-label">Description</label><textarea class="form-textarea" id="ceDescription" placeholder="Short description shown on the card..."></textarea></div>
       <div class="form-group" style="grid-column:1/-1"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" id="ceTerms" placeholder="Enter terms and conditions..."></textarea></div>
     </div>

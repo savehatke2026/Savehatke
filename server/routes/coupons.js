@@ -200,9 +200,21 @@ function listingVisible(c) {
 }
 
 // GET /api/coupons — List available coupons (public, with optional auth)
+//
+// Server-driven pagination: the marketplace and homepage fetch one page at a
+// time (page/pageSize/sort), because a five-figure inventory cannot fit inside
+// Vercel's 4.5 MB serverless response limit. Sorting happens on the computed
+// buyer price / addedAt so every page of a sort is consistent, and `total` +
+// `totalPages` drive the client pager.
 router.get('/', optionalAuth, async (req, res) => {
   try {
     const { category, search, source } = req.query;
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(200, Math.max(1, parseInt(req.query.pageSize, 10) || 60));
+    const sort = String(req.query.sort || 'newest').toLowerCase();
+    // ids=<comma list> fetches specific coupons (the marketplace's saved-only
+    // view) and skips paging — the response then holds every match.
+    const idsParam = String(req.query.ids || '').trim();
     let available = [];
 
     // Primary source: Supabase database. excludeReserved keeps a coupon whose
@@ -234,6 +246,17 @@ router.get('/', optionalAuth, async (req, res) => {
 
     // Visibility contract: hide sold and expired coupons (see listingVisible).
     available = available.filter(listingVisible);
+
+    // Saved-only view: restrict to the caller's bookmarked ids before any
+    // other filtering, and remember that paging is skipped for this request.
+    let idsOnly = false;
+    if (idsParam) {
+      const wanted = new Set(idsParam.split(',').map((s) => s.trim()).filter(Boolean));
+      if (wanted.size > 0) {
+        available = available.filter((c) => wanted.has(String(c.id)));
+        idsOnly = true;
+      }
+    }
 
     // Apply filters
     if (category && category !== 'all') {
@@ -293,6 +316,10 @@ router.get('/', optionalAuth, async (req, res) => {
         // Empty string means none is set; the card then falls back to the
         // default SaveHatke background.
         backgroundImage: c.backgroundImage || '',
+        // Per-coupon brand-logo override (uploaded from Coupon Management).
+        // Empty string means no override — the card keeps resolving the
+        // brand-level Drive logo exactly as before.
+        brandLogo: c.brandLogo || '',
         // Seller payout info (7% of face value). An admin marketplace coupon
         // outside ₹100–₹10,000 stays listed and simply reports payoutEligible
         // false with a null payout — it is not removed or restricted.
@@ -301,7 +328,59 @@ router.get('/', optionalAuth, async (req, res) => {
       };
     });
 
-    res.json({ coupons: sanitized, total: sanitized.length });
+    // Sort BEFORE paging so every page of a sort is drawn from the same order.
+    const num = (v) => {
+      const n = parseFloat(String(v == null ? '' : v).replace(/[^\d.]/g, ''));
+      return Number.isFinite(n) ? n : 0;
+    };
+    const addedMs = (c) => {
+      const t = Date.parse(c.addedAt || '');
+      return Number.isFinite(t) ? t : 0;
+    };
+    const sorters = {
+      'price-low': (a, b) => a.sellingPrice - b.sellingPrice || String(a.id).localeCompare(String(b.id)),
+      'price-high': (a, b) => b.sellingPrice - a.sellingPrice || String(a.id).localeCompare(String(b.id)),
+      'discount': (a, b) => num(b.originalValue) - num(a.originalValue) || String(a.id).localeCompare(String(b.id)),
+      'expiry': (a, b) => {
+        const ax = Date.parse(a.expiryDate || '');
+        const bx = Date.parse(b.expiryDate || '');
+        return (Number.isFinite(ax) ? ax : Infinity) - (Number.isFinite(bx) ? bx : Infinity)
+          || String(a.id).localeCompare(String(b.id));
+      },
+    };
+    if (sorters[sort]) {
+      sanitized.sort(sorters[sort]);
+    } else {
+      // newest (default) — newest first, id tiebreak keeps page boundaries stable
+      sanitized.sort((a, b) => addedMs(b) - addedMs(a) || String(a.id).localeCompare(String(b.id)));
+    }
+
+    const total = sanitized.length;
+    if (idsOnly) {
+      // Specific-id requests (saved-only) return every match unpaged — this
+      // must win over the legacy full-list branch below, because an ids
+      // request carries no page param.
+      return res.json({ coupons: sanitized, total, page: 1, pageSize: total || 1, totalPages: 1 });
+    }
+    // Legacy callers (no explicit page param — e.g. the homepage ticker and
+    // any client not yet converted) keep receiving the full list exactly as
+    // before the paging refactor; paged callers send page/pageSize explicitly.
+    if (req.query.page === undefined && req.query.pageSize === undefined) {
+      return res.json({ coupons: sanitized, total });
+    }
+
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const start = (safePage - 1) * pageSize;
+    const pageRows = sanitized.slice(start, start + pageSize);
+
+    res.json({
+      coupons: pageRows,
+      total,
+      page: safePage,
+      pageSize,
+      totalPages,
+    });
   } catch (err) {
     console.error('List coupons error:', err);
     res.status(500).json({ error: 'Internal server error.' });

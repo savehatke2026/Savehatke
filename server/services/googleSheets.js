@@ -94,6 +94,9 @@ const HEADERS = {
     // Hero image for the marketplace card, per coupon ('/images/coupons/amazon.webp'
     // or an absolute URL). Blank ⇒ the card falls back to the default background.
     'backgroundImage',
+    // Per-coupon brand-logo override (uploaded image URL). Blank ⇒ the card
+    // resolves the brand-level logo from the Brand Logos Drive folder as before.
+    'brandLogo',
     'category',
     'source',
     'status',

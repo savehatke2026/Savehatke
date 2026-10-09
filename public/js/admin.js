@@ -18,6 +18,7 @@ function initAdminApp() {
   initSessionsTableControls();
   initInventoryTableControls();
   initActiveTableControls();
+  initCouponEditImageInputs();
   loadSystemSettings();
 }
 
@@ -356,56 +357,39 @@ async function loadInventory() {
   try {
     // First paint: show a loading skeleton so the grid never flashes empty.
     if (INVENTORY_ALL.length === 0) renderInventorySkeleton();
-    const status = document.getElementById('invStatusFilter')?.value || '';
-    const data = await api(`/admin/coupons${status ? `?status=${status}` : ''}`, { useAdmin: true });
+    // Server-driven paging: the pill filter, search text and page all travel
+    // as query params, so a five-figure inventory never loads more than one
+    // 20-row page at a time. The response also carries the global summary
+    // cards and the pending badge, computed across the WHOLE set server-side.
+    const search = (document.getElementById('invSearch')?.value || '').trim();
+    const params = new URLSearchParams({
+      page: String(invCurrentPage),
+      pageSize: String(INV_PAGE_SIZE),
+    });
+    if (invPillFilter) params.set('pill', invPillFilter);
+    if (search) params.set('search', search);
+    const data = await api('/admin/coupons?' + params.toString(), { useAdmin: true });
     // If a newer request started while we were awaiting, drop this response
     if (seq !== inventoryRequestSeq) return;
 
-    const all = data.coupons || [];
-    INVENTORY_ALL = all;
-    await preloadBrandAssets(all);
+    const pageCoupons = data.coupons || [];
+    const totalPages = Math.max(1, data.totalPages || 1);
+    if (invCurrentPage > totalPages) invCurrentPage = totalPages;
+    INVENTORY_ALL = pageCoupons;
+    await preloadBrandAssets(pageCoupons);
     // A newer load may have started while brand assets resolved — drop out
     // rather than rendering a stale set over it.
     if (seq !== inventoryRequestSeq) return;
 
-    // Unfiltered fetch already holds every coupon — keep the ⏳ Pending tab badge
-    // honest (seller submissions only, matching what that tab renders).
-    if (!status) {
-      cmSetPendingBadge(all.filter((c) => c.status === 'pending' && isSellerSubmission(c)).length);
-    }
+    // ⏳ Pending tab badge — the server counts seller submissions globally.
+    if (data.pendingBadge !== undefined) cmSetPendingBadge(data.pendingBadge);
 
-    // Summary cards are computed across the WHOLE set, before any view filter.
-    renderInventorySummary(all);
+    // Summary cards — computed across the whole set server-side.
+    renderInventorySummary(data.summary || pageCoupons);
 
-    // Default "All Coupons" set: everything EXCEPT still-pending seller
-    // submissions (those live in the ⏳ Pending tab, so they aren't shown twice).
-    const base = all.filter((c) => !(c.status === 'pending' && isSellerSubmission(c)));
+    const coupons = pageCoupons;
+    const totalFiltered = data.total || 0;
 
-    // A filter pill narrows the set. 'seller' spans the whole set (incl. pending)
-    // so the pill actually surfaces seller submissions.
-    let coupons;
-    switch (invPillFilter) {
-      case 'active':  coupons = all.filter((c) => String(c.status).toLowerCase() === 'available'); break;
-      case 'seller':  coupons = all.filter(isSellerSubmission); break;
-      case 'sold':    coupons = all.filter((c) => String(c.status).toLowerCase() === 'sold'); break;
-      case 'expired': coupons = all.filter(couponIsExpired); break;
-      default:        coupons = base;
-    }
-
-    const search = (document.getElementById('invSearch')?.value || '').trim().toLowerCase();
-    if (search) {
-      // Search the real dataset across every field an admin might type:
-      // title/name, brand, coupon ID, category, code, seller, status, offer.
-      coupons = coupons.filter((c) => {
-        const fields = [
-          c.title, c.brand, c.id, c.category, c.code, c.sellerEmail,
-          c.status, c.description, c.discount,
-        ];
-        return fields.some((v) => String(v == null ? '' : v).toLowerCase().includes(search));
-      });
-    }
-
-    const totalFiltered = coupons.length;
     if (totalFiltered === 0) {
       INVENTORY_CACHE = [];
       container.innerHTML = `
@@ -418,15 +402,10 @@ async function loadInventory() {
       return;
     }
 
-    // Pagination
-    const totalPages = Math.max(1, Math.ceil(totalFiltered / INV_PAGE_SIZE));
-    if (invCurrentPage > totalPages) invCurrentPage = totalPages;
-    if (invCurrentPage < 1) invCurrentPage = 1;
     const startIdx = (invCurrentPage - 1) * INV_PAGE_SIZE;
-    const pageCoupons = coupons.slice(startIdx, startIdx + INV_PAGE_SIZE);
-    INVENTORY_CACHE = pageCoupons;
+    INVENTORY_CACHE = coupons;
 
-    const body = `<div class="cm2-list">${pageCoupons.map(cmCardHtml).join('')}</div>`;
+    const body = `<div class="cm2-list">${coupons.map(cmCardHtml).join('')}</div>`;
 
     container.innerHTML = body + invPagerHtml(startIdx, totalFiltered, totalPages);
 
@@ -487,7 +466,9 @@ function cmCardHtml(c) {
   // per-coupon admin image (when one is set) -> Drive brand background ->
   // gradient initial fallback. Never a stale local/clearbit copy.
   const bg = c.backgroundImage || adminDriveBrandBackground(brand);
-  const logoUrl = adminDriveBrandLogo(brand);
+  // Per-coupon uploaded logo (Coupon Management edit form) wins; empty falls
+  // back to the brand-level Drive logo exactly as before.
+  const logoUrl = c.brandLogo || adminDriveBrandLogo(brand);
   const logoExtra = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
   const initial = typeof getBrandInitial === 'function'
     ? getBrandInitial(brand)
@@ -540,15 +521,23 @@ function cmCardHtml(c) {
 
 /* Table-view row removed with the view toggle — inventory renders as cards only. */
 
-/** Render the five summary cards across the whole coupon set. */
-function renderInventorySummary(all) {
+/** Render the five summary cards. Accepts either the server's summary object
+ * { total, active, seller, sold, expired } (computed across the whole set, the
+ * normal path) or a coupon array (legacy callers) which it reduces locally. */
+function renderInventorySummary(allOrSummary) {
   const host = document.getElementById('cmSummaryCards');
   if (!host) return;
-  const total = all.length;
-  const active = all.filter((c) => String(c.status).toLowerCase() === 'available').length;
-  const seller = all.filter(isSellerSubmission).length;
-  const sold = all.filter((c) => String(c.status).toLowerCase() === 'sold').length;
-  const expired = all.filter(couponIsExpired).length;
+  let total, active, seller, sold, expired;
+  if (Array.isArray(allOrSummary)) {
+    const all = allOrSummary;
+    total = all.length;
+    active = all.filter((c) => String(c.status).toLowerCase() === 'available').length;
+    seller = all.filter(isSellerSubmission).length;
+    sold = all.filter((c) => String(c.status).toLowerCase() === 'sold').length;
+    expired = all.filter(couponIsExpired).length;
+  } else {
+    ({ total = 0, active = 0, seller = 0, sold = 0, expired = 0 } = allOrSummary || {});
+  }
   const svg = (p) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
   const card = (accent, icon, num, lbl) =>
     `<div class="cm2-card c-${accent}"><div class="cm2-card-top"><div class="cm2-card-ico">${icon}</div><span class="cm2-card-num">${num}</span></div><p class="cm2-card-lbl">${lbl}</p></div>`;
@@ -735,10 +724,24 @@ async function loadActiveCoupons() {
   }
 
   try {
-    // status=available is exactly the Coupon Reviews → ✅ Approved set.
-    const data = await api('/admin/coupons?status=available', { useAdmin: true });
+    // status=available is exactly the Coupon Reviews → ✅ Approved set. The
+    // source filter and search text travel as server params (review→
+    // 'user-submitted', admin→'admin'), so a five-figure inventory pages
+    // server-side instead of filtering a full fetch in the browser.
+    const params = new URLSearchParams({
+      status: 'available',
+      page: String(activeCoupons.page || 1),
+      pageSize: String(CM_PAGE_SIZE),
+    });
+    if (activeCoupons.source === 'review') params.set('source', 'user-submitted');
+    else if (activeCoupons.source === 'admin') params.set('source', 'admin');
+    if (activeCoupons.search) params.set('search', activeCoupons.search);
+    const data = await api('/admin/coupons?' + params.toString(), { useAdmin: true });
     if (seq !== activeCoupons.seq) return; // a newer load started while awaiting
     activeCoupons.rows = data.coupons || [];
+    activeCoupons.total = data.total || activeCoupons.rows.length;
+    activeCoupons.totalPages = data.totalPages || 1;
+    activeCoupons.summary = data.summary || null;
     await preloadBrandAssets(activeCoupons.rows);
     if (seq !== activeCoupons.seq) return; // a newer load started while resolving
     renderActiveCoupons();
@@ -751,13 +754,16 @@ async function loadActiveCoupons() {
   }
 }
 
-/** Re-render the approved table from cache (search / filter / paging). */
+/** Render the approved table from the server's current page. */
 function renderActiveCoupons() {
   const container = document.getElementById('activeList');
   if (!container) return;
 
-  const all = activeCoupons.rows;
-  if (all.length === 0) {
+  const pageRows = activeCoupons.rows;
+  const total = activeCoupons.total || pageRows.length;
+  const totalPages = Math.max(1, activeCoupons.totalPages || 1);
+
+  if (total === 0 || pageRows.length === 0) {
     container.innerHTML = cmStateHtml(
       '✅',
       'No approved coupons yet',
@@ -766,29 +772,23 @@ function renderActiveCoupons() {
     return;
   }
 
-  const rows = all.filter(matchesActiveFilters);
-  if (rows.length === 0) {
-    container.innerHTML = cmStateHtml('🔍', 'Nothing matches this filter', 'Clear the search box or pick a different source.');
-    return;
-  }
-
-  const totalPages = Math.max(1, Math.ceil(rows.length / CM_PAGE_SIZE));
-  if (activeCoupons.page > totalPages) activeCoupons.page = totalPages;
-  if (activeCoupons.page < 1) activeCoupons.page = 1;
-  const start = (activeCoupons.page - 1) * CM_PAGE_SIZE;
-  const pageRows = rows.slice(start, start + CM_PAGE_SIZE);
-  const fromReviews = all.filter(isSellerSubmission).length;
+  // Global counts come from the server's summary (exact across the whole set);
+  // the seller/admin split uses the seller total (all-time, any status).
+  const summary = activeCoupons.summary || {};
+  const liveCount = summary.active !== undefined ? summary.active : total;
+  const fromReviews = summary.seller !== undefined ? summary.seller : 0;
+  const start = ((activeCoupons.page || 1) - 1) * CM_PAGE_SIZE;
 
   container.innerHTML = `
     <div class="cm-summary">
-      <span><b>${all.length}</b> live in the marketplace</span>
-      <span><b>${fromReviews}</b> approved from seller submissions</span>
-      <span><b>${all.length - fromReviews}</b> added by admin</span>
+      <span><b>${liveCount}</b> live in the marketplace</span>
+      <span><b>${fromReviews}</b> from seller submissions</span>
+      <span><b>${Math.max(0, (summary.total || liveCount) - fromReviews)}</b> added by admin</span>
     </div>
     <div class="vault-grid">${pageRows.map(activeRowHtml).join('')}</div>
     <div class="inv-tfoot" style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px">
-      <span>Showing ${start + 1}–${start + pageRows.length} of ${rows.length} approved coupon${rows.length !== 1 ? 's' : ''}</span>
-      ${cmPagerHtml(activeCoupons.page, totalPages, 'activeGoToPage')}
+      <span>Showing ${start + 1}–${start + pageRows.length} of ${total} approved coupon${total !== 1 ? 's' : ''}</span>
+      ${cmPagerHtml(activeCoupons.page || 1, totalPages, 'activeGoToPage')}
     </div>
   `;
 
@@ -907,25 +907,24 @@ function setActiveSourceFilter(source, btnEl) {
   activeCoupons.page = 1;
   document.querySelectorAll('#ctab-active .cm-filters .btn').forEach((b) => b.classList.remove('active'));
   if (btnEl) btnEl.classList.add('active');
-  renderActiveCoupons();
+  loadActiveCoupons();
 }
 
 function activeGoToPage(page) {
   activeCoupons.page = page < 1 ? 1 : page;
-  renderActiveCoupons();
+  loadActiveCoupons();
 }
 
-// Search box for the ✅ Active tab. It filters the cached rows, so there is no
-// refetch and no need to debounce for the API's sake — the delay is only to
-// avoid re-rendering the table on every keystroke.
+// Search box for the ✅ Active tab — now a server-side filter, so each
+// keystroke (debounced) refetches the matching page.
 function initActiveTableControls() {
   const search = document.getElementById('activeSearch');
   if (!search) return;
   search.addEventListener('input', debounce(() => {
     activeCoupons.search = search.value.trim().toLowerCase();
     activeCoupons.page = 1;
-    renderActiveCoupons();
-  }, 160));
+    loadActiveCoupons();
+  }, 220));
 }
 
 async function loadPending() {
@@ -945,14 +944,17 @@ async function loadPending() {
     // the Coupon Reviews section — so we deliberately exclude it from THIS
     // view to keep the table focused on fresh submissions. Admin-created
     // coupons are never pending and never belong here either.
-    const data = await api('/admin/coupons', { useAdmin: true });
+    //
+    // pending=1 asks the server for exactly that hidden set (paged), so the
+    // tab no longer pulls the whole inventory just to filter it down here.
+    const data = await api('/admin/coupons?pending=1', { useAdmin: true });
     if (seq !== pendingCoupons.seq) return;
     const rows = (data.coupons || []).filter(
       (c) => c.status === 'pending' && isSellerSubmission(c),
     );
     await preloadBrandAssets(rows);
     if (seq !== pendingCoupons.seq) return; // a newer load started while resolving
-    cmSetPendingBadge(rows.length);
+    cmSetPendingBadge(data.pendingBadge !== undefined ? data.pendingBadge : rows.length);
 
     if (rows.length === 0) {
       container.innerHTML = cmStateHtml('⏳', 'No coupons awaiting approval', 'All caught up — new seller submissions land here.');
@@ -1007,7 +1009,7 @@ function pendingRowHtml(c) {
 
   return `
     <tr data-coupon-id="${id}">
-      <td>${cmBrandCellHtml(c.brand || '')}</td>
+      <td>${cmBrandCellHtml(c.brand || '', c)}</td>
       <td><code class="inv-code">${escHtml(c.code || '')}</code></td>
       <td>${escHtml(c.category || '—')}</td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
@@ -1059,8 +1061,10 @@ function cmPagerHtml(page, totalPages, fnName) {
 /** Brand logo + name, falling back to the initial tile when there's no logo.
  * Drive-only (marketplace rule): a brand with no Drive file yet shows the
  * initial tile, never a stale local-library or clearbit copy. */
-function cmBrandCellHtml(brand) {
-  const logoUrl = adminDriveBrandLogo(brand);
+function cmBrandCellHtml(brand, c) {
+  // Per-coupon uploaded logo (if the row carries one) wins over the brand's
+  // Drive logo — same precedence the marketplace card uses.
+  const logoUrl = (c && c.brandLogo) || adminDriveBrandLogo(brand);
   const logoClass = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
   const initial = escHtml(
     typeof getBrandInitial === 'function' ? getBrandInitial(brand) : (brand || '?').slice(0, 1).toUpperCase(),
@@ -2818,6 +2822,7 @@ function openCouponEdit(id) {
   setV('ceExpiry', typeof toTimerInputValue === 'function' ? toTimerInputValue(c.expiryDate) : (c.expiryDate || ''));
   setV('ceLink', c.affiliateLink);
   setV('ceBg', c.backgroundImage);
+  setV('ceLogo', c.brandLogo);
   setV('ceDescription', c.description);
   setV('ceTerms', c.terms);
   setSel('ceStatus', String(c.status || 'available').toLowerCase(), 'available');
@@ -2827,6 +2832,9 @@ function openCouponEdit(id) {
   setC('ceFeatured', c.isFeatured === true || c.isFeatured === 'true');
   setC('ceExclusive', c.isExclusive === true || c.isExclusive === 'true');
   setC('ceVerified', c.isVerified === true || c.isVerified === 'true');
+  // Fresh edit session: drop anything staged for a previous coupon and sync
+  // both image previews (logo tile + background strip) with the row's values.
+  resetCouponEditImageStaging();
   const sub = document.getElementById('ceSubtitle');
   if (sub) sub.textContent = `${c.brand || 'Coupon'} · ID ${c.id || '—'}`;
   if (typeof openModal === 'function') openModal('couponEditModal');
@@ -2861,6 +2869,7 @@ async function saveCouponEdit() {
     expiryDate: v('ceExpiry'),
     affiliateLink: v('ceLink'),
     backgroundImage: v('ceBg'),
+    brandLogo: v('ceLogo'),
     description: v('ceDescription') || title,
     terms: v('ceTerms'),
     onSale: ck('ceSale'),
@@ -2884,9 +2893,217 @@ async function saveCouponEdit() {
     showToast('Coupon updated successfully. ✅', 'success');
     if (typeof closeModal === 'function') closeModal('couponEditModal');
   } catch (err) {
-    if (!err.sessionExpired) showToast(err.message || 'Could not save the coupon.', 'error');
+    if (!err.sessionExpired) {
+      showToast(err.message || 'Could not save the coupon.', 'error');
+    }
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = prev || '💾 Save Changes'; }
+  }
+}
+
+// ── Coupon edit form: image upload (brand logo / background) ────────────
+// Picking a file uploads it IMMEDIATELY to the existing SaveHatke Drive asset
+// folders (POST /admin/coupon-images → Google Drive) and applies the returned
+// image reference to that coupon right away — the two fields are fully
+// independent (each upload updates only its own field). The stored reference
+// (/api/brand-assets/file/<fileId>) renders through the same authorized proxy
+// every brand-level asset uses; the brand-level Drive logo/background remains
+// the fallback whenever a field is empty.
+// Fields can also be set by pasting a URL — that persists on Save Changes via
+// the existing PUT route. ✕ Clear resets the field to empty (brand fallback)
+// immediately.
+const COUPON_IMAGE_FIELDS = {
+  brandLogo: {
+    file: 'ceLogoFile', url: 'ceLogo', status: 'ceLogoStatus',
+    preview: 'ceLogoPreview', previewImg: 'ceLogoPreviewImg', clear: 'ceLogoClearBtn',
+    upload: 'ceLogoUploadBtn', apiKey: 'brandLogo', label: 'brand logo', maxBytes: 3 * 1024 * 1024,
+  },
+  backgroundImage: {
+    file: 'ceBgFile', url: 'ceBg', status: 'ceBgStatus',
+    preview: 'ceBgPreview', previewImg: 'ceBgPreviewImg', clear: 'ceBgClearBtn',
+    upload: 'ceBgUploadBtn', apiKey: 'backgroundImage', label: 'background image', maxBytes: 3 * 1024 * 1024,
+  },
+};
+const couponImageBusy = { brandLogo: false, backgroundImage: false };
+
+function couponImageFieldEls(field) {
+  const cfg = COUPON_IMAGE_FIELDS[field];
+  if (!cfg) return null;
+  return {
+    cfg,
+    file: document.getElementById(cfg.file),
+    url: document.getElementById(cfg.url),
+    status: document.getElementById(cfg.status),
+    preview: document.getElementById(cfg.preview),
+    previewImg: document.getElementById(cfg.previewImg),
+    clear: document.getElementById(cfg.clear),
+    upload: document.getElementById(cfg.upload),
+  };
+}
+
+/** Status line under a field: kind '' hides, 'info' default, 'error' red. */
+function setCouponImageStatus(field, text, kind) {
+  const els = couponImageFieldEls(field);
+  if (!els || !els.status) return;
+  if (!text) { els.status.style.display = 'none'; els.status.textContent = ''; return; }
+  els.status.style.display = 'block';
+  els.status.textContent = text;
+  els.status.style.color = kind === 'error' ? '#ef9a9a' : '#a8c0dc';
+}
+
+/** Sync one field's preview tile + clear button from its URL input. */
+function syncCouponImagePreview(field) {
+  const els = couponImageFieldEls(field);
+  if (!els) return;
+  const url = ((els.url && els.url.value) || '').trim();
+  if (url && els.preview && els.previewImg) {
+    els.preview.style.display = 'flex';
+    els.previewImg.src = url;
+  } else if (els.preview) {
+    els.preview.style.display = 'none';
+    if (els.previewImg) els.previewImg.removeAttribute('src');
+  }
+  if (els.clear) els.clear.style.display = url ? 'inline-flex' : 'none';
+}
+
+/** Modal open: reset per-field upload state and previews from the row values. */
+function resetCouponEditImageStaging() {
+  for (const field of Object.keys(COUPON_IMAGE_FIELDS)) {
+    couponImageBusy[field] = false;
+    const els = couponImageFieldEls(field);
+    if (els && els.file) els.file.value = '';
+    if (els && els.upload) els.upload.disabled = false;
+    setCouponImageStatus(field, '');
+    syncCouponImagePreview(field);
+  }
+}
+
+/** Refresh the coupon card + summary after an image change persisted. */
+function refreshCouponAfterImageChange() {
+  const c = findCouponById(couponEditId);
+  if (c) renderOneCouponCard(couponEditId);
+  if (typeof renderInventorySummary === 'function' && typeof INVENTORY_ALL !== 'undefined') {
+    renderInventorySummary(INVENTORY_ALL);
+  }
+}
+
+/** ✕ Clear — immediately resets this field to empty (brand-level fallback). */
+async function clearCouponImage(field) {
+  const els = couponImageFieldEls(field);
+  if (!els || !couponEditId || couponImageBusy[field]) return;
+  const previous = (els.url && els.url.value) || '';
+  if (!previous) { syncCouponImagePreview(field); return; }
+
+  couponImageBusy[field] = true;
+  if (els.upload) els.upload.disabled = true;
+  if (els.clear) els.clear.disabled = true;
+  setCouponImageStatus(field, `Removing ${els.cfg.label}…`, 'info');
+  try {
+    await api(`/admin/coupons/${encodeURIComponent(couponEditId)}`, {
+      method: 'PUT',
+      useAdmin: true,
+      body: { [els.cfg.apiKey]: '' },
+    });
+    if (els.url) els.url.value = '';
+    if (els.file) els.file.value = '';
+    const c = findCouponById(couponEditId);
+    if (c) c[els.cfg.apiKey] = '';
+    setCouponImageStatus(field, `${els.cfg.label === 'brand logo' ? 'Brand logo' : 'Background image'} cleared — the brand default applies again.`, 'info');
+    refreshCouponAfterImageChange();
+  } catch (err) {
+    if (els.url) els.url.value = previous; // restore what the row still has
+    setCouponImageStatus(field, `Could not clear the ${els.cfg.label}: ${err.message || 'please try again.'}`, 'error');
+  } finally {
+    couponImageBusy[field] = false;
+    if (els.upload) els.upload.disabled = false;
+    if (els.clear) els.clear.disabled = false;
+    syncCouponImagePreview(field);
+  }
+}
+
+/** File picker change — validate, then upload + apply IMMEDIATELY (per field). */
+async function handleCouponImagePicked(event, field) {
+  const els = couponImageFieldEls(field);
+  const input = event && event.target;
+  const file = input && input.files && input.files[0];
+  if (!els || !file || !couponEditId) return;
+  const resetInput = () => { if (input) input.value = ''; };
+  if (couponImageBusy[field]) { resetInput(); return; }
+
+  const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!allowed.includes(String(file.type || '').toLowerCase())) {
+    resetInput();
+    setCouponImageStatus(field, 'Unsupported format — please choose a PNG, JPG or WebP image.', 'error');
+    return;
+  }
+  if (file.size > els.cfg.maxBytes) {
+    resetInput();
+    setCouponImageStatus(field, `Image is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). The maximum is 3 MB.`, 'error');
+    return;
+  }
+
+  // Read as a data URL: the base64 upload body. A read failure leaves the
+  // previous state untouched.
+  let dataUrl;
+  try {
+    dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('The file could not be read.'));
+      reader.readAsDataURL(file);
+    });
+  } catch (err) {
+    resetInput();
+    setCouponImageStatus(field, err.message, 'error');
+    return;
+  }
+  if (!dataUrl || !dataUrl.startsWith('data:image/')) {
+    resetInput();
+    setCouponImageStatus(field, 'The file could not be read as an image.', 'error');
+    return;
+  }
+
+  // Upload + apply. Only THIS field changes; the other image field is free to
+  // upload in parallel. The previous value stays until the server confirms.
+  const previous = (els.url && els.url.value) || '';
+  couponImageBusy[field] = true;
+  if (els.upload) els.upload.disabled = true;
+  if (els.clear) els.clear.disabled = true;
+  setCouponImageStatus(field, `Uploading ${els.cfg.label} to Google Drive…`, 'info');
+  try {
+    const resp = await api('/admin/coupon-images', {
+      method: 'POST',
+      useAdmin: true,
+      body: { couponId: couponEditId, field, dataBase64: dataUrl, contentType: file.type || '' },
+    });
+    if (els.url) els.url.value = resp.url;
+    const c = findCouponById(couponEditId);
+    if (c) c[els.cfg.apiKey] = resp.url;
+    resetInput();
+    setCouponImageStatus(field, `${resp.url ? 'Uploaded to the SaveHatke Drive' : 'Uploaded'} — applied and saved. ✅`, 'info');
+    refreshCouponAfterImageChange();
+  } catch (err) {
+    resetInput();
+    if (els.url) els.url.value = previous; // row unchanged — restore display
+    setCouponImageStatus(field, `Upload failed: ${err.message || 'please try again.'}`, 'error');
+  } finally {
+    couponImageBusy[field] = false;
+    if (els.upload) els.upload.disabled = false;
+    if (els.clear) els.clear.disabled = false;
+    syncCouponImagePreview(field);
+  }
+}
+
+/** One-time wiring: URL inputs live-sync their previews. */
+function initCouponEditImageInputs() {
+  for (const field of Object.keys(COUPON_IMAGE_FIELDS)) {
+    const els = couponImageFieldEls(field);
+    if (els && els.url) {
+      els.url.addEventListener('input', () => {
+        setCouponImageStatus(field, '');
+        syncCouponImagePreview(field);
+      });
+    }
   }
 }
 
