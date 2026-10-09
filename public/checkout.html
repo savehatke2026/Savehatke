@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<!-- build: 2026-10-08 — checkout redesign (Review & Pay). The UPI payment
-     window, the success / overpayment / underpayment overlays and the whole
-     payment script below are unchanged. -->
+<!-- build: 2026-10-09 — success screen rebuilt as the post-payment coupon box
+     (Coupon.html design): brand hero, offer row, scratch-to-reveal code, How to
+     use / T&C accordions and Redeem Now. It opens only when the server verifies
+     PAID; the 3s dashboard auto-redirect is gone. The UPI payment window and
+     the overpayment / underpayment overlays are unchanged. -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -379,57 +381,78 @@
       .succ-code { font-size:16px; }
     }
 
-    /* PAYMENT-SUCCESSFUL CARD (reference mockup)
+    /* POST-PAYMENT COUPON BOX (Coupon.html design)
        Scoped to #successOverlay so it restyles ONLY the payment-success screen
        and never leaks into the shared .success-box used by #extraAmountOverlay.
-       The overlay container keeps its backdrop + scale-in; these rules re-skin
-       the inner card to the receipt design. */
-    #successOverlay .ps-card {
-      position:relative; width:min(100%,436px); max-width:436px;
-      padding:67px 29px 34px; text-align:center;
-      border:1.5px solid rgba(0,226,114,.5); border-radius:25px; background:#0b1427;
-      box-shadow:0 28px 70px rgba(0,0,0,.3), inset 0 0 40px rgba(0,226,114,.012);
-      font-family:'Inter',sans-serif;
+       The overlay keeps its backdrop + scale-in; the inner card is rebuilt as
+       the scratch-coupon box: mint-bordered dark card, brand hero banner, offer
+       row, silver scratch-to-reveal code, How to use / T&C accordions and the
+       green Redeem Now action. Only shown after the server verifies PAID. */
+    #successOverlay .cb-card {
+      position:relative; width:min(100%,484px); max-width:484px; padding:0; overflow:hidden;
+      display:flex; flex-direction:column; max-height:calc(100vh - 40px);
+      text-align:left; background:#001421;
+      border:1px solid #00E272; border-radius:20px;
+      font-family:Arial,Helvetica,sans-serif;
     }
-    #successOverlay .ps-close {
-      position:absolute; top:19px; right:19px; width:37px; height:37px;
+    #successOverlay .cb-close {
+      position:absolute; top:14px; right:14px; z-index:3; width:34px; height:34px;
       display:grid; place-items:center; padding:0; color:#fff;
-      border:1px solid #33415b; border-radius:10px; background:#131d32;
-      box-shadow:0 2px 6px rgba(0,0,0,.2); cursor:pointer;
+      border:1px solid rgba(255,255,255,.16); border-radius:10px; background:rgba(0,10,18,.55);
+      backdrop-filter:blur(4px); cursor:pointer;
       transition:transform .16s ease, border-color .16s ease, background .16s ease;
     }
-    #successOverlay .ps-close:hover { transform:scale(1.04); border-color:#57789c; background:#0b1d34; }
-    #successOverlay .ps-close:focus-visible { outline:3px solid rgba(0,226,114,.36); outline-offset:3px; }
-    #successOverlay .ps-close svg { width:16px; height:16px; }
-    #successOverlay .ps-icon {
-      width:104px; height:104px; margin:0 auto 27px; display:grid; place-items:center;
-      border:2px solid rgba(0,226,114,.48); border-radius:50%;
-      background:linear-gradient(145deg,#00E272,#00E272);
-      box-shadow:0 0 0 11px rgba(0,226,114,.065),0 0 0 22px rgba(0,226,114,.025),0 0 34px rgba(0,226,114,.17);
-      animation:psArrive 500ms cubic-bezier(.2,.85,.35,1.25) both;
+    #successOverlay .cb-close:hover { transform:scale(1.04); border-color:#57789c; background:#0b1d34; }
+    #successOverlay .cb-close:focus-visible { outline:3px solid rgba(0,226,114,.36); outline-offset:3px; }
+    #successOverlay .cb-close svg { width:15px; height:15px; }
+    /* Short viewports scroll the card body; the × stays pinned to the frame. */
+    #successOverlay .cb-body { overflow-y:auto; overscroll-behavior:contain; }
+    /* Hero — the exact marketplace coupon image, painted by paintCoupon() on
+       #scCard (same heroImageFor source the buyer saw on the card). */
+    #successOverlay .cb-hero { aspect-ratio:1062/334; background-size:cover; background-position:center; border-radius:19px; }
+    #successOverlay .cb-content { padding:15px 15px 16px; }
+    #successOverlay .cb-offer { display:grid; grid-template-columns:82px 1fr; gap:14px; align-items:start; }
+    #successOverlay .cb-logo { width:82px; height:79px; border-radius:16px; background:#082331; overflow:hidden; display:grid; place-items:center; }
+    #successOverlay .cb-logo img { max-width:74%; max-height:74%; width:auto; height:auto; object-fit:contain; }
+    #successOverlay .cb-logo .brand-initial { width:100%; height:100%; display:grid; place-items:center; font-size:34px; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00E272,#4fc3f7); }
+    #successOverlay .cb-title { margin:0 0 9px; font-size:24px; font-weight:700; letter-spacing:-.5px; line-height:1.25; color:#f8f8fa; }
+    #successOverlay .cb-subtitle { margin:0; color:#b8bfff; font-size:21px; line-height:1.3; }
+    #successOverlay .cb-badges { display:flex; gap:8px; margin-top:15px; flex-wrap:wrap; }
+    #successOverlay .cb-badge { display:inline-flex; justify-content:center; align-items:center; background:#acff43; color:#081600; border-radius:32px; padding:8px 16px; font-size:16px; font-weight:700; white-space:nowrap; box-shadow:0 0 27px #aaff4320; }
+    #successOverlay .cb-badge:empty { display:none; }
+    /* Code box: light strip with the code under a silver foil canvas. */
+    #successOverlay .cb-codebox { position:relative; overflow:hidden; margin-top:16px; padding:8px; border-radius:14px; background:#e5e9ed; }
+    #successOverlay .cb-scratch { position:relative; height:46px; border-radius:12px; overflow:hidden; }
+    #successOverlay .cb-code { display:block; width:100%; height:100%; border:0; border-radius:12px; color:#001522; background:#e5e9ed; font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700; letter-spacing:2px; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #successOverlay .cb-code:disabled { cursor:default; }
+    #successOverlay .cb-code:focus-visible, #successOverlay .cb-scratch canvas:focus-visible { outline:none; filter:brightness(1.18); }
+    #successOverlay .cb-scratch canvas { position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; touch-action:none; }
+    #successOverlay .cb-copy { display:none; align-items:center; justify-content:center; gap:7px; width:100%; margin-top:8px; padding:10px; border:0; border-radius:10px; background:#082331; color:#00E272; font-weight:700; font-size:14px; cursor:pointer; }
+    #successOverlay .cb-copy:hover { filter:brightness(1.18); }
+    #successOverlay .cb-copy svg { width:15px; height:15px; stroke:currentColor; stroke-width:2.2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+    #successOverlay .cb-acc { margin-top:12px; border:0; border-radius:14px; background:#082331; overflow:hidden; }
+    #successOverlay .cb-acc summary { padding:17px 15px; list-style:none; display:flex; justify-content:space-between; align-items:center; gap:10px; font-size:20px; font-weight:700; color:#f8f8fa; cursor:pointer; }
+    #successOverlay .cb-acc summary::-webkit-details-marker { display:none; }
+    #successOverlay .cb-acc summary::after { content:""; width:14px; height:14px; flex-shrink:0; border-right:4px solid #b8bfff; border-bottom:4px solid #b8bfff; transform:rotate(45deg); margin:-8px 8px 0; transition:transform .2s; }
+    #successOverlay .cb-acc[open] summary::after { transform:translateY(6px) rotate(225deg); }
+    #successOverlay .cb-acc summary:focus-visible { outline:none; filter:brightness(1.18); }
+    #successOverlay .cb-acc-body { padding:0 15px 16px; color:#b8bfff; font-size:14px; line-height:1.6; }
+    #successOverlay .cb-acc-body p { margin:0; }
+    #successOverlay .cb-view { width:100%; margin-top:15px; padding:18px 10px; border:0; border-radius:16px; background:#00E272; color:#00100c; font-size:23px; font-weight:700; cursor:pointer; }
+    #successOverlay .cb-view:hover { filter:brightness(1.08); }
+    #successOverlay .cb-view:focus-visible { outline:none; filter:brightness(1.18); }
+    #successOverlay .cb-notice { margin:12px 0 0; color:#b8bfff; text-align:center; font-size:14px; }
+    #successOverlay .cb-notice:empty { display:none; }
+    #successOverlay .cb-meta { margin:12px 0 0; color:#8ba2c4; text-align:center; font-size:13px; }
+    #successOverlay .cb-meta:empty { display:none; }
+    @media (max-width:520px) {
+      #successOverlay .cb-card { border-radius:18px; }
+      #successOverlay .cb-title { font-size:clamp(18px,4.8vw,24px); }
+      #successOverlay .cb-subtitle { font-size:clamp(16px,4.2vw,21px); }
+      #successOverlay .cb-offer { grid-template-columns:72px 1fr; gap:12px; }
+      #successOverlay .cb-logo { width:72px; height:70px; }
+      #successOverlay .cb-badge { padding-inline:9px; font-size:14px; }
     }
-    #successOverlay .ps-icon svg { width:55px; height:55px; filter:drop-shadow(0 3px 3px rgba(0,99,61,.18)); }
-    #successOverlay .ps-title { margin:0; font-size:clamp(1.55rem,6vw,1.9rem); line-height:1.12; letter-spacing:-.035em; font-weight:800; color:#f7f9ff; }
-    #successOverlay .ps-title span, #successOverlay .ps-accent { color:#00E272; }
-    #successOverlay .ps-subtitle { margin:10px 0 31px; color:#9da8c0; font-size:.92rem; line-height:1.5; }
-    #successOverlay .ps-details { margin:0; display:grid; gap:17px; text-align:left; }
-    #successOverlay .ps-detail { display:grid; grid-template-columns:minmax(98px,.72fr) minmax(0,1.28fr); align-items:baseline; gap:14px; }
-    #successOverlay .ps-detail dt { color:#8995af; font-size:.86rem; }
-    #successOverlay .ps-detail dd { min-width:0; margin:0; color:#f8faff; font-size:.88rem; font-weight:600; text-align:right; overflow-wrap:anywhere; }
-    #successOverlay .ps-detail:first-child dd { font-size:1.24rem; font-weight:800; color:#00E272; }
-    #successOverlay .ps-redirect { margin:32px 0 29px; color:#9da8c0; font-size:.82rem; }
-    #successOverlay .ps-secured { margin:0; display:flex; align-items:center; justify-content:center; gap:9px; color:#8f9bb4; font-size:.77rem; }
-    #successOverlay .ps-secured::before, #successOverlay .ps-secured::after { content:""; height:1px; flex:1; max-width:132px; background:#2b354d; }
-    #successOverlay .ps-shield { width:17px; height:20px; flex:0 0 auto; }
-    #successOverlay .ps-secured strong { color:#00E272; font-weight:700; }
-    @keyframes psArrive { from { opacity:0; transform:scale(.72); } to { opacity:1; transform:scale(1); } }
-    @media (max-width:560px) {
-      #successOverlay .ps-card { padding:64px 28px 32px; border-radius:22px; }
-      #successOverlay .ps-close { width:36px; height:36px; border-radius:9px; }
-      #successOverlay .ps-secured { gap:7px; font-size:.72rem; }
-      #successOverlay .ps-secured::before, #successOverlay .ps-secured::after { min-width:24px; }
-    }
-    @media (prefers-reduced-motion: reduce) { #successOverlay .ps-icon { animation:none; } }
 
     /* EXTRA-AMOUNT (OVERPAYMENT) OVERLAY
        Reuses .success-overlay / .success-box / .succ-* so it sits inside the
@@ -862,58 +885,67 @@
   </div>
 </div>
 
-<!-- SUCCESS OVERLAY -->
+<!-- SUCCESS OVERLAY — the purchased coupon box (Coupon.html design). Opens ONLY
+     after the server has verified the payment (PAID); showServerConfirmedSuccess()
+     writes the real code into #revealedCode and showSuccessScreen() reveals this
+     box with the code still covered by the scratch foil. -->
 <div class="success-overlay" id="successOverlay">
-  <div class="success-box ps-card" aria-labelledby="payment-title">
-    <!-- Close (also cancels the auto-redirect — see closeSuccess()) -->
-    <button class="ps-close" type="button" onclick="closeSuccess()" aria-label="Close payment confirmation">
+  <div class="success-box cb-card" aria-labelledby="cbTitle">
+    <button class="cb-close" type="button" onclick="closeSuccess()" aria-label="Close coupon box">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" />
       </svg>
     </button>
 
-    <div class="ps-icon" aria-hidden="true">
-      <svg viewBox="0 0 64 64">
-        <path d="M13 33.5 26.5 47 52 19.5" fill="none" stroke="white" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
+    <div class="cb-body">
+      <div class="cb-hero" id="scCard" role="img" aria-label="Coupon brand banner"></div>
+
+      <div class="cb-content">
+        <section class="cb-offer" aria-label="Offer">
+          <div class="cb-logo" id="scBrandLogo"></div>
+          <div>
+            <h2 class="cb-title" id="cbTitle">Discount Coupon</h2>
+            <p class="cb-subtitle" id="scOfferDesc">on selected items</p>
+            <div class="cb-badges"><span class="cb-badge" id="scOfferAmount"></span></div>
+          </div>
+        </section>
+
+        <section class="cb-codebox" aria-label="Coupon code">
+          <div class="cb-scratch" id="scScratchContainer">
+            <button class="cb-code" id="revealedCode" type="button" aria-label="Copy coupon code" onclick="copyCode()" disabled>&bull;&bull;&bull;&bull;&bull;</button>
+            <canvas id="scCanvas" tabindex="0" role="button" aria-label="Scratch to reveal your coupon code. Press Enter to reveal."></canvas>
+          </div>
+        </section>
+        <button class="cb-copy" id="scCopyBtn" type="button" onclick="copyCode()">
+          <svg id="copyIcon" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          <span id="copyText">Copy Code</span>
+        </button>
+
+        <details class="cb-acc">
+          <summary>How to use</summary>
+          <div class="cb-acc-body"><p>Scratch the silver area to reveal your code &mdash; or focus it and press Enter. Tap the revealed code to copy it, then enter it in the promotional code field at checkout.</p></div>
+        </details>
+
+        <details class="cb-acc">
+          <summary>Terms and Conditions</summary>
+          <div class="cb-acc-body" id="cbTerms"><p>&mdash;</p></div>
+        </details>
+
+        <button class="cb-view" type="button" onclick="copyCode()">Redeem Now</button>
+
+        <p class="cb-notice" id="cbStatus" role="status"></p>
+        <p class="cb-meta" id="cbMeta"></p>
+
+        <div class="succ-foot">
+          <div class="succ-foot-line"></div>
+          <div class="succ-foot-content">
+            <span class="succ-shield"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
+            Secured by <span class="succ-foot-brand">SaveHatke</span>
+          </div>
+          <div class="succ-foot-line"></div>
+        </div>
+      </div>
     </div>
-
-    <h2 class="ps-title" id="payment-title">Payment <span>Successful!</span></h2>
-    <p class="ps-subtitle">Your payment has been received.</p>
-
-    <!-- Amount / Order ID / Transaction ID / Date & Time.
-         IDs (succAmount, succOrderId, succTxnId) are populated with real,
-         server-owned values by showServerConfirmedSuccess(); never truncated. -->
-    <dl class="ps-details">
-      <div class="ps-detail">
-        <dt>Amount Paid</dt>
-        <dd id="succAmount">—</dd>
-      </div>
-      <div class="ps-detail">
-        <dt>Order ID</dt>
-        <dd id="succOrderId">—</dd>
-      </div>
-      <div class="ps-detail">
-        <dt>Transaction ID</dt>
-        <dd id="succTxnId">—</dd>
-      </div>
-      <div class="ps-detail">
-        <dt>Date &amp; Time</dt>
-        <dd id="succDateTime">—</dd>
-      </div>
-    </dl>
-
-    <p class="ps-redirect" aria-live="polite">
-      Redirecting in <span class="ps-accent" id="succCountdown">3</span> seconds...
-    </p>
-
-    <p class="ps-secured">
-      <svg class="ps-shield" viewBox="0 0 28 32" aria-hidden="true">
-        <path d="M14 1 26 5.5v8.7c0 7.7-4.7 13.3-12 16.8C6.7 27.5 2 21.9 2 14.2V5.5L14 1Z" fill="#00E272" />
-        <path d="m8 15.5 4 4 8-9" fill="none" stroke="#063126" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
-      </svg>
-      <span>Secured by <strong>SaveHatke</strong></span>
-    </p>
   </div>
 </div>
 
@@ -1240,6 +1272,22 @@
       // heroImageFor returns a validated URL/path (or the SaveHatke default),
       // so this is the identical image the buyer saw on the marketplace card.
       scCardEl.style.backgroundImage = "url('" + heroImageFor(currentCoupon).replace(/'/g, '%27') + "')";
+    }
+    // Coupon box (success overlay) — title prefers the coupon's own title and
+    // falls back to "{Brand} Discount Coupon"; the T&C body uses the coupon's
+    // server-side terms when the seller wrote any.
+    const cbTitleEl = document.getElementById('cbTitle');
+    if (cbTitleEl) {
+      const brand = String(currentCoupon.brand || '').trim();
+      const t = String(currentCoupon.title || '').trim();
+      cbTitleEl.textContent = (t && t !== currentCoupon.discount)
+        ? t
+        : ((brand ? brand + ' ' : '') + 'Discount Coupon');
+    }
+    const cbTermsEl = document.getElementById('cbTerms');
+    if (cbTermsEl) {
+      const terms = String(currentCoupon.terms || '').trim();
+      cbTermsEl.textContent = terms || 'Standard SaveHatke terms apply. Coupon codes are non-refundable once revealed.';
     }
 
     paintExpiryTimer();
@@ -1990,15 +2038,11 @@
     if (data.amount !== undefined && upiEl('succAmount')) {
       upiEl('succAmount').textContent = formatRupees(data.amount);
     }
-    // Order ID + Transaction ID for the success details rows (server-owned,
-    // captured on create). Prefer the human Order ID (SH-PUR-…), never the UUID.
-    const orderEl = upiEl('succOrderId');
-    if (orderEl) {
-      const oid = (data && data.order_code) || upiState.orderCode || '—';
-      orderEl.textContent = oid;
-    }
-    const txnEl = upiEl('succTxnId');
-    if (txnEl) txnEl.textContent = (data && data.transaction_id) || upiState.transactionId || '—';
+    // Order ID + Transaction ID for the receipt line (paintCouponBoxMeta).
+    // Prefer the human Order ID (SH-PUR-…), never the UUID; applyPaymentState
+    // keeps upiState fresh on every poll/SSE update, this re-syncs at confirm.
+    if (data.order_code) upiState.orderCode = data.order_code;
+    if (data.transaction_id) upiState.transactionId = data.transaction_id;
     // Date & Time of this successful payment, formatted for the receipt design
     // (en-IN, e.g. "27 Sep 2026, 6:59 PM"). The success screen renders the moment
     // the server confirms the payment, so "now" is the verified-payment time.
@@ -2307,44 +2351,40 @@
     await startUpiPayment();
   }
 
-  // Auto-redirect for the success screen. After the countdown the buyer lands on
-  // My Orders (dashboard), where the purchased coupon code lives — so dropping the
-  // on-screen code reveal does not strand them.
-  let successRedirectTimer = null;
-  const SUCCESS_REDIRECT_SECONDS = 3;
-  const SUCCESS_REDIRECT_URL = 'dashboard';
-
+  // Success = the purchased coupon box (Coupon.html design). It opens only
+  // here — after the server has verified PAID and handed us the real code —
+  // and the code stays covered by the scratch foil until the buyer scratches
+  // it. There is no auto-redirect any more: the buyer scratches, copies and
+  // redeems right here, and the × simply closes the box.
   function showSuccessScreen() {
-    document.getElementById('successOverlay').classList.add('show');
+    const ov = document.getElementById('successOverlay');
+    if (!ov) return;
+    ov.classList.add('show');
     document.body.style.overflow = 'hidden';
-    startSuccessRedirect();
+    paintCouponBoxMeta();
+    initScratchCard();
   }
 
-  // Count down on screen, then send the buyer to My Orders. Clears any earlier
-  // timer first so a reopened overlay / retry can never run two countdowns at once.
-  function startSuccessRedirect() {
-    clearSuccessRedirect();
-    let seconds = SUCCESS_REDIRECT_SECONDS;
-    const cdEl = upiEl('succCountdown');
-    if (cdEl) cdEl.textContent = String(seconds);
-    successRedirectTimer = setInterval(function () {
-      seconds -= 1;
-      if (cdEl) cdEl.textContent = String(Math.max(seconds, 0));
-      if (seconds <= 0) {
-        clearSuccessRedirect();
-        window.location.href = SUCCESS_REDIRECT_URL;
-      }
-    }, 1000);
+  // Small receipt line under Redeem Now: order reference + validity, both
+  // server/checkout-owned values. Nothing renders when either is missing.
+  function paintCouponBoxMeta() {
+    const meta = upiEl('cbMeta');
+    if (!meta) return;
+    const bits = [];
+    const oc = String(upiState.orderCode || '').trim();
+    if (oc) bits.push('Order ' + oc);
+    const exp = Date.parse(currentCoupon.expiry || '');
+    if (!Number.isNaN(exp)) {
+      bits.push('Valid till ' + new Date(exp).toLocaleDateString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+      }));
+    }
+    meta.textContent = bits.join('  •  ');
   }
 
-  function clearSuccessRedirect() {
-    if (successRedirectTimer) { clearInterval(successRedirectTimer); successRedirectTimer = null; }
-  }
-
-  // Close the success overlay (× button). Closing is an explicit "stay" signal,
-  // so it also cancels the pending auto-redirect to My Orders.
+  // Close the coupon box (× button). The code stays available in My Orders
+  // (dashboard); closing never re-locks anything.
   function closeSuccess() {
-    clearSuccessRedirect();
     const ov = document.getElementById('successOverlay');
     if (ov) ov.classList.remove('show');
     document.body.style.overflow = '';
@@ -2441,143 +2481,217 @@
     );
   }
 
+  const COPY_CLIPBOARD_SVG = '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>';
+  const COPY_CHECK_SVG = '<polyline points="20 6 9 17 4 12"/>';
+
   function copyCode() {
-    const code = document.getElementById('revealedCode').textContent;
-    navigator.clipboard.writeText(code).then(() => {
-      document.getElementById('copyIcon').textContent = '✅';
-      document.getElementById('copyText').textContent = 'Copied!';
+    const codeEl = document.getElementById('revealedCode');
+    const code = codeEl ? String(codeEl.textContent || '').trim() : '';
+    if (!code || (codeEl && codeEl.disabled)) return;
+    const done = () => {
+      const icon = document.getElementById('copyIcon');
+      const text = document.getElementById('copyText');
+      if (icon) icon.innerHTML = COPY_CHECK_SVG;
+      if (text) text.textContent = 'Copied!';
+      const status = document.getElementById('cbStatus');
+      if (status) {
+        status.textContent = 'Code copied — paste it in the promo field on ' + (currentCoupon.brand || 'the brand') + '.';
+      }
       setTimeout(() => {
-        document.getElementById('copyIcon').textContent = '📋';
-        document.getElementById('copyText').textContent = 'Copy Code';
+        if (icon) icon.innerHTML = COPY_CLIPBOARD_SVG;
+        if (text) text.textContent = 'Copy Code';
       }, 2000);
-    }).catch(() => {
-      const el = document.createElement('textarea');
-      el.value = code;
-      document.body.appendChild(el);
-      el.select();
-      document.execCommand('copy');
-      document.body.removeChild(el);
-      document.getElementById('copyText').textContent = 'Copied!';
-    });
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(done).catch(() => fallbackCopyCode(code, done));
+    } else {
+      fallbackCopyCode(code, done);
+    }
   }
 
-  // ── SCRATCH-TO-REVEAL (post-payment coupon) ────────────────────────────
-  // The coupon code sits on a white strip; a silver canvas layer covers it
-  // until the buyer scratches ~45% of it away, then the layer fades out and the
-  // Copy button appears. Works with mouse and touch. The code is written into
-  // #revealedCode only by showServerConfirmedSuccess() (verified payment), so
-  // nothing here can unlock a code on its own.
-  const scScratch = { canvas: null, ctx: null, drawing: false, revealed: false, total: 0 };
+  function fallbackCopyCode(code, done) {
+    const el = document.createElement('textarea');
+    el.value = code;
+    el.style.position = 'fixed';
+    el.style.opacity = '0';
+    document.body.appendChild(el);
+    el.select();
+    try {
+      document.execCommand('copy');
+      done();
+    } catch (e) {
+      const status = document.getElementById('cbStatus');
+      if (status) status.textContent = 'Select and copy this code: ' + code;
+    }
+    document.body.removeChild(el);
+  }
+
+  // ── SCRATCH-TO-REVEAL (post-payment coupon box) ────────────────────────
+  // Silver foil painted on a canvas over the code strip (Coupon.html design):
+  // gradient + brushed streaks + "SCRATCH TO REVEAL". Pointer strokes erase the
+  // foil; once ≥50% is cleared it fades out and the code becomes tappable.
+  // Works with mouse, touch and pen. The code is written into #revealedCode
+  // only by showServerConfirmedSuccess() (verified payment), so nothing here
+  // can unlock a code on its own.
+  const cbScratch = { canvas: null, ctx: null, revealed: false, activePointer: null, previous: null, strokes: [], observer: null, bound: false };
 
   function initScratchCard() {
     const canvas = document.getElementById('scCanvas');
     const container = document.getElementById('scScratchContainer');
     if (!canvas || !container) return;
 
-    scScratch.canvas = canvas;
-    scScratch.ctx = canvas.getContext('2d', { willReadFrequently: true });
-    scScratch.revealed = false;
-    scScratch.drawing = false;
+    cbScratch.canvas = canvas;
+    cbScratch.ctx = canvas.getContext('2d');
+    cbScratch.revealed = false;
+    cbScratch.activePointer = null;
+    cbScratch.previous = null;
+    cbScratch.strokes = [];
 
-    // Reset any earlier reveal (e.g. the overlay is shown again after a retry).
+    // Reset any earlier reveal (the box can be shown again after a retry).
     canvas.style.transition = '';
     canvas.style.opacity = '1';
     canvas.style.display = 'block';
-    const overlay = document.getElementById('scOverlayText');
-    if (overlay) overlay.classList.remove('sc-hidden');
     const copyBtn = document.getElementById('scCopyBtn');
     if (copyBtn) copyBtn.style.display = 'none';
 
     // No 2D context, or the panel has not been laid out yet → leave the code
-    // strip uncovered rather than trapping it behind a dead canvas.
-    if (!scScratch.ctx) return;
-    const w = container.offsetWidth, h = container.offsetHeight;
-    if (!w || !h) return;
-    canvas.width = w;
-    canvas.height = h;
-    scScratch.total = w * h;
-    fillScratch();
+    // readable rather than trapping it behind a dead foil.
+    const codeBtn = document.getElementById('revealedCode');
+    if (!cbScratch.ctx || !container.offsetWidth || !container.offsetHeight) {
+      if (codeBtn) codeBtn.disabled = false;
+      return;
+    }
+    if (codeBtn) codeBtn.disabled = true;
+    bindScratchCard();
+    paintScratchFoil();
   }
 
-  function fillScratch() {
-    const { ctx, canvas } = scScratch;
-    if (!ctx) return;
+  function paintScratchFoil() {
+    if (cbScratch.revealed || !cbScratch.ctx) return;
+    const canvas = cbScratch.canvas;
+    const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    canvas.width = Math.round(rect.width * devicePixelRatio);
+    canvas.height = Math.round(rect.height * devicePixelRatio);
+    const ctx = cbScratch.ctx;
+    ctx.scale(devicePixelRatio, devicePixelRatio);
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = '#c4c8cf';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    // Grain, so it reads as a scratch foil rather than a flat grey block.
-    const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const d = img.data;
-    for (let i = 0; i < d.length; i += 4) {
-      const n = Math.random() * 42 - 21;
-      d[i] = d[i + 1] = d[i + 2] = Math.min(255, Math.max(0, 198 + n));
+    const silver = ctx.createLinearGradient(0, 0, rect.width, rect.height);
+    silver.addColorStop(0, '#9da4aa');
+    silver.addColorStop(.45, '#e0e3e6');
+    silver.addColorStop(1, '#a1a8af');
+    ctx.fillStyle = silver;
+    ctx.fillRect(0, 0, rect.width, rect.height);
+    // Deterministic brushed streaks, so the foil reads as metal, not flat grey.
+    let seed = 42;
+    const random = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+    for (let i = 0; i < rect.width * 3; i++) {
+      const x = random() * rect.width, y = random() * rect.height;
+      ctx.strokeStyle = ['#ffffff35', '#59616b25', '#ffffff20', '#59616b15'][i % 4];
+      ctx.lineWidth = random() * .8 + .2;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + random() * 35 + 3, y - random() * 25 - 3); ctx.stroke();
     }
-    ctx.putImageData(img, 0, 0);
-    ctx.strokeStyle = 'rgba(255,255,255,.35)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 90; i++) {
-      ctx.beginPath();
-      ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
-      ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
-      ctx.stroke();
-    }
+    ctx.fillStyle = '#46515e';
+    ctx.font = '700 14px Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('SCRATCH TO REVEAL', rect.width / 2, rect.height / 2);
+    cbScratch.strokes.forEach(stroke => eraseScratch(stroke.from, stroke.to));
   }
 
-  function scScratchAt(x, y) {
-    const { ctx } = scScratch;
-    if (!ctx || scScratch.revealed) return;
-    const overlay = document.getElementById('scOverlayText');
-    if (overlay) overlay.classList.add('sc-hidden');
+  function eraseScratch(from, to) {
+    const ctx = cbScratch.ctx;
+    if (!ctx) return;
+    const width = cbScratch.canvas.clientWidth, height = cbScratch.canvas.clientHeight;
     ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath(); ctx.arc(x, y, 18, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(x + (Math.random() * 8 - 4), y + (Math.random() * 8 - 4), 14, 0, Math.PI * 2); ctx.fill();
+    ctx.lineWidth = 34;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(from.x * width, from.y * height);
+    ctx.lineTo(to.x * width, to.y * height);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(to.x * width, to.y * height, 17, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  function scPos(e) {
-    const r = scScratch.canvas.getBoundingClientRect();
-    const t = e.touches && e.touches[0];
-    const cx = t ? t.clientX : e.clientX;
-    const cy = t ? t.clientY : e.clientY;
-    // Map CSS px → backing-store px (they are 1:1 here, but stay correct if the
-    // panel is ever scaled by a responsive rule).
-    const sx = r.width ? scScratch.canvas.width / r.width : 1;
-    const sy = r.height ? scScratch.canvas.height / r.height : 1;
-    return { x: (cx - r.left) * sx, y: (cy - r.top) * sy };
-  }
-
-  function scCheckRevealed() {
-    const { ctx, canvas, total } = scScratch;
-    if (!ctx || scScratch.revealed || !total) return;
-    const d = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-    let clear = 0;
-    for (let i = 3; i < d.length; i += 4) if (d[i] === 0) clear++;
-    if ((clear / total) * 100 > 45) {
-      scScratch.revealed = true;
+  function cbReveal() {
+    cbScratch.revealed = true;
+    cbScratch.activePointer = null;
+    cbScratch.previous = null;
+    const canvas = cbScratch.canvas;
+    if (canvas) {
       canvas.style.transition = 'opacity .45s';
       canvas.style.opacity = '0';
-      const copyBtn = document.getElementById('scCopyBtn');
-      if (copyBtn) copyBtn.style.display = 'flex';
-      setTimeout(() => { if (scScratch.canvas) scScratch.canvas.style.display = 'none'; }, 450);
+      setTimeout(() => { if (cbScratch.canvas) cbScratch.canvas.style.display = 'none'; }, 450);
     }
+    const copyBtn = document.getElementById('scCopyBtn');
+    if (copyBtn) copyBtn.style.display = 'flex';
+    const codeBtn = document.getElementById('revealedCode');
+    if (codeBtn) codeBtn.disabled = false;
   }
 
-  (function bindScratch() {
-    const bind = () => {
-      const canvas = document.getElementById('scCanvas');
-      if (!canvas) return;
-      const start = (e) => { scScratch.drawing = true; const p = scPos(e); scScratchAt(p.x, p.y); if (e.cancelable) e.preventDefault(); };
-      const move  = (e) => { if (!scScratch.drawing) return; const p = scPos(e); scScratchAt(p.x, p.y); if (e.cancelable) e.preventDefault(); };
-      const end   = () => { if (scScratch.drawing) { scScratch.drawing = false; scCheckRevealed(); } };
-      canvas.addEventListener('mousedown', start);
-      canvas.addEventListener('mousemove', move);
-      window.addEventListener('mouseup', end);
-      canvas.addEventListener('touchstart', start, { passive: false });
-      canvas.addEventListener('touchmove', move, { passive: false });
-      window.addEventListener('touchend', end);
+  function cbScratchPoint(event) {
+    const rect = cbScratch.canvas.getBoundingClientRect();
+    return { x: (event.clientX - rect.left) / rect.width, y: (event.clientY - rect.top) / rect.height };
+  }
+
+  function cbCheckCoverage() {
+    const { ctx, canvas } = cbScratch;
+    if (!ctx || cbScratch.revealed || !canvas.width || !canvas.height) return;
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let cleared = 0, total = 0;
+    for (let i = 3; i < pixels.length; i += 64) {
+      total++;
+      if (pixels[i] < 128) cleared++;
+    }
+    if (total && cleared / total >= .5) cbReveal();
+  }
+
+  function bindScratchCard() {
+    if (cbScratch.bound || !cbScratch.canvas) return;
+    cbScratch.bound = true;
+    const canvas = cbScratch.canvas;
+    canvas.addEventListener('pointerdown', event => {
+      if (cbScratch.revealed || cbScratch.activePointer !== null || event.button !== 0) return;
+      event.preventDefault();
+      cbScratch.activePointer = event.pointerId;
+      cbScratch.previous = cbScratchPoint(event);
+      canvas.setPointerCapture(event.pointerId);
+      cbScratch.strokes.push({ from: cbScratch.previous, to: cbScratch.previous });
+      eraseScratch(cbScratch.previous, cbScratch.previous);
+    });
+    canvas.addEventListener('pointermove', event => {
+      if (event.pointerId !== cbScratch.activePointer || cbScratch.revealed) return;
+      const next = cbScratchPoint(event);
+      cbScratch.strokes.push({ from: cbScratch.previous, to: next });
+      eraseScratch(cbScratch.previous, next);
+      cbScratch.previous = next;
+    });
+    const finishStroke = (event) => {
+      if (event.pointerId !== cbScratch.activePointer) return;
+      cbScratch.activePointer = null;
+      cbScratch.previous = null;
+      cbCheckCoverage();
     };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind);
-    else bind();
-  })();
+    canvas.addEventListener('pointerup', finishStroke);
+    canvas.addEventListener('pointercancel', finishStroke);
+    canvas.addEventListener('lostpointercapture', finishStroke);
+    // Keyboard parity with the reference design: Enter or Space reveals.
+    canvas.addEventListener('keydown', event => {
+      if ((event.key === 'Enter' || event.key === ' ') && !cbScratch.revealed) {
+        event.preventDefault();
+        cbReveal();
+      }
+    });
+    // Re-paint the foil when the strip resizes (rotation, overlay animation),
+    // replaying any strokes so a half-scratched card stays half-scratched.
+    if ('ResizeObserver' in window && !cbScratch.observer) {
+      cbScratch.observer = new ResizeObserver(() => paintScratchFoil());
+      cbScratch.observer.observe(canvas.parentElement);
+    }
+  }
 
   // Confetti
   function launchConfetti() {
