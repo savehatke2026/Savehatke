@@ -8237,5 +8237,206 @@
   .modal{max-height:92vh;max-height:calc(100dvh - 32px);overflow-y:auto}
 }
 </style>
+<style>
+/* Shared content finish: preserves all view layouts, data bindings and controls. */
+#pageWrapper {
+  --content-surface: #0d1930;
+  --content-raised: #12213a;
+  --content-line: #24354e;
+  --content-text: #e2ecff;
+  --content-muted: #94a7c1;
+  --content-accent: #63e5ae;
+}
+#pageWrapper .db-view :is(.view-hdr,.rf-header,.welcome-section) {
+  border-color: var(--content-line);
+}
+#pageWrapper .db-view :is(.view-title,.rf-title,.welcome-greeting) {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 600;
+  letter-spacing: -.6px;
+  line-height: 1.25;
+}
+#pageWrapper .db-view :is(.view-subtitle,.rf-subtitle,.welcome-sub) {
+  color: var(--content-muted);
+  line-height: 1.65;
+}
+#pageWrapper .db-view :is(.card,.rf-records,.rv-section,.txp-table-wrap) {
+  background: var(--content-surface);
+  border-color: var(--content-line);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px #00000012;
+}
+#pageWrapper .db-view :is(.stat-card,.qa-card,.pc-stat,.txp-stat,.rf-card,.rv-stat,.sup-stat) {
+  background: var(--content-surface);
+  border: 1px solid var(--content-line);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 #ffffff03;
+}
+#pageWrapper .db-view :is(.stat-card,.qa-card,.pc-stat,.txp-stat,.rf-card,.rv-stat,.sup-stat):hover {
+  background: var(--content-raised);
+  border-color: #35516a;
+  transform: none;
+}
+#pageWrapper .db-view :is(.stat-name,.txp-stat-name,.rv-stat-lbl,.sup-stat-lbl,.pc-stat-label) {
+  color: #a9b9d0;
+  font-weight: 500;
+}
+#pageWrapper .db-view :is(.stat-val,.txp-stat-val,.rf-card-amt,.rv-stat-val,.sup-stat-val) {
+  letter-spacing: -1px;
+  font-variant-numeric: tabular-nums;
+}
+#pageWrapper .db-view :is(.stat-lbl,.qa-desc,.rf-card-desc,.sec-tile-lbl,.acct-row-label) {
+  color: var(--content-muted);
+  line-height: 1.55;
+}
+#pageWrapper .db-view :is(.card-hdr,.rv-section-hdr) {
+  border-color: var(--content-line);
+}
+#pageWrapper .db-view :is(.card-title,.qa-title,.ns-row-name,.rv-section-title) {
+  font-weight: 600;
+  letter-spacing: -.15px;
+}
+#pageWrapper .db-view :is(.slabel,.ns-group-label) {
+  color: #819bb7;
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+}
+#pageWrapper .db-view :is(.btn,.mc-chip,.pc-tab,.txp-tab,.rf-tab,.ns-reset) {
+  font-weight: 500;
+  box-shadow: none;
+}
+#pageWrapper .db-view .btn {
+  border-radius: 9px;
+  transition: background .18s, border-color .18s, color .18s;
+}
+#pageWrapper .db-view .btn:hover { transform: none; box-shadow: none; }
+#pageWrapper .db-view .btn-primary { background: #00e272; color: #071525; }
+#pageWrapper .db-view .btn-primary:hover { background: #38e990; }
+#pageWrapper .db-view .btn-ghost {
+  background: #101e34;
+  border: 1px solid #30435c;
+  color: #b6c7de;
+}
+#pageWrapper .db-view .btn-ghost:hover {
+  background: #192b43;
+  border-color: #49627f;
+  color: var(--content-text);
+}
+#pageWrapper .db-view :is(.mc-chip,.pc-tab,.txp-tab,.rf-tab).active {
+  background: #15392f;
+  color: var(--content-accent);
+  border-color: #28614c;
+  box-shadow: none;
+}
+#pageWrapper .db-view :is(.rf-tabs,.txp-filter,.pc-tabs) {
+  border-color: var(--content-line);
+}
+#pageWrapper .db-view :is(.sec-tile,.sec-posture,.acct-identity,.ns-foot) {
+  background: #101e34;
+  border-color: var(--content-line);
+  border-radius: 10px;
+}
+#pageWrapper .db-view :is(.acct-row,.ns-row,.ns-divider,.rv-card,.activity-item) {
+  border-color: #20324a;
+}
+#pageWrapper .db-view :is(.ns-row-desc,.sec-posture-sub,.rv-empty-sub,.rf-empty-sub,.sup-empty-sub) {
+  color: var(--content-muted);
+  line-height: 1.65;
+}
+#pageWrapper .db-view :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),select,textarea) {
+  background-color: #091529;
+  border-color: #30435c;
+  color: var(--content-text);
+  border-radius: 9px;
+}
+#pageWrapper .db-view :is(input,textarea)::placeholder { color: #7189a8; }
+#pageWrapper .db-view :is(input,select,textarea):focus-visible {
+  outline: 2px solid #63e5ae;
+  outline-offset: 2px;
+}
+#pageWrapper .db-view :is(button,a):focus-visible {
+  outline: 2px solid #63e5ae;
+  outline-offset: 3px;
+}
+#pageWrapper .db-view table th {
+  background: #101e34;
+  color: #8fa6c3;
+  font-weight: 600;
+  letter-spacing: .8px;
+  border-color: var(--content-line);
+}
+#pageWrapper .db-view table td {
+  border-color: #20324a;
+  color: #b0c1d8;
+}
+#pageWrapper .db-view table tbody tr:hover { background: #13233a; }
+#pageWrapper .db-view :is(.badge,.sec-status) { font-weight: 500; border-radius: 6px; }
+#pageWrapper .db-view .content-line-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+#pageWrapper .db-view :is(.stat-icon,.qa-ico,.card-title .ico,.layout-stat-ico) {
+  color: #91bad3;
+}
+#pageWrapper .db-view :is(.si-green,.qa-ico-green) { color: #63e5ae; }
+#pageWrapper .db-view :is(.si-purple,.qa-ico-purple) { color: #b5a8e8; }
+#pageWrapper .db-view .si-orange { color: #e7bc7b; }
+@media (prefers-reduced-motion: reduce) {
+  #pageWrapper .db-view * { animation: none !important; transition: none !important; }
+}
+</style>
+<script>
+// Only replace decorative icon text; preserve labels, IDs and event handlers.
+(() => {
+  const root = document.getElementById('pageWrapper');
+  if (!root) return;
+  const paths = {
+    '🏷️': '<path d="M20 13 13 20a2 2 0 0 1-3 0L3 13V4h9l8 6a2 2 0 0 1 0 3Z"/><circle cx="7.5" cy="8" r="1"/>',
+    '🎟️': '<path d="M3 7h18v4a2 2 0 0 0 0 4v4H3v-4a2 2 0 0 0 0-4Z"/><path d="M15 7v2m0 3v2m0 3v2"/>',
+    '🛒': '<path d="M3 3h2l3 13h11l2-9H6"/><circle cx="9" cy="20" r="1"/><circle cx="18" cy="20" r="1"/>',
+    '💼': '<rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V3h8v4M3 12h18M10 12v3h4v-3"/>',
+    '💰': '<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18m-5 4h5M5 6V4h13"/>',
+    '🏦': '<path d="m3 8 9-5 9 5H3Zm2 3v7m7-7v7m7-7v7M3 21h18"/>',
+    '💸': '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M8 13h8m-3-3 3 3-3 3"/>',
+    '👤': '<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2"/>',
+    '🪪': '<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M5 16c0-3 6-3 6 0m3-7h4m-4 4h4"/>',
+    '🔒': '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',
+    '🛡️': '<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8 12 3 3 5-6"/>',
+    '🖥️': '<rect x="3" y="3" width="18" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/>',
+    '🔔': '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9m-8 13h4"/>',
+    '⭐': '<path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z"/>',
+    '🧾': '<path d="M5 3h14v18l-3-2-4 2-4-2-3 2V3Zm3 5h8m-8 4h8m-8 4h4"/>',
+    '⏳': '<path d="M6 3h12m-12 18h12M7 3v4l10 10v4M17 3v4L7 17v4"/>',
+    '🔄': '<path d="M3 10a9 9 0 0 1 15-6l3 3m0-5v5h-5M21 14A9 9 0 0 1 6 20l-3-3m0 5v-5h5"/>',
+    '✅': '<circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>',
+    '⛔': '<circle cx="12" cy="12" r="9"/><path d="M7 12h10"/>',
+    '🎧': '<path d="M4 14v-3a8 8 0 0 1 16 0v3"/><rect x="3" y="12" width="4" height="7" rx="2"/><rect x="17" y="12" width="4" height="7" rx="2"/>'
+  };
+  const selector = '.stat-icon,.qa-ico,.card-title .ico,.layout-stat-ico,.rf-card-ico';
+  function refineIcons() {
+    root.querySelectorAll(selector).forEach(el => {
+      const path = paths[el.textContent.trim()];
+      if (!path || el.querySelector('svg')) return;
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      svg.setAttribute('class', 'content-line-icon');
+      svg.setAttribute('viewBox', '0 0 24 24');
+      svg.setAttribute('fill', 'none');
+      svg.setAttribute('stroke', 'currentColor');
+      svg.setAttribute('stroke-width', '1.65');
+      svg.setAttribute('stroke-linecap', 'round');
+      svg.setAttribute('stroke-linejoin', 'round');
+      svg.setAttribute('aria-hidden', 'true');
+      svg.innerHTML = path;
+      el.replaceChildren(svg);
+    });
+  }
+  refineIcons();
+  new MutationObserver(refineIcons).observe(root, { childList: true, subtree: true });
+})();
+</script>
 </body>
 </html>
