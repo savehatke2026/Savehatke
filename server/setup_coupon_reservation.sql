@@ -27,9 +27,18 @@ ALTER TABLE coupons ADD COLUMN IF NOT EXISTS reserved_until TIMESTAMPTZ NULL;
 ALTER TABLE coupons ADD COLUMN IF NOT EXISTS reserved_payment_id TEXT NULL;
 ALTER TABLE coupons ADD COLUMN IF NOT EXISTS reserved_by TEXT NULL;
 
--- 2) Index for the listing filter ("is there an ACTIVE reservation?") and the
---    reconcile cleanup sweep. Partial: only rows that actually carry a
---    reservation are indexed, so the common unreserved case costs nothing.
+-- 2) Indexes.
+--    a) reserved_until — the listing filter ("is there an ACTIVE reservation?")
+--       and the reconcile cleanup sweep. Partial: only rows that actually
+--       carry a reservation are indexed, so the common unreserved case costs
+--       nothing.
+--    b) reserved_payment_id — ownership-scoped release/transfer writes
+--       (`WHERE reserved_payment_id = <session>`) during cancel, supersede,
+--       underpayment, settlement and expiry paths.
 CREATE INDEX IF NOT EXISTS idx_coupons_reserved_until
   ON coupons (reserved_until)
   WHERE reserved_until IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_coupons_reserved_payment_id
+  ON coupons (reserved_payment_id)
+  WHERE reserved_payment_id IS NOT NULL;
