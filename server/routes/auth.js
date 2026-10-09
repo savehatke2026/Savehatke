@@ -164,6 +164,13 @@ function sendGoogleLoginHandoff(res, user, destination) {
   const adminRole = String(user.role || '').toLowerCase();
   const isAdmin = ['admin', 'owner', 'super admin', 'support'].includes(adminRole);
   const target = isAdmin ? '/vault' : destination;
+  // Return-to override: a page that bounced a logged-out visitor here (e.g.
+  // the Sell page) leaves a one-shot hint in localStorage. Honour it for
+  // regular users only, and only for a fixed allowlist of same-site paths —
+  // the value is client-controlled storage, so anything else falls back to
+  // the normal destination. Auth mechanics (session cookie, tokens, OAuth
+  // state) are untouched; this only chooses WHERE a successful login lands.
+  // Admins always go to /vault regardless of the flag.
   res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
   return res.status(200).send(`<!doctype html><html><head><meta charset="utf-8"><title>SaveHatke</title></head><body><script>
     try {
@@ -173,7 +180,13 @@ function sendGoogleLoginHandoff(res, user, destination) {
       localStorage.setItem('sh_user', ${safeScriptJson(JSON.stringify(user))});
       ${isAdmin ? `localStorage.setItem('sh_admin_user', ${safeScriptJson(JSON.stringify(user))});` : `localStorage.removeItem('sh_admin_user');`}
     } catch (e) {}
-    window.location.replace(${safeScriptJson(target)});
+    var back = '';
+    try {
+      back = String(localStorage.getItem('sh_login_return_to') || '');
+      localStorage.removeItem('sh_login_return_to');
+      if (!/^\\/(sell|sell\\.html|dashboard|dashboard\\.html|index|marketplace|marketplace\\.html)$/.test(back)) back = '';
+    } catch (e) { back = ''; }
+    window.location.replace(${safeScriptJson(isAdmin)} || !back ? ${safeScriptJson(target)} : back);
   </script></body></html>`);
 }
 

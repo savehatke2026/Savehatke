@@ -72,14 +72,17 @@ const MIN_EXPIRY_FLOOR_DAYS = MIN_EXPIRY_DAYS - 1;
 
 const APP_BASE_URL = (process.env.APP_BASE_URL || 'https://savehatke.vercel.app').replace(/\/$/, '');
 
-// ── Sell eligibility — open to every signed-in user ──
-// Selling is available to any authenticated user: there is no seller
-// whitelist. It used to be invite-only, gated on the maintenance_whitelist
-// site_settings key, but that gate was removed so anyone with an account can
-// list a coupon. The maintenance whitelist still exists — it now only controls
-// who may browse the site during maintenance. The gates below therefore reject
-// only a request with no authenticated user at all.
+// ── Sell eligibility — whitelist, or one completed purchase ──
+// Selling used to be invite-only (gated on the maintenance_whitelist
+// site_settings key), then it was opened to every signed-in user. The rule is
+// now buyer-first: whitelisted sellers and admins keep unconditional access,
+// and every other signed-in user unlocks selling with their first completed
+// coupon purchase. The whitelist stays the trusted source it already is
+// (admin-managed site_settings); nothing is hardcoded here.
 const SELL_GATE_MESSAGE = 'Please sign in to sell coupons.';
+// Returned to a signed-in user who is neither whitelisted nor a purchaser —
+// the backend twin of the purchase-required card the sell page shows.
+const SELL_UNLOCK_MESSAGE = 'To unlock coupon selling, purchase at least one coupon from SaveHatke first.';
 
 function normEmail(v) {
   return String(v || '').toLowerCase().trim();
@@ -90,11 +93,85 @@ function isAdminSellRole(user) {
   return role === 'admin' || role === 'super admin' || role === 'support';
 }
 
-// Any signed-in user may sell. A valid `user` here means the request already
-// passed authenticateToken, so the only thing rejected is a missing identity;
-// admins qualify too (a role implies an account).
+/**
+ * Does this user hold at least one COMPLETED purchase? Mirrors the matching
+ * in GET /my-purchases — the site's canonical purchase record — so the sell
+ * gate and the dashboard can never disagree: a PAID order owned by the user
+ * (user_id first, then email) whose linked PAID payment bought the same
+ * coupon for the same amount. Pending, cancelled and expired orders are not
+ * PAID; an underpaid payment parks the order in REVIEW; underpayment refunds
+ * live in the REFUNDS sheet without ever restoring the order to PAID — so
+ * none of those states can ever pass this check. Rows are read FRESH (no
+ * cache), so a purchase that settled seconds ago passes on the next check.
+ */
+async function hasCompletedPurchase(user) {
+  const email = normEmail(user && user.email);
+  const userId = String((user && (user.id || user.userId)) || '').trim();
+  if (!email && !userId) return false;
+  try {
+    const [orderRows, paymentRows] = await Promise.all([
+      db.getRowsFresh(db.SHEETS.ORDERS),
+      db.getRowsFresh(db.SHEETS.PAYMENTS),
+    ]);
+    const belongsToUser = (row) => {
+      const rowUserId = String(row.user_id || row.userId || '').trim();
+      if (rowUserId) return !!userId && rowUserId === userId;
+      const rowEmail = String(row.user_email || row.buyer_email || row.buyerEmail || '').trim().toLowerCase();
+      return !!email && rowEmail === email;
+    };
+    // Latest PAID payment per order (same recency rule as /my-purchases).
+    const paidByOrder = new Map();
+    for (const row of paymentRows || []) {
+      const payment = paymentStore.fromPayment(row);
+      if (!payment || String(payment.status).toUpperCase() !== 'PAID' || !payment.orderId ||
+          !payment.couponId || !belongsToUser(row)) continue;
+      const existing = paidByOrder.get(String(payment.orderId));
+      if (!existing || new Date(payment.updatedAt || payment.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
+        paidByOrder.set(String(payment.orderId), payment);
+      }
+    }
+    for (const row of orderRows || []) {
+      const order = paymentStore.fromOrder(row);
+      if (!order || String(order.status).toUpperCase() !== 'PAID' || !order.couponId || !belongsToUser(row)) continue;
+      const payment = paidByOrder.get(String(order.id));
+      if (payment && paymentStore.moneyEquals(payment.amount, order.amount)) return true;
+    }
+  } catch (e) {
+    console.warn('hasCompletedPurchase read notice:', e.message);
+  }
+  return false;
+}
+
+/**
+ * Single source of truth for selling access — consumed by the sell page
+ * (GET /sell-eligibility) and by every selling endpoint below, so the page
+ * and the API can never disagree. Breakdown fields let the page explain WHY:
+ * admins bypass, whitelisted emails bypass, everyone else needs a purchase.
+ */
+async function sellAccess(user) {
+  const out = { canSell: false, admin: false, whitelisted: false, hasPurchase: false };
+  if (!user || !(user.id || normEmail(user.email))) return out;
+  if (isAdminSellRole(user)) {
+    out.canSell = true;
+    out.admin = true;
+    return out;
+  }
+  try {
+    out.whitelisted = (await supabase.getMaintenanceWhitelist()).includes(normEmail(user.email));
+  } catch (e) {
+    console.warn('Sell whitelist read notice:', e.message);
+  }
+  if (out.whitelisted) {
+    out.canSell = true;
+    return out;
+  }
+  out.hasPurchase = await hasCompletedPurchase(user);
+  if (out.hasPurchase) out.canSell = true;
+  return out;
+}
+
 async function canSellCoupons(user) {
-  return !!(user && (user.id || normEmail(user.email)));
+  return (await sellAccess(user)).canSell;
 }
 
 // GET /api/coupons — List available coupons (public, with optional auth)
@@ -249,7 +326,7 @@ router.post('/scan', authenticateToken, scanAccountLimiter, async (req, res) => 
   try {
     const maySell = await canSellCoupons(req.user);
     if (!maySell) {
-      return res.status(403).json({ error: SELL_GATE_MESSAGE });
+      return res.status(403).json({ error: req.user ? SELL_UNLOCK_MESSAGE : SELL_GATE_MESSAGE });
     }
 
     const { contentType, dataBase64 } = req.body || {};
@@ -330,7 +407,7 @@ router.post('/proof', authenticateToken, sellerAccountLimiter, async (req, res) 
   try {
     const maySell = await canSellCoupons(req.user);
     if (!maySell) {
-      return res.status(403).json({ error: SELL_GATE_MESSAGE });
+      return res.status(403).json({ error: req.user ? SELL_UNLOCK_MESSAGE : SELL_GATE_MESSAGE });
     }
 
     const { filename, contentType, dataBase64 } = req.body;
@@ -447,12 +524,13 @@ const handleCouponSubmission = async (req, res) => {
   try {
     // ── Sell gate (server-side, authoritative) ──
     // Checked before any validation or storage work: selling needs a signed-in
-    // user (there is no whitelist), and every client — /api/coupons/sell,
-    // /api/coupons/submit and the legacy public/js/sell.js — funnels through
-    // this shared handler, so the check can never be bypassed.
+    // user who is whitelisted, an admin, or holds a completed purchase — and
+    // every client — /api/coupons/sell, /api/coupons/submit and the legacy
+    // public/js/sell.js — funnels through this shared handler, so the check can
+    // never be bypassed by calling the API directly.
     const maySell = await canSellCoupons(req.user);
     if (!maySell) {
-      return res.status(403).json({ error: SELL_GATE_MESSAGE });
+      return res.status(403).json({ error: req.user ? SELL_UNLOCK_MESSAGE : SELL_GATE_MESSAGE });
     }
 
     const {
@@ -994,18 +1072,20 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/coupons/sell-eligibility — Can this user sell coupons yet?
+// GET /api/coupons/sell-eligibility — Can this user sell coupons yet, and why?
 //
-// Called on /sell page load. Uses the exact same canSellCoupons() as the
-// submission gate above, so the page and the API can never disagree.
+// Called on /sell page load. Uses the exact same sellAccess() as the
+// submission gates above, so the page and the API can never disagree.
 //
-// Always answers 200 with a boolean — never 403 — because the frontend api()
+// Always answers 200 with a JSON body — never 403 — because the frontend api()
 // helper in public/js/app.js treats 401/403 as an auth problem and enters a
-// token-refresh retry loop.
+// token-refresh retry loop. `whitelisted` / `hasPurchase` let the page pick
+// the right locked screen (a whitelisted user who got `canSell:false` would be
+// a server fault; everyone else sees the purchase-required card).
 router.get('/sell-eligibility', authenticateToken, async (req, res) => {
   try {
-    const canSell = await canSellCoupons(req.user);
-    res.json({ canSell });
+    const access = await sellAccess(req.user);
+    res.json({ canSell: access.canSell, whitelisted: access.whitelisted, hasPurchase: access.hasPurchase });
   } catch (err) {
     console.error('Sell eligibility error:', err);
     res.status(500).json({ error: 'Internal server error.' });
