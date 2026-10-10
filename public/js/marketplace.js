@@ -236,9 +236,9 @@ function renderCouponGrid(gridId, coupons) {
       let timerHtml = '';
       if (expiresAt !== null) {
         claimTimers.set(id, expiresAt);
-        const h = Math.max(0, Math.floor((expiresAt - Date.now()) / 3600000));
-        const band = h < 48 ? 'urgent' : h < 168 ? 'warning' : '';
-        timerHtml = `<span class="match-timer ${band}">${CLAIM_TIMER_SVG}<span data-timer="${escapeCoupon(id)}">${Math.floor(h / 24)}d ${h % 24}h left</span></span>`;
+        const hLeft = Math.max(0, (expiresAt - Date.now()) / 3600000);
+        const band = hLeft < 48 ? 'urgent' : hLeft < 168 ? 'warning' : '';
+        timerHtml = `<span class="match-timer ${band}">${CLAIM_TIMER_SVG}<span data-timer="${escapeCoupon(id)}">${formatClaimCountdown(expiresAt - Date.now())}</span></span>`;
       }
 
       const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeCoupon(c.originalValue)}</del>` : '';
@@ -332,7 +332,21 @@ const CLAIM_TIMER_SVG = '<svg viewBox="0 0 32 32" fill="none" stroke="currentCol
 
 let expiryTimerId = null;
 
-/** Refresh every visible claim-card timer once a minute (single interval). */
+/** Live countdown text ("2d 6h 13m 05s left"); the tag itself never changes. */
+function formatClaimCountdown(msLeft) {
+  if (msLeft <= 0) return 'Expired';
+  const totalSec = Math.floor(msLeft / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n) => String(n).padStart(2, '0');
+  return d > 0
+    ? `${d}d ${pad(h)}h ${pad(m)}m ${pad(s)}s left`
+    : `${pad(h)}h ${pad(m)}m ${pad(s)}s left`;
+}
+
+/** Tick every visible claim-card countdown once a second (single interval). */
 function startExpiryTicker() {
   if (expiryTimerId !== null) return;
   const tick = () => {
@@ -340,18 +354,12 @@ function startExpiryTicker() {
     document.querySelectorAll('.match-timer [data-timer]').forEach((el) => {
       const at = claimTimers.get(el.dataset.timer);
       if (!at) return;
-      const h = Math.max(0, Math.floor((at - now) / 3600000));
-      const text = `${Math.floor(h / 24)}d ${h % 24}h left`;
+      const text = formatClaimCountdown(at - now);
       if (el.textContent !== text) el.textContent = text;
-      const wrap = el.closest('.match-timer');
-      if (wrap) {
-        const cls = `match-timer ${h < 48 ? 'urgent' : h < 168 ? 'warning' : ''}`.trim();
-        if (wrap.className !== cls) wrap.className = cls;
-      }
     });
   };
   tick();
-  expiryTimerId = setInterval(tick, 60000);
+  expiryTimerId = setInterval(tick, 1000);
 }
 
 function renderPagination(totalPages) {
