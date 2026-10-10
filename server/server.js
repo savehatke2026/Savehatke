@@ -145,14 +145,15 @@ app.use((req, res, next) => {
     "frame-ancestors 'self'",
     "form-action 'self'",
     // Google Identity Services, Cloudflare Turnstile, the QR image data URLs on
-    // checkout, the font stylesheet the pages link, and the Tesseract.js CDN
-    // (sell page's client-side coupon OCR: script + its wasm/model fetches;
-    // its worker already runs from blob:, which worker-src allows).
+    // checkout, the font stylesheet the pages link, and Paddle's official model
+    // host (sell page's client-side coupon OCR: the SDK bundle + ORT wasm are
+    // vendored same-origin; only the PP-OCRv5 model tars are fetched from
+    // paddle-model-ecology.bj.bcebos.com on the first scan).
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net",
+    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net https://paddle-model-ecology.bj.bcebos.com",
     "frame-src https://accounts.google.com https://challenges.cloudflare.com",
     "worker-src 'self' blob:",
   ].join('; '));

@@ -235,131 +235,100 @@ function unitTests() {
   }
 }
 
-/* ═══════════════════════════════ E2E (real Tesseract) ═════════════════════ */
+/* ═══════════════════════════════ Paddle engine layer ═════════════════════ */
 
-const FONT = {
-  A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
-  B: ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
-  C: ['01110', '10001', '10000', '10000', '10000', '10001', '01110'],
-  D: ['11100', '10010', '10001', '10001', '10001', '10010', '11100'],
-  E: ['11111', '10000', '10000', '11110', '10000', '10000', '11111'],
-  F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
-  G: ['01110', '10001', '10000', '10111', '10001', '10001', '01111'],
-  H: ['10001', '10001', '10001', '11111', '10001', '10001', '10001'],
-  I: ['01110', '00100', '00100', '00100', '00100', '00100', '01110'],
-  K: ['10001', '10010', '10100', '11000', '10100', '10010', '10001'],
-  L: ['10000', '10000', '10000', '10000', '10000', '10000', '11111'],
-  M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
-  N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
-  O: ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
-  P: ['11110', '10001', '10001', '11110', '10000', '10000', '10000'],
-  R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
-  S: ['01111', '10000', '10000', '01110', '00001', '00001', '11110'],
-  T: ['11111', '00100', '00100', '00100', '00100', '00100', '00100'],
-  U: ['10001', '10001', '10001', '10001', '10001', '10001', '01110'],
-  V: ['10001', '10001', '10001', '10001', '10001', '01010', '00100'],
-  W: ['10001', '10001', '10001', '10101', '10101', '11011', '10001'],
-  Y: ['10001', '01010', '00100', '00100', '00100', '00100', '00100'],
-  '0': ['01110', '10001', '10001', '10001', '10001', '10001', '01110'],
-  '1': ['00100', '01100', '00100', '00100', '00100', '00100', '01110'],
-  '2': ['01110', '10001', '00001', '00110', '01000', '10000', '11111'],
-  '3': ['11110', '00001', '00001', '01110', '00001', '00001', '11110'],
-  '4': ['00010', '00110', '01010', '10010', '11111', '00010', '00010'],
-  '5': ['11111', '10000', '11110', '00001', '00001', '10001', '01110'],
-  '6': ['00110', '01000', '10000', '11110', '10001', '10001', '01110'],
-  '7': ['11111', '00001', '00010', '00100', '01000', '01000', '01000'],
-  '8': ['01110', '10001', '10001', '01110', '10001', '10001', '01110'],
-  '9': ['01110', '10001', '10001', '01111', '00001', '00010', '01100'],
-  '%': ['11001', '11010', '00010', '00100', '01000', '01011', '10011'],
-  ':': ['00000', '00100', '00100', '00000', '00100', '00100', '00000'],
-  '.': ['00000', '00000', '00000', '00000', '00000', '00100', '00100'],
-};
+/**
+ * The REAL-OCR end-to-end run moved to a real browser (embedded Chromium
+ * against a locally served build): PaddleOCR.js is browser-only (it needs
+ * DOM canvas inputs), so Node can exercise everything except inference.
+ * Covered here instead:
+ *   1. normalizePaddleItems — the SDK's OcrResult.items → parser line shape.
+ *   2. extract() contract in a hostile env — the bundle genuinely fails to
+ *      load from the browser-only path, which must surface as
+ *      code 'engine_load_failed', a concurrent second call must get 'busy'
+ *      (single-flight), and dispose() must be safe to call at any time.
+ */
 
-function levenshtein(a, b) {
-  const m = a.length;
-  const n = b.length;
-  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
-    }
+function paddleNormalizeTests() {
+  console.log('\n── Paddle: normalizePaddleItems ──');
+
+  // A realistic OcrResult.items payload (SDK: poly is [[x,y]×4], score 0–1).
+  {
+    const lines = ocr.normalizePaddleItems([
+      { text: 'FLAT 50% OFF', score: 0.97, poly: [[20, 10], [300, 10], [300, 44], [20, 44]] },
+      { text: 'USE CODE: SAVE50ABC', score: 0.95, poly: [[20, 60], [380, 60], [380, 94], [20, 94]] },
+      { text: '   ', score: 0.9, poly: [[0, 0], [10, 0], [10, 10], [0, 10]] },   // blank → dropped
+      { text: '', score: 0.8, poly: [[0, 0], [10, 0], [10, 10], [0, 10]] },      // empty → dropped
+    ]);
+    check('paddle: line count (blanks dropped)', lines.length === 2, JSON.stringify(lines.map((l) => l.text)));
+    check('paddle: text kept verbatim', lines[1].text === 'USE CODE: SAVE50ABC', lines[1].text);
+    check('paddle: score ×100 onto confidence', lines[0].confidence === 97 && lines[1].confidence === 95, JSON.stringify([lines[0].confidence, lines[1].confidence]));
+    check('paddle: bbox from poly extent', lines[0].bbox && lines[0].bbox.x0 === 20 && lines[0].bbox.x1 === 300 && lines[0].bbox.y0 === 10 && lines[0].bbox.y1 === 44, JSON.stringify(lines[0].bbox));
+    check('paddle: words empty (parser pseudo-word fallback)', lines[0].words.length === 0, JSON.stringify(lines[0].words));
   }
-  return dp[m][n];
+
+  // Point objects and out-of-range scores are tolerated; junk input is safe.
+  {
+    const lines = ocr.normalizePaddleItems([
+      { text: 'CODE ABC123', score: 1.7, poly: [{ x: 5, y: 6 }, { x: 200, y: 6 }, { x: 200, y: 40 }, { x: 5, y: 40 }] },
+      { text: 'NO POLY', score: 0.8 },
+      null,
+      'garbage',
+      42,
+    ]);
+    check('paddle: score clamped to 100', lines[0].confidence === 100, JSON.stringify(lines[0].confidence));
+    check('paddle: {x,y} poly accepted', lines[0].bbox && lines[0].bbox.x1 === 200 && lines[0].bbox.y1 === 40, JSON.stringify(lines[0].bbox));
+    check('paddle: missing poly → null bbox, line kept', lines[1].bbox === null && lines[1].text === 'NO POLY', JSON.stringify(lines[1]));
+    check('paddle: junk entries skipped', lines.length === 2, JSON.stringify(lines.length));
+    check('paddle: non-array → []', ocr.normalizePaddleItems(undefined).length === 0 && ocr.normalizePaddleItems(null).length === 0);
+  }
+
+  // Round-trip: normalized Paddle lines feed parseCouponData and fill the code.
+  {
+    const lines = ocr.normalizePaddleItems([
+      { text: 'USE CODE: WELCOME20', score: 0.93, poly: [[20, 0], [400, 0], [400, 34], [20, 34]] },
+    ]);
+    const r = ocr.parseCouponData(lines);
+    check('paddle: normalized lines parse to code', r.fields.coupon_code && r.fields.coupon_code.value === 'WELCOME20', JSON.stringify(r.fields.coupon_code));
+    // A crisply-read labeled code (0.93) scores ≥0.85 → fills without the
+    // verify badge; a mediocre read (0.55) must land in the verify band.
+    check('paddle: clean read fills without verify', r.fields.coupon_code && r.fields.coupon_code.verify === false, JSON.stringify(r.fields.coupon_code));
+    const r2 = ocr.parseCouponData(ocr.normalizePaddleItems([
+      { text: 'USE CODE: WELCOME20', score: 0.55, poly: [[20, 0], [400, 0], [400, 34], [20, 34]] },
+    ]));
+    check('paddle: weak read lands in verify band', r2.fields.coupon_code && r2.fields.coupon_code.verify === true, JSON.stringify(r2.fields.coupon_code));
+  }
 }
 
-async function e2eTest() {
-  console.log('\n── E2E: real Tesseract.js on a rendered coupon ──');
-  const { PNG } = require('pngjs');
-  const Tesseract = require('tesseract.js');
+async function engineContractTests() {
+  console.log('\n── Engine: extract() contract in Node (no browser) ──');
 
-  const W = 1100;
-  const H = 560;
-  const SCALE = 8;
-  const png = new PNG({ width: W, height: H });
+  // The engine bundle lives at a browser-only same-origin URL. In Node the
+  // dynamic import genuinely fails → the failure must surface as
+  // 'engine_load_failed' (never a raw module-not-found leak), and a second
+  // call fired while the first is in flight must be rejected with 'busy'.
+  const p1 = ocr.extract({ width: 800, height: 600 }, {});
+  const p2 = ocr.extract({ width: 800, height: 600 }, {}).catch((e) => e.code);
+  const [r1, r2] = await Promise.all([
+    p1.then(() => 'resolved').catch((e) => e.code),
+    p2,
+  ]);
+  check('engine: bundle load failure → engine_load_failed', r1 === 'engine_load_failed', 'got ' + JSON.stringify(r1));
+  check('engine: concurrent call rejected as busy', r2 === 'busy', 'got ' + JSON.stringify(r2));
 
-  function drawText(text, ox, oy) {
-    let cx = ox;
-    for (const ch of text.toUpperCase()) {
-      if (ch === ' ') { cx += 5 * SCALE; continue; }
-      const glyph = FONT[ch];
-      if (!glyph) { cx += 7 * SCALE; continue; }
-      for (let ry = 0; ry < 7; ry++) {
-        for (let rx = 0; rx < 5; rx++) {
-          if (glyph[ry][rx] === '1') {
-            for (let sy = 0; sy < SCALE; sy++) {
-              for (let sx = 0; sx < SCALE; sx++) {
-                const px = cx + rx * SCALE + sx;
-                const py = oy + ry * SCALE + sy;
-                if (px < W && py < H) {
-                  const idx = (py * W + px) * 4;
-                  png.data[idx] = 10; png.data[idx + 1] = 10; png.data[idx + 2] = 10; png.data[idx + 3] = 255;
-                }
-              }
-            }
-          }
-        }
-      }
-      cx += 7 * SCALE;   // 5 glyph columns + 2 blank
-    }
-  }
+  // After a failure the single-flight state must be cleared: a third call
+  // gets a fresh attempt (same code — the bundle is still missing in Node —
+  // but 'busy' would mean the failure poisoned the engine slot).
+  const r3 = await ocr.extract({ width: 800, height: 600 }, {}).then(() => 'resolved').catch((e) => e.code);
+  check('engine: failure did not poison the next scan', r3 === 'engine_load_failed', 'got ' + JSON.stringify(r3));
 
-  drawText('FLAT 50% OFF', 50, 60);
-  drawText('USE CODE: SAVE50ABC', 50, 220);
-  drawText('VALID UNTIL 31 DEC 2026', 50, 380);
-
-  const pngBuffer = PNG.sync.write(png);
-
-  let worker;
+  // dispose() is always safe — with no engine and after a failed init.
   try {
-    worker = await Tesseract.createWorker('eng');
+    ocr.dispose();
+    ocr.dispose();
+    check('engine: dispose idempotent, never throws', true);
   } catch (e) {
-    console.log('  SKIP e2e (Tesseract language model unavailable: ' + e.message.slice(0, 80) + ')');
-    return;
-  }
-
-  try {
-    const res = await worker.recognize(pngBuffer, {}, { text: true, blocks: true });
-    const lines = ocr.normalizeTesseractData(res.data);
-    const r = ocr.parseCouponData(lines);
-
-    console.log('  OCR text: ' + JSON.stringify(lines.map((l) => l.text)));
-
-    // A crude bitmap font is hard for LSTM, so require a close match rather
-    // than a byte-perfect one: same code modulo the classic O/0 I/1 S/5 B/8
-    // confusions (normalized), allowing ≤3 character edits.
-    const norm = (s) => String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '')
-      .replace(/O/g, '0').replace(/[IL]/g, '1').replace(/S/g, '5').replace(/B/g, '8');
-    const got = r.fields.coupon_code ? r.fields.coupon_code.value : (r.candidate ? r.candidate.value : '');
-    const target = norm('SAVE50ABC');
-    const gotN = norm(got);
-    const dist = gotN ? levenshtein(gotN, target) : 99;
-    const close = gotN && (gotN.endsWith(target.slice(-5)) || dist <= 3);
-    check('e2e: code SAVE50ABC surfaced (close match)', close, 'got ' + JSON.stringify(got) + ' dist=' + dist);
-    check('e2e: result is in the auto-fill shape', r.fields && typeof r.fields === 'object' && (!got || /^[\w./+-]+$/.test(got)), JSON.stringify(Object.keys(r.fields)));
-    check('e2e: a code candidate was found at all', !!got, 'no code surfaced');
-  } finally {
-    await worker.terminate();
+    check('engine: dispose idempotent, never throws', false, e.message);
   }
 }
 
@@ -367,7 +336,8 @@ async function e2eTest() {
 
 (async () => {
   unitTests();
-  await e2eTest();
+  paddleNormalizeTests();
+  await engineContractTests();
 
   console.log('\n════════════════════════════════════════════');
   console.log((failed === 0 ? 'ALL PASSED' : 'FAILURES') + ':  passed=' + passed + '  failed=' + failed);

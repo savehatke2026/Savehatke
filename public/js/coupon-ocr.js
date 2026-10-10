@@ -1,25 +1,40 @@
 /* ══════════════════════════════════════════════════════════════════════════
    SaveHatke — Coupon screenshot OCR (client-side, ₹0 cost)
    ══════════════════════════════════════════════════════════════════════════
-   Replaces the OpenRouter vision round-trip for the sell form's screenshot
-   scanner. The image never leaves the browser: Tesseract.js reads it here,
+   The image never leaves the browser: PaddleOCR.js (the official
+   @paddleocr/paddleocr-js SDK, PP-OCRv5 English models) reads it here,
    a pure parser finds the coupon details, and the result is fed into the
    EXISTING auto-fill machinery in sell.html (applyAiFields / markAiField),
    which is unchanged.
 
    Flow (matches the spec):
-     upload → preprocess → Tesseract OCR → text+word boxes
+     upload → preprocess → PaddleOCR.js (det + rec) → text lines
            → coupon-code detection → confidence score → existing auto-fill
 
+   Engine hosting (all legitimate, self-hosted where practical):
+   • The SDK bundle is vendored at /vendor/paddleocr/paddleocr.bundle.mjs
+     (built once from the npm package — see package.json build:vendor-ocr).
+   • The ONNX Runtime wasm binary is vendored from the same installed
+     onnxruntime-web version at /vendor/paddleocr/ort-wasm-simd-threaded.wasm
+     (wasmPaths is pinned to it so the runtime always matches the bundle).
+   • The PP-OCRv5 English det/rec model tars (~21 MB) are downloaded by the
+     SDK on the FIRST scan from Paddle's official model host
+     (paddle-model-ecology.bj.bcebos.com) and cached by the browser.
+
    Guarantees:
-   • No paid API, no API key, no network call except fetching the Tesseract
-     library + English model from the jsDelivr CDN on the FIRST scan.
-   • Tesseract is loaded lazily (never on page load) and its worker is
-     created once and reused for every scan; it is terminated on pagehide.
+   • No paid API, no API key, no inference server. Images are processed
+     locally; nothing about the screenshot is uploaded, logged or stored.
+   • The engine is loaded lazily (dynamic import — nothing runs at page
+     load) and the initialized engine is created once and reused for every
+     scan; dispose() frees it on pagehide.
    • One OCR job at a time — a second concurrent call is rejected.
    • Every extracted value is sanitized plain text and reaches the form only
      through input.value assignments made by the existing auto-fill code.
      The final coupon validation is still the server's, exactly as before.
+   • The SDK's Web-Worker mode needs a module-worker bundler, which this
+     static site does not have, so inference runs on the main thread (the
+     SDK's documented no-bundler path). Mobile devices may see brief jank
+     while det/rec run.
 
    Exposes (browser):  window.CouponOCR = { extract, dispose }
    Exposes (Node):     module.exports  = { parseCouponData, ocrTargetSize }
@@ -30,7 +45,12 @@
 (function () {
   'use strict';
 
-  var TESSERACT_CDN = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  /* Vendored SDK + ORT wasm (see header). Served same-origin. */
+  var ENGINE_SRC = '/vendor/paddleocr/paddleocr.bundle.mjs';
+  var ORT_WASM_DIR = '/vendor/paddleocr/';
+  /* PP-OCRv5 mobile models — English/Latin text (Indian coupon screenshots). */
+  var ENGINE_LANG = 'en';
+  var ENGINE_OCR_VERSION = 'PP-OCRv5';
 
   /* ── Confidence bands (mirrors the old server semantics) ──
      The old vision service filled a field at ≥0.35 and flagged "please
@@ -196,110 +216,112 @@
     return prepareCanvas(canvas, srcH, srcW);
   }
 
-  /* ── Tesseract loading + worker reuse ─────────────────────────────────── */
+  /* ── PaddleOCR.js loading + engine reuse ──────────────────────────────── */
 
-  var scriptPromise = null;
-  function loadTesseract() {
-    if (typeof Tesseract !== 'undefined') return Promise.resolve();
-    if (!scriptPromise) {
-      scriptPromise = new Promise(function (resolve, reject) {
-        var s = document.createElement('script');
-        s.src = TESSERACT_CDN;
-        s.async = true;
-        s.onload = function () {
-          if (window.Tesseract) resolve();
-          else { scriptPromise = null; reject(new Error('tesseract_missing')); }
-        };
-        s.onerror = function () { scriptPromise = null; reject(new Error('tesseract_cdn_failed')); };
-        document.head.appendChild(s);
-      });
-    }
-    return scriptPromise;
+  /* The dynamic import() promise — single-flight, so the 11 MB SDK bundle is
+     fetched and evaluated exactly once no matter how many scans run. */
+  var modulePromise = null;
+  function loadEngineModule() {
+    if (modulePromise) return modulePromise;
+    modulePromise = import(ENGINE_SRC).catch(function (e) {
+      modulePromise = null;   // a failed load must not poison the next scan
+      var err = new Error('Could not load the OCR engine bundle.');
+      err.code = 'engine_load_failed';
+      err.cause = e;
+      throw err;
+    });
+    return modulePromise;
   }
 
-  var workerPromise = null;
-  var STATUS_NOTES = {
-    'loading tesseract core': 'Loading the OCR engine (first scan only)…',
-    'initializing tesseract': 'Starting the OCR engine…',
-    'loading language traineddata': 'Loading the English model (first scan only)…',
-    'initializing api': 'Starting the reader…',
-    'initializing language': 'Starting the reader…',
-  };
-
-  function getWorker(onProgress) {
-    if (!workerPromise) {
-      workerPromise = Tesseract.createWorker('eng', 1, {
-        logger: function (m) {
-          if (!m || !m.status) return;
-          if (m.status === 'recognizing text') {
-            onProgress(0.25 + clamp01(m.progress || 0) * 0.65, 'Reading the coupon text…');
-          } else {
-            var note = STATUS_NOTES[m.status];
-            if (note) onProgress(0.05 + clamp01(m.progress || 0) * 0.15, note);
+  /* The initialized pipeline — created once, reused for every scan.
+     backend "wasm" (not "auto"): deterministic across devices, needs no
+     WebGPU and no cross-origin isolation, and always loads the vendored
+     ort-wasm-simd-threaded.wasm instead of the heavier jsep build. */
+  var enginePromise = null;
+  function getEngine(onProgress) {
+    if (!enginePromise) {
+      enginePromise = loadEngineModule()
+        .then(function (mod) {
+          onProgress(0.06, 'Downloading the OCR models (first scan only)…');
+          if (!mod || !mod.PaddleOCR || typeof mod.PaddleOCR.create !== 'function') {
+            throw new Error('OCR engine bundle did not export PaddleOCR.create.');
           }
-        },
-      }).catch(function (e) {
-        workerPromise = null;   // a failed init must not poison the next scan
-        throw e;
-      });
+          return mod.PaddleOCR.create({
+            lang: ENGINE_LANG,
+            ocrVersion: ENGINE_OCR_VERSION,
+            ortOptions: {
+              backend: 'wasm',
+              wasmPaths: ORT_WASM_DIR,
+              numThreads: 1,
+              simd: true,
+            },
+          });
+        })
+        .then(function (engine) {
+          onProgress(0.4, 'Reading the coupon text…');
+          return engine;
+        })
+        .catch(function (e) {
+          enginePromise = null; // a failed init must not poison the next scan
+          if (e && e.code) throw e;
+          var err = new Error('Could not initialise the OCR engine.');
+          err.code = 'engine_init_failed';
+          err.cause = e;
+          throw err;
+        });
     }
-    return workerPromise;
+    return enginePromise;
   }
 
-  /** Terminate the cached worker (pagehide / explicit cleanup). */
+  /** Free the cached pipeline (pagehide / explicit cleanup). */
   function dispose() {
-    if (workerPromise) {
-      var p = workerPromise;
-      workerPromise = null;
-      p.then(function (w) { try { w.terminate(); } catch (e) { /* already gone */ } })
-        .catch(function () { /* never initialized */ });
+    if (enginePromise) {
+      var p = enginePromise;
+      enginePromise = null;
+      p.then(function (engine) {
+        if (engine && typeof engine.dispose === 'function') {
+          try { engine.dispose(); } catch (e) { /* already gone */ }
+        }
+      }).catch(function () { /* never initialized */ });
     }
   }
 
-  /* ── Tesseract result → plain line/word list ──────────────────────────── */
+  /* ── PaddleOCR result → plain line list ───────────────────────────────── */
 
   /**
-   * Accepts a tesseract.js v5 result (data.blocks tree) or a v4-style result
-   * (data.lines) and returns [{ text, confidence, bbox, words }] with words
-   * = [{ text, confidence, bbox }]. Pure — used by the unit tests too.
+   * Accepts the SDK's OcrResult.items (one entry per detected text line:
+   * { text, score, poly: [[x,y]×4] }) and returns the [{ text, confidence,
+   * bbox, words }] shape the pure parser consumes — confidence on the same
+   * 0–100 scale Tesseract used, bbox derived from the quad's extent, and
+   * `words` left empty so the parser's pseudo-word fallback lays the line's
+   * tokens out left→right. Pure — used by the unit tests too.
    */
-  function normalizeTesseractData(data) {
+  function normalizePaddleItems(items) {
     var lines = [];
-    if (!data) return lines;
-
-    if (Array.isArray(data.lines) && data.lines.length) {
-      data.lines.forEach(function (l) {
-        lines.push({
-          text: String(l.text || ''),
-          confidence: Number(l.confidence) || 0,
-          bbox: l.bbox || null,
-          words: Array.isArray(l.words)
-            ? l.words.map(function (w) {
-              return { text: String(w.text || ''), confidence: Number(w.confidence) || 0, bbox: w.bbox || null };
-            })
-            : [],
+    if (!Array.isArray(items)) return lines;
+    items.forEach(function (it) {
+      if (!it) return;
+      var text = String(it.text || '').trim();
+      if (!text) return;
+      var bbox = null;
+      if (Array.isArray(it.poly) && it.poly.length) {
+        var xs = [];
+        var ys = [];
+        it.poly.forEach(function (pt) {
+          if (Array.isArray(pt) && pt.length >= 2) { xs.push(Number(pt[0]) || 0); ys.push(Number(pt[1]) || 0); }
+          else if (pt && typeof pt === 'object') { xs.push(Number(pt.x) || 0); ys.push(Number(pt.y) || 0); }
         });
-      });
-      return lines.filter(function (l) { return l.text.trim().length > 0; });
-    }
-
-    (data.blocks || []).forEach(function (b) {
-      (b && b.paragraphs || []).forEach(function (p) {
-        (p && p.lines || []).forEach(function (l) {
-          lines.push({
-            text: String(l.text || ''),
-            confidence: Number(l.confidence) || 0,
-            bbox: l.bbox || null,
-            words: Array.isArray(l.words)
-              ? l.words.map(function (w) {
-                return { text: String(w.text || ''), confidence: Number(w.confidence) || 0, bbox: w.bbox || null };
-              })
-              : [],
-          });
-        });
-      });
+        if (xs.length && ys.length) {
+          bbox = {
+            x0: Math.min.apply(null, xs), x1: Math.max.apply(null, xs),
+            y0: Math.min.apply(null, ys), y1: Math.max.apply(null, ys),
+          };
+        }
+      }
+      var conf = Math.max(0, Math.min(1, Number(it.score) || 0)) * 100;
+      lines.push({ text: text, confidence: conf, bbox: bbox, words: [] });
     });
-    return lines.filter(function (l) { return l.text.trim().length > 0; });
+    return lines;
   }
 
   /* ── Coupon-code detection (pure) ─────────────────────────────────────── */
@@ -766,7 +788,8 @@
    * @param {{onProgress?:function(number,string)}} opts
    * @returns {Promise<{fields:object, candidate:object|null, quality:object}>}
    *          Resolves with possibly-empty `fields`. Throws Error with
-   *          .code = 'busy' | 'tesseract_cdn_failed' | 'ocr_unreadable'.
+   *          .code = 'busy' | 'engine_load_failed' | 'engine_init_failed'
+   *          | 'ocr_unreadable'.
    */
   async function extract(img, opts) {
     opts = opts || {};
@@ -778,25 +801,25 @@
     }
     busy = true;
     try {
-      await loadTesseract();
-      var worker = await getWorker(onProgress);
+      onProgress(0.02, 'Loading the OCR engine (first scan only)…');
+      var engine = await getEngine(onProgress);
 
-      onProgress(0.15, 'Preparing the image for reading…');
+      onProgress(0.42, 'Preparing the image for reading…');
       var srcW = img.naturalWidth || img.width;
       var srcH = img.naturalHeight || img.height;
       var canvas = prepareCanvas(img, srcW, srcH);
 
-      onProgress(0.25, 'Reading the coupon text…');
-      var res = await worker.recognize(canvas, {}, { text: true, blocks: true });
-      var parsed = parseCouponData(normalizeTesseractData(res.data));
+      onProgress(0.5, 'Reading the coupon text…');
+      var results = await engine.predict(canvas);
+      var parsed = parseCouponData(normalizePaddleItems(results && results[0] && results[0].items));
 
       // Second chance: nothing readable at all → try the 90°-rotated image
       // once before giving up (phone photos are often sideways).
       if (!Object.keys(parsed.fields).length && !parsed.candidate) {
-        onProgress(0.6, 'Trying another orientation…');
+        onProgress(0.75, 'Trying another orientation…');
         var rot = rotatedCanvas(img, srcW, srcH);
-        var res2 = await worker.recognize(rot, {}, { text: true, blocks: true });
-        var parsed2 = parseCouponData(normalizeTesseractData(res2.data));
+        var results2 = await engine.predict(rot);
+        var parsed2 = parseCouponData(normalizePaddleItems(results2 && results2[0] && results2[0].items));
         if (Object.keys(parsed2.fields).length || parsed2.candidate) parsed = parsed2;
       }
 
@@ -817,7 +840,7 @@
     }
   }
 
-  var api = { extract: extract, dispose: dispose, parseCouponData: parseCouponData, ocrTargetSize: ocrTargetSize, normalizeTesseractData: normalizeTesseractData };
+  var api = { extract: extract, dispose: dispose, parseCouponData: parseCouponData, ocrTargetSize: ocrTargetSize, normalizePaddleItems: normalizePaddleItems };
 
   if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', dispose);

@@ -941,9 +941,12 @@
      resolve logos from the SaveHatke Assets Drive — Google Drive is the
      single source of truth here, exactly like the marketplace cards. -->
 <script src="js/coupon-meta.js"></script>
-<!-- Client-side coupon screenshot OCR (Tesseract.js, loaded lazily from CDN
-     on the first scan — nothing runs at page load). Exposes window.CouponOCR;
-     the scan card feeds its result into the same auto-fill flow as before. -->
+<!-- Client-side coupon screenshot OCR (PaddleOCR.js — the official
+     @paddleocr/paddleocr-js SDK, vendored same-origin and loaded lazily via
+     dynamic import on the first scan — nothing runs at page load; the PP-OCRv5
+     English models are downloaded by the SDK on that first scan).
+     Exposes window.CouponOCR; the scan card feeds its result into the same
+     auto-fill flow as before. -->
 <script src="js/coupon-ocr.js"></script>
 <script>
 /* ══════════════════════════════════════
@@ -1830,7 +1833,7 @@ function fileToBase64(file) {
    AI SCREENSHOT SCANNER
    ──────────────────────────────────────────────────────────────────────────
    Optional path into the same form: the seller uploads a coupon screenshot,
-   Tesseract.js OCR reads it LOCALLY in the browser (public/js/coupon-ocr.js —
+   PaddleOCR.js reads it LOCALLY in the browser (public/js/coupon-ocr.js —
    no paid AI API, no server round-trip for the reading itself), and the fields
    it could actually see are written into Coupon 1 for review.
 
@@ -2158,7 +2161,7 @@ async function runAiScan(file, opts = {}) {
     return;
   }
 
-  // ── 3. Read the coupon locally (Tesseract.js OCR — no API, no server call) ──
+  // ── 3. Read the coupon locally (PaddleOCR.js — no API, no server call) ──
   setAiWorking('🔍 Analyzing Coupon...', 'Reading coupon details...');
 
   let result;
@@ -2173,7 +2176,7 @@ async function runAiScan(file, opts = {}) {
     if (err && err.code === 'busy') {
       showAiError('busy', '⏳ AI reader is busy',
         'The previous scan is still running. Please wait a moment, then try again.');
-    } else if (err && (err.code === 'ocr_unreadable' || err.code === 'tesseract_cdn_failed' || err.code === 'tesseract_missing')) {
+    } else if (err && (err.code === 'ocr_unreadable' || err.code === 'engine_load_failed' || err.code === 'engine_init_failed')) {
       showAiError('quality', '⚠️ Image is difficult to read',
         'The image is difficult to read. Try uploading a clearer photo.');
     } else {
