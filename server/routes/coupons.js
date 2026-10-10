@@ -233,45 +233,17 @@ router.get('/', optionalAuth, async (req, res) => {
     // payment window is open out of this buyer-facing listing for the full
     // 20-minute reservation period. Both sources are read concurrently; the
     // merge below still applies Supabase first, then Sheets, in the same order.
-    const supaPromise = supabase.isConfigured()
-      ? Promise.resolve()
-        .then(() => supabase.getCoupons({ status: 'available', excludeReserved: true }))
-        .catch((e) => {
-          console.warn('Supabase coupons read notice:', e.message);
-          return null;
-        })
-      : Promise.resolve(null);
-
-    // Also include Google Sheets coupons (merging without duplicates)
-    const sheetsPromise = Promise.resolve()
-      .then(() => db.getRows(db.SHEETS.COUPONS))
-      .catch((e) => {
-        console.warn('G Sheet coupons read notice:', e.message);
-        return null;
-      });
-
-    // Both reads run concurrently; the merge waits for both so Supabase rows
-    // always come first and Sheets rows are only appended after them.
-    const [supaCoupons, gsheetCoupons] = await Promise.all([supaPromise, sheetsPromise]);
-    if (Array.isArray(supaCoupons)) {
-      available = supaCoupons;
-    }
-    if (Array.isArray(gsheetCoupons)) {
-      // Set lookups keep the merge linear. A Sheets row is a duplicate when its
-      // id matches a row already present, or when both codes are set and equal
-      // — the same rule the previous per-row scan applied.
-      const seenIds = new Set();
-      const seenCodes = new Set();
-      available.forEach((sc) => {
-        seenIds.add(sc.id);
-        if (sc.code) seenCodes.add(sc.code);
-      });
-      gsheetCoupons.filter((c) => c.status === 'available').forEach((gc) => {
-        if (seenIds.has(gc.id) || (gc.code && seenCodes.has(gc.code))) return;
-        available.push(gc);
-        seenIds.add(gc.id);
-        if (gc.code) seenCodes.add(gc.code);
-      });
+    // Supabase is the only source of active coupons. Google Sheets is not read
+    // for the public listing, so rows left in the sheet can never be shown.
+    if (supabase.isConfigured()) {
+      try {
+        const supaCoupons = await supabase.getCoupons({ status: 'available', excludeReserved: true });
+        if (Array.isArray(supaCoupons)) {
+          available = supaCoupons;
+        }
+      } catch (e) {
+        console.warn('Supabase coupons read notice:', e.message);
+      }
     }
 
     // Visibility contract: hide sold and expired coupons (see listingVisible).
@@ -459,10 +431,7 @@ router.get('/categories', async (req, res) => {
       } catch (e) {}
     }
 
-    if (available.length === 0) {
-      const allCoupons = await db.getRows(db.SHEETS.COUPONS);
-      available = allCoupons.filter((c) => c.status === 'available');
-    }
+    // Supabase is the only source of active coupons (no Sheets fallback).
 
     // Same visibility contract as the listing — sold/expired coupons must not
     // inflate category counts.
