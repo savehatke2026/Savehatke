@@ -336,13 +336,16 @@ const authLimiter = rateLimit({
   handler: safeRateLimitHandler('Too many sign-in attempts. Please wait before trying again.'),
 });
 
-// Stricter limit for coupon submissions & proof uploads (anti-spam/abuse)
-const couponSubmissionLimiter = rateLimit({
+// Proof-image uploads only. Sell Coupon submissions are NOT capped here: their
+// limit is 5 requests per rolling minute per authenticated account, enforced by
+// the distributed policy (rateLimitService) and sellerAccountLimiter in
+// routes/coupons.js. There is deliberately no per-IP daily or hourly submission cap.
+const couponProofLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 10, // 10 submissions/uploads per hour per IP
+  max: 10, // 10 proof uploads per hour per IP
   standardHeaders: false,
   legacyHeaders: false,
-  handler: safeRateLimitHandler('Too many submissions. Please try again later.'),
+  handler: safeRateLimitHandler('Too many uploads. Please try again later.'),
 });
 
 // Support screenshot uploads: each one is a multi-MB body and a Google Drive
@@ -605,9 +608,7 @@ app.get('/admin/coupons/:couponId', (req, res) => {
 // the requirement that "normal users should still be able to authenticate"
 // even while maintenance is active.
 app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/coupons/sell', couponSubmissionLimiter);
-app.use('/api/coupons/submit', couponSubmissionLimiter);
-app.use('/api/coupons/proof', couponSubmissionLimiter);
+app.use('/api/coupons/proof', couponProofLimiter);
 app.use('/api/coupons/scan', couponScanLimiter);
 app.use('/api/coupons', apiLimiter, maintenanceGuard, couponRoutes);
 app.use('/api/tracker', apiLimiter, maintenanceGuard, trackerRoutes);

@@ -139,8 +139,9 @@ const LIMITS = {
   // Was 10/hour/IP. The baseline is stricter AND per-account, so a single
   // account can no longer submit 10 listings an hour and an IP cannot submit
   // 10 a day.
-  'coupon-submit-account': { limit: 5, window: '1 d', fail: 'closed' },
-  'coupon-submit-ip': { limit: 10, window: '1 d', fail: 'closed' },
+  // Sell Coupon: 5 submission requests per rolling minute per authenticated
+  // account. There is deliberately NO daily, weekly or per-IP submission quota.
+  'coupon-submit-account': { limit: 5, window: '1 m', fail: 'closed' },
 
   // ── Purchase / payment ───────────────────────────────────────────────────
   'purchase-account': { limit: 5, window: '1 m', fail: 'closed' },
@@ -304,7 +305,7 @@ const RULES = [
 
   // ── Coupons ──────────────────────────────────────────────────────────────
   { test: (p) => /^\/api\/coupons\/scan\/?$/i.test(p), both: { account: 'coupon-scan-account', ip: 'coupon-scan-ip' }, requireAccount: true, sensitive: true },
-  { test: (p) => /^\/api\/coupons\/(?:sell|submit|proof)\/?$/i.test(p), both: { account: 'coupon-submit-account', ip: 'coupon-submit-ip' }, requireAccount: true, sensitive: true },
+  { test: (p) => /^\/api\/coupons\/(?:sell|submit|proof)\/?$/i.test(p), both: { account: 'coupon-submit-account' }, requireAccount: true, sensitive: true },
   { test: (p) => /^\/api\/coupons\/buy\//i.test(p), both: { account: 'purchase-account', ip: 'purchase-ip' }, requireAccount: true, sensitive: true },
   { test: (p) => /^\/api\/coupons(?:\/|$)/i.test(p), both: { account: 'coupon-read-account', ip: 'coupon-read-ip' } },
 

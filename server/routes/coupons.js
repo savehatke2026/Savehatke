@@ -34,13 +34,25 @@ const scanAccountLimiter = rateLimit({
   legacyHeaders: false,
   handler: safeRateLimitHandler('Too many screenshot scans. Please try again later.'),
 });
-const sellerAccountLimiter = rateLimit({
+// Proof-image uploads keep their own hourly per-account budget.
+const proofAccountLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
   max: 10,
   keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
   standardHeaders: false,
   legacyHeaders: false,
   handler: safeRateLimitHandler('Too many coupon submissions. Please try again later.'),
+});
+
+// Sell Coupon submission: 5 requests per rolling minute per authenticated account.
+// No daily/weekly/monthly quota and no per-IP submission cap.
+const sellerAccountLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
+  standardHeaders: false,
+  legacyHeaders: false,
+  handler: safeRateLimitHandler('You\'re submitting too quickly. Please wait a moment and try again.'),
 });
 
 // Every coupon shows a live "expires in" countdown that starts at 2 weeks.
@@ -219,29 +231,47 @@ router.get('/', optionalAuth, async (req, res) => {
 
     // Primary source: Supabase database. excludeReserved keeps a coupon whose
     // payment window is open out of this buyer-facing listing for the full
-    // 20-minute reservation period.
-    if (supabase.isConfigured()) {
-      try {
-        const supaCoupons = await supabase.getCoupons({ status: 'available', excludeReserved: true });
-        if (Array.isArray(supaCoupons)) {
-          available = supaCoupons;
-        }
-      } catch (e) {
-        console.warn('Supabase coupons read notice:', e.message);
-      }
-    }
+    // 20-minute reservation period. Both sources are read concurrently; the
+    // merge below still applies Supabase first, then Sheets, in the same order.
+    const supaPromise = supabase.isConfigured()
+      ? Promise.resolve()
+        .then(() => supabase.getCoupons({ status: 'available', excludeReserved: true }))
+        .catch((e) => {
+          console.warn('Supabase coupons read notice:', e.message);
+          return null;
+        })
+      : Promise.resolve(null);
 
     // Also include Google Sheets coupons (merging without duplicates)
-    try {
-      const gsheetCoupons = await db.getRows(db.SHEETS.COUPONS);
-      const availableGsheet = gsheetCoupons.filter((c) => c.status === 'available');
-      availableGsheet.forEach((gc) => {
-        if (!available.some((sc) => sc.id === gc.id || (sc.code && gc.code && sc.code === gc.code))) {
-          available.push(gc);
-        }
+    const sheetsPromise = Promise.resolve()
+      .then(() => db.getRows(db.SHEETS.COUPONS))
+      .catch((e) => {
+        console.warn('G Sheet coupons read notice:', e.message);
+        return null;
       });
-    } catch (e) {
-      console.warn('G Sheet coupons read notice:', e.message);
+
+    // Both reads run concurrently; the merge waits for both so Supabase rows
+    // always come first and Sheets rows are only appended after them.
+    const [supaCoupons, gsheetCoupons] = await Promise.all([supaPromise, sheetsPromise]);
+    if (Array.isArray(supaCoupons)) {
+      available = supaCoupons;
+    }
+    if (Array.isArray(gsheetCoupons)) {
+      // Set lookups keep the merge linear. A Sheets row is a duplicate when its
+      // id matches a row already present, or when both codes are set and equal
+      // — the same rule the previous per-row scan applied.
+      const seenIds = new Set();
+      const seenCodes = new Set();
+      available.forEach((sc) => {
+        seenIds.add(sc.id);
+        if (sc.code) seenCodes.add(sc.code);
+      });
+      gsheetCoupons.filter((c) => c.status === 'available').forEach((gc) => {
+        if (seenIds.has(gc.id) || (gc.code && seenCodes.has(gc.code))) return;
+        available.push(gc);
+        seenIds.add(gc.id);
+        if (gc.code) seenCodes.add(gc.code);
+      });
     }
 
     // Visibility contract: hide sold and expired coupons (see listingVisible).
@@ -273,8 +303,10 @@ router.get('/', optionalAuth, async (req, res) => {
       );
     }
 
-    // Don't expose actual coupon codes to non-buyers
-    const sanitized = available.map((c) => {
+    // Don't expose actual coupon codes to non-buyers. Only the sort keys are
+    // computed for every match; the full card is built after sorting, for the
+    // rows that will actually be returned. Output and ordering are unchanged.
+    const toCard = (c) => {
       // Buyer price — same rule for admin and seller coupons, recomputed
       // here from originalValue + the coupon's real expiryDate. The stored
       // sellingPrice is intentionally NOT echoed back as the buyer price;
@@ -326,9 +358,11 @@ router.get('/', optionalAuth, async (req, res) => {
         ...couponPayoutInfo(c),
         sellerPayout: c.sellerPayout === undefined ? null : c.sellerPayout,
       };
-    });
+    };
 
     // Sort BEFORE paging so every page of a sort is drawn from the same order.
+    // Sorting uses one precomputed key per row (same values the card carries)
+    // so no card object is built for rows that will not be returned.
     const num = (v) => {
       const n = parseFloat(String(v == null ? '' : v).replace(/[^\d.]/g, ''));
       return Number.isFinite(n) ? n : 0;
@@ -337,42 +371,53 @@ router.get('/', optionalAuth, async (req, res) => {
       const t = Date.parse(c.addedAt || '');
       return Number.isFinite(t) ? t : 0;
     };
+    const keyed = available.map((c) => {
+      const buyerPrice = dynamicPricing.getBuyerPrice(c);
+      return {
+        c,
+        id: String(c.id),
+        price: buyerPrice.price,
+        face: num(c.originalValue),
+        expiry: Date.parse(defaultExpiry(c.expiryDate, c.addedAt) || ''),
+        added: addedMs(c),
+      };
+    });
+    const byId = (a, b) => a.id.localeCompare(b.id);
     const sorters = {
-      'price-low': (a, b) => a.sellingPrice - b.sellingPrice || String(a.id).localeCompare(String(b.id)),
-      'price-high': (a, b) => b.sellingPrice - a.sellingPrice || String(a.id).localeCompare(String(b.id)),
-      'discount': (a, b) => num(b.originalValue) - num(a.originalValue) || String(a.id).localeCompare(String(b.id)),
+      'price-low': (a, b) => a.price - b.price || byId(a, b),
+      'price-high': (a, b) => b.price - a.price || byId(a, b),
+      'discount': (a, b) => b.face - a.face || byId(a, b),
       'expiry': (a, b) => {
-        const ax = Date.parse(a.expiryDate || '');
-        const bx = Date.parse(b.expiryDate || '');
-        return (Number.isFinite(ax) ? ax : Infinity) - (Number.isFinite(bx) ? bx : Infinity)
-          || String(a.id).localeCompare(String(b.id));
+        const ax = Number.isFinite(a.expiry) ? a.expiry : Infinity;
+        const bx = Number.isFinite(b.expiry) ? b.expiry : Infinity;
+        return (ax - bx) || byId(a, b);
       },
     };
     if (sorters[sort]) {
-      sanitized.sort(sorters[sort]);
+      keyed.sort(sorters[sort]);
     } else {
       // newest (default) — newest first, id tiebreak keeps page boundaries stable
-      sanitized.sort((a, b) => addedMs(b) - addedMs(a) || String(a.id).localeCompare(String(b.id)));
+      keyed.sort((a, b) => (b.added - a.added) || byId(a, b));
     }
 
-    const total = sanitized.length;
+    const total = keyed.length;
     if (idsOnly) {
       // Specific-id requests (saved-only) return every match unpaged — this
       // must win over the legacy full-list branch below, because an ids
       // request carries no page param.
-      return res.json({ coupons: sanitized, total, page: 1, pageSize: total || 1, totalPages: 1 });
+      return res.json({ coupons: keyed.map((k) => toCard(k.c)), total, page: 1, pageSize: total || 1, totalPages: 1 });
     }
     // Legacy callers (no explicit page param — e.g. the homepage ticker and
     // any client not yet converted) keep receiving the full list exactly as
     // before the paging refactor; paged callers send page/pageSize explicitly.
     if (req.query.page === undefined && req.query.pageSize === undefined) {
-      return res.json({ coupons: sanitized, total });
+      return res.json({ coupons: keyed.map((k) => toCard(k.c)), total });
     }
 
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
     const start = (safePage - 1) * pageSize;
-    const pageRows = sanitized.slice(start, start + pageSize);
+    const pageRows = keyed.slice(start, start + pageSize).map((k) => toCard(k.c));
 
     res.json({
       coupons: pageRows,
@@ -514,7 +559,7 @@ router.post('/scan', authenticateToken, scanAccountLimiter, async (req, res) => 
 // Sign-in gated: proof uploads exist only for coupon submissions, and each one
 // costs a Drive round-trip and storage — a signed-out visitor has no
 // legitimate use for it.
-router.post('/proof', authenticateToken, sellerAccountLimiter, async (req, res) => {
+router.post('/proof', authenticateToken, proofAccountLimiter, async (req, res) => {
   try {
     const maySell = await canSellCoupons(req.user);
     if (!maySell) {
