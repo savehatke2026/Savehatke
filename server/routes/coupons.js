@@ -373,12 +373,20 @@ router.get('/', optionalAuth, async (req, res) => {
     };
     const keyed = available.map((c) => {
       const buyerPrice = dynamicPricing.getBuyerPrice(c);
+      const expiry = Date.parse(defaultExpiry(c.expiryDate, c.addedAt) || '');
+      // Rupees the buyer keeps: face value minus the computed buyer price.
+      // Only meaningful for purchasable coupons; others rank last in 'value'.
+      const saved = buyerPrice.purchasable && Number.isFinite(buyerPrice.faceValue)
+        ? buyerPrice.faceValue - buyerPrice.price
+        : -Infinity;
       return {
         c,
         id: String(c.id),
         price: buyerPrice.price,
         face: num(c.originalValue),
-        expiry: Date.parse(defaultExpiry(c.expiryDate, c.addedAt) || ''),
+        saved,
+        expiry,
+        verified: String(c.isVerified) === 'true' || c.isVerified === true,
         added: addedMs(c),
       };
     });
@@ -388,6 +396,15 @@ router.get('/', optionalAuth, async (req, res) => {
       'price-high': (a, b) => b.price - a.price || byId(a, b),
       'discount': (a, b) => b.face - a.face || byId(a, b),
       'expiry': (a, b) => {
+        const ax = Number.isFinite(a.expiry) ? a.expiry : Infinity;
+        const bx = Number.isFinite(b.expiry) ? b.expiry : Infinity;
+        return (ax - bx) || byId(a, b);
+      },
+      // Homepage ranking: most rupees saved first; among equal savings, a
+      // stored-verified coupon first, then the coupon that expires sooner.
+      'value': (a, b) => {
+        if (a.saved !== b.saved) return b.saved - a.saved;
+        if (a.verified !== b.verified) return a.verified ? -1 : 1;
         const ax = Number.isFinite(a.expiry) ? a.expiry : Infinity;
         const bx = Number.isFinite(b.expiry) ? b.expiry : Infinity;
         return (ax - bx) || byId(a, b);

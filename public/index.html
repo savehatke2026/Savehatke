@@ -978,7 +978,7 @@
   // carries the active search/category/source filters and renders its top 6.
   async function loadIndexCoupons() {
     try {
-      const params = new URLSearchParams({ page: '1', pageSize: '60', sort: 'newest' });
+      const params = new URLSearchParams({ page: '1', pageSize: '60', sort: 'value' });
       if (activeCat && activeCat !== 'all') params.set('category', activeCat);
       const query = document.getElementById('searchInput').value.trim().toLowerCase();
       if (query) params.set('search', query);
