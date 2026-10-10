@@ -133,6 +133,42 @@ function parseReceivedAmount(text) {
   return parseMoney(s.replace(/updated\s*balance[\s\S]*/i, ''));
 }
 
+/**
+ * Pull the payer's name from a FamApp credit line, e.g.
+ * "received ₹1.0 from Parly Das at 08:41 AM …". Returns '' when no name is
+ * present, so a missing name is treated as "cannot verify", never as a match.
+ */
+function extractPayerName(text) {
+  const s = String(text || '');
+  const m = s.match(/received[\s\S]{0,40}?(?:₹|rs\.?|inr)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s+from\s+([A-Za-z][A-Za-z .'-]{0,60}?)\s+(?:at|on|via|with|through)\b/i);
+  return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+}
+
+/**
+ * Normalise a person's name for comparison: lower-case, letters only, single
+ * spaces, and each word sorted so "Das Parly" and "Parly Das" compare equal.
+ * Only case, spacing, and word order are ignored — no fuzzy matching.
+ */
+function normalizePersonName(name) {
+  const words = String(name || '')
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  return words.sort().join(' ');
+}
+
+/**
+ * Payer-name gate. Passes only when the name in the email equals the order's
+ * buyer name after normalisation. An empty name on either side fails closed.
+ */
+function payerNameMatches(emailPayerName, expectedName) {
+  const a = normalizePersonName(emailPayerName);
+  const b = normalizePersonName(expectedName);
+  if (!a || !b) return false;
+  return a === b;
+}
+
 /** Compare two money values exactly, at paise precision. */
 function moneyEquals(a, b) {
   const x = Number(a), y = Number(b);
@@ -241,6 +277,7 @@ function buildCandidateFromEmail({ messageId, from = '', authenticationResults =
     amount: parseReceivedAmount(text),
     currency: 'INR',
     payerVpa,
+    payerName: extractPayerName(text),
     payeeVpa,
     from,
     authenticationResults,
@@ -470,6 +507,19 @@ async function processCandidate(candidate, { pendingPayments = null } = {}) {
       'REVIEW',
       `₹${candidate.amount.toFixed(2)} is ambiguous — ${candidates.length} pending payments share this amount and no order reference was supplied.`
     );
+  }
+
+  // 6) Payer name must match the order's buyer name. Email-sourced claims only:
+  //    the name is read from the email body, so an unreadable name fails closed.
+  //    The buyer name is the SaveHatke account holder who placed the order.
+  if (candidate.source === 'email') {
+    const expectedName = candidates[0] && candidates[0].buyerName;
+    if (!payerNameMatches(candidate.payerName, expectedName)) {
+      return reject(
+        'REVIEW',
+        `Payer name ${candidate.payerName ? 'does not match' : 'could not be read from'} the order's buyer name — payment left pending for review.`
+      );
+    }
   }
 
   // Both the exact-amount path and the order-code mismatch path land here:
@@ -1247,6 +1297,9 @@ module.exports = {
   detectDirection,
   vpaEquals,
   fingerprintOf,
+  extractPayerName,
+  normalizePersonName,
+  payerNameMatches,
   // candidates
   buildCandidateFromEmail,
   buildCandidateFromWebhook,

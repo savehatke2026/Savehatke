@@ -462,6 +462,7 @@ async function findPendingPaymentsForAmount(amount = null, { limit = 200 } = {})
       return {
         ...p,
         orderCode: o.order_code || '',
+        buyerName: o.buyer_name || '',
         couponCode: o.coupon_code || '',
         couponBrand: o.coupon_brand || '',
       };
