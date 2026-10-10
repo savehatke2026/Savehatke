@@ -1,30 +1,29 @@
 {
-  "at": "2026-10-10T00:01:05.793Z",
-  "dbTotal": 363,
+  "at": "2026-10-10T02:37:01.753Z",
+  "dbTotal": 10534,
   "byStatus": {
-    "available": 363
+    "available": 10534
   },
   "bySource": {
-    "admin": 363
+    "admin": 10534
   },
-  "newImported": 363,
-  "distinctCodes": 363,
+  "newImported": 10534,
+  "distinctCodes": 10534,
   "duplicateCodes": 0,
-  "distinctBrands": 155,
-  "distinctCategories": 13,
-  "purchasableCount": 363,
+  "distinctBrands": 276,
+  "distinctCategories": 25,
+  "purchasableCount": 10534,
   "outOfRangePrices": 0,
-  "minBuyerPrice": 6,
-  "maxBuyerPrice": 5000,
-  "oneMonthTimers": 363,
+  "minBuyerPrice": 1,
+  "maxBuyerPrice": 10000,
+  "oneMonthTimers": 10534,
   "timerAnomalies": 0,
   "expiredAtVerifyTime": 0,
-  "oldRowsOriginal": 120,
+  "oldRowsOriginal": 363,
   "oldRowsStillPresent": 0,
-  "oldRowsRemoved": 120,
+  "oldRowsRemoved": 363,
   "oldRowsByStatus": {
-    "available": 116,
-    "sold": 4
+    "available": 363
   },
   "financialHistory": {
     "ordersRows": 89,
@@ -33,12 +32,12 @@
     "paidPayments": 4,
     "ordersWithCouponSnapshot": 4
   },
-  "sheetsRows": 363,
+  "sheetsRows": 10534,
   "sheetsRowsNotInDb": 0,
   "shortfall": {
     "requestedListings": 10000,
-    "actualImported": 363,
-    "missingListings": 9637,
+    "actualImported": 10534,
+    "missingListings": 0,
     "reason": "Only the administrator-authored seed offers exist as verified listing data; no vendor-supplied redeemable code file was provided. Codes are platform-authored and marked is_verified=false."
   }
 }

@@ -54,10 +54,19 @@ const LATEST_BACKUP = () => {
 const MANIFEST = path.join(__dirname, 'inventory-manifest.json');
 
 // ── Seed template extraction ─────────────────────────────────────────────
+// Each seed file is in one of two shapes:
+//   (A) classic: `const coupons = [ {brand, code, ...}, ... ];`  — the regex
+//       below picks up the array literal.
+//   (B) generator-shaped: `module.exports = { coupons: [ ... ] };` produced
+//       by scripts/_gen_seed_10k.cjs. The regex does NOT match this (no
+//       top-level `code:` field); we load it via require() instead. Safer
+//       than running an arbitrary Function() over a 10k-row file.
 function extractTemplates() {
-  const files = ['server/seed_coupons.js', 'server/seed_coupons_200.js', 'server/seed_coupons_brands.js'];
   const out = [];
-  for (const f of files) {
+  const REGEX_FILES = ['server/seed_coupons.js', 'server/seed_coupons_200.js', 'server/seed_coupons_brands.js'];
+  const REQUIRE_FILES = ['server/seed_coupons_10k.js'];
+
+  for (const f of REGEX_FILES) {
     const text = fs.readFileSync(path.join(ROOT, f), 'utf8');
     const re = /=\s*\[([\s\S]*?)\];/g;
     let m;
@@ -69,6 +78,15 @@ function extractTemplates() {
         if (Array.isArray(arr)) out.push(...arr.filter((r) => r && r.code && r.brand));
       } catch { /* not the coupons array */ }
     }
+  }
+
+  for (const f of REQUIRE_FILES) {
+    // Clear require cache so re-running with an updated seed file picks up changes.
+    const fullPath = path.join(ROOT, f);
+    delete require.cache[require.resolve(fullPath)];
+    const mod = require(fullPath);
+    const arr = mod && Array.isArray(mod.coupons) ? mod.coupons : (Array.isArray(mod) ? mod : []);
+    out.push(...arr.filter((r) => r && r.code && r.brand));
   }
   return out;
 }
