@@ -97,6 +97,67 @@ function classifyTransactionTime({ transactionAt, sessionStartedAt, verification
   return 'within';
 }
 
+const START_GRACE_MS = 5 * 60 * 1000;
+
+/**
+ * Pure decision for one verified incoming credit against one candidate session.
+ * Every input comes from the server: the transaction instant parsed from the
+ * FamApp body (never the mailbox arrival time), the session's persisted fields,
+ * and the payer-name comparison the caller already performed.
+ *
+ * Returns { action, reason } where action is:
+ *   'settle'      – inside the verification window, session still PENDING
+ *   'late_refund' – real transaction after verification_deadline, purchase not
+ *                   fulfilled → one admin refund task for the full amount
+ *   'review'      – needs a human (unreadable time, name mismatch, ambiguous
+ *                   state, clock disagreement, already fulfilled, etc.)
+ *   'ignore'      – the transaction predates this session, so it is not for it
+ */
+function decideIncomingCredit({
+  transactionAt,
+  sessionStatus,
+  sessionCreatedAt,
+  verificationDeadline,
+  payerNameMatches,
+  nowMs = Date.now(),
+} = {}) {
+  const status = String(sessionStatus || '').toUpperCase();
+  const tx = toMs(transactionAt);
+  const start = toMs(sessionCreatedAt);
+  const deadline = toMs(verificationDeadline);
+
+  if (!Number.isFinite(tx)) {
+    return { action: 'review', reason: 'The transaction time could not be read from the FamApp email.' };
+  }
+  if (!Number.isFinite(start) || !Number.isFinite(deadline)) {
+    return { action: 'review', reason: 'The session timing is incomplete; not attributed automatically.' };
+  }
+  if (tx < start - START_GRACE_MS) {
+    return { action: 'ignore', reason: 'The transaction happened before this order was created.' };
+  }
+  if (!payerNameMatches) {
+    return { action: 'review', reason: 'The payer name does not match the order buyer, or could not be read.' };
+  }
+  if (status === 'PAID') {
+    return { action: 'review', reason: 'This order is already fulfilled; a second payment is routed to review, not refunded automatically.' };
+  }
+  if (tx <= deadline) {
+    if (status === 'PENDING') return { action: 'settle', reason: 'Transaction is inside the verification window.' };
+    // The window is still open but the session was already closed, which
+    // released its coupon. Delivering now could hand out a coupon someone else
+    // may hold, so a person decides.
+    return { action: 'review', reason: `Transaction is inside the window but the session is ${status || 'unknown'}; routed to review.` };
+  }
+  // The transaction is after the verification deadline.
+  if (nowMs < deadline) {
+    return { action: 'review', reason: 'Server clock disagrees with the transaction time; routed to review.' };
+  }
+  if (status === 'PENDING' || status === 'EXPIRED' || status === 'CANCELLED') {
+    return { action: 'late_refund', reason: 'Verified transaction occurred after the verification deadline; full refund due.' };
+  }
+  return { action: 'review', reason: `Unexpected session status ${status || 'unknown'}; routed to review.` };
+}
+
 module.exports = {
   CUSTOMER_WINDOW_MS,
   VERIFICATION_WINDOW_MS,
@@ -104,4 +165,5 @@ module.exports = {
   phaseAt,
   parseFamAppTransactionTime,
   classifyTransactionTime,
+  decideIncomingCredit,
 };

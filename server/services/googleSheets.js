@@ -443,11 +443,21 @@ const HEADERS = {
     'verification_source',
     'verification_notes',
     'received_amount',
-    // Backend checking deadline (6h). The 10-minute `expires_at` above still
-    // drives the on-screen countdown; this is how long the server keeps the
-    // payment matchable after that timer hits 0:00. APPENDED AT THE END so
-    // existing rows keep lining up.
+    // Backend checking deadline (20 min from creation, PAYMENT_CHECK_WINDOW_MS).
+    // The 10-minute `expires_at` above still drives the on-screen countdown.
+    // APPENDED AT THE END so existing rows keep lining up.
     'check_expires_at',
+    // Two-timer verification fields (see server/services/paymentWindow.js).
+    // payment_expires_at  — server-clock instant the customer timer expired
+    // verification_started_at — same instant; the backend window opens here
+    // verification_deadline — payment_expires_at + 10 minutes
+    // last_checked_at     — last server-side verification pass for this session
+    // All blank on legacy rows; blank means "not yet expired", so existing data
+    // is never rewritten.
+    'payment_expires_at',
+    'verification_started_at',
+    'verification_deadline',
+    'last_checked_at',
   ],
   // Every confirmation the server observes (gateway webhook or payment-mailbox
   // email), recorded before it is acted on. `fingerprint` is the identity that

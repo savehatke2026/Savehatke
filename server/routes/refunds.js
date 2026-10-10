@@ -134,11 +134,12 @@ router.post('/:id/request', refundRequestIpLimiter, authenticateToken, refundReq
 // /admin) so the refund surface stays in one file.
 router.post('/admin/:id/mark-refunded', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
-    const { refundReference = '', adminNote = '' } = req.body || {};
+    const { refundReference = '', adminNote = '', confirmSent = false } = req.body || {};
     const result = await refundsService.updateRefundStatus(req.params.id, {
       status: 'refunded',
       refundReference,
       adminNote,
+      confirmSent: confirmSent === true,
       processedBy: reqUserEmail(req) || 'admin',
     });
     if (!result || !result.ok) {

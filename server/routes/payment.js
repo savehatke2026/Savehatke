@@ -1163,6 +1163,45 @@ router.all('/cron/reconcile', async (req, res) => {
   }
 });
 
+// ── /cron/verify — frequent, idempotent verification pass (external scheduler) ─
+// Vercel Hobby Cron is daily, so the 10-minute verification window is driven by
+// an EXTERNAL scheduler calling this endpoint every few minutes (see the
+// deployment notes). Each call:
+//   1. stamps the two-timer fields on sessions whose customer timer has ended
+//      (server clock, write-once, persisted in Sheets — restart-safe),
+//   2. expires PENDING sessions whose backend deadline has passed,
+//   3. runs one mailbox scan that can settle an in-window payment or create a
+//      single late-payment refund task. Coupon delivery and purchase
+//      finalisation stay guarded by their own atomic, idempotent paths.
+// Authenticated with CRON_SECRET; anything else gets 401 before work begins.
+router.all('/cron/verify', async (req, res) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
+  if (!cronAuthorized(req)) return fail(res, 401, 'CRON_UNAUTHORIZED', 'Unauthorized.');
+  try {
+    const ready = await store.ensureReady();
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
+    const nowMs = Date.now();
+    const stamp = await store.stampDueVerificationWindows(nowMs);
+    const expiry = await store.reconcileExpiredPayments();
+    let scan = { ok: false, reason: 'not attempted' };
+    try { scan = await verifier.triggerMailboxScan({ force: true }); } catch (e) {
+      scan = { ok: false, reason: e.message };
+    }
+    const results = Array.isArray(scan.results) ? scan.results : [];
+    const lateTasks = results.filter((r) => r.action === 'late_refund').length;
+    console.log(`[PAYMENT_SESSION] verify stamped=${stamp.stamped} expired=${expiry.expired} scan=${scan.ok ? 'ok' : scan.reason || 'failed'} lateTasks=${lateTasks}`);
+    return res.status(200).json({
+      ok: true,
+      stamped: stamp.stamped,
+      expired: expiry.expired,
+      scan: { ok: scan.ok, scanned: scan.scanned || 0, settled: scan.settled || 0, lateTasks },
+    });
+  } catch (err) {
+    console.error('[payment] verify error:', err);
+    return fail(res, 500, 'VERIFY_FAILED', 'Payment verification pass failed.');
+  }
+});
+
 // ── /gmail-watch/start — arm the Gmail push watch (operator, one-time setup) ─
 // Run once after Pub/Sub is configured (re-running is harmless). Uses the same
 // CRON_SECRET contract so it can be triggered with a single authenticated curl.

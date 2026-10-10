@@ -152,9 +152,14 @@ function fromPayment(r) {
     createdAt: r.created_at || '',
     updatedAt: r.updated_at || '',
     expiresAt: r.expires_at || '',
-    // Backend checking deadline (6h). Empty on legacy rows; callers fall back
-    // to expires_at via checkDeadline().
+    // Backend checking deadline (20 min from creation). Empty on legacy rows;
+    // callers fall back to expires_at via checkDeadline().
     checkExpiresAt: r.check_expires_at || '',
+    // Two-timer verification fields. Blank until the customer timer ends.
+    paymentExpiresAt: r.payment_expires_at || '',
+    verificationStartedAt: r.verification_started_at || '',
+    verificationDeadline: r.verification_deadline || '',
+    lastCheckedAt: r.last_checked_at || '',
     paidAt: r.paid_at || '',
     upiId: r.upi_id || '',
     payeeName: r.payee_name || '',
@@ -478,6 +483,54 @@ async function findPendingPaymentsForAmount(amount = null, { limit = 200 } = {})
  * findPendingPaymentsForAmount (with orderCode / couponCode / couponBrand
  * attached), or null if no live payment matches.
  */
+/**
+ * Sessions a late FamApp credit could still belong to: the customer timer has
+ * ended, the persisted verification deadline has NOT passed yet (so they are
+ * "late-eligible" only after it passes), and the purchase was never fulfilled.
+ * Returned rows carry their persisted deadlines; the decision uses those, not
+ * the email arrival time.
+ */
+async function findLateCandidatePayments({ limit = 200 } = {}) {
+  const [payments, orders] = await Promise.all([rowsFresh(PAYMENTS), rowsCached(ORDERS)]);
+  const orderById = new Map(orders.map((o) => [String(o.id), o]));
+  return payments
+    .filter((r) => r.status === 'PENDING' || r.status === 'EXPIRED' || r.status === 'CANCELLED')
+    .filter((r) => r.verification_deadline || r.payment_expires_at || r.expires_at)
+    .slice(0, limit)
+    .map((r) => {
+      const p = fromPayment(r);
+      const o = orderById.get(String(p.orderId)) || {};
+      return {
+        ...p,
+        orderCode: o.order_code || '',
+        buyerName: o.buyer_name || '',
+        couponCode: o.coupon_code || '',
+        couponBrand: o.coupon_brand || '',
+      };
+    });
+}
+
+/**
+ * Stamp every PENDING session whose customer timer has ended, using only the
+ * server clock and the persisted row. Idempotent: stampVerificationWindow never
+ * moves an existing deadline. Safe to run after a restart because state lives
+ * in Sheets, not memory.
+ */
+async function stampDueVerificationWindows(nowMs = Date.now()) {
+  const rows = await rowsFresh(PAYMENTS);
+  const due = rows.filter((r) => r.status === 'PENDING' && !r.payment_expires_at && r.expires_at && toTime(r.expires_at) <= nowMs);
+  let stamped = 0;
+  for (const row of due) {
+    try {
+      const out = await stampVerificationWindow(row.payment_id, nowMs);
+      if (out) stamped++;
+    } catch (e) {
+      console.warn('[paymentStore] stamp failed for', row.payment_id, e.message);
+    }
+  }
+  return { stamped, scanned: due.length };
+}
+
 async function findPendingPaymentByOrderCode(orderCode) {
   if (!orderCode) return null;
   const code = String(orderCode).toUpperCase();
@@ -669,6 +722,45 @@ async function transitionPayment(paymentId, fromStatus, toStatus, extra = {}) {
     const after = await rowsStrict(PAYMENTS);
     const written = after.find((r) => String(r.payment_id) === String(paymentId));
     if (!written || written.status !== toStatus) return null; // lost the race
+    return fromPayment(written);
+  });
+}
+
+/**
+ * Stamp the two-timer fields when the customer's 10-minute timer ends. Written
+ * once: the row must still have an empty payment_expires_at, so a repeated call
+ * (the browser, the pinger, or a restart) never moves the deadline. Returns the
+ * stamped payment, or null when it was already stamped or is no longer PENDING.
+ * The instant is taken from the server clock, never from the browser.
+ */
+async function stampVerificationWindow(paymentId, nowMs = Date.now()) {
+  return withLock(async () => {
+    const rows = await rowsStrict(PAYMENTS);
+    const current = rows.find((r) => String(r.payment_id) === String(paymentId));
+    if (!current || current.status !== 'PENDING') return null;
+    if (current.payment_expires_at) return null; // already stamped — never move it
+
+    const expiresIso = current.expires_at ? new Date(current.expires_at).toISOString() : null;
+    const expiryMs = expiresIso ? new Date(expiresIso).getTime() : NaN;
+    // Only stamp once the customer timer has really ended on the server clock.
+    if (!Number.isFinite(expiryMs) || nowMs < expiryMs) return null;
+
+    const paymentExpiresAt = new Date(expiryMs).toISOString();
+    const verificationStartedAt = paymentExpiresAt;
+    const verificationDeadline = new Date(expiryMs + 10 * 60 * 1000).toISOString();
+    const nowIso = new Date(nowMs).toISOString();
+
+    await db.updateRow(PAYMENTS, 'payment_id', paymentId, {
+      payment_expires_at: paymentExpiresAt,
+      verification_started_at: verificationStartedAt,
+      verification_deadline: verificationDeadline,
+      last_checked_at: nowIso,
+      updated_at: nowIso,
+    }, STRICT);
+
+    const after = await rowsStrict(PAYMENTS);
+    const written = after.find((r) => String(r.payment_id) === String(paymentId));
+    if (!written || !written.payment_expires_at) return null;
     return fromPayment(written);
   });
 }
@@ -1368,10 +1460,13 @@ module.exports = {
   findPaidPaymentForBuyer,
   findPendingPaymentsForAmount,
   findPendingPaymentByOrderCode,
+  findLateCandidatePayments,
+  stampDueVerificationWindows,
   // writes
   createOrder,
   createPayment,
   transitionPayment,
+  stampVerificationWindow,
   transitionOrder,
   expireIfDue,
   cancelPayment,

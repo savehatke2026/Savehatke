@@ -31,7 +31,10 @@ const ids = require('../utils/identifiers');
 
 const SHEETS = db.SHEETS;
 const STATUSES = ['pending', 'processing', 'refunded', 'rejected'];
-const MISMATCH_TYPES = ['overpayment', 'underpayment'];
+// 'late_payment' — a verified transaction that actually occurred after the
+// backend verification deadline. The full received amount is refunded and the
+// coupon is never delivered for that session.
+const MISMATCH_TYPES = ['overpayment', 'underpayment', 'late_payment'];
 
 // Reasons are server-assigned, never user-typed. The spec ties the reason
 // to the mismatch type so the dashboard always shows the same copy and the
@@ -66,6 +69,9 @@ function clampMismatchType(t) {
   const v = String(t || '').toLowerCase();
   return MISMATCH_TYPES.includes(v) ? v : 'overpayment';
 }
+
+// Reason text for a late payment. Server-assigned, never user-typed.
+const REASON_LATE_PAYMENT = 'Payment was made after the verification deadline; full refund due';
 
 // Compute the refund arithmetic. This is the single place the rule lives —
 // everywhere else reads from the persisted refund_amount and never
@@ -401,11 +407,125 @@ async function createOrUpdateRefund({
 }
 
 /**
+ * Create the single refund task for a verified payment that arrived after its
+ * verification deadline. Full received amount, never fulfilled, never a coupon.
+ *
+ * Idempotent per payment: the existing row is returned unchanged on any repeat
+ * call, and the Supabase unique index on payment_id is the cross-instance guard.
+ * The task starts 'pending' and only moves to 'refunded' through the admin gate
+ * in updateRefundStatus (UTR + explicit confirmation).
+ */
+async function createLateRefundTask({
+  paymentId,
+  userId,
+  userEmail = '',
+  couponId = '',
+  orderCode = '',
+  receivedAmount,
+  transactionId = '',
+  verificationDeadline = '',
+  transactionAt = '',
+  payerName = '',
+}) {
+  if (!paymentId || !userId) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'paymentId and userId are required.' };
+  }
+  const amount = money2(receivedAmount);
+  if (!(Number(amount) > 0)) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'A positive received amount is required.' };
+  }
+
+  const allRefunds = await readAllRefunds();
+  const existing = allRefunds.find((r) => r.paymentId === paymentId) || null;
+  if (existing) {
+    // Never rewrite a task that already exists, whatever its status.
+    return { ok: true, created: false, refund: existing, reason: 'already_exists' };
+  }
+
+  const now = new Date().toISOString();
+  const takenOrderIds = new Set(allRefunds.map((r) => r.orderId).filter(Boolean));
+  const takenTxnIds = new Set(allRefunds.map((r) => r.transactionId).filter(Boolean));
+  const merged = normalize({
+    refund_id: `rfnd_${uuidv4().slice(0, 12)}`,
+    user_id: userId,
+    user_email: userEmail,
+    payment_id: paymentId,
+    coupon_id: couponId,
+    order_code: orderCode,
+    order_id: ids.generateUniqueOrderIdSync('REFUND', takenOrderIds, { date: now }),
+    transaction_id: ids.generateUniqueTransactionIdSync(takenTxnIds, { date: now }),
+    transaction_type: 'REFUND',
+    required_amount: '0.00',
+    received_amount: amount,
+    refund_amount: amount,
+    currency: 'INR',
+    mismatch_type: 'late_payment',
+    refund_reason: REASON_LATE_PAYMENT,
+    status: 'pending',
+    refund_reference: '',
+    admin_note: [
+      `Late payment: transaction ${transactionId || 'n/a'} at ${transactionAt || 'unknown'}`,
+      `after verification deadline ${verificationDeadline || 'n/a'}.`,
+      `Payer name on email: ${payerName || 'n/a'}.`,
+      'Not fulfilled; no coupon delivered.',
+    ].join(' '),
+    processed_at: '',
+    processed_by: '',
+    created_at: now,
+    updated_at: now,
+  });
+
+  let sheetsSaved = false;
+  let sheetsError = '';
+  try {
+    await db.appendRow(SHEETS.REFUNDS, toSheetsRow(merged), { strict: true });
+    sheetsSaved = true;
+  } catch (e) {
+    sheetsError = e && e.message ? e.message : 'Sheets write failed';
+    console.warn('[refunds] Sheets late-task write notice:', sheetsError);
+  }
+
+  let supabaseSaved = false;
+  let supabaseConflict = false;
+  if (supabase.isConfigured()) {
+    try {
+      const client = supabase.getClient();
+      if (client) {
+        const { error } = await client.from('refunds').insert(toSupabaseRow(merged));
+        if (error) {
+          const msg = error.message || '';
+          if (error.code === '23505' || /duplicate key|unique constraint/i.test(msg)) supabaseConflict = true;
+          console.warn('[refunds] Supabase late-task write notice:', msg);
+        } else {
+          supabaseSaved = true;
+        }
+      }
+    } catch (e) {
+      console.warn('[refunds] Supabase late-task write notice:', e.message);
+    }
+  }
+
+  if (supabaseConflict) {
+    // Another instance created the task first. Return it instead of failing.
+    const again = (await readAllRefunds()).find((r) => r.paymentId === paymentId) || null;
+    return { ok: true, created: false, refund: again, reason: 'already_exists' };
+  }
+  if (!sheetsSaved && !supabaseSaved) {
+    return { ok: false, code: 'STORAGE_UNAVAILABLE', error: sheetsError || 'Refund task could not be saved.' };
+  }
+  return { ok: true, created: true, refund: merged };
+}
+
+/**
  * Update the admin-mutable fields on an existing refund. The amounts and
  * mismatch type are NEVER touched here — those are derived from the verified
  * payment record and must come from createOrUpdateRefund only.
+ *
+ * Completion gate: 'refunded' requires a real refund UTR/reference AND an
+ * explicit confirmation that the transfer was sent. Entering a UTR or merely
+ * creating the task never completes a refund. Terminal states stay final.
  */
-async function updateRefundStatus(refundId, { status, adminNote, refundReference, processedBy }) {
+async function updateRefundStatus(refundId, { status, adminNote, refundReference, processedBy, confirmSent = false }) {
   if (!refundId) return { ok: false, code: 'INVALID_INPUT', error: 'refundId is required.' };
   const clamped = clampStatus(status);
   if (clamped !== status) {
@@ -415,6 +535,20 @@ async function updateRefundStatus(refundId, { status, adminNote, refundReference
   const all = await readAllRefunds();
   const existing = all.find((r) => (r.refundId || r.id) === refundId);
   if (!existing) return { ok: false, code: 'NOT_FOUND', error: 'Refund not found.' };
+
+  if (clamped === 'refunded') {
+    const ref = String(refundReference || '').trim();
+    if (!/^[A-Za-z0-9][A-Za-z0-9\-_\/]{5,39}$/.test(ref)) {
+      return { ok: false, code: 'UTR_REQUIRED', error: 'Enter the real refund UTR/reference (6–40 letters, digits, - _ /).' };
+    }
+    if (confirmSent !== true) {
+      return { ok: false, code: 'CONFIRMATION_REQUIRED', error: 'Confirm that the UPI transfer was actually sent before marking this refund completed.' };
+    }
+    if (!processedBy) {
+      return { ok: false, code: 'ADMIN_REQUIRED', error: 'The administrator identity is required.' };
+    }
+    refundReference = ref;
+  }
 
   // ── Terminal states are final ────────────────────────────────────────────
   // 'refunded' and 'rejected' are set by an administrator and record that money
@@ -554,6 +688,7 @@ module.exports = {
   getRefundsForUser,
   getRefundById,
   createOrUpdateRefund,
+  createLateRefundTask,
   updateRefundStatus,
   statusTimeline,
   summarize,

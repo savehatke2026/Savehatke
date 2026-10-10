@@ -48,6 +48,9 @@ const ids = require('../utils/identifiers');
 // first overpayment: processCandidate() only ever invokes it from a
 // server-verified code path, so the load itself is harmless.
 const refundsService = require('./refunds');
+// Pure verification-window rules (T+10 customer timer, T+20 backend deadline,
+// IST transaction-time parsing, settle / late-refund / review decision).
+const paymentWindow = require('./paymentWindow');
 // Buyer receipt email. Sent best-effort AFTER a payment is genuinely settled;
 // it never affects the settlement result (see deliverPaymentSuccessEmail).
 const emailService = require('./emailService');
@@ -299,6 +302,9 @@ function buildCandidateFromEmail({ messageId, from = '', authenticationResults =
     subject,
     occurredAt: receivedAt || new Date().toISOString(),
     receivedAt,
+    // The ACTUAL transaction instant from the FamApp body (IST, parsed to UTC).
+    // null when unreadable. The arrival time above is never used for timing.
+    transactionAt: paymentWindow.parseFamAppTransactionTime(text),
     raw: { messageId, from, subject, date, snippet: String(body || '').slice(0, 500) },
   };
 }
@@ -832,6 +838,13 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
   console.log(`${tag} FamApp email detected`);
   console.log(`${tag} Amount received: ₹${candidate.amount.toFixed(2)}`);
 
+  // Late-eligible path first: a verified transaction that happened after a
+  // session's persisted verification deadline is never settled by arrival time.
+  // It becomes one admin refund task (or review), decided on the transaction
+  // instant, the payer name and the session's stored deadline.
+  const lateHandled = await handleLateCandidate(candidate, notification, reject);
+  if (lateHandled) return lateHandled;
+
   // Live pending payments only (findPendingPaymentsForAmount already excludes
   // expired windows). Amount-only match, to the paisa.
   const pending = pendingPayments || (await store.findPendingPaymentsForAmount(null));
@@ -926,6 +939,81 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
 }
 
 /**
+ * Handle a verified credit that may belong to a session whose verification
+ * deadline has passed. Returns a result object when this path decided the
+ * message, or null when no late-eligible session matches (normal path runs).
+ *
+ * Never delivers a coupon. A late session stays out of settlement; the admin
+ * refund task is the only money-side effect, created once per payment.
+ */
+async function handleLateCandidate(candidate, notification, reject) {
+  const tag = '[Payment Email]';
+  if (!candidate.transactionAt) {
+    // A transaction time we cannot read cannot be classified safely.
+    return null;
+  }
+  const late = await store.findLateCandidatePayments();
+  const sameAmount = late.filter((p) => moneyEquals(p.amount, candidate.amount));
+  if (!sameAmount.length) return null;
+
+  // Name is required to attribute a late payment; an unreadable name never matches.
+  const named = sameAmount.filter((p) => payerNameMatches(candidate.payerName, p.buyerName));
+  if (named.length !== 1) {
+    if (named.length > 1) {
+      return reject('REVIEW', `Late ₹${candidate.amount.toFixed(2)} matches ${named.length} sessions by name and amount — routed to review.`);
+    }
+    // No late session fits this name; the normal path decides.
+    return null;
+  }
+
+  const session = named[0];
+  const decision = paymentWindow.decideIncomingCredit({
+    transactionAt: candidate.transactionAt,
+    sessionStatus: session.status,
+    sessionCreatedAt: session.createdAt,
+    verificationDeadline: session.verificationDeadline || session.checkExpiresAt,
+    payerNameMatches: true,
+    nowMs: Date.now(),
+  });
+
+  if (decision.action === 'ignore') return null;
+  if (decision.action === 'settle') return null; // in-window: the normal path settles it
+  if (decision.action === 'review') return reject('REVIEW', decision.reason);
+  if (decision.action !== 'late_refund') return reject('REVIEW', decision.reason);
+
+  console.log(`${tag} late transaction for ${session.paymentId}; creating one admin refund task`);
+  const task = await refundsService.createLateRefundTask({
+    paymentId: session.paymentId,
+    userId: session.userId,
+    userEmail: session.userEmail,
+    couponId: session.couponId,
+    orderCode: session.orderCode,
+    receivedAmount: candidate.amount,
+    transactionId: candidate.transactionId || '',
+    verificationDeadline: session.verificationDeadline || session.checkExpiresAt,
+    transactionAt: candidate.transactionAt,
+    payerName: candidate.payerName || '',
+  });
+  if (!task || !task.ok) {
+    return reject('REVIEW', 'Late refund task could not be saved: ' + ((task && task.error) || 'unknown'));
+  }
+  try {
+    await store.updateNotification(notification.id, {
+      status: 'REVIEW',
+      matched_payment_id: session.paymentId,
+      notes: `Late payment for ${session.paymentId}; refund task ${task.refund && task.refund.refundId} (${task.created ? 'created' : 'already existed'}).`,
+    });
+  } catch (e) {}
+  return {
+    action: 'late_refund',
+    reason: `Late payment for ${session.paymentId}; refund task ${task.created ? 'created' : 'already existed'}.`,
+    notification,
+    payment: session,
+    refund: task.refund,
+  };
+}
+
+/**
  * Read recent FamApp emails from the payment mailbox and settle any that match
  * a live pending payment by amount. On-demand only: it is a no-op (and never
  * touches Gmail) when no payment session is active, so the inbox is not
@@ -941,7 +1029,11 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
   // order there is nothing an email could settle, so we never open the inbox —
   // this is what keeps Gmail from being monitored continuously.
   const pending = await store.findPendingPaymentsForAmount(null);
-  if (!pending.length) {
+  // Late-eligible sessions (expired or cancelled but still inside their
+  // verification deadline) also need the mailbox checked, so a late credit can
+  // be detected and turned into a single refund task.
+  const late = pending.length ? [] : await store.findLateCandidatePayments();
+  if (!pending.length && !late.length) {
     return { ok: true, scanned: 0, settled: 0, reason: 'No active payment session.', idle: true };
   }
   console.log(`[PAYMENT_EMAIL] checking pending=${pending.length}`);
@@ -991,7 +1083,8 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
   // Restrict as tightly as possible: the sender allow-list (FamApp by default)
   // AND messages no older than the earliest live payment window (minus a small
   // grace). This never downloads the whole inbox.
-  const startTimes = pending.map((p) => new Date(p.createdAt).getTime()).filter(Number.isFinite);
+  const watch = pending.length ? pending : late;
+  const startTimes = watch.map((p) => new Date(p.createdAt).getTime()).filter(Number.isFinite);
   const earliestStart = startTimes.length ? Math.min(...startTimes) : NaN;
   const afterSecs = Number.isFinite(earliestStart)
     ? Math.floor((earliestStart - 5 * 60 * 1000) / 1000)
@@ -1047,7 +1140,7 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
     const plausible =
       candidate.direction === 'credit' &&
       Boolean(candidate.amount) &&
-      pending.some((p) => moneyEquals(p.amount, candidate.amount));
+      watch.some((p) => moneyEquals(p.amount, candidate.amount));
 
     if (!plausible) {
       // Record-and-ignore so the same message is not re-examined forever.
@@ -1090,7 +1183,7 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
     }
 
     try {
-      results.push(await processEmailCandidate(full, { pendingPayments: pending }));
+      results.push(await processEmailCandidate(full, { pendingPayments: pending.length ? pending : null }));
     } catch (e) {
       results.push({ action: 'error', reason: e.message });
     }
