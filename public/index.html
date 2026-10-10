@@ -437,6 +437,34 @@
   .popular-row button:hover { color:#00E272; }
   .popular-row button .arrow { color:#596c86; font-size:.85em; }
   .popular-row .trust-tag { margin-left:auto; color:#8aa196; display:none; align-items:center; gap:6px; font-size:.72rem; }
+  /* Filter panel — same look as the marketplace, anchored to the Filter button */
+  [hidden] { display:none !important; }
+  .cat-pills { position:relative; display:flex; justify-content:flex-end; }
+  .popular-filter-wrap { position:relative; }
+  .filter-toggle { display:inline-flex; align-items:center; gap:6px; background:transparent; border:0; color:#c0d0e5; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:500; padding:6px 0; cursor:pointer; }
+  .filter-toggle[aria-expanded="true"] { color:#00E272; }
+  .filter-panel { position:absolute; top:calc(100% + 10px); right:0; z-index:30; width:270px; max-width:calc(100vw - 40px); padding:18px; border:1px solid #17364b; border-radius:14px; background:#0d1930; box-shadow:0 15px 40px #0007; }
+  .filter-panel h3 { margin:0 0 16px; font-size:16px; color:#e2ecff; }
+  .filter-panel label { display:block; margin:12px 0 6px; color:#a6d9fb; font-size:12px; }
+  .filter-panel select { width:100%; padding:10px; border:1px solid #29435a; border-radius:8px; background:#060d1f; color:#e2ecff; font:inherit; }
+  .filter-panel-actions { display:flex; justify-content:space-between; margin-top:18px; gap:12px; }
+  .filter-panel-actions button { padding:9px 13px; border-radius:8px; font-size:12px; background:transparent; border:1px solid #29435a; color:#c0d0e5; cursor:pointer; }
+  .filter-panel-actions .apply-filters { background:#00E272; color:#060d1f; font-weight:700; border-color:#00E272; }
+  .filter-toggle:focus-visible,.filter-panel button:focus-visible { outline:2px solid #00E272; outline-offset:4px; }
+  /* Voice search mic — same visual as the marketplace search bar */
+  .search-microphone { position:relative; isolation:isolate; display:inline-flex; align-items:center; justify-content:center; flex:0 0 28px; width:28px; height:28px; padding:0; border:0; border-radius:6px; background:none; color:#8b9eb7; cursor:pointer; transition:color .15s,background-color .15s; }
+  .search-microphone:hover { color:#00E272; background:rgba(0,226,114,.07); }
+  .search-microphone svg { position:relative; z-index:1; }
+  .search-microphone::before,.search-microphone::after { content:""; position:absolute; inset:3px; border:1px solid #00E272; border-radius:50%; opacity:0; pointer-events:none; }
+  .search-microphone:is(.is-listening,:active) { color:#00E272; background:rgba(0,226,114,.08); box-shadow:0 0 14px rgba(0,226,114,.18); }
+  .search-microphone:is(.is-listening,:active) svg { animation:mic-listening-pulse 1.8s ease-in-out infinite; }
+  .search-microphone:is(.is-listening,:active)::before,.search-microphone:is(.is-listening,:active)::after { animation:mic-listening-ripple 2.4s ease-out infinite; }
+  .search-microphone:is(.is-listening,:active)::after { animation-delay:-1.2s; }
+  @keyframes mic-listening-pulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.08); } }
+  @keyframes mic-listening-ripple { 0% { transform:scale(.85); opacity:0; } 15% { opacity:.38; } 100% { transform:scale(1.65); opacity:0; } }
+  @media (prefers-reduced-motion: reduce) {
+    .search-microphone:is(.is-listening,:active) svg,.search-microphone:is(.is-listening,:active)::before,.search-microphone:is(.is-listening,:active)::after { animation:none; }
+  }
   @media(min-width:600px){ .popular-row .trust-tag { display:inline-flex; } }
   @media(max-width:600px){
     .search-card { flex-direction:column; align-items:stretch; gap:0; }
@@ -650,6 +678,12 @@
             <path d="m6 6 12 12M6 18 18 6"/>
           </svg>
         </button>
+        <button type="button" class="search-microphone" id="voiceSearchBtn" aria-label="Search by voice" aria-pressed="false" title="Search by voice">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="9" y="2" width="6" height="12" rx="3"/>
+            <path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M8 22h8"/>
+          </svg>
+        </button>
       </div>
       <div class="source-row">
         <svg class="s-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -711,65 +745,46 @@
         Discover. Compare. Save.
       </span>
     </div>
+    <!-- Categories — one Filter button opens the category + source panel, same
+         as the marketplace. Source stays on #sourceFilter (the index's single
+         source of truth); category stays on activeCat. -->
     <div class="cat-pills fu in d2" id="categoryPills">
-      <button type="button" class="cpill active" data-category="all" aria-pressed="true">
-        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-        All
-      </button>
-      <button type="button" class="cpill" data-category="E-Commerce" aria-pressed="false">
-        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 8h14l1 13H4L5 8Z"/><path d="M8 8V6a4 4 0 0 1 8 0v2"/>
-        </svg>
-        E-Commerce
-      </button>
-      <button type="button" class="cpill" data-category="Fashion" aria-pressed="false">
-        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m8 3-6 4 3 5 3-2v11h8V10l3 2 3-5-6-4a4 4 0 0 1-8 0Z"/>
-        </svg>
-        Fashion
-      </button>
-      <button type="button" class="cpill" data-category="Beauty &amp; Personal Care" aria-pressed="false">
-        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m12 3 2.5 6.5L21 12l-6.5 2.5L12 21l-2.5-6.5L3 12l6.5-2.5L12 3Z"/><path d="M20 2v4m-2-2h4"/>
-        </svg>
-        Beauty
-      </button>
-      <button type="button" class="cpill" data-category="Food &amp; Delivery" aria-pressed="false">
-        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M5 3v7m3-7v7m3-7v7M5 7h6M8 10v11M19 3c-5 3-5 8 0 9V3Zm0 9v9"/>
-        </svg>
-        Food
-      </button>
-      <button type="button" class="cpill" data-category="Travel &amp; Transport" aria-pressed="false">
-        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m22 2-7 20-4-9-9-4L22 2Zm0 0L11 13"/>
-        </svg>
-        Travel
-      </button>
-      <button type="button" class="cpill" data-category="Electronics &amp; Gadgets" aria-pressed="false">
-        <svg class="cat-ico" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="6" y="2" width="12" height="20" rx="2"/><path d="M10 18h4"/>
-        </svg>
-        Electronics
-      </button>
-      <div class="cat-more-wrap">
-        <label class="screen-reader-only" for="moreCategories">More categories</label>
-        <select class="cat-more" id="moreCategories">
-          <option value="">More categories</option>
-          <option value="Hotels &amp; Stays">Hotels</option>
-          <option value="Gaming &amp; Entertainment">Entertainment</option>
-          <option value="Fitness &amp; Sports">Fitness</option>
-          <option value="Education">Education</option>
-          <option value="Health &amp; Pharmacy">Health</option>
-          <option value="Finance &amp; Payments">Finance</option>
-          <option value="General">General</option>
-        </select>
-        <svg class="cat-chev" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
+      <div class="popular-filter-wrap">
+        <button type="button" class="filter-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterPanel">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="#060d1f"/><circle cx="15" cy="17" r="2" fill="#060d1f"/></svg>
+          Filter
+        </button>
+        <div class="filter-panel" id="filterPanel" role="region" aria-labelledby="filterPanelTitle" hidden>
+          <h3 id="filterPanelTitle">Filter coupons</h3>
+          <label for="filterCategory">Category</label>
+          <select id="filterCategory">
+            <option value="">All categories</option>
+            <option value="E-Commerce">E-Commerce</option>
+            <option value="Fashion">Fashion</option>
+            <option value="Beauty &amp; Personal Care">Beauty &amp; Personal Care</option>
+            <option value="Food &amp; Delivery">Food &amp; Delivery</option>
+            <option value="Travel &amp; Transport">Travel &amp; Transport</option>
+            <option value="Electronics &amp; Gadgets">Electronics &amp; Gadgets</option>
+            <option value="Hotels &amp; Stays">Hotels &amp; Stays</option>
+            <option value="Gaming &amp; Entertainment">Gaming &amp; Entertainment</option>
+            <option value="Fitness &amp; Sports">Fitness &amp; Sports</option>
+            <option value="Education">Education</option>
+            <option value="Health &amp; Pharmacy">Health &amp; Pharmacy</option>
+            <option value="Finance &amp; Payments">Finance &amp; Payments</option>
+            <option value="General">General</option>
+          </select>
+          <label for="filterSource">Source</label>
+          <select id="filterSource">
+            <option value="">All sources</option>
+            <option value="admin">Verified</option>
+            <option value="user-submitted">User submitted</option>
+            <option value="auto-scraped">Free codes</option>
+          </select>
+          <div class="filter-panel-actions">
+            <button type="button" id="clearPanelFilters">Clear filters</button>
+            <button type="button" class="apply-filters" id="applyPanelFilters">Apply filters</button>
+          </div>
+        </div>
       </div>
     </div>
     <div class="coupon-grid fu" id="couponGrid"></div>
@@ -1150,26 +1165,123 @@
     });
   });
 
-  const categoryPills = document.querySelectorAll('#categoryPills .cpill');
-  const moreCategories = document.getElementById('moreCategories');
+  // Filter panel — category + source, applied together. Opening it reflects
+  // the CURRENT state (activeCat / #sourceFilter), so it is never stale.
+  const filterToggle = document.getElementById('filterToggle');
+  const filterPanel = document.getElementById('filterPanel');
+  const filterCategory = document.getElementById('filterCategory');
+  const filterSource = document.getElementById('filterSource');
 
-  function selectCategory(category) {
+  function syncPanelControls() {
+    filterCategory.value = activeCat === 'all' ? '' : activeCat;
+    filterSource.value = document.getElementById('sourceFilter').value || '';
+  }
+  function setFilterPanel(open, restoreFocus = false) {
+    filterPanel.hidden = !open;
+    filterToggle.setAttribute('aria-expanded', String(open));
+    if (open) {
+      syncPanelControls();
+      filterCategory.focus();
+    } else if (restoreFocus) {
+      filterToggle.focus();
+    }
+  }
+  function applyFilters(category, source) {
     activeCat = category || 'all';
-    categoryPills.forEach(pill => {
-      const selected = pill.dataset.category === activeCat;
-      pill.classList.toggle('active', selected);
-      pill.setAttribute('aria-pressed', String(selected));
-    });
+    document.getElementById('sourceFilter').value = source || '';
     loadIndexCoupons();
   }
 
-  categoryPills.forEach(pill => {
-    pill.addEventListener('click', () => {
-      moreCategories.value = '';
-      selectCategory(pill.dataset.category);
-    });
+  filterToggle.addEventListener('click', () => setFilterPanel(filterPanel.hidden));
+  document.getElementById('applyPanelFilters').addEventListener('click', () => {
+    applyFilters(filterCategory.value, filterSource.value);
+    setFilterPanel(false, true);
   });
-  moreCategories.addEventListener('change', () => selectCategory(moreCategories.value));
+  document.getElementById('clearPanelFilters').addEventListener('click', () => {
+    filterCategory.value = '';
+    filterSource.value = '';
+    applyFilters('all', '');
+  });
+  // Click outside closes the panel; Escape closes it and returns focus.
+  document.addEventListener('click', (event) => {
+    if (filterPanel.hidden) return;
+    if (!event.target.closest('.popular-filter-wrap')) setFilterPanel(false);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !filterPanel.hidden) setFilterPanel(false, true);
+  });
+
+  // ── Voice search (search-bar mic) — Web Speech API ────────────────────
+  // Fills the EXISTING search input and fires its existing debounced reload.
+  // One recognition session at a time; unsupported browsers keep typing.
+  (function initVoiceSearch() {
+    const micBtn = document.getElementById('voiceSearchBtn');
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const notify = (msg) => { if (typeof showToast === 'function') showToast(msg, 'info'); else micBtn.title = msg; };
+    if (!SpeechRec) {
+      micBtn.title = 'Voice search is not supported in this browser';
+      micBtn.addEventListener('click', () => notify('Voice search is not supported in this browser — you can still type to search.'));
+      return;
+    }
+    let recognition = null;
+    let listening = false;
+    function teardown() {
+      listening = false;
+      micBtn.classList.remove('is-listening');
+      micBtn.setAttribute('aria-pressed', 'false');
+      micBtn.setAttribute('aria-label', 'Search by voice');
+    }
+    micBtn.addEventListener('click', () => {
+      if (listening) { try { recognition && recognition.stop(); } catch (e) {} return; }
+      try { recognition = new SpeechRec(); } catch (e) { notify('Voice search could not start. Please try again.'); return; }
+      recognition.lang = 'en-IN';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+      recognition.maxAlternatives = 1;
+      recognition.onstart = () => {
+        listening = true;
+        micBtn.classList.add('is-listening');
+        micBtn.setAttribute('aria-pressed', 'true');
+        micBtn.setAttribute('aria-label', 'Stop voice search');
+      };
+      recognition.onresult = (event) => {
+        let interim = '';
+        let finalText = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const text = event.results[i][0].transcript || '';
+          if (event.results[i].isFinal) finalText += text; else interim += text;
+        }
+        const shown = (finalText || interim).trim();
+        if (shown) document.getElementById('searchInput').value = shown;
+      };
+      const ERRORS = {
+        'not-allowed': 'Microphone access was denied. Allow it in your browser settings to search by voice.',
+        'service-not-allowed': 'Voice search is blocked by your browser settings. Allow microphone access and try again.',
+        'no-speech': "We didn't hear anything. Tap the microphone and try again.",
+        'audio-capture': 'No microphone was found. Connect one and try again.',
+        'network': 'Voice search needs a network connection. Please try again.',
+      };
+      recognition.onerror = (event) => {
+        if (event.error === 'aborted') return;
+        notify(ERRORS[event.error] || 'Voice search hit a problem. Please try again.');
+      };
+      recognition.onend = () => {
+        teardown();
+        recognition = null;
+        // Run the existing search against whatever the bar now shows.
+        const input = document.getElementById('searchInput');
+        if (input.value.trim()) input.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      try { recognition.start(); } catch (e) {
+        teardown();
+        recognition = null;
+        notify('Voice search is already running. Tap again to stop it.');
+      }
+    });
+    const halt = () => { if (listening) { try { recognition && recognition.stop(); } catch (e) {} teardown(); } };
+    window.addEventListener('pagehide', halt);
+    window.addEventListener('beforeunload', halt);
+  })();
 
   // Scroll reveal
   const obs = new IntersectionObserver(entries => {
