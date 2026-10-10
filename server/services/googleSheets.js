@@ -319,6 +319,10 @@ const HEADERS = {
     //   messages  — JSON array holding the reply thread:
     //               [{ from: 'user' | 'support', body, at }]
     'updatedAt', 'messages',
+    // Support category and the references it needs. Appended like the columns
+    // above, so existing rows read back empty and the readers fall back.
+    'category', 'orderId', 'transactionId', 'utr', 'couponId', 'brand',
+    'payoutRef', 'reportedUser', 'pageUrl', 'amount', 'paymentDate',
     // Screenshot metadata for the Drive-backed attachment. attachmentUrl holds
     // the reference ('drive:<fileId>'), these describe the file itself so the
     // ticket view can label it without fetching from Drive first.

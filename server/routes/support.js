@@ -227,16 +227,70 @@ router.post('/attachment', optionalAuth, async (req, res) => {
   }
 });
 
+// The 17 support categories. The server is the authority: a category that is
+// not in this list is refused, never stored.
+const SUPPORT_CATEGORIES = [
+  'Account & Login Issues', 'Buying Coupons', 'Payment Issues', 'Coupon Code Issues',
+  'Selling Coupons', 'Seller Payout', 'Refund Request', 'My Purchases', 'My Sales',
+  'Wallet & Transactions', 'Coupon Expiry', 'Offers & Pricing', 'Security & Privacy',
+  'Technical Issue / Bug', 'Report a User / Fraud', 'Feedback & Suggestions', 'Other Issues',
+];
+const SUBJECT_MAX = 150;
+const MESSAGE_MIN = 20;
+const MESSAGE_MAX = 4000;
+const REF_MAX = 120;
+
+// Plain-text field: trimmed, length-capped, control characters removed.
+function cleanText(value, max) {
+  return String(value == null ? '' : value)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
+    .trim()
+    .slice(0, max);
+}
+
+// Ticket ID shown to the user: SH- plus 8 hex chars from a server-generated UUID.
+function newTicketId() {
+  return 'SH-' + uuidv4().replace(/-/g, '').slice(0, 8).toUpperCase();
+}
+
 // POST /api/support/ticket — Submit a support ticket
 router.post('/ticket', supportTicketLimiter, optionalAuth, async (req, res) => {
   try {
-    const {
-      name, email, subject, message,
-      attachmentUrl, attachmentName, attachmentMime, attachmentSize,
-    } = req.body;
+    const body = req.body || {};
+    const { attachmentUrl, attachmentName, attachmentMime, attachmentSize } = body;
+    const name = cleanText(body.name, 120);
+    const email = cleanText(body.email, 254).toLowerCase();
+    const subject = cleanText(body.subject, SUBJECT_MAX);
+    const message = cleanText(body.message, MESSAGE_MAX);
+    const category = cleanText(body.category, 60);
+    const refs = {
+      orderId: cleanText(body.orderId, REF_MAX),
+      transactionId: cleanText(body.transactionId, REF_MAX),
+      utr: cleanText(body.utr, REF_MAX),
+      couponId: cleanText(body.couponId, REF_MAX),
+      brand: cleanText(body.brand, REF_MAX),
+      payoutRef: cleanText(body.payoutRef, REF_MAX),
+      reportedUser: cleanText(body.reportedUser, REF_MAX),
+      pageUrl: cleanText(body.pageUrl, 500),
+      amount: cleanText(body.amount, 40),
+      paymentDate: cleanText(body.paymentDate, 40),
+    };
 
     if (!name || !email || !subject || !message) {
       return res.status(400).json({ error: 'All fields are required: name, email, subject, message.' });
+    }
+    if (!SUPPORT_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: 'Please choose a support category.' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Please enter a valid email address.' });
+    }
+    if (message.length < MESSAGE_MIN) {
+      return res.status(400).json({ error: `Please describe your issue in at least ${MESSAGE_MIN} characters.` });
+    }
+    // Identity: a signed-in user files only under their own account email.
+    if (req.user && req.user.email && email !== String(req.user.email).toLowerCase().trim()) {
+      return res.status(403).json({ error: 'Tickets must be submitted from your own account email.' });
     }
 
     // Support submissions proceed only when Turnstile verification succeeds.
@@ -274,11 +328,22 @@ router.post('/ticket', supportTicketLimiter, optionalAuth, async (req, res) => {
     }
 
     const ticket = {
-      id: uuidv4(),
-      name: name.trim(),
-      userEmail: email.toLowerCase().trim(),
-      subject: subject.trim(),
-      message: message.trim(),
+      id: newTicketId(),
+      name,
+      userEmail: email,
+      subject,
+      message,
+      category,
+      orderId: refs.orderId,
+      transactionId: refs.transactionId,
+      utr: refs.utr,
+      couponId: refs.couponId,
+      brand: refs.brand,
+      payoutRef: refs.payoutRef,
+      reportedUser: refs.reportedUser,
+      pageUrl: refs.pageUrl,
+      amount: refs.amount,
+      paymentDate: refs.paymentDate,
       status: 'open',
       createdAt: new Date().toISOString(),
       resolvedAt: '',

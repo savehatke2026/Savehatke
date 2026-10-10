@@ -425,23 +425,82 @@
             <div class="fgroup">
               <label class="flabel" for="supportEmail">Email Address *</label>
               <input class="finput" type="email" id="supportEmail" placeholder="you@example.com" required>
+              <small class="field-error" id="supportEmailError" role="alert" hidden></small>
+            </div>
+            <div class="fgroup">
+              <label class="flabel" for="supportCategory">What do you need help with? *</label>
+              <select class="fselect" id="supportCategory" required aria-describedby="supportCategoryError">
+                <option value="" disabled selected>Select a category</option>
+                <option value="Account &amp; Login Issues">Account &amp; Login Issues</option>
+                <option value="Buying Coupons">Buying Coupons</option>
+                <option value="Payment Issues">Payment Issues</option>
+                <option value="Coupon Code Issues">Coupon Code Issues</option>
+                <option value="Selling Coupons">Selling Coupons</option>
+                <option value="Seller Payout">Seller Payout</option>
+                <option value="Refund Request">Refund Request</option>
+                <option value="My Purchases">My Purchases</option>
+                <option value="My Sales">My Sales</option>
+                <option value="Wallet &amp; Transactions">Wallet &amp; Transactions</option>
+                <option value="Coupon Expiry">Coupon Expiry</option>
+                <option value="Offers &amp; Pricing">Offers &amp; Pricing</option>
+                <option value="Security &amp; Privacy">Security &amp; Privacy</option>
+                <option value="Technical Issue / Bug">Technical Issue / Bug</option>
+                <option value="Report a User / Fraud">Report a User / Fraud</option>
+                <option value="Feedback &amp; Suggestions">Feedback &amp; Suggestions</option>
+                <option value="Other Issues">Other Issues</option>
+              </select>
+              <small id="supportCategoryError" class="field-error" role="alert" hidden></small>
             </div>
             <div class="fgroup">
               <label class="flabel" for="supportSubject">Subject *</label>
-              <select class="fselect" id="supportSubject" required>
-                <option value="">Select a topic</option>
-                <option value="Coupon Not Working">Coupon Not Working</option>
-                <option value="Refund Request">Refund Request</option>
-                <option value="Selling Payment Issue">Selling Payment Issue</option>
-                <option value="Price Tracker Issue">Price Tracker Issue</option>
-                <option value="Account Issue">Account Issue</option>
-                <option value="Feature Request">Feature Request</option>
-                <option value="Other">Other</option>
-              </select>
+              <input class="finput" type="text" id="supportSubject" maxlength="150" placeholder="A short summary of the issue" required>
+              <small class="field-error" id="supportSubjectError" role="alert" hidden></small>
             </div>
+
+            <!-- Category-specific references. Only the rows relevant to the selected
+                 category are shown; values the user typed are kept when hidden. -->
+            <div class="fgroup support-ref" data-cats="Payment Issues Refund Request Wallet &amp; Transactions Seller Payout My Purchases My Sales Buying Coupons Selling Coupons Coupon Code Issues Coupon Expiry Offers &amp; Pricing Report a User / Fraud Account &amp; Login Issues Security &amp; Privacy Technical Issue / Bug Other Issues" hidden>
+              <label class="flabel" for="supportTransactionId">Transaction / Order ID</label>
+              <input class="finput" type="text" id="supportTransactionId" maxlength="120" placeholder="e.g. TXN123456 or ORD-98765">
+            </div>
+            <div class="fgroup support-ref" data-cats="Payment Issues Seller Payout" hidden>
+              <label class="flabel" for="supportUtr">Payment Reference / UTR</label>
+              <input class="finput" type="text" id="supportUtr" maxlength="120" placeholder="12-digit UTR or payment reference">
+            </div>
+            <div class="fgroup support-ref" data-cats="Payment Issues Refund Request Seller Payout" hidden>
+              <label class="flabel" for="supportAmount">Amount (₹)</label>
+              <input class="finput" type="text" id="supportAmount" maxlength="40" inputmode="decimal" placeholder="e.g. 250">
+            </div>
+            <div class="fgroup support-ref" data-cats="Payment Issues" hidden>
+              <label class="flabel" for="supportPaymentDate">Payment date</label>
+              <input class="finput" type="date" id="supportPaymentDate">
+            </div>
+            <div class="fgroup support-ref" data-cats="Seller Payout" hidden>
+              <label class="flabel" for="supportPayoutRef">Payout reference</label>
+              <input class="finput" type="text" id="supportPayoutRef" maxlength="120" placeholder="Payout reference or ID">
+            </div>
+            <div class="fgroup support-ref" data-cats="Selling Coupons My Sales Coupon Code Issues Coupon Expiry Offers &amp; Pricing" hidden>
+              <label class="flabel" for="supportCouponId">Coupon ID / reference</label>
+              <input class="finput" type="text" id="supportCouponId" maxlength="120" placeholder="Coupon ID or sale reference">
+            </div>
+            <div class="fgroup support-ref" data-cats="Coupon Code Issues Coupon Expiry" hidden>
+              <label class="flabel" for="supportBrand">Brand</label>
+              <input class="finput" type="text" id="supportBrand" maxlength="120" placeholder="e.g. Amazon, Swiggy">
+            </div>
+            <div class="fgroup support-ref" data-cats="Technical Issue / Bug" hidden>
+              <label class="flabel" for="supportPageUrl">Page URL</label>
+              <input class="finput" type="url" id="supportPageUrl" maxlength="500" placeholder="https://savehatke.vercel.app/...">
+            </div>
+            <div class="fgroup support-ref" data-cats="Report a User / Fraud" hidden>
+              <label class="flabel" for="supportReportedUser">Reported username or user reference</label>
+              <input class="finput" type="text" id="supportReportedUser" maxlength="120" placeholder="Their SaveHatke username or reference">
+            </div>
+
             <div class="fgroup">
-              <label class="flabel" for="supportMessage">Message *</label>
-              <textarea class="ftextarea" id="supportMessage" placeholder="Describe your issue or question in detail..." required></textarea>
+              <label class="flabel" for="supportMessage">Describe your issue *</label>
+              <textarea class="ftextarea" id="supportMessage" minlength="20" maxlength="4000" placeholder="What happened, when it happened, and what you expected. For bugs, include the steps to reproduce. Please do not share passwords or OTPs." required></textarea>
+              <small class="field-hint" id="supportMessageCount">0 / 4000 · at least 20 characters</small>
+              <small class="field-error" id="supportMessageError" role="alert" hidden></small>
             </div>
             <div class="fgroup">
               <label class="flabel" for="supportAttachment">📎 Screenshot (optional)</label>
@@ -835,18 +894,91 @@
   const SUPPORT_ATTACHMENT_MAX_BYTES = 3 * 1024 * 1024;
   const SUPPORT_ATTACHMENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
+  // Show only the reference rows that belong to the selected category. Hiding a
+  // row never clears its input, so a user who switches categories keeps what
+  // they already typed.
+  function applySupportCategory() {
+    const category = document.getElementById('supportCategory')?.value || '';
+    document.querySelectorAll('.support-ref').forEach((row) => {
+      const cats = (row.dataset.cats || '').split(' ');
+      row.hidden = !category || !row.dataset.cats.includes(category);
+    });
+  }
+
+  // Inline validation. Messages sit under the field, not in an alert.
+  function setFieldError(id, message) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = message || '';
+    el.hidden = !message;
+  }
+
+  function validateSupportField(which) {
+    if (which === 'category') {
+      const v = document.getElementById('supportCategory').value;
+      setFieldError('supportCategoryError', v ? '' : 'Please choose what you need help with.');
+    }
+    if (which === 'subject') {
+      const v = document.getElementById('supportSubject').value.trim();
+      setFieldError('supportSubjectError', v ? '' : 'Please add a short subject.');
+    }
+    if (which === 'message') {
+      const v = document.getElementById('supportMessage').value.trim();
+      const count = document.getElementById('supportMessage').value.length;
+      const counter = document.getElementById('supportMessageCount');
+      if (counter) counter.textContent = `${count} / 4000 · at least 20 characters`;
+      let msg = '';
+      if (!v) msg = 'Please describe your issue.';
+      else if (v.length < 20) msg = 'Please write at least 20 characters so we can help.';
+      setFieldError('supportMessageError', msg);
+    }
+  }
+
+  function initSupportFormControls() {
+    const category = document.getElementById('supportCategory');
+    if (!category || category.dataset.bound === '1') return;
+    category.dataset.bound = '1';
+    category.addEventListener('change', () => {
+      applySupportCategory();
+      validateSupportField('category');
+    });
+    document.getElementById('supportSubject')?.addEventListener('blur', () => validateSupportField('subject'));
+    const message = document.getElementById('supportMessage');
+    message?.addEventListener('input', () => validateSupportField('message'));
+    message?.addEventListener('blur', () => validateSupportField('message'));
+    applySupportCategory();
+  }
+
   async function handleSupportSubmit(e) {
     e.preventDefault();
     const btn = document.getElementById('supportSubmitBtn');
     const name = document.getElementById('supportName').value.trim();
     const email = document.getElementById('supportEmail').value.trim();
-    const subject = document.getElementById('supportSubject').value;
+    const subject = document.getElementById('supportSubject').value.trim();
     const message = document.getElementById('supportMessage').value.trim();
     const fileInput = document.getElementById('supportAttachment');
     const file = fileInput && fileInput.files ? fileInput.files[0] : null;
 
+    // Inline messages for each required field, so the user sees exactly what to fix.
+    validateSupportField('category');
+    validateSupportField('subject');
+    validateSupportField('message');
+    if (!document.getElementById('supportCategory').value) {
+      document.getElementById('supportCategory').focus();
+      showToast('Please choose what you need help with.', 'warning');
+      return;
+    }
     if (!name || !email || !subject || !message) {
       showToast('Please fill in all required fields.', 'warning');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setFieldError('supportEmailError', 'Please enter a valid email address.');
+      showToast('Please enter a valid email address.', 'warning');
+      return;
+    }
+    if (message.length < 20) {
+      showToast('Please write at least 20 characters so we can help.', 'warning');
       return;
     }
 
@@ -871,6 +1003,9 @@
 
     btn.disabled = true;
     btn.textContent = '⏳ Submitting...';
+
+    const refValue = (id) => (document.getElementById(id)?.value || '').trim();
+    const category = refValue('supportCategory');
 
     try {
       // The screenshot goes up first so the ticket can carry its Drive reference.
@@ -897,25 +1032,41 @@
         btn.textContent = '⏳ Submitting...';
       }
 
-      if (typeof api === 'function') {
-        await api('/support/ticket', {
-          method: 'POST',
-          body: {
-            name, email, subject, message, cfTurnstileToken: turnstileToken,
-            ...(attachment ? {
-              attachmentUrl: attachment.url,
-              attachmentName: attachment.name || file.name,
-              attachmentMime: attachment.mimeType || '',
-              attachmentSize: attachment.size || '',
-            } : {}),
-          }
-        });
-      } else {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Only the references for the chosen category are sent; hidden rows are
+      // ignored so stale values from an earlier selection never reach the ticket.
+      const visibleRefs = {};
+      document.querySelectorAll('.support-ref').forEach((row) => {
+        if (row.hidden) return;
+        row.querySelectorAll('input').forEach((input) => { visibleRefs[input.id] = input.value.trim(); });
+      });
+      const payload = {
+        name, email, subject, message, category, cfTurnstileToken: turnstileToken,
+        orderId: visibleRefs.supportTransactionId || '',
+        transactionId: visibleRefs.supportTransactionId || '',
+        utr: visibleRefs.supportUtr || '',
+        amount: visibleRefs.supportAmount || '',
+        paymentDate: visibleRefs.supportPaymentDate || '',
+        payoutRef: visibleRefs.supportPayoutRef || '',
+        couponId: visibleRefs.supportCouponId || '',
+        brand: visibleRefs.supportBrand || '',
+        pageUrl: visibleRefs.supportPageUrl || '',
+        reportedUser: visibleRefs.supportReportedUser || '',
+        ...(attachment ? {
+          attachmentUrl: attachment.url,
+          attachmentName: attachment.name || file.name,
+          attachmentMime: attachment.mimeType || '',
+          attachmentSize: attachment.size || '',
+        } : {}),
+      };
+      const created = await api('/support/ticket', { method: 'POST', body: payload });
+      const ticketId = created && created.ticketId;
+      if (!ticketId) {
+        throw new Error('The ticket could not be confirmed. Please check your cases before retrying.');
       }
-      showToast('✅ Ticket submitted! We\'ll get back to you within 24 hours.', 'success');
+      showToast(`Support ticket created successfully! Your ticket ID is ${ticketId}. Keep this ID for future reference.`, 'success', 9000);
       document.getElementById('supportForm').reset();
       initSupportFormIdentity();
+      applySupportCategory();
       loadRecentCases();
     } catch (err) {
       showToast(err.message || 'Something went wrong. Please try again.', 'error');
@@ -1081,6 +1232,7 @@
   // After all scripts (incl. js/app.js) have loaded — Auth is available then
   window.addEventListener('load', () => {
     initSupportFormIdentity();
+    initSupportFormControls();
     loadRecentCases();
   });
 </script>
