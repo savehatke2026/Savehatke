@@ -483,12 +483,22 @@ function cmCardHtml(c) {
     : '';
   const origPrice = c.originalValue ? ` <del>₹${escHtml(c.originalValue)}</del>` : '';
   const copySvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+  // Sell is offered only for a coupon the server would accept: still available
+  // and not expired. Anything else (sold, reserved, expired) shows no button.
+  const sellable = String(c.status || '').toLowerCase() === 'available' && !couponIsExpired(c);
+  const sellBtn = sellable
+    ? `<button type="button" class="cmbx-sell" title="Sell coupon" aria-label="Sell coupon" onclick="openSellCouponModal('${id}')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          <span>Sell</span>
+        </button>`
+    : '';
   return `
     <article class="coupon-card" data-coupon-id="${id}">
       <div class="match-banner">
         <button type="button" class="cmbx-edit" title="Edit coupon" aria-label="Edit coupon" onclick="openCouponEdit('${id}')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l4-1 13-13a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>
         </button>
+        ${sellBtn}
         ${bg
           ? `<img src="${escHtml(bg)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
              <div class="match-fallback" style="display:none" aria-hidden="true"><b>${escHtml(initial)}</b>${discount ? `<span>${escHtml(discount)}</span>` : ''}</div>`
@@ -2900,6 +2910,331 @@ async function saveCouponEdit() {
     if (btn) { btn.disabled = false; btn.textContent = prev || '💾 Save Changes'; }
   }
 }
+
+// ══════════════════════════════════════════════════════════════════════════
+// SELL COUPON — assign an available coupon to a registered user.
+// Every displayed value is read from the real coupon row and the Users sheet.
+// The server (POST /api/admin/coupons/:id/sell) is the authority on price,
+// eligibility and the sale itself; this modal only sends the ids.
+// ══════════════════════════════════════════════════════════════════════════
+const SELL_SEARCH_DEBOUNCE_MS = 250;
+const sellState = {
+  coupon: null,        // the coupon row being sold (from the cache)
+  query: '',           // current search text
+  page: 1,
+  totalPages: 1,
+  users: [],           // current page of registered users
+  selected: null,      // { id, name, email, profilePicture } — one at a time
+  meta: null,          // last search response (counts/paging) for re-rendering
+  submitting: false,   // in-flight guard against repeated submissions
+  confirming: false,   // two-step: final confirmation card is showing
+  searchSeq: 0,        // discards out-of-order search responses
+  timer: null,
+};
+
+function sellPriceFor(c) {
+  // Display-only mirror of the server's getBuyerPrice band (20% face, 10% in
+  // the final 24h). The server recomputes and returns the recorded figure.
+  const face = Number(String(c.originalValue || '').replace(/[^\d.]/g, ''));
+  if (!Number.isFinite(face) || face <= 0) return null;
+  const at = parseExpiry(c.expiryDate);
+  const lastDay = at !== null && at - Date.now() <= 24 * 60 * 60 * 1000;
+  return Math.round(face * (lastDay ? 0.10 : 0.20) * 100) / 100;
+}
+
+function sellMoney(n) {
+  return n === null || n === undefined ? '—' : '₹' + Number(n).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+
+function sellExpiryText(c) {
+  const at = parseExpiry(c.expiryDate);
+  if (at === null) return '—';
+  return new Date(at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function renderSellCouponCard() {
+  const c = sellState.coupon;
+  const host = document.getElementById('scmCouponCard');
+  if (!host || !c) return;
+  const price = sellPriceFor(c);
+  const logoUrl = c.brandLogo || (typeof adminDriveBrandLogo === 'function' ? adminDriveBrandLogo(c.brand || '') : '');
+  const img = logoUrl
+    ? `<img class="scm-coupon-img" src="${escHtml(logoUrl)}" alt="" onerror="this.style.visibility='hidden'">`
+    : `<div class="scm-coupon-img" style="display:flex;align-items:center;justify-content:center;font-weight:700;color:#00E272">${escHtml(((c.brand || '?').charAt(0)).toUpperCase())}</div>`;
+  const status = String(c.status || 'available');
+  host.innerHTML = `
+    <div class="scm-coupon">
+      ${img}
+      <div class="scm-coupon-meta">
+        <div class="scm-coupon-brand">${escHtml(c.brand || 'Coupon')}</div>
+        <div class="scm-coupon-desc">${escHtml(c.title || c.description || 'Coupon')}</div>
+        <div class="scm-coupon-ids">ID ${escHtml(String(c.id || '—'))}</div>
+        <div class="scm-coupon-foot">
+          <span class="scm-chip">Face ${sellMoney(Number(String(c.originalValue || '').replace(/[^\d.]/g, '')) || null)}</span>
+          <span class="scm-chip">Expires ${escHtml(sellExpiryText(c))}</span>
+          <span class="scm-chip green">${escHtml(status.charAt(0).toUpperCase() + status.slice(1))}</span>
+        </div>
+      </div>
+      <div class="scm-coupon-figures">
+        <div class="scm-price">${sellMoney(price)}</div>
+        <div class="scm-face">Selling price</div>
+      </div>
+    </div>`;
+}
+
+function openSellCouponModal(id) {
+  const c = findCouponById(id);
+  if (!c) { showToast('Could not find this coupon. Try refreshing.', 'error'); return; }
+  if (String(c.status || '').toLowerCase() !== 'available' || couponIsExpired(c)) {
+    showToast('Only available, unexpired coupons can be sold.', 'warning');
+    return;
+  }
+  // Fresh session every time: a reopened modal clears the temporary selection.
+  clearTimeout(sellState.timer);
+  Object.assign(sellState, {
+    coupon: c, query: '', page: 1, totalPages: 1, users: [], selected: null,
+    submitting: false, confirming: false, searchSeq: sellState.searchSeq + 1, timer: null,
+  });
+  const search = document.getElementById('scmSearch');
+  if (search) search.value = '';
+  renderSellCouponCard();
+  renderSellSelection();
+  renderSellSummary();
+  setSellConfirmState();
+  loadSellUsers();
+  openModal('sellCouponModal');
+  setTimeout(() => { if (search) search.focus(); }, 60);
+}
+
+function closeSellCouponModal() {
+  if (sellState.submitting) return; // no dismissal while the sale is in flight
+  clearTimeout(sellState.timer);
+  sellState.searchSeq++;
+  sellState.confirming = false;
+  closeModal('sellCouponModal');
+}
+
+function onSellUserSearchInput(value) {
+  clearTimeout(sellState.timer);
+  sellState.timer = setTimeout(() => {
+    sellState.query = String(value || '').trim();
+    sellState.page = 1;
+    loadSellUsers();
+  }, SELL_SEARCH_DEBOUNCE_MS);
+}
+
+async function loadSellUsers() {
+  const list = document.getElementById('scmUserList');
+  const count = document.getElementById('scmUserCount');
+  if (!list) return;
+  const seq = ++sellState.searchSeq;
+  list.innerHTML = '<div class="scm-state"><span class="scm-spinner"></span>Loading registered users…</div>';
+  if (count) count.textContent = '';
+  try {
+    const qs = new URLSearchParams({ q: sellState.query, page: String(sellState.page), pageSize: '25' });
+    const data = await api(`/admin/users/search?${qs.toString()}`, { useAdmin: true });
+    if (seq !== sellState.searchSeq) return; // a newer search superseded this one
+    sellState.users = Array.isArray(data.users) ? data.users : [];
+    sellState.totalPages = data.totalPages || 1;
+    sellState.meta = data; // kept so re-rendering after a selection keeps the counts
+    renderSellUserList(data);
+  } catch (err) {
+    if (seq !== sellState.searchSeq) return;
+    if (err && err.sessionExpired) return;
+    list.innerHTML = `<div class="scm-state" style="color:#ef9a9a">Could not load users. <button type="button" class="btn btn-ghost btn-sm" onclick="loadSellUsers()">Retry</button></div>`;
+  }
+}
+
+function renderSellUserList(data) {
+  const list = document.getElementById('scmUserList');
+  const count = document.getElementById('scmUserCount');
+  if (!list) return;
+  if (count) {
+    const total = data.counts && data.counts.total != null ? data.counts.total : null;
+    count.textContent = sellState.query
+      ? `${data.total} match${data.total === 1 ? '' : 'es'}${total != null ? ` of ${total} registered users` : ''}`
+      : (total != null ? `${total} registered users` : '');
+  }
+  if (!sellState.users.length) {
+    list.innerHTML = `<div class="scm-state">${sellState.query ? `No registered users match “${escHtml(sellState.query)}”.` : 'No registered users found.'}</div>`;
+    return;
+  }
+  const selId = sellState.selected ? String(sellState.selected.id) : null;
+  const rows = sellState.users.map((u) => {
+    const sel = selId !== null && String(u.id) === selId;
+    const suspended = u.status === 'suspended' || u.status === 'banned';
+    return `
+      <div class="scm-user${sel ? ' selected' : ''}${suspended ? ' scm-dim' : ''}" role="radio" aria-checked="${sel}" tabindex="0"
+           data-user-id="${escHtml(u.id)}" onclick="selectSellUser('${escHtml(u.id)}')"
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();selectSellUser('${escHtml(u.id)}')}">
+        <span class="scm-avatar-slot">${userAvatarHtml(u, 34)}</span>
+        <div class="scm-user-main">
+          <div class="scm-user-name">${escHtml(u.name)}${suspended ? ' · <span style="color:#ffb74d;font-weight:500">suspended</span>' : ''}</div>
+          <div class="scm-user-email">${escHtml(u.email)}</div>
+        </div>
+        <span class="scm-radio" aria-hidden="true"></span>
+      </div>`;
+  }).join('');
+  const pager = sellState.totalPages > 1
+    ? `<div style="display:flex;justify-content:center;gap:8px;align-items:center;margin-top:6px;font-size:.76rem;color:#6b88aa">
+         <button type="button" class="btn btn-ghost btn-sm" ${sellState.page <= 1 ? 'disabled' : ''} onclick="sellUserPage(-1)">‹ Prev</button>
+         <span>Page ${sellState.page} of ${sellState.totalPages}</span>
+         <button type="button" class="btn btn-ghost btn-sm" ${sellState.page >= sellState.totalPages ? 'disabled' : ''} onclick="sellUserPage(1)">Next ›</button>
+       </div>`
+    : '';
+  list.innerHTML = rows + pager;
+}
+
+function sellUserPage(delta) {
+  const next = sellState.page + delta;
+  if (next < 1 || next > sellState.totalPages) return;
+  sellState.page = next;
+  loadSellUsers();
+}
+
+function selectSellUser(id) {
+  if (sellState.submitting) return;
+  const u = sellState.users.find((x) => String(x.id) === String(id));
+  if (!u) return;
+  // Changing the selection always cancels a pending final confirmation.
+  sellState.confirming = false;
+  sellState.selected = { id: u.id, name: u.name, email: u.email, profilePicture: u.profilePicture, status: u.status };
+  renderSellUserList(sellState.meta || { total: sellState.users.length, counts: null });
+  renderSellSelection();
+  renderSellSummary();
+  setSellConfirmState();
+}
+
+function renderSellSelection() {
+  const host = document.getElementById('scmSelectedUser');
+  if (!host) return;
+  const u = sellState.selected;
+  if (!u) {
+    host.innerHTML = '<div class="scm-sum-empty">No user selected yet. Choose one from the list above.</div>';
+    return;
+  }
+  host.innerHTML = `
+    <div class="scm-sel-user">
+      ${userAvatarHtml(u, 40)}
+      <div class="scm-sel-text">
+        <div class="scm-sel-name">${escHtml(u.name)}</div>
+        <div class="scm-sel-email">${escHtml(u.email)}</div>
+      </div>
+    </div>`;
+}
+
+function renderSellSummary() {
+  const host = document.getElementById('scmSaleSummary');
+  const c = sellState.coupon;
+  if (!host || !c) return;
+  const price = sellPriceFor(c);
+  const u = sellState.selected;
+  host.innerHTML = `
+    <div class="scm-sum-row"><span class="scm-sum-k">Brand</span><span class="scm-sum-v">${escHtml(c.brand || '—')}</span></div>
+    <div class="scm-sum-row"><span class="scm-sum-k">Coupon ID</span><span class="scm-sum-v" style="font-family:'JetBrains Mono',monospace;font-size:.72rem">${escHtml(String(c.id || '—'))}</span></div>
+    <div class="scm-sum-row"><span class="scm-sum-k">Selling price</span><span class="scm-sum-v green">${sellMoney(price)}</span></div>
+    <div class="scm-sum-row"><span class="scm-sum-k">Recipient</span><span class="scm-sum-v" title="${escHtml(u ? u.email : '')}">${u ? escHtml(u.email) : '<span style="color:#4a6285">Not selected</span>'}</span></div>`;
+}
+
+function setSellConfirmState() {
+  const btn = document.getElementById('sellConfirmBtn');
+  const cancel = document.getElementById('sellCancelBtn');
+  if (!btn) return;
+  const ready = !!(sellState.coupon && sellState.selected);
+  btn.disabled = !ready || sellState.submitting;
+  btn.classList.toggle('scm-busy', sellState.submitting);
+  btn.innerHTML = sellState.submitting
+    ? '<span class="scm-spinner"></span>Recording sale…'
+    : (sellState.confirming ? 'Yes, Sell it' : 'Confirm Sale');
+  if (cancel) {
+    // Cancel closes the modal; while the final confirmation shows it steps back.
+    cancel.textContent = sellState.confirming ? 'Back' : 'Cancel';
+    cancel.setAttribute('onclick', sellState.confirming ? 'sellBackFromConfirm()' : 'closeSellCouponModal()');
+  }
+  if (sellState.confirming && !sellState.submitting) {
+    showSellConfirmBanner();
+  } else {
+    hideSellConfirmBanner();
+  }
+}
+
+function showSellConfirmBanner() {
+  const c = sellState.coupon;
+  const u = sellState.selected;
+  if (!c || !u) return;
+  let box = document.getElementById('scmConfirmBox');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'scmConfirmBox';
+    box.setAttribute('role', 'alertdialog');
+    box.style.cssText = 'margin-top:14px;border:1px solid rgba(0,226,114,.35);background:rgba(0,226,114,.06);border-radius:12px;padding:12px 14px;font-size:.84rem;color:#e2ecff;line-height:1.5';
+    document.getElementById('scmFooter').parentNode.insertBefore(box, document.getElementById('scmFooter'));
+  }
+  box.innerHTML = `Sell <b>${escHtml(c.brand || 'this')}</b> coupon (${sellMoney(sellPriceFor(c))}) to <b>${escHtml(u.email)}</b>${u.name ? ` (${escHtml(u.name)})` : ''}? The sale is recorded immediately and the coupon can no longer be sold.`;
+}
+
+function hideSellConfirmBanner() {
+  const box = document.getElementById('scmConfirmBox');
+  if (box) box.remove();
+}
+
+function onSellConfirmClick() {
+  if (sellState.submitting || !sellState.coupon || !sellState.selected) return;
+  if (!sellState.confirming) {
+    // Step 1 → final confirmation naming the recipient email and coupon.
+    sellState.confirming = true;
+    setSellConfirmState();
+    return;
+  }
+  submitSellCoupon();
+}
+
+async function submitSellCoupon() {
+  if (sellState.submitting) return; // duplicate-click guard
+  const c = sellState.coupon;
+  const u = sellState.selected;
+  if (!c || !u) return;
+  sellState.submitting = true;
+  setSellConfirmState();
+  try {
+    const res = await api(`/admin/coupons/${encodeURIComponent(c.id)}/sell`, {
+      method: 'POST', useAdmin: true, body: { userId: u.id },
+    });
+    // Success is shown only after the server confirmed the sale.
+    sellState.submitting = false;
+    sellState.confirming = false;
+    closeModal('sellCouponModal');
+    const orderLabel = res && res.order ? ` · Order ${res.order.orderCode}` : '';
+    const mailNote = res && res.notified === false ? ' (confirmation email could not be sent)' : '';
+    showToast(`Coupon sold to ${u.email}${orderLabel}${mailNote}`, res && res.notified === false ? 'warning' : 'success', 6000);
+    await refreshAfterSell(c.id);
+  } catch (err) {
+    sellState.submitting = false;
+    sellState.confirming = false;
+    if (err && err.sessionExpired) return;
+    const msg = (err && err.message) || 'The sale could not be completed. Nothing was assigned.';
+    showToast(msg, 'error', 6000);
+    // Modal stays open so the admin can retry or pick someone else.
+    setSellConfirmState();
+  }
+}
+
+function sellBackFromConfirm() {
+  sellState.confirming = false;
+  setSellConfirmState();
+}
+
+/** Refresh the sold coupon's card (and the inventory it sits in). */
+async function refreshAfterSell(id) {
+  try {
+    if (typeof loadInventory === 'function') await loadInventory();
+  } catch (e) {}
+  if (typeof loadUsers === 'function' && document.getElementById('usersTableBody')) {
+    try { await loadUsers(); } catch (e) {}
+  }
+}
+
+function invalidateSellCache() { /* the server clears its coupon-list cache on sale */ }
 
 // ── Coupon edit form: image upload (brand logo / background) ────────────
 // Picking a file uploads it IMMEDIATELY to the existing SaveHatke Drive asset

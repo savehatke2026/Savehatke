@@ -24,6 +24,12 @@ const payouts = require('./payouts');
 // The single seller-payout formula (7% of face value, rounded to the paise).
 // Admin writes never trust a client-supplied payout — it is always derived here.
 const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerPayout');
+// The Sell-Coupon route settles through the REAL payment pipeline (order →
+// payment → finalizePayment) so an admin sale is recorded exactly like a
+// verified buyer purchase — same atomic coupon flip, same ledger rows.
+const paymentStore = require('../services/paymentStore');
+const dynamicPricing = require('../services/dynamicPricing');
+const upi = require('../services/upi');
 
 const router = express.Router();
 
@@ -925,6 +931,286 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
   }
 });
 
+// ── Sell Coupon: assign an available coupon to a registered user ────────────
+// NOT a frontend-only status flip. The sale is routed through the REAL payment
+// pipeline (order → payment → finalizePayment) so every safeguard the buyers'
+// flow has applies here too: DB-authoritative pricing, the atomic sold-flip in
+// unlockCoupon(), duplicate-purchase detection, PAID ledger rows in Orders +
+// Payments, and finance reporting that stays consistent.
+function sellFail(res, status, code, error, extra = {}) {
+  return res.status(status).json({ ok: false, code, error, ...extra });
+}
+
+// Lowest-case address from the paymentStore lookup precedence: Supabase first
+// (findUserById is keyed on user_id), then the Users sheet. Sheets normalizes
+// emails to lowercase on read, so a case-insensitive match is safe there.
+function userRecordEmail(u) {
+  if (!u) return '';
+  for (const k of ['email', 'Email', 'EMAIL']) {
+    if (u[k] !== undefined && u[k] !== null && String(u[k]).trim() !== '') {
+      return String(u[k]).trim().toLowerCase();
+    }
+  }
+  return '';
+}
+
+// POST /api/admin/coupons/:id/sell — record a real PAID sale of an available
+// coupon to an active registered user, authorized by the signed-in admin.
+router.post('/coupons/:id/sell', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
+  const adminEmail = String(req.user.email || '').trim().toLowerCase();
+  try {
+    const ready = await paymentStore.ensureReady();
+    if (!ready.ok) {
+      return sellFail(res, 503, 'STORAGE_UNAVAILABLE', 'The payments store is temporarily unavailable. Try again in a moment.');
+    }
+
+    // ── 1. Load the coupon (authoritative record only) ───────────────────────
+    const couponId = String((req.params && req.params.id) || '').trim();
+    let coupon = null;
+    if (supabase.isConfigured()) {
+      try { coupon = await supabase.findCouponById(couponId); } catch (e) {}
+    }
+    if (!coupon) {
+      try { coupon = await db.findRow(db.SHEETS.COUPONS, 'id', couponId); } catch (e) {}
+    }
+    if (!coupon) {
+      return sellFail(res, 404, 'COUPON_NOT_FOUND', 'Coupon not found.');
+    }
+
+    // ── 2. Coupon eligibility ────────────────────────────────────────────────
+    // Same rules as a buyer's checkout: status 'available', no active
+    // reservation held by somebody else, not expired, price derivable.
+    const status = String(coupon.status || 'available').toLowerCase();
+    if (status !== 'available') {
+      return sellFail(res, 409, 'COUPON_UNAVAILABLE', `This coupon is no longer available (status: ${status || 'unknown'}).`);
+    }
+
+    // ── 3. Recipient eligibility — the body supplies ONLY a stable user id ───
+    const recipientUserId = String((req.body && (req.body.userId || req.body.user_id)) || '').trim();
+    if (!recipientUserId) {
+      return sellFail(res, 400, 'RECIPIENT_REQUIRED', 'Select a registered user to receive this coupon.');
+    }
+
+    // Authoritative recipient record: Supabase first, then the Users sheet.
+    let recipient = null;
+    if (supabase.isConfigured()) {
+      try { recipient = await supabase.findUserById(recipientUserId); } catch (e) {}
+    }
+    if (!recipient) {
+      try {
+        const rows = await db.getRows(db.SHEETS.USERS);
+        recipient = rows.find((r) => String(r.user_ID || r.user_id || r.id || '') === recipientUserId) || null;
+      } catch (e) {}
+    }
+    if (!recipient) {
+      return sellFail(res, 404, 'USER_NOT_FOUND', 'Recipient account not found. Select a registered user.');
+    }
+
+    const recipientEmail = userRecordEmail(recipient);
+    if (!recipientEmail) {
+      return sellFail(res, 409, 'RECIPIENT_NO_EMAIL', 'This account has no email address on record and cannot receive a coupon.');
+    }
+    const recipientStatus = String(recipient.status || 'active').toLowerCase().trim();
+    if (recipientStatus === 'suspended' || recipientStatus === 'banned') {
+      return sellFail(res, 409, 'USER_INELIGIBLE', `This account is ${recipientStatus} and cannot receive a coupon.`);
+    }
+    const recipientName = String(recipient.name || recipient.username || recipientEmail.split('@')[0] || '').trim().slice(0, 120);
+
+    // Self-grant is allowed (the admin may add a coupon to their own account);
+    // only a SELLER granting their own listing is refused, matching checkout.
+    const sellerEmail = String(coupon.sellerEmail || '').toLowerCase().trim();
+    const sellerUserId = String(coupon.sellerUserId || '');
+    if (sellerEmail && sellerEmail === recipientEmail) {
+      return sellFail(res, 409, 'OWN_COUPON', 'This coupon belongs to that user. It cannot be sold to its own seller.');
+    }
+    if (sellerUserId && sellerUserId === recipientUserId) {
+      return sellFail(res, 409, 'OWN_COUPON', 'This coupon belongs to that user. It cannot be sold to its own seller.');
+    }
+
+    // ── 4. Authoritative price (server-derived; body price never trusted) ────
+    const priceInfo = dynamicPricing.getBuyerPrice(coupon);
+    if (!priceInfo.purchasable) {
+      return sellFail(
+        res, 409, priceInfo.expired ? 'COUPON_EXPIRED' : 'INVALID_PRICE',
+        priceInfo.expired
+          ? 'This coupon has expired and cannot be sold.'
+          : 'This coupon has an invalid face value and cannot be sold.'
+      );
+    }
+    const priced = upi.validateAmount(String(priceInfo.price));
+    if (!priced.ok) {
+      return sellFail(res, priced.code === 'AMOUNT_TOO_LARGE' ? 409 : 400, priced.code,
+        priced.code === 'AMOUNT_TOO_LARGE'
+          ? `This coupon's price is above the ₹${Number(priced.max).toFixed(2)} online payment limit and cannot be recorded online.`
+          : 'This coupon has an invalid price and cannot be sold.');
+    }
+    const amount = priced.amount;
+
+    // ── 5. Real pipeline: supersede → reserve → order → payment → settle ─────
+    // One live payment per user: retire the recipient's other live sessions so
+    // the new sale's payment row is the only live one for them.
+    try {
+      await paymentStore.supersedeLivePaymentsForUser(recipientUserId, { keepPaymentId: null });
+    } catch (e) {}
+
+    const now = Date.now();
+    const expiresAt = new Date(now + paymentStore.PAYMENT_WINDOW_MS).toISOString();
+    const checkExpiresAt = new Date(now + paymentStore.PAYMENT_CHECK_WINDOW_MS).toISOString();
+    const paymentId = paymentStore.newPaymentId();
+
+    let reserved = false;
+    try {
+      const verdict = await paymentStore.reserveCouponForPayment({
+        couponId,
+        userId: recipientUserId,
+        userEmail: recipientEmail,
+        paymentId,
+        until: checkExpiresAt,
+      });
+      reserved = verdict.ok;
+      if (!verdict.ok) {
+        return sellFail(res, 409, 'COUPON_UNAVAILABLE',
+          'This coupon is temporarily reserved by another buyer. Try again in a few minutes.');
+      }
+    } catch (e) {
+      // Reservation schema not applied / storage hiccup: proceed unreserved.
+      // The atomic sold-flip at settlement still prevents a double sale.
+      console.warn('[ADMIN_SELL] reserve unavailable, continuing unreserved:', e.message);
+    }
+
+    let order;
+    try {
+      order = await paymentStore.createOrder({
+        userId: recipientUserId,
+        userEmail: recipientEmail,
+        couponId,
+        amount,
+        buyerName: recipientName,
+        buyerEmail: recipientEmail,
+        couponCode: (coupon && coupon.code) || '',
+        couponBrand: (coupon && coupon.brand) || '',
+        expiresAt,
+      });
+    } catch (e) {
+      if (reserved) {
+        try { await paymentStore.releaseCouponReservation({ couponId, paymentId }); } catch (_) {}
+      }
+      console.error('Admin sell coupon — createOrder failed:', e);
+      return sellFail(res, 503, 'ORDER_FAILED', 'Could not record the sale order. No charge or assignment was made — try again.');
+    }
+
+    const payee = upi.getPayee();
+    const upiUri = upi.buildUpiUri({ amount });
+
+    let payment;
+    try {
+      payment = await paymentStore.createPayment({
+        paymentId,
+        orderId: order.id,
+        userId: recipientUserId,
+        userEmail: recipientEmail,
+        couponId,
+        amount,
+        expiresAt,
+        checkExpiresAt,
+        upiId: payee.upiId,
+        payeeName: payee.payeeName,
+        upiUri,
+      });
+    } catch (e) {
+      if (reserved) {
+        try { await paymentStore.releaseCouponReservation({ couponId, paymentId }); } catch (_) {}
+      }
+      try { await paymentStore.transitionOrder(order.id, 'PENDING', 'CANCELLED'); } catch (_) {}
+      console.error('Admin sell coupon — createPayment failed:', e);
+      return sellFail(res, 409, 'PAYMENT_CONFLICT',
+        'A live payment session already exists for this user and coupon. Try again in a few minutes.');
+    }
+
+    // ── 6. Settle immediately through the real verifier entry point ──────────
+    // finalizePayment performs the atomic unlockCoupon flip (status available →
+    // sold, buyer_email, sold_payment_id), duplicate/replay guards, and marks
+    // payment + order PAID. Nothing is "sold" until this says so.
+    const settlementNotes = `Admin sale authorized by ${adminEmail} (vault panel).`;
+    const finalized = await paymentStore.finalizePayment({
+      paymentId,
+      source: 'admin_sale',
+      notes: settlementNotes,
+      paidAt: new Date().toISOString(),
+      receivedAmount: amount,
+    });
+
+    if (!finalized.ok) {
+      // Payment/order rows are already parked in REVIEW by the store — a human
+      // can see and reverse them; the coupon was NOT unlocked.
+      console.error('Admin sell coupon — settlement refused:', finalized.code, finalized);
+      const friendly = {
+        DUPLICATE_PURCHASE: 'This user already purchased this coupon. Sale parked for review — nothing was double-assigned.',
+        COUPON_UNAVAILABLE: 'The coupon could not be assigned (already sold or changed state). The session was parked for review.',
+        REPLAY_DETECTED: 'A conflicting transaction reference was found. Sale parked for review.',
+        OUTSIDE_WINDOW: 'Settlement fell outside the allowed window. Sale parked for review.',
+        PAYMENT_NOT_FOUND: 'The payment session vanished before settlement. Try again.',
+        PAYMENT_NOT_PENDING: 'The payment session was already closed by another process. Try again.',
+      };
+      return sellFail(res, 409, finalized.code || 'SETTLEMENT_FAILED',
+        friendly[finalized.code] || 'The sale could not be completed. It was parked for review rather than partially applied.');
+    }
+
+    // Label the order truthfully for finance reports (best-effort — the sale
+    // itself is already recorded; a failed relabel must not fail the request).
+    try {
+      await db.updateRow(db.SHEETS.ORDERS, 'id', order.id, { transaction_type: 'ADMIN_SALE' });
+    } catch (e) {}
+
+    invalidateCouponListCache();
+
+    // ── 7. Audit + recipient notification (best-effort, never fails the sale) ─
+    try {
+      await logCouponAudit(
+        couponId, adminEmail, 'admin_sell',
+        `Sold to ${recipientEmail}; order ${order.orderCode}; txn ${order.transactionId}; source admin_sale`
+      );
+    } catch (e) {}
+    let notified = false;
+    try {
+      const mail = await emailService.sendCouponDetailsEmail({
+        to: recipientEmail,
+        userName: recipientName,
+        brandName: (coupon && coupon.brand) || '',
+        couponDescription: (coupon && (coupon.description || coupon.title)) || '',
+        couponValue: (coupon && (coupon.originalValue || coupon.faceValue)) || '',
+        expiryDate: (coupon && coupon.expiryDate) || '',
+        orderId: order.orderCode,
+      });
+      notified = !!(mail && mail.success !== false);
+    } catch (e) {
+      console.warn('[ADMIN_SELL] recipient email failed:', e.message);
+    }
+
+    console.log(`[ADMIN_SELL] coupon=${couponId} → ${recipientEmail} amount=${amount.toFixed(2)} order=${order.orderCode} txn=${order.transactionId} by ${adminEmail}`);
+
+    // The coupon code is deliberately NOT returned — it reaches the recipient
+    // only through their own dashboard's sold-payment-gated reveal.
+    res.json({
+      ok: true,
+      message: `Coupon sold to ${recipientEmail}.`,
+      order: {
+        id: order.id,
+        orderCode: order.orderCode,
+        transactionId: order.transactionId,
+        amount: Number(amount.toFixed(2)),
+        currency: 'INR',
+      },
+      recipient: { id: recipientUserId, email: recipientEmail, name: recipientName },
+      price: { amount: Number(amount.toFixed(2)), rate: priceInfo.rate || '', bandLabel: priceInfo.bandLabel || '' },
+      notified,
+    });
+  } catch (err) {
+    console.error('Admin sell coupon error:', err);
+    sellFail(res, 500, 'SELL_FAILED', 'Internal server error while recording the sale.');
+  }
+});
+
 // DELETE /api/admin/coupons/:id — Delete a coupon
 router.delete('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
@@ -1334,6 +1620,51 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
     });
   } catch (err) {
     console.error('Admin list users error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// GET /api/admin/users/search?q=&page=&pageSize= — paged, server-side search
+// for the Sell-Coupon recipient picker. Reads the same live Users sheet as
+// GET /users but returns only what the picker needs (id, name, email, status,
+// avatar) — never credentials, tokens or session data.
+router.get('/users/search', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const q = String((req.query && req.query.q) || '').trim().toLowerCase();
+    const page = Math.max(1, parseInt((req.query && req.query.page) || '1', 10) || 1);
+    const pageSize = Math.min(50, Math.max(5, parseInt((req.query && req.query.pageSize) || '25', 10) || 25));
+
+    const rows = await db.getRows(db.SHEETS.USERS);
+    const all = rows.map((u) => {
+      const email = String(u.email || '').toLowerCase().trim();
+      return {
+        id: String(u.user_ID || u.user_id || u.id || ''),
+        name: String(u.name || u.username || email.split('@')[0] || 'Unknown').trim(),
+        username: String(u.username || '').trim(),
+        email: String(u.email || '').trim(),
+        status: String(u.status || 'active').toLowerCase().trim(),
+        profilePicture: String(u.profile_picture || '').trim(),
+      };
+    }).filter((u) => u.id || u.email);
+
+    const counts = { total: all.length, active: all.filter((u) => u.status === 'active').length };
+
+    let filtered = all;
+    if (q) {
+      filtered = all.filter((u) =>
+        u.name.toLowerCase().includes(q) ||
+        (u.username && u.username.toLowerCase().includes(q)) ||
+        u.email.toLowerCase().includes(q));
+    }
+
+    const total = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const users = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+    res.json({ users, total, page: safePage, pageSize, totalPages, counts });
+  } catch (err) {
+    console.error('Admin user search error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
