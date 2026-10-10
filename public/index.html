@@ -474,6 +474,7 @@
   .popular-row button:hover { color:#00E272; }
   .popular-row button .arrow { color:#596c86; font-size:.85em; }
   .popular-row .trust-tag { margin-left:auto; color:#8aa196; display:none; align-items:center; gap:6px; font-size:.72rem; }
+.popular-row .filter-toggle { font-size:.85rem; padding:6px 0; gap:6px; }
   /* Filter panel — same look as the marketplace, anchored to the Filter button */
   [hidden] { display:none !important; }
   .cat-pills { position:relative; display:flex; justify-content:flex-end; }
@@ -724,54 +725,13 @@
       </div>
     </div>
 
-    <section class="recent-purchases" aria-labelledby="recentPurchasesTitle">
-      <div class="recent-heading">
-        <span class="recent-dot" aria-hidden="true"></span>
-        <h3 id="recentPurchasesTitle">Recently Purchased</h3>
-        <span class="recent-subtitle">Recent purchases from SaveHatke users · Sample data</span>
-      </div>
-      <div class="recent-grid" id="recentPurchasesGrid">
-        <article class="recent-box">
-          <div class="recent-logo recent-zomato" aria-label="Zomato">zomato</div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹200 Zomato Coupon</strong><time>2 minutes ago</time></div>
-        </article>
-        <article class="recent-box">
-          <div class="recent-logo recent-flipkart" aria-label="Flipkart"><svg viewBox="0 0 48 50" aria-hidden="true"><path d="M12 12h24l4 31H8z" fill="#ffe82a"/><path d="M17 12V9a7 7 0 0 1 14 0v3" fill="none" stroke="#fff" stroke-width="2"/><path d="M32 17c-8-2-12 2-13 10h-6l-2 7h7l-3 14h9l3-14h7l2-7h-8c1-4 2-5 5-4z" fill="#2478df"/></svg></div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹500 Flipkart Coupon</strong><time>7 minutes ago</time></div>
-        </article>
-        <article class="recent-box">
-          <div class="recent-logo recent-swiggy" aria-label="Swiggy"><svg viewBox="0 0 48 50" aria-hidden="true"><path d="M24 6c-11 0-17 8-15 17 2 8 10 18 15 22 5-6 14-17 15-25C40 12 34 6 24 6z" fill="white"/><path d="M24 13v9h9v6H19v-8h-5v-7z" fill="#ff7900"/></svg></div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹150 Swiggy Coupon</strong><time>12 minutes ago</time></div>
-        </article>
-        <article class="recent-box">
-          <div class="recent-logo recent-meesho" aria-label="Meesho">m<small>meesho</small></div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹200 Meesho Coupon</strong><time>18 minutes ago</time></div>
-        </article>
-        <article class="recent-box">
-          <div class="recent-logo recent-amazon" aria-label="Amazon"><svg viewBox="0 0 48 50" aria-hidden="true"><text x="13" y="34" fill="white" font-size="42" font-weight="700" font-family="Georgia,serif">a</text><path d="M10 39q14 9 28-1m-6 0 6-1-1 5" fill="none" stroke="#ffae00" stroke-width="2" stroke-linecap="round"/></svg></div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹100 Amazon Coupon</strong><time>25 minutes ago</time></div>
-        </article>
-      </div>
-    </section>
-
-    <!-- Popular searches — quick tags under the search -->
+    <!-- Popular searches, then Filter, then the "Discover" line — all under the search bar -->
     <div class="popular-row fu in d1">
       <span class="popular-label">Popular searches</span>
       <button type="button" data-search="Amazon">Amazon<span class="arrow">↗</span></button>
       <button type="button" data-search="Myntra">Myntra<span class="arrow">↗</span></button>
       <button type="button" data-search="Swiggy">Swiggy<span class="arrow">↗</span></button>
       <button type="button" data-search="Nykaa">Nykaa<span class="arrow">↗</span></button>
-      <span class="trust-tag" aria-hidden="true">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="m8 12 3 3 5-6"/><path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6l8-4Z"/>
-        </svg>
-        Discover. Compare. Save.
-      </span>
-    </div>
-    <!-- Categories — one Filter button opens the category + source panel, same
-         as the marketplace. Source lives only in #filterSource; category stays
-         on activeCat. -->
-    <div class="cat-pills fu in d2" id="categoryPills">
       <div class="popular-filter-wrap">
         <button type="button" class="filter-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterPanel">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="#060d1f"/><circle cx="15" cy="17" r="2" fill="#060d1f"/></svg>
@@ -809,7 +769,44 @@
           </div>
         </div>
       </div>
+      <span class="trust-tag" aria-hidden="true">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m8 12 3 3 5-6"/><path d="m12 2 8 4v6c0 5-8 10-8 10S4 17 4 12V6l8-4Z"/>
+        </svg>
+        Discover. Compare. Save.
+      </span>
     </div>
+
+    <section class="recent-purchases" aria-labelledby="recentPurchasesTitle">
+      <div class="recent-heading">
+        <span class="recent-dot" aria-hidden="true"></span>
+        <h3 id="recentPurchasesTitle">Recently Purchased</h3>
+        <span class="recent-subtitle">Recent purchases from SaveHatke users · Sample data</span>
+      </div>
+      <div class="recent-grid" id="recentPurchasesGrid">
+        <article class="recent-box">
+          <div class="recent-logo recent-zomato" aria-label="Zomato">zomato</div>
+          <div class="recent-copy"><p>Someone purchased</p><strong>₹200 Zomato Coupon</strong><time>2 minutes ago</time></div>
+        </article>
+        <article class="recent-box">
+          <div class="recent-logo recent-flipkart" aria-label="Flipkart"><svg viewBox="0 0 48 50" aria-hidden="true"><path d="M12 12h24l4 31H8z" fill="#ffe82a"/><path d="M17 12V9a7 7 0 0 1 14 0v3" fill="none" stroke="#fff" stroke-width="2"/><path d="M32 17c-8-2-12 2-13 10h-6l-2 7h7l-3 14h9l3-14h7l2-7h-8c1-4 2-5 5-4z" fill="#2478df"/></svg></div>
+          <div class="recent-copy"><p>Someone purchased</p><strong>₹500 Flipkart Coupon</strong><time>7 minutes ago</time></div>
+        </article>
+        <article class="recent-box">
+          <div class="recent-logo recent-swiggy" aria-label="Swiggy"><svg viewBox="0 0 48 50" aria-hidden="true"><path d="M24 6c-11 0-17 8-15 17 2 8 10 18 15 22 5-6 14-17 15-25C40 12 34 6 24 6z" fill="white"/><path d="M24 13v9h9v6H19v-8h-5v-7z" fill="#ff7900"/></svg></div>
+          <div class="recent-copy"><p>Someone purchased</p><strong>₹150 Swiggy Coupon</strong><time>12 minutes ago</time></div>
+        </article>
+        <article class="recent-box">
+          <div class="recent-logo recent-meesho" aria-label="Meesho">m<small>meesho</small></div>
+          <div class="recent-copy"><p>Someone purchased</p><strong>₹200 Meesho Coupon</strong><time>18 minutes ago</time></div>
+        </article>
+        <article class="recent-box">
+          <div class="recent-logo recent-amazon" aria-label="Amazon"><svg viewBox="0 0 48 50" aria-hidden="true"><text x="13" y="34" fill="white" font-size="42" font-weight="700" font-family="Georgia,serif">a</text><path d="M10 39q14 9 28-1m-6 0 6-1-1 5" fill="none" stroke="#ffae00" stroke-width="2" stroke-linecap="round"/></svg></div>
+          <div class="recent-copy"><p>Someone purchased</p><strong>₹100 Amazon Coupon</strong><time>25 minutes ago</time></div>
+        </article>
+      </div>
+    </section>
+
     <div class="coupon-grid fu" id="couponGrid"></div>
     <div class="text-center mt-10 fu">
       <a href="marketplace" class="btn btn-outline btn-lg">View All Coupons →</a>
