@@ -1053,6 +1053,9 @@
 #view-my-coupons .mcx-tbl tbody tr:hover{background:rgba(79,195,247,.04)}
 #view-my-coupons .mcx-rico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center}
 #view-my-coupons .mcx-rico svg{width:18px;height:18px}
+#view-my-coupons .mcx-brandbox{width:44px;height:44px;border-radius:10px;background:#ffffff;display:flex;align-items:center;justify-content:center;padding:6px;box-sizing:border-box;overflow:hidden;flex-shrink:0}
+#view-my-coupons .mcx-brandbox img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+#view-my-coupons .mcx-brandbox-initial{font-size:1rem;font-weight:800;color:#0f1e3a}
 #view-my-coupons .mcx-ic-available,#view-my-coupons .mcx-ic-active{background:rgba(0,226,114,.12);color:#00E272}
 #view-my-coupons .mcx-ic-expired{background:rgba(255,133,133,.12);color:#ff8585}
 #view-my-coupons .mcx-ic-used{background:rgba(79,195,247,.12);color:#4fc3f7}
@@ -4248,6 +4251,18 @@
     }
   }
 
+  // White Type-column box for a purchased coupon: the brand logo (Google Drive
+  // reference via coupon-meta.js, local/clearbit fallback) or the brand initial.
+  // Logos are batch-resolved by ensureBrandAssets before this table renders.
+  function mcxBrandBoxInner(brand) {
+    const url = typeof getBrandLogo === 'function' ? getBrandLogo(brand) : '';
+    if (!url) {
+      const initial = typeof getBrandInitial === 'function' ? getBrandInitial(brand) : String(brand || '?').charAt(0).toUpperCase();
+      return `<span class="mcx-brandbox-initial">${escapeHtml(initial)}</span>`;
+    }
+    return `<img src="${escapeHtml(url)}" alt="" loading="lazy">`;
+  }
+
   function renderMyCoupons() {
     const purchases = STATE.purchases;
 
@@ -4372,7 +4387,7 @@
       }));
       return `
         <tr style="cursor:pointer" onclick="openCouponDetail('${rowPayload}')">
-          <td><div class="mcx-rico mcx-ic-${icoKind}">${MCX_ICON[icoKind] || MCX_ICON.available}</div></td>
+          <td><div class="mcx-brandbox" title="${escapeHtml(c.brand || 'Coupon')}">${mcxBrandBoxInner(c.brand)}</div></td>
           <td>
             <div class="mcx-name">${escapeHtml(c.brand)} — ${escapeHtml(c.value || 'Coupon')}</div>
             <div class="mcx-desc">${escapeHtml(dateSub)}</div>
