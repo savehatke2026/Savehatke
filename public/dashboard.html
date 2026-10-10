@@ -98,7 +98,7 @@
 
     /* Nav profile (injected by app.js) */
     .nav-profile-wrapper { position:relative; display:inline-block; }
-    .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00E272; background:linear-gradient(135deg,#00E272,#00E272); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,226,114,.35); outline:none; overflow:hidden; }
+    .nav-profile-btn { width:38px; height:38px; border-radius:50%; padding:0; border:2px solid #00E272; background:linear-gradient(135deg,#00E272,#00E272); color:#060d1f; font-family:'Outfit',sans-serif; font-weight:800; font-size:.9rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .22s ease; box-shadow:0 0 14px rgba(0,226,114,.35); outline:2px solid #00E272; outline-offset:3px; overflow:hidden; }
     .nav-profile-btn:hover { transform:scale(1.08); box-shadow:0 0 22px rgba(0,226,114,.65); border-color:#4fc3f7; }
     .nav-profile-btn img { width:100%; height:100%; border-radius:50%; object-fit:cover; }
     .nav-profile-dropdown { position:absolute; top:calc(100% + 12px); right:0; width:280px; max-width:calc(100vw - 32px); background:rgba(12,24,53,.96); backdrop-filter:blur(20px); border:1px solid rgba(79,195,247,.25); border-radius:14px; box-shadow:0 16px 40px rgba(0,0,0,.65); padding:10px; display:none; flex-direction:column; gap:6px; z-index:1000; animation:dropdownFadeIn .2s ease-out forwards; }
@@ -719,7 +719,7 @@
        and payout cards. */
     .lh-hdr-note{font-size:.78rem;color:#6b88aa;line-height:1.55;margin:0 0 16px}
     .acct-identity{display:flex;align-items:center;gap:16px;min-width:0}
-    .acct-avatar{width:66px;height:66px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:1.5rem;color:#060d1f;background:linear-gradient(135deg,#00E272,#00E272);border:2px solid rgba(0,226,114,.55);overflow:hidden}
+    .acct-avatar{width:66px;height:66px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-family:'Outfit',sans-serif;font-weight:800;font-size:1.5rem;color:#060d1f;background:linear-gradient(135deg,#00E272,#00E272);border:2px solid rgba(0,226,114,.55);outline:2px solid #00E272;outline-offset:3px;overflow:hidden}
     .acct-avatar img{width:100%;height:100%;object-fit:cover;border-radius:50%}
     .acct-identity-txt{min-width:0}
     .acct-name{font-size:1.05rem;font-weight:700;color:#e2ecff;overflow-wrap:anywhere}
