@@ -847,6 +847,7 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
     );
   }
 
+  // Ambiguity gate: one live session must be the only candidate for this amount.
   const payment = fresh[0];
   console.log(`${tag} Expected amount: ₹${Number(payment.amount).toFixed(2)}`);
 
@@ -855,6 +856,16 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
   }
 
   console.log(`${tag} Amount matched`);
+
+  // Payer-name gate (same rule as processCandidate). Without it, an email for
+  // the right amount from a different person would settle this order. Fails
+  // closed when either name is unreadable.
+  if (!payerNameMatches(candidate.payerName, payment.buyerName)) {
+    return reject(
+      'REVIEW',
+      `Payer name ${candidate.payerName ? 'does not match' : 'could not be read from'} the order's buyer name — payment left pending for review.`
+    );
+  }
 
   // Settle atomically — NO transaction id / UTR. finalizePayment gates on the
   // coupon flip and is idempotent, so an email can never unlock a coupon twice.
