@@ -195,6 +195,33 @@
     .cexpiry-expired { color:#8ba2c4; background:rgba(139,162,196,.08); border-color:rgba(139,162,196,.20); }
     @media(max-width:900px){.coupon-grid{grid-template-columns:repeat(2,1fr)}}
     @media(max-width:600px){.coupon-grid{grid-template-columns:1fr}.coupon-title{min-height:0}}
+
+    /* Coupon boxes now use the marketplace card anatomy (match-* classes from
+       public/marketplace.html), scoped to #couponGrid so nothing else changes. */
+    #couponGrid { --card-bg:#001824; --card-border:#00628a; --card-muted:#b1c5f5; --lime:#a8ff5a; --cta:#00E272; --ink:#00100b; }
+    #couponGrid .coupon-card { container-type:inline-size; border-radius:19px; background:var(--card-bg); border:1px solid var(--card-border); box-shadow:none; }
+    #couponGrid .coupon-card:hover { border-color:var(--cta); transform:translateY(-3px); box-shadow:none; }
+    @media(prefers-reduced-motion:reduce){ #couponGrid .coupon-card:hover { transform:none; } }
+    #couponGrid .match-banner { position:relative; aspect-ratio:2.24; flex-shrink:0; border-radius:18px; background:#02121e; overflow:hidden; }
+    #couponGrid .match-banner img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
+    #couponGrid .match-fallback { display:flex; width:100%; height:100%; align-items:center; justify-content:center; flex-direction:column; gap:1cqw; background:radial-gradient(ellipse at top right,#ffffff14,transparent 70%),linear-gradient(135deg,#02243a,#001824); }
+    #couponGrid .match-fallback b { font-size:12cqw; line-height:1; color:#b1c5f5; font-weight:800; }
+    #couponGrid .match-fallback span { font-family:'JetBrains Mono',monospace; font-size:4.6cqw; font-weight:700; color:var(--cta); }
+    #couponGrid .match-body { padding:3.4cqw; display:flex; flex-direction:column; flex:1; gap:3cqw; min-width:0; }
+    #couponGrid .match-info { display:flex; align-items:flex-start; gap:4.4cqw; min-height:24cqw; }
+    #couponGrid .match-logo { position:relative; width:21cqw; aspect-ratio:1; flex-shrink:0; border-radius:4cqw; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    #couponGrid .match-logo b { font-size:9cqw; color:#001824; font-weight:800; }
+    #couponGrid .match-logo img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:2cqw; }
+    #couponGrid .match-title { font-size:5.05cqw; line-height:1.3; font-weight:700; color:#f7f8fc; letter-spacing:-.035em; margin:0 0 2.6cqw; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    #couponGrid .match-description { font-size:4.9cqw; line-height:1.28; color:var(--card-muted); margin:0; font-weight:500; letter-spacing:-.02em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    #couponGrid .match-meta { display:flex; align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
+    #couponGrid .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
+    #couponGrid .match-cost { font-size:6.1cqw; color:#f8f9ff; font-weight:800; letter-spacing:-.04em; }
+    #couponGrid .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    #couponGrid .match-timer svg { width:3cqw; height:3cqw; flex-shrink:0; }
+    #couponGrid .match-claim { width:100%; border:0; border-radius:4cqw; background:var(--cta); color:var(--ink); font-family:'Outfit',sans-serif; font-size:5.8cqw; line-height:1.2; font-weight:800; letter-spacing:-.035em; padding:4.4cqw 2cqw; cursor:pointer; transition:filter .2s; margin-top:auto; }
+    #couponGrid .match-claim:hover { filter:brightness(1.12); }
+    #couponGrid .match-claim:focus-visible { outline:3px solid #fff; outline-offset:-6px; }
     @media(max-width:380px) { .coupon-category { padding:3px 6px; font-size:9px; } }
 
     /* SELL CTA */
@@ -695,20 +722,6 @@
           </svg>
         </button>
       </div>
-      <div class="source-row">
-        <svg class="s-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2"/><circle cx="15" cy="17" r="2"/>
-        </svg>
-        <select class="filter-select" id="sourceFilter" aria-label="Filter coupon sources">
-          <option value="">All Sources</option>
-          <option value="user-submitted">User Submitted</option>
-          <option value="admin">Verified</option>
-          <option value="auto-scraped">Free Codes</option>
-        </select>
-        <svg class="src-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="m6 9 6 6 6-6"/>
-        </svg>
-      </div>
     </div>
 
     <section class="recent-purchases" aria-labelledby="recentPurchasesTitle">
@@ -756,8 +769,8 @@
       </span>
     </div>
     <!-- Categories — one Filter button opens the category + source panel, same
-         as the marketplace. Source stays on #sourceFilter (the index's single
-         source of truth); category stays on activeCat. -->
+         as the marketplace. Source lives only in #filterSource; category stays
+         on activeCat. -->
     <div class="cat-pills fu in d2" id="categoryPills">
       <div class="popular-filter-wrap">
         <button type="button" class="filter-toggle" id="filterToggle" aria-expanded="false" aria-controls="filterPanel">
@@ -969,7 +982,8 @@
       if (activeCat && activeCat !== 'all') params.set('category', activeCat);
       const query = document.getElementById('searchInput').value.trim().toLowerCase();
       if (query) params.set('search', query);
-      const source = document.getElementById('sourceFilter').value;
+      // Source is chosen in the Filter panel (#filterSource) only.
+      const source = document.getElementById('filterSource').value;
       if (source) params.set('source', source);
       const data = await api('/coupons?' + params.toString());
       liveCoupons = data.coupons || [];
@@ -1033,23 +1047,35 @@
             </div>`;
   }
 
+  // Card countdown: the tag stays constant; only its text ticks every second.
+  const indexClaimTimers = new Map();
+  const INDEX_TIMER_SVG = '<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="16" cy="18" r="12"/><path d="M16 10v8l5 4M13 2h6M16 2v4M25 6l3 3"/></svg>';
+  function escapeIndexAttr(value) {
+    return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  }
+  function formatIndexCountdown(msLeft) {
+    if (msLeft <= 0) return 'Expired';
+    const totalSec = Math.floor(msLeft / 1000);
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    return d > 0
+      ? `${d}d ${pad(h)}h ${pad(m)}m ${pad(s)}s left`
+      : `${pad(h)}h ${pad(m)}m ${pad(s)}s left`;
+  }
+
   let indexExpiryTimerId = null;
   function startIndexExpiryTicker() {
     if (indexExpiryTimerId !== null) return;
-    const setText = (el, value) => { if (el && el.textContent !== value) el.textContent = value; };
     const tick = () => {
-      const nodes = document.querySelectorAll('#couponGrid .cexpiry[data-expiry]');
-      if (nodes.length === 0) return;
       const now = Date.now();
-      nodes.forEach((el) => {
-        const msLeft = Number(el.dataset.expiry) - now;
-        const p = expiryParts(msLeft);
-        setText(el.querySelector('.cexp-d'), String(p.dd || '').replace(/d$/i, ''));
-        setText(el.querySelector('.cexp-h'), p.hh);
-        setText(el.querySelector('.cexp-m'), p.mm);
-        setText(el.querySelector('.cexp-s'), p.ss);
-        const cls = `cexpiry cexpiry-${expiryBand(msLeft)}${p.dd ? '' : ' cexp-no-days'}`;
-        if (el.className !== cls) el.className = cls;
+      document.querySelectorAll('#couponGrid .match-timer [data-timer]').forEach((el) => {
+        const at = indexClaimTimers.get(el.dataset.timer);
+        if (!at) return;
+        const text = formatIndexCountdown(at - now);
+        if (el.textContent !== text) el.textContent = text;
       });
     };
     tick();
@@ -1078,46 +1104,52 @@
     grid.innerHTML = filtered.slice(0, 6).map((c) => {
       const isFree = c.source === 'auto-scraped';
       const priceText = isFree ? 'FREE' : `₹${c.sellingPrice || '15'}`;
-      const offText = c.discount ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`) : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
-      const hero = couponHeroImage(c);
-      const onSale = c.onSale !== false;
+      const origVal = c.discount
+        ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`)
+        : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
       const title = c.title || c.description || 'Verified Discount Offer';
       const desc = c.description && c.description !== title ? c.description : '';
-      const catClass = isFree
-        ? 'coupon-finance'
-        : (/gaming|entertainment/i.test(c.category || '')
-            ? 'coupon-gaming'
-            : /finance/i.test(c.category || '')
-              ? 'coupon-finance'
-              : '');
+      const id = String(c.id);
+      const brand = c.brand || '';
+      const brandImg = c.backgroundImage || (typeof getDriveBrandBackground === 'function' ? getDriveBrandBackground(brand) : '');
+      const logoUrl = c.brandLogo || (typeof getDriveBrandLogo === 'function' ? getDriveBrandLogo(brand) : '');
+      const initial = typeof getBrandInitial === 'function' ? getBrandInitial(brand) : (brand.charAt(0) || '?').toUpperCase();
+      const logoExtra = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
+      const expiresAt = c.timerOn === false ? null : parseExpiry(c.expiryDate);
+      let timerHtml = '';
+      if (expiresAt !== null) {
+        indexClaimTimers.set(id, expiresAt);
+        timerHtml = `<span class="match-timer">${INDEX_TIMER_SVG}<span data-timer="${escapeIndexAttr(id)}">${formatIndexCountdown(expiresAt - Date.now())}</span></span>`;
+      }
+      const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeIndexAttr(c.originalValue)}</del>` : '';
 
       return `
-        <div class="coupon-card" style="cursor:pointer" onclick="goToCheckout('${c.id}')">
-          <div class="coupon-banner">
-            <img class="coupon-artwork" src="${hero}" alt="" loading="lazy" decoding="async"
-                 onerror="this.style.display='none'; this.nextElementSibling && (this.nextElementSibling.style.display='flex');">
-            <div class="coupon-fallback" style="display:none">
-              <span class="coupon-brand">${c.brand || ''}</span>
-              <span class="coupon-offer">${offText}</span>
-            </div>
-            <div class="coupon-badges">
-              ${isFree ? '<span class="coupon-verified">✓ FREE CODE</span>' : '<span class="coupon-verified">✓ VERIFIED DEAL</span>'}
-              ${!isFree && onSale ? '<span class="coupon-sale">🔥 SALE</span>' : ''}
-            </div>
+        <article class="coupon-card" data-coupon-id="${escapeIndexAttr(id)}" style="cursor:pointer" onclick="goToCheckout('${escapeIndexAttr(id)}')">
+          <div class="match-banner">
+            ${brandImg
+              ? `<img src="${escapeIndexAttr(brandImg)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
+              : `<div class="match-fallback" aria-hidden="true"><b>${escapeIndexAttr(initial)}</b><span>${escapeIndexAttr(origVal)}</span></div>`}
           </div>
-          <div class="coupon-body">
-            <h3 class="coupon-title">${title}</h3>
-            ${desc ? `<p class="coupon-description" title="${desc}">${desc}</p>` : ''}
-            <div class="coupon-price-row">
-              <div>
-                <p class="coupon-price-label">Price</p>
-                <p class="coupon-price">${priceText}</p>
+          <div class="match-body">
+            <div class="match-info">
+              <div class="match-logo" role="img" aria-label="${escapeIndexAttr(brand)} logo">
+                ${logoUrl
+                  ? `<img src="${escapeIndexAttr(logoUrl)}" alt="" class="${logoExtra}" loading="lazy" decoding="async" onerror="this.remove()">`
+                  : `<b>${escapeIndexAttr(initial)}</b>`}
               </div>
-              ${c.category ? `<span class="coupon-category ${catClass}"><span aria-hidden="true">${categoryIconFor(c.category)}</span>${c.category}</span>` : ''}
+              <div>
+                <h3 class="match-title">${escapeIndexAttr(title)}</h3>
+                ${desc ? `<p class="match-description" title="${escapeIndexAttr(desc)}">${escapeIndexAttr(desc)}</p>` : ''}
+              </div>
             </div>
-            ${indexExpiryPill(c)}
+            <div class="match-meta">
+              <span class="match-discount">${escapeIndexAttr(origVal)}</span>
+              <span class="match-cost">${escapeIndexAttr(priceText)}${origPrice}</span>
+              ${timerHtml}
+            </div>
+            <button type="button" class="match-claim" onclick="event.stopPropagation(); goToCheckout('${escapeIndexAttr(id)}')">Claim Coupon</button>
           </div>
-        </div>
+        </article>
       `;
     }).join('');
     startIndexExpiryTicker();
@@ -1166,7 +1198,6 @@
     updateSearch();
     searchInput.focus();
   });
-  document.getElementById('sourceFilter').addEventListener('change', loadIndexCoupons);
   document.querySelectorAll('.popular-row [data-search]').forEach(button => {
     button.addEventListener('click', () => {
       searchInput.value = button.dataset.search;
@@ -1176,7 +1207,7 @@
   });
 
   // Filter panel — category + source, applied together. Opening it reflects
-  // the CURRENT state (activeCat / #sourceFilter), so it is never stale.
+  // the CURRENT state (activeCat / #filterSource), so it is never stale.
   const filterToggle = document.getElementById('filterToggle');
   const filterPanel = document.getElementById('filterPanel');
   const filterCategory = document.getElementById('filterCategory');
@@ -1184,7 +1215,7 @@
 
   function syncPanelControls() {
     filterCategory.value = activeCat === 'all' ? '' : activeCat;
-    filterSource.value = document.getElementById('sourceFilter').value || '';
+    filterSource.value = filterSource.value || '';
   }
   function setFilterPanel(open, restoreFocus = false) {
     filterPanel.hidden = !open;
@@ -1198,7 +1229,7 @@
   }
   function applyFilters(category, source) {
     activeCat = category || 'all';
-    document.getElementById('sourceFilter').value = source || '';
+    filterSource.value = source || '';
     loadIndexCoupons();
   }
 
