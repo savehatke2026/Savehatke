@@ -1528,7 +1528,7 @@
 .payment-method-upload svg { color: var(--payment-accent); }
 .payment-method-upload strong { font-size: .88rem; font-weight: 600; }
 .payment-method-upload input { font-size: .8rem; min-width: 0; max-width: 100%; }
-.payment-method-upload input::file-selector-button { background: rgba(0, 226, 114, .1); color: inherit; border: 1px solid var(--payment-line); border-radius: 6px; padding: 8px 12px; margin-right: 12px; font: inherit; cursor: pointer; }
+.payment-method-upload input { display: none; }
 .payment-method-consent { padding-top: 18px; margin-top: 22px; border-top: 1px solid var(--payment-line); }
 .payment-method-checkbox { display: flex; gap: 11px; align-items: flex-start; font-size: .82rem; line-height: 1.6; cursor: pointer; }
 .payment-method-checkbox input { accent-color: var(--payment-accent); width: 16px; height: 16px; flex: 0 0 auto; margin-top: 3px; }
@@ -1550,8 +1550,10 @@
 .mc-sec-hdr.payment-method-row > .mc-sec-hdr-text { min-width: 0; }
 @media (max-width: 540px) {
   .payment-method-options { grid-template-columns: 1fr; }
-  .payment-method .modal-footer .btn { flex: 1; }
+  .payment-method .modal-footer .btn { flex: 0 0 auto; }
 }
+.payment-method .modal-footer { justify-content: flex-end; }
+.payment-method .modal-footer .btn { flex: 0 0 auto; }
 </style>
 </head>
 <body>
