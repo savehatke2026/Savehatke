@@ -2760,6 +2760,144 @@ async function sendCustomEmail({ to, subject, html, text, headers, sender } = {}
 }
 
 /**
+ * Payment-method notifications (added / updated). Sent FROM the no-reply
+ * mailbox (NOREPLY_SMTP_USER) so From stays aligned with the authenticated
+ * login. Only the method type and a formatted timestamp are shown — never the
+ * UPI ID, QR file reference, or any bank detail.
+ *
+ * @param {Object} p
+ * @param {string} p.to          Account holder's email (server-derived, not client input)
+ * @param {string} [p.userName]  Account holder's name
+ * @param {string} p.method      'UPI ID' or 'UPI QR Code' (display label only)
+ * @param {string} p.at          ISO timestamp of the successful database write
+ * @param {'added'|'updated'} kind
+ */
+function buildPaymentMethodEmail(kind, { userName, method, at }) {
+  const isAdded = kind === 'added';
+  const name = String(userName || '').trim() || 'there';
+  const when = new Date(at || Date.now());
+  const whenText = Number.isNaN(when.getTime())
+    ? ''
+    : when.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+  const methodText = method === 'UPI QR Code' ? 'UPI QR Code' : 'UPI ID';
+  const subject = isAdded
+    ? 'Payment Method Added Successfully – SaveHatke'
+    : 'Payment Method Updated Successfully – SaveHatke';
+  const lead = isAdded
+    ? 'Your payment method has been successfully added to your SaveHatke account.'
+    : 'Your payment method has been successfully updated on your SaveHatke account.';
+  const timeLabel = isAdded ? 'Added On' : 'Updated On';
+  const closing = isAdded
+    ? 'Your payment details are saved securely and can be managed from your account settings.'
+    : 'Your updated payment details are now saved and can be managed from your account settings.';
+  const heading = isAdded ? 'Payment Method Added' : 'Payment Method Updated';
+  const explainer = isAdded
+    ? 'This email confirms that a payment method has been added to your SaveHatke account.'
+    : 'This email confirms that a payment method has been updated on your SaveHatke account.';
+  const detailsTitle = isAdded ? 'Payment Method Details' : 'Updated Payment Method Details';
+
+  const text = [
+    `Hi ${name},`,
+    '',
+    lead,
+    '',
+    detailsTitle,
+    `Method: ${methodText}`,
+    `${timeLabel}: ${whenText}`,
+    '',
+    closing,
+    '',
+    "If you didn't make this change, please contact SaveHatke Support immediately.",
+    '',
+    'Best,',
+    'SaveHatke',
+    '',
+    explainer,
+  ].join('\n');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:#ffffff;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;">
+    <tr>
+      <td align="center" style="padding:24px 12px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+          <tr>
+            <td style="background:#00E272;padding:18px 24px;">
+              <span style="font-size:20px;font-weight:700;color:#0f1e3a;">SaveHatke</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px 24px;color:#111111;font-size:15px;line-height:1.6;">
+              <h1 style="margin:0 0 16px;font-size:22px;color:#111111;">${escapeHtml(heading)}</h1>
+              <p style="margin:0 0 16px;">Hi ${escapeHtml(name)},</p>
+              <p style="margin:0 0 20px;">${escapeHtml(lead)}</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f8f8;border:1px solid #e5e7eb;border-left:4px solid #00E272;border-radius:8px;margin:0 0 20px;">
+                <tr>
+                  <td style="padding:16px 18px;font-size:14px;line-height:1.7;">
+                    <div style="font-weight:700;margin-bottom:6px;">${escapeHtml(detailsTitle)}</div>
+                    <div>Method: <strong>${escapeHtml(methodText)}</strong></div>
+                    <div>${escapeHtml(timeLabel)}: <strong>${escapeHtml(whenText)}</strong></div>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 16px;">${escapeHtml(closing)}</p>
+              <p style="margin:0 0 20px;">If you didn't make this change, please contact SaveHatke Support immediately.</p>
+              <p style="margin:0 0 4px;">Best,</p>
+              <p style="margin:0 0 20px;font-weight:700;">SaveHatke</p>
+              <p style="margin:0;font-size:12px;color:#9ca3af;">${escapeHtml(explainer)}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  return { subject, text, html };
+}
+
+async function sendPaymentMethodEmail(kind, p = {}) {
+  const cleanEmail = String(p.to || '').toLowerCase().trim();
+  if (!cleanEmail) return { success: false, error: 'No recipient address provided.' };
+  if (kind !== 'added' && kind !== 'updated') return { success: false, error: 'Unknown notification kind.' };
+
+  const { subject, text, html } = buildPaymentMethodEmail(kind, p);
+  const t = getNoreplyTransporter();
+  const fromEmail = (process.env.NOREPLY_SMTP_USER || '').trim();
+  if (!t || !fromEmail) {
+    return { success: false, isSimulated: true, error: 'No-reply SMTP is not configured on the server.' };
+  }
+
+  try {
+    const info = await t.sendMail({
+      from: `"SaveHatke" <${fromEmail}>`,
+      to: cleanEmail,
+      subject,
+      text,
+      html,
+      envelope: { from: fromEmail, to: cleanEmail },
+      headers: {
+        'X-Entity-Ref-ID': `payment-method-${kind}-${Date.now()}`,
+        'Auto-Submitted': 'auto-generated',
+      },
+    });
+    console.log(`✅ [EmailService] Payment method ${kind} email sent (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId };
+  } catch (err) {
+    console.error(`❌ [EmailService] Payment method ${kind} email failed:`, err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
  * Send the Payment Confirmation email to the buyer after a payment is REALLY
  * settled (server-verified PAID) — fired from the payment verifier's webhook
  * and FamApp-mailbox settle paths, never from anything the browser reports.
@@ -3383,6 +3521,7 @@ module.exports = {
   isEmailConfigured,
   isSupportEmailConfigured,
   sendCustomEmail,
+  sendPaymentMethodEmail,
   // Exact media string the dark-mode <style> is gated on. The Email Testing
   // preview rewrites this to force light/dark; keep them in sync.
   EMAIL_DARK_MEDIA,

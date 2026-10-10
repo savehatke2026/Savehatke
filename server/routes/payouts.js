@@ -929,6 +929,24 @@ router.put('/payouts/details', authenticateToken, async (req, res) => {
       await db.appendRow(db.SHEETS.SELLER_PAYOUT_DETAILS, row);
     }
 
+    // Payment-method notification. Fired only after the Sheets write above has
+    // succeeded. An unchanged re-save (same method and same stored value) is a
+    // no-op and sends nothing. Delivery failure never undoes the saved row.
+    const savedValue = cleanMethod === 'UPI' ? row.upiId : row.qrFileId;
+    const previousValue = existing
+      ? (existing.method === 'UPI' ? existing.upiId : existing.qrFileId)
+      : null;
+    const changed = !existing || existing.method !== cleanMethod || String(previousValue || '') !== String(savedValue || '');
+    if (changed) {
+      const methodLabel = cleanMethod === 'UPI' ? 'UPI ID' : 'UPI QR Code';
+      emailService.sendPaymentMethodEmail(existing ? 'updated' : 'added', {
+        to: email,
+        userName: row.beneficiaryName || req.user.name || '',
+        method: methodLabel,
+        at: now,
+      }).catch((e) => console.error('Payment method email error:', e && e.message));
+    }
+
     res.json({
       message: existing ? 'Payout details updated.' : 'Payout details saved.',
       created: !existing,
