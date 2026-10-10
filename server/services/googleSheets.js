@@ -407,6 +407,10 @@ const HEADERS = {
     // keep lining up (they read back blank and callers fall back).
     'transaction_id',
     'transaction_type',
+    // Historical coupon snapshot (JSON string) written when a sold coupon is
+    // removed from the inventory stores, so purchase history keeps rendering
+    // after an inventory reset. APPENDED AT THE END — old rows read back blank.
+    'coupon_snapshot',
   ],
   // One row per UPI payment attempt against an order. verified_transaction_id
   // / verified_utr are only ever written by the server-side verifier.
@@ -1304,6 +1308,81 @@ async function deleteRow(sheetName, field, value) {
 }
 
 /**
+ * Delete every row matching predicate(row) in ONE batched request.
+ * Used by inventory maintenance (mirroring/dedup) where per-row deleteRow
+ * round-trips are too slow and row identities can collide on a field match.
+ * predicate receives the row object keyed by header. Rows are deleted
+ * bottom-up so earlier indexes stay valid; the whole set goes out as a single
+ * batchUpdate. MemoryDB is rebuilt from the survivors.
+ */
+async function deleteRowsWhere(sheetName, predicate) {
+  if (!sheetsClient) {
+    const arr = memoryDB[sheetName] || [];
+    const survivors = arr.filter((r) => !predicate(r));
+    const removed = arr.length - survivors.length;
+    memoryDB[sheetName] = survivors;
+    invalidateCache(sheetName);
+    return removed;
+  }
+  const spreadsheet = await sheetsClient.spreadsheets.get({ spreadsheetId });
+  const sheet = spreadsheet.data.sheets.find((s) => s.properties.title === sheetName);
+  if (!sheet) return 0;
+  const sheetId = sheet.properties.sheetId;
+
+  const res = await sheetsClient.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A:Z`,
+  });
+  const rows = res.data.values;
+  if (!rows || rows.length <= 1) return 0;
+  const headers = rows[0];
+
+  // rows[i] is the 0-based sheet row i (row 0 = header). A data row at index
+  // i therefore maps to deleteDimension startIndex i.
+  const doomed = [];
+  for (let i = 1; i < rows.length; i++) {
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = rows[i][idx] === undefined ? '' : String(rows[i][idx]); });
+    if (predicate(obj)) doomed.push(i);
+  }
+  if (doomed.length === 0) return 0;
+
+  // Bottom-up ranges; merge adjacent indexes into single ranges.
+  const ranges = [];
+  let start = null; let prev = null;
+  for (const i of doomed.sort((a, b) => b - a)) {
+    if (prev !== null && i === prev - 1) { prev = i; continue; }
+    if (prev !== null) ranges.push({ startIndex: prev, endIndex: start + 1 });
+    start = i; prev = i;
+  }
+  ranges.push({ startIndex: prev, endIndex: start + 1 });
+
+  await sheetsClient.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: ranges.map((r) => ({
+        deleteDimension: {
+          range: { sheetId, dimension: 'ROWS', startIndex: r.startIndex, endIndex: r.endIndex },
+        },
+      })),
+    },
+  });
+
+  // Rebuild memoryDB from the surviving sheet rows.
+  const keep = [];
+  const doomedSet = new Set(doomed);
+  for (let i = 1; i < rows.length; i++) {
+    if (doomedSet.has(i)) continue;
+    const obj = {};
+    headers.forEach((h, idx) => { obj[h] = rows[i][idx] === undefined ? '' : String(rows[i][idx]); });
+    keep.push(obj);
+  }
+  memoryDB[sheetName] = keep;
+  invalidateCache(sheetName);
+  return doomed.length;
+}
+
+/**
  * Count rows in a sheet
  */
 async function countRows(sheetName) {
@@ -1462,6 +1541,7 @@ module.exports = {
   findRowsFresh,
   updateRow,
   deleteRow,
+  deleteRowsWhere,
   countRows,
   getSettings,
   saveSettings,

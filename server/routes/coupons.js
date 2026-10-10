@@ -1138,6 +1138,44 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
       }
     } catch (e) { /* best effort — dashboard falls back gracefully */ }
 
+    // Historical fallback: a sold coupon that was removed from the inventory
+    // stores (inventory reset) stays visible in purchase history through the
+    // snapshot saved on its PAID order row. The entry is only built from an
+    // order that already passed the full gate above (belongs to this user +
+    // PAID order + matching PAID payment), and soldPaymentId is set so the
+    // generic code-release check below opens through the exact same path as
+    // a live sold row — no looser rule for history.
+    try {
+      const liveIds = new Set(coupons.map((c) => String(c.id)));
+      for (const [cid, { order, payment }] of ordersByCoupon) {
+        if (liveIds.has(cid) || !order.couponSnapshot) continue;
+        let snap = null;
+        try { snap = JSON.parse(order.couponSnapshot); } catch { snap = null; }
+        if (!snap) continue;
+        coupons.push({
+          id: String(cid),
+          code: String(snap.code || order.couponCode || ''),
+          category: snap.category || '',
+          brand: snap.brand || order.couponBrand || '',
+          title: snap.title || '',
+          description: snap.description || '',
+          discount: snap.discount || '',
+          originalValue: snap.originalValue || '',
+          sellingPrice: snap.sellingPrice !== undefined && snap.sellingPrice !== '' ? snap.sellingPrice : order.amount,
+          expiryDate: snap.expiryDate || '',
+          status: 'sold',
+          addedAt: snap.addedAt || order.createdAt || '',
+          soldAt: order.paidAt || '',
+          buyerEmail: order.buyerEmail || order.userEmail || '',
+          sellerEmail: snap.sellerEmail || '',
+          backgroundImage: snap.backgroundImage || '',
+          terms: snap.terms || '',
+          soldPaymentId: String(payment.paymentId || ''),
+          historicalSnapshot: true,
+        });
+      }
+    } catch (e) { /* best effort — history falls back gracefully */ }
+
     res.json({
       coupons: coupons.map((c) => {
         const purchase = ordersByCoupon.get(String(c.id));

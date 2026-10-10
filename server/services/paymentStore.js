@@ -124,6 +124,9 @@ function fromOrder(r) {
     // fall back to orderCode for display and derive the type from context.
     transactionId: r.transaction_id || '',
     transactionType: r.transaction_type || (r.order_code ? 'PURCHASE' : ''),
+    // Historical coupon snapshot (JSON string) — present only when the sold
+    // coupon was removed from the inventory stores but its order remains.
+    couponSnapshot: r.coupon_snapshot || '',
   };
 }
 

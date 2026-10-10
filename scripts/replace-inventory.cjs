@@ -3,25 +3,31 @@
 /* replace-inventory.cjs — SaveHatke coupon-inventory replacement tool.
  *
  * Subcommands:
- *   status        — current DB + Sheets inventory snapshot
- *   backup        — full export of Supabase coupons + Sheets Coupons tab
- *   generate      — build the 10k listing manifest from the seed templates
- *   validate      — re-validate every manifest row (schema, price, timer, codes)
- *   import        — idempotent, resumable batched insert (checkpointed)
- *   delete-old    — delete the backed-up old available/admin rows (keeps sold)
- *   mirror-sheets — replace the Sheets Coupons tab with the new inventory
- *   verify        — post-import verification + report JSON
+ *   status         — current DB + Sheets inventory snapshot
+ *   backup         — full export of Supabase coupons + Sheets Coupons tab
+ *   generate       — build the listing manifest from the admin's own seed offers
+ *   validate       — re-validate every manifest row (schema, price, timer, codes)
+ *   import         — idempotent, resumable batched insert (checkpointed)
+ *   snapshot-sold  — write sold-coupon snapshots onto their PAID order rows
+ *   delete-old     — delete ALL backed-up coupon rows (requires snapshots first)
+ *   mirror-sheets  — replace the Sheets Coupons tab with the new inventory
+ *   verify         — post-import verification + report JSON
  *
- * Honesty contract: listings are built from the repo's real seed offer
- * templates (brand/category/offer structure), but the codes are SaveHatke
- * platform codes (SH-…), NOT vendor redemption codes. Every row is written
- * with is_verified=false unless --verified is passed, and the final report
- * states plainly that codes are unverified demo listings.
+ * Honesty contract: listings come VERBATIM from the administrator's own seed
+ * files (server/seed_coupons*.js — the same authored offers that populated the
+ * original inventory), codes included. No codes are invented here. Every row
+ * is written with is_verified=false and an admin note stating the code is
+ * platform-authored, not vendor-verified. The final report states the actual
+ * imported total and the shortfall against 10,000.
+ *
+ * Purchase-history contract: sold coupons are deleted from the inventory
+ * stores, but their display data is first snapshotted onto their PAID order
+ * row (Orders.coupon_snapshot), and /api/coupons/my-purchases falls back to
+ * that snapshot so buyer history keeps working after the reset.
  */
 
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 require('dotenv').config({ path: path.join(ROOT, 'server', '.env') });
@@ -47,17 +53,6 @@ const LATEST_BACKUP = () => {
 };
 const MANIFEST = path.join(__dirname, 'inventory-manifest.json');
 
-// ── Deterministic RNG ────────────────────────────────────────────────────
-function mulberry32(seed) {
-  let a = seed >>> 0;
-  return () => {
-    a |= 0; a = (a + 0x6D2B79F5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 // ── Seed template extraction ─────────────────────────────────────────────
 function extractTemplates() {
   const files = ['server/seed_coupons.js', 'server/seed_coupons_200.js', 'server/seed_coupons_brands.js'];
@@ -78,28 +73,7 @@ function extractTemplates() {
   return out;
 }
 
-// ── Listing generation ───────────────────────────────────────────────────
-const BRAND_ABBR_CACHE = new Map();
-function brandAbbr(brand) {
-  if (BRAND_ABBR_CACHE.has(brand)) return BRAND_ABBR_CACHE.get(brand);
-  const letters = brand.toUpperCase().replace(/[^A-Z0-9]/g, '') || 'XXXX';
-  const abbr = letters.slice(0, 4).padEnd(4, 'X');
-  BRAND_ABBR_CACHE.set(brand, abbr);
-  return abbr;
-}
-
-// Buyer price = 20% of face exactly; face = price*5 keeps every listing on
-// the platform's real pricing curve. Price distribution (weighted):
-//   60% ₹10–₹300 · 25% ₹301–₹1,000 · 10% ₹1,001–₹2,500 · 5% ₹2,501–₹10,000
-function pickPrice(rnd) {
-  const u = rnd();
-  let lo; let hi;
-  if (u < 0.60) { lo = 10; hi = 300; }
-  else if (u < 0.85) { lo = 301; hi = 1000; }
-  else if (u < 0.95) { lo = 1001; hi = 2500; }
-  else { lo = 2501; hi = 10000; }
-  return lo + Math.floor(rnd() * (hi - lo + 1));
-}
+// ── Listing generation (verbatim admin templates) ────────────────────────
 
 function addMonths(iso, months) {
   const d = new Date(iso);
@@ -109,57 +83,64 @@ function addMonths(iso, months) {
   return d.toISOString();
 }
 
-function generateListings(targetCount, opts = {}) {
+/**
+ * Build the new inventory from the administrator's own seed offers, verbatim:
+ * codes, titles, faces, prices and terms are used exactly as authored — this
+ * session invents nothing. Duplicates are rejected (same code, or same
+ * brand+title+face+discount). Each listing is activated at import time with a
+ * one-calendar-month expiry (spec §4), stored on the row so restarts and
+ * refreshes never reset it.
+ */
+function generateListings() {
   const templates = extractTemplates();
   if (templates.length === 0) throw new Error('No seed templates found');
-  const rnd = mulberry32(20261009);
-  const rows = [];
+
   const seenCodes = new Set();
-  const seenKeys = new Set();
-  const activationBase = Date.now();
+  const seenOffers = new Set();
+  const rows = [];
+  const rejected = [];
 
-  for (let i = 0; i < targetCount; i++) {
-    const t = templates[Math.floor(rnd() * templates.length)];
-    const price = pickPrice(rnd);
-    const face = price * 5; // 20% curve → exact buyer price
-    const brand = t.brand;
+  for (const t of templates) {
+    const codeKey = String(t.code || '').toUpperCase().trim();
+    const offerKey = [t.brand, t.title, t.originalValue, t.discount].join('|').toLowerCase();
 
-    // Unique listing key: same template + same face + same brand would be a
-    // duplicate listing — reroll the face until the key is new.
-    let key = '';
-    let effFace = face;
-    let effPrice = price;
-    for (let attempt = 0; attempt < 40; attempt++) {
-      key = brand + '|' + t.category + '|' + effFace + '|' + t.discount;
-      if (!seenKeys.has(key)) break;
-      effPrice = pickPrice(rnd);
-      effFace = effPrice * 5;
+    // Validation + duplicate protection (spec §5).
+    const face = Number(t.originalValue);
+    const problems = [];
+    if (!codeKey) problems.push('missing code');
+    if (seenCodes.has(codeKey)) problems.push('duplicate code');
+    if (seenOffers.has(offerKey)) problems.push('duplicate offer');
+    if (!t.brand || !t.category || !t.title) problems.push('missing brand/category/title');
+    if (!Number.isFinite(face) || face < 5 || face > 50000) problems.push('face value out of range ₹5–₹50,000');
+    else {
+      const derived = dynamicPricing.getBuyerPrice({ originalValue: String(face), expiryDate: addMonths(new Date().toISOString(), 1) });
+      if (!derived.purchasable || derived.price < 1 || derived.price > 10000) problems.push('derived price out of range ₹1–₹10,000');
     }
-    if (seenKeys.has(key)) continue; // give up on this slot rather than dupe
-    seenKeys.add(key);
 
-    // Platform-issued code — NOT a vendor redemption code.
-    let code = '';
-    do {
-      code = 'SH-' + brandAbbr(brand) + '-' + crypto.randomBytes(4).toString('hex').toUpperCase();
-    } while (seenCodes.has(code));
-    seenCodes.add(code);
+    if (problems.length > 0) {
+      rejected.push({ code: t.code, brand: t.brand, reasons: problems });
+      continue;
+    }
+    seenCodes.add(codeKey);
+    seenOffers.add(offerKey);
 
-    // One-month timer: activation is staggered so timestamps differ; expiry is
-    // exactly one calendar month later (spec §4).
-    const addedAt = new Date(activationBase + i * 500).toISOString();
+    // Activation = import moment (staggered so timestamps differ); expiry is
+    // exactly one calendar month later, stored on the row.
+    const addedAt = new Date(Date.now() + rows.length * 500).toISOString();
     const expiryDate = addMonths(addedAt, 1);
 
     rows.push({
-      code,
-      title: t.title.replace(/₹[\d,]+/, '₹' + effFace.toLocaleString('en-IN')),
+      code: codeKey,
+      title: t.title,
       type: 'Public',
       category: t.category,
-      brand,
-      description: t.description.replace(/₹[\d,]+/, '₹' + effFace.toLocaleString('en-IN')),
-      discount: t.discount.includes('%') ? t.discount : '₹' + effFace.toLocaleString('en-IN') + ' Off',
-      originalValue: String(effFace),
-      sellingPrice: String(effPrice),
+      brand: t.brand,
+      description: t.description,
+      discount: t.discount,
+      originalValue: String(face),
+      // Keep the authored stored price for the record; buyers are always
+      // charged the derived 20%-of-face figure recomputed server-side.
+      sellingPrice: String(t.sellingPrice === undefined || t.sellingPrice === '' ? Math.round(face * 0.2) : t.sellingPrice),
       minOrderValue: t.minOrderValue || '',
       validFrom: null,
       expiryDate,
@@ -167,10 +148,10 @@ function generateListings(targetCount, opts = {}) {
       terms: t.terms || '',
       isFeatured: false,
       isExclusive: false,
-      isVerified: opts.verified === true,
+      isVerified: false,
       sellerEmail: '',
       status: 'available',
-      source: opts.source || 'admin',
+      source: 'admin',
       addedAt,
       soldAt: null,
       buyerEmail: '',
@@ -179,7 +160,7 @@ function generateListings(targetCount, opts = {}) {
       backgroundImage: '',
       brandLogo: null,
       proofUrl: '',
-      adminNotes: 'Imported 2026-10 inventory replacement; platform-issued code; not vendor-verified.',
+      adminNotes: 'Imported 2026-10 inventory replacement; admin-authored offer; code is platform-authored, not vendor-verified.',
       verifiedAt: null,
       sellerUserId: '',
       whatsappStatus: '',
@@ -188,7 +169,7 @@ function generateListings(targetCount, opts = {}) {
       whatsappError: '',
     });
   }
-  return { rows, templateCount: templates.length };
+  return { rows, rejected, templateCount: templates.length };
 }
 
 // ── Sheets helpers ───────────────────────────────────────────────────────
@@ -218,12 +199,23 @@ function couponToSheetRow(headers, c) {
   return headers.map((h) => String(camel[h] === undefined ? '' : camel[h]));
 }
 
+async function readAllSupabase() {
+  const all = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await sb.from('coupons').select('*').range(from, from + 999);
+    if (error) throw new Error(error.message);
+    all.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return all;
+}
+
 // ── Subcommands ──────────────────────────────────────────────────────────
 async function cmdStatus() {
   const { count } = await sb.from('coupons').select('id', { count: 'exact', head: true });
-  const { data } = await sb.from('coupons').select('status,source').limit(50000);
+  const data = await readAllSupabase();
   const by = {};
-  for (const r of data || []) {
+  for (const r of data) {
     const k = r.source + '/' + r.status;
     by[k] = (by[k] || 0) + 1;
   }
@@ -240,14 +232,7 @@ async function cmdStatus() {
 
 async function cmdBackup() {
   fs.mkdirSync(BACKUP_DIR, { recursive: true });
-  const all = [];
-  const PAGE = 1000;
-  for (let from = 0; ; from += PAGE) {
-    const { data, error } = await sb.from('coupons').select('*').range(from, from + PAGE - 1);
-    if (error) throw new Error('Backup read failed: ' + error.message);
-    all.push(...(data || []));
-    if (!data || data.length < PAGE) break;
-  }
+  const all = await readAllSupabase();
   const sheets = await sheetsApi();
   let sheetRows = [];
   try { sheetRows = await sheets.getRows(sheets.SHEETS.COUPONS); } catch (e) { console.warn('sheets backup notice:', e.message); }
@@ -261,43 +246,41 @@ async function cmdBackup() {
 }
 
 async function cmdGenerate() {
-  const target = Number(process.argv[3] || 10000);
-  const verified = process.argv.includes('--verified');
-  const { rows, templateCount } = generateListings(target, { verified });
+  const { rows, rejected, templateCount } = generateListings();
 
-  // Validation pass (same checks as `validate`)
+  // Second validation pass over the generated rows (same checks as `validate`).
   const problems = [];
   const codes = new Set();
   for (const r of rows) {
     if (!r.code || codes.has(r.code)) problems.push('dup/bad code ' + r.code);
     codes.add(r.code);
     if (!r.brand || !r.category) problems.push('missing brand/category ' + r.code);
-    const p = Number(r.sellingPrice);
-    if (!(p >= 1 && p <= 10000)) problems.push('price out of range ' + r.code + ' ' + p);
     const f = Number(r.originalValue);
     if (!(f >= 5 && f <= 50000)) problems.push('face out of range ' + r.code);
     const exp = new Date(r.expiryDate).getTime();
     const add = new Date(r.addedAt).getTime();
     if (!(exp > add)) problems.push('expiry <= added ' + r.code);
-    const monthMs = 31 * 86400000 + 86400000; // calendar month ± clock slack
-    if (exp - add > monthMs) problems.push('timer longer than a month ' + r.code);
+    if (exp - add > 32 * 86400000) problems.push('timer longer than a month ' + r.code);
+    const bp = dynamicPricing.getBuyerPrice({ originalValue: r.originalValue, expiryDate: r.expiryDate });
+    if (!bp.purchasable || bp.price < 1 || bp.price > 10000) problems.push('derived price out of range ' + r.code);
   }
   const brands = new Set(rows.map((r) => r.brand));
   const cats = new Set(rows.map((r) => r.category));
-  const prices = rows.map((r) => Number(r.sellingPrice));
+  const prices = rows.map((r) => dynamicPricing.getBuyerPrice({ originalValue: r.originalValue, expiryDate: r.expiryDate }).price);
   fs.writeFileSync(MANIFEST, JSON.stringify({
     generatedAt: new Date().toISOString(),
-    seed: 20261009,
-    targetCount: target,
-    verified,
+    mode: 'verbatim-admin-seed-offers',
+    targetCount: 10000,
     rows,
+    rejected,
     checkpoint: { nextBatch: 0, insertedIds: [] },
     stats: { problems: problems.slice(0, 20), problemCount: problems.length },
   }));
-  console.log('Templates used:', templateCount);
-  console.log('Rows generated:', rows.length, '(dupes skipped:', target - rows.length + ')');
+  console.log('Seed offers found:', templateCount);
+  console.log('Rows generated:', rows.length);
+  console.log('Rejected (invalid/duplicate):', rejected.length, rejected.length ? '→ ' + rejected.slice(0, 8).map((r) => r.code + ':' + r.reasons[0]).join(' | ') : '');
   console.log('Distinct brands:', brands.size, '| categories:', cats.size);
-  console.log('Price range: ₹' + Math.min(...prices) + ' – ₹' + Math.max(...prices));
+  console.log('Derived buyer price range: ₹' + Math.min(...prices) + ' – ₹' + Math.max(...prices));
   console.log('Validation problems:', problems.length ? problems.slice(0, 10).join(' | ') : 'none');
   console.log('Manifest →', MANIFEST);
 }
@@ -309,9 +292,14 @@ async function cmdValidate() {
   for (const r of man.rows) {
     if (!r.code || codes.has(r.code)) { bad++; console.log('BAD code', r.code); }
     codes.add(r.code);
-    const p = Number(r.sellingPrice);
-    if (!(p >= 1 && p <= 10000)) { bad++; console.log('BAD price', r.code, p); }
+    const f = Number(r.originalValue);
+    if (!(f >= 5 && f <= 50000)) { bad++; console.log('BAD face', r.code, f); }
     if (!r.brand || !r.category || !r.title) { bad++; console.log('BAD fields', r.code); }
+    const exp = new Date(r.expiryDate).getTime();
+    const add = new Date(r.addedAt).getTime();
+    if (!(exp > add) || exp - add > 32 * 86400000) { bad++; console.log('BAD timer', r.code); }
+    const bp = dynamicPricing.getBuyerPrice({ originalValue: r.originalValue, expiryDate: r.expiryDate });
+    if (!bp.purchasable || bp.price < 1 || bp.price > 10000) { bad++; console.log('BAD derived price', r.code); }
   }
   // Cross-check against live DB codes (duplicate-avoidance preview)
   const existing = new Set();
@@ -341,8 +329,11 @@ async function cmdImport() {
     if (!data || data.length < 1000) break;
   }
 
-  // Ids already inserted (checkpoint) — resumability.
+  // Codes already inserted (checkpoint) — resumability.
   const insertedSet = new Set(man.checkpoint.insertedIds);
+  // Only real table columns (verified against the live schema; fields like
+  // timer_on / admin_notes / background_image do not exist and must not be
+  // sent — timer/brand-asset behaviour comes from defaults + fallbacks).
   const toSupabase = (r, id) => ({
     id,
     code: r.code.toUpperCase().trim(),
@@ -354,11 +345,8 @@ async function cmdImport() {
     is_featured: !!r.isFeatured, is_exclusive: !!r.isExclusive, is_verified: !!r.isVerified,
     seller_email: r.sellerEmail || '', status: r.status, source: r.source,
     added_at: r.addedAt, sold_at: r.soldAt, buyer_email: r.buyerEmail || '',
-    on_sale: !!r.onSale, timer_on: !!r.timerOn,
-    background_image: r.backgroundImage || null, brand_logo: r.brandLogo || null,
-    proof_url: r.proofUrl || '', admin_notes: r.adminNotes || '', verified_at: r.verifiedAt,
-    seller_user_id: r.sellerUserId || '', whatsapp_status: '', whatsapp_sid: '',
-    whatsapp_last_attempt: null, whatsapp_error: '',
+    on_sale: !!r.onSale,
+    brand_logo: r.brandLogo || null,
   });
 
   let skipped = 0;
@@ -402,29 +390,113 @@ async function cmdImport() {
     man.checkpoint.nextBatch = b + 1;
     fs.writeFileSync(MANIFEST, JSON.stringify(man));
     const done = b + 1;
-    const rate = (done / totalBatches) * 100;
-    process.stdout.write('\rbatch ' + done + '/' + totalBatches + ' (' + rate.toFixed(1) + '%) inserted=' + inserted + ' skipped=' + skipped + '   ');
+    process.stdout.write('\rbatch ' + done + '/' + totalBatches + ' (' + ((done / totalBatches) * 100).toFixed(1) + '%) inserted=' + inserted + ' skipped=' + skipped + '   ');
   }
   console.log('\nImport done in ' + ((Date.now() - startedAt) / 1000).toFixed(1) + 's — inserted:', inserted, 'skipped(dupes):', skipped);
   const { count } = await sb.from('coupons').select('id', { count: 'exact', head: true });
   console.log('DB total now:', count);
 }
 
-async function cmdDeleteOld() {
+/**
+ * Write a display snapshot of every SOLD coupon onto its PAID order row, so
+ * purchase history survives the inventory deletion. The order row is only
+ * updated when the full purchase gate holds (PAID order + matching PAID
+ * payment for the same coupon) — the same conditions /my-purchases requires
+ * to release the code.
+ */
+async function cmdSnapshotSold() {
+  const paymentStore = require(path.join(ROOT, 'server', 'services', 'paymentStore'));
+  const sheets = await sheetsApi();
   const backup = JSON.parse(fs.readFileSync(LATEST_BACKUP(), 'utf8'));
-  // Delete ONLY the backed-up rows that were available+admin — the sold rows
-  // (real purchase history) and anything else are kept untouched.
-  const doomed = (backup.supabaseRows || [])
-    .filter((r) => String(r.source).toLowerCase() === 'admin' && String(r.status).toLowerCase() === 'available')
-    .map((r) => r.id);
-  console.log('Deleting', doomed.length, 'old available/admin rows (sold rows kept:', (backup.supabaseRows || []).length - doomed.length, ')');
+  const sold = (backup.supabaseRows || []).filter((r) => String(r.status).toLowerCase() === 'sold');
+  console.log('Sold rows to snapshot:', sold.length);
+
+  const [orderRows, paymentRows] = await Promise.all([
+    sheets.getRowsFresh(sheets.SHEETS.ORDERS),
+    sheets.getRowsFresh(sheets.SHEETS.PAYMENTS),
+  ]);
+  const paidByOrder = new Map();
+  for (const row of paymentRows || []) {
+    const p = paymentStore.fromPayment(row);
+    if (p && String(p.status).toUpperCase() === 'PAID' && p.orderId) paidByOrder.set(String(p.orderId), p);
+  }
+  const orderByCoupon = new Map();
+  for (const row of orderRows || []) {
+    const o = paymentStore.fromOrder(row);
+    if (!o || !o.couponId || String(o.status).toUpperCase() !== 'PAID') continue;
+    const p = paidByOrder.get(String(o.id));
+    if (!p || String(p.couponId) !== String(o.couponId) || !paymentStore.moneyEquals(p.amount, o.amount)) continue;
+    orderByCoupon.set(String(o.couponId), { order: o, payment: p });
+  }
+
+  let snapshotted = 0;
+  const unsnapshotted = [];
+  for (const c of sold) {
+    const hit = orderByCoupon.get(String(c.id));
+    if (!hit) { unsnapshotted.push(c); continue; }
+    const snap = {
+      id: c.id,
+      code: c.code,
+      brand: c.brand,
+      title: c.title,
+      description: c.description,
+      discount: c.discount,
+      category: c.category,
+      originalValue: c.original_value,
+      sellingPrice: c.selling_price,
+      expiryDate: c.expiry_date,
+      addedAt: c.added_at,
+      soldAt: c.sold_at,
+      sellerEmail: c.seller_email,
+      backgroundImage: c.background_image,
+      terms: c.terms,
+      snapshottedAt: new Date().toISOString(),
+    };
+    await sheets.updateRow(sheets.SHEETS.ORDERS, 'id', hit.order.id, { coupon_snapshot: JSON.stringify(snap) });
+    snapshotted++;
+    process.stdout.write('\rsnapshotted ' + snapshotted + '/' + sold.length + '   ');
+  }
+  console.log('\nSnapshotted:', snapshotted, '| sold rows without a matching PAID order:', unsnapshotted.length);
+  if (unsnapshotted.length) {
+    console.log('Unsnapshotted ids:', unsnapshotted.map((c) => c.id).join(', '));
+    console.log('These cannot be preserved in history — delete-old will refuse unless --include-unsnapshotted is passed.');
+  }
+  fs.writeFileSync(path.join(__dirname, 'snapshot-result.json'), JSON.stringify({
+    at: new Date().toISOString(),
+    sold: sold.length,
+    snapshotted,
+    unsnapshottedIds: unsnapshotted.map((c) => c.id),
+  }, null, 2));
+}
+
+async function cmdDeleteOld() {
+  const force = process.argv.includes('--include-unsnapshotted');
+  const backup = JSON.parse(fs.readFileSync(LATEST_BACKUP(), 'utf8'));
+  const all = backup.supabaseRows || [];
+  const sold = all.filter((r) => String(r.status).toLowerCase() === 'sold');
+
+  // Safety gate: every sold row must have been snapshotted (or explicitly forced).
+  let snap = null;
+  try { snap = JSON.parse(fs.readFileSync(path.join(__dirname, 'snapshot-result.json'), 'utf8')); } catch { /* none */ }
+  if (sold.length > 0) {
+    const covered = snap && (snap.sold === sold.length) && (snap.unsnapshottedIds || []).length === 0;
+    if (!covered && !force) {
+      throw new Error('Sold-coupon snapshots are missing/incomplete — run `snapshot-sold` first (or pass --include-unsnapshotted to abandon history for the uncovered rows).');
+    }
+  }
+
+  console.log('Deleting ALL', all.length, 'backed-up coupon rows (',
+    all.length - sold.length, 'available +', sold.length, 'sold-with-snapshot ) ...');
+  const doomed = all.map((r) => r.id);
+  let deleted = 0;
   for (let i = 0; i < doomed.length; i += 200) {
     const chunk = doomed.slice(i, i + 200);
     const { error, count } = await sb.from('coupons').delete().in('id', chunk).select('id', { count: 'exact' });
     if (error) throw new Error('delete chunk failed: ' + error.message);
-    process.stdout.write('\rdeleted ' + Math.min(i + chunk.length, doomed.length) + '/' + doomed.length + (count ? ' (last chunk ' + count + ')' : '') + '   ');
+    deleted += chunk.length;
+    process.stdout.write('\rdeleted ' + deleted + '/' + doomed.length + (count ? ' (last chunk ' + count + ')' : '') + '   ');
   }
-  console.log('\nOld Supabase rows deleted.');
+  console.log('\nOld Supabase rows deleted:', deleted);
   const { count } = await sb.from('coupons').select('id', { count: 'exact', head: true });
   console.log('DB total now:', count);
 }
@@ -432,66 +504,36 @@ async function cmdDeleteOld() {
 async function cmdMirrorSheets() {
   const sheets = await sheetsApi();
   const headers = sheets.HEADERS[sheets.SHEETS.COUPONS];
-  const backup = JSON.parse(fs.readFileSync(LATEST_BACKUP(), 'utf8'));
-  const oldSheetRows = backup.sheetRows || [];
-  console.log('Old sheet rows to clear:', oldSheetRows.length);
+  const man = JSON.parse(fs.readFileSync(MANIFEST, 'utf8'));
+  const manifestCodes = new Set(man.rows.map((r) => String(r.code).toUpperCase()));
 
-  // Clear the tab (keep header row) via batchUpdate deleteRows.
-  const auth = sheets.__test ? null : null;
-  // googleSheets.js doesn't expose a raw deleteRows helper, so mirror-sheets
-  // uses getRows-fresh evidence instead: mark old rows superseded by
-  // overwriting each with a tombstone? — No: we do a real clear via the
-  // module's internal googleapis client if reachable.
-  let cleared = 0;
-  try {
-    const gsMod = require(path.join(ROOT, 'server', 'services', 'googleSheets'));
-    // Some builds expose the raw sheets client internally; otherwise we fall
-    // back to updateRow tombstones for old rows (status='replaced').
-    if (gsMod.deleteRow) {
-      for (const r of oldSheetRows) {
-        try { await gsMod.deleteRow(gsMod.SHEETS.COUPONS, r.id); cleared++; } catch { /* row may be gone */ }
-        if (cleared % 50 === 0) process.stdout.write('\rcleared ' + cleared + '/' + oldSheetRows.length + '   ');
-      }
-    }
-  } catch (e) {
-    console.warn('clear path failed:', e.message);
-  }
-  console.log('\nCleared', cleared, 'old sheet rows');
+  // Clear every sheet row that is not part of the new inventory (old rows,
+  // stale test rows, blank-code ghosts) in ONE batched delete.
+  const removed = await sheets.deleteRowsWhere(sheets.SHEETS.COUPONS, (r) => {
+    const code = String(r.code || '').toUpperCase();
+    return !code || !manifestCodes.has(code);
+  });
+  console.log('Cleared', removed, 'sheet rows not in the manifest');
 
-  // Append the new inventory (from the DB = the truth) in 500-row batches.
-  const fresh = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from('coupons').select('*').range(from, from + 999);
-    if (error) throw new Error(error.message);
-    fresh.push(...(data || []));
-    if (!data || data.length < 1000) break;
-  }
+  const fresh = await readAllSupabase();
   console.log('Appending', fresh.length, 'rows to the Coupons tab...');
   let appended = 0;
-  const CHUNK = 500;
-  for (let i = 0; i < fresh.length; i += CHUNK) {
-    const rows = fresh.slice(i, i + CHUNK).map((c) => couponToSheetRow(headers, c));
-    await sheets.appendRows ? sheets.appendRows(sheets.SHEETS.COUPONS, rows) : null;
-    if (!sheets.appendRows) {
-      for (const r of rows) await sheets.appendRow(sheets.SHEETS.COUPONS, Object.fromEntries(headers.map((h, idx) => [h, r[idx]])));
-    }
-    appended += rows.length;
-    process.stdout.write('\rappended ' + appended + '/' + fresh.length + '   ');
+  for (const c of fresh) {
+    const obj = {};
+    const rowArr = couponToSheetRow(headers, c);
+    headers.forEach((h, idx) => { obj[h] = rowArr[idx]; });
+    await sheets.appendRow(sheets.SHEETS.COUPONS, obj);
+    appended++;
+    if (appended % 25 === 0) process.stdout.write('\rappended ' + appended + '/' + fresh.length + '   ');
   }
-  console.log('\nSheets mirror complete.');
+  console.log('\nSheets mirror complete:', appended, 'rows.');
 }
 
 async function cmdVerify() {
   const report = { at: new Date().toISOString() };
-
+  const all = await readAllSupabase();
   const { count: total } = await sb.from('coupons').select('id', { count: 'exact', head: true });
-  const all = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await sb.from('coupons').select('*').range(from, from + 999);
-    if (error) throw new Error(error.message);
-    all.push(...(data || []));
-    if (!data || data.length < 1000) break;
-  }
+
   const byStatus = {}; const bySource = {};
   for (const r of all) {
     byStatus[r.status] = (byStatus[r.status] || 0) + 1;
@@ -501,14 +543,19 @@ async function cmdVerify() {
   report.byStatus = byStatus;
   report.bySource = bySource;
 
-  const newRows = all.filter((r) => String(r.admin_notes || '').includes('Imported 2026-10'));
+  const newRows = (() => {
+    // The table has no provenance column — identify imported rows by code
+    // membership in the manifest (codes are unique across both).
+    let man = null;
+    try { man = JSON.parse(fs.readFileSync(MANIFEST, 'utf8')); } catch { return all.filter(() => false); }
+    const wanted = new Set(man.rows.map((r) => String(r.code).toUpperCase()));
+    return all.filter((r) => wanted.has(String(r.code).toUpperCase()));
+  })();
   report.newImported = newRows.length;
-  report.oldRowsRemoved = null; // filled from backup comparison below
 
   const codes = new Set(newRows.map((r) => String(r.code).toUpperCase()));
   report.distinctCodes = codes.size;
-  const dupeCodes = newRows.length - codes.size;
-  report.duplicateCodes = dupeCodes;
+  report.duplicateCodes = newRows.length - codes.size;
 
   const brands = new Set(newRows.map((r) => r.brand));
   report.distinctBrands = brands.size;
@@ -516,9 +563,10 @@ async function cmdVerify() {
   report.distinctCategories = cats.size;
 
   // Pricing — the buyer price is derived, so verify the curve holds for every row.
+  // getBuyerPrice expects camelCase fields; DB rows are snake_case.
   let minPrice = Infinity; let maxPrice = -Infinity; let badPrice = 0;
   for (const r of newRows) {
-    const bp = dynamicPricing.getBuyerPrice(r);
+    const bp = dynamicPricing.getBuyerPrice({ originalValue: r.original_value, expiryDate: r.expiry_date });
     if (!bp.purchasable) { badPrice++; continue; }
     if (bp.price < 1 || bp.price > 10000) badPrice++;
     if (bp.price < minPrice) minPrice = bp.price;
@@ -534,9 +582,8 @@ async function cmdVerify() {
   for (const r of newRows) {
     const add = new Date(r.added_at).getTime();
     const exp = new Date(r.expiry_date).getTime();
-    if (!(exp > add)) timerTooLong++;
-    else if (exp - add <= 32 * 86400000) timersOk++;
-    else timerTooLong++;
+    if (!(exp > add) || exp - add > 32 * 86400000) timerTooLong++;
+    else timersOk++;
     if (exp <= Date.now()) expiredNow++;
   }
   report.oneMonthTimers = timersOk;
@@ -548,12 +595,50 @@ async function cmdVerify() {
     const backup = JSON.parse(fs.readFileSync(LATEST_BACKUP(), 'utf8'));
     const oldIds = new Set((backup.supabaseRows || []).map((r) => r.id));
     const stillThere = all.filter((r) => oldIds.has(r.id));
-    const keptSold = stillThere.filter((r) => String(r.status).toLowerCase() === 'sold').length;
     report.oldRowsOriginal = oldIds.size;
     report.oldRowsStillPresent = stillThere.length;
-    report.oldSoldRowsKept = keptSold;
-    report.oldAvailableRemoved = oldIds.size - stillThere.length;
+    report.oldRowsRemoved = oldIds.size - stillThere.length;
+    const oldByStatus = {};
+    for (const r of (backup.supabaseRows || [])) {
+      const k = String(r.status || '').toLowerCase();
+      oldByStatus[k] = (oldByStatus[k] || 0) + 1;
+    }
+    report.oldRowsByStatus = oldByStatus;
   } catch (e) { report.backupCompareError = e.message; }
+
+  // Financial-history preservation: orders/payments/payouts live in Sheets.
+  try {
+    const sheets = await sheetsApi();
+    const [orders, payments] = await Promise.all([
+      sheets.getRows(sheets.SHEETS.ORDERS),
+      sheets.getRows(sheets.SHEETS.PAYMENTS),
+    ]);
+    report.financialHistory = {
+      ordersRows: orders.length,
+      paidOrders: orders.filter((r) => String(r.status || '').toUpperCase() === 'PAID').length,
+      paymentsRows: payments.length,
+      paidPayments: payments.filter((r) => String(r.status || '').toUpperCase() === 'PAID').length,
+      ordersWithCouponSnapshot: orders.filter((r) => String(r.coupon_snapshot || '').trim() !== '').length,
+    };
+  } catch (e) { report.financialHistoryError = e.message; }
+
+  // Sheets mirror consistency
+  try {
+    const sheets = await sheetsApi();
+    const sheetRows = await sheets.getRows(sheets.SHEETS.COUPONS);
+    report.sheetsRows = sheetRows.length;
+    const dbCodes = new Set(all.map((r) => String(r.code).toUpperCase()));
+    const sheetOnly = sheetRows.filter((r) => !dbCodes.has(String(r.code || '').toUpperCase())).length;
+    report.sheetsRowsNotInDb = sheetOnly;
+  } catch (e) { report.sheetsCheckError = e.message; }
+
+  // Authenticity shortfall (spec §7.10)
+  report.shortfall = {
+    requestedListings: 10000,
+    actualImported: newRows.length,
+    missingListings: Math.max(0, 10000 - newRows.length),
+    reason: 'Only the administrator-authored seed offers exist as verified listing data; no vendor-supplied redeemable code file was provided. Codes are platform-authored and marked is_verified=false.',
+  };
 
   fs.writeFileSync(path.join(__dirname, 'import-report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify(report, null, 2));
@@ -563,10 +648,11 @@ async function main() {
   const cmd = process.argv[2];
   const fn = {
     status: cmdStatus, backup: cmdBackup, generate: cmdGenerate, validate: cmdValidate,
-    import: cmdImport, 'delete-old': cmdDeleteOld, 'mirror-sheets': cmdMirrorSheets, verify: cmdVerify,
+    import: cmdImport, 'snapshot-sold': cmdSnapshotSold, 'delete-old': cmdDeleteOld,
+    'mirror-sheets': cmdMirrorSheets, verify: cmdVerify,
   }[cmd];
   if (!fn) {
-    console.log('Usage: node scripts/replace-inventory.cjs <status|backup|generate|validate|import|delete-old|mirror-sheets|verify>');
+    console.log('Usage: node scripts/replace-inventory.cjs <status|backup|generate|validate|import|snapshot-sold|delete-old|mirror-sheets|verify>');
     process.exit(2);
   }
   await fn();

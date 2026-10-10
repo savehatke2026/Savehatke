@@ -1,0 +1,44 @@
+{
+  "at": "2026-10-10T00:01:05.793Z",
+  "dbTotal": 363,
+  "byStatus": {
+    "available": 363
+  },
+  "bySource": {
+    "admin": 363
+  },
+  "newImported": 363,
+  "distinctCodes": 363,
+  "duplicateCodes": 0,
+  "distinctBrands": 155,
+  "distinctCategories": 13,
+  "purchasableCount": 363,
+  "outOfRangePrices": 0,
+  "minBuyerPrice": 6,
+  "maxBuyerPrice": 5000,
+  "oneMonthTimers": 363,
+  "timerAnomalies": 0,
+  "expiredAtVerifyTime": 0,
+  "oldRowsOriginal": 120,
+  "oldRowsStillPresent": 0,
+  "oldRowsRemoved": 120,
+  "oldRowsByStatus": {
+    "available": 116,
+    "sold": 4
+  },
+  "financialHistory": {
+    "ordersRows": 89,
+    "paidOrders": 4,
+    "paymentsRows": 57,
+    "paidPayments": 4,
+    "ordersWithCouponSnapshot": 4
+  },
+  "sheetsRows": 363,
+  "sheetsRowsNotInDb": 0,
+  "shortfall": {
+    "requestedListings": 10000,
+    "actualImported": 363,
+    "missingListings": 9637,
+    "reason": "Only the administrator-authored seed offers exist as verified listing data; no vendor-supplied redeemable code file was provided. Codes are platform-authored and marked is_verified=false."
+  }
+}
