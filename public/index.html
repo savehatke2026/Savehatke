@@ -817,10 +817,10 @@
 <section class="final-cta">
   <div class="container fu">
     <span class="slabel">Join the Revolution</span>
-    <h2 class="stitle">Ready to Save<span class="shimmer">Hatke</span>?</h2>
-    <p class="ssub" style="margin-bottom:40px">Join thousands of smart shoppers who refuse to pay full price. Free to start, always.</p>
-    <a href="login.html" class="btn btn-primary" style="font-size:1.1rem;height:60px;padding:0 48px;border-radius:14px;display:inline-flex;justify-content:center">
-      🚀 Create Free Account
+    <h2 class="stitle" id="finalCtaTitle">Ready to Save<span class="shimmer">Hatke</span>?</h2>
+    <p class="ssub" id="finalCtaDesc" style="margin-bottom:40px">Join thousands of smart shoppers who refuse to pay full price. Free to start, always.</p>
+    <a href="login.html" id="finalCtaButton" class="btn btn-primary" style="font-size:1.1rem;height:60px;padding:0 48px;border-radius:14px;display:inline-flex;justify-content:center">
+      <span id="finalCtaButtonLabel">🚀 Create Free Account</span>
     </a>
   </div>
 </section>
@@ -901,6 +901,32 @@
 <script src="js/cookie-consent.js"></script>
 <script src="js/app.js"></script>
 <script src="js/landing.js"></script>
+<script>
+  // Final CTA: signed-in visitors get the marketplace prompt. The decision uses
+  // the server-verified session (/auth/me, HttpOnly cookie), not localStorage.
+  // Logged-out markup is the default and stays until that check answers.
+  (function () {
+    // Not api(): for a logged-out visitor /auth/me answers 401 SESSION_EXPIRED,
+    // and api() would redirect anonymous visitors to login.html. Read it raw
+    // so a 401 simply means "keep the default CTA".
+    fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' }).then(function (res) {
+      if (!res.ok) return null;
+      return res.json();
+    }).then(function (data) {
+      var user = data && data.user;
+      if (!user || !user.email) return;
+      var title = document.getElementById('finalCtaTitle');
+      var desc = document.getElementById('finalCtaDesc');
+      var btn = document.getElementById('finalCtaButton');
+      var label = document.getElementById('finalCtaButtonLabel');
+      if (!title || !desc || !btn || !label) return;
+      title.innerHTML = 'Ready for Your <span class="shimmer">Next Deal?</span>';
+      desc.textContent = 'Discover great coupons, unlock new savings, and make the most of your SaveHatke account.';
+      label.textContent = '🏷️ Explore Coupons';
+      btn.setAttribute('href', 'marketplace.html');
+    }).catch(function () { /* logged out or check unavailable: keep the default CTA */ });
+  })();
+</script>
 <!-- Shared brand-logo + expiry helpers. getBrandLogo() prefers the local
      /logos/* files over a clearbit guess, so the landing cards show exactly the
      same brand logos as the marketplace and the admin inventory table. -->
