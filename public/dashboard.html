@@ -2007,7 +2007,7 @@
             <div class="mc-sec-title">My Listings</div>
             <div class="mc-sec-sub">Coupons you've submitted for sale.</div>
           </div>
-          <button type="button" popovertarget="payment-method" class="btn btn-primary btn-sm" onclick="openPayoutDetailsModal()" aria-controls="payment-method">+ Add Payment Method</button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="openPayoutDetailsModal()" aria-controls="payment-method">+ Add Payment Method</button>
         </div>
 
         <div class="mcx-stats">
@@ -6046,7 +6046,13 @@
     document.getElementById('payment-method-save').disabled = true;
 
     const popover = document.getElementById('payment-method');
-    if (popover && typeof popover.showPopover === 'function') popover.showPopover();
+    if (popover) {
+      if (typeof popover.showPopover === 'function') {
+        if (!popover.matches(':popover-open')) popover.showPopover();
+      } else {
+        popover.style.display = 'block';
+      }
+    }
     setTimeout(() => document.getElementById(method === 'qr' ? 'payment-qr-file' : 'payment-upi-value')?.focus(), 200);
   }
 
