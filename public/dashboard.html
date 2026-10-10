@@ -1469,6 +1469,89 @@
 #sidebar .sb-item-logout,#sidebar .sb-item-logout .sb-item-ico { color:#e9919b; }
 #sidebar .sb-item-logout:hover { background:#2a1e2e; color:#ffb3ba; }
 @media(prefers-reduced-motion:reduce) { #sidebar,#sidebar .sb-item { transition:none; } }
+
+/* ── Payment Method popover ──
+   Drop-in replacement for the old payoutDetailsModal. Same JSON save path
+   (/api/payouts/details PUT, /api/payouts/details/qr POST) is wired by the
+   inline script at the bottom of this page. The popover element shows on
+   this dashboard via the popovertarget="payment-method" attribute pair. */
+.payment-method {
+  --payment-accent: #00e272;
+  --payment-line: rgba(79, 195, 247, .15);
+  background: #0d1930;
+  border-color: #24354e;
+  color: #e2ecff;
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+.payment-method::backdrop { background: rgba(0, 0, 0, .65); backdrop-filter: blur(4px); }
+.payment-method .card-hdr { align-items: flex-start; flex-wrap: wrap; gap: 16px; }
+.payment-method h2, .payment-method h3 { margin: 0; }
+.payment-method-description, .payment-method-help {
+  color: inherit;
+  opacity: .65;
+  font-size: .82rem;
+  line-height: 1.65;
+  margin: 7px 0 0;
+}
+.payment-method-tag {
+  border: 1px solid var(--payment-line);
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: .72rem;
+  color: var(--payment-accent);
+}
+.payment-method-form-body { border-top: 0; padding-top: 0; max-width: 680px; }
+.payment-method-options { border: 0; border-bottom: 1px solid var(--payment-line); padding: 0 0 24px; margin: 24px 0; display: grid; grid-template-columns: 1fr; gap: 22px; }
+.payment-method-options legend { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.payment-method-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 0;
+  cursor: pointer;
+}
+.payment-method-option strong { display: block; font-size: .88rem; font-weight: 600; }
+.payment-method-option small { display: block; margin-top: 5px; opacity: .65; font-size: .76rem; line-height: 1.6; }
+.payment-method-option input { accent-color: var(--payment-accent); width: 16px; height: 16px; flex: 0 0 auto; margin-top: 3px; }
+.payment-method-option > svg { width: 22px; height: 22px; flex: 0 0 auto; color: var(--payment-accent); margin-top: 2px; }
+.payment-method-option > span { min-width: 0; }
+.payment-method-upi, .payment-method-qr, .payment-method-consent { display: none; }
+.payment-method-form:has(#payment-upi:checked) .payment-method-upi,
+.payment-method-form:has(#payment-qr:checked) .payment-method-qr,
+.payment-method-form:has(input[name="method_type"]:checked) .payment-method-consent { display: block; }
+.payment-method-upload { position: relative; display: grid; justify-items: center; gap: 12px; text-align: center; border: 1px solid var(--payment-line); border-radius: 10px; padding: 28px 20px; margin-top: 12px; cursor: pointer; }
+.payment-method-upload svg { color: var(--payment-accent); }
+.payment-method-upload strong { font-size: .88rem; font-weight: 600; }
+.payment-method-upload input { font-size: .8rem; min-width: 0; max-width: 100%; }
+.payment-method-upload input::file-selector-button { background: rgba(0, 226, 114, .1); color: inherit; border: 1px solid var(--payment-line); border-radius: 6px; padding: 8px 12px; margin-right: 12px; font: inherit; cursor: pointer; }
+.payment-method-consent { padding-top: 18px; margin-top: 22px; border-top: 1px solid var(--payment-line); }
+.payment-method-checkbox { display: flex; gap: 11px; align-items: flex-start; font-size: .82rem; line-height: 1.6; cursor: pointer; }
+.payment-method-checkbox input { accent-color: var(--payment-accent); width: 16px; height: 16px; flex: 0 0 auto; margin-top: 3px; }
+.payment-method-consent .payment-method-help { margin-left: 27px; font-size: .75rem; }
+.payment-method-preview { display: block; max-width: 160px; max-height: 160px; margin: 14px auto 0; border-radius: 8px; }
+.payment-method-preview[hidden] { display: none; }
+.payment-method button:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+.payment-method :is(input, button):focus-visible { outline: 2px solid var(--payment-accent); outline-offset: 4px; }
+
+/* The My-Listings header wraps on narrow viewports; the button stays
+   reachable. */
+.mc-sec-hdr.payment-method-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.mc-sec-hdr.payment-method-row > .mc-sec-hdr-text { min-width: 0; }
+@media (max-width: 540px) {
+  .payment-method-options { grid-template-columns: 1fr; }
+  .payment-method .modal-footer .btn { flex: 1; }
+}
 </style>
 </head>
 <body>
@@ -1919,9 +2002,12 @@
 
       <!-- ── FOR SALE ── seller state only, never purchase counts -->
       <section id="mcPaneSales" role="tabpanel" aria-labelledby="mcTabSales" tabindex="0" style="display:none">
-        <div class="mc-sec-hdr">
-          <div class="mc-sec-title">My Listings</div>
-          <div class="mc-sec-sub">Coupons you've submitted for sale.</div>
+        <div class="mc-sec-hdr payment-method-row">
+          <div class="mc-sec-hdr-text">
+            <div class="mc-sec-title">My Listings</div>
+            <div class="mc-sec-sub">Coupons you've submitted for sale.</div>
+          </div>
+          <button type="button" popovertarget="payment-method" class="btn btn-primary btn-sm" onclick="openPayoutDetailsModal()" aria-controls="payment-method">+ Add Payment Method</button>
         </div>
 
         <div class="mcx-stats">
@@ -3286,52 +3372,75 @@
   </div>
 </div>
 
-<!-- PAYOUT DETAILS MODAL
-     Where the account-level record is added or replaced. Stored values come back
-     masked, so the inputs open empty: what is typed here replaces the record
-     rather than being merged with dots. -->
-<div class="modal-overlay" id="payoutDetailsModal" onclick="handleOverlayClick(event,'payoutDetailsModal')">
-  <div class="modal modal-lg">
-    <button class="modal-close-btn" onclick="closeModal('payoutDetailsModal')">✕</button>
-    <div class="modal-hdr">
-      <div class="modal-title">Payout <span class="gtext">Details</span></div>
-      <div class="modal-sub">Saved once for your account and used for every payout.</div>
+<!-- PAYOUT DETAILS — popover form
+     Replaces the legacy payoutDetailsModal. The save flow is unchanged: the QR
+     image uploads to /payouts/details/qr (private Drive), then the record PUTs
+     to /payouts/details. The popover is toggled via the popovertarget buttons
+     and pre-filled by openPayoutDetailsModal(). -->
+<section class="card pc-card payment-method" id="payment-method" popover aria-labelledby="payment-method-title">
+  <div class="card-hdr">
+    <div>
+      <h2 class="card-title" id="payment-method-title">Add Payment Method</h2>
+      <p class="payment-method-description">Choose how you want to receive your seller earnings.</p>
     </div>
-    <div class="form-grp">
-      <label class="form-lbl">Payment Method *</label>
-      <select class="form-inp" id="pdMethod" onchange="togglePdFields(this.value)">
-        <option value="upi">UPI ID</option>
-        <option value="qr">QR Code</option>
-      </select>
-    </div>
-    <div id="pdUpiGroup" class="form-grp">
-      <label class="form-lbl">UPI ID *</label>
-      <input type="text" class="form-inp" id="pdUpiId" placeholder="yourname@upi" autocomplete="off">
-    </div>
-    <!-- The image is uploaded on choose, before the record is saved: the record
-         keeps only the Drive file id, so there is nothing to save until the
-         upload has actually succeeded. -->
-    <div id="pdQrGroup" style="display:none">
-      <div class="form-grp">
-        <label class="form-lbl">Payment QR Code *</label>
-        <input type="file" class="form-inp" id="pdQrFile" accept="image/png,image/jpeg,image/webp" onchange="uploadPayoutQr(this)">
-        <div id="pdQrStatus" style="font-size:.78rem;color:#6b88aa;margin-top:7px">PNG, JPG or WebP, up to 3MB.</div>
-        <div id="pdQrPreview" style="display:none;margin-top:10px">
-          <img id="pdQrPreviewImg" alt="Your payment QR code" style="max-width:170px;width:100%;border-radius:10px;border:1px solid rgba(79,195,247,.18);background:#fff;padding:6px">
+    <button class="btn btn-ghost btn-sm" type="button" popovertarget="payment-method" popovertargetaction="hide" aria-label="Close payment method"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"></path></svg></button>
+  </div>
+
+  <div class="payment-method-editor">
+    <div class="payment-method-form-body">
+      <form id="payment-method-form" class="payment-method-form" enctype="multipart/form-data" novalidate>
+        <fieldset class="payment-method-options">
+          <legend>Choose a payout method</legend>
+          <label class="payment-method-option" for="payment-upi">
+            <input id="payment-upi" type="radio" name="method_type" value="upi" required checked>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="6" y="2" width="12" height="20" rx="3"></rect><path d="M11 18h2"></path></svg>
+            <span><strong>UPI ID</strong><small>Enter your UPI ID, e.g. name@upi</small></span>
+          </label>
+          <label class="payment-method-option" for="payment-qr">
+            <input id="payment-qr" type="radio" name="method_type" value="qr" required>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1"></rect><rect x="15" y="3" width="6" height="6" rx="1"></rect><rect x="3" y="15" width="6" height="6" rx="1"></rect><path d="M12 3v9H3m12 0h6v4h-6v5m-3-6v6m6-2h3v2"></path></svg>
+            <span><strong>UPI QR Code</strong><small>Upload an image of your personal UPI QR code.</small></span>
+          </label>
+        </fieldset>
+
+        <div class="payment-method-upi">
+          <div class="form-grp">
+            <label class="form-lbl" for="payment-upi-value">Your UPI ID</label>
+            <input class="form-inp" id="payment-upi-value" type="text" placeholder="yourname@upi" autocomplete="off" spellcheck="false">
+            <p class="payment-method-help">Enter your UPI ID only. Never share your UPI PIN or an OTP.</p>
+          </div>
         </div>
-      </div>
-    </div>
-    <div class="form-grp">
-      <label class="form-lbl">Beneficiary Name</label>
-      <input type="text" class="form-inp" id="pdBeneficiaryName" placeholder="As on your bank account" autocomplete="off">
-    </div>
-    <div style="font-size:.76rem;color:#6b88aa;margin-bottom:4px">🔒 Used only to pay you. Shown partly hidden after saving.</div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" style="flex:1" onclick="closeModal('payoutDetailsModal')">Cancel</button>
-      <button class="btn btn-primary" style="flex:1" id="pdSaveBtn" onclick="savePayoutDetails()">Save Details</button>
+
+        <div class="payment-method-qr">
+          <div class="form-grp">
+            <label class="form-lbl" for="payment-qr-file">Upload UPI QR Code</label>
+            <label class="payment-method-upload" for="payment-qr-file">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M12 16V3m-5 5 5-5 5 5M4 15v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></svg>
+              <strong>Upload QR Code Image</strong>
+              <span class="payment-method-help">PNG or JPG · Maximum 3 MB</span>
+              <input id="payment-qr-file" type="file" accept="image/png,image/jpeg" aria-describedby="payment-qr-limits">
+              <span class="payment-method-help" id="payment-qr-limits">The server enforces the final file-type and size check.</span>
+            </label>
+            <img id="payment-qr-preview" class="payment-method-preview" alt="Selected UPI QR code" hidden>
+          </div>
+        </div>
+
+        <div class="payment-method-consent">
+          <label class="payment-method-checkbox" for="payment-save-consent">
+            <input id="payment-save-consent" type="checkbox" required>
+            <span>Save payment details to SaveHatke for future seller payouts.</span>
+          </label>
+          <p class="payment-method-help">Saving requires authentication; the existing /api/payouts/details endpoint will receive your changes.</p>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-ghost" type="button" popovertarget="payment-method" popovertargetaction="hide">Cancel</button>
+          <button class="btn btn-primary" type="submit" id="payment-method-save" disabled>Save</button>
+        </div>
+      </form>
     </div>
   </div>
-</div>
+</section>
 
 <!-- Refund detail modal — opened from the Refunds view list. Money fields
      and status come from /api/refunds/:id (server-set). The buyer sees the
@@ -5908,67 +6017,74 @@
       <p class="lh-hdr-note" style="margin:14px 0 0">Used for every payout on this account.${isQr ? '' : ' Partly hidden for safety — edit to replace.'}</p>`;
   }
 
+  /* Open the Account-level Payment Method popover and pre-fill it from the
+     cached record (popover-form version; supersedes the legacy modal). */
   function openPayoutDetailsModal() {
     if (typeof requireAuth === 'function' && !requireAuth()) return;
     const d = payoutDetails.details || {};
     const method = String(d.method || 'UPI').toUpperCase() === 'QR' ? 'qr' : 'upi';
-    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-    set('pdMethod', method);
-    // Stored values come back masked, so the fields start empty rather than
-    // showing dots the seller might submit back as real data.
-    set('pdUpiId', '');
-    set('pdQrFile', '');
-    // An existing QR carries over unless a new file is chosen, so editing the
-    // beneficiary name alone does not wipe the image.
+
+    // Wire radios; the surrounding CSS hides everything that does not match.
+    const upiRadio = document.getElementById('payment-upi');
+    const qrRadio = document.getElementById('payment-qr');
+    if (upiRadio) upiRadio.checked = method === 'upi';
+    if (qrRadio) qrRadio.checked = method === 'qr';
+
+    // Stored UPI comes back masked, so the field opens empty — typing here
+    // replaces the record rather than merging dots.
+    document.getElementById('payment-upi-value').value = '';
+
+    // An existing QR carries over unless a new file is chosen.
     pendingQr = d.qrFileId ? { fileId: d.qrFileId, name: d.qrFileName || '' } : null;
+    document.getElementById('payment-qr-file').value = '';
     renderPendingQr();
-    set('pdBeneficiaryName', d.beneficiaryName && !d.beneficiaryName.includes('•') ? d.beneficiaryName : '');
-    togglePdFields(method);
-    openModal('payoutDetailsModal');
-    setTimeout(() => document.getElementById(method === 'qr' ? 'pdQrFile' : 'pdUpiId')?.focus(), 200);
+
+    // Popovers are dismissed when the form re-renders, so consent has to be
+    // re-checked each time; the user previously reading the call is the only
+    // way to know they understand.
+    document.getElementById('payment-save-consent').checked = false;
+    document.getElementById('payment-method-save').disabled = true;
+
+    const popover = document.getElementById('payment-method');
+    if (popover && typeof popover.showPopover === 'function') popover.showPopover();
+    setTimeout(() => document.getElementById(method === 'qr' ? 'payment-qr-file' : 'payment-upi-value')?.focus(), 200);
   }
 
-  function togglePdFields(val) {
-    const upi = document.getElementById('pdUpiGroup');
-    const qr = document.getElementById('pdQrGroup');
-    if (upi) upi.style.display = val === 'upi' ? '' : 'none';
-    if (qr) qr.style.display = val === 'upi' ? 'none' : '';
-  }
-
-  // The QR image the modal will save. It is uploaded first and referenced by id,
-  // so the record never holds image bytes.
+  // The QR image the popover will save. It is uploaded first and referenced by
+  // id, so the record never holds image bytes.
   let pendingQr = null;
 
   function renderPendingQr() {
-    const wrap = document.getElementById('pdQrPreview');
-    const img = document.getElementById('pdQrPreviewImg');
-    const status = document.getElementById('pdQrStatus');
-    if (!wrap || !img) return;
+    const img = document.getElementById('payment-qr-preview');
+    if (!img) return;
     if (pendingQr && pendingQr.fileId) {
       img.src = `/api/proxy/drive/${encodeURIComponent(pendingQr.fileId)}`;
-      wrap.style.display = '';
-      if (status) status.textContent = pendingQr.name ? `Uploaded: ${pendingQr.name}` : 'QR code uploaded.';
+      img.hidden = false;
     } else {
-      wrap.style.display = 'none';
       img.removeAttribute('src');
-      if (status) status.textContent = 'PNG, JPG or WebP, up to 3MB.';
+      img.hidden = true;
     }
   }
 
   /** Send the chosen QR image to private Drive and keep its file id. */
   async function uploadPayoutQr(input) {
     const file = input && input.files && input.files[0];
-    const status = document.getElementById('pdQrStatus');
-    const saveBtn = document.getElementById('pdSaveBtn');
-    if (!file) return;
-
-    if (file.size > 3 * 1024 * 1024) {
-      if (status) status.textContent = 'That image is too large. The maximum size is 3MB.';
-      input.value = '';
+    const limits = document.getElementById('payment-qr-limits');
+    const saveBtn = document.getElementById('payment-method-save');
+    if (!file) {
+      renderPendingQr();
       return;
     }
 
-    if (status) status.textContent = '⏳ Uploading…';
+    if (file.size > 3 * 1024 * 1024) {
+      if (limits) limits.textContent = 'That image is too large. The maximum size is 3 MB.';
+      input.value = '';
+      pendingQr = null;
+      renderPendingQr();
+      return;
+    }
+
+    if (limits) limits.textContent = '⏳ Uploading your QR code…';
     if (saveBtn) saveBtn.disabled = true;
     try {
       const dataBase64 = await new Promise((resolve, reject) => {
@@ -5983,26 +6099,27 @@
       });
       pendingQr = { fileId: data.fileId, name: data.name || file.name };
       renderPendingQr();
+      if (limits) limits.textContent = pendingQr.name ? `Uploaded: ${pendingQr.name}` : 'QR code uploaded.';
     } catch (err) {
       pendingQr = null;
       renderPendingQr();
       input.value = '';
-      if (status) status.textContent = err.message || 'That upload could not be completed.';
+      if (limits) limits.textContent = err.message || 'That upload could not be completed.';
     } finally {
       if (saveBtn) saveBtn.disabled = false;
     }
   }
 
-  async function savePayoutDetails() {
+  async function savePayoutDetails(event) {
+    if (event) event.preventDefault();
     if (typeof requireAuth === 'function' && !requireAuth()) return;
-    const method = document.getElementById('pdMethod')?.value || 'upi';
-    const upiId = (document.getElementById('pdUpiId')?.value || '').trim();
-    const beneficiaryName = (document.getElementById('pdBeneficiaryName')?.value || '').trim();
+    const method = document.querySelector('input[name="method_type"]:checked')?.value || 'upi';
+    const upiId = (document.getElementById('payment-upi-value')?.value || '').trim();
 
     if (method === 'upi' && !upiId) { showToast('Please enter your UPI ID.', 'error'); return; }
     if (method === 'qr' && !(pendingQr && pendingQr.fileId)) { showToast('Please upload your payment QR code image.', 'error'); return; }
 
-    const btn = document.getElementById('pdSaveBtn');
+    const btn = document.getElementById('payment-method-save');
     const orig = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving…'; }
     try {
@@ -6013,11 +6130,11 @@
           upiId,
           qrFileId: method === 'qr' && pendingQr ? pendingQr.fileId : '',
           qrFileName: method === 'qr' && pendingQr ? pendingQr.name : '',
-          beneficiaryName,
         },
       });
       payoutDetails = { details: data.details || null, complete: Boolean(data.complete), loaded: true };
-      closeModal('payoutDetailsModal');
+      const popover = document.getElementById('payment-method');
+      if (popover && typeof popover.hidePopover === 'function') popover.hidePopover();
       renderPayoutDetailsCard();
       // The trackers show payout-details steps, so they repaint with the new
       // account record the moment it is saved.
@@ -8452,6 +8569,67 @@
   }
   refineIcons();
   new MutationObserver(refineIcons).observe(root, { childList: true, subtree: true });
+})();
+</script>
+
+<!-- ── Payment Method popover behaviour ──
+     Same JSON save flow as the legacy payoutDetailsModal: QR uploads to
+     /payouts/details/qr (private Drive), the record PUTs to /payouts/details.
+     openPayoutDetailsModal() (defined in the inline dashboard script) opens
+     the popover and seeds the radios / consent; this script wires the file
+     preview, consent gating and form submit. -->
+<script>
+(() => {
+  const form   = document.getElementById('payment-method-form');
+  const save   = document.getElementById('payment-method-save');
+  const file   = document.getElementById('payment-qr-file');
+  const preview = document.getElementById('payment-qr-preview');
+  const upiInput = document.getElementById('payment-upi-value');
+  const consent = document.getElementById('payment-save-consent');
+  if (!form || !save) return;
+
+  let previewUrl = '';
+  function clearPreview() {
+    if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = ''; }
+    if (preview) { preview.removeAttribute('src'); preview.hidden = true; }
+  }
+
+  function isMethodValid() {
+    const checked = form.querySelector('input[name="method_type"]:checked');
+    if (!checked) return false;
+    if (checked.value === 'upi') return (upiInput && upiInput.value.trim()) ? true : false;
+    // QR: the field is required, but the saved record still needs a Drive
+    // upload behind it — the upload is wired by uploadPayoutQr(); treat the
+    // "QR file is selected" path as the user's signal that they intend to
+    // save it on submit.
+    return !!(file && file.files && file.files[0]);
+  }
+  function refreshSaveEnabled() {
+    save.disabled = !(isMethodValid() && consent && consent.checked);
+  }
+
+  if (file) {
+    file.addEventListener('change', () => {
+      clearPreview();
+      const f = file.files && file.files[0];
+      if (f) {
+        previewUrl = URL.createObjectURL(f);
+        if (preview) { preview.src = previewUrl; preview.hidden = false; }
+      }
+      refreshSaveEnabled();
+    });
+  }
+  if (upiInput) upiInput.addEventListener('input', refreshSaveEnabled);
+  if (consent) consent.addEventListener('change', refreshSaveEnabled);
+  form.querySelectorAll('input[name="method_type"]').forEach((r) => r.addEventListener('change', refreshSaveEnabled));
+
+  // Revoke any object URL we made so the popover does not leak memory between
+  // sessions. The native popover does not fire an unload, but a navigation
+  // away fires pagehide, which is the moment this matters.
+  window.addEventListener('pagehide', clearPreview);
+
+  form.addEventListener('submit', savePayoutDetails);
+  refreshSaveEnabled();
 })();
 </script>
 </body>
