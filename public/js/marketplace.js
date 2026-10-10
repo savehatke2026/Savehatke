@@ -40,7 +40,7 @@ let serverPages = 1;
 // prices and availability stay live.
 const SAVED_STORAGE_KEY = 'savehatke-saved';
 let savedIds = loadSavedIds();
-const PER_PAGE = 30;
+const PER_PAGE = 28;
 
 function loadSavedIds() {
   try {
