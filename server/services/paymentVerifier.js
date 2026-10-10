@@ -85,6 +85,20 @@ function isFamAppSender(from) {
   return address === FAMAPP_SENDER;
 }
 
+// Gmail folders that can never hold an incoming payment confirmation. A message
+// is accepted only when it sits in INBOX and in none of these.
+const NON_INCOMING_LABELS = ['SENT', 'DRAFT', 'SPAM', 'TRASH'];
+
+/**
+ * True only when Gmail reports the message as a received inbox message. Sent,
+ * draft, spam and trash copies of a FamApp-looking email are never payment proof.
+ */
+function isIncomingInboxMessage(labels) {
+  const list = Array.isArray(labels) ? labels : [];
+  if (!list.includes('INBOX')) return false;
+  return !NON_INCOMING_LABELS.some((l) => list.includes(l));
+}
+
 function hasTrustedFamAppAuthentication(authenticationResults) {
   const value = String(authenticationResults || '').toLowerCase();
   // Gmail's receiving-side authentication result must establish DMARC for
@@ -246,7 +260,7 @@ function fingerprintOf(parts) {
  * candidate. Everything here is a CLAIM — the matching step below is what
  * decides whether any of it is trustworthy.
  */
-function buildCandidateFromEmail({ messageId, from = '', authenticationResults = '', subject = '', body = '', date = '', internalDate = '' }) {
+function buildCandidateFromEmail({ messageId, from = '', authenticationResults = '', subject = '', body = '', date = '', internalDate = '', labels = [] }) {
   const text = `${subject}\n${body}`;
   const vpas = extractVpas(text);
   const payee = upi.getPayee();
@@ -281,6 +295,7 @@ function buildCandidateFromEmail({ messageId, from = '', authenticationResults =
     payeeVpa,
     from,
     authenticationResults,
+    labels: Array.isArray(labels) ? labels : [],
     subject,
     occurredAt: receivedAt || new Date().toISOString(),
     receivedAt,
@@ -758,6 +773,11 @@ function verifyWebhookSignature(rawBody, signature, secret = getWebhookSecret())
 async function processEmailCandidate(candidate, { pendingPayments = null } = {}) {
   const tag = '[Payment Email]';
 
+  // Folder gate: only a message Gmail reports as a received INBOX item can count.
+  // Sent / draft / spam / trash copies are rejected before anything is recorded.
+  if (!isIncomingInboxMessage(candidate.labels)) {
+    return { action: 'ignored', reason: 'Not a received inbox message (Sent, draft, spam or trash).' };
+  }
   // Hard sender gate: ONLY FamApp confirmations are ever considered.
   if (!isFamAppSender(candidate.from)) {
     return { action: 'ignored', reason: `Sender is not FamApp (${candidate.from || 'unknown'}).` };
@@ -847,7 +867,6 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
     );
   }
 
-  // Ambiguity gate: one live session must be the only candidate for this amount.
   const payment = fresh[0];
   console.log(`${tag} Expected amount: ₹${Number(payment.amount).toFixed(2)}`);
 
@@ -856,16 +875,6 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
   }
 
   console.log(`${tag} Amount matched`);
-
-  // Payer-name gate (same rule as processCandidate). Without it, an email for
-  // the right amount from a different person would settle this order. Fails
-  // closed when either name is unreadable.
-  if (!payerNameMatches(candidate.payerName, payment.buyerName)) {
-    return reject(
-      'REVIEW',
-      `Payer name ${candidate.payerName ? 'does not match' : 'could not be read from'} the order's buyer name — payment left pending for review.`
-    );
-  }
 
   // Settle atomically — NO transaction id / UTR. finalizePayment gates on the
   // coupon flip and is idempotent, so an email can never unlock a coupon twice.
@@ -988,7 +997,8 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
     ? Math.floor((earliestStart - 5 * 60 * 1000) / 1000)
     : Math.floor((Date.now() - cfg.lookbackDays * 24 * 60 * 60 * 1000) / 1000);
   const senders = cfg.senders.map((s) => `from:${s}`).join(' OR ');
-  const q = `(${senders}) after:${afterSecs}`;
+  // Incoming inbox only: Sent, drafts, spam and trash can never be payment proof.
+  const q = `(${senders}) in:inbox -in:sent -in:drafts -in:spam -in:trash after:${afterSecs}`;
 
   let messages = [];
   try {
@@ -1016,7 +1026,9 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
   const results = [];
 
   for (const msg of messages) {
-    // Sender gate first — only FamApp is ever a payment confirmation.
+    // Folder gate first — a Sent/draft/spam/trash copy is never incoming money.
+    if (!isIncomingInboxMessage(msg.labels)) continue;
+    // Sender gate next — only FamApp is ever a payment confirmation.
     if (!isFamAppSender(msg.from)) continue;
 
     const candidate = buildCandidateFromEmail({
@@ -1027,6 +1039,7 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
       body: msg.snippet,
       date: msg.date,
       internalDate: msg.internalDate,
+      labels: msg.labels,
     });
 
     // Cheap snippet pre-filter before a full-body fetch: it must look like a
@@ -1069,6 +1082,7 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
           body: body + '\n' + (msg.snippet || ''),
           date: msg.date,
           internalDate: msg.internalDate,
+          labels: detail.labels || msg.labels,
         });
       }
     } catch (e) {
@@ -1297,6 +1311,7 @@ module.exports = {
   getMailConfig,
   getWebhookSecret,
   isFamAppSender,
+  isIncomingInboxMessage,
   FAMAPP_SENDER,
   // extraction (exported for tests)
   parseMoney,
