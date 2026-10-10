@@ -586,14 +586,6 @@ function updateNavAuth() {
           <button class="npd-item npd-item-logout" id="profileLogout" type="button"><span class="npd-icon">${logoutIcon}</span>Log out</button>
           <div class="npd-footer">${shieldIcon}<span>Secured by <strong>SaveHatke</strong></span></div>
         </div>
-        <dialog class="profile-dialog" id="profileSignoutDialog">
-          <h2>Log out of SaveHatke?</h2>
-          <p>You'll be signed out on this device. You can sign in again anytime to see your dashboard and purchases.</p>
-          <div class="profile-dialog-actions">
-            <button type="button" id="profileSignoutCancel">Cancel</button>
-            <button type="button" class="pd-confirm" id="profileSignoutConfirm">Log out</button>
-          </div>
-        </dialog>
     `;
     navActions.appendChild(profileDiv);
 
@@ -601,7 +593,6 @@ function updateNavAuth() {
     const dropdown = document.getElementById('profileMenu');
     const dashboardBtn = document.getElementById('profileDashboard');
     const logoutBtn = document.getElementById('profileLogout');
-    const dialog = document.getElementById('profileSignoutDialog');
 
     if (btn && dropdown) {
       const closeDropdown = () => {
@@ -633,36 +624,22 @@ function updateNavAuth() {
       });
     }
 
-    if (logoutBtn && dialog) {
-      const cancelBtn = document.getElementById('profileSignoutCancel');
-      const confirmBtn = document.getElementById('profileSignoutConfirm');
-
-      logoutBtn.addEventListener('click', () => {
-        if (dropdown) dropdown.classList.remove('active');
-        dialog.showModal();
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', async () => {
+        if (logoutBtn.disabled) return;
+        logoutBtn.disabled = true;
+        try {
+          await api('/auth/logout', { method: 'POST' });
+        } catch (e) {
+          logoutBtn.disabled = false;
+          if (dropdown) dropdown.classList.remove('active');
+          showToast('Logout could not be confirmed. Please retry.', 'error');
+          return;
+        }
+        Auth.clear();
+        Auth.clearAdmin();
+        window.location.href = 'login.html';
       });
-
-      if (cancelBtn) {
-        cancelBtn.addEventListener('click', () => dialog.close());
-      }
-
-      if (confirmBtn) {
-        confirmBtn.addEventListener('click', async () => {
-          confirmBtn.disabled = true;
-          try {
-            await api('/auth/logout', { method: 'POST' });
-          } catch (e) {
-            confirmBtn.disabled = false;
-            dialog.close();
-            showToast('Logout could not be confirmed. Please retry.', 'error');
-            return;
-          }
-          dialog.close();
-          Auth.clear();
-          Auth.clearAdmin();
-          window.location.href = 'login.html';
-        });
-      }
     }
   } else {
     // Don't overwrite login page's custom nav-actions (← Home button)
