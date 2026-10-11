@@ -1037,7 +1037,18 @@ function initActiveTableControls() {
 // Reads only the Google Sheet through /api/admin/seller-coupons. Search, sort,
 // paging and the Supabase-only count are computed on the server; the browser
 // shows one page at a time. Codes stay hidden until an admin clicks Reveal.
-let sellerTable = { page: 1, sort: 'newest', search: '', loading: false, seq: 0, timer: null };
+let sellerTable = { page: 1, sort: 'newest', search: '', status: '', loading: false, seq: 0, timer: null };
+
+// Status labels for the seller table, matching the coupon lifecycle in the
+// backend: pending (awaiting review), available (approved and live = Active),
+// rejected, sold, expired.
+const SELLER_STATUS = {
+  pending: { label: 'Pending Review', cls: 'badge-orange' },
+  available: { label: 'Active', cls: 'badge-green' },
+  rejected: { label: 'Rejected', cls: 'badge-red' },
+  sold: { label: 'Sold', cls: 'badge-blue' },
+  expired: { label: 'Expired', cls: 'badge-gray' },
+};
 
 async function loadPending() {
   const container = document.getElementById('pendingList');
@@ -1056,6 +1067,7 @@ async function loadPending() {
       sort: sellerTable.sort,
     });
     if (sellerTable.search) params.set('search', sellerTable.search);
+    if (sellerTable.status) params.set('status', sellerTable.status);
     const data = await api('/admin/seller-coupons?' + params.toString(), { useAdmin: true });
     if (seq !== sellerTable.seq) return;
 
@@ -1075,6 +1087,14 @@ async function loadPending() {
       ${warn}
       <div class="st-toolbar">
         <input type="text" class="st-search" id="stSearch" placeholder="Search ID, brand, title, seller…" value="${escHtml(sellerTable.search)}" oninput="stSearchInput(this.value)">
+        <select class="st-sort" onchange="stSetStatus(this.value)" aria-label="Status">
+          <option value="" ${!sellerTable.status ? 'selected' : ''}>All statuses</option>
+          <option value="pending" ${sellerTable.status === 'pending' ? 'selected' : ''}>Pending Review</option>
+          <option value="available" ${sellerTable.status === 'available' ? 'selected' : ''}>Active</option>
+          <option value="rejected" ${sellerTable.status === 'rejected' ? 'selected' : ''}>Rejected</option>
+          <option value="sold" ${sellerTable.status === 'sold' ? 'selected' : ''}>Sold</option>
+          <option value="expired" ${sellerTable.status === 'expired' ? 'selected' : ''}>Expired</option>
+        </select>
         <select class="st-sort" onchange="stSetSort(this.value)" aria-label="Sort">
           <option value="newest" ${sellerTable.sort === 'newest' ? 'selected' : ''}>Newest submitted</option>
           <option value="oldest" ${sellerTable.sort === 'oldest' ? 'selected' : ''}>Oldest submitted</option>
@@ -1095,7 +1115,7 @@ async function loadPending() {
               </table>
             </div>
             <div class="inv-tfoot">
-              <span>${data.total} awaiting a decision · page ${data.page} of ${data.totalPages}</span>
+              <span>${data.total} seller submission${data.total !== 1 ? 's' : ''} · page ${data.page} of ${data.totalPages}</span>
               <span>
                 <button class="btn btn-ghost btn-sm" ${data.page <= 1 ? 'disabled' : ''} onclick="stPage(${data.page - 1})">‹ Prev</button>
                 <button class="btn btn-ghost btn-sm" ${data.page >= data.totalPages ? 'disabled' : ''} onclick="stPage(${data.page + 1})">Next ›</button>
@@ -1122,6 +1142,7 @@ function stSearchInput(value) {
   }, 300);
 }
 function stSetSort(value) { sellerTable.sort = value; sellerTable.page = 1; loadPending(); }
+function stSetStatus(value) { sellerTable.status = value; sellerTable.page = 1; loadPending(); }
 function stPage(n) { sellerTable.page = Math.max(1, n); loadPending(); }
 
 /** One seller-submission row. Code is hidden until revealed; images load via Drive refs. */
@@ -1141,13 +1162,13 @@ function sellerRowHtml(c) {
       <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
       <td>${cmWhenHtml(c.addedAt || '', '')}</td>
       <td><div class="st-thumbs">${thumb(c.brandLogo, 'brand logo')}${thumb(c.backgroundImage, 'background')}${thumb(c.proofUrl, 'proof')}</div></td>
-      <td><span class="badge badge-orange">${escHtml(c.status || 'pending')}</span></td>
+      <td>${(() => { const st = SELLER_STATUS[String(c.status || '').toLowerCase()] || { label: c.status || '—', cls: 'badge-gray' }; return `<span class="badge ${st.cls}">${escHtml(st.label)}</span>`; })()}</td>
       <td>
         <div class="admin-actions ta-right">
           <button class="btn btn-ghost btn-xs" title="View details" onclick="stOpenDetail('${id}')">🔍</button>
-          <button class="btn btn-ghost btn-xs" title="Reveal code (logged)" onclick="stReveal('${id}',this)">🔑</button>
+          ${String(c.status || '').toLowerCase() === 'pending' ? `
           <button class="btn btn-success btn-xs" title="Approve — publishes it to the marketplace" onclick="quickReviewAction('${id}','approve')">✓</button>
-          <button class="btn btn-danger btn-xs" title="Reject with a reason" onclick="stReject('${id}')">✗</button>
+          <button class="btn btn-danger btn-xs" title="Reject with a reason" onclick="stReject('${id}')">✗</button>` : ''}
         </div>
       </td>
     </tr>`;

@@ -767,10 +767,16 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const pageSize = Math.min(50, Math.max(5, parseInt(req.query.pageSize, 10) || 20));
 
+    const STATUS_FILTERS = ['pending', 'available', 'rejected', 'sold', 'expired'];
+    const statusFilter = STATUS_FILTERS.includes(String(req.query.status || '').toLowerCase())
+      ? String(req.query.status).toLowerCase() : '';
+
     const rows = await db.getRowsFresh(db.SHEETS.COUPONS);
     const isSellerRow = (c) => {
       const src = String(c.source || '').toLowerCase();
-      return (src === 'user-submitted' || src === 'user') && String(c.status || '').toLowerCase() === 'pending';
+      if (!(src === 'user-submitted' || src === 'user')) return false;
+      const st = String(c.status || '').toLowerCase();
+      return statusFilter ? st === statusFilter : true;
     };
     let list = (rows || []).filter(isSellerRow);
 
