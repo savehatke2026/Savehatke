@@ -476,20 +476,87 @@
   .popular-row button .arrow { color:#596c86; font-size:.85em; }
   .popular-row .trust-tag { margin-left:auto; color:#8aa196; display:none; align-items:center; gap:6px; font-size:.72rem; }
 .popular-row .filter-toggle { font-size:.85rem; padding:6px 0; gap:6px; }
-  /* Filter panel — same look as the marketplace, anchored to the Filter button */
+  /* ── Filter button sits on the right, just before "Discover" ── */
   [hidden] { display:none !important; }
-  .cat-pills { position:relative; display:flex; justify-content:flex-end; }
-  .popular-filter-wrap { position:relative; }
   .filter-toggle { display:inline-flex; align-items:center; gap:6px; background:transparent; border:0; color:#c0d0e5; font-family:'Outfit',sans-serif; font-size:.85rem; font-weight:500; padding:6px 0; cursor:pointer; }
-  .filter-toggle[aria-expanded="true"] { color:#00E272; }
-  .filter-panel { position:absolute; top:calc(100% + 10px); right:0; z-index:30; width:270px; max-width:calc(100vw - 40px); padding:18px; border:1px solid #17364b; border-radius:14px; background:#0d1930; box-shadow:0 15px 40px #0007; }
-  .filter-panel h3 { margin:0 0 16px; font-size:16px; color:#e2ecff; }
-  .filter-panel label { display:block; margin:12px 0 6px; color:#a6d9fb; font-size:12px; }
-  .filter-panel select { width:100%; padding:10px; border:1px solid #29435a; border-radius:8px; background:#060d1f; color:#e2ecff; font:inherit; }
-  .filter-panel-actions { display:flex; justify-content:space-between; margin-top:18px; gap:12px; }
-  .filter-panel-actions button { padding:9px 13px; border-radius:8px; font-size:12px; background:transparent; border:1px solid #29435a; color:#c0d0e5; cursor:pointer; }
-  .filter-panel-actions .apply-filters { background:#00E272; color:#060d1f; font-weight:700; border-color:#00E272; }
-  .filter-toggle:focus-visible,.filter-panel button:focus-visible { outline:2px solid #00E272; outline-offset:4px; }
+  .popular-filter-wrap { margin-left:auto; position:relative; }
+  .popular-row .trust-tag { margin-left:0; }
+  .filter-toggle:focus-visible { outline:2px solid #00E272; outline-offset:4px; }
+
+  /* ── Filter modal (compact): centred dialog + backdrop, built by the page script ── */
+  .filter-panel {
+    --filter-accent: #00E272;
+    --filter-border: #385570;
+    position: fixed;
+    inset: 50% auto auto 50%;
+    transform: translate(-50%, -50%);
+    width: 330px;
+    max-width: calc(100vw - 28px);
+    max-height: calc(100dvh - 28px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 0;
+    z-index: 301;
+    color: #f6f6f8;
+    background: #03121b;
+    border: 1px solid #165681;
+    border-radius: 10px;
+    box-shadow: 0 14px 56px #0009;
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    isolation: isolate;
+  }
+  .filter-backdrop { position: fixed; inset: 0; background: rgba(0, 8, 17, .78); z-index: 300; }
+  .filter-panel[hidden], .filter-backdrop[hidden] { display: none !important; }
+  .filter-panel-header { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid #203a49; }
+  .filter-panel .filter-panel-header h3 { margin: 0; font-size: 16px; font-weight: 600; color: inherit; }
+  .filter-panel .filter-close { width: 18px; height: 18px; border: 0; padding: 0; background: none; color: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+  .filter-close svg { width: 100%; height: 100%; }
+  .filter-panel .filter-body { padding: 0 14px; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .filter-panel .filter-section { padding: 9px 0 11px; border-bottom: 1px solid #203a49; }
+  .filter-panel .filter-section h4 { font-size: 13px; font-weight: 600; margin: 0 0 8px; line-height: 1.25; display: flex; align-items: center; gap: 6px; }
+  .filter-category-heading { display: flex; justify-content: space-between; align-items: baseline; }
+  .filter-category-heading span { font-size: 11px; }
+  .filter-panel .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .filter-panel .filter-chip { height: 28px; padding: 0 12px; border: 1px solid var(--filter-border); border-radius: 99px; background: transparent; color: inherit; font: inherit; font-size: 12px; line-height: 1; white-space: nowrap; cursor: pointer; }
+  .filter-panel .filter-chip[aria-pressed="true"] { color: #00120e; background: var(--filter-accent); border-color: var(--filter-accent); font-weight: 500; }
+  .filter-panel [data-group="category"] { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 6px; }
+  .filter-panel [data-group="category"] .filter-chip { grid-column: span 6; padding: 0; }
+  .filter-panel [data-group="category"] .filter-chip:nth-child(2) { grid-column: span 8; }
+  .filter-panel [data-group="category"] .filter-chip:nth-child(3),
+  .filter-panel [data-group="category"] .filter-chip:nth-child(4) { grid-column: span 7; }
+  .filter-panel [data-group="category"] .filter-chip:nth-child(7) { grid-column: span 10; }
+  .filter-panel [data-group="category"] #moreCategories { grid-column: span 8; }
+  .filter-panel #extraCategories { padding-top: 6px; }
+  .filter-panel #extraCategories .filter-chips { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 6px; }
+  .filter-panel #extraCategories .filter-chip { grid-column: span 8; padding: 0; }
+  .filter-brand { display: flex; align-items: center; height: 34px; border: 1px solid #6884a8; border-radius: 7px; padding: 0 10px; background: #091c29; }
+  .filter-brand svg { width: 14px; height: 14px; color: #b8cdef; flex-shrink: 0; margin-right: 8px; }
+  .filter-panel .filter-brand select { flex: 1; min-width: 0; height: 100%; padding: 0; font: inherit; font-size: 13px; color: inherit; border: 0; background: transparent url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='m1 1 5 5 5-5' stroke='%23b8cdef' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right center; appearance: none; -webkit-appearance: none; }
+  .filter-panel .filter-brand select option { color: #111; }
+  .filter-range-labels { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+  .filter-range { position: relative; height: 22px; margin: 0 4px 6px; }
+  .filter-range-track { position: absolute; inset: 8px 9px auto; height: 4px; border-radius: 4px; background: linear-gradient(to right, var(--filter-border) 0% var(--range-start, 0%), var(--filter-accent) var(--range-start, 0%) var(--range-end, 100%), var(--filter-border) var(--range-end, 100%) 100%); }
+  .filter-range input { position: absolute; inset: 0; width: 100%; margin: 0; appearance: none; -webkit-appearance: none; background: none; pointer-events: none; height: 22px; }
+  .filter-range input::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; pointer-events: auto; width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--filter-accent); background: #fff; cursor: grab; }
+  .filter-range input::-moz-range-thumb { pointer-events: auto; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--filter-accent); background: #fff; cursor: grab; }
+  .filter-info { display: inline-flex; width: 14px; height: 14px; border: 1px solid #b8cdef; border-radius: 50%; align-items: center; justify-content: center; font-size: 10px; color: #b8cdef; font-style: normal; }
+  .filter-panel [data-group="face"] { display: flex; flex-wrap: wrap; }
+  .filter-panel [data-group="discount"],
+  .filter-panel [data-group="expiry"] { display: flex; flex-wrap: nowrap; }
+  .filter-panel [data-group="discount"] .filter-chip,
+  .filter-panel [data-group="expiry"] .filter-chip { flex: 1; min-width: 0; padding: 0; }
+  .filter-panel .filter-panel-actions { display: flex; gap: 8px; padding: 12px 14px 14px; flex-shrink: 0; }
+  .filter-panel .filter-panel-actions button { flex: 1; min-width: 0; height: 34px; padding: 0; border: 1px solid #6884a8; border-radius: 7px; background: transparent; color: inherit; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .filter-panel .filter-panel-actions .apply-filters { background: var(--filter-accent); border-color: var(--filter-accent); color: #00120e; }
+  .filter-panel button:focus-visible, .filter-panel input:focus-visible, .filter-panel select:focus-visible { outline: 2px solid var(--filter-accent); outline-offset: 3px; }
+  .filter-toggle[aria-expanded="true"] { color: #00E272; }
+  @media (max-width: 480px) {
+    .filter-panel .filter-body { padding: 0 12px; }
+    .filter-panel .filter-chip { padding: 0 10px; font-size: 11px; }
+    .filter-panel .filter-panel-actions { padding-left: 12px; padding-right: 12px; }
+  }
   /* Voice search mic — same visual as the marketplace search bar */
   .search-microphone { position:relative; isolation:isolate; display:inline-flex; align-items:center; justify-content:center; flex:0 0 28px; width:28px; height:28px; padding:0; border:0; border-radius:6px; background:none; color:#8b9eb7; cursor:pointer; transition:color .15s,background-color .15s; }
   .search-microphone:hover { color:#00E272; background:rgba(0,226,114,.07); }
@@ -739,37 +806,8 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="2" fill="#060d1f"/><circle cx="15" cy="17" r="2" fill="#060d1f"/></svg>
           Filter
         </button>
-        <div class="filter-panel" id="filterPanel" role="region" aria-labelledby="filterPanelTitle" hidden>
-          <h3 id="filterPanelTitle">Filter coupons</h3>
-          <label for="filterCategory">Category</label>
-          <select id="filterCategory">
-            <option value="">All categories</option>
-            <option value="E-Commerce">E-Commerce</option>
-            <option value="Fashion">Fashion</option>
-            <option value="Beauty &amp; Personal Care">Beauty &amp; Personal Care</option>
-            <option value="Food &amp; Delivery">Food &amp; Delivery</option>
-            <option value="Travel &amp; Transport">Travel &amp; Transport</option>
-            <option value="Electronics &amp; Gadgets">Electronics &amp; Gadgets</option>
-            <option value="Hotels &amp; Stays">Hotels &amp; Stays</option>
-            <option value="Gaming &amp; Entertainment">Gaming &amp; Entertainment</option>
-            <option value="Fitness &amp; Sports">Fitness &amp; Sports</option>
-            <option value="Education">Education</option>
-            <option value="Health &amp; Pharmacy">Health &amp; Pharmacy</option>
-            <option value="Finance &amp; Payments">Finance &amp; Payments</option>
-            <option value="General">General</option>
-          </select>
-          <label for="filterSource">Source</label>
-          <select id="filterSource">
-            <option value="">All sources</option>
-            <option value="admin">Verified</option>
-            <option value="user-submitted">User submitted</option>
-            <option value="auto-scraped">Free codes</option>
-          </select>
-          <div class="filter-panel-actions">
-            <button type="button" id="clearPanelFilters">Clear filters</button>
-            <button type="button" class="apply-filters" id="applyPanelFilters">Apply filters</button>
-          </div>
-        </div>
+        <!-- Filter modal: built by initIndexFilterPanel() below and moved to <body> -->
+        <div class="filter-panel" id="filterPanel" role="dialog" aria-modal="true" aria-labelledby="filterPanelTitle" hidden></div>
       </div>
       <span class="trust-tag" aria-hidden="true">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
@@ -981,9 +1019,6 @@
       if (activeCat && activeCat !== 'all') params.set('category', activeCat);
       const query = document.getElementById('searchInput').value.trim().toLowerCase();
       if (query) params.set('search', query);
-      // Source is chosen in the Filter panel (#filterSource) only.
-      const source = document.getElementById('filterSource').value;
-      if (source) params.set('source', source);
       const data = await api('/coupons?' + params.toString());
       liveCoupons = data.coupons || [];
       // One batched Drive resolution for every brand on the landing grid
@@ -1087,7 +1122,7 @@
 
     // Filtering happens on the server (loadIndexCoupons sends the active
     // search/category/source); liveCoupons is already the matching page.
-    const filtered = liveCoupons;
+    const filtered = applyIndexPageFilters(liveCoupons);
 
     if (filtered.length === 0) {
       grid.innerHTML = `
@@ -1205,51 +1240,242 @@
     });
   });
 
-  // Filter panel — category + source, applied together. Opening it reflects
-  // the CURRENT state (activeCat / #filterSource), so it is never stale.
-  const filterToggle = document.getElementById('filterToggle');
-  const filterPanel = document.getElementById('filterPanel');
-  const filterCategory = document.getElementById('filterCategory');
-  const filterSource = document.getElementById('filterSource');
+  // ── Filter modal — same design and rules as the marketplace ──────────
+  // Category goes to the server (loadIndexCoupons). Brand, price, face value,
+  // discount and expiry narrow the rows the server returned for this page.
+  const INDEX_FILTER_CATEGORY_MAP = {
+    'All': '',
+    'Electronics': 'Electronics & Gadgets',
+    'Fashion': 'Fashion',
+    'Beauty': 'Beauty & Personal Care',
+    'Food': 'Food & Delivery',
+    'Travel': 'Travel & Transport',
+    'E-Commerce': 'E-Commerce',
+    'Hotels & Stays': 'Hotels & Stays',
+    'Gaming & Entertainment': 'Gaming & Entertainment',
+    'Fitness & Sports': 'Fitness & Sports',
+    'Education': 'Education',
+    'Health & Pharmacy': 'Health & Pharmacy',
+    'Finance & Payments': 'Finance & Payments',
+    'General': 'General',
+  };
+  const INDEX_FACE_RANGES = {
+    'All': [100, 10000],
+    '₹100 - ₹500': [100, 500],
+    '₹501 - ₹1,000': [501, 1000],
+    '₹1,001 - ₹5,000': [1001, 5000],
+    '₹5,001+': [5001, 10000],
+  };
+  let indexClientFilters = null;
 
-  function syncPanelControls() {
-    filterCategory.value = activeCat === 'all' ? '' : activeCat;
-    filterSource.value = filterSource.value || '';
-  }
-  function setFilterPanel(open, restoreFocus = false) {
-    filterPanel.hidden = !open;
-    filterToggle.setAttribute('aria-expanded', String(open));
-    if (open) {
-      syncPanelControls();
-      filterCategory.focus();
-    } else if (restoreFocus) {
-      filterToggle.focus();
+  function initIndexFilterPanel() {
+    const panel = document.getElementById('filterPanel');
+    const toggle = document.getElementById('filterToggle');
+    if (!panel || !toggle) return;
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'filter-backdrop';
+    backdrop.hidden = true;
+    // Modal must sit outside transformed ancestors (.fu) to stay fixed/centred.
+    document.body.append(backdrop, panel);
+
+    const categories = ['All', 'Electronics', 'Fashion', 'Beauty', 'Food', 'Travel', 'E-Commerce'];
+    const moreCategories = ['Hotels & Stays', 'Gaming & Entertainment', 'Fitness & Sports', 'Education', 'Health & Pharmacy', 'Finance & Payments', 'General'];
+    const brands = ['Amazon', 'Myntra', 'Swiggy', 'Nykaa', 'Flipkart', 'Zomato', 'Ajio'];
+    const chipGroup = (name, values) => `<div class="filter-chips" data-group="${name}">${values.map((value, i) => `<button type="button" class="filter-chip" aria-pressed="${i === 0}" data-value="${escapeIndexAttr(value)}">${escapeIndexAttr(value)}</button>`).join('')}</div>`;
+    const range = (name, minimum) => `<div class="filter-range-labels"><output id="${name}MinLabel">₹${minimum}</output><output id="${name}MaxLabel">₹10,000+</output></div><div class="filter-range"><div class="filter-range-track"></div><input type="range" id="${name}Min" aria-label="Minimum ${name}" min="${minimum}" max="10000" value="${minimum}" step="1"><input type="range" id="${name}Max" aria-label="Maximum ${name}" min="${minimum}" max="10000" value="10000" step="1"></div>`;
+
+    panel.innerHTML = `
+    <header class="filter-panel-header"><h3 id="filterPanelTitle">Filters</h3><button type="button" class="filter-close" aria-label="Close filters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18M21 3 3 21"/></svg></button></header>
+    <div class="filter-body">
+      <section class="filter-section"><div class="filter-category-heading"><h4>Category</h4><span id="selectedCategory">All ›</span></div>${chipGroup('category', categories)}<div class="filter-chips" style="margin-top:6px"><button type="button" class="filter-chip" id="moreCategories" aria-expanded="false">More</button></div><div id="extraCategories" hidden>${chipGroup('extra-category', moreCategories)}</div></section>
+      <section class="filter-section"><h4>Brand</h4><div class="filter-brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 3h9l9 9-9 9H3z"/><circle cx="7" cy="7" r="1.5"/></svg><select id="filterBrand" aria-label="Brand"><option value="">All Brands</option>${brands.map(b => `<option>${b}</option>`).join('')}</select></div></section>
+      <section class="filter-section"><h4>Price Range</h4>${range('price', 0)}</section>
+      <section class="filter-section"><h4>Face Value <span class="filter-info" title="The original value of the coupon">i</span></h4>${range('face', 100)}${chipGroup('face', Object.keys(INDEX_FACE_RANGES))}</section>
+      <section class="filter-section"><h4>Discount / Benefit</h4>${chipGroup('discount', ['All', '10%+', '20%+', '30%+', '50%+'])}</section>
+      <section class="filter-section"><h4>Expiry</h4>${chipGroup('expiry', ['Any', '7 days', '30 days', '30+ days'])}</section>
+    </div>
+    <footer class="filter-panel-actions"><button type="button" id="clearPanelFilters">Reset All</button><button type="button" class="apply-filters" id="applyPanelFilters">Apply Filters</button></footer>`;
+
+    // Render "More" in the same pill grid as the other category chips.
+    const moreButton = panel.querySelector('#moreCategories');
+    moreButton.textContent = 'More';
+    moreButton.parentElement.remove();
+    panel.querySelector('[data-group="category"]').append(moreButton);
+
+    const selectedGroupValue = (group) => panel.querySelector(`[data-group="${group}"] [aria-pressed="true"]`)?.dataset.value;
+    const setPressed = (group, value) => {
+      panel.querySelectorAll(`[data-group="${group}"] button`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === value)));
+    };
+    const setCategoryPressed = (value) => {
+      panel.querySelectorAll('[data-group="category"] button, [data-group="extra-category"] button').forEach((b) => {
+        b.setAttribute('aria-pressed', String(b.dataset.value === value));
+      });
+      const sel = panel.querySelector('#selectedCategory');
+      if (sel) sel.textContent = `${value || 'All'} ›`;
+    };
+
+    // Open / close
+    let lastFocus = null;
+    const open = () => {
+      lastFocus = toggle;
+      syncPanelFromState();
+      panel.hidden = false; backdrop.hidden = false;
+      toggle.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+      panel.querySelector('.filter-close')?.focus();
+    };
+    const close = (restoreFocus = true) => {
+      panel.hidden = true; backdrop.hidden = true;
+      toggle.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+      if (restoreFocus && lastFocus) lastFocus.focus();
+    };
+    toggle.addEventListener('click', () => (panel.hidden ? open() : close()));
+    backdrop.addEventListener('click', () => close());
+    panel.querySelector('.filter-close').addEventListener('click', () => close());
+    panel.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') { close(); return; }
+      if (event.key !== 'Tab') return;
+      const controls = [...panel.querySelectorAll('button, select, input')].filter((el) => el.getClientRects().length);
+      if (!controls.length) return;
+      const first = controls[0], last = controls[controls.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+    });
+
+    // Ranges
+    const updateRange = (name) => {
+      const min = panel.querySelector(`#${name}Min`), max = panel.querySelector(`#${name}Max`);
+      const track = min.parentElement.querySelector('.filter-range-track');
+      const lowerBound = Number(min.min);
+      const span = Number(min.max) - lowerBound;
+      track.style.setProperty('--range-start', `${(Number(min.value) - lowerBound) / span * 100}%`);
+      track.style.setProperty('--range-end', `${(Number(max.value) - lowerBound) / span * 100}%`);
+      panel.querySelector(`#${name}MinLabel`).textContent = `₹${Number(min.value).toLocaleString('en-IN')}`;
+      panel.querySelector(`#${name}MaxLabel`).textContent = `₹${Number(max.value).toLocaleString('en-IN')}${max.value === '10000' ? '+' : ''}`;
+    };
+    ['price', 'face'].forEach(updateRange);
+    panel.querySelectorAll('input[type=range]').forEach((input) => input.addEventListener('input', () => {
+      const name = input.id.startsWith('price') ? 'price' : 'face';
+      const min = panel.querySelector(`#${name}Min`), max = panel.querySelector(`#${name}Max`);
+      if (+min.value > +max.value) input.value = input === min ? max.value : min.value;
+      if (name === 'face') setPressed('face', 'All');
+      updateRange(name);
+    }));
+
+    // Chip selection
+    panel.addEventListener('click', (event) => {
+      const chip = event.target.closest('[data-group] button');
+      if (!chip || chip.id === 'moreCategories') return;
+      const group = chip.parentElement.dataset.group;
+      if (group === 'category' || group === 'extra-category') {
+        setCategoryPressed(chip.dataset.value);
+        return;
+      }
+      setPressed(group, chip.dataset.value);
+      if (group === 'face') {
+        const [lo, hi] = INDEX_FACE_RANGES[chip.dataset.value] || INDEX_FACE_RANGES.All;
+        panel.querySelector('#faceMin').value = lo;
+        panel.querySelector('#faceMax').value = hi;
+        updateRange('face');
+      }
+    });
+    panel.querySelector('#moreCategories').addEventListener('click', (event) => {
+      const extra = panel.querySelector('#extraCategories');
+      extra.hidden = !extra.hidden;
+      event.currentTarget.setAttribute('aria-expanded', String(!extra.hidden));
+    });
+
+    // Reset / apply
+    panel.querySelector('#clearPanelFilters').addEventListener('click', () => {
+      setCategoryPressed('All');
+      setPressed('discount', 'All');
+      setPressed('expiry', 'Any');
+      setPressed('face', 'All');
+      panel.querySelector('#filterBrand').value = '';
+      panel.querySelector('#priceMin').value = 0; panel.querySelector('#priceMax').value = 10000;
+      panel.querySelector('#faceMin').value = 100; panel.querySelector('#faceMax').value = 10000;
+      updateRange('price'); updateRange('face');
+    });
+    panel.querySelector('#applyPanelFilters').addEventListener('click', () => {
+      const cat = selectedGroupValue('category') || selectedGroupValue('extra-category') || 'All';
+      const next = {
+        category: cat,
+        brand: panel.querySelector('#filterBrand').value,
+        price: [+panel.querySelector('#priceMin').value, +panel.querySelector('#priceMax').value],
+        faceValue: [+panel.querySelector('#faceMin').value, +panel.querySelector('#faceMax').value],
+        faceChip: selectedGroupValue('face') || 'All',
+        discount: selectedGroupValue('discount') || 'All',
+        expiry: selectedGroupValue('expiry') || 'Any',
+      };
+      applyIndexClientFilters(next);
+      close(false);
+    });
+
+    // Mirror current state into the modal on open so it is never stale.
+    function syncPanelFromState() {
+      const f = indexClientFilters || {};
+      setCategoryPressed(f.category || 'All');
+      setPressed('discount', f.discount || 'All');
+      setPressed('expiry', f.expiry || 'Any');
+      setPressed('face', f.faceChip || 'All');
+      panel.querySelector('#filterBrand').value = f.brand || '';
+      const [pLo, pHi] = f.price || [0, 10000];
+      const [fLo, fHi] = f.faceValue || [100, 10000];
+      panel.querySelector('#priceMin').value = pLo; panel.querySelector('#priceMax').value = pHi;
+      panel.querySelector('#faceMin').value = fLo; panel.querySelector('#faceMax').value = fHi;
+      updateRange('price'); updateRange('face');
+    }
+
+    // Category is applied on the server; the rest narrows the returned page.
+    function applyIndexClientFilters(next) {
+      const serverCat = INDEX_FILTER_CATEGORY_MAP[next.category] ?? '';
+      const isDefault = (next.category === 'All') && !next.brand
+        && next.price[0] === 0 && next.price[1] === 10000
+        && next.faceValue[0] === 100 && next.faceValue[1] === 10000
+        && next.discount === 'All' && next.expiry === 'Any';
+      indexClientFilters = isDefault ? null : { ...next };
+      activeCat = serverCat || 'all';
+      toggle.classList.toggle('active', !isDefault);
+      toggle.setAttribute('aria-label', isDefault ? 'Filter coupons' : 'Filter coupons — filters applied');
+      loadIndexCoupons();
     }
   }
-  function applyFilters(category, source) {
-    activeCat = category || 'all';
-    filterSource.value = source || '';
-    loadIndexCoupons();
+
+  // Applies brand / price / face value / discount / expiry to the page the
+  // server returned. Returns the rows that pass; untouched when no filter is set.
+  function applyIndexPageFilters(rows) {
+    const f = indexClientFilters;
+    if (!f) return rows;
+    const [pLo, pHi] = f.price;
+    const [fLo, fHi] = f.faceValue;
+    const minDisc = { '10%+': 10, '20%+': 20, '30%+': 30, '50%+': 50 }[f.discount] || 0;
+    const maxDays = { '7 days': 7, '30 days': 30, '30+ days': Infinity }[f.expiry] || Infinity;
+    const minDaysFloor = f.expiry === '30+ days' ? 30 : 0;
+    const now = Date.now();
+    return rows.filter((c) => {
+      if (f.brand && String(c.brand || '').toLowerCase() !== f.brand.toLowerCase()) return false;
+      const price = Number(c.sellingPrice) || 0;
+      if (price < pLo || (pHi < 10000 && price > pHi)) return false;
+      const face = Number(c.originalValue) || 0;
+      if (face && (face < fLo || (fHi < 10000 && face > fHi))) return false;
+      if (minDisc) {
+        const pct = parseFloat(String(c.discount || '').replace(/[^0-9.]/g, ''));
+        if (!(String(c.discount || '').includes('%') && pct >= minDisc)) return false;
+      }
+      if (f.expiry && f.expiry !== 'Any') {
+        const exp = typeof parseExpiry === 'function' ? parseExpiry(c.expiryDate) : null;
+        if (exp == null) return false;
+        const days = (exp - now) / 86400000;
+        if (f.expiry === '30+ days') { if (days < minDaysFloor) return false; }
+        else if (days > maxDays) return false;
+      }
+      return true;
+    });
   }
 
-  filterToggle.addEventListener('click', () => setFilterPanel(filterPanel.hidden));
-  document.getElementById('applyPanelFilters').addEventListener('click', () => {
-    applyFilters(filterCategory.value, filterSource.value);
-    setFilterPanel(false, true);
-  });
-  document.getElementById('clearPanelFilters').addEventListener('click', () => {
-    filterCategory.value = '';
-    filterSource.value = '';
-    applyFilters('all', '');
-  });
-  // Click outside closes the panel; Escape closes it and returns focus.
-  document.addEventListener('click', (event) => {
-    if (filterPanel.hidden) return;
-    if (!event.target.closest('.popular-filter-wrap')) setFilterPanel(false);
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !filterPanel.hidden) setFilterPanel(false, true);
-  });
+  initIndexFilterPanel();
 
   // ── Voice search (search-bar mic) — Web Speech API ────────────────────
   // Fills the EXISTING search input and fires its existing debounced reload.
