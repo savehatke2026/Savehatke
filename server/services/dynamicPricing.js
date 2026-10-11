@@ -35,6 +35,8 @@
 // ---------------------------------------------------------------------------
 
 // Time remaining at or below this gets the 10% rate. >24h keeps the 20% rate.
+const { parseCouponExpiry } = require('../utils/couponExpiry');
+
 const LAST_24H_MS = 24 * 60 * 60 * 1000;
 const NORMAL_RATE = 0.20;
 const LAST24H_RATE = 0.10;
@@ -81,8 +83,10 @@ function parseManualPrice(value) {
  */
 function timeRemainingMs(expiryDate, now = Date.now()) {
   if (!expiryDate) return Number.POSITIVE_INFINITY;
-  const at = new Date(expiryDate).getTime();
-  if (!Number.isFinite(at)) return Number.POSITIVE_INFINITY;
+  // Same parser the listing filter and the card countdown use, so the price
+  // gate can never disagree with what the buyer was shown.
+  const at = parseCouponExpiry(expiryDate);
+  if (at === null) return Number.POSITIVE_INFINITY;
   return at - now;
 }
 

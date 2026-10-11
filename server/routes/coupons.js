@@ -22,6 +22,7 @@ const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerP
 // the coupon row — every read site computes it from originalValue + expiryDate.
 const dynamicPricing = require('../services/dynamicPricing');
 const { safeRateLimitHandler } = require('../utils/rateLimit');
+const { parseCouponExpiry } = require('../utils/couponExpiry');
 
 const router = express.Router();
 
@@ -188,14 +189,10 @@ async function canSellCoupons(user) {
 // no expiry never expires (the listing anchors a 14-day display countdown
 // via defaultExpiry). The admin Timer switch only hides the countdown chip:
 // an expired coupon is hidden even when its switch is off.
-const DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-
 function couponExpiryMs(c) {
-  const s = String((c && c.expiryDate) || '').trim();
-  if (!s) return null;
-  const m = DATE_ONLY_RE.exec(s);
-  const t = m ? Date.UTC(+m[1], +m[2] - 1, +m[3], 23, 59, 59, 999) : Date.parse(s);
-  return Number.isFinite(t) ? t : null;
+  // Shared parser (IST wall-clock, date-only = end of that day) — the same
+  // rule the purchase gate and the card countdown use.
+  return parseCouponExpiry(c && c.expiryDate);
 }
 
 function listingVisible(c) {

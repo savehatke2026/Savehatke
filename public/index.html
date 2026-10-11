@@ -220,6 +220,14 @@
     #couponGrid .match-cost { font-size:6.1cqw; color:#f8f9ff; font-weight:800; letter-spacing:-.04em; }
     #couponGrid .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; }
     #couponGrid .match-timer svg { width:3cqw; height:3cqw; flex-shrink:0; }
+    #couponGrid .match-timer { padding:1.2cqw 2.6cqw; border-radius:99px; border:1px solid currentColor; background:rgba(255,255,255,.03); min-width:0; max-width:100%; }
+    #couponGrid .match-timer.green  { color:#00E272; box-shadow:0 0 10px rgba(0,226,114,.28), inset 0 0 6px rgba(0,226,114,.08); }
+    #couponGrid .match-timer.yellow { color:#FFD700; box-shadow:0 0 10px rgba(255,215,0,.28), inset 0 0 6px rgba(255,215,0,.08); }
+    #couponGrid .match-timer.red    { color:#FF0000; box-shadow:0 0 10px rgba(255,0,0,.32), inset 0 0 6px rgba(255,0,0,.08); }
+    #couponGrid .match-timer.final  { animation:indexTimerFlash 1.4s ease-in-out infinite; }
+    #couponGrid .match-timer.expired { color:#8a94a6; border-color:rgba(138,148,166,.35); box-shadow:none; }
+    @keyframes indexTimerFlash { 0%,100%{ box-shadow:0 0 6px rgba(255,0,0,.25); } 50%{ box-shadow:0 0 16px rgba(255,0,0,.7); } }
+    @media(prefers-reduced-motion:reduce){ #couponGrid .match-timer.final { animation:none; } }
     #couponGrid .match-claim { width:100%; border:0; border-radius:4cqw; background:var(--cta); color:var(--ink); font-family:'Outfit',sans-serif; font-size:5.8cqw; line-height:1.2; font-weight:800; letter-spacing:-.035em; padding:4.4cqw 2cqw; cursor:pointer; transition:filter .2s; margin-top:auto; }
     #couponGrid .match-claim:hover { filter:brightness(1.12); }
     #couponGrid .match-claim:focus-visible { outline:3px solid #fff; outline-offset:-6px; }
@@ -1087,17 +1095,31 @@
   function escapeIndexAttr(value) {
     return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
   }
+  // Same format as the marketplace card: "90d 12h 35m left" above 24h,
+  // "23:59:59 left" at 24h or less, switching at exactly 24h.
   function formatIndexCountdown(msLeft) {
     if (msLeft <= 0) return 'Expired';
     const totalSec = Math.floor(msLeft / 1000);
-    const d = Math.floor(totalSec / 86400);
-    const h = Math.floor((totalSec % 86400) / 3600);
+    const pad = (n) => String(n).padStart(2, '0');
+    if (msLeft > 24 * 60 * 60 * 1000) {
+      const d = Math.floor(totalSec / 86400);
+      const h = Math.floor((totalSec % 86400) / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      return `${d}d ${pad(h)}h ${pad(m)}m left`;
+    }
+    const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
-    const pad = (n) => String(n).padStart(2, '0');
-    return d > 0
-      ? `${d}d ${pad(h)}h ${pad(m)}m ${pad(s)}s left`
-      : `${pad(h)}h ${pad(m)}m ${pad(s)}s left`;
+    return `${pad(h)}:${pad(m)}:${pad(s)} left`;
+  }
+
+  // Same bands as the marketplace: ≤24h red (flashing), >24h–7d yellow, >7d green.
+  function indexTimerBand(msLeft) {
+    if (msLeft <= 0) return 'expired';
+    const DAY = 24 * 60 * 60 * 1000;
+    if (msLeft <= DAY) return 'red final';
+    if (msLeft <= 7 * DAY) return 'yellow';
+    return 'green';
   }
 
   let indexExpiryTimerId = null;
@@ -1108,8 +1130,17 @@
       document.querySelectorAll('#couponGrid .match-timer [data-timer]').forEach((el) => {
         const at = indexClaimTimers.get(el.dataset.timer);
         if (!at) return;
-        const text = formatIndexCountdown(at - now);
+        const msLeft = at - now;
+        const text = formatIndexCountdown(msLeft);
         if (el.textContent !== text) el.textContent = text;
+        const pill = el.parentElement;
+        if (pill && pill.classList.contains('match-timer')) {
+          const band = indexTimerBand(msLeft);
+          if (pill.dataset.band !== band) {
+            pill.className = `match-timer ${band}`;
+            pill.dataset.band = band;
+          }
+        }
       });
     };
     tick();
@@ -1153,7 +1184,8 @@
       let timerHtml = '';
       if (expiresAt !== null) {
         indexClaimTimers.set(id, expiresAt);
-        timerHtml = `<span class="match-timer">${INDEX_TIMER_SVG}<span data-timer="${escapeIndexAttr(id)}">${formatIndexCountdown(expiresAt - Date.now())}</span></span>`;
+        const msLeftNow = expiresAt - Date.now();
+        timerHtml = `<span class="match-timer ${indexTimerBand(msLeftNow)}" data-band="${escapeIndexAttr(id)}">${INDEX_TIMER_SVG}<span data-timer="${escapeIndexAttr(id)}">${formatIndexCountdown(msLeftNow)}</span></span>`;
       }
       const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeIndexAttr(c.originalValue)}</del>` : '';
 

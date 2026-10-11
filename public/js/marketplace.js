@@ -242,9 +242,9 @@ function renderCouponGrid(gridId, coupons) {
       let timerHtml = '';
       if (expiresAt !== null) {
         claimTimers.set(id, expiresAt);
-        const hLeft = Math.max(0, (expiresAt - Date.now()) / 3600000);
-        const band = hLeft < 48 ? 'urgent' : hLeft < 168 ? 'warning' : '';
-        timerHtml = `<span class="match-timer ${band}">${CLAIM_TIMER_SVG}<span data-timer="${escapeCoupon(id)}">${formatClaimCountdown(expiresAt - Date.now())}</span></span>`;
+        const msLeft = expiresAt - Date.now();
+        const band = claimTimerBand(msLeft);
+        timerHtml = `<span class="match-timer ${band}" data-band="${escapeCoupon(id)}">${CLAIM_TIMER_SVG}<span data-timer="${escapeCoupon(id)}">${formatClaimCountdown(msLeft)}</span></span>`;
       }
 
       const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeCoupon(c.originalValue)}</del>` : '';
@@ -338,18 +338,40 @@ const CLAIM_TIMER_SVG = '<svg viewBox="0 0 32 32" fill="none" stroke="currentCol
 
 let expiryTimerId = null;
 
-/** Live countdown text ("2d 6h 13m 05s left"); the tag itself never changes. */
+/**
+ * Live countdown text. More than 24h left: "90d 12h 35m left" (no seconds).
+ * 24h or less: "23:59:59 left", ticking every second. Exactly 24h switches to
+ * the clock form, because the spec's threshold is inclusive at 24h.
+ */
 function formatClaimCountdown(msLeft) {
   if (msLeft <= 0) return 'Expired';
   const totalSec = Math.floor(msLeft / 1000);
-  const d = Math.floor(totalSec / 86400);
-  const h = Math.floor((totalSec % 86400) / 3600);
+  const pad = (n) => String(n).padStart(2, '0');
+  if (msLeft > 24 * 60 * 60 * 1000) {
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return `${d}d ${pad(h)}h ${pad(m)}m left`;
+  }
+  const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);
   const s = totalSec % 60;
-  const pad = (n) => String(n).padStart(2, '0');
-  return d > 0
-    ? `${d}d ${pad(h)}h ${pad(m)}m ${pad(s)}s left`
-    : `${pad(h)}h ${pad(m)}m ${pad(s)}s left`;
+  return `${pad(h)}:${pad(m)}:${pad(s)} left`;
+}
+
+/**
+ * Colour band for the timer pill, by remaining time:
+ *   ≤ 24h          → red    (#FF0000), plus the "final" flash
+ *   > 24h, ≤ 7d    → yellow (#FFD700)
+ *   > 7d           → green  (#00E272)
+ *   expired        → 'expired' (text shows "Expired", never a negative countdown)
+ */
+function claimTimerBand(msLeft) {
+  if (msLeft <= 0) return 'expired';
+  const DAY = 24 * 60 * 60 * 1000;
+  if (msLeft <= DAY) return 'red final';
+  if (msLeft <= 7 * DAY) return 'yellow';
+  return 'green';
 }
 
 /** Tick every visible claim-card countdown once a second (single interval). */
@@ -360,8 +382,18 @@ function startExpiryTicker() {
     document.querySelectorAll('.match-timer [data-timer]').forEach((el) => {
       const at = claimTimers.get(el.dataset.timer);
       if (!at) return;
-      const text = formatClaimCountdown(at - now);
+      const msLeft = at - now;
+      const text = formatClaimCountdown(msLeft);
       if (el.textContent !== text) el.textContent = text;
+      // Re-band as time passes: a card left open crosses 24h / 2d / 7d without a re-render.
+      const pill = el.parentElement;
+      if (pill && pill.classList.contains('match-timer')) {
+        const band = claimTimerBand(msLeft);
+        if (pill.dataset.band !== band) {
+          pill.className = `match-timer ${band}`;
+          pill.dataset.band = band;
+        }
+      }
     });
   };
   tick();

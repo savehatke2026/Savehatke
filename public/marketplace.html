@@ -752,6 +752,16 @@
      sized here, because an unsized SVG would blow out the meta row. */
   .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; }
   .match-timer svg { width:3cqw; height:3cqw; flex-shrink:0; }
+  /* Countdown pill: rounded, glowing border per urgency band. Green > 7 days,
+     yellow 2–7 days, red < 2 days; the last 24h flash red; expired is muted. */
+  .match-timer { padding:1.2cqw 2.6cqw; border-radius:99px; border:1px solid currentColor; background:rgba(255,255,255,.03); min-width:0; max-width:100%; }
+  .match-timer.green  { color:#00E272; box-shadow:0 0 10px rgba(0,226,114,.28), inset 0 0 6px rgba(0,226,114,.08); }
+  .match-timer.yellow { color:#FFD700; box-shadow:0 0 10px rgba(255,215,0,.28), inset 0 0 6px rgba(255,215,0,.08); }
+  .match-timer.red    { color:#FF0000; box-shadow:0 0 10px rgba(255,0,0,.32), inset 0 0 6px rgba(255,0,0,.08); }
+  .match-timer.final  { animation:matchTimerFlash 1.4s ease-in-out infinite; }
+  .match-timer.expired { color:#8a94a6; border-color:rgba(138,148,166,.35); box-shadow:none; }
+  @keyframes matchTimerFlash { 0%,100%{ box-shadow:0 0 6px rgba(255,0,0,.25); } 50%{ box-shadow:0 0 16px rgba(255,0,0,.7); } }
+  @media(prefers-reduced-motion:reduce){ .match-timer.final { animation:none; } }
 
   .match-claim { width:100%; border:0; border-radius:4cqw; background:var(--cta); color:var(--ink); font-family:'Outfit',sans-serif; font-size:5.8cqw; line-height:1.2; font-weight:800; letter-spacing:-.035em; padding:4.4cqw 2cqw; cursor:pointer; transition:filter .2s; margin-top:auto; }
   .match-claim:hover { filter:brightness(1.12); }
