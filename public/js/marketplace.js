@@ -146,9 +146,15 @@ function renderFilteredCoupons() {
   if (savedOnly) {
     pageRows = pageRows.filter((c) => savedIds.has(String(c.id)));
   }
+  // Brand / price / face value / discount / expiry from the filter modal
+  // narrow this page only (the server filters by category, source, search).
+  const beforeModal = pageRows.length;
+  pageRows = applyPageFilters(pageRows);
+  const modalNarrowed = pageRows.length !== beforeModal;
 
-  // Update the count chip in the Explore header
-  updateExploreCount(savedOnly ? pageRows.length : serverTotal);
+  // Update the count chip in the Explore header. When the modal narrowed
+  // the page, show the page count instead of the full inventory total.
+  updateExploreCount(savedOnly || modalNarrowed ? pageRows.length : serverTotal);
 
   // Empty-state visibility — toggled off the grid itself, so the grid is
   // left untouched and never flashes a wrong number of cards on rerender.
@@ -926,59 +932,7 @@ function initFilters() {
     });
   });
 
-  // Filter panel (popular row) — category + source dropdowns. Opening it
-  // always reflects the CURRENT filter state, so it stays truthful whichever
-  // surface (pills, panel, reset) changed the state last.
-  const filterToggle = document.getElementById('filterToggle');
-  const filterPanel = document.getElementById('filterPanel');
-  function syncPanelFilterControls() {
-    const catSel = document.getElementById('filterCategory');
-    const srcSel = document.getElementById('filterSource');
-    if (catSel) catSel.value = currentCategory === 'all' ? '' : currentCategory;
-    if (srcSel) srcSel.value = currentSource || '';
-  }
-  function setFilterPanel(open, restoreFocus = false) {
-    if (!filterPanel || !filterToggle) return;
-    filterPanel.hidden = !open;
-    filterToggle.setAttribute('aria-expanded', String(open));
-    if (open) {
-      syncPanelFilterControls();
-      document.getElementById('filterCategory')?.focus();
-    } else if (restoreFocus) {
-      filterToggle.focus();
-    }
-  }
-  filterToggle?.addEventListener('click', () => setFilterPanel(filterPanel.hidden));
-  document.getElementById('applyPanelFilters')?.addEventListener('click', () => {
-    const catSel = document.getElementById('filterCategory');
-    const srcSel = document.getElementById('filterSource');
-    currentCategory = (catSel && catSel.value) || 'all';
-    currentSource = (srcSel && srcSel.value) || '';
-    currentPage = 1;
-    syncCategoryUI(currentCategory);
-    loadCoupons();
-    setFilterPanel(false, true);
-  });
-  document.getElementById('clearPanelFilters')?.addEventListener('click', () => {
-    const catSel = document.getElementById('filterCategory');
-    const srcSel = document.getElementById('filterSource');
-    if (catSel) catSel.value = '';
-    if (srcSel) srcSel.value = '';
-    currentCategory = 'all';
-    currentSource = '';
-    currentPage = 1;
-    syncCategoryUI('all');
-    loadCoupons();
-  });
-  // Click anywhere outside the wrap closes the panel; Escape closes it and
-  // returns focus to the Filter button (same behaviour as the mockup).
-  document.addEventListener('click', (event) => {
-    if (!filterPanel || filterPanel.hidden) return;
-    if (!event.target.closest('.popular-filter-wrap')) setFilterPanel(false);
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && filterPanel && !filterPanel.hidden) setFilterPanel(false, true);
-  });
+  initFilterPanel();
 
   // Sort dropdown — Recommended / Price: low to high / Expiring soon
   document.getElementById('sortSelect')?.addEventListener('change', (e) => {
@@ -1003,15 +957,12 @@ function initFilters() {
   document.getElementById('resetFilters')?.addEventListener('click', () => {
     if (searchInput) searchInput.value = '';
     searchQuery = '';
-    const sourceSel = document.getElementById('sourceFilter');
-    if (sourceSel) sourceSel.value = '';
     currentSource = '';
     currentCategory = 'all';
     currentSort = 'recommended';
     const sortSel = document.getElementById('sortSelect');
     if (sortSel) sortSel.value = 'recommended';
-    const more = document.getElementById('moreCategories');
-    if (more) more.value = '';
+    window.resetClientFilters?.();
     savedOnly = false;
     const savedBtn = document.getElementById('savedFilter');
     if (savedBtn) {
@@ -1021,8 +972,253 @@ function initFilters() {
     if (searchClear) searchClear.hidden = true;
     currentPage = 1;
     syncCategoryUI('all');
-    syncPanelFilterControls();
     loadCoupons();
+  });
+}
+
+// ── Filter modal ─────────────────────────────────────────────────────────
+// Only category goes to the server (/api/coupons supports category, source,
+// search, sort). Brand, price, face value, discount and expiry narrow the page
+// the server returned, so they filter the current page, not the whole inventory.
+const FILTER_CATEGORY_MAP = {
+  'All': '',
+  'Electronics': 'Electronics & Gadgets',
+  'Fashion': 'Fashion',
+  'Beauty': 'Beauty & Personal Care',
+  'Food': 'Food & Delivery',
+  'Travel': 'Travel & Transport',
+  'E-Commerce': 'E-Commerce',
+  'Hotels & Stays': 'Hotels & Stays',
+  'Gaming & Entertainment': 'Gaming & Entertainment',
+  'Fitness & Sports': 'Fitness & Sports',
+  'Education': 'Education',
+  'Health & Pharmacy': 'Health & Pharmacy',
+  'Finance & Payments': 'Finance & Payments',
+  'General': 'General',
+};
+const FILTER_FACE_RANGES = {
+  'All': [100, 10000],
+  '₹100 - ₹500': [100, 500],
+  '₹501 - ₹1,000': [501, 1000],
+  '₹1,001 - ₹5,000': [1001, 5000],
+  '₹5,001+': [5001, 10000],
+};
+// Client-side filter state. Defaults mean "no filter".
+let clientFilters = null;
+
+function initFilterPanel() {
+  const panel = document.getElementById('filterPanel');
+  const toggle = document.getElementById('filterToggle');
+  if (!panel || !toggle) return;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'filter-backdrop';
+  backdrop.hidden = true;
+  // Modal must sit outside transformed ancestors (.fu) to stay fixed/centred.
+  document.body.append(backdrop, panel);
+
+  const categories = ['All', 'Electronics', 'Fashion', 'Beauty', 'Food', 'Travel', 'E-Commerce'];
+  const moreCategories = ['Hotels & Stays', 'Gaming & Entertainment', 'Fitness & Sports', 'Education', 'Health & Pharmacy', 'Finance & Payments', 'General'];
+  const chipGroup = (name, values) => `<div class="filter-chips" data-group="${name}">${values.map((value, i) => `<button type="button" class="filter-chip" aria-pressed="${i === 0}" data-value="${escapeCoupon(value)}">${escapeCoupon(value)}</button>`).join('')}</div>`;
+  const range = (name, minimum) => `<div class="filter-range-labels"><output id="${name}MinLabel">₹${minimum}</output><output id="${name}MaxLabel">₹10,000+</output></div><div class="filter-range"><div class="filter-range-track"></div><input type="range" id="${name}Min" aria-label="Minimum ${name}" min="${minimum}" max="10000" value="${minimum}" step="1"><input type="range" id="${name}Max" aria-label="Maximum ${name}" min="${minimum}" max="10000" value="10000" step="1"></div>`;
+  const brands = ['Amazon', 'Myntra', 'Swiggy', 'Nykaa', 'Flipkart', 'Zomato', 'Ajio'];
+
+  panel.innerHTML = `
+    <header class="filter-panel-header"><h3 id="filterPanelTitle">Filters</h3><button type="button" class="filter-close" aria-label="Close filters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18M21 3 3 21"/></svg></button></header>
+    <div class="filter-body">
+      <section class="filter-section"><div class="filter-category-heading"><h4>Category</h4><span id="selectedCategory">All ›</span></div>${chipGroup('category', categories)}<div class="filter-chips" style="margin-top:8px"><button type="button" class="filter-chip" id="moreCategories" aria-expanded="false">More</button></div><div id="extraCategories" hidden>${chipGroup('extra-category', moreCategories)}</div></section>
+      <section class="filter-section"><h4>Brand</h4><div class="filter-brand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M3 3h9l9 9-9 9H3z"/><circle cx="7" cy="7" r="1.5"/></svg><select id="filterBrand" aria-label="Brand"><option value="">All Brands</option>${brands.map(b => `<option>${b}</option>`).join('')}</select></div></section>
+      <section class="filter-section"><h4>Price Range</h4>${range('price', 0)}</section>
+      <section class="filter-section"><h4>Face Value <span class="filter-info" title="The original value of the coupon">i</span></h4>${range('face', 100)}${chipGroup('face', Object.keys(FILTER_FACE_RANGES))}</section>
+      <section class="filter-section"><h4>Discount / Benefit</h4>${chipGroup('discount', ['All', '10%+', '20%+', '30%+', '50%+'])}</section>
+      <section class="filter-section"><h4>Expiry</h4>${chipGroup('expiry', ['Any', '7 days', '30 days', '30+ days'])}</section>
+    </div>
+    <footer class="filter-panel-actions"><button type="button" id="clearPanelFilters">Reset All</button><button type="button" class="apply-filters" id="applyPanelFilters">Apply Filters</button></footer>`;
+
+  // Render "More" in the same pill grid as the other category chips.
+  const moreButton = panel.querySelector('#moreCategories');
+  moreButton.textContent = 'More';
+  moreButton.parentElement.remove();
+  panel.querySelector('[data-group="category"]').append(moreButton);
+
+  const selectedGroupValue = (group) => panel.querySelector(`[data-group="${group}"] [aria-pressed="true"]`)?.dataset.value;
+  const setPressed = (group, value) => {
+    panel.querySelectorAll(`[data-group="${group}"] button`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === value)));
+  };
+  const setCategoryPressed = (value) => {
+    panel.querySelectorAll('[data-group="category"] button, [data-group="extra-category"] button').forEach((b) => {
+      b.setAttribute('aria-pressed', String(b.dataset.value === value));
+    });
+    const sel = document.getElementById('selectedCategory');
+    if (sel) sel.textContent = `${value || 'All'} ›`;
+  };
+
+  // Open/close
+  let lastFocus = null;
+  const open = () => {
+    lastFocus = toggle;
+    syncPanelFromState();
+    panel.hidden = false; backdrop.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+    panel.querySelector('.filter-close')?.focus();
+  };
+  const close = (restoreFocus = true) => {
+    panel.hidden = true; backdrop.hidden = true;
+    toggle.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+    if (restoreFocus) toggle.focus();
+  };
+  toggle.addEventListener('click', () => (panel.hidden ? open() : close()));
+  backdrop.addEventListener('click', () => close());
+  panel.querySelector('.filter-close').addEventListener('click', () => close());
+  panel.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') { close(); return; }
+    if (event.key !== 'Tab') return;
+    const controls = [...panel.querySelectorAll('button, select, input')].filter((el) => el.getClientRects().length);
+    if (!controls.length) return;
+    const first = controls[0], last = controls[controls.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
+
+  // Ranges
+  const updateRange = (name) => {
+    const min = panel.querySelector(`#${name}Min`), max = panel.querySelector(`#${name}Max`);
+    const track = min.parentElement.querySelector('.filter-range-track');
+    const lowerBound = Number(min.min);
+    const span = Number(min.max) - lowerBound;
+    track.style.setProperty('--range-start', `${(Number(min.value) - lowerBound) / span * 100}%`);
+    track.style.setProperty('--range-end', `${(Number(max.value) - lowerBound) / span * 100}%`);
+    panel.querySelector(`#${name}MinLabel`).textContent = `₹${Number(min.value).toLocaleString('en-IN')}`;
+    panel.querySelector(`#${name}MaxLabel`).textContent = `₹${Number(max.value).toLocaleString('en-IN')}${max.value === '10000' ? '+' : ''}`;
+  };
+  ['price', 'face'].forEach(updateRange);
+  panel.querySelectorAll('input[type=range]').forEach((input) => input.addEventListener('input', () => {
+    const name = input.id.startsWith('price') ? 'price' : 'face';
+    const min = panel.querySelector(`#${name}Min`), max = panel.querySelector(`#${name}Max`);
+    if (+min.value > +max.value) input.value = input === min ? max.value : min.value;
+    if (name === 'face') setPressed('face', 'All');
+    updateRange(name);
+  }));
+
+  // Chip selection
+  panel.addEventListener('click', (event) => {
+    const chip = event.target.closest('[data-group] button');
+    if (!chip || chip.id === 'moreCategories') return;
+    const group = chip.parentElement.dataset.group;
+    if (group === 'category' || group === 'extra-category') {
+      setCategoryPressed(chip.dataset.value);
+      return;
+    }
+    setPressed(group, chip.dataset.value);
+    if (group === 'face') {
+      const [lo, hi] = FILTER_FACE_RANGES[chip.dataset.value] || FILTER_FACE_RANGES.All;
+      panel.querySelector('#faceMin').value = lo;
+      panel.querySelector('#faceMax').value = hi;
+      updateRange('face');
+    }
+  });
+  panel.querySelector('#moreCategories').addEventListener('click', (event) => {
+    const extra = panel.querySelector('#extraCategories');
+    extra.hidden = !extra.hidden;
+    event.currentTarget.setAttribute('aria-expanded', String(!extra.hidden));
+  });
+
+  // Reset / apply
+  panel.querySelector('#clearPanelFilters').addEventListener('click', () => {
+    setCategoryPressed('All');
+    setPressed('discount', 'All');
+    setPressed('expiry', 'Any');
+    setPressed('face', 'All');
+    panel.querySelector('#filterBrand').value = '';
+    panel.querySelector('#priceMin').value = 0; panel.querySelector('#priceMax').value = 10000;
+    panel.querySelector('#faceMin').value = 100; panel.querySelector('#faceMax').value = 10000;
+    updateRange('price'); updateRange('face');
+  });
+  panel.querySelector('#applyPanelFilters').addEventListener('click', () => {
+    const cat = selectedGroupValue('category') || selectedGroupValue('extra-category') || 'All';
+    const next = {
+      category: cat,
+      brand: panel.querySelector('#filterBrand').value,
+      price: [+panel.querySelector('#priceMin').value, +panel.querySelector('#priceMax').value],
+      faceValue: [+panel.querySelector('#faceMin').value, +panel.querySelector('#faceMax').value],
+      faceChip: selectedGroupValue('face') || 'All',
+      discount: selectedGroupValue('discount') || 'All',
+      expiry: selectedGroupValue('expiry') || 'Any',
+    };
+    applyClientFilters(next);
+    close();
+  });
+
+  // Mirror current state into the modal on open so it is never stale.
+  function syncPanelFromState() {
+    const f = clientFilters || {};
+    setCategoryPressed(f.category || 'All');
+    setPressed('discount', f.discount || 'All');
+    setPressed('expiry', f.expiry || 'Any');
+    setPressed('face', f.faceChip || 'All');
+    panel.querySelector('#filterBrand').value = f.brand || '';
+    const [pLo, pHi] = f.price || [0, 10000];
+    const [fLo, fHi] = f.faceValue || [100, 10000];
+    panel.querySelector('#priceMin').value = pLo; panel.querySelector('#priceMax').value = pHi;
+    panel.querySelector('#faceMin').value = fLo; panel.querySelector('#faceMax').value = fHi;
+    updateRange('price'); updateRange('face');
+  }
+
+  // Keep the "Filter" button label honest when filters are active.
+  function applyClientFilters(next) {
+    const serverCat = FILTER_CATEGORY_MAP[next.category] ?? '';
+    const isDefault = (next.category === 'All') && !next.brand
+      && next.price[0] === 0 && next.price[1] === 10000
+      && next.faceValue[0] === 100 && next.faceValue[1] === 10000
+      && next.discount === 'All' && next.expiry === 'Any';
+    clientFilters = isDefault ? null : { ...next };
+    currentCategory = serverCat || 'all';
+    currentSource = '';
+    currentPage = 1;
+    syncCategoryUI(currentCategory);
+    toggle.classList.toggle('active', !isDefault);
+    toggle.setAttribute('aria-label', isDefault ? 'Filter coupons' : 'Filter coupons — filters applied');
+    loadCoupons();
+  }
+  // Exposed so the reset button in the empty-state can clear the modal too.
+  window.resetClientFilters = () => {
+    clientFilters = null;
+    toggle.classList.remove('active');
+    toggle.setAttribute('aria-label', 'Filter coupons');
+  };
+}
+
+// Applies brand / price / face value / discount / expiry to the page the
+// server returned. Returns the rows that pass; untouched when no filter is set.
+function applyPageFilters(rows) {
+  const f = clientFilters;
+  if (!f) return rows;
+  const [pLo, pHi] = f.price;
+  const [fLo, fHi] = f.faceValue;
+  const minDisc = { '10%+': 10, '20%+': 20, '30%+': 30, '50%+': 50 }[f.discount] || 0;
+  const maxDays = { '7 days': 7, '30 days': 30, '30+ days': Infinity }[f.expiry] || Infinity;
+  const minDaysFloor = f.expiry === '30+ days' ? 30 : 0;
+  const now = Date.now();
+  return rows.filter((c) => {
+    if (f.brand && String(c.brand || '').toLowerCase() !== f.brand.toLowerCase()) return false;
+    const price = Number(c.sellingPrice) || 0;
+    if (price < pLo || (pHi < 10000 && price > pHi)) return false;
+    const face = Number(c.originalValue) || 0;
+    if (face && (face < fLo || (fHi < 10000 && face > fHi))) return false;
+    if (minDisc) {
+      const pct = parseFloat(String(c.discount || '').replace(/[^0-9.]/g, ''));
+      if (!(String(c.discount || '').includes('%') && pct >= minDisc)) return false;
+    }
+    if (f.expiry && f.expiry !== 'Any') {
+      const exp = typeof parseExpiry === 'function' ? parseExpiry(c.expiryDate) : null;
+      if (exp == null) return false;
+      const days = (exp - now) / 86400000;
+      if (f.expiry === '30+ days') { if (days < minDaysFloor) return false; }
+      else if (days > maxDays) return false;
+    }
+    return true;
   });
 }
 
