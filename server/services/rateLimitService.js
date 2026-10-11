@@ -142,6 +142,11 @@ const LIMITS = {
   // Sell Coupon: 5 submission requests per rolling minute per authenticated
   // account. There is deliberately NO daily, weekly or per-IP submission quota.
   'coupon-submit-account': { limit: 5, window: '1 m', fail: 'closed' },
+  // Submission REQUESTS (not coupons): one /sell or /submit call is one unit,
+  // whatever its batch size. 10 per rolling hour per account, 20 per rolling
+  // hour per IP. Batches above 5 coupons are refused before this is charged.
+  'coupon-submit-hour-account': { limit: 10, window: '1 h', fail: 'closed' },
+  'coupon-submit-hour-ip': { limit: 20, window: '1 h', fail: 'closed' },
 
   // ── Purchase / payment ───────────────────────────────────────────────────
   'purchase-account': { limit: 5, window: '1 m', fail: 'closed' },
@@ -305,7 +310,11 @@ const RULES = [
 
   // ── Coupons ──────────────────────────────────────────────────────────────
   { test: (p) => /^\/api\/coupons\/scan\/?$/i.test(p), both: { account: 'coupon-scan-account', ip: 'coupon-scan-ip' }, requireAccount: true, sensitive: true },
-  { test: (p) => /^\/api\/coupons\/(?:sell|submit|proof)\/?$/i.test(p), both: { account: 'coupon-submit-account' }, requireAccount: true, sensitive: true },
+  // Submission requests: 10/hour per account and 20/hour per IP, one unit per
+  // request regardless of how many coupons it carries.
+  { test: (p) => /^\/api\/coupons\/(?:sell|submit)\/?$/i.test(p), both: { account: 'coupon-submit-hour-account', ip: 'coupon-submit-hour-ip' }, requireAccount: true, sensitive: true },
+  // Proof uploads keep their own per-minute account budget.
+  { test: (p) => /^\/api\/coupons\/proof\/?$/i.test(p), both: { account: 'coupon-submit-account' }, requireAccount: true, sensitive: true },
   { test: (p) => /^\/api\/coupons\/buy\//i.test(p), both: { account: 'purchase-account', ip: 'purchase-ip' }, requireAccount: true, sensitive: true },
   { test: (p) => /^\/api\/coupons(?:\/|$)/i.test(p), both: { account: 'coupon-read-account', ip: 'coupon-read-ip' } },
 
@@ -564,6 +573,20 @@ function distributedLimiter(options = {}) {
       }
       if (process.env.RATELIMIT_DEBUG === '1') {
         console.error(`[ratelimit] throttled (${name}): budget exhausted`);
+      }
+      if (name === 'coupon-submit-hour-account' || name === 'coupon-submit-hour-ip') {
+        // Exact wait from the sliding window, so Retry-After is accurate and the
+        // body tells the seller when the limit resets. The UI shows the title
+        // and message; the timing is in seconds and minutes.
+        const retryAfter = Math.max(1, Number(result.retryAfter) || 60);
+        res.set('Retry-After', String(retryAfter));
+        res.set('Cache-Control', 'no-store');
+        return res.status(429).json({
+          error: 'Too Many Submission Requests',
+          message: 'You\'ve reached your hourly coupon submission limit. Please try again when your limit resets.',
+          code: 'SUBMIT_RATE_LIMITED',
+          retryAfterSeconds: retryAfter,
+        });
       }
       return safeRateLimitHandler(
         name === 'auth' ? 'Too many sign-in attempts. Please wait before trying again.'

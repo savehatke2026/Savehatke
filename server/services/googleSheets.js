@@ -140,14 +140,9 @@ const HEADERS = {
     'originalValue', 'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
     'terms', 'sellingPrice', 'status', 'isVerified', 'isFeatured', 'isExclusive',
     'source', 'sellerEmail', 'buyerEmail', 'addedAt', 'soldAt', 'proofUrl',
-    'adminNotes', 'verifiedAt', 'sellerUserId', 'whatsappStatus', 'whatsappSid',
-    'whatsappLastAttempt', 'whatsappError', 'sellerPayout', 'paymentMethod', 'upiId',
+    'adminNotes', 'verifiedAt', 'sellerUserId', 'sellerPayout',
     'approvedAt',
     'publishedAt',
-    // Seller payout destination, copied from SellerPayoutDetails at submission.
-    'qrFileId',
-    'qrFileName',
-    'beneficiaryName',
   ],
   [SHEETS.COUPON_AUDIT]: [
     'id',

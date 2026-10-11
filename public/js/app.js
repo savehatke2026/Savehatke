@@ -299,7 +299,10 @@ async function api(endpoint, options = {}) {
       // Rate-limited: surface a friendlier message that tells the admin this is
       // temporary, since it can otherwise look like a real failure.
       if (res.status === 429) {
-        const err = new Error(data.error || 'Too many requests. Please wait a few seconds and try again.');
+        // Submission limits carry a title (error) and a sentence (message); show
+        // both so the seller sees the full text, not only the title.
+        const text = data.error && data.message ? `${data.error}\n${data.message}` : data.error;
+        const err = new Error(text || 'Too many requests. Please wait a few seconds and try again.');
         err.status = 429;
         err.isRateLimited = true;
         err.data = data;
@@ -312,7 +315,8 @@ async function api(endpoint, options = {}) {
         }
         throw err;
       }
-      const err = new Error(data.error || `HTTP ${res.status}`);
+      const detailed = data.error && data.message ? `${data.error}\n${data.message}` : data.error;
+      const err = new Error(detailed || `HTTP ${res.status}`);
       err.status = res.status;
       // Some endpoints send actionable detail beside the message — a refreshed
       // list, a "start over" flag — so a caller can react rather than only

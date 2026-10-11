@@ -399,7 +399,7 @@ function initAddCouponForm() {
       const affiliateLink = document.getElementById('acLink')?.value?.trim() || '';
       const terms = document.getElementById('acTerms')?.value?.trim() || '';
       const howToUse = document.getElementById('acHowToUse')?.value?.trim() || '';
-      const description = title || discount || '';
+      const description = document.getElementById('acDescription')?.value?.trim() || title || discount || '';
       const sellingPrice = document.getElementById('acPrice')?.value?.trim() || '15';
       const status = document.getElementById('acStatus')?.value || 'available';
       const source = document.getElementById('acSource')?.value || 'admin';
@@ -1207,7 +1207,6 @@ async function loadPending() {
                 <thead><tr>
                   <th>Brand</th><th>Seller</th>
                   <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th>
-                  ${SELLER_DEST_HEAD_HTML}
                   <th class="ta-right">Actions</th>
                 </tr></thead>
                 <tbody>${rows.map(sellerRowHtml).join('')}</tbody>
@@ -1282,7 +1281,6 @@ function sellerRowHtml(c) {
       <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
       <td>${cmWhenHtml(c.addedAt || '', '')}</td>
       <td>${(() => { const st = SELLER_STATUS[String(c.status || '').toLowerCase()] || { label: c.status || '—', cls: 'badge-gray' }; return `<span class="badge ${st.cls}">${escHtml(st.label)}</span>`; })()}</td>
-      ${sellerDestCellsHtml(c)}
       <td>
         <div class="admin-actions ta-right">
           <button class="btn btn-ghost btn-xs" title="View details" onclick="stOpenDetail('${id}')">🔍</button>

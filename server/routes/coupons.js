@@ -45,16 +45,6 @@ const proofAccountLimiter = rateLimit({
   handler: safeRateLimitHandler('Too many coupon submissions. Please try again later.'),
 });
 
-// Sell Coupon submission: 5 requests per rolling minute per authenticated account.
-// No daily/weekly/monthly quota and no per-IP submission cap.
-const sellerAccountLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
-  standardHeaders: false,
-  legacyHeaders: false,
-  handler: safeRateLimitHandler('You\'re submitting too quickly. Please wait a moment and try again.'),
-});
 
 // Every coupon shows a live "expires in" countdown that starts at 2 weeks.
 // When a coupon has no explicit expiry we anchor the 14-day window to its
@@ -67,6 +57,9 @@ function defaultExpiry(explicitExpiry, addedAt) {
   const t = Number.isFinite(base) ? base : Date.now();
   return new Date(t + TWO_WEEKS_MS).toISOString();
 }
+
+// Maximum coupons in one submission request. A larger batch is refused whole.
+const SUBMIT_MAX_COUPONS_PER_REQUEST = 5;
 
 // Proof screenshot upload constraints
 const PROOF_MAX_BYTES = 3 * 1024 * 1024; // 3MB
@@ -688,6 +681,18 @@ const handleCouponSubmission = async (req, res) => {
       title, discount, minOrderValue, validFrom, affiliateLink, terms,
     } = req.body;
 
+    // A batch is refused as a whole when it holds more than 5 coupons. This runs
+    // before the submission budget is charged for anything beyond this request
+    // and before any storage, so an oversize request leaves no partial records.
+    const batchSize = Array.isArray(coupons) ? coupons.length : (coupons === undefined ? 1 : 0);
+    if (batchSize > SUBMIT_MAX_COUPONS_PER_REQUEST) {
+      return res.status(400).json({
+        error: 'Submission Limit Exceeded',
+        message: `You can submit a maximum of ${SUBMIT_MAX_COUPONS_PER_REQUEST} coupons in a single request. Please reduce the number of coupons and try again.`,
+        code: 'SUBMIT_BATCH_TOO_LARGE',
+      });
+    }
+
     // Sanitized shared fields (length-capped, never trusted from the client)
     const cleanStr = (v, max) => String(v == null ? '' : v).trim().slice(0, max);
     const cleanCategory = cleanStr(category, 60);
@@ -758,27 +763,6 @@ const handleCouponSubmission = async (req, res) => {
     const submitted = [];
     const skipped = [];
     let dbSaveFailed = false;
-
-    // The seller's saved payout destination (SellerPayoutDetails tab) is copied
-    // onto every coupon row they submit, so the admin sees where to pay from the
-    // Seller Coupons sheet. Read once per request; a missing record leaves blanks.
-    let payoutDest = { paymentMethod: '', upiId: '', qrFileId: '', qrFileName: '', beneficiaryName: '' };
-    try {
-      const details = await db.getRowsFresh(db.SHEETS.SELLER_PAYOUT_DETAILS);
-      const mine = (details || []).find((d) => String(d.sellerEmail || '').toLowerCase().trim() === String(sellerEmail || '').toLowerCase().trim());
-      if (mine) {
-        const method = String(mine.method || '').toUpperCase();
-        payoutDest = {
-          paymentMethod: method,
-          upiId: method === 'UPI' ? String(mine.upiId || '') : '',
-          qrFileId: method === 'QR' ? String(mine.qrFileId || '') : '',
-          qrFileName: method === 'QR' ? String(mine.qrFileName || '') : '',
-          beneficiaryName: String(mine.beneficiaryName || ''),
-        };
-      }
-    } catch (e) {
-      console.warn('Seller payout details lookup notice:', e.message);
-    }
 
     // ── Minimum shelf life ──
     // A coupon is only worth listing if the buyer has time to use it, so every
@@ -928,16 +912,6 @@ const handleCouponSubmission = async (req, res) => {
         buyerEmail: '',
         adminNotes: '',
         verifiedAt: '',
-        whatsappStatus: 'pending',
-        whatsappSid: '',
-        whatsappLastAttempt: '',
-        whatsappError: '',
-        // Seller payout destination, copied from SellerPayoutDetails at submission.
-        paymentMethod: payoutDest.paymentMethod,
-        upiId: payoutDest.upiId,
-        qrFileId: payoutDest.qrFileId,
-        qrFileName: payoutDest.qrFileName,
-        beneficiaryName: payoutDest.beneficiaryName,
       };
 
       // Persist first — WhatsApp is only sent after a successful DB save
@@ -974,22 +948,12 @@ const handleCouponSubmission = async (req, res) => {
     if (submitted.length > 0) {
       const reviewUrl = `${APP_BASE_URL}/admin`;
       const sellerInfo = { name: req.user.name || '', email: sellerEmail };
-      const notify = await twilioWhatsApp.sendCouponSubmissionAlert(submitted, sellerInfo, reviewUrl);
-      const now = new Date().toISOString();
-      const notifyUpdate = {
-        whatsappStatus: notify.success ? 'sent' : 'failed',
-        whatsappSid: notify.success ? (notify.sid || '') : '',
-        whatsappLastAttempt: now,
-        whatsappError: notify.success ? '' : (notify.error || 'Unknown error'),
-      };
-
-      // Update WhatsApp status on every submitted coupon
-      for (const coupon of submitted) {
-        Object.assign(coupon, notifyUpdate);
-        if (supabase.isConfigured()) {
-          try { await supabase.updateCoupon(coupon.id, notifyUpdate); } catch (e) {}
-        }
-        try { await db.updateRow(db.SHEETS.SELLER_COUPONS, 'id', coupon.id, notifyUpdate); } catch (e) {}
+      // The WhatsApp alert is still sent, but its delivery status is no longer
+      // written to the SellerCoupons row.
+      try {
+        await twilioWhatsApp.sendCouponSubmissionAlert(submitted, sellerInfo, reviewUrl);
+      } catch (e) {
+        console.warn('[coupons/submit] WhatsApp alert threw:', e.message);
       }
 
       // ── Email both administrators, from the no-reply mailbox ──
@@ -1067,8 +1031,12 @@ const handleCouponSubmission = async (req, res) => {
   }
 };
 
-router.post('/sell', authenticateToken, sellerAccountLimiter, handleCouponSubmission);
-router.post('/submit', authenticateToken, sellerAccountLimiter, handleCouponSubmission);
+// Submission budget (10 requests/hour per account, 20/hour per IP) is enforced
+// by the distributed limiter in services/rateLimitService.js, shared across all
+// instances. The in-memory per-minute limiter is no longer used here because it
+// counted per-process and reset on cold start.
+router.post('/sell', authenticateToken, handleCouponSubmission);
+router.post('/submit', authenticateToken, handleCouponSubmission);
 
 // Retire the legacy direct-buy route. Coupon codes are only revealed from the
 // payment API after the exact order has been marked PAID server-side.
