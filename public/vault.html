@@ -1344,7 +1344,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="nav-sub" id="payments-sub">
       <div class="nav-sub-item" onclick="showSection('revenue',null)">Revenue Overview</div>
       <div class="nav-sub-item" onclick="showSection('transactions',null)">Payment Transactions</div>
-      <div class="nav-sub-item" onclick="showSection('payouts',null)">Seller Payouts <span class="nbadge" id="payoutsNavBadge">7</span></div>
+      <div class="nav-sub-item" onclick="showSection('payouts',null)">Seller Payout <span class="nbadge" id="payoutsNavBadge">7</span></div>
+            <div class="nav-sub-item" onclick="showSection('payment-methods',null)">Seller Payment Methods</div>
       <div class="nav-sub-item" onclick="showSection('admin-payouts',null)">Admin Payouts</div>
       <div class="nav-sub-item" onclick="showSection('settlements',null)">Monthly Settlements</div>
       <div class="nav-sub-item" onclick="showSection('refunds',null)">Refunds</div>
@@ -2030,7 +2031,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ SELLER PAYOUTS (live) ════════════════ -->
     <div class="section-view" id="sec-payouts">
       <div class="page-title-row">
-        <div><div class="page-title">Seller <span class="gtext">Payouts</span></div><div class="page-subtitle">Pay sellers for their sold coupons. A payout for the price the seller set is created the moment a coupon is bought.</div></div>
+        <div><div class="page-title">Seller <span class="gtext">Payout</span></div><div class="page-subtitle">Pay sellers for their sold coupons. A payout for the price the seller set is created the moment a coupon is bought.</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" id="payoutsRefreshBtn" onclick="loadPayouts()" title="Refresh">↻ Refresh</button>
           <button class="btn btn-primary btn-lg" id="payoutsBatchBtn" onclick="processBatchPayouts()">💰 Process Selected (<span id="payoutsSelectedCount">0</span>)</button>
@@ -2089,10 +2090,19 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </table></div>
       </div>
 
-      <!-- Seller Payout Details (read-only). Sellers save this themselves; the admin only views it. -->
-      <div class="table-card" style="margin-top:22px">
+    </div>
+
+    <!-- ════════════════ SELLER PAYMENT METHODS (read-only) ════════════════ -->
+    <div class="section-view" id="sec-payment-methods">
+      <div class="page-title-row">
+        <div><div class="page-title">Seller <span class="gtext">Payment Methods</span></div><div class="page-subtitle">Where each seller wants to be paid. Sellers save this themselves; admins only view it.</div></div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn btn-ghost btn-sm" onclick="loadSellerPayoutDetails()" title="Refresh">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="table-card">
         <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
-          <h3>Seller Payout Details <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(saved by sellers · view only)</span></h3>
+          <h3>Saved payment methods</h3>
           <span style="font-size:.78rem;color:#6b88aa"><span id="payoutDetailsCount">0</span> sellers</span>
         </div>
         <div class="overflow-x"><table>
@@ -2105,7 +2115,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <th>Last updated</th>
           </tr></thead>
           <tbody id="payoutDetailsBody">
-            <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b88aa">Loading seller payout details...</td></tr>
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b88aa">Loading seller payment methods...</td></tr>
           </tbody>
         </table></div>
       </div>
@@ -3917,7 +3927,8 @@ const sectionTitles = {
   reviews:       ['Reviews', '/ Homepage Testimonials'],
   revenue:       ['Revenue Overview', '/ Financial'],
   transactions:  ['Payment Transactions', '/ History'],
-  payouts:       ['Seller Payouts', '/ Pending'],
+  payouts:       ['Seller Payout', '/ Pending'],
+  'payment-methods': ['Seller Payment', 'Methods'],
   'admin-payouts':['Revenue & Payouts', '/ 40 · 40 · 20 Split'],
   settlements:   ['Monthly Settlements', '/ August 2026'],
   refunds:       ['Refund Requests', '/ Review'],
@@ -3972,6 +3983,9 @@ function showSection(id, navEl) {
   }
   if (id === 'reviews' && typeof loadTestimonials === 'function') {
     loadTestimonials();
+  }
+  if (id === 'payment-methods' && typeof loadSellerPayoutDetails === 'function') {
+    loadSellerPayoutDetails();
   }
   if (id === 'reports' && typeof loadMonthlyReports === 'function') {
     loadMonthlyReports();
@@ -6080,7 +6094,6 @@ async function loadPayouts({ silent = false } = {}) {
 
     renderPayoutStats();
     renderPayoutsTable();
-    loadSellerPayoutDetails();
 
     // Update the nav badge with the live pending count
     const navBadge = document.getElementById('payoutsNavBadge') || document.querySelector('.nav-item .nbadge');
