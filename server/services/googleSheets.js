@@ -108,6 +108,8 @@ const HEADERS = {
     'terms',
     // Free-text "How to use" steps shown on the coupon. Blank ⇒ section hidden.
     'howToUse',
+    // Admin-typed buyer price. Blank ⇒ the automatic 20% / 10% price applies.
+    'manualPrice',
     'isFeatured',
     'isExclusive',
     'isVerified',

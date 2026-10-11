@@ -663,6 +663,7 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       terms,
       howToUse,
       sellingPrice,
+      manualPrice,
       status,
       source,
       isFeatured,
@@ -675,6 +676,15 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
 
     if (!code || !brand) {
       return res.status(400).json({ error: 'Coupon code and brand are required.' });
+    }
+
+    // Manual price is optional. When typed it must be a valid amount; blank is fine.
+    const manualText = manualPrice === undefined || manualPrice === null ? '' : String(manualPrice).trim();
+    if (manualText !== '' && !/^\d+(?:\.\d{1,2})?$/.test(manualText)) {
+      return res.status(400).json({ error: 'Manual selling price must be a number up to 2 decimals.' });
+    }
+    if (manualText !== '' && (Number(manualText) <= 0 || Number(manualText) > 100000)) {
+      return res.status(400).json({ error: 'Manual selling price must be between 1 and 100000.' });
     }
 
     const cleanCode = code.toUpperCase().trim();
@@ -718,6 +728,8 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       originalValue: String(faceValue),
       sellerPayout: payoutForFaceValue(faceValue),
       sellingPrice: sellingPrice || '15',
+      // Admin-typed price; blank keeps the automatic 20% / 10% buyer price.
+      manualPrice: manualPrice === undefined || manualPrice === null ? '' : String(manualPrice).trim(),
       minOrderValue: minOrderValue || '',
       validFrom: validFrom || '',
       expiryDate: expiryDate || '',
@@ -980,10 +992,22 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
     // Payout fields are never taken from the client.
     const safe = stripPayoutFields(body);
 
+    // Manual price: blank clears it (back to the automatic price); otherwise it
+    // must be a valid amount. Checked before any write.
+    if (safe.manualPrice !== undefined) {
+      const mp = safe.manualPrice === null ? '' : String(safe.manualPrice).trim();
+      if (mp !== '') {
+        if (!/^\d+(?:\.\d{1,2})?$/.test(mp) || Number(mp) <= 0 || Number(mp) > 100000) {
+          return res.status(400).json({ error: 'Manual selling price must be a number between 1 and 100000 with up to 2 decimals.' });
+        }
+      }
+      safe.manualPrice = mp;
+    }
+
     const updates = {};
     const COPYABLE = [
       'code', 'brand', 'category', 'title', 'description', 'type', 'discount',
-      'sellingPrice', 'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
+      'sellingPrice', 'manualPrice', 'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
       'terms', 'howToUse', 'status', 'onSale', 'timerOn', 'backgroundImage', 'brandLogo', 'isFeatured',
       'isExclusive', 'isVerified', 'adminNotes', 'proofUrl', 'soldAt', 'buyerEmail',
     ];

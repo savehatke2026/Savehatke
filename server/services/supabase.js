@@ -436,6 +436,9 @@ function toSupabaseCoupon(c) {
     affiliate_link: c.affiliateLink || '',
     terms: c.terms || '',
     how_to_use: c.howToUse || '',
+    // Admin-typed manual price. Only sent when provided, so writes tolerate
+    // databases where setup_coupon_manual_price.sql hasn't been applied yet.
+    ...(c.manualPrice !== undefined ? { manual_price: c.manualPrice === '' || c.manualPrice == null ? null : String(c.manualPrice) } : {}),
     is_featured: Boolean(c.isFeatured === true || c.isFeatured === 'true'),
     is_exclusive: Boolean(c.isExclusive === true || c.isExclusive === 'true'),
     is_verified: Boolean(c.isVerified !== false && c.isVerified !== 'false'),
@@ -490,6 +493,8 @@ function fromSupabaseCoupon(r) {
     affiliateLink: r.affiliate_link || '',
     terms: r.terms || '',
     howToUse: r.how_to_use || '',
+    // Empty string = no manual price, so the automatic 20% / 10% applies.
+    manualPrice: r.manual_price == null ? '' : String(r.manual_price),
     isFeatured: String(Boolean(r.is_featured)),
     isExclusive: String(Boolean(r.is_exclusive)),
     isVerified: String(Boolean(r.is_verified)),
@@ -719,6 +724,7 @@ async function updateCoupon(id, updates) {
     // recompute or store it on the coupon row.
   }
   if (updates.sellingPrice !== undefined) patch.selling_price = String(updates.sellingPrice);
+  if (updates.manualPrice !== undefined) patch.manual_price = updates.manualPrice === '' || updates.manualPrice == null ? null : String(updates.manualPrice);
   if (updates.status !== undefined) patch.status = updates.status.toLowerCase();
   if (updates.soldAt !== undefined) patch.sold_at = updates.soldAt;
   if (updates.buyerEmail !== undefined) patch.buyer_email = updates.buyerEmail;

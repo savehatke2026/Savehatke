@@ -254,11 +254,19 @@ function renderAddCouponImage(field) {
   if (clear) clear.style.display = staged ? '' : 'none';
 }
 
-/** Build the background-image prompt from the coupon fields currently in the form. */
-function buildBackgroundPrompt() {
-  const brand = document.getElementById('acBrand')?.value?.trim() || '[Brand]';
-  const title = document.getElementById('acTitle')?.value?.trim() || '[Coupon title]';
-  const description = document.getElementById('acDiscount')?.value?.trim() || '[Coupon description]';
+/**
+ * Build the background-image prompt from the coupon fields in a form.
+ * `ids` names the brand, title and description inputs, so the Add and Edit
+ * forms can each supply their own. Description falls back to the title, then
+ * the placeholder, matching what the card shows.
+ */
+function buildBackgroundPrompt(ids) {
+  const src = ids || { brand: 'acBrand', title: 'acTitle', description: 'acDescription' };
+  const brand = document.getElementById(src.brand)?.value?.trim() || '[Brand]';
+  const title = document.getElementById(src.title)?.value?.trim() || '[Coupon title]';
+  const description = document.getElementById(src.description)?.value?.trim()
+    || document.getElementById(src.title)?.value?.trim()
+    || '[Coupon description]';
   return [
     'Create a custom background image for a SaveHatke Marketplace coupon box using the following coupon information.',
     '',
@@ -307,8 +315,8 @@ function buildBackgroundPrompt() {
 }
 
 /** Copy the background prompt to the clipboard, with a fallback for non-secure pages. */
-async function copyBackgroundPrompt() {
-  const text = buildBackgroundPrompt();
+async function copyBackgroundPrompt(ids) {
+  const text = buildBackgroundPrompt(ids);
   try {
     if (navigator.clipboard && window.isSecureContext) {
       await navigator.clipboard.writeText(text);
@@ -400,7 +408,9 @@ function initAddCouponForm() {
       const terms = document.getElementById('acTerms')?.value?.trim() || '';
       const howToUse = document.getElementById('acHowToUse')?.value?.trim() || '';
       const description = document.getElementById('acDescription')?.value?.trim() || title || discount || '';
-      const sellingPrice = document.getElementById('acPrice')?.value?.trim() || '15';
+      // Optional admin-typed price. Blank = automatic 20% / 10% buyer price.
+      const manualPrice = document.getElementById('acManualPrice')?.value?.trim() || '';
+      const sellingPrice = '15';
       const status = document.getElementById('acStatus')?.value || 'available';
       const source = document.getElementById('acSource')?.value || 'admin';
       const isFeatured = !!document.getElementById('acFeatured')?.checked;
@@ -431,6 +441,7 @@ function initAddCouponForm() {
           howToUse,
           description,
           sellingPrice,
+          manualPrice,
           status,
           source,
           isFeatured,
@@ -3150,7 +3161,7 @@ function openCouponEdit(id) {
   setV('ceCode', c.code);
   setV('ceCategory', c.category);
   setV('ceDiscount', c.discount);
-  setV('cePrice', c.sellingPrice);
+  setV('ceManualPrice', c.manualPrice);
   setV('ceValue', c.originalValue);
   setV('ceMinOrder', c.minOrderValue);
   setV('ceExpiry', typeof toTimerInputValue === 'function' ? toTimerInputValue(c.expiryDate) : (c.expiryDate || ''));
@@ -3159,6 +3170,7 @@ function openCouponEdit(id) {
   setV('ceLogo', c.brandLogo);
   setV('ceDescription', c.description);
   setV('ceTerms', c.terms);
+  setV('ceHowToUse', c.howToUse);
   // Visibility switch: Published = status 'available'; Hide = 'draft'. Sold and
   // expired are set by the sale/expiry flow, so the switch is locked for them.
   const curStatus = String(c.status || '').toLowerCase();
@@ -3185,6 +3197,11 @@ function openCouponEdit(id) {
   if (typeof openModal === 'function') openModal('couponEditModal');
 }
 
+/** Copy the background prompt from the Edit Coupon modal's own fields. */
+function copyCouponEditBackgroundPrompt() {
+  return copyBackgroundPrompt({ brand: 'ceBrand', title: 'ceTitle', description: 'ceDescription' });
+}
+
 /** Open the Add Coupon popup: a fresh form each time, same shell as Edit Coupon. */
 function openAddCouponModal() {
   const form = document.getElementById('addCouponForm');
@@ -3201,8 +3218,11 @@ async function saveCouponEdit() {
   const brand = v('ceBrand');
   const code = v('ceCode');
   if (!brand || !code) { showToast('Brand and Coupon Code are required.', 'warning'); return; }
-  const price = v('cePrice');
-  if (price !== '' && (isNaN(Number(price)) || Number(price) < 0)) { showToast('Selling price must be a valid number.', 'warning'); return; }
+  const manual = v('ceManualPrice');
+  if (manual !== '' && (isNaN(Number(manual)) || Number(manual) <= 0 || Number(manual) > 100000)) {
+    showToast('Manual selling price must be between 1 and 100000.', 'warning');
+    return;
+  }
   const faceValue = v('ceValue');
   if (faceValue !== '' && (isNaN(Number(faceValue)) || Number(faceValue) < 0)) { showToast('Face / original value must be a valid number.', 'warning'); return; }
 
@@ -3221,7 +3241,7 @@ async function saveCouponEdit() {
     })()),
     type: v('ceType'),
     discount: v('ceDiscount'),
-    sellingPrice: price,
+    manualPrice: manual,
     originalValue: faceValue,
     minOrderValue: v('ceMinOrder'),
     expiryDate: v('ceExpiry'),
@@ -3230,6 +3250,7 @@ async function saveCouponEdit() {
     brandLogo: v('ceLogo'),
     description: v('ceDescription') || title,
     terms: v('ceTerms'),
+    howToUse: v('ceHowToUse'),
     onSale: ck('ceSale'),
     timerOn: ck('ceTimer'),
     isFeatured: ck('ceFeatured'),

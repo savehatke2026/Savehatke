@@ -1901,7 +1901,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" id="acCode" placeholder="e.g. SAVE30" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase" required></div>
             <div class="form-group"><label class="form-label">Coupon Type</label><select class="form-select" id="acType"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
             <div class="form-group"><label class="form-label">Discount Value *</label><input class="form-input" type="text" id="acDiscount" placeholder="e.g. 20% OFF or ₹500 OFF"></div>
-            <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" id="acPrice" placeholder="e.g. 15" value="15"></div>
+            <div class="form-group"><label class="form-label">Manual Selling Price (₹)</label><input class="form-input" type="number" min="1" max="100000" step="0.01" id="acManualPrice" placeholder="Leave empty for automatic 20% / 10%"><div class="form-hint">Optional. When set, buyers pay this amount instead of the automatic price.</div></div>
             <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" id="acMinOrder" placeholder="e.g. 999"></div>
             <div class="form-group"><label class="form-label">Original Value / Max Discount (₹)</label><input class="form-input" type="number" id="acValue" placeholder="e.g. 500"></div>
             <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="acExpiry"></div>
@@ -3687,7 +3687,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 
 <!-- ══ EDIT COUPON — full edit interface opened by the card pencil ══ -->
 <div class="modal-overlay" id="couponEditModal">
-  <div class="modal" style="max-width:720px;width:96%">
+  <div class="modal" style="max-width:720px;width:96%;max-height:92vh;overflow-y:auto">
     <button class="modal-close" onclick="closeModal('couponEditModal')" aria-label="Close edit coupon">✕</button>
     <div class="modal-hdr">
       <div>
@@ -3700,18 +3700,18 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="form-group"><label class="form-label">Coupon Title</label><input class="form-input" type="text" id="ceTitle" placeholder="e.g. 30% Off Skincare"></div>
       <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" id="ceCode" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase" placeholder="e.g. SAVE30"></div>
       <div class="form-group"><label class="form-label">Category</label><input class="form-input" type="text" id="ceCategory" placeholder="e.g. Fashion"></div>
+      <div class="form-group"><label class="form-label">Coupon Type</label><select class="form-select" id="ceType"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
+      <div class="form-group"><label class="form-label">Discount Value</label><input class="form-input" type="text" id="ceDiscount" placeholder="e.g. 20% OFF or ₹500 OFF"></div>
+      <div class="form-group"><label class="form-label">Manual Selling Price (₹)</label><input class="form-input" type="number" min="1" max="100000" step="0.01" id="ceManualPrice" placeholder="Leave empty for automatic 20% / 10%"><div class="form-hint">Optional. Clear it to go back to the automatic price.</div></div>
+      <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" min="0" id="ceMinOrder"></div>
+      <div class="form-group"><label class="form-label">Original Value / Max Discount (₹)</label><input class="form-input" type="number" min="0" id="ceValue"></div>
+      <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="ceExpiry"></div>
+      <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" id="ceLink" placeholder="https://..."></div>
       <div class="form-group"><label class="form-label">Marketplace visibility</label>
         <label class="form-check" style="margin-top:6px"><input type="checkbox" id="ceVisible"> <span id="ceVisibleLabel">Published — shown on the marketplace</span></label>
         <div class="form-hint" id="ceVisibleHint">Turn off to hide this coupon from buyers. It stays in the admin list.</div>
         <div class="form-hint" id="ceLockedNote" style="display:none;color:#ffb74d"></div>
       </div>
-      <div class="form-group"><label class="form-label">Coupon Type</label><select class="form-select" id="ceType"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
-      <div class="form-group"><label class="form-label">Discount / Offer</label><input class="form-input" type="text" id="ceDiscount" placeholder="e.g. 50% OFF"></div>
-      <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" min="0" id="cePrice"></div>
-      <div class="form-group"><label class="form-label">Face / Original Value (₹)</label><input class="form-input" type="number" min="0" id="ceValue"></div>
-      <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" min="0" id="ceMinOrder"></div>
-      <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="ceExpiry"></div>
-      <div class="form-group"><label class="form-label">Affiliate Link</label><input class="form-input" type="url" id="ceLink" placeholder="https://..."></div>
       <div class="form-group" style="grid-column:1/-1">
         <label class="form-label">Brand Logo</label>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
@@ -3733,12 +3733,14 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <button type="button" class="btn btn-ghost btn-sm" id="ceBgClearBtn" style="display:none" onclick="clearCouponImage('backgroundImage')">✕ Clear</button>
           <div id="ceBgPreview" style="width:76px;height:44px;border-radius:8px;background:#0d1b30;border:1px solid rgba(79,195,247,.2);display:none;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto"><img id="ceBgPreviewImg" alt="" style="width:100%;height:100%;object-fit:cover"></div>
         </div>
+        <div style="margin-top:8px"><button type="button" class="btn btn-ghost btn-sm" id="ceBgPromptTag" onclick="copyCouponEditBackgroundPrompt()" title="Copy an image-generation prompt for this coupon">📋 Copy background prompt</button></div>
         <div class="form-hint">Supported: PNG, JPG or WebP, up to 3 MB. Hero image on the coupon card. Uploading applies immediately. Leave empty for the default SaveHatke background.</div>
         <div class="form-hint" id="ceBgStatus" style="display:none"></div>
       </div>
-      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Description</label><textarea class="form-textarea" id="ceDescription" placeholder="Short description shown on the card..."></textarea></div>
-      <div class="form-group" style="grid-column:1/-1"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" id="ceTerms" placeholder="Enter terms and conditions..."></textarea></div>
     </div>
+    <div class="form-group" style="margin-top:14px"><label class="form-label">Coupon Description</label><textarea class="form-textarea" id="ceDescription" rows="2" placeholder="Short description shown on the card, e.g. Valid on all skincare products"></textarea><div class="form-hint">Leave empty to use the coupon title.</div></div>
+    <div class="form-group" style="margin-top:14px"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" id="ceTerms" placeholder="Enter terms and conditions..."></textarea></div>
+    <div class="form-group" style="margin-top:14px"><label class="form-label">How to use</label><textarea class="form-textarea" id="ceHowToUse" placeholder="Steps to redeem this coupon, e.g. 1. Add items to cart 2. Enter the code at checkout"></textarea></div>
     <div style="display:flex;gap:16px;margin-top:16px;flex-wrap:wrap">
       <label class="form-check"><input type="checkbox" id="ceSale"> 🔥 Show Sale badge</label>
       <label class="form-check"><input type="checkbox" id="ceTimer"> ⏱ Show countdown timer</label>

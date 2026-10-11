@@ -59,6 +59,21 @@ function parseFaceValue(faceValue) {
 }
 
 /**
+ * Parse an admin-typed manual selling price. Returns a number, or null when
+ * the value is empty or not a valid positive amount (so the formula applies).
+ * Same bounds the seller-proposed price uses: 1 to 100000, up to 2 decimals.
+ */
+function parseManualPrice(value) {
+  if (value === undefined || value === null) return null;
+  const text = String(value).trim();
+  if (text === '') return null;
+  if (!/^\d+(?:\.\d{1,2})?$/.test(text)) return null;
+  const n = Number(text);
+  if (!Number.isFinite(n) || n <= 0 || n > 100000) return null;
+  return n;
+}
+
+/**
  * Time remaining in milliseconds until the coupon expires. Negative when
  * already expired, +Infinity when expiry is missing/unparseable (we treat
  * missing expiry as "indefinitely valid" so an admin coupon without an
@@ -106,6 +121,21 @@ function getBuyerPrice(coupon, now = Date.now()) {
       rate: NORMAL_RATE,
       bandLabel: expired ? 'Expired' : '20% of face value',
       faceValue: Number.isNaN(faceValue) ? NaN : faceValue,
+      hoursRemaining: Number.isFinite(msLeft) ? Math.max(0, msLeft / MS_PER_HOUR) : Number.POSITIVE_INFINITY,
+    };
+  }
+
+  // An admin-typed manual price replaces the formula. Empty or invalid values
+  // fall through to the 20% / 10% rule, so existing coupons are unchanged.
+  const manual = parseManualPrice(coupon && coupon.manualPrice);
+  if (manual !== null) {
+    return {
+      price: manual,
+      purchasable: true,
+      expired: false,
+      rate: null,
+      bandLabel: 'Manual price',
+      faceValue,
       hoursRemaining: Number.isFinite(msLeft) ? Math.max(0, msLeft / MS_PER_HOUR) : Number.POSITIVE_INFINITY,
     };
   }
