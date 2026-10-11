@@ -851,6 +851,7 @@ const handleCouponSubmission = async (req, res) => {
       const itemMinOrder = cleanStr(c.minOrderValue, 20);
       const itemAffiliate = cleanStr(c.affiliateLink, 500);
       const itemTerms = cleanStr(c.terms, 1000);
+      const itemHowToUse = cleanStr(c.howToUse, 1000);
       const itemValidFrom = cleanStr(c.validFrom, 30);
       if (itemValidFrom && isNaN(Date.parse(itemValidFrom))) {
         return res.status(400).json({ error: `Coupon ${i + 1}: valid-from date is not a valid date.` });
@@ -913,6 +914,7 @@ const handleCouponSubmission = async (req, res) => {
         validFrom: itemValidFrom,
         affiliateLink: itemAffiliate,
         terms: itemTerms,
+        howToUse: itemHowToUse,
         sellingPrice: itemPrice,
         expiryDate: itemExpiry,
         proofUrl: sanitizeProofUrl(c.proofUrl) || safeProofUrl,

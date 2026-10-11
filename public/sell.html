@@ -1628,6 +1628,17 @@ function renderCouponCard(id, index) {
   }));
 
   card.appendChild(makeField({
+    id: 'description-' + id, label: 'Description', kind: 'textarea',
+    placeholder: 'e.g. Valid on all skincare products. Shown on the coupon card.',
+    hint: 'Leave empty to use the coupon title.',
+  }));
+
+  card.appendChild(makeField({
+    id: 'howtouse-' + id, label: 'How to Use', kind: 'textarea',
+    placeholder: 'e.g. 1. Add items to cart 2. Enter the code at checkout',
+  }));
+
+  card.appendChild(makeField({
     id: 'terms-' + id, label: 'Terms & Conditions', kind: 'textarea',
     placeholder: 'e.g. Valid on orders above ₹999. One use per account. Not valid with other offers.',
   }));
@@ -2878,6 +2889,8 @@ function collectCoupons() {
       faceValue: val('value', id),
       expiryDate: val('expiry', id),
       affiliateLink: val('link', id),
+      description: val('description', id),
+      howToUse: val('howtouse', id),
       terms: val('terms', id),
       proofFile: proofFiles[id] || null
     };
@@ -3280,8 +3293,9 @@ async function submitCoupons() {
           category: c.category || FALLBACK_CATEGORY,
           title: orNone(c.title),
           // The server stores `description` and falls back to the title when it
-          // is blank; this form has no separate description field.
-          description: orNone(c.title),
+          // is blank.
+          description: orNone(c.description) || orNone(c.title),
+          howToUse: orNone(c.howToUse),
           type: orNone(c.type),
           discount: orNone(c.discount),
           sellingPrice: c.sellingPrice ? Number(c.sellingPrice) : undefined,
