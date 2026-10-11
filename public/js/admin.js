@@ -320,10 +320,11 @@ function initAddCouponForm() {
       const discount = document.getElementById('acDiscount')?.value?.trim() || '';
       const originalValue = document.getElementById('acValue')?.value?.trim() || discount || '0';
       const minOrderValue = document.getElementById('acMinOrder')?.value?.trim() || '';
-      const validFrom = document.getElementById('acValidFrom')?.value || '';
+      const validFrom = '';
       const expiryDate = document.getElementById('acExpiry')?.value || '';
       const affiliateLink = document.getElementById('acLink')?.value?.trim() || '';
       const terms = document.getElementById('acTerms')?.value?.trim() || '';
+      const howToUse = document.getElementById('acHowToUse')?.value?.trim() || '';
       const description = title || discount || '';
       const sellingPrice = document.getElementById('acPrice')?.value?.trim() || '15';
       const status = document.getElementById('acStatus')?.value || 'available';
@@ -353,6 +354,7 @@ function initAddCouponForm() {
           expiryDate,
           affiliateLink,
           terms,
+          howToUse,
           description,
           sellingPrice,
           status,
@@ -418,10 +420,8 @@ function resetAddCouponForm(form) {
 
   const brandSelectedText = document.getElementById('brandSelectedText');
   if (brandSelectedText) {
-    brandSelectedText.innerHTML = `
-      <span class="brand-logo-fallback">🏬</span>
-      <span>— Select Brand —</span>
-    `;
+    brandSelectedText.innerHTML = `<span class="brand-logo-fallback">🏬</span><span>— Select Brand —</span>`;
+    // Keep the empty placeholder as plain text, not the white logo box.
   }
 
   // Drop any staged images so they never carry over to the next coupon.

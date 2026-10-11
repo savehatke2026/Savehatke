@@ -102,6 +102,8 @@ const HEADERS = {
     'status',
     'affiliateLink',
     'terms',
+    // Free-text "How to use" steps shown on the coupon. Blank ⇒ section hidden.
+    'howToUse',
     'isFeatured',
     'isExclusive',
     'isVerified',

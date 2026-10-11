@@ -645,6 +645,7 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       expiryDate,
       affiliateLink,
       terms,
+      howToUse,
       sellingPrice,
       status,
       source,
@@ -706,6 +707,7 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       expiryDate: expiryDate || '',
       affiliateLink: affiliateLink ? affiliateLink.trim() : '',
       terms: terms ? terms.trim() : '',
+      howToUse: howToUse ? String(howToUse).trim() : '',
       isFeatured: String(Boolean(isFeatured)),
       isExclusive: String(Boolean(isExclusive)),
       isVerified: String(isVerified !== false),
@@ -940,7 +942,7 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
     const COPYABLE = [
       'code', 'brand', 'category', 'title', 'description', 'type', 'discount',
       'sellingPrice', 'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
-      'terms', 'status', 'onSale', 'timerOn', 'backgroundImage', 'brandLogo', 'isFeatured',
+      'terms', 'howToUse', 'status', 'onSale', 'timerOn', 'backgroundImage', 'brandLogo', 'isFeatured',
       'isExclusive', 'isVerified', 'adminNotes', 'proofUrl', 'soldAt', 'buyerEmail',
     ];
     for (const key of COPYABLE) {

@@ -544,6 +544,9 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .st-thumbs{display:flex;gap:4px;align-items:center}
 .st-thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid rgba(79,195,247,.2);background:#0b1a33}
 .st-thumb-miss{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:6px;border:1px dashed rgba(79,195,247,.25);color:#6b88aa;font-size:.8rem}
+/* Add Coupon brand picker: selected brand as a white square holding only the logo. */
+.acl-brand-box{width:44px;height:44px;border-radius:10px;background:#fff;border:1px solid rgba(79,195,247,.2);display:inline-flex;align-items:center;justify-content:center;padding:5px;overflow:hidden;flex-shrink:0}
+.acl-brand-box img{max-width:100%;max-height:100%;object-fit:contain}
 /* Seller table brand cell: a square box holding only the logo (no name). */
 .st-brand-box{width:52px;height:52px;border-radius:10px;background:#fff;border:1px solid rgba(79,195,247,.2);display:flex;align-items:center;justify-content:center;padding:6px;overflow:hidden;flex-shrink:0}
 .st-brand-box img{max-width:100%;max-height:100%;object-fit:contain}
@@ -1900,7 +1903,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" id="acPrice" placeholder="e.g. 15" value="15"></div>
             <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" id="acMinOrder" placeholder="e.g. 999"></div>
             <div class="form-group"><label class="form-label">Original Value / Max Discount (₹)</label><input class="form-input" type="number" id="acValue" placeholder="e.g. 500"></div>
-            <div class="form-group"><label class="form-label">Valid From</label><input class="form-input" type="date" id="acValidFrom"></div>
             <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="acExpiry"></div>
             <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select" id="acSource"><option value="admin">Admin</option><option value="partner">Partner</option></select></div>
             <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="acStatus"><option value="available">Active (Available)</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option></select></div>
@@ -1929,6 +1931,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
             </div>
           </div>
           <div class="form-group" style="margin-top:14px"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" id="acTerms" placeholder="Enter terms and conditions..."></textarea></div>
+          <div class="form-group" style="margin-top:14px"><label class="form-label">How to use</label><textarea class="form-textarea" id="acHowToUse" placeholder="Steps to redeem this coupon, e.g. 1. Add items to cart 2. Enter the code at checkout"></textarea></div>
           <div style="display:flex;gap:16px;margin-top:14px;flex-wrap:wrap">
             <label class="form-check"><input type="checkbox" id="acFeatured"> Featured Coupon</label>
             <label class="form-check"><input type="checkbox" id="acExclusive"> Exclusive Deal</label>
@@ -4884,7 +4887,9 @@ function initBrandSelector() {
           ? `<img src="${logo}" class="${logoCls}" alt="${val}" onerror="this.outerHTML='<span class=\\'brand-logo-fallback\\'>${icon||'🏬'}</span>'">`
           : `<span class="brand-logo-fallback">${icon || '🏬'}</span>`;
 
-        selectedText.innerHTML = wordmark ? renderLogo : `${renderLogo}<span>${val}</span>`;
+        // Selected brand shows as a white square with only the logo; the name is
+        // kept in the title for hover and is still stored in the hidden field.
+        selectedText.innerHTML = `<span class="acl-brand-box" title="${val}">${renderLogo}</span>`;
         container.classList.remove('open');
       });
     });
