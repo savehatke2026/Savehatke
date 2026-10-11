@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="preconnect" href="https://challenges.cloudflare.com" crossorigin>
+  <!-- Cloudflare Turnstile CAPTCHA (rendered explicitly once the site key loads) -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onSellTurnstileLoad" async defer></script>
   <title>Sell Eligible Coupons – SaveHatke</title>
   <meta name="description" content="List eligible unused coupons for sale on SaveHatke. Set your price, submit the coupon for review, and get paid after it sells.">
   <link rel="canonical" href="https://savehatke.vercel.app/sell">
@@ -798,16 +801,15 @@
 
         <div id="reviewAllCoupons"></div>
 
-        <div class="earn-pill">
-          <div class="earn-icon">💰</div>
-          <div class="earn-amount" id="earnTotal">₹0</div>
-          <div class="earn-sub">Your payout — paid to your account after verification (within 24 hours)</div>
+        <!-- Cloudflare Turnstile CAPTCHA — must be solved before Submit is enabled -->
+        <div class="fgroup" id="sellTurnstileGroup" style="display:flex;justify-content:center;margin-bottom:20px">
+          <div class="cf-turnstile" id="sellTurnstile" data-theme="dark"></div>
         </div>
 
         <div class="step-actions">
           <button type="button" class="btn btn-secondary" onclick="goToStep(1)">← Edit</button>
-          <button type="button" class="btn btn-success btn-lg w-full" id="submitSellBtn" onclick="submitCoupons()">
-            ✅ Submit &amp; Earn
+          <button type="button" class="btn btn-success btn-lg w-full" id="submitSellBtn" onclick="submitCoupons()" disabled>
+            Submit
           </button>
         </div>
       </div>
@@ -3075,11 +3077,7 @@ function buildReviewSummary() {
   // Update count and earn total
   const count = coupons.length;
   document.getElementById('reviewTotalCount').textContent = count;
-  document.getElementById('earnTotal').textContent = formatPayout(payoutTotal(coupons));
 
-  // Update submit button label
-  const submitBtn = document.getElementById('submitSellBtn');
-  if (submitBtn) submitBtn.innerHTML = '✅ Submit &amp; Earn ' + formatPayout(payoutTotal(coupons));
 }
 
 /* ── Step navigation (2 steps: 1 = details, 2 = review) ── */
@@ -3115,6 +3113,75 @@ function updateStepper(active) {
   if (line12) line12.classList.toggle('done', active > 1);
 }
 
+/* ── Cloudflare Turnstile (sell step 2) ──
+   Site key comes from the server (kept only in .env). Submit stays disabled
+   until the widget is solved, and the token is single-use. */
+let sellTurnstileReady = false;
+let sellTurnstileWidgetId = null;
+let sellTurnstileToken = '';
+
+const sellTurnstileApiReady = new Promise((resolve) => {
+  if (typeof turnstile !== 'undefined' && turnstile.render) return resolve();
+  window.onSellTurnstileLoad = () => resolve();
+  setTimeout(resolve, 8000); // safety cap if the script stalls
+});
+
+function setSellSubmitEnabled(enabled) {
+  const btn = document.getElementById('submitSellBtn');
+  if (btn) btn.disabled = !enabled;
+}
+
+async function initSellTurnstile() {
+  const container = document.getElementById('sellTurnstile');
+  if (!container) return;
+  try {
+    const res = await fetch((window.API_BASE || '/api') + '/turnstile-config');
+    const { siteKey } = await res.json();
+    if (!siteKey) {
+      // CAPTCHA not configured on this deployment: hide it and allow submit.
+      const group = document.getElementById('sellTurnstileGroup');
+      if (group) group.style.display = 'none';
+      setSellSubmitEnabled(true);
+      return;
+    }
+    await sellTurnstileApiReady;
+    if (typeof turnstile !== 'undefined' && turnstile.render) {
+      sellTurnstileWidgetId = turnstile.render(container, {
+        sitekey: siteKey,
+        theme: 'dark',
+        callback: (token) => { sellTurnstileToken = token; setSellSubmitEnabled(true); },
+        'expired-callback': () => { sellTurnstileToken = ''; setSellSubmitEnabled(false); },
+        'error-callback': () => {
+          // Domain not registered in the Turnstile widget settings (error 110200), etc.
+          sellTurnstileToken = '';
+          sellTurnstileReady = false;
+          container.innerHTML = '<small style="color:#ffb4a2">CAPTCHA could not load for this domain. Check your connection and refresh.</small>';
+          setSellSubmitEnabled(false);
+        },
+      });
+      sellTurnstileReady = true;
+    }
+  } catch (e) {
+    console.warn('Turnstile init failed:', e);
+  }
+}
+
+function getSellTurnstileToken() {
+  const token = sellTurnstileToken || '';
+  sellTurnstileToken = '';
+  return token;
+}
+
+function resetSellTurnstile() {
+  sellTurnstileToken = '';
+  if (typeof turnstile !== 'undefined' && turnstile.reset && sellTurnstileWidgetId !== null) {
+    try { turnstile.reset(sellTurnstileWidgetId); } catch (e) { /* widget may not exist yet */ }
+  }
+  setSellSubmitEnabled(!sellTurnstileReady);
+}
+
+initSellTurnstile();
+
 /* ── Submit all coupons ── */
 async function submitCoupons() {
   const btn = document.getElementById('submitSellBtn');
@@ -3123,8 +3190,15 @@ async function submitCoupons() {
 
   const restoreBtn = () => {
     btn.disabled = false;
-    btn.innerHTML = '✅ Submit &amp; Earn ' + formatPayout(payoutTotal(collectCoupons()));
+    btn.textContent = 'Submit';
   };
+
+  // Turnstile token is single-use: read it now, then reset the widget for any retry.
+  const sellCaptchaToken = getSellTurnstileToken();
+  if (sellTurnstileReady && !sellCaptchaToken) {
+    showToast('Please complete the CAPTCHA before submitting.', 'warning');
+    return;
+  }
 
   btn.disabled = true;
 
@@ -3197,6 +3271,7 @@ async function submitCoupons() {
     const data = await api('/coupons/submit', {
       method: 'POST',
       body: {
+        cfTurnstileToken: sellCaptchaToken,
         category: coupons[0].category || FALLBACK_CATEGORY,
         proofUrl: proofUrls[0] || aiDriveUrlFor(coupons[0].id) || undefined,
         coupons: coupons.map((c, i) => ({
@@ -3274,7 +3349,8 @@ function resetForm() {
 
   // Reset submit button
   const btn = document.getElementById('submitSellBtn');
-  if (btn) { btn.disabled = false; btn.innerHTML = '✅ Submit &amp; Earn'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Submit'; }
+  resetSellTurnstile();
 
   updateStepper(1);
   window.scrollTo({ top: 0, behavior: 'smooth' });

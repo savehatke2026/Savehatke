@@ -12,6 +12,7 @@ const paymentStore = require('../services/paymentStore');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const googleDrive = require('../services/googleDrive');
+const { verifyTurnstile } = require('../utils/turnstile');
 const couponVision = require('../services/couponVision');
 // The single seller-payout formula (7% of face value, rounded to the paise).
 // Marketplace sellingPrice is never an input to it.
@@ -673,6 +674,12 @@ const handleCouponSubmission = async (req, res) => {
     const maySell = await canSellCoupons(req.user);
     if (!maySell) {
       return res.status(403).json({ error: req.user ? SELL_UNLOCK_MESSAGE : SELL_GATE_MESSAGE });
+    }
+
+    // Cloudflare Turnstile — a bot check before any listing is stored.
+    const captcha = await verifyTurnstile(req, 'sell-submit');
+    if (!captcha.ok) {
+      return res.status(captcha.unavailable ? 503 : 400).json({ error: captcha.error });
     }
 
     const {
