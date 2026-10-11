@@ -574,7 +574,9 @@ router.get('/admin/payouts', authenticateToken, requireAdmin, async (req, res) =
 router.get('/admin/seller-payout-details', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { search } = req.query;
-    const rows = await db.getRowsFresh(db.SHEETS.SELLER_PAYOUT_DETAILS);
+    // Strict read: this page must show what is in the sheet. A strict read throws
+    // when Sheets is unreachable instead of silently showing the in-memory copy.
+    const rows = await db.getRows(db.SHEETS.SELLER_PAYOUT_DETAILS, { strict: true });
     let details = rows.map((d) => ({
       id: d.id || '',
       sellerEmail: String(d.sellerEmail || '').toLowerCase().trim(),
