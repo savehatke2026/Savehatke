@@ -725,6 +725,9 @@ async function updateCoupon(id, updates) {
   }
   if (updates.sellingPrice !== undefined) patch.selling_price = String(updates.sellingPrice);
   if (updates.manualPrice !== undefined) patch.manual_price = updates.manualPrice === '' || updates.manualPrice == null ? null : String(updates.manualPrice);
+  // Free-text "How to use" steps, edited from Edit Coupon. Only sent when
+  // provided, so the update still works before setup_coupon_how_to_use.sql runs.
+  if (updates.howToUse !== undefined) patch.how_to_use = updates.howToUse || null;
   if (updates.status !== undefined) patch.status = updates.status.toLowerCase();
   if (updates.soldAt !== undefined) patch.sold_at = updates.soldAt;
   if (updates.buyerEmail !== undefined) patch.buyer_email = updates.buyerEmail;

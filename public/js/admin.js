@@ -3241,7 +3241,12 @@ async function saveCouponEdit() {
     })()),
     type: v('ceType'),
     discount: v('ceDiscount'),
-    manualPrice: manual,
+    // Only sent when the admin actually changed it, so an unrelated save never
+    // touches the manual_price column (and works before its migration runs).
+    ...((() => {
+      const current = String((findCouponById(couponEditId) || {}).manualPrice || '').trim();
+      return manual === current ? {} : { manualPrice: manual };
+    })()),
     originalValue: faceValue,
     minOrderValue: v('ceMinOrder'),
     expiryDate: v('ceExpiry'),
