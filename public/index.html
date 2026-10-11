@@ -1677,6 +1677,9 @@
           } else if (couponsTradedContainer) {
             couponsTradedContainer.style.display = 'none';
           }
+          // Recently Purchased strip — admin toggle (Settings page).
+          const recentEl = document.querySelector('.recent-purchases');
+          if (recentEl) recentEl.hidden = !isVisible(s.showRecentPurchases);
           // Saved by Users
           const savedByUsersEl = document.getElementById('stat-saved-by-users');
           const savedByUsersContainer = savedByUsersEl ? savedByUsersEl.parentElement : null;

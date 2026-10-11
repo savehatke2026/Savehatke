@@ -329,7 +329,7 @@ const HEADERS = {
     'attachmentMime', 'attachmentSize', 'attachmentFileId', 'attachmentUploadedAt',
   ],
   [SHEETS.SETTINGS]: [
-    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers',
+    'key', 'activeUsers', 'couponsTraded', 'savedByUsers', 'platformName', 'adminEmail', 'showActiveUsers', 'showCouponsTraded', 'showSavedByUsers', 'showRecentPurchases',
     // heroBadge/showHeroBadge were removed — the landing-page hero badge is now
     // permanent. The two columns may still exist in live sheets; rows are
     // mapped by header name, so they are simply never read or written again.
@@ -1445,6 +1445,7 @@ async function getSettings() {
     showActiveUsers: true,
     showCouponsTraded: true,
     showSavedByUsers: true,
+    showRecentPurchases: true,
     testimonialsLabel: 'Testimonials',
     testimonialsTitle: 'Loved by',
     testimonialsTitleHighlight: '10,000+ Smart Shoppers',
@@ -1474,6 +1475,8 @@ async function getSettings() {
         showActiveUsers: toSettingBool(existing.showActiveUsers),
         showCouponsTraded: toSettingBool(existing.showCouponsTraded),
         showSavedByUsers: toSettingBool(existing.showSavedByUsers),
+        // A blank cell means the row predates this toggle, so it stays on.
+        showRecentPurchases: String(existing.showRecentPurchases == null ? '' : existing.showRecentPurchases).trim() === '' ? true : toSettingBool(existing.showRecentPurchases),
         showTestimonials: written ? toSettingBool(existing.showTestimonials) : defaultSettings.showTestimonials,
         // Unlike the display toggles this one defaults to false: a blank cell
         // means "the starter testimonials have never been written".
@@ -1517,6 +1520,7 @@ async function saveSettings(data) {
     showActiveUsers: flag('showActiveUsers'),
     showCouponsTraded: flag('showCouponsTraded'),
     showSavedByUsers: flag('showSavedByUsers'),
+    showRecentPurchases: flag('showRecentPurchases'),
     testimonialsLabel: text('testimonialsLabel', 60),
     testimonialsTitle: text('testimonialsTitle', 120),
     testimonialsTitleHighlight: text('testimonialsTitleHighlight', 120),

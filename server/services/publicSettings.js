@@ -40,6 +40,7 @@ async function readPublicSettings() {
           showActiveUsers: mongoSetting.showActiveUsers !== undefined ? mongoSetting.showActiveUsers : settings.showActiveUsers,
           showCouponsTraded: mongoSetting.showCouponsTraded !== undefined ? mongoSetting.showCouponsTraded : settings.showCouponsTraded,
           showSavedByUsers: mongoSetting.showSavedByUsers !== undefined ? mongoSetting.showSavedByUsers : settings.showSavedByUsers,
+          showRecentPurchases: mongoSetting.showRecentPurchases !== undefined ? mongoSetting.showRecentPurchases : settings.showRecentPurchases,
         };
       }
     } catch (e) { /* Mongo read failed — the Sheets values stand */ }
@@ -51,6 +52,7 @@ async function readPublicSettings() {
   settings.showActiveUsers = toBool(settings.showActiveUsers);
   settings.showCouponsTraded = toBool(settings.showCouponsTraded);
   settings.showSavedByUsers = toBool(settings.showSavedByUsers);
+  settings.showRecentPurchases = settings.showRecentPurchases === undefined ? true : toBool(settings.showRecentPurchases);
   return settings;
 }
 
@@ -108,6 +110,12 @@ function renderLandingStats(html, s) {
         (m, a) => '<div style="display:none">' + a
       );
     }
+  }
+  // "Recently Purchased" strip: hidden from the first paint when the admin
+  // toggle is off. data-ssr lets the client loader know the server already set it.
+  const recentOn = s.showRecentPurchases === true || s.showRecentPurchases === 'true';
+  if (!recentOn) {
+    html = html.replace('<section class="recent-purchases"', '<section class="recent-purchases" hidden');
   }
   return html.replace('<div class="hero-stats">', '<div class="hero-stats" data-ssr="1">');
 }

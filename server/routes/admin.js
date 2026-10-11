@@ -2174,6 +2174,7 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
         showActiveUsers: true,
         showCouponsTraded: true,
         showSavedByUsers: true,
+        showRecentPurchases: true,
         testimonialsLabel: 'Testimonials',
         testimonialsTitle: 'Loved by',
         testimonialsTitleHighlight: '10,000+ Smart Shoppers',
@@ -2187,7 +2188,7 @@ router.get('/settings', authenticateToken, requireAdmin, async (req, res) => {
 // PUT /api/admin/settings — Update system settings (saved to Google Sheets & MongoDB)
 router.put('/settings', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
-    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers } = req.body;
+    const { activeUsers, couponsTraded, savedByUsers, platformName, adminEmail, showActiveUsers, showCouponsTraded, showSavedByUsers, showRecentPurchases } = req.body;
     const {
       testimonialsLabel, testimonialsTitle, testimonialsTitleHighlight,
       testimonialsSubtitle, showTestimonials,
@@ -2206,6 +2207,8 @@ router.put('/settings', authenticateToken, requireAdmin, adminMutationLimiter, a
       showActiveUsers: showActiveUsers !== undefined ? Boolean(showActiveUsers) : true,
       showCouponsTraded: showCouponsTraded !== undefined ? Boolean(showCouponsTraded) : true,
       showSavedByUsers: showSavedByUsers !== undefined ? Boolean(showSavedByUsers) : true,
+      // Whole "Recently Purchased" strip on the homepage. Omitted = keep stored value.
+      showRecentPurchases: showRecentPurchases !== undefined ? Boolean(showRecentPurchases) : undefined,
       // Heading above the homepage testimonial cards. The cards themselves are
       // managed through /api/testimonials, not here.
       testimonialsLabel: text(testimonialsLabel, 60),

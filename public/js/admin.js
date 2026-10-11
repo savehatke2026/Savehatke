@@ -3947,6 +3947,7 @@ async function loadSystemSettings() {
       if (document.getElementById('toggleActiveUsers')) document.getElementById('toggleActiveUsers').checked = s.showActiveUsers !== false;
       if (document.getElementById('toggleCouponsTraded')) document.getElementById('toggleCouponsTraded').checked = s.showCouponsTraded !== false;
       if (document.getElementById('toggleSavedByUsers')) document.getElementById('toggleSavedByUsers').checked = s.showSavedByUsers !== false;
+      if (document.getElementById('toggleRecentPurchases')) document.getElementById('toggleRecentPurchases').checked = s.showRecentPurchases !== false;
       // Homepage testimonials section heading (the cards live in Reviews).
       // ?? not ||: a heading line the admin cleared must come back empty.
       const tmText = (v, dflt) => (v === undefined || v === null ? dflt : v);
@@ -3978,6 +3979,7 @@ async function saveSystemSettings() {
     const showActiveUsers = document.getElementById('toggleActiveUsers')?.checked !== false;
     const showCouponsTraded = document.getElementById('toggleCouponsTraded')?.checked !== false;
     const showSavedByUsers = document.getElementById('toggleSavedByUsers')?.checked !== false;
+    const showRecentPurchases = document.getElementById('toggleRecentPurchases')?.checked !== false;
     // Homepage testimonials section heading. Sent as typed, empty included —
     // clearing a line is how an admin removes it from the homepage.
     const tmField = (id) => (document.getElementById(id)?.value ?? '').trim();
@@ -3999,6 +4001,7 @@ async function saveSystemSettings() {
         showActiveUsers,
         showCouponsTraded,
         showSavedByUsers,
+        showRecentPurchases,
         testimonialsLabel,
         testimonialsTitle,
         testimonialsTitleHighlight,
