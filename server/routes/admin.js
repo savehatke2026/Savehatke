@@ -820,6 +820,7 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
       expiryDate: c.expiryDate || '',
       addedAt: c.addedAt || '',
       sellerEmail: c.sellerEmail || '',
+      sellerName: c.sellerName || '',
       status: c.status || '',
       brandLogo: c.brandLogo || '',
       backgroundImage: c.backgroundImage || '',

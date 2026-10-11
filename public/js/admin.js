@@ -509,7 +509,7 @@ async function loadInventory() {
           <div class="overflow-x">
             <table class="appr-table st-table" style="min-width:1080px">
               <thead><tr>
-                <th>ID</th><th>Brand</th><th>Title</th><th>Seller</th><th>Category</th>
+                <th>Brand</th><th>Seller</th>
                 <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Images</th><th>Status</th><th class="ta-right">Actions</th>
               </tr></thead>
               <tbody>${coupons.map(sellerRowHtml).join('')}</tbody>
@@ -1129,7 +1129,7 @@ async function loadPending() {
             <div class="overflow-x">
               <table class="appr-table st-table" style="min-width:1080px">
                 <thead><tr>
-                  <th>ID</th><th>Brand</th><th>Title</th><th>Seller</th><th>Category</th>
+                  <th>Brand</th><th>Seller</th>
                   <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Images</th><th>Status</th><th class="ta-right">Actions</th>
                 </tr></thead>
                 <tbody>${rows.map(sellerRowHtml).join('')}</tbody>
@@ -1174,11 +1174,8 @@ function sellerRowHtml(c) {
     : `<span class="st-thumb-miss" title="No ${escHtml(label)}">—</span>`;
   return `
     <tr data-coupon-id="${id}">
-      <td><code class="inv-code">${id.slice(0, 8)}…</code></td>
       <td>${cmBrandCellHtml(c.brand || '', c)}</td>
-      <td class="st-clip" title="${escHtml(c.title || '')}">${escHtml(c.title || '—')}</td>
-      <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<span class="cm-seller" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</span></div></td>
-      <td>${escHtml(c.category || '—')}</td>
+      <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<div style="min-width:0"><div class="cm-seller" style="color:#e2ecff;font-weight:600">${escHtml(c.sellerName || '—')}</div><div class="cm-seller" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</div></div></div></td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
       <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
       <td>${cmWhenHtml(c.addedAt || '', '')}</td>
@@ -2093,6 +2090,12 @@ async function openReviewModal(couponId) {
     // Coupon Details
     const brandEl = document.getElementById('armBrand');
     if (brandEl) brandEl.textContent = c.brand || '—';
+
+    const titleEl = document.getElementById('armTitle');
+    if (titleEl) titleEl.textContent = c.title || '—';
+
+    const sellerNameEl = document.getElementById('armSellerName');
+    if (sellerNameEl) sellerNameEl.textContent = c.sellerName || '—';
 
     // The code is never sent with the review payload for the table; it is
     // revealed on demand and each reveal is written to the audit log.
