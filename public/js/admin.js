@@ -1187,7 +1187,7 @@ function sellerRowHtml(c) {
   return `
     <tr data-coupon-id="${id}">
       <td>${sellerBrandBoxHtml(c.brand || '', c)}</td>
-      <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<div style="min-width:0"><div class="cm-seller" style="color:#e2ecff;font-weight:600">${escHtml(c.sellerName || '—')}</div><div class="cm-seller" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</div></div></div></td>
+      <td><div class="cm-seller-cell" style="flex-wrap:nowrap">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<div style="min-width:0;flex:1"><div class="cm-seller" style="color:#e2ecff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(c.sellerName || '')}">${escHtml(c.sellerName || '—')}${c.sellerUsername ? ` <span style="color:#6b88aa;font-weight:400">@${escHtml(c.sellerUsername)}</span>` : ''}</div><div class="cm-seller" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</div></div></div></td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
       <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
       <td>${cmWhenHtml(c.addedAt || '', '')}</td>
@@ -2113,27 +2113,6 @@ async function openReviewModal(couponId) {
     const codeEl = document.getElementById('armCode');
     if (codeEl) {
       codeEl.innerHTML = `<button type="button" class="btn btn-ghost btn-xs" onclick="armRevealCode(this)" data-id="${escapeHtml(couponId)}">🔑 Reveal code (logged)</button>`;
-    }
-
-    // Brand logo and background, from the Drive references on the row.
-    const imgRef = (ref) => {
-      const r = String(ref || '');
-      if (!r) return '';
-      return r.startsWith('drive:') ? '/api/proxy/drive/' + encodeURIComponent(r.slice(6)) : r;
-    };
-    const logoEl = document.getElementById('armBrandPreview');
-    if (logoEl) {
-      const src = imgRef(c.brandLogo);
-      logoEl.innerHTML = src
-        ? `<img src="${escapeHtml(src)}" alt="Brand logo" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#0d1b30;border:1px solid rgba(79,195,247,.2)"> <span style="color:#6b88aa;font-size:.76rem">Brand logo</span>`
-        : `<span style="color:#6b88aa;font-size:.8rem">No brand logo uploaded.</span>`;
-    }
-    const bgEl = document.getElementById('armBgPreview');
-    if (bgEl) {
-      const src = imgRef(c.backgroundImage);
-      bgEl.innerHTML = src
-        ? `<img src="${escapeHtml(src)}" alt="Coupon background" style="max-width:100%;max-height:120px;border-radius:8px;border:1px solid rgba(79,195,247,.2)"> <div style="color:#6b88aa;font-size:.76rem;margin-top:4px">Coupon background</div>`
-        : `<span style="color:#6b88aa;font-size:.8rem">No background image uploaded.</span>`;
     }
 
     const catEl = document.getElementById('armCategory');
@@ -3073,7 +3052,18 @@ function openCouponEdit(id) {
   setV('ceLogo', c.brandLogo);
   setV('ceDescription', c.description);
   setV('ceTerms', c.terms);
-  setSel('ceStatus', String(c.status || 'available').toLowerCase(), 'available');
+  // Visibility switch: Published = status 'available'; Hide = 'draft'. Sold and
+  // expired are set by the sale/expiry flow, so the switch is locked for them.
+  const curStatus = String(c.status || '').toLowerCase();
+  const locked = curStatus === 'sold' || curStatus === 'expired';
+  setC('ceVisible', curStatus === 'available');
+  const vis = document.getElementById('ceVisible');
+  if (vis) vis.disabled = locked;
+  const lockNote = document.getElementById('ceLockedNote');
+  if (lockNote) {
+    lockNote.style.display = locked ? '' : 'none';
+    lockNote.textContent = locked ? `This coupon is ${curStatus}. Its visibility is set by the sale flow and can't be changed here.` : '';
+  }
   setSel('ceType', c.type || 'Public', 'Public');
   setC('ceSale', c.onSale !== false);
   setC('ceTimer', c.timerOn !== false);
@@ -3115,7 +3105,13 @@ async function saveCouponEdit() {
     code,
     title,
     category: v('ceCategory'),
-    status: v('ceStatus'),
+    // Published → 'available', hidden → 'draft'. A sold or expired coupon's
+    // status is left out so the form can never overwrite the sale record.
+    ...((() => {
+      const vis = document.getElementById('ceVisible');
+      if (!vis || vis.disabled) return {};
+      return { status: vis.checked ? 'available' : 'draft' };
+    })()),
     type: v('ceType'),
     discount: v('ceDiscount'),
     sellingPrice: price,

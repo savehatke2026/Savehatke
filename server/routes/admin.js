@@ -830,7 +830,26 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     const total = list.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
-    const pageRows = list.slice((safePage - 1) * pageSize, safePage * pageSize).map((c) => ({
+    // The Coupons sheet never stores the seller's name (only sellerEmail), so
+    // resolve it from the Users tab by email. preferred_name wins over name.
+    const pageSlice = list.slice((safePage - 1) * pageSize, safePage * pageSize);
+    // Full account record per seller, from the Users tab: name, username, status
+    // and Google profile picture. Read once per page, keyed by lowercased email.
+    const userRows = pageSlice.length ? await db.getRows(db.SHEETS.USERS) : [];
+    const accountByEmail = new Map();
+    for (const u of userRows || []) {
+      const key = String(u.email || '').toLowerCase().trim();
+      if (!key || accountByEmail.has(key)) continue;
+      accountByEmail.set(key, {
+        name: String(u.preferred_name || u.name || '').trim(),
+        username: String(u.username || '').trim(),
+        status: String(u.status || '').trim(),
+        profilePicture: String(u.profile_picture || '').trim(),
+      });
+    }
+    const pageRows = pageSlice.map((c) => {
+      const account = accountByEmail.get(String(c.sellerEmail || '').toLowerCase().trim()) || {};
+      return {
       id: c.id,
       brand: c.brand || '',
       title: c.title || '',
@@ -840,7 +859,11 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
       expiryDate: c.expiryDate || '',
       addedAt: c.addedAt || '',
       sellerEmail: c.sellerEmail || '',
-      sellerName: c.sellerName || '',
+      // Seller account details come from the Users tab, not the coupon row.
+      sellerName: account.name || c.sellerName || '',
+      sellerUsername: account.username || '',
+      sellerStatus: account.status || '',
+      sellerProfilePicture: account.profilePicture || '',
       status: c.status || '',
       brandLogo: c.brandLogo || '',
       backgroundImage: c.backgroundImage || '',
@@ -849,7 +872,8 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
       discount: c.discount || '',
       // The code is NOT sent here. It is revealed only by /reveal-code.
       hasCode: !!c.code,
-    }));
+      };
+    });
 
     // Supabase-only submissions: present in Supabase as pending seller rows but
     // missing from the Sheet. Best-effort — a Supabase failure just reports 0.

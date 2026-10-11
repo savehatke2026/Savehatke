@@ -3667,7 +3667,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="form-group"><label class="form-label">Coupon Title</label><input class="form-input" type="text" id="ceTitle" placeholder="e.g. 30% Off Skincare"></div>
       <div class="form-group"><label class="form-label">Coupon Code *</label><input class="form-input" type="text" id="ceCode" style="font-family:'JetBrains Mono',monospace;text-transform:uppercase" placeholder="e.g. SAVE30"></div>
       <div class="form-group"><label class="form-label">Category</label><input class="form-input" type="text" id="ceCategory" placeholder="e.g. Fashion"></div>
-      <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="ceStatus"><option value="available">Available</option><option value="sold">Sold</option><option value="expired">Expired</option><option value="pending">Pending</option><option value="draft">Draft</option><option value="scheduled">Scheduled</option></select></div>
+      <div class="form-group"><label class="form-label">Marketplace visibility</label>
+        <label class="form-check" style="margin-top:6px"><input type="checkbox" id="ceVisible"> <span id="ceVisibleLabel">Published — shown on the marketplace</span></label>
+        <div class="form-hint" id="ceVisibleHint">Turn off to hide this coupon from buyers. It stays in the admin list.</div>
+        <div class="form-hint" id="ceLockedNote" style="display:none;color:#ffb74d"></div>
+      </div>
       <div class="form-group"><label class="form-label">Coupon Type</label><select class="form-select" id="ceType"><option>Public</option><option>Exclusive</option><option>Cashback</option></select></div>
       <div class="form-group"><label class="form-label">Discount / Offer</label><input class="form-input" type="text" id="ceDiscount" placeholder="e.g. 50% OFF"></div>
       <div class="form-group"><label class="form-label">Selling Price (₹)</label><input class="form-input" type="number" min="0" id="cePrice"></div>
@@ -6475,15 +6479,6 @@ function maybeLoadPayouts() {
               </div>
             </div>
 
-          </div>
-        </div>
-
-        <!-- Images: brand logo and coupon background -->
-        <div class="card" style="margin-bottom:16px;background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.12);border-radius:12px;padding:16px;">
-          <h4 style="font-size:.88rem;font-weight:700;margin-bottom:12px;color:#4fc3f7;">🖼️ Images</h4>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
-            <div id="armBrandPreview" style="padding:10px;background:rgba(6,13,31,.4);border-radius:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span style="color:#6b88aa;font-size:.8rem">—</span></div>
-            <div id="armBgPreview" style="padding:10px;background:rgba(6,13,31,.4);border-radius:8px;"><span style="color:#6b88aa;font-size:.8rem">—</span></div>
           </div>
         </div>
 
