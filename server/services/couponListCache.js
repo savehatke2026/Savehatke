@@ -30,6 +30,28 @@ function set(key, payload) {
 /** Drop every entry — call after ANY admin coupon mutation or image upload. */
 function invalidate() {
   cache.clear();
+  snapshot = null;
+  snapshotPending = null;
 }
 
-module.exports = { get, set, invalidate, COUPON_LIST_CACHE_TTL_MS };
+// ── Raw source snapshot ───────────────────────────────────────────────────
+// The three full reads behind every list request (all Supabase coupons, all
+// Sheet coupons, the payouts map). Filter, page, search and sort changes all
+// re-ran these; sharing one short-lived snapshot makes them instant. The same
+// invalidate() above clears it, so any mutation is reflected on the next read.
+const SNAPSHOT_TTL_MS = 20_000;
+let snapshot = null;        // { at, value }
+let snapshotPending = null; // single-flight: concurrent callers share one read
+
+/** Returns the shared snapshot, loading it once via `loader` when absent or stale. */
+async function getSnapshot(loader) {
+  if (snapshot && Date.now() - snapshot.at < SNAPSHOT_TTL_MS) return snapshot.value;
+  if (snapshotPending) return snapshotPending;
+  const started = Date.now();
+  snapshotPending = loader()
+    .then((value) => { snapshot = { at: started, value }; return value; })
+    .finally(() => { snapshotPending = null; });
+  return snapshotPending;
+}
+
+module.exports = { get, set, invalidate, getSnapshot, COUPON_LIST_CACHE_TTL_MS };

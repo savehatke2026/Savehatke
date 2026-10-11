@@ -186,40 +186,52 @@ async function getAdminCouponList(opts = {}) {
   const hit = couponListCache.get(key);
   if (hit) return hit;
 
-  // The three reads are independent — run them concurrently instead of
-  // paying each round trip one after the other. Each helper already swallows
-  // its own errors (degrading to an empty set), so Promise.all cannot reject.
-  let supaCoupons = [];
-  let sheetCoupons = [];
-  let payoutMap = new Map();
-  await Promise.all([
-    (async () => {
-      if (supabase.isConfigured()) {
+  // The raw reads are shared through one short-lived snapshot (see
+  // couponListCache.getSnapshot). Filters below run on that snapshot, so a
+  // page, pill or search change no longer re-reads the whole coupon table.
+  // Each read degrades to an empty set on error, so the snapshot never rejects.
+  const raw = await couponListCache.getSnapshot(async () => {
+    const [supa, sheet, payouts] = await Promise.all([
+      (async () => {
+        if (!supabase.isConfigured()) return [];
         try {
-          supaCoupons = await supabase.getCoupons({ status, source, category });
+          return await supabase.getCoupons({});
         } catch (e) {
           console.warn('[admin/coupons] Supabase read failed:', e.message);
+          return [];
         }
-      }
-    })(),
-    (async () => {
-      try {
-        sheetCoupons = await db.getRows(db.SHEETS.COUPONS);
-        if (status) sheetCoupons = sheetCoupons.filter((c) => String(c.status || '') === status);
-        if (source) sheetCoupons = sheetCoupons.filter((c) => String(c.source || '') === source);
-        if (category) {
-          sheetCoupons = sheetCoupons.filter(
-            (c) => String(c.category || '').toLowerCase() === String(category).toLowerCase(),
-          );
+      })(),
+      (async () => {
+        try {
+          return await db.getRows(db.SHEETS.COUPONS);
+        } catch (e) {
+          console.warn('[admin/coupons] Sheets read failed:', e.message);
+          return [];
         }
-      } catch (e) {
-        console.warn('[admin/coupons] Sheets read failed:', e.message);
-      }
-    })(),
-    (async () => {
-      payoutMap = await payoutsByCouponId();
-    })(),
-  ]);
+      })(),
+      payoutsByCouponId(),
+    ]);
+    return { supa, sheet, payouts };
+  });
+
+  // Status/source/category narrowing used to run inside each read. It now runs
+  // on the shared snapshot, with the same rules.
+  let supaCoupons = raw.supa || [];
+  let sheetCoupons = raw.sheet || [];
+  const payoutMap = raw.payouts || new Map();
+  if (status) {
+    supaCoupons = supaCoupons.filter((c) => String(c.status || '') === status);
+    sheetCoupons = sheetCoupons.filter((c) => String(c.status || '') === status);
+  }
+  if (source) {
+    supaCoupons = supaCoupons.filter((c) => String(c.source || '') === source);
+    sheetCoupons = sheetCoupons.filter((c) => String(c.source || '') === source);
+  }
+  if (category) {
+    const want = String(category).toLowerCase();
+    supaCoupons = supaCoupons.filter((c) => String(c.category || '').toLowerCase() === want);
+    sheetCoupons = sheetCoupons.filter((c) => String(c.category || '').toLowerCase() === want);
+  }
 
   // Supabase wins on a conflict: it is the store the marketplace reads, so its
   // row is the one an admin action should act on. Matching is by id and then by
