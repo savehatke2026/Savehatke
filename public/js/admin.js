@@ -1033,107 +1033,156 @@ function initActiveTableControls() {
   }, 220));
 }
 
+// ── Seller submissions table (Pending tab) ────────────────────────────────
+// Reads only the Google Sheet through /api/admin/seller-coupons. Search, sort,
+// paging and the Supabase-only count are computed on the server; the browser
+// shows one page at a time. Codes stay hidden until an admin clicks Reveal.
+let sellerTable = { page: 1, sort: 'newest', search: '', loading: false, seq: 0, timer: null };
+
 async function loadPending() {
   const container = document.getElementById('pendingList');
   if (!container) return;
-  if (pendingCoupons.loading) return;
-  pendingCoupons.loading = true;
-  const seq = ++pendingCoupons.seq;
-  container.innerHTML = '<div class="cm-loading">Loading pending submissions…</div>';
+  if (sellerTable.loading) return;
+  sellerTable.loading = true;
+  const seq = ++sellerTable.seq;
+  if (!container.querySelector('.st-table')) {
+    container.innerHTML = '<div class="cm-loading">Loading seller submissions...</div>';
+  }
 
   try {
-    // The Pending tab is for seller/user-submitted coupons that are still
-    // awaiting the very first review decision — the exact set that is hidden
-    // from All Coupons meanwhile, so the two tabs can never show the same
-    // coupon. `proof_requested` is a follow-up state ("admin asked the seller
-    // for proof, now waiting on the seller"), which has its own workflow in
-    // the Coupon Reviews section — so we deliberately exclude it from THIS
-    // view to keep the table focused on fresh submissions. Admin-created
-    // coupons are never pending and never belong here either.
-    //
-    // pending=1 asks the server for exactly that hidden set (paged), so the
-    // tab no longer pulls the whole inventory just to filter it down here.
-    const data = await api('/admin/coupons?pending=1', { useAdmin: true });
-    if (seq !== pendingCoupons.seq) return;
-    const rows = (data.coupons || []).filter(
-      (c) => c.status === 'pending' && isSellerSubmission(c),
-    );
-    await preloadBrandAssets(rows);
-    if (seq !== pendingCoupons.seq) return; // a newer load started while resolving
-    cmSetPendingBadge(data.pendingBadge !== undefined ? data.pendingBadge : rows.length);
+    const params = new URLSearchParams({
+      page: String(sellerTable.page),
+      pageSize: '20',
+      sort: sellerTable.sort,
+    });
+    if (sellerTable.search) params.set('search', sellerTable.search);
+    const data = await api('/admin/seller-coupons?' + params.toString(), { useAdmin: true });
+    if (seq !== sellerTable.seq) return;
 
-    if (rows.length === 0) {
-      container.innerHTML = cmStateHtml('⏳', 'No coupons awaiting approval', 'All caught up — new seller submissions land here.');
+    sellerTable.page = data.page || 1;
+    cmSetPendingBadge(data.total || 0);
+    const rows = data.coupons || [];
+    const warn = data.supabaseOnly
+      ? `<div class="st-warn">⚠️ ${data.supabaseOnly} submission${data.supabaseOnly !== 1 ? 's' : ''} exist in the database but not in the sheet, so they are not listed here.</div>`
+      : '';
+
+    if (data.total === 0 && !sellerTable.search) {
+      container.innerHTML = warn + cmStateHtml('⏳', 'No coupons awaiting approval', 'All caught up — new seller submissions land here.');
       return;
     }
 
     container.innerHTML = `
-      <div class="table-card" style="margin-bottom:0">
-        <div class="overflow-x">
-          <table class="appr-table" style="min-width:1274px">
-            <colgroup>
-              <col style="width:200px"><col style="width:196px"><col style="width:118px">
-              <col style="width:84px"><col style="width:84px"><col style="width:180px">
-              <col style="width:132px"><col style="width:130px"><col style="width:150px">
-            </colgroup>
-            <thead>
-              <tr>
-                <th>Brand</th>
-                <th>Code</th>
-                <th>Category</th>
-                <th>Value</th>
-                <th>Price</th>
-                <th>Seller</th>
-                <th>Submitted</th>
-                <th>Status</th>
-                <th class="ta-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>${rows.map(pendingRowHtml).join('')}</tbody>
-          </table>
-        </div>
-        <div class="inv-tfoot">
-          <span>${rows.length} submission${rows.length !== 1 ? 's' : ''} awaiting a decision</span>
-          <button class="btn btn-ghost btn-sm" onclick="showSection('reviews')">Open Coupon Reviews →</button>
-        </div>
+      ${warn}
+      <div class="st-toolbar">
+        <input type="text" class="st-search" id="stSearch" placeholder="Search ID, brand, title, seller…" value="${escHtml(sellerTable.search)}" oninput="stSearchInput(this.value)">
+        <select class="st-sort" onchange="stSetSort(this.value)" aria-label="Sort">
+          <option value="newest" ${sellerTable.sort === 'newest' ? 'selected' : ''}>Newest submitted</option>
+          <option value="oldest" ${sellerTable.sort === 'oldest' ? 'selected' : ''}>Oldest submitted</option>
+          <option value="value" ${sellerTable.sort === 'value' ? 'selected' : ''}>Face value (high→low)</option>
+          <option value="expiry" ${sellerTable.sort === 'expiry' ? 'selected' : ''}>Expiry (soonest)</option>
+        </select>
       </div>
+      ${rows.length === 0
+        ? cmStateHtml('🔎', 'No matching submissions', 'Try a different search.')
+        : `<div class="table-card" style="margin-bottom:0">
+            <div class="overflow-x">
+              <table class="appr-table st-table" style="min-width:1080px">
+                <thead><tr>
+                  <th>ID</th><th>Brand</th><th>Title</th><th>Seller</th><th>Category</th>
+                  <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Images</th><th>Status</th><th class="ta-right">Actions</th>
+                </tr></thead>
+                <tbody>${rows.map(sellerRowHtml).join('')}</tbody>
+              </table>
+            </div>
+            <div class="inv-tfoot">
+              <span>${data.total} awaiting a decision · page ${data.page} of ${data.totalPages}</span>
+              <span>
+                <button class="btn btn-ghost btn-sm" ${data.page <= 1 ? 'disabled' : ''} onclick="stPage(${data.page - 1})">‹ Prev</button>
+                <button class="btn btn-ghost btn-sm" ${data.page >= data.totalPages ? 'disabled' : ''} onclick="stPage(${data.page + 1})">Next ›</button>
+              </span>
+            </div>
+          </div>`}
     `;
   } catch (err) {
-    if (seq === pendingCoupons.seq) {
-      container.innerHTML = cmStateHtml('⚠️', 'Failed to load pending submissions', escHtml(err.message || 'Unknown error'));
+    if (seq === sellerTable.seq) {
+      container.innerHTML = cmStateHtml('⚠️', 'Failed to load seller submissions', escHtml(err.message || 'Unknown error'))
+        + '<div style="text-align:center;margin-top:10px"><button class="btn btn-ghost btn-sm" onclick="loadPending()">↻ Retry</button></div>';
     }
   } finally {
-    pendingCoupons.loading = false;
+    sellerTable.loading = false;
   }
 }
 
-/** One pending-submission row — approve/reject go through the review API. */
-function pendingRowHtml(c) {
-  const id = escHtml(c.id || '');
-  const seller = c.sellerEmail || 'Admin';
-  const proof = c.status === 'proof_requested';
+function stSearchInput(value) {
+  clearTimeout(sellerTable.timer);
+  sellerTable.timer = setTimeout(() => {
+    sellerTable.search = String(value || '').trim();
+    sellerTable.page = 1;
+    loadPending();
+  }, 300);
+}
+function stSetSort(value) { sellerTable.sort = value; sellerTable.page = 1; loadPending(); }
+function stPage(n) { sellerTable.page = Math.max(1, n); loadPending(); }
 
+/** One seller-submission row. Code is hidden until revealed; images load via Drive refs. */
+function sellerRowHtml(c) {
+  const id = escHtml(c.id || '');
+  const thumb = (url, label) => url
+    ? `<img class="st-thumb" src="${escHtml(url)}" alt="${escHtml(label)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'st-thumb-miss',textContent:'—'}))">`
+    : `<span class="st-thumb-miss" title="No ${escHtml(label)}">—</span>`;
   return `
     <tr data-coupon-id="${id}">
+      <td><code class="inv-code">${id.slice(0, 8)}…</code></td>
       <td>${cmBrandCellHtml(c.brand || '', c)}</td>
-      <td><code class="inv-code">${escHtml(c.code || '')}</code></td>
+      <td class="st-clip" title="${escHtml(c.title || '')}">${escHtml(c.title || '—')}</td>
+      <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<span class="cm-seller" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</span></div></td>
       <td>${escHtml(c.category || '—')}</td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
-      <td class="inv-price">₹${escHtml(c.sellingPrice || '0')}</td>
-      <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<span class="cm-seller" title="${escHtml(seller)}">${escHtml(seller)}</span></div></td>
-      <td>${cmWhenHtml(c.addedAt || c.createdAt || '', '')}</td>
-      <td><span class="badge badge-${proof ? 'blue' : 'orange'}">${escHtml(c.status || 'pending')}</span></td>
+      <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
+      <td>${cmWhenHtml(c.addedAt || '', '')}</td>
+      <td><div class="st-thumbs">${thumb(c.brandLogo, 'brand logo')}${thumb(c.backgroundImage, 'background')}${thumb(c.proofUrl, 'proof')}</div></td>
+      <td><span class="badge badge-orange">${escHtml(c.status || 'pending')}</span></td>
       <td>
         <div class="admin-actions ta-right">
-          <button class="btn btn-ghost btn-xs" title="Open the full review record" onclick="openReviewModal('${id}')">🔍</button>
+          <button class="btn btn-ghost btn-xs" title="View details" onclick="stOpenDetail('${id}')">🔍</button>
+          <button class="btn btn-ghost btn-xs" title="Reveal code (logged)" onclick="stReveal('${id}',this)">🔑</button>
           <button class="btn btn-success btn-xs" title="Approve — publishes it to the marketplace" onclick="quickReviewAction('${id}','approve')">✓</button>
-          <button class="btn btn-danger btn-xs" title="Reject this submission" onclick="quickReviewAction('${id}','reject')">✗</button>
+          <button class="btn btn-danger btn-xs" title="Reject with a reason" onclick="stReject('${id}')">✗</button>
         </div>
       </td>
-    </tr>
-  `;
+    </tr>`;
 }
 
+/** Reveal a code on demand. The server writes an audit entry for each reveal. */
+async function stReveal(id, btn) {
+  try {
+    const data = await api(`/admin/coupons/${encodeURIComponent(id)}/reveal-code`, { method: 'POST', useAdmin: true });
+    const code = data.code || '';
+    if (btn) { btn.textContent = code || '—'; btn.title = 'Code (revealed and logged)'; btn.disabled = true; }
+  } catch (err) {
+    showToast(`Could not reveal code: ${err.message}`, 'error');
+  }
+}
+
+/** Reject needs a reason. The reason is saved through the same review-action endpoint. */
+async function stReject(id) {
+  const reason = (window.prompt('Reason for rejecting this coupon (shown to the seller):') || '').trim();
+  if (!reason) { showToast('A rejection reason is required.', 'warning'); return; }
+  try {
+    const data = await api(`/admin/coupons/${encodeURIComponent(id)}/review-action`, {
+      method: 'POST', useAdmin: true, body: { action: 'reject', notes: reason },
+    });
+    showToast(data.message || 'Coupon rejected.', 'success');
+    refreshCouponViews();
+  } catch (err) {
+    showToast(`Failed to reject coupon: ${err.message}`, 'error');
+  }
+}
+
+/** Detail view: read-only summary of the submitted fields, from the table row. */
+function stOpenDetail(id) {
+  openReviewModal(id);
+}
 // ── Shared bits for the two Coupon Management tables ────────────────────
 function cmSetPendingBadge(count) {
   const badge = document.getElementById('pendingTabBadge');

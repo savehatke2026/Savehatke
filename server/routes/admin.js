@@ -755,6 +755,99 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
 });
 
 // GET /api/admin/coupons — View all coupons with filters
+// GET /api/admin/seller-coupons — seller submissions awaiting review.
+// Reads the Google Sheet only (the Coupons tab), filtered to pending
+// user-submitted rows. Search, sort and paging all run here on the server.
+// `supabaseOnly` counts submissions that exist in Supabase but not in the
+// Sheet, so the admin can see when the Sheet view is incomplete.
+router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const search = String(req.query.search || '').trim().toLowerCase().slice(0, 100);
+    const sort = ['newest', 'oldest', 'value', 'expiry'].includes(req.query.sort) ? req.query.sort : 'newest';
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const pageSize = Math.min(50, Math.max(5, parseInt(req.query.pageSize, 10) || 20));
+
+    const rows = await db.getRowsFresh(db.SHEETS.COUPONS);
+    const isSellerRow = (c) => {
+      const src = String(c.source || '').toLowerCase();
+      return (src === 'user-submitted' || src === 'user') && String(c.status || '').toLowerCase() === 'pending';
+    };
+    let list = (rows || []).filter(isSellerRow);
+
+    if (search) {
+      list = list.filter((c) => [c.id, c.brand, c.title, c.sellerEmail, c.sellerName]
+        .some((v) => String(v || '').toLowerCase().includes(search)));
+    }
+
+    const time = (v) => { const t = Date.parse(v); return Number.isFinite(t) ? t : 0; };
+    const value = (c) => Number(c.originalValue) || 0;
+    const cmp = {
+      newest: (a, b) => time(b.addedAt) - time(a.addedAt),
+      oldest: (a, b) => time(a.addedAt) - time(b.addedAt),
+      value: (a, b) => value(b) - value(a),
+      expiry: (a, b) => time(a.expiryDate) - time(b.expiryDate),
+    }[sort];
+    list.sort(cmp);
+
+    const total = list.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const safePage = Math.min(page, totalPages);
+    const pageRows = list.slice((safePage - 1) * pageSize, safePage * pageSize).map((c) => ({
+      id: c.id,
+      brand: c.brand || '',
+      title: c.title || '',
+      category: c.category || '',
+      originalValue: c.originalValue || '',
+      sellingPrice: c.sellingPrice || '',
+      expiryDate: c.expiryDate || '',
+      addedAt: c.addedAt || '',
+      sellerEmail: c.sellerEmail || '',
+      status: c.status || '',
+      brandLogo: c.brandLogo || '',
+      backgroundImage: c.backgroundImage || '',
+      proofUrl: c.proofUrl || '',
+      terms: c.terms || '',
+      discount: c.discount || '',
+      // The code is NOT sent here. It is revealed only by /reveal-code.
+      hasCode: !!c.code,
+    }));
+
+    // Supabase-only submissions: present in Supabase as pending seller rows but
+    // missing from the Sheet. Best-effort — a Supabase failure just reports 0.
+    let supabaseOnly = 0;
+    if (supabase.isConfigured()) {
+      try {
+        const sheetIds = new Set((rows || []).map((r) => String(r.id)));
+        const supaRows = await supabase.getCoupons({ status: 'pending', source: 'user-submitted' });
+        supabaseOnly = (supaRows || []).filter((r) => !sheetIds.has(String(r.id))).length;
+      } catch (e) {
+        supabaseOnly = 0;
+      }
+    }
+
+    res.json({ coupons: pageRows, total, page: safePage, pageSize, totalPages, supabaseOnly });
+  } catch (err) {
+    console.error('Admin seller coupons error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/admin/coupons/:id/reveal-code — the one place a coupon code leaves
+// the server for the admin table. Every reveal is written to the audit log.
+router.post('/coupons/:id/reveal-code', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const rows = await db.getRowsFresh(db.SHEETS.COUPONS);
+    const coupon = (rows || []).find((r) => String(r.id) === String(id));
+    if (!coupon) return res.status(404).json({ error: 'Coupon not found.' });
+    await logCouponAudit(id, req.user.email, 'reveal_code', '');
+    res.json({ code: coupon.code || '' });
+  } catch (err) {
+    console.error('Admin reveal code error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const { status, source, category, pill, search, pending } = req.query;
@@ -1310,6 +1403,10 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
     };
     if (!transitions[action]) {
       return res.status(400).json({ error: 'Invalid action. Allowed: approve, reject, request_proof.' });
+    }
+    // A rejection must say why: the reason is saved and shown back to the seller.
+    if (action === 'reject' && !String(notes || '').trim()) {
+      return res.status(400).json({ error: 'A rejection reason is required.', code: 'REASON_REQUIRED' });
     }
 
     let coupon = null;

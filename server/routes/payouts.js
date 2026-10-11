@@ -537,7 +537,30 @@ router.get('/admin/payouts', authenticateToken, requireAdmin, async (req, res) =
     // Newest first
     rows.sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
 
-    res.json({ payouts: rows.map(sanitize) });
+    // The destination copied onto each payout row is a snapshot from request
+    // time. Read the SellerPayoutDetails tab once, fresh, and attach each seller's
+    // current destination so the admin screen can show it when the snapshot is blank.
+    const detailRows = await db.getRowsFresh(db.SHEETS.SELLER_PAYOUT_DETAILS);
+    const detailsByEmail = new Map();
+    for (const d of detailRows) {
+      const key = String(d.sellerEmail || '').toLowerCase().trim();
+      if (key) detailsByEmail.set(key, d);
+    }
+
+    const payouts = rows.map((r) => {
+      const base = sanitize(r);
+      const d = detailsByEmail.get(String(r.sellerEmail || '').toLowerCase().trim());
+      base.sellerDetails = d ? {
+        method: normalizeMethod(d.method) || '',
+        upiId: String(d.upiId || ''),
+        qrFileId: String(d.qrFileId || ''),
+        qrFileName: String(d.qrFileName || ''),
+        beneficiaryName: String(d.beneficiaryName || ''),
+      } : null;
+      return base;
+    });
+
+    res.json({ payouts });
   } catch (err) {
     console.error('List payouts error:', err);
     res.status(500).json({ error: 'Internal server error.' });

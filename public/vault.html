@@ -536,6 +536,14 @@ tbody td strong{color:#e2ecff;font-weight:600}
    the flex container instead of forcing the column wider. */
 .cm-seller-cell{display:flex;align-items:center;gap:8px;min-width:0}
 .cm-seller-cell .cm-seller{min-width:0;flex:1}
+.st-toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:12px 16px}
+.st-search{flex:1;min-width:220px;max-width:420px;padding:8px 12px;border-radius:8px;border:1px solid rgba(79,195,247,.2);background:rgba(8,18,38,.6);color:#e2ecff;font-size:.85rem}
+.st-sort{padding:8px 10px;border-radius:8px;border:1px solid rgba(79,195,247,.2);background:rgba(8,18,38,.6);color:#e2ecff;font-size:.85rem}
+.st-warn{margin:0 0 10px;padding:10px 14px;border-radius:8px;background:rgba(255,183,77,.1);border:1px solid rgba(255,183,77,.35);color:#ffd28a;font-size:.8rem}
+.st-clip{max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.st-thumbs{display:flex;gap:4px;align-items:center}
+.st-thumb{width:34px;height:34px;object-fit:cover;border-radius:6px;border:1px solid rgba(79,195,247,.2);background:#0b1a33}
+.st-thumb-miss{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:6px;border:1px dashed rgba(79,195,247,.25);color:#6b88aa;font-size:.8rem}
 .appr-table{table-layout:fixed;min-width:1434px}
 .appr-table td{overflow:hidden}
 .appr-table .badge{white-space:nowrap}
@@ -5855,8 +5863,17 @@ function escapeHtml(s) {
 }
 
 function payoutMethodLine(p) {
-  // Best-effort destination rendering — auto-payouts don't have a UPI yet
-  if (p.method === 'UPI' && p.upiId) return `<strong>UPI</strong> · <span class="mono">${escapeHtml(p.upiId)}</span>`;
+  // Destination snapshot on the payout row first; the seller's current
+  // SellerPayoutDetails record (attached by /admin/payouts) fills any gap.
+  const sd = p.sellerDetails || {};
+  const method = p.method || sd.method || '';
+  const upi = p.upiId || sd.upiId || '';
+  const qrId = p.qrFileId || sd.qrFileId || '';
+  if (method === 'UPI' && upi) return `<strong>UPI</strong> · <span class="mono">${escapeHtml(upi)}</span>`;
+  if (method === 'QR' && qrId) {
+    return `<strong>QR</strong> · <a href="/api/proxy/drive/${encodeURIComponent(qrId)}" target="_blank" rel="noopener" style="color:#00E272">View QR image</a>`;
+  }
+  if (!method && upi) return `<strong>UPI</strong> · <span class="mono">${escapeHtml(upi)}</span>`;
   if (p.method === 'Bank' && p.bankAccount) {
     const last4 = String(p.bankAccount).slice(-4);
     return `<strong>Bank</strong> · <span class="mono">•••• ${escapeHtml(last4)}</span>${p.bankIfsc ? ' · ' + escapeHtml(p.bankIfsc) : ''}`;
@@ -5888,7 +5905,7 @@ function payoutRow(p) {
       </td>
       <td><div class="cm-seller-cell">${p.sellerEmail ? emailAvatarHtml(p.sellerEmail, 24) : ''}<span class="cm-seller">${escapeHtml(p.sellerEmail || '—')}</span></div></td>
       <td><strong class="mono">${inr(p.amount)}</strong></td>
-      <td style="font-size:.82rem">${payoutMethodLine(p)}${p.beneficiaryName ? `<div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(p.beneficiaryName)}</div>` : ''}</td>
+      <td style="font-size:.82rem">${payoutMethodLine(p)}${(p.beneficiaryName || (p.sellerDetails && p.sellerDetails.beneficiaryName)) ? `<div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(p.beneficiaryName || p.sellerDetails.beneficiaryName)}</div>` : ''}</td>
       <td class="mono" style="font-size:.78rem">${escapeHtml(timeAgo(p.requestedAt))}<div style="font-size:.7rem;color:#6b88aa;margin-top:2px">${escapeHtml(fullDateTime(p.requestedAt))}</div></td>
       <td>${payoutStatusBadge(p.status)}${p.paymentReference ? `<div style="font-size:.7rem;color:#6b88aa;margin-top:4px" class="mono">ref: ${escapeHtml(p.paymentReference)}</div>` : ''}${p.rejectionReason ? `<div style="font-size:.7rem;color:#ff8585;margin-top:4px" title="${escapeHtml(p.rejectionReason)}">🚫 ${escapeHtml(p.rejectionReason.slice(0, 40))}${p.rejectionReason.length > 40 ? '…' : ''}</div>` : ''}</td>
       <td>
