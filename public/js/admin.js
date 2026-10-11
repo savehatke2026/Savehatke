@@ -295,11 +295,8 @@ function initAddCouponForm() {
       showToast(data.message || 'Coupon published successfully! 🚀', 'success');
       resetAddCouponForm(form);
 
-      // Automatically switch to All Coupons tab
-      if (typeof showCouponTab === 'function') {
-        const allTabBtn = document.querySelector('#sec-coupons .tab-btn');
-        showCouponTab('all', allTabBtn);
-      }
+      // Close the popup and refresh the inventory it was opened from
+      if (typeof closeModal === 'function') closeModal('addCouponModal');
 
       if (typeof loadInventory === 'function') loadInventory();
       if (typeof loadAdminStats === 'function') loadAdminStats();
@@ -2848,6 +2845,13 @@ function openCouponEdit(id) {
   const sub = document.getElementById('ceSubtitle');
   if (sub) sub.textContent = `${c.brand || 'Coupon'} · ID ${c.id || '—'}`;
   if (typeof openModal === 'function') openModal('couponEditModal');
+}
+
+/** Open the Add Coupon popup: a fresh form each time, same shell as Edit Coupon. */
+function openAddCouponModal() {
+  const form = document.getElementById('addCouponForm');
+  if (form) resetAddCouponForm(form);
+  if (typeof openModal === 'function') openModal('addCouponModal');
 }
 
 /** Save every edited field through the existing PUT route, then refresh the card. */

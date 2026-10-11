@@ -1824,7 +1824,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="section-view" id="sec-coupons">
       <div class="page-title-row">
         <div><div class="page-title">Coupon <span class="gtext">Management</span></div><div class="page-subtitle">Manage inventory, pending submissions, and categories</div></div>
-        <button class="btn btn-primary btn-lg cm2-add" onclick="showCouponTab('add')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Add Coupon</button>
+        <button class="btn btn-primary btn-lg cm2-add" onclick="openAddCouponModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg> Add Coupon</button>
       </div>
 
       <!-- ALL COUPONS (redesigned inventory — data + actions stay live) -->
@@ -1852,11 +1852,17 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div id="inventoryTable"></div>
       </div>
 
-      <!-- ADD COUPON FORM -->
-      <div class="tab-content" id="ctab-add">
-        <form class="card" id="addCouponForm">
+      <!-- ADD COUPON — opens as a popup modal (same shell as Edit Coupon) -->
+      <div class="modal-overlay" id="addCouponModal">
+        <form class="modal" id="addCouponForm" style="max-width:720px;width:96%;max-height:92vh;overflow-y:auto">
+          <button type="button" class="modal-close" onclick="closeModal('addCouponModal')" aria-label="Close add coupon">✕</button>
           <input type="hidden" id="acCategory">
-          <div class="card-title"><span class="ct-icon">🎟️</span> Add New Coupon</div>
+          <div class="modal-hdr">
+            <div>
+              <div class="modal-title">Add New <span class="gtext">Coupon</span></div>
+              <div class="modal-sub">Publish a coupon to the marketplace.</div>
+            </div>
+          </div>
           <div class="form-grid form-grid-2">
             <div class="form-group">
               <label class="form-label">Store / Brand *</label>
