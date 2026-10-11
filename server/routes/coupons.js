@@ -759,6 +759,27 @@ const handleCouponSubmission = async (req, res) => {
     const skipped = [];
     let dbSaveFailed = false;
 
+    // The seller's saved payout destination (SellerPayoutDetails tab) is copied
+    // onto every coupon row they submit, so the admin sees where to pay from the
+    // Seller Coupons sheet. Read once per request; a missing record leaves blanks.
+    let payoutDest = { paymentMethod: '', upiId: '', qrFileId: '', qrFileName: '', beneficiaryName: '' };
+    try {
+      const details = await db.getRowsFresh(db.SHEETS.SELLER_PAYOUT_DETAILS);
+      const mine = (details || []).find((d) => String(d.sellerEmail || '').toLowerCase().trim() === String(sellerEmail || '').toLowerCase().trim());
+      if (mine) {
+        const method = String(mine.method || '').toUpperCase();
+        payoutDest = {
+          paymentMethod: method,
+          upiId: method === 'UPI' ? String(mine.upiId || '') : '',
+          qrFileId: method === 'QR' ? String(mine.qrFileId || '') : '',
+          qrFileName: method === 'QR' ? String(mine.qrFileName || '') : '',
+          beneficiaryName: String(mine.beneficiaryName || ''),
+        };
+      }
+    } catch (e) {
+      console.warn('Seller payout details lookup notice:', e.message);
+    }
+
     // ── Minimum shelf life ──
     // A coupon is only worth listing if the buyer has time to use it, so every
     // submission has to still be valid at least MIN_EXPIRY_DAYS out. Checked as
@@ -909,6 +930,12 @@ const handleCouponSubmission = async (req, res) => {
         whatsappSid: '',
         whatsappLastAttempt: '',
         whatsappError: '',
+        // Seller payout destination, copied from SellerPayoutDetails at submission.
+        paymentMethod: payoutDest.paymentMethod,
+        upiId: payoutDest.upiId,
+        qrFileId: payoutDest.qrFileId,
+        qrFileName: payoutDest.qrFileName,
+        beneficiaryName: payoutDest.beneficiaryName,
       };
 
       // Persist first — WhatsApp is only sent after a successful DB save

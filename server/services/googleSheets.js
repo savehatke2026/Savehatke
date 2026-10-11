@@ -144,6 +144,10 @@ const HEADERS = {
     'whatsappLastAttempt', 'whatsappError', 'sellerPayout', 'paymentMethod', 'upiId',
     'approvedAt',
     'publishedAt',
+    // Seller payout destination, copied from SellerPayoutDetails at submission.
+    'qrFileId',
+    'qrFileName',
+    'beneficiaryName',
   ],
   [SHEETS.COUPON_AUDIT]: [
     'id',
