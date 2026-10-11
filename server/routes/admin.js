@@ -13,6 +13,7 @@ const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
+const payoutMethodReminder = require('../services/payoutMethodReminder');
 const monthlyReports = require('../services/monthlyReports');
 const couponListCache = require('../services/couponListCache');
 const googleDrive = require('../services/googleDrive');
@@ -1664,6 +1665,15 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
         });
         await logCouponAudit(id, req.user.email, 'approve', String(notes || '').trim().slice(0, 500));
         invalidateCouponListCache();
+        // Approved and payout-eligible: remind the seller once if no payout method
+        // is saved. Awaited (serverless functions freeze after the response) but it
+        // never throws, so a notification problem cannot fail the approval.
+        if (sellerRow.sellerEmail) {
+          await payoutMethodReminder.maybeSendMissingPayoutMethodEmail({
+            sellerEmail: sellerRow.sellerEmail,
+            sellerName: sellerRow.sellerName || '',
+          });
+        }
         return res.json({
           message: 'Coupon approved. It is not live yet — click Publish coupon to make it active.',
           coupon: { ...sellerRow, status: 'available', approvedAt, sellerPayout },

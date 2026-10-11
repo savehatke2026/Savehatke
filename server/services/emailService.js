@@ -3505,7 +3505,139 @@ ${EMAIL_GREEN_DARK_RULES}
   }
 }
 
+/**
+ * Seller reminder: an approved coupon is payout-eligible but no payout method is
+ * saved. Sent from the no-reply mailbox, following sendCouponSubmissionAdminEmail's
+ * From rule. Contains no payment details.
+ */
+async function sendPayoutMethodReminderEmail({ to, sellerName = '' }, opts = {}) {
+  const cleanTo = String(to || '').trim().toLowerCase();
+  if (!cleanTo) return { success: false, error: 'recipient required' };
+
+  const t = getNoreplyTransporter();
+  if (!t) {
+    console.warn('[EmailService] SMTP not configured. Payout-method reminder NOT sent.');
+    return { success: false, error: 'SMTP not configured' };
+  }
+
+  const authUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const desired = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || '').trim();
+  const dedicated = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
+  const domainOf = (a) => (String(a).split('@')[1] || '').toLowerCase();
+  const canSendAsNoreply = dedicated
+    || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+    || Boolean(desired && authUser && domainOf(desired) === domainOf(authUser));
+  const fromEmail = canSendAsNoreply ? desired : (authUser || desired);
+  const fromName = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
+
+  const name = String(sellerName || '').trim() || 'there';
+  const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
+  const dashboardUrl = `${siteUrl}/dashboard`;
+  const subject = 'Add Your Payout Method \u2013 SaveHatke';
+
+  const textBody = `Hi ${name},
+
+Good news! Your coupon has been approved and is eligible for payout.
+
+To help us process your seller payout, please add your payment method to your SaveHatke account if you haven't already done so.
+
+Where to find your coupon:
+- Log in to your SaveHatke account.
+- Open your Dashboard.
+- Navigate to Coupons.
+- Find your approved coupon under For Sale and check its payout eligibility.
+
+Add Your Payment Method
+Go to the Payment Methods section of your dashboard and add your preferred payout method with the required details.
+
+Having your payment details saved helps us prepare your eligible payout and avoid delays caused by missing information.
+
+If you've already added your payment method, no further action is required.
+
+Thank you for selling with SaveHatke!
+
+Best,
+SaveHatke`;
+
+  const step = (n, title, body) => `
+    <tr>
+      <td style="padding:6px 0;vertical-align:top;width:28px;"><span style="display:inline-block;width:22px;height:22px;line-height:22px;border-radius:11px;background:#00E272;color:#000000;font-size:0.74rem;font-weight:800;text-align:center;">${n}</span></td>
+      <td style="padding:6px 0 6px 6px;font-size:0.88rem;color:#374151;line-height:1.6;"><strong style="color:#111827;">${escapeHtml(title)}</strong>${body ? `<br>${escapeHtml(body)}` : ''}</td>
+    </tr>`;
+
+  const htmlContent = `<!DOCTYPE html>
+  <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><meta name="supported-color-schemes" content="light dark">${EMAIL_DARK_STYLE}
+  </head>
+  <body style="margin:0;padding:0;background:#f3f4f6;font-family:'Segoe UI',Roboto,Arial,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:28px 12px;">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
+          <tr>
+            <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
+              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px 32px 6px;">
+              <h1 style="margin:0 0 14px;font-size:1.15rem;color:#0f1e3a;font-weight:800;">Add Your Payout Method</h1>
+              <p style="margin:0 0 12px;font-size:0.92rem;color:#374151;line-height:1.65;">Hi ${escapeHtml(name)},</p>
+              <p style="margin:0 0 12px;font-size:0.92rem;color:#374151;line-height:1.65;">Good news! Your coupon has been approved and is eligible for payout.</p>
+              <p style="margin:0 0 18px;font-size:0.92rem;color:#374151;line-height:1.65;">To help us process your seller payout, please add your payment method to your SaveHatke account if you haven't already done so.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:0 32px 8px;">
+              <p style="margin:0 0 8px;font-size:0.92rem;color:#111827;font-weight:700;">Where to find your coupon</p>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                ${step(1, 'Log in to your SaveHatke account.')}
+                ${step(2, 'Open your Dashboard.')}
+                ${step(3, 'Navigate to Coupons.')}
+                ${step(4, 'Find your approved coupon under For Sale', 'and check its payout eligibility.')}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:14px 32px 4px;">
+              <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:16px 18px;">
+                <p style="margin:0 0 6px;font-size:0.92rem;color:#111827;font-weight:700;">Add Your Payment Method</p>
+                <p style="margin:0 0 6px;font-size:0.88rem;color:#374151;line-height:1.6;">Go to the Payment Methods section of your dashboard and add your preferred payout method with the required details.</p>
+                <p style="margin:0;font-size:0.88rem;color:#374151;line-height:1.6;">Having your payment details saved helps us prepare your eligible payout and avoid delays caused by missing information.</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 32px 26px;">
+              <p style="margin:0 0 16px;font-size:0.88rem;color:#374151;line-height:1.65;">If you've already added your payment method, no further action is required.</p>
+              <p style="margin:0 0 16px;font-size:0.88rem;color:#374151;line-height:1.65;">Thank you for selling with SaveHatke!</p>
+              <a href="${escapeHtml(dashboardUrl)}" class="sh-btn" style="display:inline-block;background:#00E272;color:#000000;text-decoration:none;font-weight:700;font-size:0.88rem;padding:11px 22px;border-radius:9px;">Go to Dashboard</a>
+              <p style="margin:18px 0 0;font-size:0.88rem;color:#374151;line-height:1.65;">Best,<br>SaveHatke</p>
+            </td>
+          </tr>
+        </table>
+      </td></tr>
+    </table>
+  </body></html>`;
+
+  try {
+    const info = await t.sendMail({
+      from: `"${fromName}" <${fromEmail}>`,
+      to: cleanTo,
+      subject,
+      text: textBody,
+      html: htmlContent,
+      envelope: { from: fromEmail, to: cleanTo },
+      headers: { 'Auto-Submitted': 'auto-generated' },
+    });
+    console.log(`\u2705 [EmailService] Payout-method reminder sent from ${fromEmail} (Message ID: ${info.messageId})`);
+    return { success: true, messageId: info.messageId || '' };
+  } catch (err) {
+    console.error('\u274c [EmailService] Payout-method reminder failed:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
+  sendPayoutMethodReminderEmail,
   sendPaymentSuccessEmail,
   sendCouponDetailsEmail,
   sendOTPEmail,
