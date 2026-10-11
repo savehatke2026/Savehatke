@@ -3256,8 +3256,17 @@ async function saveCouponEdit() {
     description: v('ceDescription') || title,
     terms: v('ceTerms'),
     howToUse: v('ceHowToUse'),
-    onSale: ck('ceSale'),
-    timerOn: ck('ceTimer'),
+    // Sale and timer switches are sent only when changed, so an ordinary save
+    // doesn't touch on_sale / timer_on (those columns need their migration).
+    ...((() => {
+      const cur = findCouponById(couponEditId) || {};
+      const out = {};
+      const curSale = cur.onSale !== false && cur.onSale !== 'false';
+      const curTimer = cur.timerOn !== false && cur.timerOn !== 'false';
+      if (ck('ceSale') !== curSale) out.onSale = ck('ceSale');
+      if (ck('ceTimer') !== curTimer) out.timerOn = ck('ceTimer');
+      return out;
+    })()),
     isFeatured: ck('ceFeatured'),
     isExclusive: ck('ceExclusive'),
     isVerified: ck('ceVerified'),
