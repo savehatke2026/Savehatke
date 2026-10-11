@@ -723,7 +723,8 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       type: type ? type.trim() : 'Public',
       category: category ? category.trim() : 'General',
       brand: brand.trim(),
-      description: title || description || discount || '',
+      // The typed description wins; the title is only the fallback when blank.
+      description: description || title || discount || '',
       discount: discount ? discount.trim() : '',
       originalValue: String(faceValue),
       sellerPayout: payoutForFaceValue(faceValue),
