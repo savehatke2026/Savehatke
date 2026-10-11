@@ -2084,7 +2084,28 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <th>Actions</th>
           </tr></thead>
           <tbody id="payoutsTableBody">
-            <tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">Loading payouts…</td></tr>
+            <tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">Loading payouts...</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+
+      <!-- Seller Payout Details (read-only). Sellers save this themselves; the admin only views it. -->
+      <div class="table-card" style="margin-top:22px">
+        <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
+          <h3>Seller Payout Details <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(saved by sellers · view only)</span></h3>
+          <span style="font-size:.78rem;color:#6b88aa"><span id="payoutDetailsCount">0</span> sellers</span>
+        </div>
+        <div class="overflow-x"><table>
+          <thead><tr>
+            <th>Seller</th>
+            <th>Beneficiary</th>
+            <th>Method</th>
+            <th>UPI ID / QR</th>
+            <th>Complete</th>
+            <th>Last updated</th>
+          </tr></thead>
+          <tbody id="payoutDetailsBody">
+            <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b88aa">Loading seller payout details...</td></tr>
           </tbody>
         </table></div>
       </div>
@@ -6059,6 +6080,7 @@ async function loadPayouts({ silent = false } = {}) {
 
     renderPayoutStats();
     renderPayoutsTable();
+    loadSellerPayoutDetails();
 
     // Update the nav badge with the live pending count
     const navBadge = document.getElementById('payoutsNavBadge') || document.querySelector('.nav-item .nbadge');
@@ -6083,6 +6105,39 @@ async function loadPayouts({ silent = false } = {}) {
       refreshBtn.disabled = false;
       refreshBtn.textContent = '↻ Refresh';
     }
+  }
+}
+
+// ─── Seller Payout Details (read-only) ───────────────────────────
+// Sellers write this tab through PUT /api/payouts/details; the admin only views
+// it. No approve/reject actions here — those stay on the Payouts ledger above.
+async function loadSellerPayoutDetails() {
+  const body = document.getElementById('payoutDetailsBody');
+  try {
+    const res = await api('/admin/seller-payout-details', { useAdmin: true });
+    const details = Array.isArray(res.details) ? res.details : [];
+    setText('payoutDetailsCount', String(details.length));
+    if (!body) return;
+    if (details.length === 0) {
+      body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#6b88aa">No sellers have saved payout details yet.</td></tr>`;
+      return;
+    }
+    body.innerHTML = details.map((d) => {
+      const dest = d.method === 'QR'
+        ? `QR file: ${escapeHtml(d.qrFileName || d.qrFileId || '—')}`
+        : escapeHtml(d.upiId || '—');
+      return `<tr>
+        <td>${escapeHtml(d.sellerEmail)}</td>
+        <td>${escapeHtml(d.beneficiaryName || '—')}</td>
+        <td>${escapeHtml(d.method || '—')}</td>
+        <td style="font-family:'JetBrains Mono',monospace">${dest}</td>
+        <td>${d.complete ? '✅ Yes' : '⚠️ No'}</td>
+        <td>${escapeHtml(d.updatedAt ? timeAgo(new Date(d.updatedAt)) : '—')}</td>
+      </tr>`;
+    }).join('');
+  } catch (err) {
+    console.error('Load seller payout details failed:', err);
+    if (body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${escapeHtml(err.message || 'Failed to load seller payout details')}</td></tr>`;
   }
 }
 

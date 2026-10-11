@@ -1622,6 +1622,14 @@ function renderCouponCard(id, index) {
     hint: `Must stay valid at least ${MIN_EXPIRY_DAYS} days — so ${minExpiryText()} or later`,
   }));
 
+  // Seller's UPI ID for payment. Saved on this coupon's own row in the Coupons
+  // sheet (paymentMethod = UPI, upiId).
+  card.appendChild(makeField({
+    id: 'upi-' + id, label: 'Your UPI ID', required: true,
+    placeholder: 'e.g. name@upi',
+    hint: 'Where your payment is sent after the coupon sells.',
+  }));
+
   card.appendChild(makeField({
     id: 'link-' + id, label: 'Affiliate Link (optional)', type: 'url',
     placeholder: 'https://...',
@@ -2879,6 +2887,7 @@ function collectCoupons() {
       expiryDate: val('expiry', id),
       affiliateLink: val('link', id),
       terms: val('terms', id),
+      upiId: val('upi', id),
       proofFile: proofFiles[id] || null
     };
   });
@@ -2955,6 +2964,13 @@ function validateCoupons() {
         `the coupon must stay valid at least ${MIN_EXPIRY_DAYS} days — set the expiry to ${minExpiryText()} or later.`,
         'expiry-' + c.id
       );
+    }
+
+    // Payment method is required on every coupon. A UPI ID must look like
+    // name@handle; the server re-checks it.
+    if (!c.upiId) return fail('Your UPI ID is required.', 'upi-' + c.id);
+    if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$/.test(c.upiId)) {
+      return fail('enter a valid UPI ID like name@upi.', 'upi-' + c.id);
     }
 
     if (c.affiliateLink && !/^https?:\/\/\S+$/i.test(c.affiliateLink)) {
@@ -3290,6 +3306,8 @@ async function submitCoupons() {
           expiryDate: orNone(c.expiryDate),
           affiliateLink: orNone(c.affiliateLink),
           terms: orNone(c.terms),
+          paymentMethod: 'UPI',
+          upiId: c.upiId,
           proofUrl: proofFor(c, i)
         }))
       }

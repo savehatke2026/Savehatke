@@ -507,10 +507,12 @@ async function loadInventory() {
       container.innerHTML = `
         <div class="table-card" style="margin-bottom:0">
           <div class="overflow-x">
-            <table class="appr-table st-table" style="min-width:1080px">
+            <table class="appr-table st-table" style="min-width:1200px">
               <thead><tr>
                 <th>Brand</th><th>Seller</th>
-                <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th><th class="ta-right">Actions</th>
+                <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th>
+                ${SELLER_DEST_HEAD_HTML}
+                <th class="ta-right">Actions</th>
               </tr></thead>
               <tbody>${coupons.map(sellerRowHtml).join('')}</tbody>
             </table>
@@ -1127,10 +1129,12 @@ async function loadPending() {
         ? cmStateHtml('🔎', 'No matching submissions', 'Try a different search.')
         : `<div class="table-card" style="margin-bottom:0">
             <div class="overflow-x">
-              <table class="appr-table st-table" style="min-width:1080px">
+              <table class="appr-table st-table" style="min-width:1200px">
                 <thead><tr>
                   <th>Brand</th><th>Seller</th>
-                  <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th><th class="ta-right">Actions</th>
+                  <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th>
+                  ${SELLER_DEST_HEAD_HTML}
+                  <th class="ta-right">Actions</th>
                 </tr></thead>
                 <tbody>${rows.map(sellerRowHtml).join('')}</tbody>
               </table>
@@ -1181,6 +1185,18 @@ function sellerBrandBoxHtml(brand, c) {
   return `<div class="st-brand-box" title="${escHtml(brand || '')}">${inner}</div>`;
 }
 
+/** Seller payment-method columns, read from the coupon row (saved at submission). */
+const SELLER_DEST_HEAD_HTML = '<th>Payment method</th><th>UPI ID</th>';
+
+function sellerDestCellsHtml(c) {
+  const dash = '<span style="color:#6b88aa">—</span>';
+  const method = String(c.paymentMethod || '').toUpperCase();
+  return [
+    method ? `<td>${escHtml(method)}</td>` : `<td>${dash}</td>`,
+    c.upiId ? `<td class="mono">${escHtml(c.upiId)}</td>` : `<td>${dash}</td>`,
+  ].join('');
+}
+
 /** One seller-submission row. Code is hidden until revealed; images load via Drive refs. */
 function sellerRowHtml(c) {
   const id = escHtml(c.id || '');
@@ -1192,12 +1208,15 @@ function sellerRowHtml(c) {
       <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
       <td>${cmWhenHtml(c.addedAt || '', '')}</td>
       <td>${(() => { const st = SELLER_STATUS[String(c.status || '').toLowerCase()] || { label: c.status || '—', cls: 'badge-gray' }; return `<span class="badge ${st.cls}">${escHtml(st.label)}</span>`; })()}</td>
+      ${sellerDestCellsHtml(c)}
       <td>
         <div class="admin-actions ta-right">
           <button class="btn btn-ghost btn-xs" title="View details" onclick="stOpenDetail('${id}')">🔍</button>
           ${String(c.status || '').toLowerCase() === 'pending' ? `
-          <button class="btn btn-success btn-xs" title="Approve — publishes it to the marketplace" onclick="quickReviewAction('${id}','approve')">✓</button>
+          <button class="btn btn-success btn-xs" title="Approve — keeps it out of Active coupons until you publish it" onclick="quickReviewAction('${id}','approve')">✓</button>
           <button class="btn btn-danger btn-xs" title="Reject with a reason" onclick="stReject('${id}')">✗</button>` : ''}
+          ${c.approvedAt && !c.publishedAt ? `
+          <button class="btn btn-primary btn-xs" title="Publish coupon — makes it live in Active coupons" onclick="publishSellerCoupon('${id}')">Publish coupon</button>` : ''}
         </div>
       </td>
     </tr>`;
@@ -2053,6 +2072,22 @@ async function quickReviewAction(couponId, action) {
     refreshCouponViews();
   } catch (err) {
     if (typeof showToast === 'function') showToast(`Failed to ${action} coupon: ${err.message}`, 'error');
+  }
+}
+
+/** Publish an approved seller coupon: it goes live in Active coupons. Explicit admin action. */
+async function publishSellerCoupon(couponId) {
+  if (!confirm('Publish this coupon? It will go live in Active coupons.')) return;
+  try {
+    const data = await api(`/admin/seller-coupons/${encodeURIComponent(couponId)}/publish`, {
+      method: 'POST',
+      useAdmin: true,
+    });
+    if (typeof showToast === 'function') showToast(data.message || 'Coupon published.', 'success');
+    refreshCouponViews();
+    loadPending();
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(`Failed to publish coupon: ${err.message}`, 'error');
   }
 }
 

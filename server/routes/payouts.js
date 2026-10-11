@@ -567,6 +567,45 @@ router.get('/admin/payouts', authenticateToken, requireAdmin, async (req, res) =
   }
 });
 
+// GET /api/admin/seller-payout-details — read-only view of every seller's saved
+// payment method (the "Seller Payout Details" tab). No approval step: sellers
+// write this tab themselves via PUT /api/payouts/details, and the admin only
+// views it. Approve/reject stay on the Payouts ledger above.
+router.get('/admin/seller-payout-details', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { search } = req.query;
+    const rows = await db.getRowsFresh(db.SHEETS.SELLER_PAYOUT_DETAILS);
+    let details = rows.map((d) => ({
+      id: d.id || '',
+      sellerEmail: String(d.sellerEmail || '').toLowerCase().trim(),
+      sellerUserId: d.sellerUserId || '',
+      method: normalizeMethod(d.method) || '',
+      upiId: String(d.upiId || ''),
+      qrFileId: String(d.qrFileId || ''),
+      qrFileName: String(d.qrFileName || ''),
+      beneficiaryName: String(d.beneficiaryName || ''),
+      complete: payoutDetailsComplete(d),
+      createdAt: d.createdAt || '',
+      updatedAt: d.updatedAt || '',
+    })).filter((d) => d.sellerEmail);
+
+    if (search) {
+      const q = String(search).toLowerCase();
+      details = details.filter((d) =>
+        d.sellerEmail.includes(q) ||
+        d.upiId.toLowerCase().includes(q) ||
+        d.beneficiaryName.toLowerCase().includes(q)
+      );
+    }
+
+    details.sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0));
+    res.json({ details });
+  } catch (err) {
+    console.error('List seller payout details error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // GET /api/admin/payouts/stats — aggregated stats for the header cards
 router.get('/admin/payouts/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {

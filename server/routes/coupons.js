@@ -746,6 +746,8 @@ const handleCouponSubmission = async (req, res) => {
         validFrom: (c && c.validFrom) || validFrom,
         affiliateLink: (c && c.affiliateLink) || affiliateLink,
         terms: (c && c.terms) || terms,
+        paymentMethod: (c && c.paymentMethod) || '',
+        upiId: (c && c.upiId) || '',
         // Each coupon can carry its own screenshot; falls back to the shared one.
         proofUrl: sanitizeProofUrl(c && c.proofUrl) || safeProofUrl,
       }));
@@ -831,6 +833,13 @@ const handleCouponSubmission = async (req, res) => {
       const itemAffiliate = cleanStr(c.affiliateLink, 500);
       const itemTerms = cleanStr(c.terms, 1000);
       const itemValidFrom = cleanStr(c.validFrom, 30);
+      // Seller payment method. Only UPI is accepted on submission; the handle must
+      // be a valid UPI ID. Stored on this coupon's own row only.
+      const itemUpi = cleanStr(c.upiId, 120);
+      if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z][a-zA-Z0-9]{1,63}$/.test(itemUpi)) {
+        return res.status(400).json({ error: `Coupon ${i + 1}: enter a valid UPI ID like name@upi.` });
+      }
+      const itemPaymentMethod = 'UPI';
       if (itemValidFrom && isNaN(Date.parse(itemValidFrom))) {
         return res.status(400).json({ error: `Coupon ${i + 1}: valid-from date is not a valid date.` });
       }
@@ -863,6 +872,9 @@ const handleCouponSubmission = async (req, res) => {
       }
       if (!existing) {
         existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
+      }
+      if (!existing) {
+        existing = await db.findRow(db.SHEETS.SELLER_COUPONS, 'code', cleanCode);
       }
       if (existing) {
         skipped.push(`Coupon ${i + 1} (${cleanCode}): this code has already been submitted.`);
@@ -906,6 +918,8 @@ const handleCouponSubmission = async (req, res) => {
         whatsappSid: '',
         whatsappLastAttempt: '',
         whatsappError: '',
+        paymentMethod: itemPaymentMethod,
+        upiId: itemUpi,
       };
 
       // Persist first — WhatsApp is only sent after a successful DB save
@@ -921,7 +935,9 @@ const handleCouponSubmission = async (req, res) => {
       }
       if (!coupon.id) coupon.id = uuidv4();
       try {
-        await db.appendRow(db.SHEETS.COUPONS, coupon);
+        // Seller submissions go to the SellerCoupons tab only. They join the
+        // Coupons tab when the admin publishes them.
+        await db.appendRow(db.SHEETS.SELLER_COUPONS, coupon);
         saved = true;
       } catch (e) {
         console.warn('Sheets coupon save notice:', e.message);
@@ -955,7 +971,7 @@ const handleCouponSubmission = async (req, res) => {
         if (supabase.isConfigured()) {
           try { await supabase.updateCoupon(coupon.id, notifyUpdate); } catch (e) {}
         }
-        try { await db.updateRow(db.SHEETS.COUPONS, 'id', coupon.id, notifyUpdate); } catch (e) {}
+        try { await db.updateRow(db.SHEETS.SELLER_COUPONS, 'id', coupon.id, notifyUpdate); } catch (e) {}
       }
 
       // ── Email both administrators, from the no-reply mailbox ──

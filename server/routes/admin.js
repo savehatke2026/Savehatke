@@ -207,14 +207,10 @@ async function getAdminCouponList(opts = {}) {
           return [];
         }
       })(),
-      (async () => {
-        try {
-          return await db.getRows(db.SHEETS.COUPONS);
-        } catch (e) {
-          console.warn('[admin/coupons] Sheets read failed:', e.message);
-          return [];
-        }
-      })(),
+      // Admin coupon lists come from Supabase only. The Coupons sheet is no longer
+      // read here; seller submissions live in the SellerCoupons sheet and have
+      // their own admin view (/admin/seller-coupons).
+      Promise.resolve([]),
       payoutsByCouponId(),
     ]);
     return { supa, sheet, payouts };
@@ -325,8 +321,9 @@ async function getAdminCouponList(opts = {}) {
   const safePage = legacy ? 1 : Math.min(Math.max(1, parseInt(page, 10) || 1), totalPages);
   const start = (safePage - 1) * effectivePageSize;
 
+  const pageItems = rows.slice(start, start + effectivePageSize);
   const payload = {
-    coupons: rows.slice(start, start + effectivePageSize).map((c) => payoutSummary(c, payoutMap.get(String(c.id)) || null)),
+    coupons: pageItems.map((c) => payoutSummary(c, payoutMap.get(String(c.id)) || null)),
     total,
     page: safePage,
     pageSize: effectivePageSize,
@@ -574,12 +571,7 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
         allCoupons = await supabase.getCoupons();
       } catch (e) {}
     }
-    if (!allCoupons || allCoupons.length === 0) {
-      try {
-        allCoupons = await db.getRows(db.SHEETS.COUPONS);
-      } catch (e) {}
-    }
-
+    // Supabase only: the admin coupon stats do not read the Coupons sheet.
     allCoupons = allCoupons || [];
     const totalCoupons = allCoupons.length;
     const availableCoupons = allCoupons.filter((c) => c.status === 'available').length;
@@ -801,12 +793,13 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     const statusFilter = STATUS_FILTERS.includes(String(req.query.status || '').toLowerCase())
       ? String(req.query.status).toLowerCase() : '';
 
-    const rows = await db.getRowsFresh(db.SHEETS.COUPONS);
-    // Only rows a SELLER submitted. The source must be a seller tag, and the
-    // row must not be admin-entered (admin rows can carry a seller email from
-    // a test or copy, so the source tag alone is not trusted for exclusion).
+    // Reads the SellerCoupons tab only. Approved rows are hidden here: they are
+    // published (copied to Coupons) or paid out from their own screens.
+    const rows = await db.getRowsFresh(db.SHEETS.SELLER_COUPONS);
     const isSellerRow = (c) => {
-      if (!isSellerSubmissionRow(c)) return false;
+      // Approved rows stay listed until published, so Publish can be clicked.
+      // Published rows have left this queue for Active coupons.
+      if (String(c.publishedAt || '').trim()) return false;
       const st = String(c.status || '').toLowerCase();
       return statusFilter ? st === statusFilter : true;
     };
@@ -847,9 +840,11 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
         profilePicture: String(u.profile_picture || '').trim(),
       });
     }
-    const pageRows = pageSlice.map((c) => {
+      const pageRows = pageSlice.map((c) => {
       const account = accountByEmail.get(String(c.sellerEmail || '').toLowerCase().trim()) || {};
       return {
+      paymentMethod: c.paymentMethod || '',
+      upiId: c.upiId || '',
       id: c.id,
       brand: c.brand || '',
       title: c.title || '',
@@ -1463,6 +1458,42 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
     const { id } = req.params;
     const { action, notes } = req.body || {};
 
+    // Approve on a SellerCoupons row: the row is stamped approved and hidden from
+    // the Seller Coupons list. It is NOT published to the marketplace here — the
+    // admin does that explicitly via POST /coupons/:id/publish. The seller's
+    // payout is shown on the Seller Payouts page for that seller.
+    if (action === 'approve') {
+      const sellerRow = await db.findRow(db.SHEETS.SELLER_COUPONS, 'id', id).catch(() => null);
+      if (sellerRow) {
+        if (!isValidSellerFaceValue(sellerRow.originalValue)) {
+          return res.status(400).json({
+            error: 'This coupon has an invalid face value and cannot be approved. Correct the face value or reject it.',
+            code: 'INVALID_FACE_VALUE',
+          });
+        }
+        if (String(sellerRow.approvedAt || '').trim()) {
+          return res.json({ message: 'Coupon already approved.', coupon: sellerRow });
+        }
+        const approvedAt = new Date().toISOString();
+        const sellerPayout = calculateSellerPayout(sellerRow.originalValue);
+        await db.updateRow(db.SHEETS.SELLER_COUPONS, 'id', id, {
+          status: 'available',
+          isVerified: 'true',
+          verifiedAt: approvedAt,
+          approvedAt,
+          sellerPayout,
+          adminNotes: String(notes || '').trim().slice(0, 500),
+        });
+        await logCouponAudit(id, req.user.email, 'approve', String(notes || '').trim().slice(0, 500));
+        invalidateCouponListCache();
+        return res.json({
+          message: 'Coupon approved. It is not live yet — click Publish coupon to make it active.',
+          coupon: { ...sellerRow, status: 'available', approvedAt, sellerPayout },
+          payoutView: { sellerEmail: sellerRow.sellerEmail || '', amount: sellerPayout },
+        });
+      }
+    }
+
     const transitions = {
       approve: { status: 'available' },
       reject: { status: 'rejected' },
@@ -1583,6 +1614,58 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
     });
   } catch (err) {
     console.error('Admin review action error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// POST /api/admin/seller-coupons/:id/publish — copy an approved SellerCoupons row
+// into the Coupons tab so it goes live and can be sold (the existing sell and
+// payout logic reads Coupons). Explicit admin action only; never automatic.
+router.post('/seller-coupons/:id/publish', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const row = await db.findRow(db.SHEETS.SELLER_COUPONS, 'id', id).catch(() => null);
+    if (!row) return res.status(404).json({ error: 'Seller coupon not found.' });
+    if (!String(row.approvedAt || '').trim()) {
+      return res.status(409).json({ error: 'Approve this coupon before publishing it.', code: 'NOT_APPROVED' });
+    }
+    // The marketplace reads Supabase only, so the live copy is written there first
+    // (update if it already exists, otherwise create), mirroring review-action.
+    const live = { ...row, status: 'available', isVerified: 'true' };
+    delete live.approvedAt;
+    let savedLive = false;
+    if (supabase.isConfigured()) {
+      try {
+        const existing = await supabase.findCouponById(id).catch(() => null);
+        if (existing) {
+          await supabase.updateCoupon(id, { status: 'available', isVerified: true });
+        } else {
+          await supabase.createCoupon({ ...live, id });
+        }
+        savedLive = true;
+      } catch (e) {
+        console.error('Publish: could not write coupon to Supabase:', e.message);
+      }
+    }
+    if (!savedLive && !supabase.isConfigured()) savedLive = true;
+    if (!savedLive) {
+      return res.status(500).json({ error: 'Could not publish the coupon. Please try again.' });
+    }
+    const already = await db.findRow(db.SHEETS.COUPONS, 'id', id).catch(() => null);
+    if (!already) {
+      await db.appendRow(db.SHEETS.COUPONS, live);
+    }
+    // Stamp the seller row as published so it leaves the Seller Coupons queue.
+    const publishedAt = new Date().toISOString();
+    await db.updateRow(db.SHEETS.SELLER_COUPONS, 'id', id, { publishedAt, status: 'available' });
+    await logCouponAudit(id, req.user.email, 'publish', '');
+    invalidateCouponListCache();
+    res.json({
+      message: 'Coupon published — it is now live in Active coupons.',
+      payoutView: { sellerEmail: row.sellerEmail || '', amount: Number(row.sellerPayout) || 0 },
+    });
+  } catch (err) {
+    console.error('Publish seller coupon error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
@@ -1745,7 +1828,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const [users, coupons, sessions] = await Promise.all([
       db.getRows(db.SHEETS.USERS),
-      db.getRows(db.SHEETS.COUPONS).catch(() => []),
+      supabase.isConfigured() ? supabase.getCoupons({}).catch(() => []) : Promise.resolve([]),
       supabase.isConfigured() ? supabase.getAllSessions().catch(() => []) : Promise.resolve([]),
     ]);
 

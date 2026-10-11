@@ -11,6 +11,10 @@ const fs = require('fs');
 const SHEETS = {
   USERS: 'Users',
   COUPONS: 'Coupons',
+  // Seller submissions awaiting admin review. Approved rows are copied into
+  // Coupons (so sell/payout logic is unchanged) and marked here as approved,
+  // which hides them from the admin Seller Coupons section.
+  SELLER_COUPONS: 'SellerCoupons',
   PRICE_TRACKING: 'PriceTracking',
   SUPPORT_TICKETS: 'SupportTickets',
   SETTINGS: 'Settings',
@@ -123,6 +127,23 @@ const HEADERS = {
     // the paise). APPENDED AT THE END on purpose: ensureSheets() grows the
     // header row to the right, so existing columns and their data never shift.
     'sellerPayout',
+    // Seller's payment method, captured on the sell form and saved on the
+    // coupon row only (never copied to SellerPayoutDetails). APPENDED AT THE END
+    // so existing columns keep their positions.
+    'paymentMethod',
+    'upiId',
+  ],
+  // Seller submissions. Same columns as Coupons so a row copies across unchanged;
+  // `approvedAt` is appended at the end and set when the admin approves the row.
+  [SHEETS.SELLER_COUPONS]: [
+    'id', 'brand', 'title', 'code', 'category', 'type', 'discount', 'description',
+    'originalValue', 'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
+    'terms', 'sellingPrice', 'status', 'isVerified', 'isFeatured', 'isExclusive',
+    'source', 'sellerEmail', 'buyerEmail', 'addedAt', 'soldAt', 'proofUrl',
+    'adminNotes', 'verifiedAt', 'sellerUserId', 'whatsappStatus', 'whatsappSid',
+    'whatsappLastAttempt', 'whatsappError', 'sellerPayout', 'paymentMethod', 'upiId',
+    'approvedAt',
+    'publishedAt',
   ],
   [SHEETS.COUPON_AUDIT]: [
     'id',
