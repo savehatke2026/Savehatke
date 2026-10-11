@@ -724,9 +724,22 @@ async function updateCoupon(id, updates) {
   const patch = {};
   if (updates.code) patch.code = updates.code.toUpperCase().trim();
   if (updates.brand) patch.brand = updates.brand.trim();
-  if (updates.category) patch.category = updates.category.trim();
+  if (updates.category !== undefined) patch.category = String(updates.category || '').trim() || 'General';
   if (updates.title !== undefined) patch.title = updates.title;
   if (updates.description !== undefined) patch.description = updates.description;
+  // Edit Coupon form fields that previously reached only the Sheets mirror.
+  // Read back by fromSupabaseCoupon, so these columns already exist.
+  if (updates.type !== undefined) patch.type = String(updates.type || '').trim() || 'Public';
+  if (updates.discount !== undefined) patch.discount = String(updates.discount || '');
+  if (updates.minOrderValue !== undefined) {
+    const mo = String(updates.minOrderValue == null ? '' : updates.minOrderValue).trim();
+    patch.min_order_value = mo === '' ? null : mo;
+  }
+  if (updates.affiliateLink !== undefined) patch.affiliate_link = String(updates.affiliateLink || '').trim() || null;
+  if (updates.terms !== undefined) patch.terms = String(updates.terms || '');
+  if (updates.isFeatured !== undefined) patch.is_featured = updates.isFeatured === true || updates.isFeatured === 'true';
+  if (updates.isExclusive !== undefined) patch.is_exclusive = updates.isExclusive === true || updates.isExclusive === 'true';
+  if (updates.isVerified !== undefined) patch.is_verified = updates.isVerified === true || updates.isVerified === 'true';
   if (updates.originalValue !== undefined) {
     patch.original_value = String(updates.originalValue);
     // Seller payout lives in Google Sheets; Supabase intentionally does NOT

@@ -829,7 +829,6 @@ function cmCardHtml(c) {
     ? invExpiryChip(c.expiryDate, c.timerOn !== false)
     : '';
   const origPrice = c.originalValue ? ` <del>₹${escHtml(c.originalValue)}</del>` : '';
-  const copySvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
   // Sell is offered only for a coupon the server would accept: still available
   // and not expired. Anything else (sold, reserved, expired) shows no button.
   const sellable = String(c.status || '').toLowerCase() === 'available' && !couponIsExpired(c);
@@ -842,9 +841,6 @@ function cmCardHtml(c) {
   return `
     <article class="coupon-card" data-coupon-id="${id}">
       <div class="match-banner">
-        <button type="button" class="cmbx-edit" title="Edit coupon" aria-label="Edit coupon" onclick="openCouponEdit('${id}')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 3 5 5M4 20l4-1 13-13a2.1 2.1 0 0 0-3-3L5 16l-1 4Z"/></svg>
-        </button>
         ${sellBtn}
         ${bg
           ? `<img src="${escHtml(bg)}" alt="" loading="lazy" decoding="async" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
@@ -868,10 +864,7 @@ function cmCardHtml(c) {
           <span class="match-cost">₹${escHtml(c.sellingPrice || '0')}${origPrice}</span>
           ${expiryChip ? `<span class="cmbx-expiry">${expiryChip}</span>` : ''}
         </div>
-        <button type="button" class="match-claim cmbx-code" ${code ? `title="Copy code" onclick="cmCopyCode('${code}',this)"` : 'title="No coupon code" disabled'}>
-          <span class="cmbx-code-txt">${code || '—'}</span>
-          ${code ? copySvg : ''}
-        </button>
+        <button type="button" class="match-claim cmbx-edit-cta" title="Edit coupon" onclick="openCouponEdit('${id}')">Edit Coupon</button>
       </div>
     </article>`;
 }

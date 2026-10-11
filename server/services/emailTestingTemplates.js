@@ -237,6 +237,17 @@ const TEMPLATES = [
       requestedAt: NOW_ISO(),
     }, { renderOnly: true }),
   },
+  {
+    id: 'payout_method_reminder',
+    sender: 'noreply',
+    name: 'Add Payout Method (Seller)',
+    description: 'Test the reminder sent to a seller whose coupon was approved but who has no payout method saved.',
+    category: 'Account',
+    render: (to) => emailService.sendPayoutMethodReminderEmail({
+      to,
+      sellerName: 'SaveHatke Test User',
+    }, { renderOnly: true }),
+  },
 ];
 
 // Filter categories exposed in the UI (fixed set requested by the product).

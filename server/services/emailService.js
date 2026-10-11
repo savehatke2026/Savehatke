@@ -3514,8 +3514,10 @@ async function sendPayoutMethodReminderEmail({ to, sellerName = '' }, opts = {})
   const cleanTo = String(to || '').trim().toLowerCase();
   if (!cleanTo) return { success: false, error: 'recipient required' };
 
-  const t = getNoreplyTransporter();
-  if (!t) {
+  // renderOnly (Email Testing preview) never touches SMTP, so it must not
+  // require a configured transporter.
+  const t = opts.renderOnly ? null : getNoreplyTransporter();
+  if (!opts.renderOnly && !t) {
     console.warn('[EmailService] SMTP not configured. Payout-method reminder NOT sent.');
     return { success: false, error: 'SMTP not configured' };
   }
@@ -3617,6 +3619,10 @@ SaveHatke`;
       </td></tr>
     </table>
   </body></html>`;
+
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
 
   try {
     const info = await t.sendMail({

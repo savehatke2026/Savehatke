@@ -408,9 +408,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cm2-list .cmbx-sell{position:absolute;top:2.4cqw;right:calc(2.4cqw + 7.4cqw);z-index:6;display:flex;align-items:center;gap:.9cqw;padding:1.5cqw 2.4cqw;border-radius:2cqw;border:1px solid rgba(0,226,114,.45);cursor:pointer;background:rgba(0,226,114,.16);color:#00E272;font-family:'Outfit',sans-serif;font-size:2.6cqw;font-weight:700;backdrop-filter:blur(4px);transition:background .18s}
 .cm2-list .cmbx-sell svg{width:3.2cqw;height:3.2cqw}
 .cm2-list .cmbx-sell:hover{background:rgba(0,226,114,.28)}
-.cm2-list .cmbx-edit{position:absolute;top:2.4cqw;right:2.4cqw;z-index:6;display:flex;align-items:center;justify-content:center;padding:1.8cqw;border-radius:2cqw;border:none;cursor:pointer;background:rgba(6,13,31,.66);color:#e2ecff;backdrop-filter:blur(4px);transition:background .18s}
-.cm2-list .cmbx-edit:hover{background:rgba(0,226,114,.22)}
-.cm2-list .cmbx-edit svg{width:4cqw;height:4cqw}
 .cm2-list .match-body{padding:3.4cqw;display:flex;flex-direction:column;flex:1;gap:3cqw;min-width:0}
 .cm2-list .match-info{display:flex;align-items:flex-start;gap:4.4cqw;min-height:24cqw}
 .cm2-list .match-logo{position:relative;width:21cqw;aspect-ratio:1;flex-shrink:0;border-radius:4cqw;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -429,12 +426,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
 .cm2-list .match-claim:hover{filter:brightness(1.12)}
 .cm2-list .match-claim:focus-visible{outline:3px solid #fff;outline-offset:-6px}
 @media(prefers-reduced-motion:reduce){.cm2-list .match-claim{transition:none}}
-/* The coupon CODE sits where the marketplace Claim button sits — same
-   full-width CTA surface, mono type, click to copy. */
-.cm2-list .match-claim.cmbx-code{display:flex;align-items:center;justify-content:center;gap:2.4cqw;font-family:'JetBrains Mono',monospace;letter-spacing:.01em}
-.cm2-list .cmbx-code-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cm2-list .cmbx-code svg{width:4.2cqw;height:4.2cqw;flex-shrink:0}
-.cm2-list .cmbx-code:disabled{filter:grayscale(.6) brightness(.75);cursor:not-allowed}
+/* Admin edit entry point: the same full-width CTA as the marketplace Claim button. */
+.cm2-list .match-claim.cmbx-edit-cta{display:block;text-align:center;text-decoration:none}
 /* Loading skeleton for the inventory grid */
 .cmbx-skel{background:#0d1930;border:1px solid #17364b;border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
 .cmbx-skel .sk-hero{height:84px;background:linear-gradient(100deg,#0e1c33 30%,#16284a 50%,#0e1c33 70%);background-size:200% 100%;animation:cmbxShimmer 1.2s linear infinite}
