@@ -142,10 +142,16 @@ function invalidateCouponListCache() {
   couponListCache.invalidate();
 }
 
-// Seller-submission parity with the admin client's isSellerSubmission().
+// Strict seller-coupon rule, the single source of truth for the admin Coupons
+// views (Active "From reviews" filter, Pending seller table, the seller pill).
+// A row counts as a seller coupon only when its source is a seller tag AND it
+// has a seller email. Admin-entered rows are excluded even if they carry an
+// email from a test or copy, so the source tag alone is never trusted.
+const SELLER_SOURCE_TAGS = ['user-submitted', 'user'];
 function isSellerSubmissionRow(c) {
   const src = String(c.source || '').toLowerCase();
-  return src === 'user-submitted' || src === 'user';
+  if (!SELLER_SOURCE_TAGS.includes(src)) return false;
+  return String(c.sellerEmail || '').trim() !== '';
 }
 
 // Expiry parity with the admin client's couponIsExpired(): a row is expired
@@ -224,8 +230,13 @@ async function getAdminCouponList(opts = {}) {
     sheetCoupons = sheetCoupons.filter((c) => String(c.status || '') === status);
   }
   if (source) {
-    supaCoupons = supaCoupons.filter((c) => String(c.source || '') === source);
-    sheetCoupons = sheetCoupons.filter((c) => String(c.source || '') === source);
+    // The seller view ('user-submitted') uses the strict seller rule, so an
+    // admin row that carries a seller email cannot leak into "From reviews".
+    const matchSource = source === 'user-submitted'
+      ? (c) => isSellerSubmissionRow(c)
+      : (c) => String(c.source || '') === source;
+    supaCoupons = supaCoupons.filter(matchSource);
+    sheetCoupons = sheetCoupons.filter(matchSource);
   }
   if (category) {
     const want = String(category).toLowerCase();
@@ -795,8 +806,7 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     // row must not be admin-entered (admin rows can carry a seller email from
     // a test or copy, so the source tag alone is not trusted for exclusion).
     const isSellerRow = (c) => {
-      const src = String(c.source || '').toLowerCase();
-      if (!(src === 'user-submitted' || src === 'user')) return false;
+      if (!isSellerSubmissionRow(c)) return false;
       const st = String(c.status || '').toLowerCase();
       return statusFilter ? st === statusFilter : true;
     };
