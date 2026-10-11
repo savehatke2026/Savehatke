@@ -437,7 +437,7 @@ const INV_PAGE_SIZE = 20;
 // place instead of re-fetching and losing the page + scroll position.
 let INVENTORY_CACHE = [];
 // Redesigned "All Coupons" view state.
-let invPillFilter = null;   // null | 'active' | 'seller' | 'sold' | 'expired'
+let invPillFilter = 'active'; // 'active' | 'seller' | 'sold' | 'expired' — opens on Active coupons
 let INVENTORY_ALL = [];     // full fetched set — drives the summary cards + pill filters
 
 async function loadInventory() {
@@ -500,6 +500,25 @@ async function loadInventory() {
 
     const startIdx = (invCurrentPage - 1) * INV_PAGE_SIZE;
     INVENTORY_CACHE = coupons;
+
+    // Seller pill: a table, not cards. Same row layout and actions as the
+    // Pending tab, so the two views stay consistent.
+    if (invPillFilter === 'seller') {
+      container.innerHTML = `
+        <div class="table-card" style="margin-bottom:0">
+          <div class="overflow-x">
+            <table class="appr-table st-table" style="min-width:1080px">
+              <thead><tr>
+                <th>ID</th><th>Brand</th><th>Title</th><th>Seller</th><th>Category</th>
+                <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Images</th><th>Status</th><th class="ta-right">Actions</th>
+              </tr></thead>
+              <tbody>${coupons.map(sellerRowHtml).join('')}</tbody>
+            </table>
+          </div>
+          ${invPagerHtml(startIdx, totalFiltered, totalPages)}
+        </div>`;
+      return;
+    }
 
     const body = `<div class="cm2-list">${coupons.map(cmCardHtml).join('')}</div>`;
 
@@ -680,9 +699,11 @@ function invPagerHtml(startIdx, total, totalPages) {
 
 // ── Filter pills / copy ────────────────────────────
 function cmSetPill(pill, el) {
-  invPillFilter = invPillFilter === pill ? null : pill;
+  // Always select the clicked pill. Active is the default, so there is no
+  // "all coupons" state to fall back to by clicking it again.
+  invPillFilter = pill;
   document.querySelectorAll('#cmPills .cm2-pill').forEach((b) => {
-    b.classList.toggle('on', b === el && invPillFilter === pill);
+    b.classList.toggle('on', b.dataset.pill === invPillFilter);
   });
   invCurrentPage = 1;
   loadInventory();
