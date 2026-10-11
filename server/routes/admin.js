@@ -1530,19 +1530,42 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
     }
 
     let saved = false;
-    if (supabase.isConfigured()) {
+    // Approving a seller coupon that still sits in the Sheet moves it: the row is
+    // written to Supabase Active first, and only then removed from the Sheet. If
+    // the Supabase write fails the Sheet row is left untouched, so nothing is lost.
+    const inSheetOnly = !(supabase.isConfigured() && await supabase.findCouponById(id).catch(() => null));
+    const moveToSupabase = action === 'approve' && inSheetOnly && supabase.isConfigured();
+
+    if (moveToSupabase) {
       try {
-        await supabase.updateCoupon(id, updates);
+        const merged = { ...coupon, ...updates };
+        await supabase.createCoupon({ ...merged, id, isVerified: merged.isVerified !== undefined ? String(merged.isVerified) : undefined });
+        saved = true;
+      } catch (e) {
+        console.error('Approve: could not write coupon to Supabase:', e.message);
+      }
+      if (saved) {
+        try {
+          await db.deleteRow(db.SHEETS.COUPONS, 'id', id);
+        } catch (e) {
+          console.error('Approve: coupon copied to Supabase but Sheet row delete failed:', e.message);
+        }
+      }
+    } else {
+      if (supabase.isConfigured()) {
+        try {
+          await supabase.updateCoupon(id, updates);
+          saved = true;
+        } catch (e) {}
+      }
+      try {
+        await db.updateRow(db.SHEETS.COUPONS, 'id', id, {
+          ...updates,
+          isVerified: updates.isVerified !== undefined ? String(updates.isVerified) : undefined,
+        });
         saved = true;
       } catch (e) {}
     }
-    try {
-      await db.updateRow(db.SHEETS.COUPONS, 'id', id, {
-        ...updates,
-        isVerified: updates.isVerified !== undefined ? String(updates.isVerified) : undefined,
-      });
-      saved = true;
-    } catch (e) {}
 
     if (!saved) {
       return res.status(500).json({ error: 'Could not update the coupon. Please try again.' });
