@@ -711,7 +711,12 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       isVerified: String(isVerified !== false),
       sellerEmail,
       status: status ? status.toLowerCase() : 'available',
-      source: source ? source.toLowerCase().replace(/\s+/g, '-') : 'admin',
+      // Admin-entered coupons never carry a seller tag, so they can't land in
+      // the seller submissions table.
+      source: (() => {
+        const s = source ? String(source).toLowerCase().replace(/\s+/g, '-') : 'admin';
+        return isSellerSubmissionRow({ source: s }) ? 'admin' : s;
+      })(),
       // Only sent when the caller explicitly asks for a state. Left out otherwise
       // so the `DEFAULT TRUE` on on_sale / timer_on decides — which also keeps
       // inserts working before server/setup_coupon_sale_timer.sql is applied.

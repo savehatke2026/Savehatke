@@ -1902,7 +1902,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="form-group"><label class="form-label">Original Value / Max Discount (₹)</label><input class="form-input" type="number" id="acValue" placeholder="e.g. 500"></div>
             <div class="form-group"><label class="form-label">Valid From</label><input class="form-input" type="date" id="acValidFrom"></div>
             <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="acExpiry"></div>
-            <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select" id="acSource"><option value="admin">Admin</option><option value="partner">Partner</option><option value="user-submitted">User Submitted</option></select></div>
+            <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select" id="acSource"><option value="admin">Admin</option><option value="partner">Partner</option></select></div>
             <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="acStatus"><option value="available">Active (Available)</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option></select></div>
             <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" id="acLink" placeholder="https://..."></div>
             <div class="form-group" style="grid-column:1/-1">
@@ -6512,35 +6512,35 @@ function maybeLoadPayouts() {
 #sec-coupons .cm2-controls{flex-direction:row;align-items:center;flex-wrap:wrap;background:transparent;padding:0;border:none;margin:24px 0}
 #sec-coupons .cm2-right{margin-left:auto}
 #sec-coupons .cm2-pill.selected{border-color:rgba(0,226,114,.5);background:rgba(0,226,114,.1);color:#00E272}
-.vault-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;grid-auto-rows:1fr}
+.vault-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;grid-auto-rows:1fr}
 .vault-coupon{position:relative;background:#0d1930;border:1px solid #17364b;border-radius:14px;overflow:hidden;display:flex;flex-direction:column;transition:all .3s;min-width:0}
 .vault-coupon:hover{border-color:rgba(0,226,114,.28);transform:translateY(-4px);box-shadow:0 20px 50px rgba(0,0,0,.35)}
-.vault-banner{position:relative;height:84px;background:#070e1e;overflow:hidden;flex-shrink:0}
-.vault-banner img{width:100%;height:84px;object-fit:cover;display:block}
-.vault-banner-placeholder{height:84px;background:#082741}
+.vault-banner{position:relative;height:56px;background:#070e1e;overflow:hidden;flex-shrink:0}
+.vault-banner img{width:100%;height:56px;object-fit:cover;display:block}
+.vault-banner-placeholder{height:56px;background:#082741}
 .vault-banner .vault-source{position:absolute;top:8px;left:8px;z-index:3}
 .vault-edit{position:absolute;right:10px;top:8px;width:30px;height:30px;display:grid;place-items:center;background:rgba(0,16,30,.9);border:1px solid #087493;border-radius:9px;color:#e2ecff;cursor:pointer;z-index:2;backdrop-filter:blur(8px);transition:background .2s,color .2s}
 .vault-edit:hover{background:#003c42;color:var(--coupon-green)}
 .vault-edit svg,.vault-category svg{width:14px;height:14px;flex-shrink:0}
 .vault-countdown svg{width:10px;height:10px;flex-shrink:0}
-.vault-body{padding:11px 12px 12px;display:flex;flex-direction:column;flex:1;min-width:0}
-.vault-brandline{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;min-width:0}
-.vault-brand-name{font-size:12px;font-weight:700;color:#e2ecff;line-height:1.4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-.vault-code{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:#00E272;background:rgba(6,13,31,.72);border:1px solid rgba(0,226,114,.3);padding:2px 7px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
-.vault-title{font-size:13px;font-weight:700;color:#e2ecff;line-height:1.4;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-.vault-description{font-size:11px;line-height:1.45;color:#a6d9fb;margin-bottom:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.vault-price-row{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:9px}
-.vault-price-label{font-size:10px;line-height:1.45;color:#93a8c3}
-.vault-price{font-size:14px;font-weight:700;line-height:1.4;font-variant-numeric:tabular-nums;color:#e2ecff}
-.vault-category{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border:1px solid #00617d;border-radius:6px;color:#00d6ff;background:#073047;font-size:9px;line-height:1.6;font-weight:800;letter-spacing:.02em;white-space:nowrap;box-shadow:0 0 13px #00bffb18}
+.vault-body{padding:8px 9px 9px;display:flex;flex-direction:column;flex:1;min-width:0}
+.vault-brandline{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;min-width:0}
+.vault-brand-name{font-size:11px;font-weight:700;color:#e2ecff;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.vault-code{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:700;color:#00E272;background:rgba(6,13,31,.72);border:1px solid rgba(0,226,114,.3);padding:1px 5px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%}
+.vault-title{font-size:11px;font-weight:700;color:#e2ecff;line-height:1.3;margin-bottom:4px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vault-description{font-size:10px;line-height:1.35;color:#a6d9fb;margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.vault-price-row{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px}
+.vault-price-label{font-size:9px;line-height:1.35;color:#93a8c3}
+.vault-price{font-size:12px;font-weight:700;line-height:1.3;font-variant-numeric:tabular-nums;color:#e2ecff}
+.vault-category{display:inline-flex;align-items:center;gap:3px;padding:1px 6px;border:1px solid #00617d;border-radius:5px;color:#00d6ff;background:#073047;font-size:8px;line-height:1.5;font-weight:800;letter-spacing:.02em;white-space:nowrap;box-shadow:0 0 13px #00bffb18}
 .vault-category.fashion{border-color:#ed3888;color:#ff4d96;background:rgba(237,56,136,.08)}
-.vault-countdown{display:flex;justify-content:center;align-items:center;gap:5px;min-height:21px;padding:2px 7px;border:1px solid #005a44;border-radius:999px;background:#082c33;color:#00E272;font-size:9px;line-height:1.5;font-weight:800;letter-spacing:.04em;margin-bottom:9px;font-variant-numeric:tabular-nums}
+.vault-countdown{display:flex;justify-content:center;align-items:center;gap:4px;min-height:17px;padding:1px 6px;border:1px solid #005a44;border-radius:999px;background:#082c33;color:#00E272;font-size:8px;line-height:1.4;font-weight:800;letter-spacing:.04em;margin-bottom:6px;font-variant-numeric:tabular-nums}
 .vault-countdown.expired{color:#ff8a9b;border-color:#704055;background:rgba(255,70,100,.06)}
-.vault-seller{display:flex;align-items:center;gap:5px;font-size:10px;color:#93a8c3;margin-bottom:8px;min-width:0}
+.vault-seller{display:flex;align-items:center;gap:4px;font-size:9px;color:#93a8c3;margin-bottom:5px;min-width:0}
 .vault-seller-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vault-dot{color:#5f7da3}
 .vault-actions{margin-top:auto}
-.vault-buy{width:100%;display:flex;justify-content:center;align-items:center;gap:8px;padding:13px;border:1px solid #00E272;border-radius:11px;background:rgba(0,226,114,.12);color:var(--coupon-green);font-size:1.15rem;font-weight:700;cursor:pointer;transition:background .2s}
+.vault-buy{width:100%;display:flex;justify-content:center;align-items:center;gap:6px;padding:7px;border:1px solid #00E272;border-radius:8px;background:rgba(0,226,114,.12);color:var(--coupon-green);font-size:.8rem;font-weight:700;cursor:pointer;transition:background .2s}
 .vault-buy:hover{background:rgba(0,226,114,.22)}
 .vault-buy:disabled{opacity:.5;cursor:not-allowed}
 .vault-inventory-meta{display:flex;justify-content:space-between;gap:10px;color:#92abc5;font-size:.78rem;margin-bottom:16px}
@@ -6573,7 +6573,8 @@ function maybeLoadPayouts() {
 .vault-download svg{width:15px;height:15px}
 .vault-demo-note{font-size:.76rem;color:#92abc5;margin-top:20px;line-height:1.5}
 .vault-coupon button:focus-visible,.vault-dialog button:focus-visible,.vault-download:focus-visible{outline:2px solid var(--coupon-green);outline-offset:3px}
-@media(max-width:1250px){.vault-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:1250px){.vault-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:900px){.vault-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:1050px){#sec-coupons .cm2-right{width:100%;margin-left:0}}
 @media(max-width:600px){.vault-grid{grid-template-columns:1fr;gap:18px}.vault-download{font-size:0;padding:8px}.vault-download svg{width:18px;height:18px}.vault-form-row{grid-template-columns:1fr}.vault-inventory-meta{font-size:.7rem}}
 </style>
