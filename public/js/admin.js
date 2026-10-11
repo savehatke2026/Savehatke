@@ -381,9 +381,147 @@ async function stageAddCouponImage(event, field) {
 }
 
 // ── Add Coupon Form ─────────────────────────────────────────────────────
+// ── Hybrid pricing: Settings editor ──────────────────────────────────────
+// Reads and writes the tier table through /admin/pricing-config. The server
+// validates every save; the form only shows what it returns.
+function renderPricingConfig(config) {
+  const pct = document.getElementById('pcFinalPercent');
+  if (pct) pct.value = String(config.manualFinalPercentOff ?? 50);
+  const rows = document.getElementById('pcTierRows');
+  if (!rows) return;
+  rows.innerHTML = (config.maximumDiscountTiers || []).map((t, i) => {
+    const isOpen = t.maxRupees === null || t.maxRupees === undefined;
+    return `<tr data-tier="${i}">
+      <td style="padding:6px">${isOpen
+        ? '<span style="color:#6b88aa">Above previous tier</span>'
+        : `<input class="form-input pc-max" type="number" min="0" step="1" value="${escHtml(String(t.maxRupees))}">`}</td>
+      <td style="padding:6px"><input class="form-input pc-normal" type="number" min="0" step="0.01" value="${escHtml(String(t.normal))}"></td>
+      <td style="padding:6px"><input class="form-input pc-final" type="number" min="0" step="0.01" value="${escHtml(String(t.final))}"></td>
+    </tr>`;
+  }).join('');
+  const err = document.getElementById('pcError');
+  if (err) err.textContent = '';
+}
+
+async function loadPricingConfig() {
+  try {
+    const data = await api('/admin/pricing-config', { useAdmin: true });
+    renderPricingConfig(data.config);
+  } catch (err) {
+    const e = document.getElementById('pcError');
+    if (e) e.textContent = err.message || 'Could not load pricing settings.';
+  }
+}
+
+async function savePricingConfig() {
+  const rows = [...document.querySelectorAll('#pcTierRows tr[data-tier]')];
+  const tiers = rows.map((tr, i) => {
+    const maxEl = tr.querySelector('.pc-max');
+    return {
+      maxRupees: maxEl ? Number(maxEl.value) : null,
+      normal: Number(tr.querySelector('.pc-normal').value),
+      final: Number(tr.querySelector('.pc-final').value),
+    };
+  });
+  const payload = {
+    manualFinalPercentOff: Number(document.getElementById('pcFinalPercent')?.value),
+    maximumDiscountTiers: tiers,
+  };
+  const err = document.getElementById('pcError');
+  if (err) err.textContent = '';
+  try {
+    const data = await api('/admin/pricing-config', { method: 'PUT', useAdmin: true, body: payload });
+    renderPricingConfig(data.config);
+    showToast('Pricing settings saved.', 'success');
+  } catch (e) {
+    if (err) err.textContent = e.message || 'Could not save pricing settings.';
+  }
+}
+
+// ── Hybrid pricing: live preview ─────────────────────────────────────────
+// The preview asks the server (POST /admin/pricing-preview) for the price, so
+// the form shows exactly what checkout will charge. Nothing is computed here.
+const PRICING_FIELDS = {
+  add: { mode: 'acPricingMode', valueType: 'acValueType', value: 'acValue', manual: 'acManualPrice', finalPrice: 'acManualFinalPrice', expiry: 'acExpiry', body: 'acPricePreviewBody' },
+  edit: { mode: 'cePricingMode', valueType: 'ceValueType', value: 'ceValue', manual: 'ceManualPrice', finalPrice: 'ceManualFinalPrice', expiry: 'ceExpiry', body: 'cePricePreviewBody' },
+};
+let pricePreviewTimer = null;
+
+function readPricingForm(which) {
+  const f = PRICING_FIELDS[which];
+  const val = (id) => document.getElementById(id)?.value?.trim() || '';
+  return {
+    pricingMode: val(f.mode) || 'automatic',
+    valueType: val(f.valueType) || 'face_value',
+    originalValue: val(f.value),
+    manualPrice: val(f.manual),
+    manualFinalPrice: val(f.finalPrice),
+    expiryDate: val(f.expiry),
+  };
+}
+
+function fmtRupees(n) {
+  if (n === null || n === undefined || !Number.isFinite(Number(n))) return '—';
+  const x = Number(n);
+  return '₹' + (Number.isInteger(x) ? String(x) : x.toFixed(2));
+}
+
+function renderPricePreview(which, data) {
+  const el = document.getElementById(PRICING_FIELDS[which].body);
+  if (!el) return;
+  if (!data) { el.textContent = 'Enter the pricing details to see the calculated price.'; return; }
+  if (data.message && !data.ok) {
+    el.innerHTML = `<span style="color:#ffb74d">⚠ ${escHtml(data.message)}</span>`;
+    return;
+  }
+  if (Array.isArray(data.errors) && data.errors.length) {
+    el.innerHTML = `<span style="color:#ff8a80">⚠ ${escHtml(data.errors[0])}</span>`;
+    return;
+  }
+  const modeLabel = data.pricingMode === 'manual' ? 'Manual' : 'Automatic';
+  const sourceLabel = data.pricingSource === 'manual' ? 'Manual' : 'Auto-calculated';
+  el.innerHTML = `
+    <div style="display:flex;flex-wrap:wrap;gap:14px">
+      <span><b>Mode:</b> ${modeLabel}</span>
+      <span><b>Normal price:</b> ${fmtRupees(data.normalPrice)}</span>
+      <span><b>Last 24 hours:</b> ${fmtRupees(data.finalPrice)}</span>
+      <span><b>Source:</b> ${sourceLabel}</span>
+    </div>
+    ${data.expired ? '<div style="color:#8ba2c4;margin-top:6px">This coupon has expired.</div>' : ''}`;
+}
+
+function schedulePricePreview(which) {
+  clearTimeout(pricePreviewTimer);
+  pricePreviewTimer = setTimeout(async () => {
+    const body = readPricingForm(which);
+    // Nothing typed yet — show the placeholder instead of an error.
+    if (!body.originalValue && !body.manualPrice) { renderPricePreview(which, null); return; }
+    try {
+      const data = await api('/admin/pricing-preview', { method: 'POST', useAdmin: true, body });
+      renderPricePreview(which, data);
+    } catch (err) {
+      renderPricePreview(which, { ok: false, message: err.message || 'Could not calculate the price.' });
+    }
+  }, 250);
+}
+
+function wirePricePreview(which) {
+  const f = PRICING_FIELDS[which];
+  for (const key of ['mode', 'valueType', 'value', 'manual', 'finalPrice', 'expiry']) {
+    const el = document.getElementById(f[key]);
+    // Guard so reopening the Edit modal never stacks duplicate listeners.
+    if (!el || el.dataset.pricePreviewWired === '1') continue;
+    el.dataset.pricePreviewWired = '1';
+    el.addEventListener('input', () => schedulePricePreview(which));
+    el.addEventListener('change', () => schedulePricePreview(which));
+  }
+  schedulePricePreview(which);
+}
+
 function initAddCouponForm() {
   const form = document.getElementById('addCouponForm');
   if (!form) return;
+  wirePricePreview('add');
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -410,6 +548,10 @@ function initAddCouponForm() {
       const description = document.getElementById('acDescription')?.value?.trim() || title || discount || '';
       // Optional admin-typed price. Blank = automatic 20% / 10% buyer price.
       const manualPrice = document.getElementById('acManualPrice')?.value?.trim() || '';
+      // Hybrid pricing. The server validates the combination and is the authority.
+      const pricingMode = document.getElementById('acPricingMode')?.value || 'automatic';
+      const valueType = document.getElementById('acValueType')?.value || 'face_value';
+      const manualFinalPrice = document.getElementById('acManualFinalPrice')?.value?.trim() || '';
       const sellingPrice = '15';
       const status = document.getElementById('acStatus')?.value || 'available';
       const source = document.getElementById('acSource')?.value || 'admin';
@@ -442,6 +584,9 @@ function initAddCouponForm() {
           description,
           sellingPrice,
           manualPrice,
+          pricingMode,
+          valueType,
+          manualFinalPrice,
           status,
           source,
           isFeatured,
@@ -3162,6 +3307,13 @@ function openCouponEdit(id) {
   setV('ceCategory', c.category);
   setV('ceDiscount', c.discount);
   setV('ceManualPrice', c.manualPrice);
+  // Hybrid pricing prefill. A legacy row with no stored mode shows the mode the
+  // price is actually using, so opening and saving it changes nothing.
+  const legacyMode = String(c.manualPrice || '').trim() ? 'manual' : 'automatic';
+  setV('cePricingMode', String(c.pricingMode || '').toLowerCase() || legacyMode);
+  setV('ceValueType', String(c.valueType || '').toLowerCase() || 'face_value');
+  setV('ceManualFinalPrice', c.manualFinalPrice);
+  wirePricePreview('edit');
   setV('ceValue', c.originalValue);
   setV('ceMinOrder', c.minOrderValue);
   setV('ceExpiry', typeof toTimerInputValue === 'function' ? toTimerInputValue(c.expiryDate) : (c.expiryDate || ''));
@@ -3246,6 +3398,22 @@ async function saveCouponEdit() {
     ...((() => {
       const current = String((findCouponById(couponEditId) || {}).manualPrice || '').trim();
       return manual === current ? {} : { manualPrice: manual };
+    })()),
+    // Hybrid pricing: sent only when the value changed, so an unrelated save
+    // never resets the mode, value type or last-24h price.
+    ...((() => {
+      const cur = findCouponById(couponEditId) || {};
+      const out = {};
+      const curMode = String(cur.pricingMode || '').toLowerCase() || (String(cur.manualPrice || '').trim() ? 'manual' : 'automatic');
+      const curType = String(cur.valueType || '').toLowerCase() || 'face_value';
+      const curFinal = String(cur.manualFinalPrice || '').trim();
+      const mode = v('cePricingMode') || 'automatic';
+      const type = v('ceValueType') || 'face_value';
+      const finalPrice = v('ceManualFinalPrice');
+      if (mode !== curMode) out.pricingMode = mode;
+      if (type !== curType) out.valueType = type;
+      if (finalPrice !== curFinal) out.manualFinalPrice = finalPrice;
+      return out;
     })()),
     originalValue: faceValue,
     minOrderValue: v('ceMinOrder'),

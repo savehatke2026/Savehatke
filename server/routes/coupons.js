@@ -287,7 +287,12 @@ router.get('/', optionalAuth, async (req, res) => {
         // The buyer-facing price (computed). The marketplace card, the
         // checkout modal, and the order summary all render this same number.
         sellingPrice: buyerPrice.price,
-        // Pricing details so the UI can show the rate and a sensible caption.
+        // Normal and last-24-hours prices, so the card can show both. The
+        // purchase price above is whichever one applies right now.
+        normalPrice: buyerPrice.normalPrice,
+        finalPrice: buyerPrice.finalPrice,
+        pricingMode: buyerPrice.pricingMode,
+        pricingSource: buyerPrice.pricingSource,
         pricingRate: buyerPrice.rate,
         pricingBand: buyerPrice.bandLabel,
         pricingPurchasable: buyerPrice.purchasable,
@@ -1328,6 +1333,10 @@ router.get('/:id', async (req, res) => {
         originalValue: coupon.originalValue,
         // The buyer-facing price (computed). NOT the stored sellingPrice.
         sellingPrice: buyerPrice.price,
+        normalPrice: buyerPrice.normalPrice,
+        finalPrice: buyerPrice.finalPrice,
+        pricingMode: buyerPrice.pricingMode,
+        pricingSource: buyerPrice.pricingSource,
         pricingRate: buyerPrice.rate,
         pricingBand: buyerPrice.bandLabel,
         pricingPurchasable: buyerPrice.purchasable,

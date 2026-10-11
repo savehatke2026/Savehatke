@@ -1903,7 +1903,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="form-group"><label class="form-label">Discount Value *</label><input class="form-input" type="text" id="acDiscount" placeholder="e.g. 20% OFF or ₹500 OFF"></div>
             <div class="form-group"><label class="form-label">Manual Selling Price (₹)</label><input class="form-input" type="number" min="1" max="100000" step="0.01" id="acManualPrice" placeholder="Leave empty for automatic 20% / 10%"><div class="form-hint">Optional. When set, buyers pay this amount instead of the automatic price.</div></div>
             <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" id="acMinOrder" placeholder="e.g. 999"></div>
+            <div class="form-group"><label class="form-label">Pricing Mode</label><select class="form-select" id="acPricingMode"><option value="automatic">Automatic</option><option value="manual">Manual</option></select></div>
             <div class="form-group"><label class="form-label">Original Value / Max Discount (₹)</label><input class="form-input" type="number" id="acValue" placeholder="e.g. 500"></div>
+            <div class="form-group"><label class="form-label">Value Type</label><select class="form-select" id="acValueType"><option value="face_value">Face Value</option><option value="maximum_discount">Maximum Discount</option></select></div>
+            <div class="form-group"><label class="form-label">Last 24 Hours Price (₹)</label><input class="form-input" type="number" min="0" step="0.01" id="acManualFinalPrice" placeholder="Optional — blank uses the default % off"><div class="form-hint">Manual mode only. Blank uses the default discount set in Settings.</div></div>
+            <div class="form-group" id="acPricePreview" style="grid-column:1/-1;border:1px solid rgba(0,226,114,.18);border-radius:10px;padding:10px 12px;font-size:.85rem"><div id="acPricePreviewBody">Enter the pricing details to see the calculated price.</div></div>
             <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="acExpiry"></div>
             <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select" id="acSource"><option value="admin">Admin</option><option value="partner">Partner</option></select></div>
             <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="acStatus"><option value="available">Active (Available)</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option></select></div>
@@ -2668,6 +2672,26 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="section-view" id="sec-settings">
       <div class="page-title-row">
         <div><div class="page-title">System <span class="gtext">Settings</span></div><div class="page-subtitle">Configure SaveHatke application &amp; homepage defaults (Saved in Google Sheets)</div></div>
+      </div>
+
+      <!-- ── Coupon Pricing (maximum-discount tiers + default last-24h discount) ── -->
+      <div class="card" id="pricingConfigCard" style="margin-bottom:24px;border:1px solid rgba(79,195,247,.12)">
+        <div class="card-title">Coupon Pricing</div>
+        <p style="color:#6b88aa;font-size:.88rem;margin-bottom:16px">
+          Used when a coupon has a maximum discount but no face value, and as the default last-24-hours discount for manual prices. Changes apply to new prices immediately. Existing stored prices are not rewritten.
+        </p>
+        <div class="form-group"><label class="form-label">Default last-24-hours discount (%)</label><input class="form-input" type="number" min="0" max="100" step="1" id="pcFinalPercent" style="max-width:220px"></div>
+        <div style="overflow-x:auto;margin-bottom:12px">
+          <table style="width:100%;border-collapse:collapse;font-size:.85rem">
+            <thead><tr style="color:#6b88aa;text-align:left"><th style="padding:6px">Max discount up to (₹)</th><th style="padding:6px">Normal price (₹)</th><th style="padding:6px">Last 24 hours (₹)</th></tr></thead>
+            <tbody id="pcTierRows"></tbody>
+          </table>
+        </div>
+        <div id="pcError" style="color:#ff8a80;font-size:.85rem;margin-bottom:10px"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <button type="button" class="btn btn-primary" onclick="savePricingConfig()">Save pricing settings</button>
+          <button type="button" class="btn" onclick="loadPricingConfig()">Reset to saved</button>
+        </div>
       </div>
 
       <!-- ── Website Maintenance ── -->
@@ -3704,7 +3728,11 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="form-group"><label class="form-label">Discount Value</label><input class="form-input" type="text" id="ceDiscount" placeholder="e.g. 20% OFF or ₹500 OFF"></div>
       <div class="form-group"><label class="form-label">Manual Selling Price (₹)</label><input class="form-input" type="number" min="1" max="100000" step="0.01" id="ceManualPrice" placeholder="Leave empty for automatic 20% / 10%"><div class="form-hint">Optional. Clear it to go back to the automatic price.</div></div>
       <div class="form-group"><label class="form-label">Minimum Order Value (₹)</label><input class="form-input" type="number" min="0" id="ceMinOrder"></div>
+      <div class="form-group"><label class="form-label">Pricing Mode</label><select class="form-select" id="cePricingMode"><option value="automatic">Automatic</option><option value="manual">Manual</option></select></div>
       <div class="form-group"><label class="form-label">Original Value / Max Discount (₹)</label><input class="form-input" type="number" min="0" id="ceValue"></div>
+      <div class="form-group"><label class="form-label">Value Type</label><select class="form-select" id="ceValueType"><option value="face_value">Face Value</option><option value="maximum_discount">Maximum Discount</option></select></div>
+      <div class="form-group"><label class="form-label">Last 24 Hours Price (₹)</label><input class="form-input" type="number" min="0" step="0.01" id="ceManualFinalPrice" placeholder="Optional — blank uses the default % off"><div class="form-hint">Manual mode only. Blank uses the default discount set in Settings.</div></div>
+      <div class="form-group" id="cePricePreview" style="grid-column:1/-1;border:1px solid rgba(0,226,114,.18);border-radius:10px;padding:10px 12px;font-size:.85rem"><div id="cePricePreviewBody">Enter the pricing details to see the calculated price.</div></div>
       <div class="form-group"><label class="form-label">Expiry Date &amp; Time</label><input class="form-input" type="datetime-local" id="ceExpiry"></div>
       <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" id="ceLink" placeholder="https://..."></div>
       <div class="form-group"><label class="form-label">Marketplace visibility</label>
@@ -4017,6 +4045,7 @@ function showSection(id, navEl) {
   }
   if (id === 'settings' && typeof loadSystemSettings === 'function') {
     loadSystemSettings();
+    if (typeof loadPricingConfig === 'function') loadPricingConfig();
     if (typeof loadMaintenanceStatus === 'function') loadMaintenanceStatus();
   }
   if (id === 'support' && typeof loadSupportCases === 'function') {

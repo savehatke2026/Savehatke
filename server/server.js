@@ -825,6 +825,9 @@ async function initServices() {
   if (supabase.isConfigured()) {
     await supabase.ensureSessionsTable();
     await supabase.ensureSiteSettingsTable();
+    // Load the admin-editable pricing tiers once so the first purchase or
+    // listing uses the saved values rather than the built-in defaults.
+    await require('./services/pricingConfig').refreshConfig(supabase.getSiteSetting);
 
     // Maintenance mode itself has no seed data — `site_settings.maintenance_mode`
     // is initialised to `{ enabled: false, message: '' }` and

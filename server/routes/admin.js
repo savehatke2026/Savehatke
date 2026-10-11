@@ -29,6 +29,7 @@ const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerP
 // verified buyer purchase — same atomic coupon flip, same ledger rows.
 const paymentStore = require('../services/paymentStore');
 const dynamicPricing = require('../services/dynamicPricing');
+const pricingConfig = require('../services/pricingConfig');
 const upi = require('../services/upi');
 
 const router = express.Router();
@@ -668,6 +669,9 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       howToUse,
       sellingPrice,
       manualPrice,
+      pricingMode,
+      valueType,
+      manualFinalPrice,
       status,
       source,
       isFeatured,
@@ -680,6 +684,27 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
 
     if (!code || !brand) {
       return res.status(400).json({ error: 'Coupon code and brand are required.' });
+    }
+
+    // Hybrid pricing: validate the mode, value type and final-day price before
+    // anything is written. A new coupon defaults to automatic, face value.
+    const newMode = String(pricingMode || 'automatic').toLowerCase();
+    const newValueType = String(valueType || 'face_value').toLowerCase();
+    if (!dynamicPricing.PRICING_MODES.includes(newMode)) {
+      return res.status(400).json({ error: 'Pricing mode must be Automatic or Manual.' });
+    }
+    if (!dynamicPricing.VALUE_TYPES.includes(newValueType)) {
+      return res.status(400).json({ error: 'Value type must be Face Value or Maximum Discount.' });
+    }
+    const priceCheck = dynamicPricing.validatePricing({
+      pricingMode: newMode,
+      valueType: newValueType,
+      originalValue: faceValueFromBody(req.body) ?? discount ?? '',
+      manualPrice,
+      manualFinalPrice,
+    }, pricingConfig.getCachedConfig());
+    if (!priceCheck.ok) {
+      return res.status(400).json({ error: priceCheck.errors[0], errors: priceCheck.errors, code: 'PRICING_INVALID' });
     }
 
     // Manual price is optional. When typed it must be a valid amount; blank is fine.
@@ -735,6 +760,14 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       sellingPrice: sellingPrice || '15',
       // Admin-typed price; blank keeps the automatic 20% / 10% buyer price.
       manualPrice: manualPrice === undefined || manualPrice === null ? '' : String(manualPrice).trim(),
+      // Only non-default pricing fields are written. A plain automatic / face
+      // value coupon has no stored mode, which the app reads exactly like a
+      // legacy row, so creating it works before the hybrid pricing migration.
+      ...(newMode === 'manual' ? { pricingMode: 'manual' } : {}),
+      ...(newValueType === 'maximum_discount' ? { valueType: 'maximum_discount' } : {}),
+      ...(manualFinalPrice !== undefined && manualFinalPrice !== null && String(manualFinalPrice).trim() !== ''
+        ? { manualFinalPrice: String(manualFinalPrice).trim() }
+        : {}),
       minOrderValue: minOrderValue || '',
       validFrom: validFrom || '',
       expiryDate: expiryDate || '',
@@ -968,6 +1001,70 @@ router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
+// GET /api/admin/pricing-config — the tier table and default final-day discount.
+router.get('/pricing-config', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const config = await pricingConfig.refreshConfig(supabase.getSiteSetting);
+    res.json({ config, defaults: pricingConfig.DEFAULT_CONFIG });
+  } catch (err) {
+    console.error('Admin get pricing config error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// PUT /api/admin/pricing-config — save tiers and the default final-day percent.
+router.put('/pricing-config', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
+  try {
+    const result = await pricingConfig.saveConfig(
+      supabase.setSiteSetting,
+      req.body || {},
+      req.user?.email || ''
+    );
+    if (!result.ok) {
+      return res.status(400).json({ error: result.errors[0], errors: result.errors, code: 'PRICING_CONFIG_INVALID' });
+    }
+    res.json({ message: 'Pricing settings saved.', config: result.config });
+  } catch (err) {
+    console.error('Admin save pricing config error:', err);
+    res.status(500).json({ error: 'Could not save pricing settings. Check the Supabase connection.' });
+  }
+});
+
+// POST /api/admin/pricing-preview — what the form shows live, computed by the
+// same server rule the buyer price uses, so the preview can never disagree
+// with checkout. Accepts the in-progress form values; nothing is written.
+router.post('/pricing-preview', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const body = req.body || {};
+    const candidate = {
+      pricingMode: String(body.pricingMode || 'automatic').toLowerCase(),
+      valueType: String(body.valueType || 'face_value').toLowerCase(),
+      originalValue: body.originalValue ?? '',
+      manualPrice: body.manualPrice ?? '',
+      manualFinalPrice: body.manualFinalPrice ?? '',
+      expiryDate: body.expiryDate || '',
+    };
+    const check = dynamicPricing.validatePricing(candidate, pricingConfig.getCachedConfig());
+    const info = dynamicPricing.getBuyerPrice(candidate, Date.now(), pricingConfig.getCachedConfig());
+    res.json({
+      ok: check.ok && info.purchasable,
+      errors: check.errors,
+      pricingMode: info.pricingMode,
+      pricingSource: info.pricingSource,
+      normalPrice: info.purchasable ? info.normalPrice : null,
+      finalPrice: info.purchasable ? info.finalPrice : null,
+      currentPrice: info.purchasable ? info.price : null,
+      expired: info.expired,
+      message: info.pricingError === 'PRICING_UNAVAILABLE'
+        ? 'Pricing unavailable — enter a manual selling price or provide pricing data.'
+        : (info.expired ? 'This coupon has expired.' : ''),
+    });
+  } catch (err) {
+    console.error('Admin pricing preview error:', err);
+    res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
 // PUT /api/admin/coupons/:id — Update coupon (approve/edit)
 //
 // This is also the inline "status update" route the Coupon Management toggles
@@ -1009,10 +1106,36 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
       safe.manualPrice = mp;
     }
 
+    // Hybrid pricing fields. Each is validated against the coupon as it will be
+    // stored after this save, so an unrelated edit can never leave a manual
+    // coupon without a price or an automatic one without pricing data.
+    if (safe.pricingMode !== undefined) {
+      const m = String(safe.pricingMode || '').toLowerCase();
+      if (!dynamicPricing.PRICING_MODES.includes(m)) {
+        return res.status(400).json({ error: 'Pricing mode must be Automatic or Manual.' });
+      }
+      safe.pricingMode = m;
+    }
+    if (safe.valueType !== undefined) {
+      const v = String(safe.valueType || '').toLowerCase();
+      if (!dynamicPricing.VALUE_TYPES.includes(v)) {
+        return res.status(400).json({ error: 'Value type must be Face Value or Maximum Discount.' });
+      }
+      safe.valueType = v;
+    }
+    if (safe.manualFinalPrice !== undefined) {
+      const f = safe.manualFinalPrice === null ? '' : String(safe.manualFinalPrice).trim();
+      if (f !== '' && (!/^\d+(?:\.\d{1,2})?$/.test(f))) {
+        return res.status(400).json({ error: 'Last 24 hours price must be a number with up to 2 decimals.' });
+      }
+      safe.manualFinalPrice = f;
+    }
+
     const updates = {};
     const COPYABLE = [
       'code', 'brand', 'category', 'title', 'description', 'type', 'discount',
-      'sellingPrice', 'manualPrice', 'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
+      'sellingPrice', 'manualPrice', 'pricingMode', 'valueType', 'manualFinalPrice',
+      'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
       'terms', 'howToUse', 'status', 'onSale', 'timerOn', 'backgroundImage', 'brandLogo', 'isFeatured',
       'isExclusive', 'isVerified', 'adminNotes', 'proofUrl', 'soldAt', 'buyerEmail',
     ];
@@ -1083,6 +1206,18 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
 
     if (Object.keys(updates).length === 0) {
       return res.json({ message: 'Nothing to update.', coupon });
+    }
+
+    // Validate the merged coupon only when this save touches pricing. An
+    // unrelated edit (title, expiry, switches) skips this check, so a legacy
+    // coupon that has no price yet is never blocked by a save it didn't ask for.
+    const PRICING_TOUCHED = ['manualPrice', 'manualFinalPrice', 'pricingMode', 'valueType', 'originalValue'];
+    if (PRICING_TOUCHED.some((k) => updates[k] !== undefined)) {
+      const merged = { ...coupon, ...updates };
+      const priceCheck = dynamicPricing.validatePricing(merged, pricingConfig.getCachedConfig());
+      if (!priceCheck.ok) {
+        return res.status(400).json({ error: priceCheck.errors[0], errors: priceCheck.errors, code: 'PRICING_INVALID' });
+      }
     }
 
     let updated = null;
