@@ -510,7 +510,7 @@ async function loadInventory() {
             <table class="appr-table st-table" style="min-width:1080px">
               <thead><tr>
                 <th>Brand</th><th>Seller</th>
-                <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Images</th><th>Status</th><th class="ta-right">Actions</th>
+                <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th><th class="ta-right">Actions</th>
               </tr></thead>
               <tbody>${coupons.map(sellerRowHtml).join('')}</tbody>
             </table>
@@ -1130,7 +1130,7 @@ async function loadPending() {
               <table class="appr-table st-table" style="min-width:1080px">
                 <thead><tr>
                   <th>Brand</th><th>Seller</th>
-                  <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Images</th><th>Status</th><th class="ta-right">Actions</th>
+                  <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th><th class="ta-right">Actions</th>
                 </tr></thead>
                 <tbody>${rows.map(sellerRowHtml).join('')}</tbody>
               </table>
@@ -1166,20 +1166,31 @@ function stSetSort(value) { sellerTable.sort = value; sellerTable.page = 1; load
 function stSetStatus(value) { sellerTable.status = value; sellerTable.page = 1; loadPending(); }
 function stPage(n) { sellerTable.page = Math.max(1, n); loadPending(); }
 
+/** Logo-only square box for the seller table's Brand column (no name). Falls back to the initial. */
+function sellerBrandBoxHtml(brand, c) {
+  const logoUrl = (c && c.brandLogo) || adminDriveBrandLogo(brand);
+  const logoClass = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
+  const initial = escHtml(
+    typeof getBrandInitial === 'function' ? getBrandInitial(brand) : (brand || '?').slice(0, 1).toUpperCase(),
+  );
+  const inner = logoUrl
+    ? `<img src="${escHtml(logoUrl)}" alt="${escHtml(brand)}" class="${logoClass}" loading="lazy" decoding="async"
+            onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"
+       ><span class="st-brand-initial" style="display:none">${initial}</span>`
+    : `<span class="st-brand-initial">${initial}</span>`;
+  return `<div class="st-brand-box" title="${escHtml(brand || '')}">${inner}</div>`;
+}
+
 /** One seller-submission row. Code is hidden until revealed; images load via Drive refs. */
 function sellerRowHtml(c) {
   const id = escHtml(c.id || '');
-  const thumb = (url, label) => url
-    ? `<img class="st-thumb" src="${escHtml(url)}" alt="${escHtml(label)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'st-thumb-miss',textContent:'—'}))">`
-    : `<span class="st-thumb-miss" title="No ${escHtml(label)}">—</span>`;
   return `
     <tr data-coupon-id="${id}">
-      <td>${cmBrandCellHtml(c.brand || '', c)}</td>
+      <td>${sellerBrandBoxHtml(c.brand || '', c)}</td>
       <td><div class="cm-seller-cell">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<div style="min-width:0"><div class="cm-seller" style="color:#e2ecff;font-weight:600">${escHtml(c.sellerName || '—')}</div><div class="cm-seller" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</div></div></div></td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
       <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
       <td>${cmWhenHtml(c.addedAt || '', '')}</td>
-      <td><div class="st-thumbs">${thumb(c.brandLogo, 'brand logo')}${thumb(c.backgroundImage, 'background')}${thumb(c.proofUrl, 'proof')}</div></td>
       <td>${(() => { const st = SELLER_STATUS[String(c.status || '').toLowerCase()] || { label: c.status || '—', cls: 'badge-gray' }; return `<span class="badge ${st.cls}">${escHtml(st.label)}</span>`; })()}</td>
       <td>
         <div class="admin-actions ta-right">
