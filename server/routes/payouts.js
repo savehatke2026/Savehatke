@@ -1060,9 +1060,13 @@ router.get('/payouts/coupon-status', authenticateToken, async (req, res) => {
             amount: Number(payout.amount || 0),
             requestedAt: payout.requestedAt || '',
             processedAt: payout.processedAt || '',
+            paymentReference: payout.paymentReference || '',
             rejectionReason: payout.rejectionReason || '',
           }
           : null,
+        // Stamped by review-action on the first approval. Empty for coupons
+        // approved before it existed, which the ladder shows without a date.
+        approvedAt: c.verifiedAt || '',
         addedAt: c.addedAt || '',
         soldAt: c.soldAt || '',
       };

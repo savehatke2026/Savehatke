@@ -3746,67 +3746,76 @@
     const stage = c.stage || sellerStage(c);
     const rec = sellerRecordFor(c.id) || {};
     const postApproval = ['active', 'eligible', 'payout_processing', 'paid'].includes(stage);
-    // Details count as done only once the coupon is approved — a ladder never
-    // shows a later step finished before an earlier one — and a paid coupon
-    // must have had them, whatever the account record says now.
-    const detailsDone = postApproval && (payoutDetails.complete || stage === 'paid');
+    const isPaid = stage === 'paid';
+    // Two ladders: details already saved on the account (or the coupon was paid,
+    // which needs them) show "Ready for Payout"; otherwise the seller is asked
+    // to add them. A ladder never shows a later step done before an earlier one.
+    const hasDetails = !!(payoutDetails.complete || isPaid);
+    const payoutRow = (rec.payout && rec.payout.processedAt)
+      ? rec.payout
+      : (payoutForCoupon(c.id) || {});
     const steps = [];
 
     // 1 — the listing exists, so submission always counts as complete.
-    steps.push(mlTimelineStep('done', 'Submitted for Review', mlDate(rec.addedAt || c.addedAt)));
+    steps.push(mlTimelineStep('done', 'Coupon Submitted', mlDate(rec.addedAt || c.addedAt)));
 
-    // 2 — the review outcome. Approval timestamps live in the audit log, which
-    //     sellers never see, so this step carries no date.
+    // 2 — verification. Only the pending state is in progress; once the review
+    //     has an outcome this step is complete and carries no date.
+    if (stage === 'pending_review') {
+      steps.push(mlTimelineStep('current', 'Verification in Progress', 'The coupon is being reviewed.'));
+    } else {
+      steps.push(mlTimelineStep('done', 'Verification in Progress', ''));
+    }
+
+    // 3 — the review outcome, dated from the approval stamp. Coupons approved
+    //     before that stamp existed show no date.
     if (stage === 'validation_failed') {
-      steps.push(mlTimelineStep('failed', 'Approved', ''));
+      steps.push(mlTimelineStep('failed', 'Coupon Approved', ''));
       const reason = rec.invalidationReason
         || (rec.payout && rec.payout.rejectionReason)
         || 'This coupon did not pass our validation checks, so it cannot be sold or paid out.';
       return `<ul class="ml-tl">${steps.join('')}</ul>
         <div class="ml-tl-note">${escapeHtml(reason)}</div>`;
     }
-    if (stage === 'pending_review') {
-      steps.push(mlTimelineStep('current', 'Approved', 'Under review'));
-    } else if (postApproval) {
-      steps.push(mlTimelineStep('done', 'Approved', ''));
+    steps.push(postApproval
+      ? mlTimelineStep('done', 'Coupon Approved', mlDate(rec.approvedAt))
+      : mlTimelineStep('', 'Coupon Approved', ''));
+
+    if (hasDetails) {
+      // Variant B — details already saved: no action, just the status.
+      steps.push(postApproval
+        ? mlTimelineStep('done', 'Ready for Payout', 'Already saved. Your payout details are available for your eligible payout. No action required.')
+        : mlTimelineStep('', 'Ready for Payout', 'Already saved. No action required.'));
     } else {
-      steps.push(mlTimelineStep('', 'Approved', ''));
+      // Variant A — details missing: the one seller action, plain clickable text.
+      const addLabel = postApproval
+        ? `<span class="ml-act" style="margin-top:0" role="button" tabindex="0" onclick="openPayoutDetailsModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPayoutDetailsModal()}">Add Payout Details</span>`
+        : 'Add Payout Details';
+      steps.push(mlTimelineStep(postApproval ? 'current' : '', addLabel,
+        'Submit your payout details to receive your eligible earnings.'));
+      steps.push(mlTimelineStep('', 'Ready for Payout', ''));
     }
 
-    // 3 — the one seller action on the ladder. It exists only after approval
-    //     and only while the account has no payout details, and it is plain
-    //     clickable text, never a button.
-    let addState = '';
-    let addSub = '';
-    if (detailsDone) addState = 'done';
-    else if (postApproval) { addState = 'current'; addSub = 'Required to release your payout'; }
-    const addLabel = (!detailsDone && postApproval)
-      ? `<span class="ml-act" style="margin-top:0" role="button" tabindex="0" onclick="openPayoutDetailsModal()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openPayoutDetailsModal()}">Add Payout Details</span>`
-      : 'Add Payout Details';
-    steps.push(mlTimelineStep(addState, addLabel, addSub));
-
-    // 4 — the account record itself. It flips to done the moment details are
-    //     saved, which is why it is never the highlighted step.
-    steps.push(detailsDone
-      ? mlTimelineStep('done', 'Payout Details Submitted', mlDate(payoutDetails.details && payoutDetails.details.updatedAt))
-      : mlTimelineStep('', 'Payout Details Submitted', ''));
-
-    // 5 — the money. The date comes from the server's payout row, with the
-    //     payouts view's copy of it as the fallback.
-    if (stage === 'paid') {
-      const payoutRow = (rec.payout && rec.payout.processedAt)
-        ? rec.payout
-        : (payoutForCoupon(c.id) || {});
-      steps.push(mlTimelineStep('done', 'Paid', mlDate(payoutRow.processedAt)));
-    } else if (detailsDone) {
+    // Last — the money. When confirmed it shows the payment date, amount and
+    //     transaction reference; the reference comes from the server row.
+    if (isPaid) {
+      const amount = Number(payoutRow.amount || 0);
+      const ref = (rec.payout && rec.payout.paymentReference) || payoutRow.paymentReference || '';
+      const paidSub = [
+        mlDate(payoutRow.processedAt),
+        amount > 0 ? inr(amount) : '',
+        ref ? `Ref: ${ref}` : '',
+      ].filter(Boolean).join(' · ');
+      steps.push(mlTimelineStep('done', 'Payment Completed', paidSub));
+    } else if (hasDetails && postApproval) {
       const waitSub = stage === 'active'
         ? 'After your coupon sells'
         : stage === 'eligible'
           ? (rec.soldAt ? `Sold on ${mlDate(rec.soldAt)}` : 'Sold — payout pending')
           : 'Payout in review';
-      steps.push(mlTimelineStep('current', 'Paid', waitSub));
+      steps.push(mlTimelineStep('current', 'Payment Completed', waitSub));
     } else {
-      steps.push(mlTimelineStep('', 'Paid', ''));
+      steps.push(mlTimelineStep('', 'Payment Completed', ''));
     }
 
     return `<ul class="ml-tl">${steps.join('')}</ul>`;
