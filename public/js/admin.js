@@ -225,6 +225,79 @@ function initAdminTabs() {
   });
 }
 
+// ── Add Coupon image staging ────────────────────────────────────────────
+// Images picked in the Add form are held here (memory only) and uploaded to
+// Drive by the publish handler, once the coupon has an ID.
+const addCouponStaged = { brandLogo: null, backgroundImage: null };
+const ADD_COUPON_IMAGE_FIELDS = {
+  brandLogo: { file: 'acLogoFile', preview: 'acLogoPreview', previewImg: 'acLogoPreviewImg', clear: 'acLogoClearBtn', status: 'acLogoStatus', label: 'logo' },
+  backgroundImage: { file: 'acBgFile', preview: 'acBgPreview', previewImg: 'acBgPreviewImg', clear: 'acBgClearBtn', status: 'acBgStatus', label: 'background' },
+};
+const ADD_COUPON_IMAGE_MAX_BYTES = 3 * 1024 * 1024;
+
+function setAddCouponImageStatus(field, message, kind) {
+  const el = document.getElementById(ADD_COUPON_IMAGE_FIELDS[field].status);
+  if (!el) return;
+  el.textContent = message || '';
+  el.style.display = message ? '' : 'none';
+  el.style.color = kind === 'error' ? '#f87171' : '';
+}
+
+function renderAddCouponImage(field) {
+  const cfg = ADD_COUPON_IMAGE_FIELDS[field];
+  const staged = addCouponStaged[field];
+  const preview = document.getElementById(cfg.preview);
+  const img = document.getElementById(cfg.previewImg);
+  const clear = document.getElementById(cfg.clear);
+  if (preview) preview.style.display = staged ? 'flex' : 'none';
+  if (img) img.src = staged ? staged.dataUrl : '';
+  if (clear) clear.style.display = staged ? '' : 'none';
+}
+
+function clearAddCouponImage(field) {
+  addCouponStaged[field] = null;
+  const input = document.getElementById(ADD_COUPON_IMAGE_FIELDS[field].file);
+  if (input) input.value = '';
+  setAddCouponImageStatus(field, '', '');
+  renderAddCouponImage(field);
+}
+
+function clearAddCouponStaging() {
+  clearAddCouponImage('brandLogo');
+  clearAddCouponImage('backgroundImage');
+}
+
+async function stageAddCouponImage(event, field) {
+  const input = event && event.target;
+  const file = input && input.files && input.files[0];
+  if (!file) return;
+  const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+  if (!allowed.includes(String(file.type || '').toLowerCase())) {
+    input.value = '';
+    setAddCouponImageStatus(field, 'Unsupported format — please choose a PNG, JPG or WebP image.', 'error');
+    return;
+  }
+  if (file.size > ADD_COUPON_IMAGE_MAX_BYTES) {
+    input.value = '';
+    setAddCouponImageStatus(field, `Image is too large (${(file.size / (1024 * 1024)).toFixed(1)} MB). The maximum is 3 MB.`, 'error');
+    return;
+  }
+  try {
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('The file could not be read.'));
+      reader.readAsDataURL(file);
+    });
+    addCouponStaged[field] = { dataUrl, type: file.type };
+    setAddCouponImageStatus(field, `Ready — will upload to Drive when you publish.`, '');
+    renderAddCouponImage(field);
+  } catch (err) {
+    input.value = '';
+    setAddCouponImageStatus(field, err.message, 'error');
+  }
+}
+
 // ── Add Coupon Form ─────────────────────────────────────────────────────
 function initAddCouponForm() {
   const form = document.getElementById('addCouponForm');
@@ -251,7 +324,6 @@ function initAddCouponForm() {
       const expiryDate = document.getElementById('acExpiry')?.value || '';
       const affiliateLink = document.getElementById('acLink')?.value?.trim() || '';
       const terms = document.getElementById('acTerms')?.value?.trim() || '';
-      const backgroundImage = document.getElementById('acBackgroundImage')?.value?.trim() || '';
       const description = title || discount || '';
       const sellingPrice = document.getElementById('acPrice')?.value?.trim() || '15';
       const status = document.getElementById('acStatus')?.value || 'available';
@@ -288,11 +360,35 @@ function initAddCouponForm() {
           isFeatured,
           isExclusive,
           isVerified,
-          ...(backgroundImage ? { backgroundImage } : {}),
         },
       });
 
-      showToast(data.message || 'Coupon published successfully! 🚀', 'success');
+      // Staged images go to Drive only now that the coupon has an ID. A failed
+      // image upload is reported; the published coupon itself is not undone.
+      const newId = data && data.coupon && data.coupon.id;
+      const failed = [];
+      if (newId) {
+        for (const field of ['brandLogo', 'backgroundImage']) {
+          const staged = addCouponStaged[field];
+          if (!staged) continue;
+          try {
+            await api('/admin/coupon-images', {
+              method: 'POST',
+              useAdmin: true,
+              body: { couponId: newId, field, dataBase64: staged.dataUrl, contentType: staged.type },
+            });
+          } catch (imgErr) {
+            failed.push(`${field === 'brandLogo' ? 'logo' : 'background'}: ${imgErr.message || 'upload failed'}`);
+          }
+        }
+      }
+      clearAddCouponStaging();
+
+      if (failed.length) {
+        showToast(`Coupon published, but the image upload failed (${failed.join('; ')}). Edit the coupon to try again.`, 'warning', 8000);
+      } else {
+        showToast(data.message || 'Coupon published successfully! 🚀', 'success');
+      }
       resetAddCouponForm(form);
 
       // Close the popup and refresh the inventory it was opened from
@@ -327,6 +423,9 @@ function resetAddCouponForm(form) {
       <span>— Select Brand —</span>
     `;
   }
+
+  // Drop any staged images so they never carry over to the next coupon.
+  if (typeof clearAddCouponStaging === 'function') clearAddCouponStaging();
 }
 
 // ── Inventory ───────────────────────────────────────────────────────────

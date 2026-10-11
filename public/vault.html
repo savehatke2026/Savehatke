@@ -1893,10 +1893,27 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="form-group"><label class="form-label">Coupon Source</label><select class="form-select" id="acSource"><option value="admin">Admin</option><option value="partner">Partner</option><option value="user-submitted">User Submitted</option></select></div>
             <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="acStatus"><option value="available">Active (Available)</option><option value="scheduled">Scheduled</option><option value="draft">Draft</option></select></div>
             <div class="form-group"><label class="form-label">Affiliate Link (optional)</label><input class="form-input" type="url" id="acLink" placeholder="https://..."></div>
-            <div class="form-group">
-              <label class="form-label">Coupon Background Image (optional)</label>
-              <input class="form-input" type="text" id="acBackgroundImage" placeholder="/images/coupons/amazon.webp or https://...">
-              <div class="form-hint">Hero image shown on this coupon's marketplace card. Leave empty for the default SaveHatke background.</div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">Brand Logo</label>
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <div id="acLogoPreview" style="width:52px;height:52px;border-radius:10px;background:#0d1b30;border:1px solid rgba(79,195,247,.2);display:none;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto"><img id="acLogoPreviewImg" alt="" style="width:100%;height:100%;object-fit:contain"></div>
+                <input type="file" id="acLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="stageAddCouponImage(event,'brandLogo')">
+                <button type="button" class="btn btn-ghost btn-sm" id="acLogoUploadBtn" onclick="document.getElementById('acLogoFile').click()">⬆ Upload Logo</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="acLogoClearBtn" style="display:none" onclick="clearAddCouponImage('brandLogo')">✕ Clear</button>
+              </div>
+              <div class="form-hint">Supported: PNG, JPG or WebP, up to 3 MB. Uploaded to the Brand Logos folder when you publish. Leave empty to use the brand logo.</div>
+              <div class="form-hint" id="acLogoStatus" style="display:none"></div>
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">Background Image URL</label>
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+                <input type="file" id="acBgFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="stageAddCouponImage(event,'backgroundImage')">
+                <button type="button" class="btn btn-ghost btn-sm" id="acBgUploadBtn" onclick="document.getElementById('acBgFile').click()">⬆ Upload Image</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="acBgClearBtn" style="display:none" onclick="clearAddCouponImage('backgroundImage')">✕ Clear</button>
+                <div id="acBgPreview" style="width:76px;height:44px;border-radius:8px;background:#0d1b30;border:1px solid rgba(79,195,247,.2);display:none;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto"><img id="acBgPreviewImg" alt="" style="width:100%;height:100%;object-fit:cover"></div>
+              </div>
+              <div class="form-hint">Supported: PNG, JPG or WebP, up to 3 MB. Hero image on the coupon card. Uploaded to the Coupon Backgrounds folder when you publish. Leave empty for the default SaveHatke background.</div>
+              <div class="form-hint" id="acBgStatus" style="display:none"></div>
             </div>
           </div>
           <div class="form-group" style="margin-top:14px"><label class="form-label">Terms &amp; Conditions</label><textarea class="form-textarea" id="acTerms" placeholder="Enter terms and conditions..."></textarea></div>
@@ -3636,24 +3653,24 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <label class="form-label">Brand Logo</label>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
           <div id="ceLogoPreview" style="width:52px;height:52px;border-radius:10px;background:#0d1b30;border:1px solid rgba(79,195,247,.2);display:none;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto"><img id="ceLogoPreviewImg" alt="" style="width:100%;height:100%;object-fit:contain"></div>
-          <input class="form-input" type="text" id="ceLogo" placeholder="Empty = use the brand's Drive logo" style="flex:1;min-width:200px">
+          <input type="hidden" id="ceLogo">
           <input type="file" id="ceLogoFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="handleCouponImagePicked(event,'brandLogo')">
           <button type="button" class="btn btn-ghost btn-sm" id="ceLogoUploadBtn" onclick="document.getElementById('ceLogoFile').click()">⬆ Upload Logo</button>
           <button type="button" class="btn btn-ghost btn-sm" id="ceLogoClearBtn" style="display:none" onclick="clearCouponImage('brandLogo')">✕ Clear</button>
         </div>
-        <div class="form-hint">PNG, JPG or WebP up to 3 MB. Uploading replaces this coupon's logo immediately (file goes to the Brand Logos folder in the SaveHatke Drive); leave empty to keep using the brand logo.</div>
+        <div class="form-hint">Supported: PNG, JPG or WebP, up to 3 MB. Uploading replaces this coupon's logo immediately. Leave empty to use the brand logo.</div>
         <div class="form-hint" id="ceLogoStatus" style="display:none"></div>
       </div>
       <div class="form-group" style="grid-column:1/-1">
         <label class="form-label">Background Image URL</label>
         <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-          <input class="form-input" type="text" id="ceBg" placeholder="/images/coupons/amazon.webp or https://..." style="flex:1;min-width:200px">
+          <input type="hidden" id="ceBg">
           <input type="file" id="ceBgFile" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="handleCouponImagePicked(event,'backgroundImage')">
           <button type="button" class="btn btn-ghost btn-sm" id="ceBgUploadBtn" onclick="document.getElementById('ceBgFile').click()">⬆ Upload Image</button>
           <button type="button" class="btn btn-ghost btn-sm" id="ceBgClearBtn" style="display:none" onclick="clearCouponImage('backgroundImage')">✕ Clear</button>
           <div id="ceBgPreview" style="width:76px;height:44px;border-radius:8px;background:#0d1b30;border:1px solid rgba(79,195,247,.2);display:none;align-items:center;justify-content:center;overflow:hidden;flex:0 0 auto"><img id="ceBgPreviewImg" alt="" style="width:100%;height:100%;object-fit:cover"></div>
         </div>
-        <div class="form-hint">Hero image on the coupon card. Leave empty for the default SaveHatke background. Upload accepts PNG, JPG or WebP up to 3 MB and applies immediately (file goes to the Coupon Backgrounds folder in the SaveHatke Drive).</div>
+        <div class="form-hint">Supported: PNG, JPG or WebP, up to 3 MB. Hero image on the coupon card. Uploading applies immediately. Leave empty for the default SaveHatke background.</div>
         <div class="form-hint" id="ceBgStatus" style="display:none"></div>
       </div>
       <div class="form-group" style="grid-column:1/-1"><label class="form-label">Description</label><textarea class="form-textarea" id="ceDescription" placeholder="Short description shown on the card..."></textarea></div>
