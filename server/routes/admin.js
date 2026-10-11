@@ -784,6 +784,9 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
       ? String(req.query.status).toLowerCase() : '';
 
     const rows = await db.getRowsFresh(db.SHEETS.COUPONS);
+    // Only rows a SELLER submitted. The source must be a seller tag, and the
+    // row must not be admin-entered (admin rows can carry a seller email from
+    // a test or copy, so the source tag alone is not trusted for exclusion).
     const isSellerRow = (c) => {
       const src = String(c.source || '').toLowerCase();
       if (!(src === 'user-submitted' || src === 'user')) return false;
