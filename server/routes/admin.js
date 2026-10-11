@@ -86,7 +86,11 @@ function isValidSellerFaceValue(faceValue) {
 }
 
 function isSellerCoupon(coupon) {
-  return String((coupon && coupon.source) || '').toLowerCase() === 'user-submitted';
+  // Same seller test as the listing (isSellerSubmissionRow): a seller source tag
+  // AND a seller email. Admin rows never carry a seller email, so they are not
+  // held to the seller range.
+  return String((coupon && coupon.source) || '').toLowerCase() === 'user-submitted'
+    || isSellerSubmissionRow(coupon || {});
 }
 
 // Existing Payouts rows indexed by the coupon they came from, so each coupon
@@ -1053,9 +1057,10 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
     const sellerCoupon = isSellerCoupon(coupon);
 
     if (faceProvided) {
-      // A seller's coupon must keep a valid seller face value; an admin
-      // marketplace coupon may sit outside the range and stay usable.
-      if ((sellerCoupon || approving) && !isValidSellerFaceValue(newFaceText)) {
+      // A seller's coupon must keep a valid seller face value (₹100–₹10,000).
+      // An admin marketplace coupon only needs a usable positive number: it may
+      // sit outside the seller range and still be published.
+      if (sellerCoupon && !isValidSellerFaceValue(newFaceText)) {
         return res.status(400).json({
           error: 'Face value must be between ₹100 and ₹10,000 to keep or approve a seller coupon.',
           code: 'INVALID_FACE_VALUE',
