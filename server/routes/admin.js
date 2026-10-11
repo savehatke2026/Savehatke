@@ -1373,8 +1373,12 @@ router.get('/coupons/:id/review', authenticateToken, requireAdmin, async (req, r
     const payoutMap = await payoutsByCouponId();
     const payout = payoutMap.get(String(coupon.id)) || null;
 
+    // The code is withheld here. It is revealed only by POST /coupons/:id/reveal-code,
+    // which writes an audit entry. The duplicate check above still uses it server-side.
+    const summary = payoutSummary(coupon, payout);
+    const { code: _withheldCode, ...safeSummary } = summary;
     res.json({
-      coupon: payoutSummary(coupon, payout),
+      coupon: { ...safeSummary, hasCode: !!coupon.code },
       duplicateCheck: {
         isDuplicate: !!duplicate,
         duplicateId: duplicate ? duplicate.id : null,

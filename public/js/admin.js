@@ -2027,6 +2027,20 @@ async function quickReviewAction(couponId, action) {
   }
 }
 
+/** Reveal the code inside the review modal. Server writes an audit entry per reveal. */
+async function armRevealCode(btn) {
+  const id = btn && btn.dataset ? btn.dataset.id : currentReviewCouponId;
+  if (!id) return;
+  try {
+    const data = await api(`/admin/coupons/${encodeURIComponent(id)}/reveal-code`, { method: 'POST', useAdmin: true });
+    const code = data.code || '—';
+    const holder = document.getElementById('armCode');
+    if (holder) holder.innerHTML = `<code style="background:rgba(37,99,235,.15);padding:3px 10px;border-radius:6px;color:#4fc3f7;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:1px">${escapeHtml(code)}</code>`;
+  } catch (err) {
+    if (typeof showToast === 'function') showToast(`Could not reveal code: ${err.message}`, 'error');
+  }
+}
+
 // ── In-Panel Review Modal Logic ─────────────────────────────────────────
 async function openReviewModal(couponId) {
   currentReviewCouponId = couponId;
@@ -2059,9 +2073,32 @@ async function openReviewModal(couponId) {
     const brandEl = document.getElementById('armBrand');
     if (brandEl) brandEl.textContent = c.brand || '—';
 
+    // The code is never sent with the review payload for the table; it is
+    // revealed on demand and each reveal is written to the audit log.
     const codeEl = document.getElementById('armCode');
     if (codeEl) {
-      codeEl.innerHTML = `<code style="background:rgba(37,99,235,.15);padding:3px 10px;border-radius:6px;color:#4fc3f7;font-weight:700;font-family:'JetBrains Mono',monospace;letter-spacing:1px">${escapeHtml(c.code || '—')}</code>`;
+      codeEl.innerHTML = `<button type="button" class="btn btn-ghost btn-xs" onclick="armRevealCode(this)" data-id="${escapeHtml(couponId)}">🔑 Reveal code (logged)</button>`;
+    }
+
+    // Brand logo and background, from the Drive references on the row.
+    const imgRef = (ref) => {
+      const r = String(ref || '');
+      if (!r) return '';
+      return r.startsWith('drive:') ? '/api/proxy/drive/' + encodeURIComponent(r.slice(6)) : r;
+    };
+    const logoEl = document.getElementById('armBrandPreview');
+    if (logoEl) {
+      const src = imgRef(c.brandLogo);
+      logoEl.innerHTML = src
+        ? `<img src="${escapeHtml(src)}" alt="Brand logo" style="width:48px;height:48px;object-fit:contain;border-radius:8px;background:#0d1b30;border:1px solid rgba(79,195,247,.2)"> <span style="color:#6b88aa;font-size:.76rem">Brand logo</span>`
+        : `<span style="color:#6b88aa;font-size:.8rem">No brand logo uploaded.</span>`;
+    }
+    const bgEl = document.getElementById('armBgPreview');
+    if (bgEl) {
+      const src = imgRef(c.backgroundImage);
+      bgEl.innerHTML = src
+        ? `<img src="${escapeHtml(src)}" alt="Coupon background" style="max-width:100%;max-height:120px;border-radius:8px;border:1px solid rgba(79,195,247,.2)"> <div style="color:#6b88aa;font-size:.76rem;margin-top:4px">Coupon background</div>`
+        : `<span style="color:#6b88aa;font-size:.8rem">No background image uploaded.</span>`;
     }
 
     const catEl = document.getElementById('armCategory');
@@ -2118,7 +2155,7 @@ async function openReviewModal(couponId) {
       if (dup.isDuplicate) {
         dupEl.innerHTML = `
           <div style="background:rgba(255,82,82,.12);border:1px solid rgba(255,82,82,.3);border-radius:8px;padding:8px 12px;color:#ef9a9a;">
-            <strong>⚠️ Duplicate Found:</strong> Another coupon with code <code>${escapeHtml(c.code)}</code> exists (Status: ${escapeHtml(dup.duplicateStatus || '—')}).
+            <strong>⚠️ Duplicate Found:</strong> Another coupon has the same code (ID: <code>${escapeHtml(dup.duplicateId || '—')}</code>, Status: ${escapeHtml(dup.duplicateStatus || '—')}). Reveal the code to compare.
           </div>
         `;
       } else {
