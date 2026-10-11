@@ -191,13 +191,15 @@ async function getAdminCouponList(opts = {}) {
     .map((v) => String(v == null ? '' : v)).join('|');
   const hit = couponListCache.get(key);
   if (hit) return hit;
+  // Seller views read the SellerCoupons sheet; everything else is Supabase only.
+  const wantsSellerSheet = source === 'user-submitted' || pill === 'seller' || pending === '1';
 
   // The raw reads are shared through one short-lived snapshot (see
   // couponListCache.getSnapshot). Filters below run on that snapshot, so a
   // page, pill or search change no longer re-reads the whole coupon table.
   // Each read degrades to an empty set on error, so the snapshot never rejects.
   const raw = await couponListCache.getSnapshot(async () => {
-    const [supa, sheet, payouts] = await Promise.all([
+    const [supa, payouts] = await Promise.all([
       (async () => {
         if (!supabase.isConfigured()) return [];
         try {
@@ -207,19 +209,30 @@ async function getAdminCouponList(opts = {}) {
           return [];
         }
       })(),
-      // Admin coupon lists come from Supabase only. The Coupons sheet is no longer
-      // read here; seller submissions live in the SellerCoupons sheet and have
-      // their own admin view (/admin/seller-coupons).
-      Promise.resolve([]),
       payoutsByCouponId(),
     ]);
-    return { supa, sheet, payouts };
+    return { supa, payouts };
   });
+
+  // Seller submissions live only in the SellerCoupons sheet. Read it here,
+  // outside the shared snapshot, so an all-coupons request never sees it and a
+  // seller request never gets a snapshot that was loaded without it.
+  let sellerSheet = [];
+  if (wantsSellerSheet) {
+    try {
+      sellerSheet = await db.getRowsFresh(db.SHEETS.SELLER_COUPONS);
+    } catch (e) {
+      console.warn('[admin/coupons] SellerCoupons sheet read failed:', e.message);
+      sellerSheet = [];
+    }
+  }
 
   // Status/source/category narrowing used to run inside each read. It now runs
   // on the shared snapshot, with the same rules.
-  let supaCoupons = raw.supa || [];
-  let sheetCoupons = raw.sheet || [];
+  // Seller views use the SellerCoupons sheet only. Supabase rows are not
+  // mixed into them, so the seller list matches the sheet.
+  let supaCoupons = wantsSellerSheet ? [] : (raw.supa || []);
+  let sheetCoupons = wantsSellerSheet ? sellerSheet : [];
   const payoutMap = raw.payouts || new Map();
   if (status) {
     supaCoupons = supaCoupons.filter((c) => String(c.status || '') === status);
