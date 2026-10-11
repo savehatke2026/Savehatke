@@ -254,6 +254,80 @@ function renderAddCouponImage(field) {
   if (clear) clear.style.display = staged ? '' : 'none';
 }
 
+/** Build the background-image prompt from the coupon fields currently in the form. */
+function buildBackgroundPrompt() {
+  const brand = document.getElementById('acBrand')?.value?.trim() || '[Brand]';
+  const title = document.getElementById('acTitle')?.value?.trim() || '[Coupon title]';
+  const description = document.getElementById('acDiscount')?.value?.trim() || '[Coupon description]';
+  return [
+    'Create a custom background image for a SaveHatke Marketplace coupon box using the following coupon information.',
+    '',
+    `Brand Name: ${brand}`,
+    '',
+    `Coupon Title: ${title}`,
+    '',
+    `Coupon Description: ${description}`,
+    '',
+    'Image generation rules',
+    '',
+    'Understand the brand name, coupon title and coupon description before designing the image.',
+    '',
+    'Create a background that visually represents the specific offer and its products or services.',
+    '',
+    'Use the brand\'s relevant colors, product imagery, textures and visual style.',
+    '',
+    'Make each coupon background distinctive and relevant to its actual title and description.',
+    '',
+    'Do not generate a generic background based only on the brand name.',
+    '',
+    'Do not add coupon titles, descriptions, prices, discount text, coupon codes, buttons, or watermarks to the image.',
+    '',
+    'Do not invent or fabricate brand logos.',
+    '',
+    'Keep the composition visually balanced and suitable for cropping on mobile devices.',
+    '',
+    'Fill the entire canvas.',
+    '',
+    'Exact technical specifications',
+    '',
+    'Width: 1120 pixels',
+    '',
+    'Height: 500 pixels',
+    '',
+    'Aspect ratio: 2.24:1',
+    '',
+    'Format: WebP',
+    '',
+    'Target file size: Under 150 KB',
+    '',
+    'Output: Generate only the background image. The website will display the coupon\'s actual title, description, brand information and pricing separately in its existing coupon box.',
+    '',
+    'The background must represent the individual coupon, not merely the brand.',
+  ].join('\n');
+}
+
+/** Copy the background prompt to the clipboard, with a fallback for non-secure pages. */
+async function copyBackgroundPrompt() {
+  const text = buildBackgroundPrompt();
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    if (typeof showToast === 'function') showToast('Background prompt copied.', 'success');
+  } catch (err) {
+    if (typeof showToast === 'function') showToast('Could not copy the prompt. Please try again.', 'error');
+  }
+}
+
 function clearAddCouponImage(field) {
   addCouponStaged[field] = null;
   const input = document.getElementById(ADD_COUPON_IMAGE_FIELDS[field].file);
