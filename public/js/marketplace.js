@@ -252,8 +252,8 @@ function renderCouponGrid(gridId, coupons) {
         timerHtml = `<span class="match-timer ${band}" data-band="${escapeCoupon(id)}">${CLAIM_TIMER_SVG}<span data-timer="${escapeCoupon(id)}">${formatClaimCountdown(msLeft)}</span></span>`;
       }
 
-      // Selling price only: the struck-through original is no longer shown.
-      const origPrice = '';
+      // Struck-through original price beside the selling price (paid coupons only).
+      const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeCoupon(c.originalValue)}</del>` : '';
 
       // Brand imagery — the marketplace serves brand logos and coupon-card
       // backgrounds from Google Drive ONLY. When a brand has no Drive asset
