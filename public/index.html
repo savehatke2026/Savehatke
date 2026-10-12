@@ -630,6 +630,12 @@
     .recent-save { display:table; width:max-content; margin-top:2px; padding:0 6px; border-radius:999px; border:1px solid rgba(0,226,114,.25); background:rgba(0,226,114,.1); color:#00E272; font-size:.62rem; font-weight:600; line-height:16px; white-space:nowrap; }
     .recent-copy .recent-save + time { margin-top:2px; }
     .recent-box[hidden] { display:none; }
+    .hot-deals-banner { display:flex; flex-wrap:wrap; align-items:center; gap:6px 18px; margin:8px 0 18px; padding:14px 20px; border-radius:14px; background:#0a1420; border:1px solid rgba(79,195,247,.12); text-align:left; }
+    .hot-deals-title { display:flex; align-items:center; gap:10px; margin:0; font-size:1.6rem; font-weight:800; letter-spacing:-.02em; color:#f4f7ff; white-space:nowrap; }
+    .hot-deals-fire { font-size:1.3rem; line-height:1; }
+    .hot-deals-accent { color:#ff5a5f; }
+    .hot-deals-tagline { margin:0; font-size:.95rem; color:#a8c0dc; }
+    @media(max-width:700px) { .hot-deals-title { font-size:1.25rem; } .hot-deals-tagline { font-size:.82rem; } }
     @keyframes recent-status-pulse {
       0%,100% { transform:scale(1); box-shadow:0 0 0 0 rgba(0,226,114,0); }
       50% { transform:scale(1.08); box-shadow:0 0 12px 3px rgba(0,226,114,.12); }
@@ -858,6 +864,10 @@
       </div>
     </section>
 
+    <div class="hot-deals-banner fu" aria-label="Hot deals">
+      <h3 class="hot-deals-title"><span class="hot-deals-fire" aria-hidden="true">🔥</span><span>Hot Deals</span> <span class="hot-deals-accent">Right Now</span></h3>
+      <p class="hot-deals-tagline">Limited time offers • Real coupons • Big savings</p>
+    </div>
     <div class="coupon-grid fu" id="couponGrid"></div>
     <div class="text-center mt-10 fu">
       <a href="marketplace" class="btn btn-outline btn-lg">View All Coupons →</a>
