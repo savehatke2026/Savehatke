@@ -253,6 +253,16 @@ function extractFamAppTransactionId(text) {
   return m ? m[1].toUpperCase() : '';
 }
 
+/**
+ * Pull the bank UTR from a FamApp credit, e.g. "UTR: 664974818901". Returns ''
+ * when absent or malformed. UPI UTRs are 12 digits; accepted range is 12–22
+ * digits so a stray short number cannot pass as a reference.
+ */
+function extractFamAppUtr(text) {
+  const m = String(text || '').match(/\butr\s*[:#\-]?\s*(\d{12,22})\b/i);
+  return m ? m[1] : '';
+}
+
 /** Find a UPI VPA in the text. */
 function extractVpas(text) {
   const found = String(text || '').match(/[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}/g) || [];
@@ -309,6 +319,7 @@ function buildCandidateFromEmail({ messageId, from = '', authenticationResults =
     payeeVpa,
     // FamApp transaction ID: persisted and enforced unique across sessions.
     transactionId: extractFamAppTransactionId(text),
+    utr: extractFamAppUtr(text),
     from,
     authenticationResults,
     labels: Array.isArray(labels) ? labels : [],
@@ -896,40 +907,44 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
   const payment = fresh[0];
   console.log(`${tag} Expected amount: ₹${Number(payment.amount).toFixed(2)}`);
 
+  // Both references are required. The customer does not know them when opening
+  // the window; they come from the verified FamApp email after payment. A
+  // missing one parks the payment for review — never settles on amount alone.
+  const txnId = candidate.transactionId || '';
+  const utr = candidate.utr || '';
+  if (!txnId) {
+    return reject('REVIEW', 'FamApp email has no Transaction ID — payment left pending for review.');
+  }
+  if (!utr) {
+    return reject('REVIEW', 'FamApp email has no UTR — payment left pending for review.');
+  }
+
+  // Neither reference may already belong to another settled payment. The store
+  // re-checks both under its lock in finalizePayment; this gives a clear outcome.
+  try {
+    const used = await store.findPaymentByTransaction(txnId, utr);
+    if (used && used.paymentId !== payment.paymentId) {
+      return reject('REVIEW', `Transaction ${txnId} / UTR already settled another payment session.`);
+    }
+  } catch (e) {
+    return reject('REVIEW', 'Could not check the transaction references for a duplicate: ' + e.message);
+  }
+
   if (payment.status !== 'PENDING') {
     return reject('REVIEW', `Payment ${payment.paymentId} is ${payment.status}, not PENDING.`);
   }
 
   console.log(`${tag} Amount matched`);
 
-  // Transaction ID is mandatory for settlement. Without one, the credit cannot
-  // be tied to a single transaction, so it is parked for review.
-  const txnId = candidate.transactionId || '';
-  if (!txnId) {
-    return reject('REVIEW', 'FamApp email has no transaction ID — payment left pending for review.');
-  }
-
-  // One transaction ID may settle at most one session, across ALL sessions. The
-  // store re-checks this inside finalizePayment's lock; this early check gives a
-  // clear, safe review outcome for the common repeat-scan case.
-  try {
-    const used = await store.findPaymentByTransaction(txnId);
-    if (used && used.paymentId !== payment.paymentId) {
-      return reject('REVIEW', `Transaction ${txnId} already settled another payment session.`);
-    }
-  } catch (e) {
-    return reject('REVIEW', 'Could not check the transaction ID for a duplicate: ' + e.message);
-  }
-
   // Settle atomically. finalizePayment gates on the coupon flip, re-checks the
-  // transaction ID under its lock, and is idempotent, so an email can never
-  // unlock a coupon twice.
+  // transaction ID and UTR under its lock, and is idempotent, so an email can
+  // never unlock a coupon twice.
   let result;
   try {
     result = await store.finalizePayment({
       paymentId: payment.paymentId,
       transactionId: txnId,
-      utr: null,
+      utr,
       source: 'email',
       notes: `Matched FamApp credit on amount ₹${candidate.amount.toFixed(2)}.`,
       paidAt: candidate.occurredAt,

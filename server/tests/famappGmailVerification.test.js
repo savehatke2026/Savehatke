@@ -67,16 +67,23 @@ function installFakes() {
   store.findPendingPaymentsForAmount = async () => state.payments.filter((p) => p.status === 'PENDING');
   store.findPendingPaymentByOrderCode = async () => null;
   store.isTransactionUsed = async () => false;
-  store.findPaymentByTransaction = async (txn) =>
-    state.payments.find((p) => p.status === 'PAID' && p.verifiedTransactionId === txn) || null;
+  store.findPaymentByTransaction = async (txn, utr = '') =>
+    state.payments.find((p) => p.status === 'PAID' &&
+      ((txn && p.verifiedTransactionId === txn) || (utr && p.verifiedUtr === utr))) || null;
   store.finalizePayment = async (args) => {
     state.finalizeCalls.push(args);
     const p = state.payments.find((x) => x.paymentId === args.paymentId);
     if (!p) return { ok: false, code: 'PAYMENT_NOT_FOUND' };
     if (p.status === 'PAID') return { ok: true, code: 'ALREADY_PAID', idempotent: true };
     if (p.status !== 'PENDING') return { ok: false, code: 'PAYMENT_NOT_PENDING' };
+    // Mirror the real store's replay guard: either reference already on a PAID row refuses.
+    const clash = state.payments.find((x) => x.paymentId !== p.paymentId && x.status === 'PAID' &&
+      ((args.transactionId && x.verifiedTransactionId === args.transactionId) ||
+       (args.utr && x.verifiedUtr === args.utr)));
+    if (clash) return { ok: false, code: 'REPLAY_DETECTED' };
     p.status = 'PAID';
     p.verifiedTransactionId = args.transactionId || '';
+    p.verifiedUtr = args.utr || '';
     return { ok: true, code: 'OK' };
   };
 }
@@ -107,13 +114,15 @@ function untrapSheets() {
 
 // ── Sample emails (mocked; sample payer and transaction ID are not reused) ──
 const FAMAPP_HEADERS = 'dkim=pass header.i=@famapp.in; spf=pass; dmarc=pass header.from=famapp.in';
-function famEmail({ amount = '1.00', payer = 'Jaggik', sender = 'no-reply@famapp.in', txn = 'FMPIB0000000001', at = '2026-10-11T15:08:00Z', internalDate = Date.parse('2026-10-11T15:08:30Z') } = {}) {
+function famEmail({ amount = '1.00', payer = 'Jaggik', sender = 'no-reply@famapp.in', txn = 'FMPIB0000000001', utr = null, at = '2026-10-11T15:08:00Z', internalDate = Date.parse('2026-10-11T15:08:30Z') } = {}) {
+  // Each sample gets a distinct 12-digit UTR derived from its txn unless one is given.
+  const utrValue = utr || ('9' + String(txn).replace(/\D/g, '').padStart(11, '0').slice(-11));
   return {
     messageId: 'msg-' + txn,
     from: `"FamApp" <${sender}>`,
     authenticationResults: FAMAPP_HEADERS,
     subject: 'Payment received',
-    body: `Hey Test Buyer,\nYou have successfully received\n₹${amount}\nfrom ${payer}\nTransaction ID: ${txn}\nDate: 08:38 PM IST, 11 October 2026\nUpdated Balance: ₹${amount}`,
+    body: `Hey Test Buyer,\nYou have successfully received\n₹${amount}\nfrom ${payer}\nTransaction ID: ${txn}\nUTR: ${utrValue}\nDate: 08:38 PM IST, 11 October 2026\nUpdated Balance: ₹${amount}`,
     date: new Date(internalDate).toUTCString(),
     internalDate: String(internalDate),
     labels: ['INBOX', 'UNREAD'],
@@ -157,15 +166,54 @@ async function classify(email, pending) {
       assert.equal(state.finalizeCalls.length, 0);
     });
 
-    await check('missing transaction ID does not create a false settlement', async () => {
+    await check('missing transaction ID is parked for review, never settled', async () => {
       resetState([session({ amount: 1 })]);
       const e = famEmail({ amount: '1.00' });
       e.body = e.body.replace(/Transaction ID: \S+\n?/, '');
       const r = await classify(e, state.payments.slice());
-      // The committed design matches on amount + window and does not use a
-      // transaction ID; it must still not settle without a received credit line.
-      assert.ok(['settled', 'ignored', 'review'].includes(r.action));
-      if (r.action === 'settled') assert.equal(state.finalizeCalls.length, 1);
+      assert.equal(r.action, 'review');
+      assert.equal(state.finalizeCalls.length, 0);
+      assert.equal(state.payments[0].status, 'PENDING');
+    });
+
+    await check('missing UTR is parked for review, never settled', async () => {
+      resetState([session({ amount: 1 })]);
+      const e = famEmail({ amount: '1.00', txn: 'FMPIB0000000102' });
+      e.body = e.body.replace(/UTR: \S+\n?/, '');
+      const r = await classify(e, state.payments.slice());
+      assert.equal(r.action, 'review');
+      assert.equal(state.finalizeCalls.length, 0);
+      assert.equal(state.payments[0].status, 'PENDING');
+    });
+
+    await check('successful settlement persists both Transaction ID and UTR exactly once', async () => {
+      resetState([session({ amount: 1 })]);
+      const e = famEmail({ amount: '1.00', txn: 'FMPIB0000000103', utr: '664974818903' });
+      const r = await classify(e, state.payments.slice());
+      assert.equal(r.action, 'settled');
+      assert.equal(state.finalizeCalls.length, 1);
+      assert.equal(state.finalizeCalls[0].transactionId, 'FMPIB0000000103');
+      assert.equal(state.finalizeCalls[0].utr, '664974818903');
+      assert.equal(state.payments[0].verifiedUtr, '664974818903');
+    });
+
+    await check('same UTR in a different email cannot settle a second session', async () => {
+      resetState([session({ id: 'a', amount: 1 }), session({ id: 'b', amount: 1, createdAt: '2026-10-11T15:01:00Z' })]);
+      await classify(famEmail({ amount: '1.00', txn: 'FMPIB0000000104', utr: '664974818904' }), [state.payments[0]]);
+      const second = famEmail({ amount: '1.00', txn: 'FMPIB0000000105', utr: '664974818904' });
+      second.messageId = 'msg-second-utr';
+      const r2 = await classify(second, [state.payments[1]]);
+      assert.equal(r2.action, 'review');
+      assert.equal(state.payments[1].status, 'PENDING');
+      assert.equal(state.finalizeCalls.length, 1);
+    });
+
+    await check('ambiguous sessions with a valid email do not settle either one', async () => {
+      resetState([session({ id: 'a', amount: 1 }), session({ id: 'b', amount: 1, createdAt: '2026-10-11T15:01:00Z' })]);
+      const r = await classify(famEmail({ amount: '1.00', txn: 'FMPIB0000000106' }), state.payments.slice());
+      assert.equal(r.action, 'review');
+      assert.equal(state.finalizeCalls.length, 0);
+      assert.ok(state.payments.every((p) => p.status === 'PENDING'));
     });
 
     await check('duplicate email (same Gmail message id) settles only once', async () => {
@@ -234,14 +282,22 @@ async function classify(email, pending) {
       assert.equal(state.finalizeCalls.length, 1);
     });
 
-    await check('email with no transaction ID is parked for review, never settled', async () => {
-      resetState([session({ amount: 1 })]);
-      const e = famEmail({ amount: '1.00', txn: 'FMPIB0000000101' });
-      e.body = e.body.replace(/Transaction ID: \S+\n?/, '');
-      const r = await classify(e, state.payments.slice());
+    await check('a replayed transaction ID across two sessions is parked, never settled twice', async () => {
+      resetState([session({ id: 'a', amount: 1 }), session({ id: 'b', amount: 1, createdAt: '2026-10-11T15:01:00Z' })]);
+      await classify(famEmail({ amount: '1.00', txn: 'FMPIB0000000101', utr: '664974818901' }), [state.payments[0]]);
+      const second = famEmail({ amount: '1.00', txn: 'FMPIB0000000101', utr: '664974818911' });
+      second.messageId = 'msg-replay-txn';
+      const r = await classify(second, [state.payments[1]]);
       assert.equal(r.action, 'review');
+      assert.equal(state.payments[1].status, 'PENDING');
+      assert.equal(state.finalizeCalls.length, 1);
+    });
+
+    await check('incorrect amount with a valid transaction and UTR still never settles', async () => {
+      resetState([session({ amount: 5 })]);
+      const r = await classify(famEmail({ amount: '1.00', txn: 'FMPIB0000000107' }), state.payments.slice());
+      assert.notEqual(r.action, 'settled');
       assert.equal(state.finalizeCalls.length, 0);
-      assert.equal(state.payments[0].status, 'PENDING');
     });
 
     await check('Google Sheets fallback is never called during verification', async () => {
