@@ -4,7 +4,7 @@
 // Server-side 302s for four page rules. They run before express.static, so a
 // restricted page's HTML never reaches the browser and nothing flashes:
 //
-//   1. /checkout and /vault (any path form)  → always redirect to /
+//   1. /vault (any path form)                → always redirect to /
 //   2. /dashboard (and any dashboard subpage) → / when the session is not valid
 //   3. /login (and /login.html)              → / when the session IS valid
 //   4. /login stays reachable for anyone not logged in
@@ -27,7 +27,7 @@ function normalisePath(req) {
   return p.replace(/\.html$/, '');
 }
 
-const ALWAYS_HOME_PAGES = new Set(['/checkout', '/vault']);
+const ALWAYS_HOME_PAGES = new Set(['/vault']);
 const LOGIN_PAGES = new Set(['/login']);
 
 function isDashboardPath(p) {
