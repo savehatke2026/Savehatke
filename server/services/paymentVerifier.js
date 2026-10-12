@@ -88,18 +88,29 @@ function isFamAppSender(from) {
   return address === FAMAPP_SENDER;
 }
 
-// Gmail folders that can never hold an incoming payment confirmation. A message
-// is accepted only when it sits in INBOX and in none of these.
+// Gmail folders that can never hold an incoming payment confirmation.
 const NON_INCOMING_LABELS = ['SENT', 'DRAFT', 'SPAM', 'TRASH'];
 
 /**
- * True only when Gmail reports the message as a received inbox message. Sent,
- * draft, spam and trash copies of a FamApp-looking email are never payment proof.
+ * True only when a FamApp message is a received (incoming) message. Sent, draft,
+ * spam and trash copies are rejected. INBOX is NOT required: an archived or
+ * label-filtered received notification has no INBOX label but is still real money
+ * received. A message with no labels at all is still rejected (fail closed).
  */
 function isIncomingInboxMessage(labels) {
   const list = Array.isArray(labels) ? labels : [];
-  if (!list.includes('INBOX')) return false;
+  if (!list.length) return false;
   return !NON_INCOMING_LABELS.some((l) => list.includes(l));
+}
+
+/**
+ * Gmail search for FamApp credit notifications. Sender-restricted and bounded to
+ * the payment window, with no `in:inbox` filter so archived mail is still found.
+ * Sent, drafts, spam and trash are excluded at the search level and again in code.
+ */
+function buildPaymentSearchQuery({ senders, afterSecs }) {
+  const from = senders.map((s) => `from:${s}`).join(' OR ');
+  return `(${from}) -in:sent -in:drafts -in:spam -in:trash after:${afterSecs}`;
 }
 
 function hasTrustedFamAppAuthentication(authenticationResults) {
@@ -1138,8 +1149,10 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
     ? Math.floor((earliestStart - 5 * 60 * 1000) / 1000)
     : Math.floor((Date.now() - cfg.lookbackDays * 24 * 60 * 60 * 1000) / 1000);
   const senders = cfg.senders.map((s) => `from:${s}`).join(' OR ');
-  // Incoming inbox only: Sent, drafts, spam and trash can never be payment proof.
-  const q = `(${senders}) in:inbox -in:sent -in:drafts -in:spam -in:trash after:${afterSecs}`;
+  // No `in:inbox` filter: an archived or label-filtered FamApp email is still a
+  // real received payment notification. Sent, drafts, spam and trash are still
+  // excluded here, and isIncomingInboxMessage() rejects them again in code.
+  const q = buildPaymentSearchQuery({ senders: cfg.senders, afterSecs });
 
   let messages = [];
   try {
@@ -1451,6 +1464,8 @@ module.exports = {
   // config
   getMailConfig,
   getWebhookSecret,
+  buildPaymentSearchQuery,
+  isIncomingInboxMessage,
   isFamAppSender,
   isIncomingInboxMessage,
   FAMAPP_SENDER,

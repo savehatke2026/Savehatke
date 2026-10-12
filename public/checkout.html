@@ -300,6 +300,7 @@
     .upm-timer.danger .upm-timer-val, .upm-timer.danger .upm-timer-ico { color:#ff5252; }
 
     .upm-timer-cap { font-size:11px; color:#8a9dc0; margin-bottom:14px; text-align:center; }
+    .upm-waiting { display:none; font-size:13px; color:#b8bfff; margin:-6px 0 12px; text-align:center; }
 
     /* Footer — flanking hairlines + a centred shield/"Secured by SaveHatke". */
     .upm-foot { display:flex; align-items:center; gap:10px; font-size:10px; color:#8a9dc0; margin-top:2px; }
@@ -740,6 +741,7 @@
         <span class="upm-timer-val" id="upmTimerVal">--:--</span>
       </div>
       <div class="upm-timer-cap">Complete the payment within <span id="upmWindowMin">10</span> minutes</div>
+      <div class="upm-waiting" id="upmWaiting" role="status">Waiting for payment confirmation...</div>
 
       <!-- QR AREA — a real matrix generated server-side from the UPI URI. It is
            never constructed, edited, or stored as a pre-made image asset. -->
@@ -928,6 +930,7 @@
      box with the code still covered by the scratch foil. -->
 <div class="success-overlay" id="successOverlay">
   <div class="success-box cb-card" aria-labelledby="cbTitle">
+    <p class="cb-success-msg" style="margin:0 0 10px;color:#00E272;font-weight:700;font-size:15px;">Payment successful! Your coupon is now available in your dashboard.</p>
     <button class="cb-close" type="button" onclick="closeSuccess()" aria-label="Close coupon box">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M5 5l14 14M19 5L5 19" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" />
@@ -1940,6 +1943,7 @@
     }
     state.classList.add('show');
     // Freeze every interaction: an expired request must not be payable.
+    setUpiWaiting(false);
     disableUpiInteraction(true);
     if (kind === 'error') {
       // Nothing is live in this state, so the × must still close the box
@@ -1952,7 +1956,15 @@
   function hideUpiState() {
     const state = upiEl('upmState');
     if (state) state.classList.remove('show');
+    setUpiWaiting(true);
     disableUpiInteraction(false);
+  }
+
+  // "Waiting for payment confirmation..." is shown only while the window is
+  // live and the backend has not yet reported a terminal state.
+  function setUpiWaiting(on) {
+    const w = upiEl('upmWaiting');
+    if (w) w.style.display = on ? 'block' : 'none';
   }
 
   function disableUpiInteraction(disabled) {
