@@ -150,7 +150,7 @@
        from the admin panel; the generic SaveHatke default when none is set)
        with a dark gradient that keeps the badges, logo and discount readable
        over any image, light or dark, while the picture itself stays visible. */
-    .coupon-card { border-radius:16px; background:#0d1930; border:1px solid #17364b; transition:all .3s; cursor:pointer; position:relative; overflow:hidden; display:flex; flex-direction:column; }
+    .coupon-card { border-radius:16px; background:#0d1930; border:1px solid #17364b; transition:all .3s; position:relative; overflow:hidden; display:flex; flex-direction:column; }
     .coupon-card:hover { border-color:rgba(0,226,114,.28); transform:translateY(-4px); box-shadow:0 20px 50px rgba(0,0,0,.35); }
 
     /* HERO — one uniform image area for every card. The brand backgrounds are
@@ -720,7 +720,7 @@
   @media(max-width:620px){ .coupon-grid { grid-template-columns:minmax(0,1fr); } }
 
   .coupon-card { container-type:inline-size; border-radius:19px; background:var(--card-bg); border:1px solid var(--card-border); }
-  .coupon-card:hover { border-color:var(--cta); transform:translateY(-3px); }
+  /* Only the Claim button is clickable; the card itself has no hover lift. */
   @media(prefers-reduced-motion:reduce){ .coupon-card:hover { transform:none; } }
 
   /* Banner — rounded brand-image block (the brand library's promotional

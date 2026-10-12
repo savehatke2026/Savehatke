@@ -273,7 +273,7 @@ function renderCouponGrid(gridId, coupons) {
       const logoExtra = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
 
       return `
-        <article class="coupon-card" data-coupon-id="${id}" style="cursor:pointer" onclick="buyCoupon('${id}', ${isFree})">
+        <article class="coupon-card" data-coupon-id="${id}">
           <div class="match-banner banner-${escapeCoupon(id)}">
             ${brandImg
               ? `<img src="${escapeCoupon(brandImg)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
