@@ -69,6 +69,7 @@ const brandAssetRoutes = require('./routes/brandAssets');
 const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
 const { checkPageAccess, resolveCaller, isAdminRole, isWhitelistedEmail } = require('./middleware/maintenance');
+const pageRedirectGuard = require('./middleware/pageRedirects');
 const supabase = require('./services/supabase');
 const { getPublicSettings, renderLandingStats } = require('./services/publicSettings');
 
@@ -527,6 +528,8 @@ async function protectedPublicPageGuard(req, res, next) {
   return next();
 }
 
+// Auth redirects first: /checkout, /vault, /dashboard*, /login never reach static HTML.
+app.use(pageRedirectGuard);
 app.use(maintenancePageGuard);
 app.use(protectedPageGuard);
 app.use(protectedPublicPageGuard);

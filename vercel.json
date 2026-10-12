@@ -85,6 +85,14 @@
       "dest": "/api/index.js"
     },
     {
+      "src": "/dashboard/(.*)",
+      "dest": "/api/index.js"
+    },
+    {
+      "src": "/(login|vault)(\\.html)?",
+      "dest": "/api/index.js"
+    },
+    {
       "src": "/(index|about|how-it-works|terms|privacy|support)(\\.html)?",
       "dest": "/api/index.js"
     },
