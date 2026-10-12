@@ -748,9 +748,9 @@
   .match-meta { display:flex; align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
   /* Price centred in the row, timer pushed to the right edge. */
   .match-meta-row { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; }
-  .match-meta-row .match-discount { justify-self:start; }
-  .match-meta-row .match-cost { justify-self:center; display:inline-flex; align-items:baseline; gap:1.2cqw; text-align:center; }
-  .match-meta-row .match-timer-slot { justify-self:end; }
+  .match-meta-row .match-discount { grid-column:1; justify-self:start; }
+  .match-meta-row .match-cost { grid-column:2; justify-self:center; display:inline-flex; align-items:baseline; gap:1.2cqw; text-align:center; }
+  .match-meta-row .match-timer-slot { grid-column:3; justify-self:end; }
   .match-meta-row .match-discount:empty { display:none; }
   .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
   .match-cost { font-size:6.1cqw; color:#00E272; font-weight:800; letter-spacing:-.04em; }
@@ -893,13 +893,6 @@
         <h2>Explore coupons</h2>
       </div>
       <div class="explore-hdr-right">
-        <button type="button" class="saved-btn" id="savedFilter" aria-pressed="false">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M6 3h12v18l-6-4-6 4V3Z"/>
-          </svg>
-          Saved
-        </button>
-        <span class="explore-divider" aria-hidden="true"></span>
         <div class="sort-wrap">
           <span class="sort-lbl">Sort by</span>
           <select class="sort-select" id="sortSelect" aria-label="Sort coupons">
