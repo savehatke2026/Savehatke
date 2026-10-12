@@ -1081,6 +1081,9 @@
 #view-my-coupons .ml-item-summary{gap:12px;padding:12px 14px}
 #view-my-coupons .ml-sum-ico{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
 #view-my-coupons .ml-sum-ico svg{width:18px;height:18px}
+#view-my-coupons .ml-sum-brand{width:44px;height:44px;border-radius:10px;background:#ffffff;padding:6px;box-sizing:border-box;overflow:hidden}
+#view-my-coupons .ml-sum-brand img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+#view-my-coupons .ml-sum-brand .mcx-brandbox-initial{font-size:1rem;font-weight:800;color:#0f1e3a}
 #view-my-coupons .ml-sum-amt{font-family:'JetBrains Mono',monospace;font-size:.88rem;font-weight:600;color:#00E272;margin-top:3px}
 
 /* toast */
@@ -4622,14 +4625,12 @@
       const cid = String(c.id || '');
       const expanded = mlExpanded.has(cid);
       const toggle = `toggleListingTracker('${escapeHtml(cid)}')`;
-      const stageIco = { active: 'active', pending_review: 'pending', eligible: 'payout', payout_processing: 'payout', paid: 'paid', validation_failed: 'expired' };
-      const icoKind = stageIco[c.stage] || 'active';
       return `
         <div class="ml-item${expanded ? ' expanded' : ''}" id="mlItem-${escapeHtml(cid)}">
           <div class="ml-item-summary" role="button" tabindex="0" aria-expanded="${expanded ? 'true' : 'false'}"
                onclick="${toggle}"
                onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();${toggle}}">
-            <div class="ml-sum-ico mcx-ic-${icoKind}">${MCX_ICON[icoKind] || MCX_ICON.active}</div>
+            <div class="ml-sum-ico ml-sum-brand" title="${escapeHtml(c.brand || 'Coupon')}">${mcxBrandBoxInner(c.brand)}</div>
             <div class="ml-item-main">
               <div class="ml-item-title">${escapeHtml(c.brand)}${c.value ? ` — ${escapeHtml(c.value)}` : ''}</div>
               <div class="ml-item-code">${escapeHtml(c.code || '—')}</div>
@@ -5413,10 +5414,23 @@
     STATE.isFetching = true;
 
     try {
+      // My Coupons (purchases) and For Sale (sales) paint as soon as their own
+      // request returns, instead of waiting for every other dashboard request.
+      const purchasesP = loadMyPurchases().then((purchases) => {
+        STATE.purchases = purchases;
+        renderMyCoupons();
+        return purchases;
+      });
+      const salesP = loadMySales().then((sales) => {
+        STATE.sales = sales;
+        renderMyListings();
+        return sales;
+      });
+
       const [user, sales, purchases, tickets, payoutsData, reviews, refundsData] = await Promise.all([
         loadMe(),
-        loadMySales(),
-        loadMyPurchases(),
+        salesP,
+        purchasesP,
         loadMyTickets(),
         loadMyPayouts(),
         loadMyReviews(),
@@ -5432,13 +5446,13 @@
       STATE.refundsSummary = refundsData.summary;
       STATE.reviews = reviews;
 
-      // One batched Drive resolution for every brand shown in the reviews,
-      // listings and coupon-detail surfaces (cached per brand in coupon-meta.js).
+      // Brand logos are already resolved per coupon by mcxBrandBoxInner's
+      // helpers; resolve in the background and repaint only if a logo lands.
       try {
         if (typeof ensureBrandAssets === 'function') {
-          await ensureBrandAssets(
+          ensureBrandAssets(
             [].concat(STATE.sales || [], STATE.purchases || []).map((c) => c && c.brand)
-          );
+          ).then((changed) => { if (changed) { renderMyCoupons(); renderMyListings(); } }).catch(() => {});
         }
       } catch (e) { /* resolver hiccup — local fallbacks still render */ }
 
