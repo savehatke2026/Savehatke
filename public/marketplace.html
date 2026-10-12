@@ -747,13 +747,14 @@
 
   .match-meta { display:flex; align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
   /* Price centred in the row, timer pushed to the right edge. */
-  .match-meta-row { display:grid; grid-template-columns:auto 1fr auto; }
-  .match-meta-row .match-cost { justify-self:center; }
+  .match-meta-row { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; }
+  .match-meta-row .match-discount { justify-self:start; }
+  .match-meta-row .match-cost { justify-self:center; display:inline-flex; align-items:baseline; gap:1.2cqw; text-align:center; }
   .match-meta-row .match-timer-slot { justify-self:end; }
   .match-meta-row .match-discount:empty { display:none; }
   .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
   .match-cost { font-size:6.1cqw; color:#00E272; font-weight:800; letter-spacing:-.04em; }
-  .match-cost del { font-size:4.2cqw; color:#6b88aa; font-weight:600; margin-left:1cqw; }
+  .match-cost del { font-size:4.2cqw; color:#6b88aa; font-weight:600; margin-left:0; }
   /* The mockup ships the timer with no dedicated styling; only the icon is
      sized here, because an unsized SVG would blow out the meta row. */
   .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; }
