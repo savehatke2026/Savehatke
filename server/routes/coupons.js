@@ -1054,15 +1054,8 @@ router.post('/buy/:id', authenticateToken, (req, res) => {
 // GET /api/coupons/my-sales — User's sold coupons
 router.get('/my-sales', authenticateToken, async (req, res) => {
   try {
-    let coupons = [];
-    if (supabase.isConfigured()) {
-      try {
-        coupons = await supabase.getCoupons({ sellerEmail: req.user.email });
-      } catch (e) {}
-    }
-    if (coupons.length === 0) {
-      coupons = await db.findRows(db.SHEETS.COUPONS, 'sellerEmail', req.user.email);
-    }
+    // Seller's own submissions come from the SellerCoupons sheet only.
+    const coupons = await db.findRows(db.SHEETS.SELLER_COUPONS, 'sellerEmail', req.user.email);
 
     res.json({
       coupons: coupons.map((c) => {

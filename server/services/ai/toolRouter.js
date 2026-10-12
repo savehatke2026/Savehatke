@@ -103,21 +103,12 @@ async function readAvailableCoupons() {
   return available;
 }
 
-/** A seller's own coupons, read the way /api/coupons/my-sales does. */
+/** A seller's own coupons, read the way /api/coupons/my-sales does (SellerCoupons sheet). */
 async function readSellerCoupons(email) {
   const target = normEmail(email);
   if (!target) return [];
-  let coupons = [];
-  if (supabase.isConfigured()) {
-    try {
-      coupons = await supabase.getCoupons({ sellerEmail: target });
-    } catch (e) { /* fall through to Sheets */ }
-  }
-  if (!coupons.length) {
-    const rows = await db.getRows(db.SHEETS.COUPONS).catch(() => []);
-    coupons = (rows || []).filter((c) => normEmail(c.sellerEmail) === target);
-  }
-  return coupons;
+  const rows = await db.getRows(db.SHEETS.SELLER_COUPONS).catch(() => []);
+  return (rows || []).filter((c) => normEmail(c.sellerEmail) === target);
 }
 
 /** A buyer's own coupons, read the way /api/coupons/my-purchases does. */

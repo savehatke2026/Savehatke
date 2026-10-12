@@ -1059,18 +1059,9 @@ router.get('/payouts/coupon-status', authenticateToken, async (req, res) => {
     const email = (req.user.email || '').toLowerCase().trim();
     if (!email) return res.status(400).json({ error: 'User email not found.' });
 
-    // Coupons live in two stores. Read them the way /api/coupons/my-sales does so
-    // the seller's two views never disagree about which coupons exist.
-    let coupons = [];
-    if (supabase.isConfigured()) {
-      try {
-        coupons = await supabase.getCoupons({ sellerEmail: email });
-      } catch (e) {}
-    }
-    if (coupons.length === 0) {
-      const rows = await db.getRows(db.SHEETS.COUPONS);
-      coupons = rows.filter((c) => String(c.sellerEmail || '').toLowerCase().trim() === email);
-    }
+    // Read the seller's coupons from SellerCoupons, the same source /api/coupons/my-sales uses.
+    const rows = await db.getRows(db.SHEETS.SELLER_COUPONS);
+    const coupons = rows.filter((c) => String(c.sellerEmail || '').toLowerCase().trim() === email);
 
     const [payoutRows, auditRows] = await Promise.all([
       getAllPayouts(),
