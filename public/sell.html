@@ -3089,8 +3089,9 @@ async function submitCoupons() {
   };
 
   // Turnstile token is single-use: read it now, then reset the widget for any retry.
-  const sellCaptchaToken = getSellTurnstileToken();
-  if (sellTurnstileReady && !sellCaptchaToken) {
+  // Peek only: the token is consumed right before the submit request, so an
+  // upload failure earlier in this function does not burn it.
+  if (sellTurnstileReady && !sellTurnstileToken) {
     showToast('Please complete the CAPTCHA before submitting.', 'warning');
     return;
   }
@@ -3158,6 +3159,8 @@ async function submitCoupons() {
   //    A screenshot scanned by the AI card travels with its own coupon as
   //    proofUrl, so the review team can open the original image.
   btn.textContent = '⏳ Submitting...';
+  // Turnstile tokens are single-use. Consume it here, at the moment it is sent.
+  const sellCaptchaToken = getSellTurnstileToken();
   try {
     const orNone = (v) => (v ? v : undefined);
     // Every coupon carries the screenshot scanned on its own page, so a batch of
@@ -3212,7 +3215,10 @@ async function submitCoupons() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (err) {
     showToast(err.message || 'Submission failed. Please try again.', 'error');
+    // The token was spent by this request, so a retry needs a fresh CAPTCHA.
+    // Entered coupon data stays in the form.
     restoreBtn();
+    resetSellTurnstile();
   }
 }
 
