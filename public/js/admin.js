@@ -1376,6 +1376,10 @@ async function loadPending() {
     sellerTable.page = data.page || 1;
     cmSetPendingBadge(data.total || 0);
     const rows = data.coupons || [];
+    // Resolve the Drive brand logos for this page before painting, so the
+    // Brand column shows the real logo on first render (not the initial tile).
+    await preloadBrandAssets(rows);
+    if (seq !== sellerTable.seq) return;
     const warn = data.supabaseOnly
       ? `<div class="st-warn">⚠️ ${data.supabaseOnly} submission${data.supabaseOnly !== 1 ? 's' : ''} exist in the database but not in the sheet, so they are not listed here.</div>`
       : '';
@@ -1481,7 +1485,7 @@ function sellerRowHtml(c) {
   return `
     <tr data-coupon-id="${id}">
       <td>${sellerBrandBoxHtml(c.brand || '', c)}</td>
-      <td><div class="cm-seller-cell" style="flex-wrap:nowrap">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<div style="min-width:0;flex:1"><div class="cm-seller" style="color:#e2ecff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(c.sellerName || '')}">${escHtml(c.sellerName || '—')}${c.sellerUsername ? ` <span style="color:#6b88aa;font-weight:400">@${escHtml(c.sellerUsername)}</span>` : ''}</div><div class="cm-seller" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</div></div></div></td>
+      <td><div class="cm-seller-cell" style="flex-wrap:nowrap">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<div style="min-width:0;flex:1"><div class="cm-seller" style="color:#e2ecff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</div></div></div></td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
       <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
       <td>${cmWhenHtml(c.addedAt || '', '')}</td>
