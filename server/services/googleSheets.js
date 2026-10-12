@@ -134,6 +134,10 @@ const HEADERS = {
     // so existing columns keep their positions.
     'paymentMethod',
     'upiId',
+    // Coupon description shown on the card. APPENDED AT THE END so existing
+    // columns keep their positions. Without this header the Sheets mirror
+    // silently dropped the field on every admin save and create.
+    'description',
   ],
   // Seller submissions. Same columns as Coupons so a row copies across unchanged;
   // `approvedAt` is appended at the end and set when the admin approves the row.
