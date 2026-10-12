@@ -215,7 +215,7 @@
     #couponGrid .match-logo img.blogo-lift { filter:none; }
     #couponGrid .match-title { font-size:5.05cqw; line-height:1.3; font-weight:700; color:#f7f8fc; letter-spacing:-.035em; margin:0 0 2.6cqw; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
     #couponGrid .match-description { font-size:4.9cqw; line-height:1.28; color:var(--card-muted); margin:0; font-weight:500; letter-spacing:-.02em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-    #couponGrid .match-meta { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(0,1fr); align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
+    #couponGrid .match-meta { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(auto,1.25fr); align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
     #couponGrid .match-discount { grid-column:1; justify-self:start; }
     #couponGrid .match-cost { grid-column:2; justify-self:center; display:inline-flex; align-items:baseline; gap:1.2cqw; text-align:center; }
     #couponGrid .match-timer { grid-column:3; justify-self:end; }
@@ -630,7 +630,7 @@
     .recent-save { display:table; width:max-content; margin-top:2px; padding:0 6px; border-radius:999px; border:1px solid rgba(0,226,114,.25); background:rgba(0,226,114,.1); color:#00E272; font-size:.62rem; font-weight:600; line-height:16px; white-space:nowrap; }
     .recent-copy .recent-save + time { margin-top:2px; }
     .recent-box[hidden] { display:none; }
-    .hot-deals-banner { display:flex; flex-wrap:wrap; align-items:center; gap:6px 18px; margin:8px 0 18px; padding:14px 20px; border-radius:14px; background:#0a1420; border:1px solid rgba(79,195,247,.12); text-align:left; }
+    .hot-deals-banner { display:flex; flex-wrap:wrap; align-items:center; gap:6px 18px; margin:8px 0 18px; padding:0; text-align:left; }
     .hot-deals-title { display:flex; align-items:center; gap:10px; margin:0; font-size:1.6rem; font-weight:800; letter-spacing:-.02em; color:#f4f7ff; white-space:nowrap; }
     .hot-deals-fire { font-size:1.3rem; line-height:1; }
     .hot-deals-accent { color:#ff5a5f; }
@@ -1036,18 +1036,21 @@
   // carries the active search/category/source filters and renders its top 6.
   async function loadIndexCoupons() {
     try {
-      const params = new URLSearchParams({ page: '1', pageSize: '60', sort: 'value' });
+      // Only the top 6 cards are rendered, so request just those.
+      const params = new URLSearchParams({ page: '1', pageSize: '6', sort: 'value' });
       if (activeCat && activeCat !== 'all') params.set('category', activeCat);
       const query = document.getElementById('searchInput').value.trim().toLowerCase();
       if (query) params.set('search', query);
       const data = await api('/coupons?' + params.toString());
       liveCoupons = data.coupons || [];
-      // One batched Drive resolution for every brand on the landing grid
-      // (cached per brand in coupon-meta.js) before the first paint.
-      if (typeof ensureBrandAssets === 'function') {
-        await ensureBrandAssets(liveCoupons.map((c) => c.brand)).catch(() => {});
-      }
+      // Paint the cards immediately, then resolve brand assets (cached per
+      // brand in coupon-meta.js) and re-render with logos/backgrounds.
       renderCoupons();
+      if (typeof ensureBrandAssets === 'function') {
+        ensureBrandAssets(liveCoupons.map((c) => c.brand))
+          .then(() => renderCoupons())
+          .catch(() => {});
+      }
     } catch (e) {
       liveCoupons = [];
       renderCoupons();
