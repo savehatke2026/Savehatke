@@ -232,57 +232,57 @@
        viewport scrolls, and the frame stays put while it does. */
     .upm-overlay { position:fixed; inset:0; z-index:340; background:rgba(6,13,31,.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .3s; }
     .upm-overlay.show { opacity:1; pointer-events:auto; }
-    .upm-box { position:relative; width:100%; max-width:360px; border-radius:20px; background:#0c1628; border:1px solid rgba(0,226,114,.25); box-shadow:0 0 0 1px rgba(0,226,114,.08),0 0 60px rgba(0,226,114,.06),0 30px 80px rgba(0,0,0,.6); padding:36px 28px 28px; text-align:center; font-family:'Inter',sans-serif; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
+    .upm-box { position:relative; width:100%; max-width:300px; border-radius:16px; background:#0c1628; border:1px solid rgba(0,226,114,.25); box-shadow:0 0 0 1px rgba(0,226,114,.08),0 0 60px rgba(0,226,114,.06),0 30px 80px rgba(0,0,0,.6); padding:26px 22px 22px; text-align:center; font-family:'Inter',sans-serif; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
     .upm-overlay.show .upm-box { transform:scale(1) translateY(0); }
 
     /* The × that opens the "Cancel Payment?" panel. Pinned to the corner so the
        title can sit on the box's true centre line. */
-    .upm-close { position:absolute; top:20px; right:20px; z-index:2; width:36px; height:36px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:10px; color:#fff; font-size:1.15rem; line-height:1; cursor:pointer; transition:background .2s; font-family:'Inter',sans-serif; }
+    .upm-close { position:absolute; top:14px; right:14px; z-index:2; width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:10px; color:#fff; font-size:1.15rem; line-height:1; cursor:pointer; transition:background .2s; font-family:'Inter',sans-serif; }
     .upm-close:hover { background:rgba(255,255,255,.14); }
     .upm-close:disabled { opacity:.4; cursor:not-allowed; }
 
     /* Scrollable body: the box keeps a fixed frame so the × and the cancel
        panel stay pinned, while the flow itself scrolls on a short viewport. */
-    .upm-body { overflow-y:auto; overscroll-behavior:contain; max-height:calc(100vh - 92px); padding:4px 2px 2px; }
+    .upm-body { overflow-y:auto; overscroll-behavior:contain; max-height:calc(100vh - 80px); padding:2px 2px 2px; }
 
-    .upm-ttl { font-weight:800; font-size:26px; letter-spacing:-.3px; text-align:center; }
+    .upm-ttl { font-weight:800; font-size:20px; letter-spacing:-.3px; text-align:center; }
     .upm-ttl .upm-green { color:#00E272; }
-    .upm-paysub { font-size:14px; color:#8a9dc0; margin-top:6px; text-align:center; }
+    .upm-paysub { font-size:12px; color:#8a9dc0; margin-top:6px; text-align:center; }
     .upm-paysub .upm-amt-inline { font-weight:700; color:#00E272; }
 
     /* QR area — a real matrix rendered server-side into #upmQr. White rounded
        plate, sized to the image, exactly like the reference. Padding is kept
        small so the QR matrix itself reads bigger inside the SAME plate size. */
-    .upm-qr { background:#fff; border-radius:16px; padding:8px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; width:fit-content; }
-    .upm-qr img { display:block; width:200px; height:200px; border-radius:4px; }
-    .upm-qr-empty { width:200px; height:200px; display:flex; align-items:center; justify-content:center; }
+    .upm-qr { background:#fff; border-radius:12px; padding:6px; display:flex; align-items:center; justify-content:center; margin:0 auto 10px; width:fit-content; }
+    .upm-qr img { display:block; width:160px; height:160px; border-radius:4px; }
+    .upm-qr-empty { width:160px; height:160px; display:flex; align-items:center; justify-content:center; }
     .upm-qr-skel { width:26px; height:26px; border:3px solid rgba(6,13,31,.18); border-top-color:#00E272; border-radius:50%; animation:spin .7s linear infinite; }
 
-    .upm-scan { font-size:13px; color:#8a9dc0; margin-bottom:20px; text-align:center; }
+    .upm-scan { font-size:11px; color:#8a9dc0; margin-bottom:14px; text-align:center; }
 
     /* Supported apps — real brand marks from /logos/ on 58px white tiles in a
        centred row (design matches the reference). PhonePe renders BARE — its
        transparent PNG stands alone with no white tile. The other three marks
        (Google Pay, Paytm, BHIM) render smaller INSIDE their unchanged tiles
        via .upm-app-fit (contained at 78%). */
-    .upm-apps { display:flex; justify-content:center; gap:28px; margin-bottom:22px; }
+    .upm-apps { display:flex; justify-content:center; gap:20px; margin-bottom:16px; }
     .upm-app { display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; }
-    .upm-app-ico { width:58px; height:58px; border-radius:16px; background:#fff; overflow:hidden; display:flex; align-items:center; justify-content:center; transition:transform .15s, box-shadow .15s; }
+    .upm-app-ico { width:46px; height:46px; border-radius:12px; background:#fff; overflow:hidden; display:flex; align-items:center; justify-content:center; transition:transform .15s, box-shadow .15s; }
     .upm-app-ico img { width:100%; height:100%; display:block; object-fit:cover; }
     .upm-app-ico img.upm-app-fit { object-fit:contain; width:78%; height:78%; }
     .upm-app-ico.upm-app-plain { background:transparent; border-radius:0; overflow:visible; }
-    .upm-app-ico.upm-app-plain img { width:62px; height:62px; }
+    .upm-app-ico.upm-app-plain img { width:50px; height:50px; }
     .upm-app:hover .upm-app-ico { transform:translateY(-3px); box-shadow:0 8px 20px rgba(0,0,0,.4); }
     .upm-app:hover .upm-app-ico.upm-app-plain { box-shadow:none; }
-    .upm-app-nm { font-size:11px; color:#8a9dc0; font-weight:500; line-height:1.2; text-align:center; white-space:nowrap; }
+    .upm-app-nm { font-size:10px; color:#8a9dc0; font-weight:500; line-height:1.2; text-align:center; white-space:nowrap; }
 
     /* UPI ID row with a plain green copy icon on the right (reference design). */
-    .upm-vpa { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; padding:14px 16px; border-radius:14px; background:#101e34; border:1px solid rgba(255,255,255,.1); }
-    .upm-vpa-lbl { font-size:13px; color:#8a9dc0; margin-right:8px; flex-shrink:0; }
-    .upm-vpa-id { font-size:14px; font-weight:600; color:#fff; flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .upm-vpa { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; padding:10px 12px; border-radius:11px; background:#101e34; border:1px solid rgba(255,255,255,.1); }
+    .upm-vpa-lbl { font-size:11px; color:#8a9dc0; margin-right:8px; flex-shrink:0; }
+    .upm-vpa-id { font-size:12px; font-weight:600; color:#fff; flex:1; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .upm-copy { background:none; border:none; cursor:pointer; padding:4px; margin-left:8px; flex-shrink:0; color:#00E272; display:flex; align-items:center; transition:opacity .2s; }
     .upm-copy:hover { opacity:.75; }
-    .upm-copy svg { width:20px; height:20px; stroke:#00E272; stroke-width:2; fill:none; display:block; }
+    .upm-copy svg { width:16px; height:16px; stroke:#00E272; stroke-width:2; fill:none; display:block; }
     .upm-copy .upm-copy-k { display:none; }
     .upm-copy.done .upm-copy-c { display:none; }
     .upm-copy.done .upm-copy-k { display:block; }
@@ -290,23 +290,23 @@
     /* Countdown — a rounded box (reference design), driven by the server's
        expires_at (never a local 10:00), so reopening resumes where it left off.
        Digits in Share Tech Mono; warn/danger tint the border, icon and digits. */
-    .upm-timer { display:flex; align-items:center; justify-content:center; gap:10px; width:fit-content; max-width:100%; margin:20px auto 8px; padding:10px 24px; border:2px solid #00E272; border-radius:14px; background:rgba(0,226,114,.12); }
+    .upm-timer { display:flex; align-items:center; justify-content:center; gap:10px; width:fit-content; max-width:100%; margin:14px auto 6px; padding:7px 18px; border:2px solid #00E272; border-radius:11px; background:rgba(0,226,114,.12); }
     .upm-timer-ico { display:flex; align-items:center; flex-shrink:0; color:#00E272; }
-    .upm-timer-val { font-family:'Share Tech Mono',monospace; font-size:30px; line-height:1; letter-spacing:3px; color:#00E272; font-variant-numeric:tabular-nums; }
+    .upm-timer-val { font-family:'Share Tech Mono',monospace; font-size:22px; line-height:1; letter-spacing:3px; color:#00E272; font-variant-numeric:tabular-nums; }
     .upm-timer.warn { border-color:#ffd740; background:rgba(255,215,64,.1); }
     .upm-timer.warn .upm-timer-val, .upm-timer.warn .upm-timer-ico { color:#ffd740; }
     .upm-timer.danger { border-color:#ff5252; background:rgba(255,82,82,.1); }
     .upm-timer.danger .upm-timer-val, .upm-timer.danger .upm-timer-ico { color:#ff5252; }
 
-    .upm-timer-cap { font-size:12px; color:#8a9dc0; margin-bottom:22px; text-align:center; }
+    .upm-timer-cap { font-size:11px; color:#8a9dc0; margin-bottom:14px; text-align:center; }
 
     /* Footer — flanking hairlines + a centred shield/"Secured by SaveHatke". */
-    .upm-foot { display:flex; align-items:center; gap:12px; font-size:12px; color:#8a9dc0; margin-top:4px; }
+    .upm-foot { display:flex; align-items:center; gap:10px; font-size:10px; color:#8a9dc0; margin-top:2px; }
     .upm-foot::before, .upm-foot::after { content:''; flex:1; height:1px; background:rgba(255,255,255,.1); }
     .upm-foot-content { display:flex; align-items:center; gap:6px; white-space:nowrap; }
     .upm-foot .upm-green { color:#00E272; font-weight:700; }
     .upm-foot-ico { display:inline-flex; align-items:center; flex-shrink:0; }
-    .upm-foot-ico svg { width:16px; height:16px; fill:#00E272; }
+    .upm-foot-ico svg { width:13px; height:13px; fill:#00E272; }
 
     /* (Reference design has no in-card action buttons — the app tiles above are
        the tap-to-open affordance and the server auto-confirms via the live
