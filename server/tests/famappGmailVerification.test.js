@@ -67,7 +67,8 @@ function installFakes() {
   store.findPendingPaymentsForAmount = async () => state.payments.filter((p) => p.status === 'PENDING');
   store.findPendingPaymentByOrderCode = async () => null;
   store.isTransactionUsed = async () => false;
-  store.findPaymentByTransaction = async () => null;
+  store.findPaymentByTransaction = async (txn) =>
+    state.payments.find((p) => p.status === 'PAID' && p.verifiedTransactionId === txn) || null;
   store.finalizePayment = async (args) => {
     state.finalizeCalls.push(args);
     const p = state.payments.find((x) => x.paymentId === args.paymentId);
@@ -75,6 +76,7 @@ function installFakes() {
     if (p.status === 'PAID') return { ok: true, code: 'ALREADY_PAID', idempotent: true };
     if (p.status !== 'PENDING') return { ok: false, code: 'PAYMENT_NOT_PENDING' };
     p.status = 'PAID';
+    p.verifiedTransactionId = args.transactionId || '';
     return { ok: true, code: 'OK' };
   };
 }
@@ -210,6 +212,36 @@ async function classify(email, pending) {
       await classify(e, state.payments.slice());
       await classify({ ...e, messageId: 'other-msg' }, state.payments.slice());
       assert.equal(state.finalizeCalls.length, 1);
+    });
+
+    await check('transaction ID is extracted and passed to finalizePayment', async () => {
+      resetState([session({ amount: 1 })]);
+      await classify(famEmail({ amount: '1.00', txn: 'FMPIB6772399011' }), state.payments.slice());
+      assert.equal(state.finalizeCalls.length, 1);
+      assert.equal(state.finalizeCalls[0].transactionId, 'FMPIB6772399011');
+    });
+
+    await check('same transaction ID in two different emails cannot settle two sessions', async () => {
+      resetState([session({ id: 'a', amount: 1 }), session({ id: 'b', amount: 1, createdAt: '2026-10-11T15:01:00Z' })]);
+      // First email settles session a (amount 1) with txn X.
+      await classify(famEmail({ amount: '1.00', txn: 'FMPIB0000000100' }), [state.payments[0]]);
+      // A second, different Gmail message reuses txn X for session b.
+      const second = famEmail({ amount: '1.00', txn: 'FMPIB0000000100' });
+      second.messageId = 'msg-second-distinct-email';
+      const r2 = await classify(second, [state.payments[1]]);
+      assert.equal(r2.action, 'review');
+      assert.equal(state.payments[1].status, 'PENDING');
+      assert.equal(state.finalizeCalls.length, 1);
+    });
+
+    await check('email with no transaction ID is parked for review, never settled', async () => {
+      resetState([session({ amount: 1 })]);
+      const e = famEmail({ amount: '1.00', txn: 'FMPIB0000000101' });
+      e.body = e.body.replace(/Transaction ID: \S+\n?/, '');
+      const r = await classify(e, state.payments.slice());
+      assert.equal(r.action, 'review');
+      assert.equal(state.finalizeCalls.length, 0);
+      assert.equal(state.payments[0].status, 'PENDING');
     });
 
     await check('Google Sheets fallback is never called during verification', async () => {

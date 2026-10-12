@@ -242,6 +242,17 @@ function extractOrderCode(text) {
   return ids.extractOrderCodeFromText(text);
 }
 
+/**
+ * Pull the FamApp transaction ID from a credit notification, e.g.
+ * "Transaction ID: FMPIB6772399011". Returns '' when absent or malformed, so a
+ * missing ID fails closed (the candidate is parked, never settled on amount).
+ * Accepts 8–30 letters/digits, the same bounds as extractTransaction().
+ */
+function extractFamAppTransactionId(text) {
+  const m = String(text || '').match(/transaction\s*(?:id|no|number)\s*[:#\-]?\s*([A-Za-z0-9]{8,30})\b/i);
+  return m ? m[1].toUpperCase() : '';
+}
+
 /** Find a UPI VPA in the text. */
 function extractVpas(text) {
   const found = String(text || '').match(/[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}/g) || [];
@@ -296,6 +307,8 @@ function buildCandidateFromEmail({ messageId, from = '', authenticationResults =
     payerVpa,
     payerName: extractPayerName(text),
     payeeVpa,
+    // FamApp transaction ID: persisted and enforced unique across sessions.
+    transactionId: extractFamAppTransactionId(text),
     from,
     authenticationResults,
     labels: Array.isArray(labels) ? labels : [],
@@ -889,13 +902,33 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
 
   console.log(`${tag} Amount matched`);
 
-  // Settle atomically — NO transaction id / UTR. finalizePayment gates on the
-  // coupon flip and is idempotent, so an email can never unlock a coupon twice.
+  // Transaction ID is mandatory for settlement. Without one, the credit cannot
+  // be tied to a single transaction, so it is parked for review.
+  const txnId = candidate.transactionId || '';
+  if (!txnId) {
+    return reject('REVIEW', 'FamApp email has no transaction ID — payment left pending for review.');
+  }
+
+  // One transaction ID may settle at most one session, across ALL sessions. The
+  // store re-checks this inside finalizePayment's lock; this early check gives a
+  // clear, safe review outcome for the common repeat-scan case.
+  try {
+    const used = await store.findPaymentByTransaction(txnId);
+    if (used && used.paymentId !== payment.paymentId) {
+      return reject('REVIEW', `Transaction ${txnId} already settled another payment session.`);
+    }
+  } catch (e) {
+    return reject('REVIEW', 'Could not check the transaction ID for a duplicate: ' + e.message);
+  }
+
+  // Settle atomically. finalizePayment gates on the coupon flip, re-checks the
+  // transaction ID under its lock, and is idempotent, so an email can never
+  // unlock a coupon twice.
   let result;
   try {
     result = await store.finalizePayment({
       paymentId: payment.paymentId,
-      transactionId: null,
+      transactionId: txnId,
       utr: null,
       source: 'email',
       notes: `Matched FamApp credit on amount ₹${candidate.amount.toFixed(2)}.`,
