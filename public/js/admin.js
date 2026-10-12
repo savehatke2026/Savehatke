@@ -672,6 +672,9 @@ let INVENTORY_CACHE = [];
 // Redesigned "All Coupons" view state.
 let invPillFilter = 'active'; // 'active' | 'seller' | 'sold' | 'expired' — opens on Active coupons
 let INVENTORY_ALL = [];     // full fetched set — drives the summary cards + pill filters
+// Last server summary { total, active, seller, sold, expired }. The cards are
+// shown from this, so they stay constant across tabs and pills.
+let INVENTORY_SUMMARY = null;
 
 async function loadInventory() {
   const container = document.getElementById('inventoryTable');
@@ -705,16 +708,23 @@ async function loadInventory() {
     const totalPages = Math.max(1, data.totalPages || 1);
     if (invCurrentPage > totalPages) invCurrentPage = totalPages;
     INVENTORY_ALL = pageCoupons;
-    await preloadBrandAssets(pageCoupons);
-    // A newer load may have started while brand assets resolved — drop out
-    // rather than rendering a stale set over it.
-    if (seq !== inventoryRequestSeq) return;
+    // Brand logos/backgrounds resolve in the background and repaint the cards
+    // when ready; they never hold up the first paint.
+    preloadBrandAssets(pageCoupons).then(() => {
+      // Brand images are cached per brand; a later card render picks them up.
+      // Repaint only if this list is still the one on screen.
+      if (seq === inventoryRequestSeq && INVENTORY_ALL === pageCoupons) {
+        const host = document.querySelector('#inventoryTable .cm2-list');
+        if (host) host.innerHTML = pageCoupons.map(cmCardHtml).join('');
+      }
+    });
 
     // ⏳ Pending tab badge — the server counts seller submissions globally.
     if (data.pendingBadge !== undefined) cmSetPendingBadge(data.pendingBadge);
 
-    // Summary cards — computed across the whole set server-side.
-    renderInventorySummary(data.summary || pageCoupons);
+    // Cards come from the server's fixed summary (same on every tab/pill).
+    if (data.summary) INVENTORY_SUMMARY = data.summary;
+    renderInventorySummary(INVENTORY_SUMMARY || pageCoupons);
 
     const coupons = pageCoupons;
     const totalFiltered = data.total || 0;
@@ -3497,7 +3507,8 @@ async function saveCouponEdit() {
       if (bp !== undefined && bp !== null) c.buyerPrice = bp;
     }
     renderOneCouponCard(couponEditId);
-    if (typeof renderInventorySummary === 'function') renderInventorySummary(INVENTORY_ALL);
+    // Status/price changes move counts, so refresh the server summary.
+    if (typeof loadInventory === 'function') loadInventory();
     if (typeof loadAdminStats === 'function') loadAdminStats();
     showToast('Coupon updated successfully. ✅', 'success');
     if (typeof closeModal === 'function') closeModal('couponEditModal');
@@ -3916,9 +3927,7 @@ function resetCouponEditImageStaging() {
 function refreshCouponAfterImageChange() {
   const c = findCouponById(couponEditId);
   if (c) renderOneCouponCard(couponEditId);
-  if (typeof renderInventorySummary === 'function' && typeof INVENTORY_ALL !== 'undefined') {
-    renderInventorySummary(INVENTORY_ALL);
-  }
+
 }
 
 /** ✕ Clear — immediately resets this field to empty (brand-level fallback). */
@@ -4056,7 +4065,9 @@ async function deleteCouponFromEdit() {
     INVENTORY_CACHE = INVENTORY_CACHE.filter((c) => String(c.id) !== key);
     const node = couponCardNode(id);
     if (node) node.remove();
-    if (typeof renderInventorySummary === 'function') renderInventorySummary(INVENTORY_ALL);
+    // Counts changed on the server: refetch the fixed summary rather than
+    // deriving it from the visible page.
+    if (typeof loadInventory === 'function') loadInventory();
     if (typeof loadAdminStats === 'function') loadAdminStats();
     showToast('Coupon deleted.', 'info');
     if (typeof closeModal === 'function') closeModal('couponEditModal');

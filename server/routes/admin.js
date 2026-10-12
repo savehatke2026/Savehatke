@@ -204,8 +204,11 @@ async function getAdminCouponList(opts = {}) {
   // couponListCache.getSnapshot). Filters below run on that snapshot, so a
   // page, pill or search change no longer re-reads the whole coupon table.
   // Each read degrades to an empty set on error, so the snapshot never rejects.
+  // Both stores are read into the same short snapshot every time, so the
+  // summary cards (computed from the full sets below) never depend on which
+  // tab/pill was requested. The snapshot is cleared on every coupon mutation.
   const raw = await couponListCache.getSnapshot(async () => {
-    const [supa, payouts] = await Promise.all([
+    const [supa, payouts, sheet] = await Promise.all([
       (async () => {
         if (!supabase.isConfigured()) return [];
         try {
@@ -216,22 +219,19 @@ async function getAdminCouponList(opts = {}) {
         }
       })(),
       payoutsByCouponId(),
+      (async () => {
+        try {
+          return await db.getRowsFresh(db.SHEETS.SELLER_COUPONS);
+        } catch (e) {
+          console.warn('[admin/coupons] SellerCoupons sheet read failed:', e.message);
+          return [];
+        }
+      })(),
     ]);
-    return { supa, payouts };
+    return { supa, payouts, sheet };
   });
-
-  // Seller submissions live only in the SellerCoupons sheet. Read it here,
-  // outside the shared snapshot, so an all-coupons request never sees it and a
-  // seller request never gets a snapshot that was loaded without it.
-  let sellerSheet = [];
-  if (wantsSellerSheet) {
-    try {
-      sellerSheet = await db.getRowsFresh(db.SHEETS.SELLER_COUPONS);
-    } catch (e) {
-      console.warn('[admin/coupons] SellerCoupons sheet read failed:', e.message);
-      sellerSheet = [];
-    }
-  }
+  // Seller submissions live only in the SellerCoupons sheet.
+  const sellerSheet = raw.sheet || [];
 
   // Status/source/category narrowing used to run inside each read. It now runs
   // on the shared snapshot, with the same rules.
@@ -239,6 +239,8 @@ async function getAdminCouponList(opts = {}) {
   // mixed into them, so the seller list matches the sheet.
   let supaCoupons = wantsSellerSheet ? [] : (raw.supa || []);
   let sheetCoupons = wantsSellerSheet ? sellerSheet : [];
+  // Non-seller lists are Supabase only, so the Sheet's seller rows never show
+  // up in Active/Sold/Expired.
   const payoutMap = raw.payouts || new Map();
   if (status) {
     supaCoupons = supaCoupons.filter((c) => String(c.status || '') === status);
@@ -284,21 +286,25 @@ async function getAdminCouponList(opts = {}) {
   // Newest first, so a fresh submission sits at the top of the pending queue.
   merged.sort((a, b) => new Date(b.addedAt || 0) - new Date(a.addedAt || 0));
 
-  // Summary counts the status/source/category set — before pill/search/base
-  // exclusion — matching what the client's summary cards used to compute.
+  // Summary cards are fixed across every tab and pill. Each count comes from its
+  // own store, unfiltered by pill/search: Active/Sold/Expired from Supabase
+  // (the marketplace store), Seller from the SellerCoupons sheet. Filters only
+  // change the list below, never these numbers.
+  const supaAll = raw.supa || [];
+  const sheetAll = sellerSheet;
   const summary = {
-    total: merged.length,
-    active: 0, seller: 0, sold: 0, expired: 0,
+    total: supaAll.length + sheetAll.length,
+    active: 0, seller: sheetAll.length, sold: 0, expired: 0,
   };
-  let pendingBadge = 0;
-  for (const c of merged) {
+  for (const c of supaAll) {
     const st = String(c.status || '').toLowerCase();
-    const sellerSub = isSellerSubmissionRow(c);
     if (st === 'available') summary.active++;
-    if (sellerSub) summary.seller++;
     if (st === 'sold') summary.sold++;
     if (adminCouponExpired(c)) summary.expired++;
-    if (st === 'pending' && sellerSub) pendingBadge++;
+  }
+  let pendingBadge = 0;
+  for (const c of sheetAll) {
+    if (String(c.status || '').toLowerCase() === 'pending' && isSellerSubmissionRow(c)) pendingBadge++;
   }
 
   // Base set: everything except still-pending seller submissions (those live
