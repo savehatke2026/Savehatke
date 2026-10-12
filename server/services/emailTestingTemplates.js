@@ -248,6 +248,32 @@ const TEMPLATES = [
       sellerName: 'SaveHatke Test User',
     }, { renderOnly: true }),
   },
+  {
+    id: 'payment_method_added',
+    sender: 'noreply',
+    name: 'Payment Method Added',
+    description: 'Test the confirmation sent when a seller adds a UPI payment method.',
+    category: 'Account',
+    render: (to) => emailService.sendPaymentMethodEmail('added', {
+      to,
+      userName: 'SaveHatke Test User',
+      method: 'UPI ID',
+      at: Date.now(),
+    }, { renderOnly: true }),
+  },
+  {
+    id: 'payment_method_updated',
+    sender: 'noreply',
+    name: 'Payment Method Updated',
+    description: 'Test the confirmation sent when a seller updates their UPI payment method.',
+    category: 'Account',
+    render: (to) => emailService.sendPaymentMethodEmail('updated', {
+      to,
+      userName: 'SaveHatke Test User',
+      method: 'UPI QR Code',
+      at: Date.now(),
+    }, { renderOnly: true }),
+  },
 ];
 
 // Filter categories exposed in the UI (fixed set requested by the product).

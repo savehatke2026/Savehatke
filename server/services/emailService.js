@@ -2864,12 +2864,14 @@ function buildPaymentMethodEmail(kind, { userName, method, at }) {
   return { subject, text, html };
 }
 
-async function sendPaymentMethodEmail(kind, p = {}) {
+async function sendPaymentMethodEmail(kind, p = {}, opts = {}) {
   const cleanEmail = String(p.to || '').toLowerCase().trim();
   if (!cleanEmail) return { success: false, error: 'No recipient address provided.' };
   if (kind !== 'added' && kind !== 'updated') return { success: false, error: 'Unknown notification kind.' };
 
   const { subject, text, html } = buildPaymentMethodEmail(kind, p);
+  // Email Testing preview: return the real rendered template, never send.
+  if (opts.renderOnly) return { success: true, renderOnly: true, isPreview: true, subject, text, html };
   const t = getNoreplyTransporter();
   const fromEmail = (process.env.NOREPLY_SMTP_USER || '').trim();
   if (!t || !fromEmail) {
