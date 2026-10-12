@@ -312,6 +312,8 @@ router.get('/', optionalAuth, async (req, res) => {
         // Admin-controlled timer switch — when off the card hides the countdown
         // even though expiryDate is still set.
         timerOn: c.timerOn !== false,
+        // Discount display switch — the card shows the discount only when true.
+        discountOn: c.discountOn === true,
         // Per-coupon hero image for the card — each coupon can carry its own.
         // Empty string means none is set; the card then falls back to the
         // default SaveHatke background.
@@ -1353,6 +1355,7 @@ router.get('/:id', async (req, res) => {
         expiryDate: defaultExpiry(coupon.expiryDate, coupon.addedAt),
         onSale: coupon.onSale !== false,
         timerOn: coupon.timerOn !== false,
+        discountOn: coupon.discountOn === true,
         // Seller payout info (7% of face value); out-of-range admin coupons
         // report payoutEligible false rather than being hidden.
         ...couponPayoutInfo(coupon),

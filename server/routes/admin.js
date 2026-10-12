@@ -689,6 +689,7 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       isVerified,
       onSale,
       timerOn,
+      discountOn,
       backgroundImage,
     } = req.body;
 
@@ -800,6 +801,8 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       // inserts working before server/setup_coupon_sale_timer.sql is applied.
       ...(onSale !== undefined ? { onSale: Boolean(onSale !== false && onSale !== 'false') } : {}),
       ...(timerOn !== undefined ? { timerOn: Boolean(timerOn !== false && timerOn !== 'false') } : {}),
+      // Discount display is OFF unless the admin explicitly turns it on.
+      discountOn: discountOn === true || discountOn === 'true',
       // Card hero image — optional, length-capped. Same "only when provided"
       // rule as the switches so inserts work before
       // server/setup_coupon_background_image.sql is applied.
@@ -1146,7 +1149,7 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
       'code', 'brand', 'category', 'title', 'description', 'type', 'discount',
       'sellingPrice', 'manualPrice', 'pricingMode', 'valueType', 'manualFinalPrice',
       'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
-      'terms', 'howToUse', 'status', 'onSale', 'timerOn', 'backgroundImage', 'brandLogo', 'isFeatured',
+      'terms', 'howToUse', 'status', 'onSale', 'timerOn', 'discountOn', 'backgroundImage', 'brandLogo', 'isFeatured',
       'isExclusive', 'isVerified', 'adminNotes', 'proofUrl', 'soldAt', 'buyerEmail',
     ];
     for (const key of COPYABLE) {

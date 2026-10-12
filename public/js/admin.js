@@ -555,6 +555,8 @@ function initAddCouponForm() {
       const sellingPrice = '15';
       const status = document.getElementById('acStatus')?.value || 'available';
       const source = document.getElementById('acSource')?.value || 'admin';
+      // Discount display is OFF by default; only an explicit tick turns it on.
+      const discountOn = !!document.getElementById('acDiscountOn')?.checked;
       const isFeatured = !!document.getElementById('acFeatured')?.checked;
       const isExclusive = !!document.getElementById('acExclusive')?.checked;
       const isVerified = !!document.getElementById('acVerified')?.checked;
@@ -587,6 +589,7 @@ function initAddCouponForm() {
           pricingMode,
           valueType,
           manualFinalPrice,
+          discountOn,
           status,
           source,
           isFeatured,
@@ -3374,6 +3377,8 @@ function openCouponEdit(id) {
   setSel('ceType', c.type || 'Public', 'Public');
   setC('ceSale', c.onSale !== false);
   setC('ceTimer', c.timerOn !== false);
+  // Discount display is off unless the coupon was explicitly switched on.
+  setC('ceDiscountOn', c.discountOn === true);
   setC('ceFeatured', c.isFeatured === true || c.isFeatured === 'true');
   setC('ceExclusive', c.isExclusive === true || c.isExclusive === 'true');
   setC('ceVerified', c.isVerified === true || c.isVerified === 'true');
@@ -3467,8 +3472,10 @@ async function saveCouponEdit() {
       const out = {};
       const curSale = cur.onSale !== false && cur.onSale !== 'false';
       const curTimer = cur.timerOn !== false && cur.timerOn !== 'false';
+      const curDiscount = cur.discountOn === true || cur.discountOn === 'true';
       if (ck('ceSale') !== curSale) out.onSale = ck('ceSale');
       if (ck('ceTimer') !== curTimer) out.timerOn = ck('ceTimer');
+      if (ck('ceDiscountOn') !== curDiscount) out.discountOn = ck('ceDiscountOn');
       return out;
     })()),
     isFeatured: ck('ceFeatured'),

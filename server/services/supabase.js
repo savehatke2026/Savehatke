@@ -456,6 +456,8 @@ function toSupabaseCoupon(c) {
     // tolerate databases where the migration hasn't been applied yet
     ...(c.onSale !== undefined ? { on_sale: Boolean(c.onSale !== false && c.onSale !== 'false') } : {}),
     ...(c.timerOn !== undefined ? { timer_on: Boolean(c.timerOn !== false && c.timerOn !== 'false') } : {}),
+    // Discount display switch — off by default, so only an explicit true shows it.
+    ...(c.discountOn !== undefined ? { discount_on: Boolean(c.discountOn === true || c.discountOn === 'true') } : {}),
     // Hero image for the marketplace card — per-coupon, optional. Only sent
     // when provided so writes tolerate databases where
     // setup_coupon_background_image.sql hasn't been applied yet.
@@ -516,6 +518,8 @@ function fromSupabaseCoupon(r) {
     // Timer OFF hides the countdown but keeps expiry_date, so flipping it back
     // on restores the date the admin already entered.
     timerOn: r.timer_on !== false,
+    // Off unless an admin turned it on (see setup_coupon_discount_on.sql).
+    discountOn: r.discount_on === true,
     // Card hero image — empty string means "no image set" and the card falls
     // back to the default SaveHatke background.
     backgroundImage: r.background_image || '',
@@ -761,6 +765,7 @@ async function updateCoupon(id, updates) {
   // Sale switch, timer switch + expiry date, all edited inline from Coupon Management
   if (updates.onSale !== undefined) patch.on_sale = Boolean(updates.onSale !== false && updates.onSale !== 'false');
   if (updates.timerOn !== undefined) patch.timer_on = Boolean(updates.timerOn !== false && updates.timerOn !== 'false');
+  if (updates.discountOn !== undefined) patch.discount_on = Boolean(updates.discountOn === true || updates.discountOn === 'true');
   if (updates.expiryDate !== undefined) patch.expiry_date = updates.expiryDate || null;
   // Card hero image, edited from Coupon Management / Add Coupon
   if (updates.backgroundImage !== undefined) patch.background_image = updates.backgroundImage || null;

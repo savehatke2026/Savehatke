@@ -228,6 +228,9 @@ function renderCouponGrid(gridId, coupons) {
       const origVal = c.discount
         ? (c.discount.includes('%') || c.discount.includes('₹') ? c.discount : `₹${c.discount} OFF`)
         : (c.originalValue ? `₹${c.originalValue} OFF` : 'SPECIAL OFFER');
+      // Discount is hidden unless the admin switched it on for this coupon.
+      const showDiscount = c.discountOn === true;
+      const discountPill = showDiscount ? `<span class="match-discount">${escapeCoupon(origVal)}</span>` : '';
       // The description only renders as its own line when it carries text the
       // title doesn't already show, so the card never repeats itself.
       const title = c.title || c.description || 'Verified Discount Offer';
@@ -271,7 +274,7 @@ function renderCouponGrid(gridId, coupons) {
           <div class="match-banner banner-${escapeCoupon(id)}">
             ${brandImg
               ? `<img src="${escapeCoupon(brandImg)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
-              : `<div class="match-fallback" aria-hidden="true"><b>${escapeCoupon(initial)}</b><span>${escapeCoupon(origVal)}</span></div>`}
+              : `<div class="match-fallback" aria-hidden="true"><b>${escapeCoupon(initial)}</b>${showDiscount ? `<span>${escapeCoupon(origVal)}</span>` : ''}</div>`}
           </div>
           <div class="match-body">
             <div class="match-info">
@@ -286,7 +289,7 @@ function renderCouponGrid(gridId, coupons) {
               </div>
             </div>
             <div class="match-meta">
-              <span class="match-discount">${escapeCoupon(origVal)}</span>
+              ${discountPill}
               <span class="match-cost">${escapeCoupon(priceText)}${origPrice}</span>
               ${timerHtml}
             </div>

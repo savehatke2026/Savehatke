@@ -1209,7 +1209,7 @@
               </div>
             </div>
             <div class="match-meta">
-              <span class="match-discount">${escapeIndexAttr(origVal)}</span>
+              ${c.discountOn === true ? `<span class="match-discount">${escapeIndexAttr(origVal)}</span>` : ''}
               <span class="match-cost">${escapeIndexAttr(priceText)}${origPrice}</span>
               ${timerHtml}
             </div>
