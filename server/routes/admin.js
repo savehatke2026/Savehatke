@@ -746,16 +746,16 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
     // sellerPayout / seller_payout / payout_amount in the body is ignored.
     const faceValue = faceValueFromBody(req.body) ?? discount ?? '0';
 
-    // Check for duplicate code in Supabase & Sheets
+    // Coupons are saved to Supabase only (no Google Sheets mirror for new coupons).
+    if (!supabase.isConfigured()) {
+      return res.status(503).json({ error: 'Database is not configured. Coupon was not saved.' });
+    }
+
+    // Check for duplicate code in Supabase
     let existing = null;
-    if (supabase.isConfigured()) {
-      try {
-        existing = await supabase.findCouponByCode(cleanCode);
-      } catch (e) {}
-    }
-    if (!existing) {
-      existing = await db.findRow(db.SHEETS.COUPONS, 'code', cleanCode);
-    }
+    try {
+      existing = await supabase.findCouponByCode(cleanCode);
+    } catch (e) {}
     if (existing) {
       return res.status(409).json({ error: 'This coupon code already exists.' });
     }
@@ -818,39 +818,22 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       buyerEmail: '',
     };
 
-    // Supabase first — it owns the coupon id and is the live store the
-    // marketplace reads from. Sheets is the mirror and gets the same id.
-    let created = null;
-    if (supabase.isConfigured()) {
-      try {
-        created = await supabase.createCoupon(coupon);
-        coupon.id = created.id;
-      } catch (err) {
-        if (/already exists/i.test(err.message)) {
-          return res.status(409).json({ error: 'This coupon code already exists.' });
-        }
-        console.warn('Supabase createCoupon notice:', err.message);
-      }
-    }
-
-    // Fallback id for the Sheets mirror when Supabase is off or unreachable
-    if (!coupon.id) coupon.id = uuidv4();
-
-    let saved = null;
+    // Supabase owns the coupon id and is the live store the marketplace reads from.
+    let created;
     try {
-      saved = await db.appendRow(db.SHEETS.COUPONS, coupon);
+      created = await supabase.createCoupon(coupon);
     } catch (err) {
-      console.warn('Sheets appendRow notice:', err.message);
-      if (!created) throw err; // nothing persisted anywhere — surface the failure
+      if (/already exists/i.test(err.message)) {
+        return res.status(409).json({ error: 'This coupon code already exists.' });
+      }
+      throw err;
     }
 
     invalidateCouponListCache();
 
     res.status(201).json({
-      message: created
-        ? 'Coupon published successfully! 🎟️'
-        : 'Coupon published successfully to Google Sheets! 📊',
-      coupon: created || saved || coupon,
+      message: 'Coupon published successfully! 🎟️',
+      coupon: created,
     });
   } catch (err) {
     console.error('Admin add coupon error:', err);
