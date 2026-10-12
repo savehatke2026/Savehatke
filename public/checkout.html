@@ -1668,6 +1668,11 @@
     // connection alive, and take one immediate reading so a payment that landed
     // right at 0:00 is reflected without waiting for the next poll.
     clearInterval(upiState.timerId); upiState.timerId = null;
+    // Once per window: the ticker, the SSE ping and the poll can all reach
+    // 0:00, and only the first may show the message.
+    if (upiState.expiredHandled) return;
+    upiState.expiredHandled = true;
+    showCheckoutStatus(CHECKOUT_MSG_EXPIRED);
     showUpiState('watching');
     ensureStatusWatch();
     const paymentId = upiState.paymentId;
@@ -1747,6 +1752,8 @@
         clearInterval(upiState.timerId); upiState.timerId = null;
         stopUpiStream();
         stopUpiPoll();
+        upiState.expiredHandled = true;
+        showCheckoutStatus(CHECKOUT_MSG_EXPIRED);
         showUpiState('expired');
         break;
 
@@ -1781,7 +1788,7 @@
         stopUpiStream();
         stopUpiPoll();
         closeUpiBox();
-        showToastLocal('Payment cancelled.', 'info');
+        showCheckoutStatus(CHECKOUT_MSG_CANCELLED);
         break;
 
       default:
@@ -2193,6 +2200,7 @@
       stopUpiStream();
       stopUpiPoll();
       closeUpiBox();
+      showCheckoutStatus(CHECKOUT_MSG_CANCELLED);
     } catch (e) {
       showToastLocal('Network error. Could not cancel the payment.', 'error');
     } finally {
@@ -2282,6 +2290,10 @@
       upiEl('upmPayAmt').textContent = totalPrice ? formatRupees(totalPrice) : '—';
     }
     openUpiBox();
+    // A new attempt starts clean: drop the previous cancelled/expired message
+    // and re-arm the one-shot expiry handler for this window.
+    showCheckoutStatus('');
+    upiState.expiredHandled = false;
     // Fresh attempt: clear leftovers (an old QR, a previous state panel) so the
     // box always opens on the loading skeleton, never on stale content.
     hideUpiState();
@@ -2790,6 +2802,18 @@
   }
 
   // Toast
+  // ─ Checkout status message (red, in #csStatus) ───────────────────────────
+  // One place for the payment-cancelled and payment-expired messages. An empty
+  // string hides the box, which is what a new payment attempt does.
+  const CHECKOUT_MSG_CANCELLED = 'Your payment has been cancelled.';
+  const CHECKOUT_MSG_EXPIRED = 'Your payment session has expired.';
+  function showCheckoutStatus(msg) {
+    const el = document.getElementById('csStatus');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.style.display = msg ? 'block' : 'none';
+  }
+
   function showToastLocal(msg, type) {
     if (typeof showToast === 'function') {
       showToast(msg, type);
