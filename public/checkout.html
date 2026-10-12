@@ -72,7 +72,17 @@
     .match-timer.yellow { color:#FFD700; box-shadow:0 0 10px rgba(255,215,0,.28), inset 0 0 6px rgba(255,215,0,.08); }
     .match-timer.red    { color:#FF0000; box-shadow:0 0 10px rgba(255,0,0,.32), inset 0 0 6px rgba(255,0,0,.08); }
     .match-timer.expired { color:#8a94a6; border-color:rgba(138,148,166,.35); box-shadow:none; }
+    .match-info > div:last-child { flex:1; min-width:0; }
     .match-description { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; padding:1.2cqw 2.6cqw; border-radius:99px; border:1px solid currentColor; background:rgba(255,255,255,.03); min-width:0; max-width:100%; }
+    .match-timer svg { width:3cqw; height:3cqw; flex-shrink:0; }
+    .match-timer.green  { color:#00E272; box-shadow:0 0 10px rgba(0,226,114,.28), inset 0 0 6px rgba(0,226,114,.08); }
+    .match-timer.yellow { color:#FFD700; box-shadow:0 0 10px rgba(255,215,0,.28), inset 0 0 6px rgba(255,215,0,.08); }
+    .match-timer.red    { color:#FF0000; box-shadow:0 0 10px rgba(255,0,0,.32), inset 0 0 6px rgba(255,0,0,.08); }
+    .match-timer.final  { animation:matchTimerFlash 1.4s ease-in-out infinite; }
+    .match-timer.expired { color:#8a94a6; border-color:rgba(138,148,166,.35); box-shadow:none; }
+    @keyframes matchTimerFlash { 0%,100% { opacity:1; } 50% { opacity:.55; } }
+    @media(prefers-reduced-motion:reduce){ .match-timer.final { animation:none; } }
     .match-desc-more { margin-top:1.4cqw; padding:0; border:0; background:none; color:var(--cta); font-family:'Outfit',sans-serif; font-size:4.4cqw; font-weight:700; cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
     .match-meta-row { display:grid; grid-template-columns:auto 1fr auto; }
     .match-meta-row .match-cost { justify-self:center; }
@@ -635,10 +645,7 @@
           <div class="match-meta match-meta-row">
             <span class="match-discount" id="csHeroOff" style="display:none"></span>
             <span class="match-cost" id="csPrice">—</span>
-            <span class="match-timer" id="csExpiryTimer" style="display:none">
-              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span class="cc-exp-clock"><span data-timer="csTimer">00:00:00</span></span>
-            </span>
+            <span class="match-timer" id="csExpiryTimer" style="display:none"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="16" cy="18" r="12"/><path d="M16 10v8l5 4M13 2h6M16 2v4M25 6l3 3"/></svg><span data-timer="csTimer">00:00:00</span></span>
           </div>
         </div>
         <div id="csStatus" role="alert"></div>
@@ -1122,18 +1129,39 @@
       return;
     }
 
-    box.style.display = 'flex';
+    box.style.display = 'inline-flex';
     box.title = 'Expires ' + new Date(at).toLocaleString('en-IN', {
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
 
     const out = box.querySelector('[data-timer="csTimer"]');
+    // Same text and colour bands as the marketplace card's timer pill.
+    const DAY = 24 * 60 * 60 * 1000;
+    const fmt = (msLeft) => {
+      if (msLeft <= 0) return 'Expired';
+      const totalSec = Math.floor(msLeft / 1000);
+      const pad = (n) => String(n).padStart(2, '0');
+      if (msLeft > DAY) {
+        const d = Math.floor(totalSec / 86400);
+        const h = Math.floor((totalSec % 86400) / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        return `${d}d ${pad(h)}h ${pad(m)}m left`;
+      }
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      return `${pad(h)}:${pad(m)}:${pad(totalSec % 60)} left`;
+    };
+    const band = (msLeft) => {
+      if (msLeft <= 0) return 'expired';
+      if (msLeft <= DAY) return 'red final';
+      if (msLeft <= 7 * DAY) return 'yellow';
+      return 'green';
+    };
     const tick = () => {
       const msLeft = at - Date.now();
-      const p = expiryParts(msLeft);
-      const text = (p.dd ? String(p.dd).replace(/d$/i, '') + 'd ' : '') + p.hh + ':' + p.mm + ':' + p.ss;
+      const text = fmt(msLeft);
       if (out && out.textContent !== text) out.textContent = text;
-      const cls = 'match-timer ' + expiryBand(msLeft);
+      const cls = 'match-timer ' + band(msLeft);
       if (box.className !== cls) box.className = cls;
       // An expired coupon can't be honoured, so stop the sale rather than take
       // the money. The server is the real gate; this is the honest UI.
@@ -1207,7 +1235,7 @@
       if (d && d !== currentCoupon.brand && d !== currentCoupon.title) {
         descEl.textContent = d;
         descEl.title = d;
-        descEl.style.display = 'block';
+        descEl.style.display = '-webkit-box'; // keeps the 2-line clamp (inline 'block' would override it)
         if (moreBtn) moreBtn.style.display = 'inline-block';
       } else {
         descEl.style.display = 'none';
