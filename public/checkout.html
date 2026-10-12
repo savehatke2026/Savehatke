@@ -36,20 +36,20 @@
     ::-webkit-scrollbar-thumb:hover { background:var(--green); }
     /* Scoped to .page so the (unchanged) payment-window icons keep their own sizes. */
     .page svg { display:block; width:32px; height:32px; fill:none; stroke:currentColor; stroke-width:1.9; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
-    .page { position:relative; max-width:950px; margin:auto; padding:28px 29px 80px; }
-    .header { display:flex; align-items:center; gap:44px; margin:0 22px 34px; }
+    .page { position:relative; max-width:780px; margin:auto; padding:22px 22px 60px; }
+    .header { display:flex; align-items:center; gap:32px; margin:0 16px 26px; }
     .back { padding:0; border:0; color:var(--text); background:none; }
-    .back svg { width:38px; height:38px; }
-    .brand { display:flex; align-items:center; gap:16px; font-size:36px; font-weight:700; letter-spacing:-1.3px; }
-    .brand svg { width:48px; height:56px; color:var(--green); stroke-width:8; }
+    .back svg { width:30px; height:30px; }
+    .brand { display:flex; align-items:center; gap:12px; font-size:28px; font-weight:700; letter-spacing:-1px; }
+    .brand svg { width:38px; height:44px; color:var(--green); stroke-width:8; }
     .brand em { color:var(--green); font-style:normal; }
-    .intro { margin:0 22px 31px; }
-    .page h1 { font-size:50px; letter-spacing:-1.2px; margin:0 0 8px; line-height:1.2; }
-    .intro p { color:var(--muted); font-size:30px; margin:0; line-height:1.4; }
-    .checkout { padding:37px 38px 46px; border:2px solid transparent; border-radius:31px; background:linear-gradient(var(--background),var(--background)) padding-box,linear-gradient(155deg,#00E272,#00825e 32%,#102e43 66%,#0c293a) border-box; }
+    .intro { margin:0 16px 24px; }
+    .page h1 { font-size:40px; letter-spacing:-1px; margin:0 0 6px; line-height:1.2; }
+    .intro p { color:var(--muted); font-size:22px; margin:0; line-height:1.4; }
+    .checkout { padding:26px 26px 32px; border:2px solid transparent; border-radius:24px; background:linear-gradient(var(--background),var(--background)) padding-box,linear-gradient(155deg,#00E272,#00825e 32%,#102e43 66%,#0c293a) border-box; }
     .coupon { border:2px solid #004137; border-radius:21px; overflow:hidden; background:linear-gradient(120deg,#00362e65,#00211f35); }
-    .coupon-top { display:flex; align-items:center; gap:38px; padding:15px 18px; min-height:162px; position:relative; }
-    .amazon { width:136px; height:132px; flex-shrink:0; border-radius:24px; background:#fff; box-shadow:0 2px 10px #0005; display:grid; place-items:center; overflow:hidden; }
+    .coupon-top { display:flex; align-items:center; gap:26px; padding:12px 14px; min-height:128px; position:relative; }
+    .amazon { width:104px; height:100px; flex-shrink:0; border-radius:18px; background:#fff; box-shadow:0 2px 10px #0005; display:grid; place-items:center; overflow:hidden; }
     /* Brand logo slot — filled by renderBrandIcon() with the SAME brand logo the
        marketplace card shows. The tile stays white per the design; mono-dark
        marks (painted white via .blogo-lift for dark surfaces) are un-painted
@@ -57,39 +57,39 @@
     .amazon #csBrandIco { width:100%; height:100%; display:grid; place-items:center; }
     .amazon #csBrandIco img { max-width:76%; max-height:76%; width:auto; height:auto; object-fit:contain; }
     .amazon #csBrandIco .blogo-lift { filter:none; }
-    .amazon .brand-initial { width:100%; height:100%; display:grid; place-items:center; font-size:58px; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00E272,#4fc3f7); }
+    .amazon .brand-initial { width:100%; height:100%; display:grid; place-items:center; font-size:44px; font-weight:800; color:#060d1f; background:linear-gradient(135deg,#00E272,#4fc3f7); }
     .coupon-copy { flex:1; min-width:0; }
-    .page h2 { margin:0 0 10px; font-size:35px; letter-spacing:-.6px; }
-    .coupon-copy h2 { padding-right:140px; }
-    .coupon-copy p { color:var(--muted); margin:0; font-size:23px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .discount { color:var(--green); background:#004334a6; padding:13px 25px; border-radius:35px; font-weight:700; font-size:26px; white-space:nowrap; align-self:flex-start; margin-top:24px; position:absolute; right:18px; top:15px; }
+    .page h2 { margin:0 0 8px; font-size:27px; letter-spacing:-.5px; }
+    .coupon-copy h2 { padding-right:110px; }
+    .coupon-copy p { color:var(--muted); margin:0; font-size:18px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .discount { color:var(--green); background:#004334a6; padding:8px 18px; border-radius:26px; font-weight:700; font-size:19px; white-space:nowrap; align-self:flex-start; margin-top:24px; position:absolute; right:14px; top:12px; }
     .discount:empty { display:none; }
     /* Category + live marketplace countdown (same shared clock as the card the
        buyer clicked) — compact row under the coupon copy. */
     .cc-boxes { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:14px 18px 0; }
-    .details { display:grid; grid-template-columns:1fr 1fr 1.04fr; border-top:2px solid #003a34; padding:25px 17px; margin-top:16px; }
-    .detail { display:flex; align-items:flex-start; gap:18px; padding-right:16px; min-width:0; }
-    .detail + .detail { border-left:1px solid #0b453f; padding-left:25px; }
-    .icon-circle { display:grid; place-items:center; width:64px; height:64px; border-radius:50%; color:var(--green); background:#003b31a6; flex-shrink:0; }
-    .icon-circle svg { width:35px; height:35px; }
-    .rupee { font-size:40px; font-weight:600; }
-    .detail small { display:block; color:var(--muted); font-size:20px; margin:6px 0 13px; white-space:nowrap; }
-    .detail strong { font-size:35px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-    .detail:last-child strong { font-size:26px; }
-    .page form { border-top:2px solid var(--line); margin-top:37px; padding-top:37px; }
-    .field { margin-bottom:32px; }
-    label.field-label { display:block; font-size:27px; margin-bottom:14px; }
+    .details { display:grid; grid-template-columns:1fr 1fr 1.04fr; border-top:2px solid #003a34; padding:18px 12px; margin-top:12px; }
+    .detail { display:flex; align-items:flex-start; gap:12px; padding-right:12px; min-width:0; }
+    .detail + .detail { border-left:1px solid #0b453f; padding-left:18px; }
+    .icon-circle { display:grid; place-items:center; width:46px; height:46px; border-radius:50%; color:var(--green); background:#003b31a6; flex-shrink:0; }
+    .icon-circle svg { width:26px; height:26px; }
+    .rupee { font-size:30px; font-weight:600; }
+    .detail small { display:block; color:var(--muted); font-size:15px; margin:4px 0 9px; white-space:nowrap; }
+    .detail strong { font-size:26px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .detail:last-child strong { font-size:20px; }
+    .page form { border-top:2px solid var(--line); margin-top:26px; padding-top:26px; }
+    .field { margin-bottom:24px; }
+    label.field-label { display:block; font-size:20px; margin-bottom:10px; }
     .required { color:#ff7a81; margin-left:4px; }
-    .input-wrap { display:flex; align-items:center; border:2px solid var(--border); background:var(--field); border-radius:18px; overflow:hidden; height:90px; }
+    .input-wrap { display:flex; align-items:center; border:2px solid var(--border); background:var(--field); border-radius:14px; overflow:hidden; height:68px; }
     .input-wrap:focus-within { border-color:var(--green); box-shadow:0 0 0 3px #00E27212; }
-    .input-icon { width:96px; height:100%; display:grid; place-items:center; border-right:2px solid #1d394b; flex-shrink:0; }
-    .input-icon svg { width:34px; height:34px; }
-    .page input { width:100%; min-width:0; color:var(--text); background:transparent; border:0; outline:none; padding:20px 24px; font-size:28px; }
+    .input-icon { width:72px; height:100%; display:grid; place-items:center; border-right:2px solid #1d394b; flex-shrink:0; }
+    .input-icon svg { width:26px; height:26px; }
+    .page input { width:100%; min-width:0; color:var(--text); background:transparent; border:0; outline:none; padding:15px 18px; font-size:21px; }
     .page input::placeholder { color:#809bb6; opacity:1; }
     input.prefilled { color:#c8daf5; }
-    .phone-row { display:grid; grid-template-columns:277px 1fr; gap:12px; }
-    .phone-row .input-wrap { height:98px; }
-    .page select { width:100%; padding:20px 24px; background:transparent; color:var(--text); border:0; outline:none; font-size:28px; font-weight:600; }
+    .phone-row { display:grid; grid-template-columns:210px 1fr; gap:10px; }
+    .phone-row .input-wrap { height:72px; }
+    .page select { width:100%; padding:15px 18px; background:transparent; color:var(--text); border:0; outline:none; font-size:21px; font-weight:600; }
     .page option { background:var(--field); }
     /* Payer-name warning — revealed by the small focus script while
        #buyerName is focused (amber note, not a red error). */
@@ -99,12 +99,12 @@
     #payerNameWarn.show { max-height:220px; opacity:1; padding:10px 14px; margin:12px 0 0; border-color:#685119; }
     /* Availability notice (expired / sold out) — hidden until blockPurchase(). */
     #csStatus { display:none; margin:20px 2px 0; background:#2a151b; border:1px solid #6b2733; border-radius:10px; color:#ff7a81; font-size:18px; font-weight:700; padding:12px 14px; text-align:center; }
-    .agreement { display:flex; gap:28px; align-items:center; margin:40px 6px; font-size:23px; line-height:1.5; cursor:pointer; }
-    .agreement input { width:49px; height:49px; flex-shrink:0; margin:0; accent-color:var(--green); cursor:pointer; }
+    .agreement { display:flex; gap:20px; align-items:center; margin:28px 4px; font-size:17px; line-height:1.5; cursor:pointer; }
+    .agreement input { width:36px; height:36px; flex-shrink:0; margin:0; accent-color:var(--green); cursor:pointer; }
     .agreement a { color:#8fd0ff; }
-    .pay { display:flex; justify-content:center; align-items:center; gap:29px; width:100%; min-height:109px; background:var(--green); color:#001721; border:0; border-radius:23px; font-size:35px; font-weight:700; box-shadow:0 0 32px #00E2720a; transition:background .2s,transform .2s; }
+    .pay { display:flex; justify-content:center; align-items:center; gap:20px; width:100%; min-height:80px; background:var(--green); color:#001721; border:0; border-radius:17px; font-size:26px; font-weight:700; box-shadow:0 0 32px #00E2720a; transition:background .2s,transform .2s; }
     .pay:hover { background:#00E272; transform:translateY(-1px); }
-    .pay svg { width:40px; height:40px; stroke-width:2.6; }
+    .pay svg { width:30px; height:30px; stroke-width:2.6; }
     .pay:disabled { opacity:.55; cursor:not-allowed; transform:none; }
     .pay #payBtnText { display:inline-flex; align-items:center; justify-content:center; gap:14px; min-width:0; }
     /* Processing animation — user-supplied GIF (white segments on black).
@@ -112,10 +112,10 @@
        button; the segments fade toward the button colour exactly as designed. */
     .pay .spinner { width:46px; height:46px; border:0; border-radius:0; background:url("images/processing-animation.gif") center/contain no-repeat; mix-blend-mode:screen; }
     .secured-by { margin-top:30px; text-align:center; color:var(--muted); font-size:clamp(14px,2.2vw,20px); }
-    .trust { display:grid; grid-template-columns:1fr 1fr 1fr; margin-top:54px; }
-    .trust-item { display:flex; align-items:center; justify-content:center; gap:29px; color:var(--muted); font-size:23px; line-height:1.55; min-height:79px; }
+    .trust { display:grid; grid-template-columns:1fr 1fr 1fr; margin-top:36px; }
+    .trust-item { display:flex; align-items:center; justify-content:center; gap:18px; color:var(--muted); font-size:17px; line-height:1.55; min-height:60px; }
     .trust-item + .trust-item { border-left:2px solid var(--line); }
-    .trust svg { width:59px; height:59px; color:var(--green); stroke-width:2; }
+    .trust svg { width:42px; height:42px; color:var(--green); stroke-width:2; }
     .trust-item:nth-child(2) svg { color:#00b4f5; }
     .trust-item:nth-child(3) svg { color:#ffd12f; }
     :focus-visible { outline:2px solid var(--green); outline-offset:5px; }
@@ -184,7 +184,7 @@
        viewport scrolls, and the frame stays put while it does. */
     .upm-overlay { position:fixed; inset:0; z-index:340; background:rgba(6,13,31,.95); backdrop-filter:blur(10px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .3s; }
     .upm-overlay.show { opacity:1; pointer-events:auto; }
-    .upm-box { position:relative; width:100%; max-width:440px; border-radius:24px; background:#0c1628; border:1px solid rgba(0,226,114,.25); box-shadow:0 0 0 1px rgba(0,226,114,.08),0 0 60px rgba(0,226,114,.06),0 30px 80px rgba(0,0,0,.6); padding:36px 28px 28px; text-align:center; font-family:'Inter',sans-serif; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
+    .upm-box { position:relative; width:100%; max-width:360px; border-radius:20px; background:#0c1628; border:1px solid rgba(0,226,114,.25); box-shadow:0 0 0 1px rgba(0,226,114,.08),0 0 60px rgba(0,226,114,.06),0 30px 80px rgba(0,0,0,.6); padding:36px 28px 28px; text-align:center; font-family:'Inter',sans-serif; transform:scale(.95) translateY(12px); transition:transform .3s; overflow:hidden; }
     .upm-overlay.show .upm-box { transform:scale(1) translateY(0); }
 
     /* The × that opens the "Cancel Payment?" panel. Pinned to the corner so the
@@ -206,8 +206,8 @@
        plate, sized to the image, exactly like the reference. Padding is kept
        small so the QR matrix itself reads bigger inside the SAME plate size. */
     .upm-qr { background:#fff; border-radius:16px; padding:8px; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; width:fit-content; }
-    .upm-qr img { display:block; width:246px; height:246px; border-radius:4px; }
-    .upm-qr-empty { width:246px; height:246px; display:flex; align-items:center; justify-content:center; }
+    .upm-qr img { display:block; width:200px; height:200px; border-radius:4px; }
+    .upm-qr-empty { width:200px; height:200px; display:flex; align-items:center; justify-content:center; }
     .upm-qr-skel { width:26px; height:26px; border:3px solid rgba(6,13,31,.18); border-top-color:#00E272; border-radius:50%; animation:spin .7s linear infinite; }
 
     .upm-scan { font-size:13px; color:#8a9dc0; margin-bottom:20px; text-align:center; }
