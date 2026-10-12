@@ -825,10 +825,17 @@ function cmCardHtml(c) {
   const descRaw = (c.description && String(c.description) !== String(title)) ? String(c.description) : '';
   const discount = String(c.discount || '').trim();
   // Live countdown chip (the shared 1s ticker keeps it current).
-  const expiryChip = (typeof invExpiryChip === 'function')
-    ? invExpiryChip(c.expiryDate, c.timerOn !== false)
+  // Same countdown pill the marketplace card shows ("2d 6h 35m left", ticking
+  // HH:MM:SS under 24h, coloured green / yellow / red). Timer switched off or
+  // no expiry → no pill, matching the marketplace.
+  const expAt = c.timerOn === false ? null : parseExpiry(c.expiryDate);
+  const expiryChip = expAt !== null
+    ? `<span class="match-timer ${cmClaimBand(expAt - Date.now())}" data-band="${id}"><span data-inv-expiry="${expAt}">${cmClaimCountdownText(expAt - Date.now())}</span></span>`
     : '';
   const origPrice = c.originalValue ? ` <del>₹${escHtml(c.originalValue)}</del>` : '';
+  // Price the marketplace charges right now (server-computed buyerPrice). The
+  // stored sellingPrice is only a legacy fallback.
+  const shownPrice = (c.buyerPrice !== undefined && c.buyerPrice !== null) ? c.buyerPrice : (c.sellingPrice || '0');
   // Sell is offered only for a coupon the server would accept: still available
   // and not expired. Anything else (sold, reserved, expired) shows no button.
   const sellable = String(c.status || '').toLowerCase() === 'available' && !couponIsExpired(c);
@@ -861,7 +868,7 @@ function cmCardHtml(c) {
         </div>
         <div class="match-meta">
           ${discount ? `<span class="match-discount" title="${escHtml(discount)}">${escHtml(discount)}</span>` : ''}
-          <span class="match-cost">₹${escHtml(c.sellingPrice || '0')}${origPrice}</span>
+          <span class="match-cost admin-price-green">₹${escHtml(shownPrice)}${origPrice}</span>
           ${expiryChip ? `<span class="cmbx-expiry">${expiryChip}</span>` : ''}
         </div>
         <button type="button" class="match-claim cmbx-edit-cta" title="Edit coupon" onclick="openCouponEdit('${id}')">Edit Coupon</button>
@@ -985,6 +992,32 @@ function invExpiryChip(raw, timerOn) {
 
 let invExpiryTimerId = null;
 
+/** Marketplace-identical countdown text: "90d 12h 35m left" over 24h, else "HH:MM:SS left". */
+function cmClaimCountdownText(msLeft) {
+  if (msLeft <= 0) return 'Expired';
+  const DAY = 24 * 60 * 60 * 1000;
+  const totalSec = Math.floor(msLeft / 1000);
+  const pad = (n) => String(n).padStart(2, '0');
+  if (msLeft > DAY) {
+    const d = Math.floor(totalSec / 86400);
+    const h = Math.floor((totalSec % 86400) / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    return `${d}d ${pad(h)}h ${pad(m)}m left`;
+  }
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  return `${pad(h)}:${pad(m)}:${pad(totalSec % 60)} left`;
+}
+
+/** Marketplace-identical band: red ≤24h (flashing), yellow ≤7d, green >7d, expired. */
+function cmClaimBand(msLeft) {
+  if (msLeft <= 0) return 'expired';
+  const DAY = 24 * 60 * 60 * 1000;
+  if (msLeft <= DAY) return 'red final';
+  if (msLeft <= 7 * DAY) return 'yellow';
+  return 'green';
+}
+
 /** Tick every inventory countdown once a second (single shared interval). */
 function startInventoryExpiryTicker() {
   if (invExpiryTimerId !== null) return; // already running — re-renders are picked up on the next tick
@@ -994,6 +1027,16 @@ function startInventoryExpiryTicker() {
     const now = Date.now();
     nodes.forEach((el) => {
       const msLeft = Number(el.dataset.invExpiry) - now;
+      // Marketplace-style pill (inside .match-timer): same text + band as the buyer card.
+      const pill = el.closest('.match-timer');
+      if (pill) {
+        const text = cmClaimCountdownText(msLeft);
+        if (el.textContent !== text) el.textContent = text;
+        const band = cmClaimBand(msLeft);
+        const cls = `match-timer ${band}`;
+        if (pill.className !== cls) pill.className = cls;
+        return;
+      }
       const label = expiryLabel(msLeft);
       if (el.textContent !== label) el.textContent = label;
       const cls = `inv-exp inv-exp-${expiryBand(msLeft)}`;
@@ -3437,10 +3480,15 @@ async function saveCouponEdit() {
   const prev = btn ? btn.textContent : '';
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
   try {
-    await api(`/admin/coupons/${encodeURIComponent(couponEditId)}`, { method: 'PUT', useAdmin: true, body });
+    const saved = await api(`/admin/coupons/${encodeURIComponent(couponEditId)}`, { method: 'PUT', useAdmin: true, body });
     // Caches share object refs across INVENTORY_ALL / INVENTORY_CACHE, so one merge updates both.
+    // buyerPrice comes back from the server (same figure the marketplace charges).
     const c = findCouponById(couponEditId);
-    if (c) Object.assign(c, body);
+    if (c) {
+      Object.assign(c, body);
+      const bp = saved && saved.coupon && saved.coupon.buyerPrice;
+      if (bp !== undefined && bp !== null) c.buyerPrice = bp;
+    }
     renderOneCouponCard(couponEditId);
     if (typeof renderInventorySummary === 'function') renderInventorySummary(INVENTORY_ALL);
     if (typeof loadAdminStats === 'function') loadAdminStats();

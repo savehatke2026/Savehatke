@@ -342,7 +342,16 @@ async function getAdminCouponList(opts = {}) {
 
   const pageItems = rows.slice(start, start + effectivePageSize);
   const payload = {
-    coupons: pageItems.map((c) => payoutSummary(c, payoutMap.get(String(c.id)) || null)),
+    coupons: pageItems.map((c) => {
+      // The price the marketplace card shows right now (manual / automatic,
+      // last-24h band). The stored sellingPrice is a legacy default and is not
+      // what buyers pay, so the admin card reads this field instead.
+      const bp = dynamicPricing.getBuyerPrice(c);
+      return {
+        ...payoutSummary(c, payoutMap.get(String(c.id)) || null),
+        buyerPrice: bp.pricingError ? null : bp.price,
+      };
+    }),
     total,
     page: safePage,
     pageSize: effectivePageSize,
@@ -1254,7 +1263,13 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
 
     invalidateCouponListCache();
 
-    res.json({ message: 'Coupon updated successfully.', coupon: updated || { id, ...updates } });
+    const saved = updated || { id, ...updates };
+    // Same buyer price the marketplace shows, so the admin card updates from this response.
+    const savedBp = dynamicPricing.getBuyerPrice({ ...coupon, ...saved });
+    res.json({
+      message: 'Coupon updated successfully.',
+      coupon: { ...saved, buyerPrice: savedBp.pricingError ? null : savedBp.price },
+    });
   } catch (err) {
     console.error('Admin update coupon error:', err);
     res.status(500).json({ error: 'Internal server error.' });
