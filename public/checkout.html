@@ -48,6 +48,9 @@
     .intro p { color:var(--muted); font-size:22px; margin:0; line-height:1.4; }
     .checkout { padding:26px 26px 32px; border:2px solid transparent; border-radius:24px; background:linear-gradient(var(--background),var(--background)) padding-box,linear-gradient(155deg,#00E272,#00825e 32%,#102e43 66%,#0c293a) border-box; }
     .coupon { border:2px solid #004137; border-radius:21px; overflow:hidden; background:linear-gradient(120deg,#00362e65,#00211f35); }
+    /* Marketplace card hero — same image heroImageFor() paints on the card. */
+    .coupon-hero { position:relative; aspect-ratio:1062/334; background:#0a1a24; overflow:hidden; }
+    .coupon-hero img { display:block; width:100%; height:100%; object-fit:cover; }
     .coupon-top { display:flex; align-items:center; gap:26px; padding:12px 14px; min-height:128px; position:relative; }
     .amazon { width:104px; height:100px; flex-shrink:0; border-radius:18px; background:#fff; box-shadow:0 2px 10px #0005; display:grid; place-items:center; overflow:hidden; }
     /* Brand logo slot — filled by renderBrandIcon() with the SAME brand logo the
@@ -579,6 +582,7 @@
     <section class="intro"><h1>Review &amp; Pay</h1><p>Complete your details to get this coupon</p></section>
     <section class="checkout" aria-label="Coupon checkout">
       <article class="coupon">
+        <div class="coupon-hero"><img id="csHeroImg" alt="" src="/images/coupons/default.svg"></div>
         <div class="coupon-top">
           <div class="amazon" aria-label="Brand logo"><div id="csBrandIco"></div></div>
           <div class="coupon-copy"><h2 id="csBrandName">—</h2><p id="csDesc" style="display:none"></p></div>
