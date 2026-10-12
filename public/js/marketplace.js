@@ -123,13 +123,15 @@ async function loadCoupons() {
         allCoupons = retry.coupons || [];
       }
     }
-    // Brand logos/backgrounds now come from Google Drive: resolve every brand
-    // on the page in ONE batched request (cached per brand in coupon-meta.js)
-    // before the first paint, so cards render with their final imagery.
-    if (typeof ensureBrandAssets === 'function') {
-      await ensureBrandAssets(allCoupons.map((c) => c.brand)).catch(() => {});
-    }
+    // Paint the cards straight away with the local fallbacks, then resolve brand
+    // logos/backgrounds from Google Drive in one batched request and repaint only
+    // if an asset actually lands. Cards no longer wait on the Drive round trip.
     renderFilteredCoupons();
+    if (typeof ensureBrandAssets === 'function') {
+      ensureBrandAssets(allCoupons.map((c) => c.brand))
+        .then((changed) => { if (changed) renderFilteredCoupons(); })
+        .catch(() => {});
+    }
   } catch (err) {
     console.warn('Load coupons notice:', err.message);
     allCoupons = [];
@@ -250,7 +252,8 @@ function renderCouponGrid(gridId, coupons) {
         timerHtml = `<span class="match-timer ${band}" data-band="${escapeCoupon(id)}">${CLAIM_TIMER_SVG}<span data-timer="${escapeCoupon(id)}">${formatClaimCountdown(msLeft)}</span></span>`;
       }
 
-      const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeCoupon(c.originalValue)}</del>` : '';
+      // Selling price only: the struck-through original is no longer shown.
+      const origPrice = '';
 
       // Brand imagery — the marketplace serves brand logos and coupon-card
       // backgrounds from Google Drive ONLY. When a brand has no Drive asset
@@ -288,10 +291,10 @@ function renderCouponGrid(gridId, coupons) {
                 ${desc ? `<p class="match-description" title="${escapeCoupon(desc)}">${escapeCoupon(desc)}</p>` : ''}
               </div>
             </div>
-            <div class="match-meta">
+            <div class="match-meta match-meta-row">
               ${discountPill}
               <span class="match-cost">${escapeCoupon(priceText)}${origPrice}</span>
-              ${timerHtml}
+              <span class="match-timer-slot">${timerHtml}</span>
             </div>
             <button type="button" class="match-claim" onclick="event.stopPropagation(); buyCoupon('${id}', ${isFree})">Claim Coupon</button>
           </div>

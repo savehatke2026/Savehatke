@@ -746,6 +746,11 @@
   .match-description { font-size:4.9cqw; line-height:1.28; color:var(--card-muted); margin:0; font-weight:500; letter-spacing:-.02em; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 
   .match-meta { display:flex; align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
+  /* Price centred in the row, timer pushed to the right edge. */
+  .match-meta-row { display:grid; grid-template-columns:auto 1fr auto; }
+  .match-meta-row .match-cost { justify-self:center; }
+  .match-meta-row .match-timer-slot { justify-self:end; }
+  .match-meta-row .match-discount:empty { display:none; }
   .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
   .match-cost { font-size:6.1cqw; color:#00E272; font-weight:800; letter-spacing:-.04em; }
   /* The mockup ships the timer with no dedicated styling; only the icon is
