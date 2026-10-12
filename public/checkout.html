@@ -22,9 +22,9 @@
   <link rel="dns-prefetch" href="https://accounts.google.com">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <style>
-    :root { color-scheme: dark; --background:#03121e; --text:#f6f7fa; --muted:#98b2ce; --green:#00E272; --border:#25455c; --line:#102d3e; --field:#0a1b2a; }
+    :root { color-scheme: dark; --background:#060d1f; --text:#e2ecff; --muted:#8fa8c8; --green:#00E272; --border:#25455c; --line:#102d3e; --field:#0a1b2a; }
     * { box-sizing:border-box; }
-    body { margin:0; background:var(--background); color:var(--text); font-family:Arial,Helvetica,sans-serif; -webkit-font-smoothing:antialiased; }
+    body { margin:0; background:var(--background); color:var(--text); font-family:'Outfit',sans-serif; -webkit-font-smoothing:antialiased; }
     body::before { content:""; position:fixed; inset:0; pointer-events:none; background:linear-gradient(135deg,transparent 48%,#00E27205 48.1%,transparent 65%); }
     button,input,select { font:inherit; }
     button,a,input,select { -webkit-tap-highlight-color:transparent; }
@@ -48,9 +48,32 @@
     .intro p { color:var(--muted); font-size:22px; margin:0; line-height:1.4; }
     .checkout { padding:26px 26px 32px; border:2px solid transparent; border-radius:24px; background:linear-gradient(var(--background),var(--background)) padding-box,linear-gradient(155deg,#00E272,#00825e 32%,#102e43 66%,#0c293a) border-box; }
     .coupon { border:2px solid #004137; border-radius:21px; overflow:hidden; background:linear-gradient(120deg,#00362e65,#00211f35); }
-    /* Marketplace card hero — same image heroImageFor() paints on the card. */
-    .coupon-hero { position:relative; aspect-ratio:1062/334; background:#0a1a24; overflow:hidden; }
-    .coupon-hero img { display:block; width:100%; height:100%; object-fit:cover; }
+    /* Coupon box — the marketplace card's own look (marketplace.html .match-* rules),
+       scaled down for checkout. The card uses container units, so the box is its
+       own container. */
+    .coupon-card-checkout { --card-bg:#001824; --card-border:#00628a; --card-muted:#b1c5f5; --lime:#a8ff5a; --cta:#00E272; --ink:#00100b; container-type:inline-size; display:flex; flex-direction:column; border-radius:19px; background:var(--card-bg); border:1px solid var(--card-border); overflow:hidden; margin:0; }
+    .match-banner { position:relative; aspect-ratio:2.24; flex-shrink:0; border-radius:18px; background:#02121e; overflow:hidden; margin:10px 10px 0; }
+    .match-banner img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
+    .match-body { padding:3.4cqw; display:flex; flex-direction:column; flex:1; gap:3cqw; min-width:0; }
+    .match-info { display:flex; align-items:flex-start; gap:4.4cqw; min-height:24cqw; }
+    .match-logo { position:relative; width:21cqw; aspect-ratio:1; flex-shrink:0; border-radius:4cqw; background:#fff; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+    .match-logo b { font-size:9cqw; color:#001824; font-weight:800; }
+    .match-logo img { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; padding:2cqw; }
+    .match-logo img.blogo-lift { filter:none; }
+    .match-title { font-size:5.05cqw; line-height:1.3; font-weight:700; color:#f7f8fc; letter-spacing:-.035em; margin:0 0 2.6cqw; }
+    .match-description { font-size:4.9cqw; line-height:1.28; color:var(--card-muted); margin:0; font-weight:500; letter-spacing:-.02em; }
+    .match-meta { display:flex; align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
+    .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
+    .match-cost { font-size:6.1cqw; color:#00E272; font-weight:800; letter-spacing:-.04em; }
+    .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; padding:1.2cqw 2.6cqw; border-radius:99px; border:1px solid currentColor; background:rgba(255,255,255,.03); }
+    .match-timer svg { width:3cqw; height:3cqw; flex-shrink:0; }
+    .match-timer.green  { color:#00E272; box-shadow:0 0 10px rgba(0,226,114,.28), inset 0 0 6px rgba(0,226,114,.08); }
+    .match-timer.yellow { color:#FFD700; box-shadow:0 0 10px rgba(255,215,0,.28), inset 0 0 6px rgba(255,215,0,.08); }
+    .match-timer.red    { color:#FF0000; box-shadow:0 0 10px rgba(255,0,0,.32), inset 0 0 6px rgba(255,0,0,.08); }
+    .match-timer.expired { color:#8a94a6; border-color:rgba(138,148,166,.35); box-shadow:none; }
+    .match-summary { display:flex; flex-direction:column; gap:1.6cqw; margin-top:auto; font-size:4.4cqw; color:var(--card-muted); }
+    .match-sum-row { display:flex; justify-content:space-between; gap:3cqw; }
+    .match-sum-row strong { color:#f7f8fc; font-weight:700; }
     .coupon-top { display:flex; align-items:center; gap:26px; padding:12px 14px; min-height:128px; position:relative; }
     .amazon { width:104px; height:100px; flex-shrink:0; border-radius:18px; background:#fff; box-shadow:0 2px 10px #0005; display:grid; place-items:center; overflow:hidden; }
     /* Brand logo slot — filled by renderBrandIcon() with the SAME brand logo the
@@ -581,40 +604,30 @@
     </header>
     <section class="intro"><h1>Review &amp; Pay</h1><p>Complete your details to get this coupon</p></section>
     <section class="checkout" aria-label="Coupon checkout">
-      <article class="coupon">
-        <div class="coupon-hero"><img id="csHeroImg" alt="" src="/images/coupons/default.svg"></div>
-        <div class="coupon-top">
-          <div class="amazon" aria-label="Brand logo"><div id="csBrandIco"></div></div>
-          <div class="coupon-copy"><h2 id="csBrandName">—</h2><p id="csDesc" style="display:none"></p></div>
-          <span class="discount" id="csHeroOff"></span>
+      <article class="coupon-card coupon-card-checkout" aria-label="Coupon">
+        <div class="match-banner">
+          <img id="csHeroImg" alt="" src="/images/coupons/default.svg">
         </div>
-        <div class="cc-boxes">
-          <span class="cc-cat" id="csCategoryBox" data-cat="" style="display:none">
-            <span class="cc-cat-ico" id="csCatIco" aria-hidden="true">🏷️</span>
-            <span id="csCategory">—</span>
-          </span>
-          <div class="cc-expiry" id="csExpiryTimer" style="display:none">
-            <span class="cc-exp-head">
-              <svg class="cc-exp-icon" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/>
-                <path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-              <span class="cc-exp-label">Ends In</span>
-            </span>
-            <span class="cc-exp-clock">
-              <span class="cc-exp-tile cc-exp-tile-d"><b class="cc-exp-d">0</b><i>d</i></span>
-              <span class="cc-exp-tile"><b class="cc-exp-h">00</b><i>h</i></span>
-              <span class="cc-exp-tile"><b class="cc-exp-m">00</b><i>m</i></span>
-              <span class="cc-exp-tile"><b class="cc-exp-s">00</b><i>s</i></span>
-            </span>
-            <span class="cc-exp-over">◷ Offer ended</span>
+        <div class="match-body">
+          <div class="match-info">
+            <div class="match-logo" role="img" aria-label="Brand logo"><div id="csBrandIco" class="match-logo-slot"></div></div>
+            <div>
+              <h3 class="match-title" id="csBrandName">—</h3>
+              <p class="match-description" id="csDesc" style="display:none"></p>
+            </div>
           </div>
-        </div>
-        <div class="details">
-          <div class="detail" id="csValueItem"><span class="icon-circle"><svg><use href="#tag"/></svg></span><div><small>Coupon Value</small><strong id="csValue">—</strong></div></div>
-          <div class="detail" id="csPriceItem"><span class="icon-circle rupee">₹</span><div><small>Your Price</small><strong id="csPrice">—</strong></div></div>
-          <div class="detail" id="csExpiryItem"><span class="icon-circle"><svg><use href="#calendar"/></svg></span><div><small>Expires On</small><strong id="csExpiry">—</strong></div></div>
-          <div class="detail" id="csMinOrderItem" style="display:none"><span class="icon-circle"><svg><use href="#tag"/></svg></span><div><small>Minimum Order</small><strong id="csMinOrder">—</strong></div></div>
+          <div class="match-meta">
+            <span class="match-discount" id="csHeroOff" style="display:none"></span>
+            <span class="match-cost" id="csPrice">—</span>
+            <span class="match-timer" id="csExpiryTimer" style="display:none">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2"/><path d="M12 7.4V12l3.1 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="cc-exp-clock"><span data-timer="csTimer">00:00:00</span></span>
+            </span>
+          </div>
+          <div class="match-summary">
+            <span class="match-sum-row"><span>Coupon Value</span><strong id="csValue">—</strong></span>
+            <span class="match-sum-row" id="csMinOrderItem" style="display:none"><span>Minimum Order</span><strong id="csMinOrder">—</strong></span>
+          </div>
         </div>
         <div id="csStatus" role="alert"></div>
       </article>
@@ -623,7 +636,7 @@
         <div class="field"><label class="field-label" for="buyerEmail">Email Address <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#mail"/></svg></span><input id="buyerEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required></div></div>
         <div class="field"><label class="field-label" for="buyerPhone">Mobile Number <span class="required">*</span></label><div class="phone-row"><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#phone"/></svg></span><select name="country" aria-label="Country calling code"><option value="+91">+91</option><option value="+1">+1</option><option value="+44">+44</option></select></div><div class="input-wrap"><input id="buyerPhone" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10-digit number" pattern="[0-9]{10}" maxlength="10" title="Enter a 10-digit mobile number" required></div></div></div>
         <label class="agreement"><input type="checkbox" id="termsCheck" name="agreement" required checked><span>I agree to SaveHatke's <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy.html">Privacy Policy</a>.</span></label>
-        <button class="pay" id="payBtn" type="button" onclick="initiatePayment()"><svg aria-hidden="true"><use href="#lock"/></svg><span id="payBtnText" aria-live="polite">Pay</span><svg aria-hidden="true"><use href="#arrow"/></svg></button>
+        <button class="pay" id="payBtn" type="button" onclick="initiatePayment()"><span id="payBtnText" aria-live="polite">Pay</span></button>
       </form>
     </section>
   </main>
@@ -1092,20 +1105,13 @@
       day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit',
     });
 
-    const setText = (sel, value) => {
-      const el = box.querySelector(sel);
-      if (el && el.textContent !== value) el.textContent = value;
-    };
-    const dayDigits = (dd) => (dd ? String(dd).replace(/d$/i, '') : '');
-
+    const out = box.querySelector('[data-timer="csTimer"]');
     const tick = () => {
       const msLeft = at - Date.now();
       const p = expiryParts(msLeft);
-      setText('.cc-exp-d', dayDigits(p.dd));
-      setText('.cc-exp-h', p.hh);
-      setText('.cc-exp-m', p.mm);
-      setText('.cc-exp-s', p.ss);
-      const cls = 'cc-expiry cc-expiry-' + expiryBand(msLeft) + (p.dd ? '' : ' cc-exp-no-days');
+      const text = (p.dd ? String(p.dd).replace(/d$/i, '') + 'd ' : '') + p.hh + ':' + p.mm + ':' + p.ss;
+      if (out && out.textContent !== text) out.textContent = text;
+      const cls = 'match-timer ' + expiryBand(msLeft);
       if (box.className !== cls) box.className = cls;
       // An expired coupon can't be honoured, so stop the sale rather than take
       // the money. The server is the real gate; this is the honest UI.
@@ -1203,7 +1209,6 @@
     const validTill = at === null ? '—' : new Date(at).toLocaleDateString('en-IN', {
       day: '2-digit', month: 'short', year: 'numeric',
     });
-    set('csExpiry', validTill);
     set('succExpiry', validTill);
 
     // An expired coupon can't be honoured, so stop the sale rather than take the
