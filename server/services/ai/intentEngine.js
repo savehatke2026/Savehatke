@@ -72,6 +72,9 @@ const BRAND_ALIASES = {
   iced: 'ICICI', hdfc: 'HDFC', axis: 'Axis', sbi: 'SBI',
   redbus: 'redBus', irctc: 'IRCTC', indigo: 'IndiGo',
   airtel: 'Airtel', jio: 'Jio', vi: 'Vi',
+  lovee: 'Lovee of India', loveofindia: 'Lovee of India',
+  nutrikorner: 'Tata Nutrikorner', tatanutrikorner: 'Tata Nutrikorner',
+  bareanatomy: 'Bare Anatomy', brillare: 'Brillare', rhana: 'Rhana',
 };
 
 // Category vocabulary → canonical category label.

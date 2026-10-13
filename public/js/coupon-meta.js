@@ -197,6 +197,11 @@ const BRAND_DOMAINS = {
   'Livspace': 'livspace.com',
   'HomeLane': 'homelane.com',
   'Godrej Interio': 'godrejinterio.com',
+  // ── Brands added Oct-2026 ──
+  'Lovee of India': 'loveofindia.com',
+  'Tata Nutrikorner': 'tatanutrikorner.com',
+  'Bare Anatomy': 'bareanatomy.com',
+  'Brillare': 'brillare.co.in',
 };
 
 // Local logo files (preferred — always loads, no third-party dependency).
