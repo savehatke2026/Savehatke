@@ -367,6 +367,28 @@
        "coming back" on top of the success screen). */
     .success-overlay { position:fixed; inset:0; z-index:360; background:rgba(6,13,31,.96); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .35s; }
     .success-overlay.show { opacity:1; pointer-events:auto; }
+
+    /* PAYMENT SUCCESSFUL card (spec: Figma export, scaled to the card width) */
+    .pay-ok-overlay { position:fixed; inset:0; z-index:370; background:radial-gradient(ellipse at center,#041322 0%,#040f1e 60%,#050e1b 100%); display:flex; align-items:center; justify-content:center; padding:24px; opacity:0; pointer-events:none; transition:opacity .3s; }
+    .pay-ok-overlay.show { opacity:1; pointer-events:auto; }
+    .pay-ok-card { container-type:inline-size; width:min(754px, calc(100vw - 48px)); border:3px solid #00ed89; border-radius:clamp(20px,3.8vw,36px); background:#081422; box-shadow:0 18px 60px #0004; text-align:center; font-family:'Century Gothic','Trebuchet MS',Arial,sans-serif; color:#f8f9fc; }
+    .pay-ok-content { display:flex; flex-direction:column; padding:14.5cqw 8.3cqw 6.1cqw; }
+    .pay-ok-celebration { display:block; width:61cqw; height:37cqw; margin:0 auto 2.7cqw; overflow:visible; }
+    .pay-ok-title { margin:0; font-size:8.15cqw; line-height:1.2; font-weight:800; letter-spacing:-.22cqw; white-space:nowrap; }
+    .pay-ok-accent { color:#00efa7; }
+    .pay-ok-subtitle { margin:2.8cqw -3cqw 5.5cqw; font-size:4.35cqw; line-height:1.4; color:#d4d5ef; letter-spacing:-.08cqw; }
+    .pay-ok-details { margin:0; text-align:left; }
+    .pay-ok-row { display:grid; grid-template-columns:53% 47%; align-items:center; min-height:14.6cqw; border-bottom:1.5px solid #355575; }
+    .pay-ok-details dt { color:#bcc5e8; font-size:4.1cqw; }
+    .pay-ok-details dd { margin:0; font-size:3.9cqw; white-space:nowrap; letter-spacing:-.08cqw; overflow:hidden; text-overflow:ellipsis; }
+    .pay-ok-amount { font-size:5.3cqw; font-weight:800; }
+    .pay-ok-redirect { margin:7cqw 0 8cqw; font-size:3.45cqw; color:#dbdcee; }
+    .pay-ok-redirect strong { color:#00efa7; font-weight:600; }
+    .pay-ok-security { display:flex; align-items:center; justify-content:center; }
+    .pay-ok-security-label { display:flex; align-items:center; gap:2.2cqw; white-space:nowrap; font-size:3.7cqw; color:#c4cee9; letter-spacing:-.06cqw; }
+    .pay-ok-security strong { color:#f8f9fc; font-weight:700; }
+    .pay-ok-shield { width:4.9cqw; height:5.9cqw; }
+    @media (max-width:500px) { .pay-ok-card { width:calc(100vw - 32px); } }
     .success-box { position:relative; max-width:440px; width:100%; border-radius:24px; padding:40px 32px 32px; background:#0c1628; border:1px solid rgba(0,226,114,.25); box-shadow:0 0 0 1px rgba(0,226,114,.08),0 0 60px rgba(0,226,114,.06),0 30px 80px rgba(0,0,0,.6); text-align:center; font-family:'Inter',sans-serif; transform:scale(.94); transition:transform .35s; }
     .success-overlay.show .success-box { transform:scale(1); }
 
@@ -917,6 +939,45 @@
       <div class="succ-foot-line"></div>
     </div>
   </div>
+</div>
+
+<!-- PAYMENT SUCCESSFUL card (spec). Shown first after the server confirms PAID,
+     with real values, then auto-hands off to the coupon box after 3 seconds. -->
+<div class="pay-ok-overlay" id="payOkOverlay">
+  <main class="pay-ok-card" aria-labelledby="payOkTitle">
+    <div class="pay-ok-content">
+      <svg class="pay-ok-celebration" viewBox="0 0 450 275" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="payOkGrad" x1="130" y1="65" x2="310" y2="200" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#35df75"/><stop offset=".45" stop-color="#00d47c"/><stop offset="1" stop-color="#00c98a"/>
+          </linearGradient>
+          <radialGradient id="payOkGlow"><stop stop-color="#00db78" stop-opacity=".22"/><stop offset="1" stop-color="#00db78" stop-opacity=".04"/></radialGradient>
+        </defs>
+        <circle cx="225" cy="139" r="135" fill="url(#payOkGlow)"/>
+        <circle cx="225" cy="139" r="114" fill="#00ce77" fill-opacity=".035" stroke="#00864f" stroke-width="1.6"/>
+        <circle cx="225" cy="139" r="90" fill="url(#payOkGrad)" stroke="#20df82" stroke-width="1.5"/>
+        <path d="m184 142 25 25 53-54" stroke="#fff" stroke-width="19" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <h1 id="payOkTitle" class="pay-ok-title">Payment <span class="pay-ok-accent">Successful!</span></h1>
+      <p class="pay-ok-subtitle">Your payment has been received.</p>
+      <dl class="pay-ok-details">
+        <div class="pay-ok-row"><dt>Amount Paid</dt><dd class="pay-ok-amount" id="payOkAmount">—</dd></div>
+        <div class="pay-ok-row"><dt>Transaction ID</dt><dd id="payOkTxn">—</dd></div>
+        <div class="pay-ok-row"><dt>Order ID</dt><dd id="payOkOrder">—</dd></div>
+        <div class="pay-ok-row"><dt>Date and Time</dt><dd id="payOkDate">—</dd></div>
+      </dl>
+      <p class="pay-ok-redirect">Redirecting in <strong id="payOkCount">3</strong> seconds...</p>
+      <footer class="pay-ok-security">
+        <span class="pay-ok-security-label">
+          <svg class="pay-ok-shield" viewBox="0 0 34 40" fill="none" aria-hidden="true">
+            <path d="M17 3c4 4 9 5 14 6v10c0 8-6 14-14 18C9 33 3 27 3 19V9c5-1 10-2 14-6Z" stroke="#00ed89" stroke-width="3" stroke-linejoin="round"/>
+            <path d="m10 19 5 5 9-10" stroke="#00ed89" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Secured by <strong>SaveHatke</strong></span>
+        </span>
+      </footer>
+    </div>
+  </main>
 </div>
 
 <!-- SUCCESS OVERLAY — the purchased coupon box (Coupon.html design). Opens ONLY
@@ -2145,7 +2206,39 @@
       return;
     }
 
-    showSuccessScreen();
+    showPaymentOkThenCoupon(data);
+  }
+
+  // Spec: "Payment Successful" card with real verified values, a 3-second
+  // countdown, then the coupon box opens on this same page. Values come only
+  // from the server's PAID response; "—" stays when a value is missing.
+  let payOkTimer = null;
+  function showPaymentOkThenCoupon(data) {
+    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    set('payOkAmount', data.amount !== undefined && data.amount !== null ? formatRupees(data.amount) : '—');
+    set('payOkTxn', data.transaction_id || upiState.transactionId || '—');
+    set('payOkOrder', data.order_code || upiState.orderCode || '—');
+    set('payOkDate', new Intl.DateTimeFormat('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit',
+    }).format(new Date()));
+
+    const ok = document.getElementById('payOkOverlay');
+    if (!ok) { showSuccessScreen(); return; } // fail safe: still reveal the coupon
+
+    ok.classList.add('show');
+    document.body.style.overflow = 'hidden';
+    let secs = 3;
+    set('payOkCount', String(secs));
+    clearInterval(payOkTimer);
+    payOkTimer = setInterval(() => {
+      secs -= 1;
+      set('payOkCount', String(Math.max(secs, 0)));
+      if (secs <= 0) {
+        clearInterval(payOkTimer); payOkTimer = null;
+        ok.classList.remove('show');
+        showSuccessScreen();
+      }
+    }, 1000);
   }
 
   // ─ "Cancel Payment?" panel ─────────────────────────────────────────────
