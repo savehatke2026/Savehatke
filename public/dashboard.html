@@ -2284,9 +2284,10 @@
               <tr>
                 <th>Type</th>
                 <th>Details</th>
-                <th>Transaction ID</th>
+                <th>Order ID</th>
                 <th>Amount</th>
-                <th>Date</th>
+                <th>Transaction ID</th>
+                <th>Date &amp; Time</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -5208,24 +5209,14 @@
 
     tbody.innerHTML = rows.map((r) => {
       const orderId = r.txnId || '—';
-      const txnId = r.transactionId || '';
-      const safeOrder = String(r.txnId || '').replace(/['"\\<>]/g, '');
-      const safeTxn = String(txnId).replace(/['"\\<>]/g, '');
-      const orderCopy = r.txnId
-        ? `<button class="txp-copy" onclick="copyTxnId(event,'${safeOrder}','Order ID')" title="Copy Order ID">${TX_COPY_ICON}</button>`
-        : '';
-      const txnCopy = txnId
-        ? `<button class="txp-copy" onclick="copyTxnId(event,'${safeTxn}','Transaction ID')" title="Copy Transaction ID">${TX_COPY_ICON}</button>`
-        : '';
-      const txnLine = txnId
-        ? `<div class="txp-id" style="margin-top:3px;font-size:.72rem;color:#6b88aa"><span>${escapeHtml(txnId)}</span>${txnCopy}</div>`
-        : '';
+      const txnId = r.transactionId || '—';
       return `
       <tr>
         <td><div class="txp-row-ico txp-ic-${r.icon}">${TX_ICONS[r.icon]}</div></td>
         <td><div class="txp-det-name">${escapeHtml(r.name)}</div><div class="txp-det-desc">${escapeHtml(r.detail)}</div></td>
-        <td><div class="txp-id"><span>${escapeHtml(orderId)}</span>${orderCopy}</div>${txnLine}</td>
+        <td><div class="txp-id"><span>${escapeHtml(orderId)}</span></div></td>
         <td><span class="txp-amt">${escapeHtml(r.amount)}</span></td>
+        <td><div class="txp-id"><span>${escapeHtml(txnId)}</span></div></td>
         <td><div class="txp-date-main">${escapeHtml(txDate(r.date))}</div><div class="txp-date-sub">${escapeHtml(txTime(r.date))}</div></td>
         <td><span class="txp-badge ${r.badge}">${escapeHtml(String(r.status).toUpperCase())}</span></td>
         <td><span class="txp-chevron">›</span></td>
@@ -5241,7 +5232,7 @@
           </div>
           <span class="txp-amt">${escapeHtml(r.amount)}</span>
         </div>
-        <div class="txp-card-id">${escapeHtml(r.txnId || '—')}${r.transactionId ? `<div style="margin-top:3px;color:#8ea6c4">${escapeHtml(String(r.transactionId))}</div>` : ''}</div>
+        <div class="txp-card-id">Order ID: ${escapeHtml(r.txnId || '—')}<div style="margin-top:3px;color:#8ea6c4">Transaction ID: ${escapeHtml(String(r.transactionId || '—'))}</div></div>
         <div class="txp-card-foot">
           <div class="txp-date-main">${escapeHtml(txDate(r.date))} <span class="txp-date-sub">${escapeHtml(txTime(r.date))}</span></div>
           <span class="txp-badge ${r.badge}">${escapeHtml(String(r.status).toUpperCase())}</span>
