@@ -356,8 +356,10 @@ async function sendWelcomeEmail(to, userName, opts = {}) {
   // Replies go to support (not the no-reply inbox)
   const replyTo = process.env.SUPPORT_EMAIL || 'support.savehatke@gmail.com';
 
-  const t = getNoreplyTransporter();
-  if (!t) {
+  // renderOnly (Email Testing preview) never touches SMTP, so it must not
+  // require a configured transporter.
+  const t = opts.renderOnly ? null : getNoreplyTransporter();
+  if (!opts.renderOnly && !t) {
     console.warn(`⚠️ [EmailService] SMTP not configured. Welcome email for ${cleanEmail} was NOT sent.`);
     console.warn(`ℹ️ To send real emails, add SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS to your .env file.`);
     return {
@@ -521,8 +523,8 @@ ${EMAIL_GREEN_DARK_RULES}
             <tr>
               <td class="content">
                 <p class="brand">
-                  <img class="brand-logo" src="${logoUrl}" alt="SaveHatke" width="32" height="32" />
-                  <span class="brand-text">Save<span class="green">Hatke</span></span>
+                  <img class="brand-logo" src="${logoUrl}" alt="SaveHatke logo" width="32" height="25" style="display:inline-block;width:32px;height:25px;border:0;vertical-align:middle;margin-right:10px;" />
+                  <span class="brand-text" style="font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:700;color:#222222;vertical-align:middle;">Save<span class="green" style="color:#00E272;font-weight:700;">Hatke</span></span>
                 </p>
 
                 <p>
@@ -545,16 +547,21 @@ ${EMAIL_GREEN_DARK_RULES}
                   website.
                 </p>
 
-                <p class="button-wrap">
-                  <a
-                    class="button"
-                    href="${siteUrl}"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style="display:inline-block;padding:14px 24px;border-radius:6px;background:#00E272;color:#000000;font-size:16px;font-weight:700;text-decoration:none;"
-                    >Go to SaveHatke &rarr;</a
-                  >
-                </p>
+                <div class="button-wrap" style="margin:0 0 20px;text-align:center;">
+                  <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+                    <tr>
+                      <td class="button" bgcolor="#00E272" style="border-radius:6px;background-color:#00E272;">
+                        <a
+                          href="${siteUrl}"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style="display:inline-block;padding:14px 24px;border-radius:6px;background-color:#00E272;color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;line-height:1.2;text-decoration:none;"
+                          >Go to SaveHatke &rarr;</a
+                        >
+                      </td>
+                    </tr>
+                  </table>
+                </div>
 
                 <p>
                   If you did not create this account, please contact
