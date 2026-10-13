@@ -43,20 +43,20 @@
 const crypto = require('crypto');
 const db = require('./googleSheets');
 const supabase = require('./supabase');
+const claims = require('./paymentReferenceClaims');
 const ids = require('../utils/identifiers');
 
 const PAYMENT_WINDOW_MS = 10 * 60 * 1000; // 10 minutes, per the checkout UI
+// How long after payment_expires_at a session remains a CANDIDATE for matching
+// a delayed FamApp email. It never extends the deadline: finalizePayment still
+// refuses any transaction whose own instant is at or after payment_expires_at.
+const VERIFICATION_GRACE_MS = 30 * 60 * 1000;
 
-// Backend checking deadline — how long a payment stays matchable/settleable
-// AFTER it was created, independent of the 10-minute frontend window. The
-// checkout shows its Expired state at 10 minutes; the server keeps verifying
-// for the second half of the same 20-minute session (10–20 min) and stops
-// permanently at backend_expiry_at. The coupon reservation lives exactly as
-// long. Overridable via env.
-const PAYMENT_CHECK_WINDOW_MS = (() => {
-  const n = Number(process.env.PAYMENT_CHECK_WINDOW_MS);
-  return Number.isFinite(n) && n > 0 ? n : 20 * 60 * 1000; // 20 minutes total
-})();
+// Single authoritative deadline: a payment is settleable only before
+// payment_expires_at (created + 10 minutes, server clock). There is no second
+// backend window. PAYMENT_CHECK_WINDOW_MS is kept as an alias of the same value
+// so older call sites keep compiling; it is no longer overridable from env.
+const PAYMENT_CHECK_WINDOW_MS = PAYMENT_WINDOW_MS;
 
 const ORDERS = db.SHEETS.ORDERS;
 const PAYMENTS = db.SHEETS.PAYMENTS;
@@ -86,16 +86,13 @@ function moneyEquals(a, b) {
 }
 
 /**
- * The moment a payment stops being matchable by the backend checker. Prefers
- * the explicit 20-minute `check_expires_at`; falls back to the 10-minute
- * `expires_at` for legacy rows written before that column existed, so their
- * behaviour is unchanged.
+ * The single authoritative deadline for a payment: its 10-minute expires_at
+ * (also written as payment_expires_at once stamped). Any legacy
+ * check_expires_at / verification_deadline is ignored.
  */
 function checkDeadline(row) {
-  const raw = row && (row.check_expires_at || row.checkExpiresAt);
-  if (raw) return toTime(raw);
-  const legacy = row && (row.expires_at || row.expiresAt);
-  return toTime(legacy);
+  const raw = row && (row.payment_expires_at || row.expires_at || row.expiresAt);
+  return toTime(raw);
 }
 
 // ── Mapping (sheet row → application shape) ────────────────────────────────
@@ -456,8 +453,12 @@ async function findPendingPaymentsForAmount(amount = null, { limit = 200 } = {})
 
   const orderById = new Map(orders.map((o) => [String(o.id), o]));
 
+  // A PENDING session stays a candidate while its verification grace has not
+  // passed, so an email for a transaction that occurred inside the 10-minute
+  // window can still be matched after the customer timer ended. The real
+  // in-window decision is made on the transaction instant in finalizePayment.
   return payments
-    .filter((r) => r.status === 'PENDING' && checkDeadline(r) > now)
+    .filter((r) => r.status === 'PENDING' && checkDeadline(r) > now - VERIFICATION_GRACE_MS)
     .filter((r) => (amount === null || amount === undefined ? true : moneyEquals(r.amount, amount)))
     .sort((a, b) => toTime(b.created_at) - toTime(a.created_at))
     .slice(0, limit)
@@ -746,14 +747,12 @@ async function stampVerificationWindow(paymentId, nowMs = Date.now()) {
     if (!Number.isFinite(expiryMs) || nowMs < expiryMs) return null;
 
     const paymentExpiresAt = new Date(expiryMs).toISOString();
-    const verificationStartedAt = paymentExpiresAt;
-    const verificationDeadline = new Date(expiryMs + 10 * 60 * 1000).toISOString();
     const nowIso = new Date(nowMs).toISOString();
 
+    // Records that the customer timer ended. There is no second deadline, so
+    // verification_started_at / verification_deadline are not written.
     await db.updateRow(PAYMENTS, 'payment_id', paymentId, {
       payment_expires_at: paymentExpiresAt,
-      verification_started_at: verificationStartedAt,
-      verification_deadline: verificationDeadline,
       last_checked_at: nowIso,
       updated_at: nowIso,
     }, STRICT);
@@ -798,6 +797,12 @@ async function expireIfDue(paymentId, { now = new Date().toISOString() } = {}) {
   // late credit can still settle it.
   if (checkDeadline(current) > toTime(now)) return null;
 
+  // Recovery before expiry: a coupon may already be sold to THIS payment while
+  // the PAID write failed earlier. Never expire such a payment. Finish its PAID
+  // write instead, and only when the sale is provably this payment's.
+  const recovered = await recoverSoldPayment(current);
+  if (recovered !== 'NOT_SOLD_TO_THIS_PAYMENT') return recovered;
+
   const expired = await transitionPayment(paymentId, 'PENDING', 'EXPIRED', { updated_at: now });
   if (expired) {
     await transitionOrder(expired.orderId, 'PENDING', 'EXPIRED', { updated_at: now });
@@ -807,6 +812,64 @@ async function expireIfDue(paymentId, { now = new Date().toISOString() } = {}) {
     }
   }
   return expired;
+}
+
+/**
+ * A PENDING payment whose coupon is already sold to this exact payment is a
+ * half-finished settlement (coupon flipped, Sheets PAID write failed). Finish
+ * the PAID write instead of expiring it.
+ *
+ * Returns:
+ *   'NOT_SOLD_TO_THIS_PAYMENT' — coupon is not sold to this payment; normal expiry rules apply.
+ *   { status:'PAID', recovered:true } — the sale was confirmed and the PAID write finished.
+ *   null — the association is unclear (other buyer/payment, unreadable coupon).
+ *          The payment is left untouched for review and is NOT expired.
+ */
+async function recoverSoldPayment(payment) {
+  // The sold state lives in Supabase (the atomic source). readCoupon() falls
+  // back to a Sheets mirror on error, which can miss a live sale and wrongly
+  // say "not sold". So read Supabase directly: if it is configured but cannot
+  // answer, fail closed and leave the payment alone.
+  const client = supabase.isConfigured() ? supabase.getClient() : null;
+  if (!client) {
+    console.warn('[paymentStore] recovery: Supabase not configured; payment left as is', payment.paymentId);
+    return null;
+  }
+  let coupon;
+  try {
+    const { data, error } = await client
+      .from('coupons')
+      .select('id, code, status, buyer_email, sold_payment_id')
+      .eq('id', String(payment.couponId))
+      .maybeSingle();
+    if (error) throw new Error(error.message || 'coupon read error');
+    coupon = data ? {
+      id: data.id, status: data.status || '',
+      buyerEmail: data.buyer_email || '', soldPaymentId: data.sold_payment_id || '',
+    } : null;
+  } catch (e) {
+    console.warn('[paymentStore] recovery: coupon unreadable, payment left as is', payment.paymentId);
+    return null;
+  }
+  if (!coupon || !coupon.id) return 'NOT_SOLD_TO_THIS_PAYMENT';
+  if (String(coupon.status).toLowerCase() !== 'sold') return 'NOT_SOLD_TO_THIS_PAYMENT';
+  if (String(coupon.soldPaymentId) !== String(payment.paymentId)) {
+    console.warn(`[paymentStore] integrity: coupon ${payment.couponId} sold to ${coupon.soldPaymentId || 'unknown'}, not ${payment.paymentId}; left for review`);
+    return null;
+  }
+  const buyerOk = String(coupon.buyerEmail || '').toLowerCase() === String(payment.userEmail || '').toLowerCase();
+  if (!buyerOk) {
+    console.warn(`[paymentStore] integrity: coupon ${payment.couponId} buyer mismatch for ${payment.paymentId}; left for review`);
+    return null;
+  }
+  // Confirmed: this sale is this payment's. Finish the PAID record.
+  const settledAt = new Date().toISOString();
+  await markPaid({
+    payment, txn: payment.verifiedTransactionId || '', reference: payment.verifiedUtr || '',
+    source: 'recovery', notes: 'Recovered: coupon already sold to this payment.',
+    settledAt, receivedAmount: payment.receivedAmount,
+  });
+  return { ...payment, status: 'PAID', recovered: true };
 }
 
 /** Cancel a payment. Only a PENDING one can be cancelled. */
@@ -838,6 +901,19 @@ async function cancelPayment(paymentId, { reason = 'Cancelled by buyer' } = {}) 
  *
  * Returns { unlocked, code, status, buyerEmail }.
  */
+// Release the references this payment claimed. Only ever called when the coupon
+// was provably not sold to this payment; the helper matches on payment_id so
+// another payment's claim can never be removed.
+async function releaseOwnClaims(paymentId, txn, reference) {
+  try {
+    await claims.releaseClaim({ paymentId, refType: claims.TYPES.transaction, refValue: txn });
+    await claims.releaseClaim({ paymentId, refType: claims.TYPES.utr, refValue: reference });
+  } catch (e) {
+    // Best effort. A leftover claim only blocks reuse of these references and
+    // is visible in the table; it never unlocks a coupon.
+  }
+}
+
 async function unlockCoupon({ couponId, userEmail, paidAt, paymentId }) {
   const client = supabase.isConfigured() ? supabase.getClient() : null;
   // A read-then-write in Google Sheets cannot reserve a coupon safely across
@@ -899,6 +975,12 @@ async function finalizePayment({
   // versus what was required. Defaults to the payment's required amount
   // when callers don't supply it.
   receivedAmount = null,
+  // The validated instant the money actually moved (FamApp transaction time,
+  // parsed from the email body). When supplied, the deadline is judged by THIS
+  // instant, so a payment made inside the 10-minute window still settles when
+  // Gmail delivers its notification late. When omitted (admin sale, webhook),
+  // the server clock at lock time is used, as before. Never extends the deadline.
+  transactionAt = null,
 }) {
   return withLock(async () => {
     // ─ Fail-closed pre-flight ──────────────────────────────────────────────
@@ -978,25 +1060,68 @@ async function finalizePayment({
     // = created + 20 min) — never the 10-minute on-screen timer. Rows written
     // before that column existed keep their legacy expires_at + 30 min grace.
     const at = toTime(settledAt);
-    const explicitCheck = payment.checkExpiresAt || '';
-    const settleDeadline = explicitCheck
-      ? toTime(explicitCheck)
-      : toTime(payment.expiresAt) + 30 * 60 * 1000;
-    if (at && ((at < toTime(payment.createdAt) - 5 * 60 * 1000) || (at > settleDeadline))) {
+    // The only deadline is the 10-minute payment_expires_at. It is never moved.
+    //   * With a validated transactionAt: the transaction must have occurred
+    //     inside [created - 5min skew, payment_expires_at). Gmail arrival time
+    //     is irrelevant, so a late email for an in-window payment still settles.
+    //   * Without one: the server clock at lock time must be before the deadline.
+    //   * A missing or unreadable transactionAt is never guessed; the caller must
+    //     supply it or the check falls back to the (stricter) server clock.
+    const settleDeadline = toTime(payment.paymentExpiresAt || payment.expiresAt);
+    if (!settleDeadline) {
       return { ok: false, code: 'OUTSIDE_WINDOW', payment_status: payment.status };
+    }
+    const judgedAt = transactionAt ? toTime(transactionAt) : Date.now();
+    if (!judgedAt || judgedAt >= settleDeadline) {
+      return { ok: false, code: 'OUTSIDE_WINDOW', payment_status: payment.status };
+    }
+    if (at && at < toTime(payment.createdAt) - 5 * 60 * 1000) {
+      return { ok: false, code: 'OUTSIDE_WINDOW', payment_status: payment.status };
+    }
+    if (transactionAt && judgedAt < toTime(payment.createdAt) - 5 * 60 * 1000) {
+      return { ok: false, code: 'OUTSIDE_WINDOW', payment_status: payment.status };
+    }
+
+    // ─ Duplicate-reference claim. The Transaction ID and UTR are claimed in
+    //   Supabase (unique constraints, atomic across instances) BEFORE the coupon
+    //   flip. Another payment holding either reference refuses settlement here.
+    //   A claim is released only when the coupon was not sold to this payment.
+    // Both references are mandatory for settlement: a payment with no claim
+    // would bypass the database protection, so it is refused rather than settled.
+    if (!txn || !reference) {
+      return { ok: false, code: 'REFERENCE_MISSING', payment_status: payment.status };
+    }
+    const claim = await claims.claimReferences({ paymentId: payment.paymentId, transactionId: txn, utr: reference });
+    if (claim.status === 'conflict') {
+      return { ok: false, code: 'REFERENCE_CLAIMED', payment_status: payment.status, conflict_payment_id: claim.conflictPaymentId || '' };
+    }
+    if (claim.status !== 'claimed') {
+      return { ok: false, code: 'CLAIM_UNAVAILABLE', payment_status: payment.status };
     }
 
     // ─ The coupon flip is the gate: do it first, and only record PAID if it
     //   actually happened. That way a payment is never marked PAID for a
     //   coupon this buyer did not receive.
-    const unlock = await unlockCoupon({
-      couponId: payment.couponId,
-      userEmail: payment.userEmail,
-      paidAt: settledAt,
-      paymentId: payment.paymentId,
-    });
+    let unlock;
+    try {
+      unlock = await unlockCoupon({
+        couponId: payment.couponId,
+        userEmail: payment.userEmail,
+        paidAt: settledAt,
+        paymentId: payment.paymentId,
+      });
+    } catch (e) {
+      // The coupon flip failed: no sale happened, so the claim this attempt
+      // took is released and the payment stays PENDING for a safe retry.
+      if (txn && reference) await releaseOwnClaims(payment.paymentId, txn, reference);
+      throw e;
+    }
 
     if (!unlock.unlocked) {
+      if (!(String(unlock.status).toLowerCase() === 'sold' && String(unlock.soldPaymentId) === String(payment.paymentId))) {
+        // Not sold to this payment, so no sale exists to protect. Release.
+        if (txn && reference) await releaseOwnClaims(payment.paymentId, txn, reference);
+      }
       const sameBuyer = String(unlock.buyerEmail || '').toLowerCase() === String(payment.userEmail || '').toLowerCase();
       if (String(unlock.status).toLowerCase() === 'sold' && sameBuyer && String(unlock.soldPaymentId) === String(payment.paymentId)) {
         // Already sold to this same buyer — a successful, idempotent unlock.

@@ -35,6 +35,20 @@ check('draft, spam and trash copies are rejected', () => {
   }
 });
 
+check('archived FamApp credit (no INBOX label) is accepted as received', () => {
+  // Archived / label-filtered mail drops INBOX but is still a received message.
+  assert.equal(verifier.isIncomingInboxMessage(['UNREAD']), true);
+  assert.equal(verifier.isIncomingInboxMessage(['CATEGORY_UPDATES', 'Label_7']), true);
+});
+
+check('Gmail query is sender-exact, time-bounded, has no in:inbox, and excludes Sent/draft/spam/trash', () => {
+  const q = verifier.buildPaymentSearchQuery({ senders: ['no-reply@famapp.in'], afterSecs: 1791700000 });
+  assert.ok(q.includes('from:no-reply@famapp.in'));
+  assert.ok(q.includes('after:1791700000'));
+  assert.ok(!q.includes('in:inbox'), 'in:inbox must not restrict the search');
+  for (const x of ['-in:sent', '-in:drafts', '-in:spam', '-in:trash']) assert.ok(q.includes(x), x);
+});
+
 check('message with no labels is rejected (fail closed)', () => {
   assert.equal(verifier.isIncomingInboxMessage([]), false);
   assert.equal(verifier.isIncomingInboxMessage(undefined), false);

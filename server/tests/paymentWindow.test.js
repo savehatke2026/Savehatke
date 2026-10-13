@@ -13,25 +13,20 @@ function check(name, fn) {
 
 const T = Date.parse('2026-10-10T03:00:00.000Z');
 const expiry = new Date(T + 10 * 60000).toISOString();
-const deadline = w.verificationDeadlineFor(expiry);
-const at = (ms) => ({ paymentExpiresAt: expiry, verificationDeadline: deadline }, ms);
 
-check('deadline is exactly 10 minutes after payment expiry', () => {
-  assert.equal(Date.parse(deadline) - Date.parse(expiry), 10 * 60000);
+check('payment_expires_at is exactly 10 minutes after creation', () => {
+  assert.equal(Date.parse(expiry) - T, 10 * 60000);
+  assert.equal(w.CUSTOMER_WINDOW_MS, 10 * 60000);
 });
-check('customer phase before expiry (T+9m)', () => {
-  assert.equal(w.phaseAt({ paymentExpiresAt: expiry, verificationDeadline: deadline }, T + 9 * 60000), 'customer');
+check('phase is open before expiry (T+9m)', () => {
+  assert.equal(w.phaseAt({ paymentExpiresAt: expiry }, T + 9 * 60000), 'open');
 });
-check('verification phase starts exactly at expiry (T+10m)', () => {
-  assert.equal(w.phaseAt({ paymentExpiresAt: expiry, verificationDeadline: deadline }, T + 10 * 60000), 'verification');
+check('phase is expired exactly at expiry (T+10m, no grace)', () => {
+  assert.equal(w.phaseAt({ paymentExpiresAt: expiry }, T + 10 * 60000), 'expired');
 });
-check('closed exactly at deadline (T+20m)', () => {
-  assert.equal(w.phaseAt({ paymentExpiresAt: expiry, verificationDeadline: deadline }, T + 20 * 60000), 'closed');
+check('missing expiry fails closed (unknown)', () => {
+  assert.equal(w.phaseAt({ paymentExpiresAt: '' }, T), 'unknown');
 });
-check('missing timestamps fail closed (unknown)', () => {
-  assert.equal(w.phaseAt({ paymentExpiresAt: '', verificationDeadline: '' }, T), 'unknown');
-});
-
 check('IST 08:41 AM 10 Oct 2026 → 03:11 UTC', () => {
   assert.equal(
     w.parseFamAppTransactionTime('received ₹1.0 from A at 08:41 AM IST, 10 October 2026 with transaction id X'),
@@ -52,25 +47,17 @@ check('text without a transaction time returns null (never guessed)', () => {
 });
 
 const start = new Date(T).toISOString();
-const dl = deadline;
-check('transaction inside window → within', () => {
-  assert.equal(w.classifyTransactionTime({ transactionAt: new Date(T + 15 * 60000).toISOString(), sessionStartedAt: start, verificationDeadline: dl }), 'within');
+check('verified before expiry, transaction in window → settle', () => {
+  assert.equal(w.decideIncomingCredit({ transactionAt: new Date(T + 5 * 60000).toISOString(), sessionStatus: 'PENDING', sessionCreatedAt: start, paymentExpiresAt: expiry, payerNameMatches: true, verifiedAtMs: T + 6 * 60000 }).action, 'settle');
 });
-check('transaction after deadline → after (late, not arrival-based)', () => {
-  assert.equal(w.classifyTransactionTime({ transactionAt: new Date(T + 25 * 60000).toISOString(), sessionStartedAt: start, verificationDeadline: dl }), 'after');
+check('transaction before expiry, first verified after expiry → settle (transaction time decides)', () => {
+  assert.equal(w.decideIncomingCredit({ transactionAt: new Date(T + 9 * 60000).toISOString(), sessionStatus: 'PENDING', sessionCreatedAt: start, paymentExpiresAt: expiry, payerNameMatches: true, verifiedAtMs: T + 15 * 60000 }).action, 'settle');
 });
-check('transaction exactly at deadline is still within', () => {
-  assert.equal(w.classifyTransactionTime({ transactionAt: dl, sessionStartedAt: start, verificationDeadline: dl }), 'within');
+check('transaction after expiry → expired_no_action (no unlock, no refund)', () => {
+  assert.equal(w.decideIncomingCredit({ transactionAt: new Date(T + 11 * 60000).toISOString(), sessionStatus: 'PENDING', sessionCreatedAt: start, paymentExpiresAt: expiry, payerNameMatches: true, verifiedAtMs: T + 11 * 60000 }).action, 'expired_no_action');
 });
-check('transaction well before session start → before_start', () => {
-  assert.equal(w.classifyTransactionTime({ transactionAt: new Date(T - 30 * 60000).toISOString(), sessionStartedAt: start, verificationDeadline: dl }), 'before_start');
-});
-check('unreadable transaction time → unknown (never refund or fulfil on a guess)', () => {
-  assert.equal(w.classifyTransactionTime({ transactionAt: null, sessionStartedAt: start, verificationDeadline: dl }), 'unknown');
-});
-check('a late-arriving email for an in-window transaction stays within', () => {
-  // Email arrived at T+40m, but the transaction itself happened at T+12m.
-  assert.equal(w.classifyTransactionTime({ transactionAt: new Date(T + 12 * 60000).toISOString(), sessionStartedAt: start, verificationDeadline: dl }), 'within');
+check('unreadable transaction time → review', () => {
+  assert.equal(w.decideIncomingCredit({ transactionAt: null, sessionStatus: 'PENDING', sessionCreatedAt: start, paymentExpiresAt: expiry, payerNameMatches: true, verifiedAtMs: T + 6 * 60000 }).action, 'review');
 });
 
 console.log(`\n${passed} passed, ${failures} failed`);

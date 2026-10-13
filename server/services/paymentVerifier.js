@@ -48,7 +48,7 @@ const ids = require('../utils/identifiers');
 // first overpayment: processCandidate() only ever invokes it from a
 // server-verified code path, so the load itself is harmless.
 const refundsService = require('./refunds');
-// Pure verification-window rules (T+10 customer timer, T+20 backend deadline,
+// Pure payment-window rules (single T+10 deadline,
 // IST transaction-time parsing, settle / late-refund / review decision).
 const paymentWindow = require('./paymentWindow');
 // Buyer receipt email. Sent best-effort AFTER a payment is genuinely settled;
@@ -88,18 +88,29 @@ function isFamAppSender(from) {
   return address === FAMAPP_SENDER;
 }
 
-// Gmail folders that can never hold an incoming payment confirmation. A message
-// is accepted only when it sits in INBOX and in none of these.
+// Gmail folders that can never hold an incoming payment confirmation.
 const NON_INCOMING_LABELS = ['SENT', 'DRAFT', 'SPAM', 'TRASH'];
 
 /**
- * True only when Gmail reports the message as a received inbox message. Sent,
- * draft, spam and trash copies of a FamApp-looking email are never payment proof.
+ * True only when a FamApp message is a received (incoming) message. Sent, draft,
+ * spam and trash copies are rejected. INBOX is NOT required: an archived or
+ * label-filtered received notification has no INBOX label but is still real money
+ * received. A message with no labels at all is still rejected (fail closed).
  */
 function isIncomingInboxMessage(labels) {
   const list = Array.isArray(labels) ? labels : [];
-  if (!list.includes('INBOX')) return false;
+  if (!list.length) return false;
   return !NON_INCOMING_LABELS.some((l) => list.includes(l));
+}
+
+/**
+ * Gmail search for FamApp credit notifications. Sender-restricted and bounded to
+ * the payment window, with no `in:inbox` filter so archived mail is still found.
+ * Sent, drafts, spam and trash are excluded at the search level and again in code.
+ */
+function buildPaymentSearchQuery({ senders, afterSecs }) {
+  const from = senders.map((s) => `from:${s}`).join(' OR ');
+  return `(${from}) -in:sent -in:drafts -in:spam -in:trash after:${afterSecs}`;
 }
 
 function hasTrustedFamAppAuthentication(authenticationResults) {
@@ -242,6 +253,27 @@ function extractOrderCode(text) {
   return ids.extractOrderCodeFromText(text);
 }
 
+/**
+ * Pull the FamApp transaction ID from a credit notification, e.g.
+ * "Transaction ID: FMPIB6772399011". Returns '' when absent or malformed, so a
+ * missing ID fails closed (the candidate is parked, never settled on amount).
+ * Accepts 8–30 letters/digits, the same bounds as extractTransaction().
+ */
+function extractFamAppTransactionId(text) {
+  const m = String(text || '').match(/transaction\s*(?:id|no|number)\s*[:#\-]?\s*([A-Za-z0-9]{8,30})\b/i);
+  return m ? m[1].toUpperCase() : '';
+}
+
+/**
+ * Pull the bank UTR from a FamApp credit, e.g. "UTR: 664974818901". Returns ''
+ * when absent or malformed. UPI UTRs are 12 digits; accepted range is 12–22
+ * digits so a stray short number cannot pass as a reference.
+ */
+function extractFamAppUtr(text) {
+  const m = String(text || '').match(/\butr\s*[:#\-]?\s*(\d{12,22})\b/i);
+  return m ? m[1] : '';
+}
+
 /** Find a UPI VPA in the text. */
 function extractVpas(text) {
   const found = String(text || '').match(/[A-Za-z0-9._-]{2,}@[A-Za-z]{2,}/g) || [];
@@ -296,6 +328,9 @@ function buildCandidateFromEmail({ messageId, from = '', authenticationResults =
     payerVpa,
     payerName: extractPayerName(text),
     payeeVpa,
+    // FamApp transaction ID: persisted and enforced unique across sessions.
+    transactionId: extractFamAppTransactionId(text),
+    utr: extractFamAppUtr(text),
     from,
     authenticationResults,
     labels: Array.isArray(labels) ? labels : [],
@@ -590,21 +625,16 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
   // 7) Time window. finalizePayment() enforces this again inside the process
   //    lock; checking here too lets a clearly-out-of-window notification be
   //    parked for review rather than bouncing off the store. The deadline is
-  //    the 20-minute backend window (check_expires_at) — never the 10-minute
-  //    on-screen timer — so a payment made in the backend-only second half of
-  //    the session is still accepted. Legacy rows without the column keep
-  //    their expires_at + 30 min grace.
-  const occurred = new Date(candidate.occurredAt).getTime();
+  //    the single 10-minute payment_expires_at. Nothing settles after it: a
+  //    payment first verified later takes the late-refund path above.
   const created = new Date(payment.createdAt).getTime();
-  const explicitDeadline = payment.checkExpiresAt ? new Date(payment.checkExpiresAt).getTime() : NaN;
-  const deadline = Number.isFinite(explicitDeadline)
-    ? explicitDeadline
-    : new Date(payment.expiresAt).getTime() + 30 * 60 * 1000;
-  if (Number.isFinite(occurred) && Number.isFinite(created) && Number.isFinite(deadline)) {
-    if (occurred < created - 5 * 60 * 1000 || occurred > deadline) {
+  const deadline = new Date(payment.paymentExpiresAt || payment.expiresAt).getTime();
+  const verifiedNow = Date.now();
+  if (Number.isFinite(created) && Number.isFinite(deadline)) {
+    if (verifiedNow >= deadline) {
       return reject(
         'REVIEW',
-        `Payment time ${candidate.occurredAt} is outside the payment window (${payment.createdAt} → ${new Date(deadline).toISOString()}).`
+        `Payment first verified after the 10-minute deadline (${new Date(deadline).toISOString()}); not unlocked.`
       );
     }
   }
@@ -838,12 +868,16 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
   console.log(`${tag} FamApp email detected`);
   console.log(`${tag} Amount received: ₹${candidate.amount.toFixed(2)}`);
 
-  // Late-eligible path first: a verified transaction that happened after a
-  // session's persisted verification deadline is never settled by arrival time.
-  // It becomes one admin refund task (or review), decided on the transaction
-  // instant, the payer name and the session's stored deadline.
+  // A transaction after its session's deadline never settles and never refunds.
+  // Decided on the transaction instant, the payer name and the stored deadline.
   const lateHandled = await handleLateCandidate(candidate, notification, reject);
   if (lateHandled) return lateHandled;
+
+  // The deadline is judged on the FamApp transaction instant. An unreadable or
+  // missing transaction time is never guessed: the payment is parked for review.
+  if (!candidate.transactionAt) {
+    return reject('REVIEW', 'FamApp email has no readable transaction time — payment left pending for review.');
+  }
 
   // Live pending payments only (findPendingPaymentsForAmount already excludes
   // expired windows). Amount-only match, to the paisa.
@@ -883,25 +917,52 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
   const payment = fresh[0];
   console.log(`${tag} Expected amount: ₹${Number(payment.amount).toFixed(2)}`);
 
+  // Both references are required. The customer does not know them when opening
+  // the window; they come from the verified FamApp email after payment. A
+  // missing one parks the payment for review — never settles on amount alone.
+  const txnId = candidate.transactionId || '';
+  const utr = candidate.utr || '';
+  if (!txnId) {
+    return reject('REVIEW', 'FamApp email has no Transaction ID — payment left pending for review.');
+  }
+  if (!utr) {
+    return reject('REVIEW', 'FamApp email has no UTR — payment left pending for review.');
+  }
+
+  // Neither reference may already belong to another settled payment. The store
+  // re-checks both under its lock in finalizePayment; this gives a clear outcome.
+  try {
+    const used = await store.findPaymentByTransaction(txnId, utr);
+    if (used && used.paymentId !== payment.paymentId) {
+      return reject('REVIEW', `Transaction ${txnId} / UTR already settled another payment session.`);
+    }
+  } catch (e) {
+    return reject('REVIEW', 'Could not check the transaction references for a duplicate: ' + e.message);
+  }
+
   if (payment.status !== 'PENDING') {
     return reject('REVIEW', `Payment ${payment.paymentId} is ${payment.status}, not PENDING.`);
   }
 
   console.log(`${tag} Amount matched`);
 
-  // Settle atomically — NO transaction id / UTR. finalizePayment gates on the
-  // coupon flip and is idempotent, so an email can never unlock a coupon twice.
+  // Settle atomically. finalizePayment gates on the coupon flip, re-checks the
+  // transaction ID and UTR under its lock, and is idempotent, so an email can
+  // never unlock a coupon twice.
   let result;
   try {
     result = await store.finalizePayment({
       paymentId: payment.paymentId,
-      transactionId: null,
-      utr: null,
+      transactionId: txnId,
+      utr,
       source: 'email',
       notes: `Matched FamApp credit on amount ₹${candidate.amount.toFixed(2)}.`,
       paidAt: candidate.occurredAt,
       raw: candidate.raw,
       receivedAmount: candidate.amount,
+      // The deadline is judged on when the money actually moved, not on when
+      // Gmail delivered the email. A late email for an in-window payment settles.
+      transactionAt: candidate.transactionAt,
     });
   } catch (e) {
     return reject('REVIEW', 'Settlement failed: ' + e.message);
@@ -971,46 +1032,26 @@ async function handleLateCandidate(candidate, notification, reject) {
     transactionAt: candidate.transactionAt,
     sessionStatus: session.status,
     sessionCreatedAt: session.createdAt,
-    verificationDeadline: session.verificationDeadline || session.checkExpiresAt,
+    paymentExpiresAt: session.paymentExpiresAt || session.expiresAt,
     payerNameMatches: true,
-    nowMs: Date.now(),
+    verifiedAtMs: Date.now(),
   });
 
+  // Only an in-window transaction may settle. Everything else leaves the coupon
+  // locked and creates NO refund: an expired session is never refunded.
   if (decision.action === 'ignore') return null;
   if (decision.action === 'settle') return null; // in-window: the normal path settles it
-  if (decision.action === 'review') return reject('REVIEW', decision.reason);
-  if (decision.action !== 'late_refund') return reject('REVIEW', decision.reason);
-
-  console.log(`${tag} late transaction for ${session.paymentId}; creating one admin refund task`);
-  const task = await refundsService.createLateRefundTask({
-    paymentId: session.paymentId,
-    userId: session.userId,
-    userEmail: session.userEmail,
-    couponId: session.couponId,
-    orderCode: session.orderCode,
-    receivedAmount: candidate.amount,
-    transactionId: candidate.transactionId || '',
-    verificationDeadline: session.verificationDeadline || session.checkExpiresAt,
-    transactionAt: candidate.transactionAt,
-    payerName: candidate.payerName || '',
-  });
-  if (!task || !task.ok) {
-    return reject('REVIEW', 'Late refund task could not be saved: ' + ((task && task.error) || 'unknown'));
+  if (decision.action === 'expired_no_action') {
+    try {
+      await store.updateNotification(notification.id, {
+        status: 'IGNORED',
+        matched_payment_id: session.paymentId,
+        notes: `Transaction after the 10-minute deadline for ${session.paymentId}; coupon not unlocked; no refund for expired session.`,
+      });
+    } catch (e) {}
+    return { action: 'ignored', reason: decision.reason, notification, payment: session };
   }
-  try {
-    await store.updateNotification(notification.id, {
-      status: 'REVIEW',
-      matched_payment_id: session.paymentId,
-      notes: `Late payment for ${session.paymentId}; refund task ${task.refund && task.refund.refundId} (${task.created ? 'created' : 'already existed'}).`,
-    });
-  } catch (e) {}
-  return {
-    action: 'late_refund',
-    reason: `Late payment for ${session.paymentId}; refund task ${task.created ? 'created' : 'already existed'}.`,
-    notification,
-    payment: session,
-    refund: task.refund,
-  };
+  return reject('REVIEW', decision.reason);
 }
 
 /**
@@ -1090,8 +1131,10 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
     ? Math.floor((earliestStart - 5 * 60 * 1000) / 1000)
     : Math.floor((Date.now() - cfg.lookbackDays * 24 * 60 * 60 * 1000) / 1000);
   const senders = cfg.senders.map((s) => `from:${s}`).join(' OR ');
-  // Incoming inbox only: Sent, drafts, spam and trash can never be payment proof.
-  const q = `(${senders}) in:inbox -in:sent -in:drafts -in:spam -in:trash after:${afterSecs}`;
+  // No `in:inbox` filter: an archived or label-filtered FamApp email is still a
+  // real received payment notification. Sent, drafts, spam and trash are still
+  // excluded here, and isIncomingInboxMessage() rejects them again in code.
+  const q = buildPaymentSearchQuery({ senders: cfg.senders, afterSecs });
 
   let messages = [];
   try {
@@ -1403,6 +1446,8 @@ module.exports = {
   // config
   getMailConfig,
   getWebhookSecret,
+  buildPaymentSearchQuery,
+  isIncomingInboxMessage,
   isFamAppSender,
   isIncomingInboxMessage,
   FAMAPP_SENDER,

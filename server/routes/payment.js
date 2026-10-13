@@ -1188,13 +1188,13 @@ router.all('/cron/verify', async (req, res) => {
       scan = { ok: false, reason: e.message };
     }
     const results = Array.isArray(scan.results) ? scan.results : [];
-    const lateTasks = results.filter((r) => r.action === 'late_refund').length;
-    console.log(`[PAYMENT_SESSION] verify stamped=${stamp.stamped} expired=${expiry.expired} scan=${scan.ok ? 'ok' : scan.reason || 'failed'} lateTasks=${lateTasks}`);
+    const expiredNoAction = results.filter((r) => r.action === 'ignored' && r.payment).length;
+    console.log(`[PAYMENT_SESSION] verify stamped=${stamp.stamped} expired=${expiry.expired} scan=${scan.ok ? 'ok' : scan.reason || 'failed'} expiredNoAction=${expiredNoAction}`);
     return res.status(200).json({
       ok: true,
       stamped: stamp.stamped,
       expired: expiry.expired,
-      scan: { ok: scan.ok, scanned: scan.scanned || 0, settled: scan.settled || 0, lateTasks },
+      scan: { ok: scan.ok, scanned: scan.scanned || 0, settled: scan.settled || 0, expiredNoAction },
     });
   } catch (err) {
     console.error('[payment] verify error:', err);
