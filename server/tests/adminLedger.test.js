@@ -136,6 +136,26 @@ check('Transactions CSV uses Transaction/Order/Refund IDs and no Payment ID or P
   assert.equal(withRefund, 'rfnd_abc');
   assert.equal(noRefund, '');
 });
+check('closed no-payment session older than 7 days is hidden', () => {
+  const { isHiddenNoPaymentSession, PAYMENT_HIDE_AFTER_MS } = ledger._internals;
+  const now = Date.now();
+  const old = { status: 'EXPIRED', receivedAmount: null, refund: null, issues: [], _ms: now - PAYMENT_HIDE_AFTER_MS - 1000 };
+  assert.equal(isHiddenNoPaymentSession(old, now), true);
+  assert.equal(isHiddenNoPaymentSession({ ...old, status: 'CANCELLED' }, now), true);
+});
+check('recent, paid, refunded, or late-credit sessions are never hidden', () => {
+  const { isHiddenNoPaymentSession, PAYMENT_HIDE_AFTER_MS } = ledger._internals;
+  const now = Date.now();
+  const old = _oldBase(now, PAYMENT_HIDE_AFTER_MS);
+  assert.equal(isHiddenNoPaymentSession({ ...old, _ms: now - 1000 }, now), false, 'recent');
+  assert.equal(isHiddenNoPaymentSession({ ...old, status: 'PAID' }, now), false, 'paid');
+  assert.equal(isHiddenNoPaymentSession({ ...old, receivedAmount: 50 }, now), false, 'money detected');
+  assert.equal(isHiddenNoPaymentSession({ ...old, refund: { id: 'r1' } }, now), false, 'refund linked');
+  assert.equal(isHiddenNoPaymentSession({ ...old, issues: ['LATE_PAYMENT'] }, now), false, 'late credit');
+});
+function _oldBase(now, ms) {
+  return { status: 'EXPIRED', receivedAmount: null, refund: null, issues: [], _ms: now - ms - 1000 };
+}
 check('CSV output has a UTF-8 BOM, CRLF rows and a header row', () => {
   const csv = toCsv([{ label: 'A', value: (r) => r.a }], [{ a: 1 }, { a: 2 }]);
   assert.equal(csv.charCodeAt(0), 0xFEFF);

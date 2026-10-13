@@ -274,13 +274,37 @@ function summarizeTransactions(rows) {
   };
 }
 
+// Payment-window sessions that never received money are noise on the financial
+// page once they have been closed for a while. They are HIDDEN from the list,
+// the CSV and the summary; nothing is deleted from Sheets or Supabase, so a late
+// credit or dispute can still be found by ID. A row is hidden only when ALL hold:
+//   • status is CANCELLED or EXPIRED (the window closed without settling),
+//   • no money was detected (no received amount),
+//   • no late-credit notification and no refund are linked to it,
+//   • it is older than PAYMENT_HIDE_AFTER_MS (7 days).
+const PAYMENT_HIDE_AFTER_DAYS = Number(process.env.PAYMENT_HIDE_AFTER_DAYS) > 0
+  ? Number(process.env.PAYMENT_HIDE_AFTER_DAYS)
+  : 7;
+const PAYMENT_HIDE_AFTER_MS = PAYMENT_HIDE_AFTER_DAYS * 24 * 60 * 60 * 1000;
+
+function isHiddenNoPaymentSession(r, nowMs) {
+  if (r.status !== 'CANCELLED' && r.status !== 'EXPIRED') return false;
+  if (r.receivedAmount != null) return false;
+  if (r.refund) return false;
+  if (r.issues.includes('LATE_PAYMENT')) return false;
+  if (!r._ms || !Number.isFinite(nowMs)) return false;
+  return nowMs - r._ms >= PAYMENT_HIDE_AFTER_MS;
+}
+
 function filteredTransactions(query, ctx) {
   const win = windowOf(query);
   const status = upper(query.status);
   const issue = lower(query.issue);
   const search = lower(query.search).trim();
 
+  const nowMs = Date.now();
   let rows = ctx.payments.map((p) => transactionRow(p, ctx));
+  rows = rows.filter((r) => !isHiddenNoPaymentSession(r, nowMs));
   rows = rows.filter((r) => inWindow(r._ms, win));
   if (status) rows = rows.filter((r) => r.status === status);
   if (issue && ISSUE_FILTERS[issue]) rows = rows.filter(ISSUE_FILTERS[issue]);
@@ -496,7 +520,15 @@ function filteredOrders(query, c) {
   const delivery = lower(query.delivery);
   const search = lower(query.search).trim();
 
+  const nowMs = Date.now();
   let rows = c.orders.map((o) => orderRow(o, c));
+  // Same hide rule as Transactions: a closed, never-paid order older than the
+  // retention window is not shown. Nothing is deleted.
+  rows = rows.filter((r) => !(
+    (r.status === 'CANCELLED' || r.status === 'EXPIRED')
+    && r.paidAt === ''
+    && r._ms && Number.isFinite(nowMs) && nowMs - r._ms >= PAYMENT_HIDE_AFTER_MS
+  ));
   rows = rows.filter((r) => inWindow(r._ms, win));
   if (status) rows = rows.filter((r) => r.status === status);
   if (delivery && ORDER_DELIVERY.has(delivery)) rows = rows.filter((r) => r.deliveryStatus === delivery);
@@ -639,5 +671,5 @@ module.exports = {
   exportTransactionsCsv,
   exportOrdersCsv,
   // exposed for tests
-  _internals: { loadLedger, transactionRow, orderRow, paymentIssues, reservationStatus, deliveryStatus, soldToBuyer, csvCell, toCsv, auditPaymentId, buildPaymentHistory, transactionColumns: TRANSACTION_COLUMNS },
+  _internals: { loadLedger, transactionRow, orderRow, paymentIssues, reservationStatus, deliveryStatus, soldToBuyer, csvCell, toCsv, auditPaymentId, buildPaymentHistory, transactionColumns: TRANSACTION_COLUMNS, isHiddenNoPaymentSession, PAYMENT_HIDE_AFTER_MS },
 };
