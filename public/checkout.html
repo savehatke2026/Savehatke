@@ -266,7 +266,7 @@
        transparent PNG stands alone with no white tile. The other three marks
        (Google Pay, Paytm, BHIM) render smaller INSIDE their unchanged tiles
        via .upm-app-fit (contained at 78%). */
-    .upm-apps { display:flex; justify-content:center; gap:20px; margin-bottom:16px; }
+    .upm-apps { display:flex; flex-wrap:nowrap; justify-content:center; gap:16px; margin-bottom:16px; }
     .upm-app { display:flex; flex-direction:column; align-items:center; gap:7px; cursor:pointer; }
     /* Every app gets the same 50px square. Logos are centred with object-fit:contain
        and equal padding; PhonePe's own purple square fills its box unpadded. */
@@ -300,14 +300,13 @@
     .upm-timer.danger .upm-timer-val, .upm-timer.danger .upm-timer-ico { color:#ff5252; }
 
     .upm-timer-cap { font-size:11px; color:#8a9dc0; margin-bottom:14px; text-align:center; }
-    .upm-waiting { display:none; font-size:13px; color:#b8bfff; margin:-6px 0 12px; text-align:center; }
 
     /* Footer — a centred green shield and "Secured by SaveHatke". No lines. */
-    .upm-foot { display:flex; justify-content:center; align-items:center; font-size:11px; color:#8a9dc0; margin-top:2px; }
-    .upm-foot-content { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
-    .upm-foot .upm-green { color:#00E272; font-weight:700; }
+    .upm-foot { display:flex; justify-content:center; align-items:center; font-size:11px; font-weight:400; color:#b8c4d9; margin:0; padding:0; border:0; background:none; }
+    .upm-foot-content { display:inline-flex; align-items:center; gap:6px; white-space:nowrap; font-weight:400; }
+    .upm-foot .upm-green { color:inherit; font-weight:400; }
     .upm-foot-ico { display:inline-flex; align-items:center; flex-shrink:0; color:#00E272; }
-    .upm-foot-ico svg { width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; display:block; }
+    .upm-foot-ico svg { width:13px; height:13px; fill:#00E272; display:block; }
 
     /* (Reference design has no in-card action buttons — the app tiles above are
        the tap-to-open affordance and the server auto-confirms via the live
@@ -352,7 +351,6 @@
       .upm-timer { padding:9px 20px; gap:8px; }
       .upm-timer-val { font-size:26px; }
       .upm-apps { gap:16px; }
-      .upm-app-ico { width:50px; height:50px; border-radius:12px; }
       .upm-body { max-height:calc(100vh - 84px); }
     }
 
@@ -739,7 +737,6 @@
         <span class="upm-timer-val" id="upmTimerVal">--:--</span>
       </div>
       <div class="upm-timer-cap">Complete the payment within <span id="upmWindowMin">10</span> minutes</div>
-      <div class="upm-waiting" id="upmWaiting" role="status">Waiting for payment confirmation...</div>
 
       <!-- QR AREA — a real matrix generated server-side from the UPI URI. It is
            never constructed, edited, or stored as a pre-made image asset. -->
@@ -774,9 +771,9 @@
       <div class="upm-foot">
         <span class="upm-foot-content">
           <span class="upm-foot-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M12 2c3 2 6 3 9 3v6c0 6-5 10-9 12-4-2-9-6-9-12V5c3 0 6-1 9-3Z"/><path d="m8 12 3 3 6-6"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           </span>
-          Secured by <span class="upm-green">SaveHatke</span>
+          Secured by SaveHatke
         </span>
       </div>
     </div>
@@ -1941,7 +1938,6 @@
     }
     state.classList.add('show');
     // Freeze every interaction: an expired request must not be payable.
-    setUpiWaiting(false);
     disableUpiInteraction(true);
     if (kind === 'error') {
       // Nothing is live in this state, so the × must still close the box
@@ -1954,15 +1950,7 @@
   function hideUpiState() {
     const state = upiEl('upmState');
     if (state) state.classList.remove('show');
-    setUpiWaiting(true);
     disableUpiInteraction(false);
-  }
-
-  // "Waiting for payment confirmation..." is shown only while the window is
-  // live and the backend has not yet reported a terminal state.
-  function setUpiWaiting(on) {
-    const w = upiEl('upmWaiting');
-    if (w) w.style.display = on ? 'block' : 'none';
   }
 
   function disableUpiInteraction(disabled) {
