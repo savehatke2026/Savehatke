@@ -21,63 +21,68 @@ async function check(name, fn) {
 
 const MIN = 60 * 1000;
 const START = Date.parse('2026-10-10T10:00:00Z');
-const EXPIRES = START + 10 * MIN;              // customer timer ends
-const DEADLINE = START + 20 * MIN;             // backend verification deadline
+const EXPIRES = START + 10 * MIN;              // the single authoritative deadline (payment_expires_at)
 const AFTER_EXPIRY = EXPIRES + 1;              // just past the customer timer
 
 (async () => {
   console.log('Session timing');
 
-  await check('deadline is exactly 10 minutes after customer expiry', () => {
-    assert.equal(w.verificationDeadlineFor(new Date(EXPIRES).toISOString()), new Date(DEADLINE).toISOString());
+  await check('payment_expires_at is exactly 10 minutes after creation', () => {
+    assert.equal(EXPIRES - START, 10 * MIN);
+    assert.equal(w.CUSTOMER_WINDOW_MS, 10 * MIN);
   });
 
-  await check('customer timer boundary: before expiry is customer phase', () => {
-    const p = w.phaseAt({ paymentExpiresAt: new Date(EXPIRES).toISOString(), verificationDeadline: new Date(DEADLINE).toISOString() }, EXPIRES - 1);
-    assert.notEqual(p, 'verification_expired');
+  await check('phase is open one millisecond before expiry', () => {
+    assert.equal(w.phaseAt({ paymentExpiresAt: new Date(EXPIRES).toISOString() }, EXPIRES - 1), 'open');
   });
 
-  await check('verification boundary: exactly at deadline is still inside the window', () => {
-    assert.equal(
-      w.classifyTransactionTime({ transactionAt: new Date(DEADLINE).toISOString(), sessionStartedAt: new Date(START).toISOString(), verificationDeadline: new Date(DEADLINE).toISOString() }),
-      'within'
-    );
+  await check('phase is expired exactly at expiry (no grace period)', () => {
+    assert.equal(w.phaseAt({ paymentExpiresAt: new Date(EXPIRES).toISOString() }, EXPIRES), 'expired');
   });
 
-  console.log('Decision: payment before and after the deadline');
+  console.log('Decision: verification time, not transaction or arrival time');
 
-  await check('payment inside the customer window settles', () => {
+  await check('verified before expiry on a PENDING session settles', () => {
     const d = w.decideIncomingCredit({
       transactionAt: new Date(START + 5 * MIN).toISOString(),
       sessionStatus: 'PENDING', sessionCreatedAt: new Date(START).toISOString(),
-      verificationDeadline: new Date(DEADLINE).toISOString(), payerNameMatches: true, nowMs: START + 30 * MIN,
+      paymentExpiresAt: new Date(EXPIRES).toISOString(), payerNameMatches: true, verifiedAtMs: START + 6 * MIN,
     });
     assert.equal(d.action, 'settle');
   });
 
-  await check('payment during the verification window (after customer expiry) settles', () => {
+  await check('transaction before expiry but first verified after expiry → settle (transaction time decides)', () => {
     const d = w.decideIncomingCredit({
-      transactionAt: new Date(EXPIRES + 5 * MIN).toISOString(),
+      transactionAt: new Date(START + 9 * MIN).toISOString(),
       sessionStatus: 'PENDING', sessionCreatedAt: new Date(START).toISOString(),
-      verificationDeadline: new Date(DEADLINE).toISOString(), payerNameMatches: true, nowMs: START + 30 * MIN,
+      paymentExpiresAt: new Date(EXPIRES).toISOString(), payerNameMatches: true, verifiedAtMs: AFTER_EXPIRY + 5 * MIN,
     });
     assert.equal(d.action, 'settle');
   });
 
-  await check('payment after the deadline on an expired session → late_refund', () => {
+  await check('transaction after expiry on an EXPIRED session → expired_no_action (no refund)', () => {
     const d = w.decideIncomingCredit({
-      transactionAt: new Date(DEADLINE + 2 * MIN).toISOString(),
+      transactionAt: new Date(START + 11 * MIN).toISOString(),
       sessionStatus: 'EXPIRED', sessionCreatedAt: new Date(START).toISOString(),
-      verificationDeadline: new Date(DEADLINE).toISOString(), payerNameMatches: true, nowMs: DEADLINE + 10 * MIN,
+      paymentExpiresAt: new Date(EXPIRES).toISOString(), payerNameMatches: true, verifiedAtMs: AFTER_EXPIRY + 10 * MIN,
     });
-    assert.equal(d.action, 'late_refund');
+    assert.equal(d.action, 'expired_no_action');
   });
 
-  await check('late classification uses the transaction time, not arrival (late email, in-window txn → settle)', () => {
+  await check('transaction exactly at expiry counts as after the deadline → expired_no_action', () => {
     const d = w.decideIncomingCredit({
-      transactionAt: new Date(START + 12 * MIN).toISOString(),
+      transactionAt: new Date(EXPIRES).toISOString(),
       sessionStatus: 'PENDING', sessionCreatedAt: new Date(START).toISOString(),
-      verificationDeadline: new Date(DEADLINE).toISOString(), payerNameMatches: true, nowMs: DEADLINE + 30 * MIN,
+      paymentExpiresAt: new Date(EXPIRES).toISOString(), payerNameMatches: true, verifiedAtMs: EXPIRES,
+    });
+    assert.equal(d.action, 'expired_no_action');
+  });
+
+  await check('late-arriving email for an in-window transaction, verified in time → settle', () => {
+    const d = w.decideIncomingCredit({
+      transactionAt: new Date(START + 2 * MIN).toISOString(),
+      sessionStatus: 'PENDING', sessionCreatedAt: new Date(START).toISOString(),
+      paymentExpiresAt: new Date(EXPIRES).toISOString(), payerNameMatches: true, verifiedAtMs: START + 8 * MIN,
     });
     assert.equal(d.action, 'settle');
   });
@@ -87,33 +92,33 @@ const AFTER_EXPIRY = EXPIRES + 1;              // just past the customer timer
   await check('unreadable transaction time → review, never a refund', () => {
     const d = w.decideIncomingCredit({
       transactionAt: null, sessionStatus: 'PENDING', sessionCreatedAt: new Date(START).toISOString(),
-      verificationDeadline: new Date(DEADLINE).toISOString(), payerNameMatches: true, nowMs: DEADLINE + MIN,
+      paymentExpiresAt: new Date(EXPIRES).toISOString(), payerNameMatches: true, verifiedAtMs: AFTER_EXPIRY + MIN,
     });
     assert.equal(d.action, 'review');
   });
 
   await check('unreadable session timing → review', () => {
     const d = w.decideIncomingCredit({
-      transactionAt: new Date(DEADLINE + MIN).toISOString(), sessionStatus: 'EXPIRED', sessionCreatedAt: '',
-      verificationDeadline: '', payerNameMatches: true, nowMs: DEADLINE + 5 * MIN,
+      transactionAt: new Date(EXPIRES + MIN).toISOString(), sessionStatus: 'EXPIRED', sessionCreatedAt: '',
+      paymentExpiresAt: '', payerNameMatches: true, verifiedAtMs: AFTER_EXPIRY + 5 * MIN,
     });
     assert.equal(d.action, 'review');
   });
 
   await check('payer name mismatch never refunds or settles', () => {
     const d = w.decideIncomingCredit({
-      transactionAt: new Date(DEADLINE + 2 * MIN).toISOString(), sessionStatus: 'EXPIRED',
-      sessionCreatedAt: new Date(START).toISOString(), verificationDeadline: new Date(DEADLINE).toISOString(),
-      payerNameMatches: false, nowMs: DEADLINE + 10 * MIN,
+      transactionAt: new Date(START + 2 * MIN).toISOString(), sessionStatus: 'EXPIRED',
+      sessionCreatedAt: new Date(START).toISOString(), paymentExpiresAt: new Date(EXPIRES).toISOString(),
+      payerNameMatches: false, verifiedAtMs: AFTER_EXPIRY + 10 * MIN,
     });
     assert.equal(d.action, 'review');
   });
 
   await check('already fulfilled session: a second late payment goes to review, not a refund', () => {
     const d = w.decideIncomingCredit({
-      transactionAt: new Date(DEADLINE + 2 * MIN).toISOString(), sessionStatus: 'PAID',
-      sessionCreatedAt: new Date(START).toISOString(), verificationDeadline: new Date(DEADLINE).toISOString(),
-      payerNameMatches: true, nowMs: DEADLINE + 10 * MIN,
+      transactionAt: new Date(EXPIRES + MIN).toISOString(), sessionStatus: 'PAID',
+      sessionCreatedAt: new Date(START).toISOString(), paymentExpiresAt: new Date(EXPIRES).toISOString(),
+      payerNameMatches: true, verifiedAtMs: AFTER_EXPIRY + 10 * MIN,
     });
     assert.equal(d.action, 'review');
   });
@@ -121,29 +126,31 @@ const AFTER_EXPIRY = EXPIRES + 1;              // just past the customer timer
   await check('transaction before the order was created is ignored', () => {
     const d = w.decideIncomingCredit({
       transactionAt: new Date(START - 30 * MIN).toISOString(), sessionStatus: 'PENDING',
-      sessionCreatedAt: new Date(START).toISOString(), verificationDeadline: new Date(DEADLINE).toISOString(),
-      payerNameMatches: true, nowMs: DEADLINE + MIN,
+      sessionCreatedAt: new Date(START).toISOString(), paymentExpiresAt: new Date(EXPIRES).toISOString(),
+      payerNameMatches: true, verifiedAtMs: START + MIN,
     });
     assert.equal(d.action, 'ignore');
   });
 
-  await check('in-window transaction on a closed (cancelled) session → review, not coupon delivery', () => {
+  await check('in-window verification on a closed (cancelled) session → review, not coupon delivery', () => {
     const d = w.decideIncomingCredit({
-      transactionAt: new Date(START + 12 * MIN).toISOString(), sessionStatus: 'CANCELLED',
-      sessionCreatedAt: new Date(START).toISOString(), verificationDeadline: new Date(DEADLINE).toISOString(),
-      payerNameMatches: true, nowMs: START + 30 * MIN,
+      transactionAt: new Date(START + 3 * MIN).toISOString(), sessionStatus: 'CANCELLED',
+      sessionCreatedAt: new Date(START).toISOString(), paymentExpiresAt: new Date(EXPIRES).toISOString(),
+      payerNameMatches: true, verifiedAtMs: START + 4 * MIN,
     });
     assert.equal(d.action, 'review');
   });
 
-  await check('server clock before deadline cannot prove a late payment', () => {
+  await check('in-window transaction on an already-EXPIRED session → review, never a coupon', () => {
     const d = w.decideIncomingCredit({
-      transactionAt: new Date(DEADLINE + 2 * MIN).toISOString(), sessionStatus: 'EXPIRED',
-      sessionCreatedAt: new Date(START).toISOString(), verificationDeadline: new Date(DEADLINE).toISOString(),
-      payerNameMatches: true, nowMs: DEADLINE - MIN,
+      transactionAt: new Date(START + 2 * MIN).toISOString(), sessionStatus: 'EXPIRED',
+      sessionCreatedAt: new Date(START).toISOString(), paymentExpiresAt: new Date(EXPIRES).toISOString(),
+      payerNameMatches: true, verifiedAtMs: EXPIRES - MIN,
     });
     assert.equal(d.action, 'review');
   });
+
+  console.log('Refund completion gate and late task');
 
   console.log('Refund completion gate and late task');
 
@@ -180,37 +187,18 @@ const AFTER_EXPIRY = EXPIRES + 1;              // just past the customer timer
   const lateInput = {
     paymentId: 'pay_late_1', userId: 'user_1', userEmail: 'b@example.com', couponId: 'c1',
     orderCode: 'ORD1', receivedAmount: 17, transactionId: 'FMPIB6760738566',
-    verificationDeadline: new Date(DEADLINE).toISOString(), transactionAt: new Date(DEADLINE + 2 * MIN).toISOString(),
+    paymentExpiresAt: new Date(EXPIRES).toISOString(), transactionAt: new Date(EXPIRES - MIN).toISOString(),
     payerName: 'Parly Das',
   };
 
-  await check('late task is created once for the full verified amount, status pending', async () => {
-    store = []; appendCalls = 0;
-    const r = await refunds.createLateRefundTask(lateInput);
-    assert.equal(r.ok, true);
-    assert.equal(r.created, true);
-    assert.equal(r.refund.refundAmount, '17.00');
-    assert.equal(r.refund.mismatchType, 'late_payment');
-    assert.equal(r.refund.status, 'pending');
-    assert.equal(appendCalls, 1);
-  });
-
-  await check('duplicate late-task call returns the existing task, writes nothing', async () => {
-    const before = store.length;
-    const r = await refunds.createLateRefundTask(lateInput);
-    assert.equal(r.ok, true);
-    assert.equal(r.created, false);
-    assert.equal(store.length, before);
-    assert.equal(appendCalls, 1);
-  });
-
-  await check('late task rejects a non-positive amount', async () => {
-    const r = await refunds.createLateRefundTask({ ...lateInput, paymentId: 'pay_late_2', receivedAmount: 0 });
-    assert.equal(r.ok, false);
-    assert.equal(r.code, 'INVALID_INPUT');
-  });
-
   // The Sheets mirror keys the refund on its `id` column (see toSheetsRow).
+  // Seed one administrator-managed mismatch refund to exercise the completion gate.
+  store = []; appendCalls = 0;
+  const seeded = await refunds.createOrUpdateRefund({
+    paymentId: 'pay_mismatch_1', userId: 'user_1', userEmail: 'b@example.com', couponId: 'c1',
+    orderCode: 'ORD1', requiredAmount: 10, receivedAmount: 17, currency: 'INR',
+  });
+  assert.equal(seeded.ok, true);
   const refundId = store[0].id;
 
   await check('entering a UTR alone never completes a refund', async () => {

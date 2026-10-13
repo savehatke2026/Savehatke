@@ -1,16 +1,17 @@
 // ============================================
-// SaveHatke — Payment verification window math (pure, no I/O)
+// SaveHatke — Payment window math (pure, no I/O)
 // ============================================
-// Two consecutive 10-minute periods for one payment session starting at T:
+// Exactly ONE 10-minute customer-facing timer per payment session, starting at T:
 //
-//   Timer 1 (customer-facing, unchanged):  T  →  payment_expires_at = T + 10m
-//   Timer 2 (backend verification):        payment_expires_at → verification_deadline = T + 20m
+//   payment_expires_at = T + 10m   (authoritative deadline, server clock)
+//
+// There is no second backend window and no grace period. A payment that is
+// first verified after payment_expires_at never unlocks a coupon.
 //
 // All instants are epoch milliseconds or ISO-8601 strings from the server clock.
 // The browser clock is never consulted.
 
 const CUSTOMER_WINDOW_MS = 10 * 60 * 1000;
-const VERIFICATION_WINDOW_MS = 10 * 60 * 1000;
 
 function toMs(value) {
   if (value === null || value === undefined || value === '') return NaN;
@@ -19,29 +20,15 @@ function toMs(value) {
 }
 
 /**
- * The backend deadline for a session that started at `startedAt`. Derived from
- * the persisted expiry, never recomputed from a browser value.
- */
-function verificationDeadlineFor(paymentExpiresAt) {
-  const expiry = toMs(paymentExpiresAt);
-  if (!Number.isFinite(expiry)) return null;
-  return new Date(expiry + VERIFICATION_WINDOW_MS).toISOString();
-}
-
-/**
  * Which phase a session is in at `nowMs`.
- *   'customer'     — before the customer timer expires
- *   'verification' — customer timer expired, backend window still open
- *   'closed'       — backend deadline has passed
- *   'unknown'      — required timestamps missing or unreadable (fail closed)
+ *   'open'    — before payment_expires_at; a payment may still settle
+ *   'expired' — at or after payment_expires_at; no settlement, late path only
+ *   'unknown' — required timestamps missing or unreadable (fail closed)
  */
-function phaseAt({ paymentExpiresAt, verificationDeadline }, nowMs) {
+function phaseAt({ paymentExpiresAt }, nowMs) {
   const expiry = toMs(paymentExpiresAt);
-  const deadline = toMs(verificationDeadline);
-  if (!Number.isFinite(expiry) || !Number.isFinite(deadline) || !Number.isFinite(nowMs)) return 'unknown';
-  if (nowMs < expiry) return 'customer';
-  if (nowMs < deadline) return 'verification';
-  return 'closed';
+  if (!Number.isFinite(expiry) || !Number.isFinite(nowMs)) return 'unknown';
+  return nowMs < expiry ? 'open' : 'expired';
 }
 
 /**
@@ -80,56 +67,44 @@ function parseFamAppTransactionTime(text) {
   return check.toISOString();
 }
 
-/**
- * Decide whether a verified transaction happened inside the backend window,
- * using the ACTUAL transaction instant. The email arrival time is never passed
- * in here. Returns 'within' | 'after' | 'before_start' | 'unknown'.
- */
-function classifyTransactionTime({ transactionAt, sessionStartedAt, verificationDeadline }) {
-  const tx = toMs(transactionAt);
-  const start = toMs(sessionStartedAt);
-  const deadline = toMs(verificationDeadline);
-  if (!Number.isFinite(tx) || !Number.isFinite(start) || !Number.isFinite(deadline)) return 'unknown';
-  // Allow a small clock-skew grace before the session start, matching the
-  // existing 5-minute pre-window tolerance in the settlement path.
-  if (tx < start - 5 * 60 * 1000) return 'before_start';
-  if (tx > deadline) return 'after';
-  return 'within';
-}
-
+// Clock-skew tolerance before session creation, matching the existing settlement path.
 const START_GRACE_MS = 5 * 60 * 1000;
 
 /**
- * Pure decision for one verified incoming credit against one candidate session.
- * Every input comes from the server: the transaction instant parsed from the
- * FamApp body (never the mailbox arrival time), the session's persisted fields,
- * and the payer-name comparison the caller already performed.
+ * Pure decision for one verified FamApp credit against one candidate session.
  *
- * Returns { action, reason } where action is:
- *   'settle'      – inside the verification window, session still PENDING
- *   'late_refund' – real transaction after verification_deadline, purchase not
- *                   fulfilled → one admin refund task for the full amount
- *   'review'      – needs a human (unreadable time, name mismatch, ambiguous
- *                   state, clock disagreement, already fulfilled, etc.)
+ * The timing rule is based on WHEN SAVEHATKE FIRST VERIFIES THE EMAIL
+ * (`verifiedAtMs`, the server clock at detection), not on the transaction
+ * timestamp in the FamApp body. A transaction that happened before the deadline
+ * but was first verified after it is a late payment.
+ *
+ * Returns { action, reason }, where action is:
+ *   'settle'      – first verified before payment_expires_at, session PENDING,
+ *                   amount/name/references all matched → unlock the coupon once
+ *   'expired_no_action' – the transaction itself occurred at/after the deadline →
+ *                   no coupon and no refund (expired sessions are never refunded)
+ *   'review'      – needs a human (unreadable time, name mismatch, already
+ *                   fulfilled, unexpected status, missing timing data)
  *   'ignore'      – the transaction predates this session, so it is not for it
  */
 function decideIncomingCredit({
   transactionAt,
   sessionStatus,
   sessionCreatedAt,
-  verificationDeadline,
+  paymentExpiresAt,
   payerNameMatches,
-  nowMs = Date.now(),
+  verifiedAtMs = Date.now(),
 } = {}) {
   const status = String(sessionStatus || '').toUpperCase();
   const tx = toMs(transactionAt);
   const start = toMs(sessionCreatedAt);
-  const deadline = toMs(verificationDeadline);
+  const expiry = toMs(paymentExpiresAt);
+  const verified = toMs(verifiedAtMs);
 
   if (!Number.isFinite(tx)) {
     return { action: 'review', reason: 'The transaction time could not be read from the FamApp email.' };
   }
-  if (!Number.isFinite(start) || !Number.isFinite(deadline)) {
+  if (!Number.isFinite(start) || !Number.isFinite(expiry) || !Number.isFinite(verified)) {
     return { action: 'review', reason: 'The session timing is incomplete; not attributed automatically.' };
   }
   if (tx < start - START_GRACE_MS) {
@@ -139,31 +114,23 @@ function decideIncomingCredit({
     return { action: 'review', reason: 'The payer name does not match the order buyer, or could not be read.' };
   }
   if (status === 'PAID') {
-    return { action: 'review', reason: 'This order is already fulfilled; a second payment is routed to review, not refunded automatically.' };
+    return { action: 'review', reason: 'This order is already fulfilled; a second payment is routed to review.' };
   }
-  if (tx <= deadline) {
-    if (status === 'PENDING') return { action: 'settle', reason: 'Transaction is inside the verification window.' };
-    // The window is still open but the session was already closed, which
-    // released its coupon. Delivering now could hand out a coupon someone else
-    // may hold, so a person decides.
-    return { action: 'review', reason: `Transaction is inside the window but the session is ${status || 'unknown'}; routed to review.` };
+  // Timing uses the ACTUAL transaction instant from the FamApp body. A payment
+  // made inside the original window settles even if Gmail delivered it late.
+  if (tx < expiry) {
+    if (status === 'PENDING') return { action: 'settle', reason: 'Transaction occurred inside the original 10-minute window.' };
+    // The session was already closed, which released its coupon. A person decides.
+    return { action: 'review', reason: `Transaction inside the window but the session is ${status || 'unknown'}; routed to review.` };
   }
-  // The transaction is after the verification deadline.
-  if (nowMs < deadline) {
-    return { action: 'review', reason: 'Server clock disagrees with the transaction time; routed to review.' };
-  }
-  if (status === 'PENDING' || status === 'EXPIRED' || status === 'CANCELLED') {
-    return { action: 'late_refund', reason: 'Verified transaction occurred after the verification deadline; full refund due.' };
-  }
-  return { action: 'review', reason: `Unexpected session status ${status || 'unknown'}; routed to review.` };
+  // The transaction occurred at or after the deadline: never unlock, never refund.
+  return { action: 'expired_no_action', reason: 'Transaction occurred after the 10-minute deadline; coupon not unlocked and no refund is due for an expired session.' };
 }
 
 module.exports = {
   CUSTOMER_WINDOW_MS,
-  VERIFICATION_WINDOW_MS,
-  verificationDeadlineFor,
   phaseAt,
   parseFamAppTransactionTime,
-  classifyTransactionTime,
   decideIncomingCredit,
+  START_GRACE_MS,
 };
