@@ -168,7 +168,7 @@
     renderBanner({ level: deriveLevel(rem), message: null }, true);
   }
 
-  // Client-side threshold derivation mirrors the server (2-day window) so the
+  // Client-side threshold derivation mirrors the server (4-day window) so the
   // banner stays correct between page loads without hammering the backend.
   function deriveLevel(rem){
     if (STATE.serverLevel === 'reauth' || STATE.serverLevel === 'error' || STATE.serverLevel === 'not_connected') {
@@ -176,7 +176,7 @@
     }
     if (rem == null) return 'connected';
     if (rem <= 0) return 'expired';
-    if (rem <= 2*24*60*60*1000) return 'reconnect_soon';
+    if (rem <= 4*24*60*60*1000) return 'reconnect_soon';
     return 'connected';
   }
 
@@ -222,7 +222,7 @@
         row('Authorization', data.connected ? 'Active' : (data.status === 'reauthorization_required' ? 'Expired / revoked' : '—')),
         row('Connected', fmt(data.connectedAt)),
         row('Authorized', fmt(data.authorizedAt)),
-        row('Estimated expiry', fmt(data.estimatedExpiresAt)),
+        row('Estimated expiry', data.estimatedExpiresAt ? fmt(data.estimatedExpiresAt) + ' (estimate)' : 'Unknown'),
         row('Authorization status', formatRemaining(rem), 'remainingCell'),
         row('Last checked', fmt(data.lastUsedAt)),
         row('Last verified', fmt(data.lastVerifiedAt)),

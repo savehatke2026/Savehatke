@@ -2736,6 +2736,35 @@ function cronSecretMatches(req) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// GET|POST /api/admin/credentials/alerts/run — daily refresh-token check for the
+// three admin OAuth integrations (support_gmail, google_drive, payment_gmail).
+// Scheduled by vercel.json so it runs even when no admin has the panel open.
+// Auth mirrors /reports/monthly/run: the CRON_SECRET bearer/x-cron-key, else a
+// normal admin session. Dedup + retry live in credentialAlertNotifier.
+router.all('/credentials/alerts/run', async (req, res, next) => {
+  if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
+  if (cronSecretMatches(req)) return handleCredentialAlertRun(req, res);
+  return authenticateToken(req, res, () => requireAdmin(req, res, () => handleCredentialAlertRun(req, res)));
+});
+
+async function handleCredentialAlertRun(req, res) {
+  try {
+    const credentialAlertNotifier = require('../services/credentialAlertNotifier');
+    const result = await credentialAlertNotifier.runCredentialAlertCheck();
+    res.status(result.ok ? 200 : 500).json({
+      ok: result.ok,
+      checked: result.checked,
+      sent: result.sent,
+      skipped: result.skipped,
+      failed: result.failed,
+      error: result.error || undefined,
+      results: result.results,
+    });
+  } catch (err) {
+    console.error('[admin/credentials/alerts] run failed:', err.message);
+    res.status(500).json({ ok: false, error: 'Credential alert check failed.' });
+  }
+}
 router.all('/reports/monthly/run', async (req, res, next) => {
   if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
   if (cronSecretMatches(req)) return handleMonthlyRun(req, res);

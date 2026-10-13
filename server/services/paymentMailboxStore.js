@@ -12,7 +12,7 @@
 // Payment Gmail specifics preserved here:
 //   * email = rupayandas2025@gmail.com (passed by the caller),
 //   * Google "Testing" refresh-token window (~7 days) → estimated_expires_at,
-//     which drives the 2-day reconnect warning in the admin panel.
+//     which drives the 4-day reconnect warning in the admin panel.
 
 const core = require('./securityCredentialsStore');
 
@@ -42,7 +42,7 @@ function getDecryptedRefreshToken(email) {
 
 /**
  * Upsert the payment-mailbox credential from a fresh refresh token. Stamps the
- * Testing-mode estimated expiry so the admin panel can warn 2 days out.
+ * Testing-mode estimated expiry so the admin panel can warn 4 days out.
  */
 function upsertCredential({ email, refresh_token }) {
   const nowIso = new Date().toISOString();

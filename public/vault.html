@@ -4187,7 +4187,7 @@ function showSection(id, navEl) {
 /* ════════════════════════════
    PAYMENT GMAIL (security_credentials) — admin Security section
    Renders states 🟢 Connected / 🟡 Reconnect Soon / 🔴 Reconnect Required /
-   ⚪ Not Connected from /api/admin/gmail/payment-status. The 2-day warning is
+   ⚪ Not Connected from /api/admin/gmail/payment-status. The 4-day warning is
    computed server-side; the browser only recomputes the remaining-time label
    locally (60s, no polling). The refresh token is never received here.
    ════════════════════════════ */
@@ -4247,7 +4247,7 @@ function pgDeriveLevel(rem){
   if (PG_STATE.serverLevel === 'reauth' || PG_STATE.serverLevel === 'error' || PG_STATE.serverLevel === 'not_connected') return PG_STATE.serverLevel;
   if (rem == null) return 'connected';
   if (rem <= 0) return 'expired';
-  if (rem <= 2*24*60*60*1000) return 'reconnect_soon';
+  if (rem <= 4*24*60*60*1000) return 'reconnect_soon';
   return 'connected';
 }
 function pgRenderBanner(warning, exists){

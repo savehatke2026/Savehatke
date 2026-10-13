@@ -37,7 +37,9 @@ const SERVICES = Object.freeze({
   GOOGLE_DRIVE: 'google_drive',
   SUPPORT_GMAIL: 'support_gmail',
 });
-const RECONNECT_SOON_MS = 2 * 24 * 60 * 60 * 1000; // 2 days
+// Single source of truth for the 4-day warning window and warning math. Lives in
+// the dependency-free policy module so tests and the alert job share it.
+const { RECONNECT_SOON_MS, computeWarning } = require('./credentialAlertPolicy');
 
 const BASE_COLS = 'email, status, connected_at, last_verified_at, last_used_at, last_error, updated_at';
 const SAFE_FULL = 'service, ' + BASE_COLS + ', authorized_at, estimated_expires_at';
@@ -238,36 +240,6 @@ function markError(service, email, safeMessage) {
 }
 function markDisconnected(service, email) {
   return patch(service, email, { status: 'disconnected' });
-}
-
-/**
- * Compute the admin-panel warning state. Pure & side-effect free. A NULL
- * estimated_expires_at (e.g. Google Drive, which has no Testing-mode countdown)
- * yields 'connected' when active — no false countdown is ever shown.
- */
-function computeWarning({ status, estimatedExpiresAt, lastError } = {}, nowMs = Date.now()) {
-  const expMs = estimatedExpiresAt ? Date.parse(estimatedExpiresAt) : NaN;
-  const remainingMs = Number.isFinite(expMs) ? expMs - nowMs : null;
-
-  if (status === 'reauthorization_required') {
-    return { level: 'reauth', color: 'red', remainingMs,
-      message: 'Authorization has expired or was revoked. Reconnect to resume this integration.' };
-  }
-  if (status === 'disconnected') {
-    return { level: 'not_connected', color: 'grey', remainingMs: null, message: 'Not connected.' };
-  }
-  if (status === 'error') {
-    return { level: 'error', color: 'red', remainingMs, message: lastError || 'This integration reported an error.' };
-  }
-  if (remainingMs != null) {
-    if (remainingMs <= 0) {
-      return { level: 'expired', color: 'red', remainingMs, message: 'Authorization has expired. Reconnect to resume this integration.' };
-    }
-    if (remainingMs <= RECONNECT_SOON_MS) {
-      return { level: 'reconnect_soon', color: 'yellow', remainingMs, message: 'Authorization will expire soon. Reconnect to keep this integration active.' };
-    }
-  }
-  return { level: 'connected', color: 'green', remainingMs, message: 'Authorization active.' };
 }
 
 function toSafe(row, service) {
