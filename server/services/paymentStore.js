@@ -890,6 +890,36 @@ async function cancelPayment(paymentId, { reason = 'Cancelled by buyer' } = {}) 
 
 // ── Coupon unlock — the one atomic step ────────────────────────────────────
 
+// Whether `coupons.sold_payment_id` exists in the connected database.
+//   undefined → not probed yet (optimistically include the column)
+//   true      → column present, binding is written
+//   false     → column absent, binding skipped (see unlockCoupon)
+// Probed lazily from the first failure rather than on boot so no extra query is
+// paid on the happy path. A "false" verdict is re-probed after PROBE_TTL_MS so
+// that applying the migration in a live database is picked up without a redeploy
+// or waiting for the instance to recycle.
+const BINDING_PROBE_TTL_MS = 10 * 60 * 1000;
+let couponBindingColumn;
+let couponBindingProbedAt = 0;
+
+function isMissingBindingColumnError(error) {
+  const msg = String((error && error.message) || '').toLowerCase();
+  if (!msg.includes('sold_payment_id')) return false;
+  const code = String((error && error.code) || '');
+  return code === '42703' || code === 'PGRST204'
+    || msg.includes('does not exist')
+    || msg.includes('could not find')
+    || msg.includes('unknown column');
+}
+
+/** Keep a database failure readable in logs and in the buyer's review note. */
+function sanitizeDbError(error) {
+  return String((error && (error.message || error.details || error.hint)) || '')
+    .replace(/\s+/g, ' ')
+    .replace(/[A-Za-z0-9._-]{24,}/g, '[redacted]')
+    .slice(0, 180);
+}
+
 /**
  * Flip the coupon to sold, but ONLY if it is still available.
  *
@@ -921,14 +951,59 @@ async function unlockCoupon({ couponId, userEmail, paidAt, paymentId }) {
   // perform the conditional UPDATE atomically.
   if (!client) throw new Error('Atomic coupon storage is required to settle payments.');
 
-  const { data, error } = await client
+  // sold_payment_id binds a sold coupon to the payment that caused the unlock
+  // (migration 20261002_coupon_payment_binding.sql). It is additive: when the
+  // column has not been applied in the target database the UPDATE must still
+  // work, or EVERY settlement fails on a schema mismatch instead of a real
+  // business condition. The conditional `status = 'available'` UPDATE is the
+  // exactly-once guarantee either way — the binding column only makes a repeat
+  // unlock attributable, so degrading it is safe and reversible.
+  const includeBinding =
+    couponBindingColumn !== false || Date.now() - couponBindingProbedAt > BINDING_PROBE_TTL_MS;
+  const patch = { status: 'sold', sold_at: paidAt, buyer_email: userEmail };
+  if (includeBinding) patch.sold_payment_id = paymentId;
+  const columns = includeBinding
+    ? 'id, code, status, buyer_email, sold_payment_id'
+    : 'id, code, status, buyer_email';
+
+  let { data, error } = await client
     .from('coupons')
-    .update({ status: 'sold', sold_at: paidAt, buyer_email: userEmail, sold_payment_id: paymentId })
+    .update(patch)
     .eq('id', String(couponId))
     .eq('status', 'available')
-    .select('id, code, status, buyer_email, sold_payment_id');
+    .select(columns);
 
-  if (error) throw new Error('Atomic coupon update failed.');
+  // Schema-mismatch self-heal: drop the optional binding column, remember that
+  // for this process, and run the identical conditional UPDATE without it.
+  if (error && includeBinding && isMissingBindingColumnError(error)) {
+    couponBindingColumn = false;
+    couponBindingProbedAt = Date.now();
+    console.error(
+      '[paymentStore] coupons.sold_payment_id is missing in this database — settlement is ' +
+      'continuing WITHOUT the coupon↔payment binding. Apply ' +
+      'supabase/migrations/20261002_coupon_payment_binding.sql to restore it.'
+    );
+    ({ data, error } = await client
+      .from('coupons')
+      .update({ status: 'sold', sold_at: paidAt, buyer_email: userEmail })
+      .eq('id', String(couponId))
+      .eq('status', 'available')
+      .select('id, code, status, buyer_email'));
+  }
+
+  // Never discard the database's own reason: a swallowed Postgres error is how
+  // a six-day production settlement outage stayed invisible. Keep the original
+  // text (sanitized) so the notification/notes say exactly what failed.
+  if (error) {
+    const detail = sanitizeDbError(error);
+    const err = new Error(
+      `Atomic coupon update failed for ${String(couponId)}${detail ? `: ${detail}` : '.'}`
+    );
+    err.cause = error;
+    err.code = error.code || '';
+    throw err;
+  }
+
   const row = (data || [])[0];
   if (row) return { unlocked: true, code: row.code || '', status: 'sold', buyerEmail: userEmail, soldPaymentId: row.sold_payment_id || '' };
 
@@ -937,10 +1012,10 @@ async function unlockCoupon({ couponId, userEmail, paidAt, paymentId }) {
   // guarded by finalizePayment's duplicate-paid check.
   const { data: cur, error: readErr } = await client
     .from('coupons')
-    .select('id, code, status, buyer_email, sold_payment_id')
+    .select(columns)
     .eq('id', String(couponId))
     .maybeSingle();
-  if (readErr) throw new Error('Could not confirm coupon state.');
+  if (readErr) throw new Error('Could not confirm coupon state: ' + sanitizeDbError(readErr));
   return {
     unlocked: false,
     code: (cur && cur.code) || '',
@@ -1564,6 +1639,72 @@ async function updateNotification(id, updates = {}) {
   return fromNotification(rows.find((r) => String(r.id) === String(id)));
 }
 
+/**
+ * Find recorded credit evidence for one payment, for admin recovery.
+ *
+ * The recovery endpoint must never be handed an amount or a transaction id by
+ * the operator — that would turn it into a "mark any order paid" button. This
+ * only ever replays evidence the system itself already captured from a verified
+ * sender, matched to this payment by:
+ *   * the exact payment amount,
+ *   * a transaction instant inside [created - 5 min skew, payment_expires_at),
+ *   * a Transaction ID and a UTR both present.
+ * Returns the most recent such notification, or null.
+ */
+async function findSettlementEvidence(payment) {
+  if (!payment) return null;
+  const rows = await rowsFresh(NOTIFICATIONS);
+  const amount = money2(payment.amount);
+  const createdMs = toTime(payment.createdAt);
+  // The deadline is never moved for recovery; the evidence must land inside it.
+  const deadlineMs = toTime(payment.paymentExpiresAt || payment.expiresAt);
+
+  return fromNotification(
+    rows
+      .filter((r) => money2(r.amount) === amount)
+      .filter((r) => String(r.transaction_id || '').trim() && String(r.utr || '').trim())
+      .filter((r) => {
+        const at = toTime(r.occurred_at);
+        if (!at) return false;
+        if (createdMs && at < createdMs - 5 * 60 * 1000) return false;
+        if (deadlineMs && at >= deadlineMs) return false;
+        return true;
+      })
+      .sort((a, b) => toTime(b.occurred_at) - toTime(a.occurred_at))[0]
+  );
+}
+
+/**
+ * Recorded credits for one payment that MIGHT carry usable evidence, newest
+ * first — including rows written before the Transaction ID / UTR were
+ * persisted, which have none. The caller re-reads the original message to
+ * recover the references rather than asking a human to supply them.
+ *
+ * Same amount and same window as findSettlementEvidence; only the requirement
+ * to already hold both references is dropped.
+ */
+async function findRecordedCreditsForPayment(payment) {
+  if (!payment) return [];
+  const rows = await rowsFresh(NOTIFICATIONS);
+  const amount = money2(payment.amount);
+  const createdMs = toTime(payment.createdAt);
+  const deadlineMs = toTime(payment.paymentExpiresAt || payment.expiresAt);
+
+  return rows
+    .filter((r) => money2(r.amount) === amount)
+    .filter((r) => {
+      const at = toTime(r.occurred_at);
+      if (!at) return false;
+      if (createdMs && at < createdMs - 5 * 60 * 1000) return false;
+      if (deadlineMs && at >= deadlineMs) return false;
+      return true;
+    })
+    .sort((a, b) => toTime(b.occurred_at) - toTime(a.occurred_at))
+    .slice(0, 5)
+    .map((r) => fromNotification(r))
+    .filter(Boolean);
+}
+
 module.exports = {
   PAYMENT_WINDOW_MS,
   PAYMENT_CHECK_WINDOW_MS,
@@ -1608,6 +1749,15 @@ module.exports = {
   // notification inbox
   recordNotification,
   findNotificationByFingerprint,
+  findSettlementEvidence,
+  findRecordedCreditsForPayment,
+  // Internal: clear the memoised sold_payment_id schema probe. Production code
+  // never calls this — the probe re-decides itself on its own TTL. It exists so
+  // tests can exercise both database shapes in one process.
+  __resetBindingProbe() {
+    couponBindingColumn = undefined;
+    couponBindingProbedAt = 0;
+  },
   updateNotification,
   // mapping
   fromOrder,

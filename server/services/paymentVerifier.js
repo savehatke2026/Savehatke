@@ -165,11 +165,30 @@ function parseReceivedAmount(text) {
  * Pull the payer's name from a FamApp credit line, e.g.
  * "received ₹1.0 from Parly Das at 08:41 AM …". Returns '' when no name is
  * present, so a missing name is treated as "cannot verify", never as a match.
+ *
+ * Two shapes have to be handled, because the first one alone matches nothing
+ * real: the plain-text FamApp email puts the payer on the line AFTER the amount
+ * and terminates the name with the next labelled field ("Transaction ID: …",
+ * "UTR: …"), not with a connector word. Falling back to a naive "rest of the
+ * body" capture would swallow the transaction id into the name, so the capture
+ * stops at a newline or at a known label.
  */
 function extractPayerName(text) {
   const s = String(text || '');
   const m = s.match(/received[\s\S]{0,40}?(?:₹|rs\.?|inr)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s+from\s+([A-Za-z][A-Za-z .'-]{0,60}?)\s+(?:at|on|via|with|through)\b/i);
-  return m ? m[1].replace(/\s+/g, ' ').trim() : '';
+  if (m) return m[1].replace(/\s+/g, ' ').trim();
+
+  // Real FamApp layout: "<amount>\nfrom <Name>\nTransaction ID: …".
+  const line = s.match(/received[\s\S]{0,40}?(?:₹|rs\.?|inr)\s*[0-9][0-9,]*(?:\.[0-9]{1,2})?\s+from\s+([^\n\r]+)/i);
+  if (!line) return '';
+  const name = line[1]
+    // Cut the name at the first labelled field that follows it on that line.
+    .split(/\b(?:transaction\s*(?:id|no|number)|utr|rrn|date|updated\s*balance)\b/i)[0]
+    .replace(/[\s.,;:'"`|]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  // A name is letters (with internal spaces, dots, apostrophes, hyphens) only.
+  return /^[A-Za-z][A-Za-z .'-]{0,60}$/.test(name) ? name : '';
 }
 
 /**
@@ -286,6 +305,89 @@ function vpaEquals(a, b) {
 
 function fingerprintOf(parts) {
   return crypto.createHash('sha256').update(parts.join('|')).digest('hex');
+}
+
+/**
+ * Re-read the original FamApp message behind a recorded notification and
+ * re-derive the settlement evidence from it.
+ *
+ * Used by the admin recovery path. The notification inbox deliberately keeps a
+ * truncated copy of what it saw, and older rows were written before the
+ * Transaction ID / UTR were persisted, so the references are re-read from the
+ * ORIGINAL message instead of being typed in by an operator.
+ *
+ * Everything that made the original message trustworthy is re-checked here:
+ * it must still be an incoming FamApp message with aligned DMARC, and its
+ * amount and transaction instant must still fall inside this payment's window.
+ * Returns { transactionId, utr, amount, transactionAt, messageId } or null.
+ */
+async function reDeriveEvidence(notification, payment) {
+  if (!notification || !payment) return null;
+  let messageId = '';
+  try {
+    const raw = typeof notification.raw === 'string' ? JSON.parse(notification.raw) : notification.raw;
+    messageId = String((raw && raw.messageId) || '').trim();
+  } catch (e) { /* recorded without parseable raw */ }
+  if (!messageId) return null;
+
+  const gmailService = require('./gmailService');
+  const paymentMailbox = require('./paymentMailbox');
+
+  let gmail = null;
+  // Both openers return { gmail, oauth2, conn }; the Gmail API client is the
+  // nested `gmail`. (Handing the wrapper straight to gmailService fails with
+  // "cannot read properties of undefined".)
+  try {
+    const opened = await paymentMailbox.getAuthorizedClient();
+    gmail = (opened && opened.gmail) || null;
+  } catch (e) { /* fall through to the support mailbox */ }
+  if (!gmail) {
+    try {
+      const fallback = await gmailService.getAuthorizedClient();
+      gmail = (fallback && fallback.gmail) || null;
+    } catch (e) { /* none available */ }
+  }
+  if (!gmail) return null;
+
+  let detail;
+  try { detail = await gmailService.getMessageFull(gmail, messageId); } catch (e) { return null; }
+  if (!detail) return null;
+  if (!isIncomingInboxMessage(detail.labels)) return null;
+  if (!isFamAppSender(detail.from)) return null;
+
+  const body = detail.bodyText || detail.bodyHtml || detail.text || '';
+  const candidate = buildCandidateFromEmail({
+    messageId: detail.id || messageId,
+    from: detail.from,
+    authenticationResults: detail.authenticationResults || '',
+    subject: detail.subject || '',
+    body,
+    date: detail.date || '',
+    internalDate: detail.internalDate || '',
+    labels: detail.labels,
+  });
+
+  // Re-apply the same trust and freshness gates the live path applies.
+  if (!hasTrustedFamAppAuthentication(candidate.authenticationResults)) return null;
+  if (candidate.direction !== 'credit') return null;
+  if (!candidate.transactionId || !candidate.utr) return null;
+  if (!candidate.transactionAt) return null;
+  if (!moneyEquals(candidate.amount, payment.amount)) return null;
+
+  const createdMs = Date.parse(payment.createdAt || '') || 0;
+  const deadlineMs = Date.parse(payment.paymentExpiresAt || payment.expiresAt || '') || 0;
+  const at = Date.parse(candidate.transactionAt);
+  if (!Number.isFinite(at)) return null;
+  if (createdMs && at < createdMs - 5 * 60 * 1000) return null;
+  if (deadlineMs && at >= deadlineMs) return null;
+
+  return {
+    messageId: candidate.fingerprint ? String(detail.id || messageId) : messageId,
+    transactionId: candidate.transactionId,
+    utr: candidate.utr,
+    amount: candidate.amount,
+    transactionAt: candidate.transactionAt,
+  };
 }
 
 // ── Candidate construction ─────────────────────────────────────────────────
@@ -830,10 +932,15 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
       source: 'email',
       amount: candidate.amount,
       currency: 'INR',
-      // Transaction ID / UTR intentionally NOT recorded.
+      // The bank references ARE persisted. They are the evidence a dispute or an
+      // admin recovery is reconstructed from, and finalizePayment refuses to
+      // settle without them, so a row that hides them cannot be explained or
+      // replayed later. They are still never accepted from a client.
+      transactionId: candidate.transactionId || '',
+      utr: candidate.utr || '',
       payerVpa: candidate.payerVpa,
       payeeVpa: candidate.payeeVpa,
-      reference: '',
+      reference: candidate.utr || '',
       occurredAt: candidate.occurredAt,
       raw: candidate.raw,
     });
@@ -843,12 +950,30 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
   }
 
   if (recorded.duplicate) {
-    return {
-      action: 'duplicate',
-      reason: 'This FamApp message was already processed.',
-      notification: recorded.notification,
-      previousPaymentId: recorded.notification?.matchedPaymentId || '',
-    };
+    // A repeat sighting is only final once the earlier pass actually DECIDED
+    // this message. `RECEIVED` (the pass died mid-flight) and `REVIEW`
+    // (settlement failed for an infrastructure reason — the coupon flip, the
+    // Sheets write, the database) are not decisions: they mean the money is
+    // real and unclaimed. Short-circuiting there strands a verified payment
+    // forever, because no later scan would ever look at it again. That is
+    // precisely how a real, received ₹10.00 payment stayed PENDING for days
+    // when coupons.sold_payment_id was missing in production.
+    const prior = recorded.notification || {};
+    // MATCHED = settled, IGNORED/REJECTED = a decision was made about the money.
+    // Those are final and are never re-opened. RECEIVED and REVIEW are not.
+    const resolvedStatuses = new Set(['MATCHED', 'SETTLED', 'DUPLICATE_UNDERPAYMENT', 'IGNORED', 'REJECTED']);
+    if (resolvedStatuses.has(String(prior.status || '').toUpperCase())) {
+      return {
+        action: 'duplicate',
+        reason: 'This FamApp message was already processed.',
+        notification: prior,
+        previousPaymentId: prior.matchedPaymentId || '',
+      };
+    }
+    console.warn(
+      `${tag} re-processing unresolved notification ${prior.id || '(unknown)'} ` +
+      `(previous status: ${prior.status || 'none'}) — a settled or ignored message is never re-opened`
+    );
   }
 
   const notification = recorded.notification;
@@ -1180,29 +1305,23 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
 
     // Cheap snippet pre-filter before a full-body fetch: it must look like a
     // credit for an amount we are actually waiting on.
-    const plausible =
-      candidate.direction === 'credit' &&
-      Boolean(candidate.amount) &&
-      watch.some((p) => moneyEquals(p.amount, candidate.amount));
+    //
+    // This is ONLY a fetch optimisation and must stay that way. A Gmail snippet
+    // is a truncated, auto-generated preview, so it can drop or mangle the
+    // amount. The notification fingerprint is keyed on the Gmail message id, so
+    // persisting an IGNORED verdict here would make processEmailCandidate treat
+    // every later look at that same message as `duplicate` — the full body
+    // would never be read and the credit could never settle. That turns a
+    // detection miss into a payment the system is structurally unable to
+    // verify. So: never record here.
+    const isCredit = candidate.direction === 'credit';
+    const amountLooksUseful =
+      Boolean(candidate.amount) && watch.some((p) => moneyEquals(p.amount, candidate.amount));
 
-    if (!plausible) {
-      // Record-and-ignore so the same message is not re-examined forever.
-      try {
-        await store.recordNotification({
-          fingerprint: candidate.fingerprint,
-          source: 'email',
-          amount: candidate.amount,
-          payerVpa: candidate.payerVpa,
-          payeeVpa: candidate.payeeVpa,
-          reference: '',
-          occurredAt: candidate.occurredAt,
-          raw: candidate.raw,
-          status: 'IGNORED',
-          notes: 'No active order waiting for this amount (snippet pre-filter).',
-        });
-      } catch (e) {}
-      continue;
-    }
+    // Nothing here says money is arriving — skip the full-body fetch. Anything
+    // that even looks like a credit falls through so processEmailCandidate can
+    // read the real body and record the true outcome itself.
+    if (!isCredit && !amountLooksUseful) continue;
 
     // Resolve the fullest text we can for the definitive amount read.
     let full = candidate;
@@ -1467,6 +1586,7 @@ module.exports = {
   // candidates
   buildCandidateFromEmail,
   buildCandidateFromWebhook,
+  reDeriveEvidence,
   // core
   processCandidate,
   processEmailCandidate,

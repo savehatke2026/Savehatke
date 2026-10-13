@@ -48,7 +48,9 @@
 
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const { authenticateToken } = require('../middleware/auth');
+const { v4: uuidv4 } = require('uuid');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { adminFinancialLimiter } = require('../utils/adminRateLimit');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
 const store = require('../services/paymentStore');
@@ -96,6 +98,72 @@ function cronAuthorized(req) {
   const fromBearer = bearer.toLowerCase().startsWith('bearer ') ? bearer.slice(7).trim() : '';
   const fromHeader = String(req.get('x-cron-key') || '').trim();
   return fromBearer === secret || fromHeader === secret;
+}
+
+// Append-only audit trail for admin-initiated payment recovery. Every attempt —
+// settled, refused or errored — lands in SecurityAudit with the acting admin.
+// A financial override that cannot be reconstructed afterwards is indistinguishable
+// from one that never happened.
+async function auditRecovery(req, { paymentId, reason, outcome, detail }) {
+  try {
+    await db.appendRow(db.SHEETS.SECURITY_AUDIT, {
+      id: uuidv4(),
+      userId: String((req.user && (req.user.id || req.user.user_id)) || ''),
+      email: String((req.user && (req.user.email || req.user.username)) || 'admin'),
+      event: 'payment_admin_recovery',
+      outcome,
+      ipAddress: String(req.ip || ''),
+      device: String(req.get('user-agent') || '').slice(0, 200),
+      detail: `payment=${paymentId} reason=${reason} ${detail || ''}`.slice(0, 400),
+      createdAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error('[payment] recovery audit write failed:', e.message);
+  }
+}
+
+/**
+ * Run the settlement for a recovery that has already been given trustworthy
+ * evidence, and audit the outcome. `evidence` is never client-supplied: it is
+ * either a notification row the system wrote, or the original FamApp message
+ * re-read from the payment mailbox.
+ */
+async function recoverWith(req, res, payment, evidence, reason, adminEmail, evidenceSource) {
+  const result = await store.finalizePayment({
+    paymentId: payment.paymentId,
+    transactionId: evidence.transactionId,
+    utr: evidence.utr,
+    source: 'admin_recovery',
+    notes: `Admin recovery (${evidenceSource}): ${reason}`,
+    paidAt: evidence.occurredAt || evidence.transactionAt,
+    transactionAt: evidence.transactionAt || evidence.occurredAt,
+    receivedAmount: evidence.amount,
+  });
+
+  await auditRecovery(req, {
+    paymentId: payment.paymentId,
+    reason,
+    outcome: result && result.ok ? 'SETTLED' : 'REFUSED',
+    detail: `source=${evidenceSource} code=${(result && result.code) || 'UNKNOWN'} txn=${evidence.transactionId}`,
+  });
+
+  if (!result || !result.ok) {
+    return fail(res, 409, (result && result.code) || 'RECOVERY_REFUSED', 'Recovery was refused.', {
+      payment_status: (result && result.payment_status) || payment.status,
+    });
+  }
+
+  console.log(`[PAYMENT_SESSION] admin recovery settled ${payment.paymentId} by ${adminEmail} (${evidenceSource}): ${result.code}`);
+  return {
+    ok: true,
+    payment_id: payment.paymentId,
+    payment_status: 'PAID',
+    code: result.code,
+    idempotent: !!result.idempotent,
+    coupon_code: result.coupon_code || '',
+    recovered_from: evidenceSource,
+    notification_id: evidence.id || '',
+  };
 }
 
 // ── Rate limiters ──────────────────────────────────────────────────────────
@@ -1214,6 +1282,86 @@ router.all('/gmail-watch/start', async (req, res) => {
   } catch (err) {
     console.error('[payment] gmail watch start error:', err);
     return fail(res, 500, 'WATCH_START_FAILED', 'Watch start failed.');
+  }
+});
+
+// ── /admin/recover/:paymentId — replay a verified credit (admin, audited) ───
+//
+// The rescue hatch for "the money is provably in the bank account but the
+// payment never reached PAID" — a settlement that failed for an infrastructure
+// reason (database write, sheet outage) rather than a business decision.
+//
+// Deliberate design constraints:
+//   * Admin-only, rate-limited, and every call is written to SecurityAudit with
+//     the acting admin, the reason, and the evidence used.
+//   * It takes a payment id and NOTHING else. The amount, Transaction ID, UTR
+//     and transaction instant are read back from the notification the system
+//     itself recorded from a verified FamApp message. An operator can therefore
+//     never type an amount or a reference in: this cannot mark an unpaid order
+//     as paid, and it cannot settle a payment no credit was ever observed for.
+//   * The evidence must fall inside the payment's own deadline, which is never
+//     moved — so recovery can only finish a settlement the rules would already
+//     have allowed, never extend one.
+//   * finalizePayment is idempotent and re-runs every guard (duplicate buyer,
+//     replayed reference, reference claims, coupon availability), so a second
+//     call is a no-op and a genuinely conflicting payment is still refused.
+router.post('/admin/recover/:paymentId', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
+  const paymentId = String(req.params.paymentId || '').trim();
+  const reason = String((req.body && req.body.reason) || '').trim();
+  if (!paymentId) return fail(res, 400, 'PAYMENT_ID_REQUIRED', 'A payment id is required.');
+  if (reason.length < 8) {
+    return fail(res, 400, 'REASON_REQUIRED', 'A short reason (8+ characters) is required for the audit log.');
+  }
+
+  const adminEmail = String((req.user && (req.user.email || req.user.username)) || 'admin');
+  try {
+    const ready = await store.ensureReady();
+    if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
+
+    const payment = await store.findPaymentById(paymentId);
+    if (!payment) return fail(res, 404, 'PAYMENT_NOT_FOUND', 'That payment does not exist.');
+
+    // Idempotent by construction: an already-settled payment reports success and
+    // stops, so a nervous double-click can never double-deliver a coupon.
+    if (payment.status === 'PAID') {
+      await auditRecovery(req, { paymentId, reason, outcome: 'ALREADY_PAID', detail: payment.verifiedTransactionId || '' });
+      const coupon = await store.readCoupon(payment.couponId);
+      return res.json({
+        ok: true, idempotent: true, payment_status: 'PAID', code: 'ALREADY_PAID',
+        coupon_code: (coupon && coupon.code) || '',
+      });
+    }
+    if (payment.status !== 'PENDING') {
+      return fail(res, 409, 'PAYMENT_NOT_PENDING', `Payment ${paymentId} is ${payment.status}, not PENDING.`);
+    }
+
+    const evidence = await store.findSettlementEvidence(payment);
+    if (evidence) {
+      return res.json(await recoverWith(req, res, payment, evidence, reason, adminEmail, 'notification'));
+    }
+
+    // Rows written before the references were persisted carry none. Re-read the
+    // ORIGINAL FamApp message from the payment mailbox instead of asking an
+    // operator to type a transaction id — the same trust, amount and window
+    // gates are re-applied there.
+    const candidates = await store.findRecordedCreditsForPayment(payment);
+    for (const recorded of candidates) {
+      let derived = null;
+      try { derived = await verifier.reDeriveEvidence(recorded, payment); } catch (e) { derived = null; }
+      if (derived && derived.transactionId && derived.utr) {
+        return res.json(await recoverWith(req, res, payment, derived, reason, adminEmail, 'mailbox_reverify'));
+      }
+    }
+
+    await auditRecovery(req, { paymentId, reason, outcome: 'NO_EVIDENCE', detail: `candidates=${candidates.length}` });
+    return fail(
+      res, 409, 'NO_RECORDED_CREDIT',
+      'No verified credit in the notification inbox or the payment mailbox matches this payment amount inside its payment window.',
+    );
+  } catch (err) {
+    console.error('[payment] admin recovery error:', err);
+    await auditRecovery(req, { paymentId, reason, outcome: 'ERROR', detail: err.message }).catch(() => {});
+    return fail(res, 500, 'RECOVERY_FAILED', 'Recovery attempt failed.');
   }
 });
 
