@@ -1345,7 +1345,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
     </div>
     <div class="nav-sub" id="payments-sub">
       <div class="nav-sub-item" onclick="showSection('revenue',null)">Revenue Overview</div>
-      <div class="nav-sub-item" onclick="showSection('transactions',null)">Payment Transactions</div>
+      <div class="nav-sub-item" onclick="showSection('transactions',null)">Transactions</div>
+      <div class="nav-sub-item" onclick="showSection('orders',null)">Orders</div>
       <div class="nav-sub-item" onclick="showSection('payouts',null)">Seller Payout <span class="nbadge" id="payoutsNavBadge">7</span></div>
             <div class="nav-sub-item" onclick="showSection('payment-methods',null)">Seller Payment Methods</div>
       <div class="nav-sub-item" onclick="showSection('admin-payouts',null)">Admin Payouts</div>
@@ -2202,8 +2203,18 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ PAYMENT TRANSACTIONS ════════════════ -->
     <div class="section-view" id="sec-transactions">
       <div class="page-title-row">
-        <div><div class="page-title">Payment <span class="gtext">Transactions</span></div><div class="page-subtitle">Real payment records from the marketplace</div></div>
-        <button class="btn btn-ghost btn-sm" onclick="loadTransactions(0)">↻ Refresh</button>
+        <div><div class="page-title">Payment <span class="gtext">Transactions</span></div><div class="page-subtitle">Financial investigation — payment attempts, verification and refunds</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="exportTransactionsCsv()">⬇ Export CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadTransactions(0)">↻ Refresh</button>
+        </div>
+      </div>
+      <div class="stats-grid" id="txnSummary" style="display:none">
+        <div class="stat-card"><div class="stat-lbl">Expected</div><div class="stat-val" id="txnSumExpected">—</div></div>
+        <div class="stat-card"><div class="stat-lbl">Detected</div><div class="stat-val" id="txnSumDetected">—</div></div>
+        <div class="stat-card"><div class="stat-lbl">Paid</div><div class="stat-val" id="txnSumPaid">—</div></div>
+        <div class="stat-card"><div class="stat-lbl">Refunded</div><div class="stat-val" id="txnSumRefunded">—</div></div>
+        <div class="stat-card"><div class="stat-lbl">With issues</div><div class="stat-val" id="txnSumIssues">—</div></div>
       </div>
       <div id="txnError" class="card" style="display:none;border-color:rgba(255,133,133,.4)">
         <div style="color:#ff8585;font-weight:600">⚠️ <span id="txnErrorText">Unable to load financial data.</span></div>
@@ -2212,12 +2223,24 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid rgba(79,195,247,.08)">
           <input type="search" class="form-input btn-sm" id="txnSearch" placeholder="Search ID, user, coupon, ref…" style="width:230px" onkeydown="if(event.key==='Enter')loadTransactions(0)">
           <select class="form-select btn-sm" id="txnStatus" style="width:150px" onchange="loadTransactions(0)">
-            <option value="">All Status</option>
+            <option value="">All Payment Status</option>
             <option value="PAID">Paid</option>
             <option value="PENDING">Pending</option>
+            <option value="REVIEW">Review</option>
             <option value="CANCELLED">Cancelled</option>
             <option value="EXPIRED">Expired</option>
-            <option value="REVIEW">Review</option>
+          </select>
+          <select class="form-select btn-sm" id="txnIssue" style="width:170px" onchange="loadTransactions(0)">
+            <option value="">All Issues</option>
+            <option value="failed">Failed / Cancelled / Expired</option>
+            <option value="expired">Expired sessions</option>
+            <option value="cancelled">Cancelled sessions</option>
+            <option value="late">Late payments</option>
+            <option value="mismatch">Amount mismatches</option>
+            <option value="review">Needs review</option>
+            <option value="verification_error">Verification errors</option>
+            <option value="refund">Has refund</option>
+            <option value="refund_open">Refund open</option>
           </select>
           <select class="form-select btn-sm" id="txnPeriod" style="width:150px" onchange="loadTransactions(0)">
             <option value="all">All time</option>
@@ -2232,8 +2255,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
         <div class="overflow-x">
           <table>
-            <thead><tr><th>Transaction ID</th><th>User</th><th>Coupon</th><th>Amount</th><th>Method</th><th>Gateway Ref</th><th>Date</th><th>Status</th></tr></thead>
-            <tbody id="txnPageBody"><tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">Loading…</td></tr></tbody>
+            <thead><tr><th>Payment ID</th><th>Order ID</th><th>Customer</th><th>Expected</th><th>Detected</th><th>Method / UTR</th><th>Detected At</th><th>Payment Status</th><th>Issues</th><th>Refund</th><th></th></tr></thead>
+            <tbody id="txnPageBody"><tr><td colspan="11" style="text-align:center;padding:24px;color:#6b88aa">Loading...</td></tr></tbody>
           </table>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px">
@@ -2241,6 +2264,86 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <span style="font-size:.8rem;color:#6b88aa">Page <span id="txnPageNum">1</span> of <span id="txnPages">1</span></span>
           <button class="btn btn-ghost btn-sm" id="txnNext" onclick="txnPage(1)">Next →</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ ORDERS — purchases & fulfilment ════════════════ -->
+    <div class="section-view" id="sec-orders">
+      <div class="page-title-row">
+        <div><div class="page-title">Customer <span class="gtext">Orders</span></div><div class="page-subtitle">Purchases, coupon reservation, unlock and fulfilment</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-ghost btn-sm" onclick="exportOrdersCsv()">⬇ Export CSV</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadOrders(0)">↻ Refresh</button>
+        </div>
+      </div>
+      <div id="ordError" class="card" style="display:none;border-color:rgba(255,133,133,.4)">
+        <div style="color:#ff8585;font-weight:600">⚠️ <span id="ordErrorText">Unable to load order data.</span></div>
+      </div>
+      <div class="table-card">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid rgba(79,195,247,.08)">
+          <input type="search" class="form-input btn-sm" id="ordSearch" placeholder="Order ID, customer email, coupon..." style="width:260px" onkeydown="if(event.key==='Enter')loadOrders(0)">
+          <select class="form-select btn-sm" id="ordStatus" style="width:150px" onchange="loadOrders(0)">
+            <option value="">All Order Status</option>
+            <option value="PAID">Paid</option>
+            <option value="PENDING">Pending</option>
+            <option value="REVIEW">Review</option>
+            <option value="CANCELLED">Cancelled</option>
+            <option value="EXPIRED">Expired</option>
+          </select>
+          <select class="form-select btn-sm" id="ordDelivery" style="width:170px" onchange="loadOrders(0)">
+            <option value="">All Delivery</option>
+            <option value="delivered">Delivered</option>
+            <option value="undelivered">Paid, not unlocked</option>
+            <option value="held_for_review">Held for review</option>
+            <option value="awaiting_payment">Awaiting payment</option>
+            <option value="not_delivered">Not delivered</option>
+          </select>
+          <select class="form-select btn-sm" id="ordPeriod" style="width:150px" onchange="loadOrders(0)">
+            <option value="all">All time</option>
+            <option value="today">Today</option>
+            <option value="7d">7 Days</option>
+            <option value="30d">30 Days</option>
+            <option value="thisMonth">This Month</option>
+            <option value="prevMonth">Prev Month</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" onclick="loadOrders(0)">Apply</button>
+          <span style="margin-left:auto;font-size:.78rem;color:#6b88aa"><span id="ordTotal">0</span> orders</span>
+        </div>
+        <div class="overflow-x">
+          <table>
+            <thead><tr><th>Order ID</th><th>Customer</th><th>Coupon</th><th>Face Value</th><th>Price</th><th>Created</th><th>Order Status</th><th>Payment</th><th>Reservation</th><th>Delivery</th></tr></thead>
+            <tbody id="ordPageBody"><tr><td colspan="10" style="text-align:center;padding:24px;color:#6b88aa">Loading...</td></tr></tbody>
+          </table>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px">
+          <button class="btn btn-ghost btn-sm" id="ordPrev" onclick="ordPage(-1)">← Prev</button>
+          <span style="font-size:.8rem;color:#6b88aa">Page <span id="ordPageNum">1</span> of <span id="ordPages">1</span></span>
+          <button class="btn btn-ghost btn-sm" id="ordNext" onclick="ordPage(1)">Next →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail modals: payment investigation and order view -->
+    <div class="modal-overlay" id="txnDetailModal" onclick="if(event.target===this)closeModal('txnDetailModal')">
+      <div class="modal" style="max-width:760px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h3 style="margin:0">Payment <span class="gtext">Investigation</span></h3>
+          <button class="btn btn-ghost btn-sm" onclick="closeModal('txnDetailModal')">✕</button>
+        </div>
+        <div id="txnDetailBody" style="font-size:.85rem;color:#a8c0dc">Loading…</div>
+        <div id="txnRetryRow" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid rgba(79,195,247,.1);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+          <span style="font-size:.75rem;color:#6b88aa">Re-runs the independent FamApp mailbox check. It can only settle from a real matching credit.</span>
+          <button class="btn btn-primary btn-sm" id="txnRetryBtn" onclick="retryPaymentVerification()">Retry Verification</button>
+        </div>
+      </div>
+    </div>
+    <div class="modal-overlay" id="ordDetailModal" onclick="if(event.target===this)closeModal('ordDetailModal')">
+      <div class="modal" style="max-width:760px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <h3 style="margin:0">Order <span class="gtext">Details</span></h3>
+          <button class="btn btn-ghost btn-sm" onclick="closeModal('ordDetailModal')">✕</button>
+        </div>
+        <div id="ordDetailBody" style="font-size:.85rem;color:#a8c0dc">Loading…</div>
       </div>
     </div>
 
@@ -3962,7 +4065,8 @@ const sectionTitles = {
   coupons:       ['Coupons', '/ Management'],
   reviews:       ['Reviews', '/ Homepage Testimonials'],
   revenue:       ['Revenue Overview', '/ Financial'],
-  transactions:  ['Payment Transactions', '/ History'],
+  transactions:  ['Transactions', '/ Investigation'],
+  orders:        ['Orders', '/ Fulfilment'],
   payouts:       ['Seller Payout', '/ Pending'],
   'payment-methods': ['Seller Payment', 'Methods'],
   'admin-payouts':['Revenue & Payouts', '/ 40 · 40 · 20 Split'],
@@ -4031,6 +4135,9 @@ function showSection(id, navEl) {
   }
   if (id === 'transactions' && typeof loadTransactions === 'function') {
     loadTransactions(0);
+  }
+  if (id === 'orders' && typeof loadOrders === 'function') {
+    loadOrders(0);
   }
   if (id === 'settlements' && typeof loadSettlement === 'function') {
     loadSettlement();
@@ -5185,28 +5292,84 @@ renderAdminPayoutsTable();
    PAYMENT TRANSACTIONS — real records
 ════════════════════════════ */
 const TXN_STATE = { offset: 0, limit: 25, total: 0 };
+const ORD_STATE = { offset: 0, limit: 25, total: 0 };
+let TXN_DETAIL_ID = '';
+
+function ledgerErrorHtml(e, unavailable, cols) {
+  const msg = unavailable ? 'Unable to load financial data.' : (e && e.message) || 'Error';
+  return `<tr><td colspan="${cols}" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${escapeHtml(msg)}</td></tr>`;
+}
+
+function ledgerCurrency(n) {
+  return n == null || n === '' ? '—' : '₹' + (Math.round(Number(n) * 100) / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+}
+
+function ledgerDate(iso) {
+  return iso ? new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+}
+
+const ISSUE_LABELS = {
+  MISMATCH: ['Mismatch', 'badge-orange'],
+  REVIEW: ['Review', 'badge-teal'],
+  EXPIRED: ['Expired', 'badge-red'],
+  CANCELLED: ['Cancelled', 'badge-red'],
+  LATE_PAYMENT: ['Late', 'badge-purple'],
+  VERIFICATION_ERROR: ['Verify error', 'badge-danger'],
+};
+
+function issueBadges(issues) {
+  if (!issues || !issues.length) return '<span style="color:#6b88aa">—</span>';
+  return issues.map((k) => {
+    const [label, cls] = ISSUE_LABELS[k] || [k, 'badge-gray'];
+    return `<span class="badge ${cls}" style="font-size:.6rem;margin:1px">${escapeHtml(label)}</span>`;
+  }).join(' ');
+}
+
+function paymentStatusBadge(status) {
+  const s = String(status || '').toUpperCase();
+  const map = { PAID: 'badge-green', PENDING: 'badge-orange', CANCELLED: 'badge-red', EXPIRED: 'badge-red', REVIEW: 'badge-teal' };
+  return `<span class="badge ${map[s] || 'badge-blue'}">${escapeHtml(s || '—')}</span>`;
+}
+
+function renderTxnSummary(sum) {
+  const box = document.getElementById('txnSummary');
+  if (!box || !sum) return;
+  box.style.display = '';
+  setTxt('txnSumExpected', ledgerCurrency(sum.expectedTotal));
+  setTxt('txnSumDetected', ledgerCurrency(sum.detectedTotal));
+  setTxt('txnSumPaid', ledgerCurrency(sum.paidTotal));
+  setTxt('txnSumRefunded', ledgerCurrency(sum.refundedTotal));
+  setTxt('txnSumIssues', String(sum.issueCount || 0));
+}
 
 async function loadTransactions(offset) {
   if (typeof offset === 'number') TXN_STATE.offset = Math.max(0, offset);
   const body = document.getElementById('txnPageBody');
   const err = document.getElementById('txnError');
-  if (body) body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">Loading…</td></tr>';
-  const q = new URLSearchParams();
-  q.set('period', (document.getElementById('txnPeriod') || {}).value || 'all');
+  if (body) body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#6b88aa">Loading...</td></tr>';
+  const q = txnQuery();
   q.set('limit', String(TXN_STATE.limit));
   q.set('offset', String(TXN_STATE.offset));
-  const st = (document.getElementById('txnStatus') || {}).value; if (st) q.set('status', st);
-  const s = ((document.getElementById('txnSearch') || {}).value || '').trim(); if (s) q.set('search', s);
   try {
-    const res = await api('/admin/finance/transactions?' + q.toString(), { useAdmin: true });
+    const res = await api('/admin/finance/payments?' + q.toString(), { useAdmin: true });
     if (err) err.style.display = 'none';
     TXN_STATE.total = res.total || 0;
+    renderTxnSummary(res.summary);
     renderTxnPage(res.transactions || []);
   } catch (e) {
     const unavailable = e && e.data && e.data.dataUnavailable;
     if (err) { err.style.display = 'block'; setTxt('txnErrorText', unavailable ? 'Unable to load financial data.' : (e.message || 'Failed to load transactions')); }
-    if (body) body.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${unavailable ? 'Unable to load financial data.' : escapeHtml(e.message || 'Error')}</td></tr>`;
+    if (body) body.innerHTML = ledgerErrorHtml(e, unavailable, 11);
   }
+}
+
+function txnQuery() {
+  const q = new URLSearchParams();
+  q.set('period', (document.getElementById('txnPeriod') || {}).value || 'all');
+  const st = (document.getElementById('txnStatus') || {}).value; if (st) q.set('status', st);
+  const issue = (document.getElementById('txnIssue') || {}).value; if (issue) q.set('issue', issue);
+  const s = ((document.getElementById('txnSearch') || {}).value || '').trim(); if (s) q.set('search', s);
+  return q;
 }
 
 function renderTxnPage(rows) {
@@ -5219,24 +5382,24 @@ function renderTxnPage(rows) {
   if (prev) prev.disabled = TXN_STATE.offset <= 0;
   if (next) next.disabled = cur >= pages;
   if (!body) return;
-  if (!rows.length) { body.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:24px;color:#6b88aa">No transactions found.</td></tr>'; return; }
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#6b88aa">No transactions found.</td></tr>'; return; }
   body.innerHTML = rows.map((t) => {
-    const dt = t.createdAt ? new Date(t.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
-    const refund = t.refundStatus ? ` <span class="badge badge-red" style="font-size:.6rem">${escapeHtml(t.refundStatus)}</span>` : '';
-    const idPrimary = t.orderCode || t.id || '—';
-    const idSub = [];
-    if (t.transactionId) idSub.push(String(t.transactionId));
-    if (t.orderCode && t.id) idSub.push(String(t.id));
-    const idCell = `<strong class="mono">${escapeHtml(String(idPrimary))}</strong>` + idSub.map((v) => `<div class="mono" style="font-size:.65rem;color:#6b88aa">${escapeHtml(v)}</div>`).join('');
+    const refund = t.refundStatus
+      ? `<div><span class="badge badge-red" style="font-size:.6rem">${escapeHtml(t.refundStatus)}</span> <span class="mono" style="font-size:.7rem">${ledgerCurrency(t.refundAmount)}</span></div>`
+      : '<span style="color:#6b88aa">—</span>';
+    const method = `<div>${escapeHtml(t.paymentMethod || 'UPI')}</div><div class="mono" style="font-size:.66rem;color:#6b88aa">${escapeHtml(t.utr || '—')}</div>`;
     return `<tr>
-      <td>${idCell}</td>
-      <td>${escapeHtml(t.user || '—')}${t.userEmail ? `<div style="font-size:.65rem;color:#6b88aa">${escapeHtml(t.userEmail)}</div>` : ''}</td>
-      <td>${escapeHtml(t.coupon || '—')}</td>
-      <td><strong class="mono" style="color:#00E272">₹${(Math.round(Number(t.amount) || 0)).toLocaleString('en-IN')}</strong></td>
-      <td>${escapeHtml(t.method || 'UPI')}</td>
-      <td class="mono" style="font-size:.72rem">${escapeHtml(t.gatewayReference || '—')}</td>
-      <td style="font-size:.78rem;color:#a8c0dc">${dt}</td>
-      <td>${txnBadge(t.status)}${refund}</td>
+      <td><strong class="mono">${escapeHtml(t.paymentId || '—')}</strong></td>
+      <td class="mono" style="font-size:.74rem">${escapeHtml(t.orderId || '—')}</td>
+      <td>${escapeHtml(t.customerName || '—')}${t.customerEmail ? `<div style="font-size:.65rem;color:#6b88aa">${escapeHtml(t.customerEmail)}</div>` : ''}</td>
+      <td class="mono">${ledgerCurrency(t.expectedAmount)}</td>
+      <td class="mono" style="color:${t.detectedAmount == null ? '#6b88aa' : '#00E272'}">${ledgerCurrency(t.detectedAmount)}</td>
+      <td>${method}</td>
+      <td style="font-size:.78rem;color:#a8c0dc">${ledgerDate(t.detectedAt || '')}</td>
+      <td>${paymentStatusBadge(t.status)}</td>
+      <td>${issueBadges(t.issues)}</td>
+      <td>${refund}</td>
+      <td><button class="btn btn-ghost btn-sm" onclick="openTransactionDetail('${escapeHtml(t.paymentId)}')">View</button></td>
     </tr>`;
   }).join('');
 }
@@ -5246,6 +5409,215 @@ function txnPage(dir) {
   if (n < 0) return;
   TXN_STATE.offset = n;
   loadTransactions();
+}
+
+async function openTransactionDetail(paymentId) {
+  TXN_DETAIL_ID = paymentId;
+  const body = document.getElementById('txnDetailBody');
+  const retry = document.getElementById('txnRetryRow');
+  if (body) body.innerHTML = 'Loading…';
+  if (retry) retry.style.display = 'none';
+  openModal('txnDetailModal');
+  try {
+    const d = await api('/admin/finance/payments/' + encodeURIComponent(paymentId), { useAdmin: true });
+    renderTxnDetail(d);
+    if (retry && d.payment && d.payment.status === 'PENDING') retry.style.display = 'flex';
+  } catch (e) {
+    if (body) body.innerHTML = `<div style="color:#ff8585">⚠️ ${escapeHtml(e.message || 'Could not load this payment.')}</div>`;
+  }
+}
+
+function kv(label, value) {
+  return `<div><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;letter-spacing:.04em">${escapeHtml(label)}</div><div class="mono" style="font-size:.8rem;color:#e6f1ff;word-break:break-all">${escapeHtml(value == null || value === '' ? '—' : String(value))}</div></div>`;
+}
+
+function renderTxnDetail(d) {
+  const body = document.getElementById('txnDetailBody');
+  if (!body) return;
+  const p = d.payment || {};
+  const grid = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px';
+  const history = (d.history || []).map((h) => `<li style="margin-bottom:6px"><span class="mono" style="font-size:.7rem;color:#6b88aa">${escapeHtml(ledgerDate(h.at))}</span> — ${escapeHtml(h.event)}${h.notes ? `<div style="font-size:.72rem;color:#6b88aa">${escapeHtml(h.notes)}</div>` : ''}</li>`).join('') || '<li style="color:#6b88aa">No history recorded.</li>';
+  const attempts = (d.attempts || []).map((a) => `<tr><td class="mono" style="font-size:.72rem">${escapeHtml(a.paymentId)}${a.current ? ' <span class="badge badge-blue" style="font-size:.55rem">this</span>' : ''}</td><td>${paymentStatusBadge(a.status)}</td><td class="mono">${ledgerCurrency(a.amount)}</td><td style="font-size:.74rem">${ledgerDate(a.createdAt)}</td></tr>`).join('') || '<tr><td colspan="4" style="color:#6b88aa">No attempts.</td></tr>';
+  const refunds = (d.refunds || []).map((r) => `<div style="margin-bottom:4px">${ledgerCurrency(r.amount)} · <span class="badge badge-red" style="font-size:.6rem">${escapeHtml(r.status)}</span> · <span class="mono" style="font-size:.72rem">${escapeHtml(r.reference || 'no reference')}</span></div>`).join('') || '<span style="color:#6b88aa">No refund.</span>';
+
+  body.innerHTML = `
+    <div style="${grid}">
+      ${kv('Payment ID', p.paymentId)}${kv('Order ID', p.orderId)}${kv('Transaction ID', p.transactionId)}
+      ${kv('Customer', p.customerName)}${kv('Email', p.customerEmail)}${kv('Coupon', p.couponName)}
+      ${kv('Expected amount', ledgerCurrency(p.expectedAmount))}${kv('Detected amount', ledgerCurrency(p.detectedAmount))}
+      ${kv('Payment method', p.paymentMethod)}${kv('UTR / UPI reference', p.utr)}${kv('Gateway transaction ID', p.gatewayTransactionId)}
+      ${kv('Payment status', p.status)}${kv('Created', ledgerDate(p.createdAt))}${kv('Detected at', ledgerDate(p.detectedAt))}
+      ${kv('Verification started', ledgerDate(p.verificationStartedAt))}${kv('Verification deadline', ledgerDate(p.verificationDeadline))}
+      ${kv('Last checked', ledgerDate(p.lastCheckedAt))}${kv('Verification source', p.verificationSource)}
+    </div>
+    <div style="margin-bottom:12px"><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Issues</div>${issueBadges(p.issues)}</div>
+    <div style="margin-bottom:12px"><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Verification notes</div><div style="font-size:.8rem">${escapeHtml(p.verificationNotes || '—')}</div></div>
+    <div style="margin-bottom:12px"><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Refund</div>${refunds}</div>
+    <div style="margin-bottom:12px"><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Payment attempts for this order</div>
+      <div class="overflow-x"><table><thead><tr><th>Payment</th><th>Status</th><th>Amount</th><th>Created</th></tr></thead><tbody>${attempts}</tbody></table></div></div>
+    <div><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Verification history</div><ul style="padding-left:18px;margin:0">${history}</ul></div>`;
+}
+
+async function retryPaymentVerification() {
+  if (!TXN_DETAIL_ID) return;
+  const btn = document.getElementById('txnRetryBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  try {
+    const res = await api('/admin/finance/payments/' + encodeURIComponent(TXN_DETAIL_ID) + '/retry-verification', { method: 'POST', useAdmin: true });
+    const status = res.payment && res.payment.status;
+    showToast(res.changed ? `Payment is now ${status}.` : (res.scanned ? `No matching credit yet. Still ${status}.` : (res.mailboxReason || 'Verification did not run.')), res.changed ? 'success' : 'warning');
+    await openTransactionDetail(TXN_DETAIL_ID);
+    loadTransactions();
+  } catch (e) {
+    showToast(e.message || 'Verification could not run.', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Retry Verification'; }
+  }
+}
+
+function exportTransactionsCsv() { downloadLedgerCsv('/admin/finance/payments/export.csv?' + txnQuery().toString(), 'transactions'); }
+
+async function downloadLedgerCsv(path, label) {
+  try {
+    // Browser auth is the HttpOnly session cookie only; bearer headers are rejected.
+    const res = await fetch('/api' + path, { credentials: 'include', cache: 'no-store' });
+    if (!res.ok) {
+      const detail = await res.json().catch(() => ({}));
+      throw new Error(detail.error || `Export failed (HTTP ${res.status}).`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `SaveHatke_${label}_${Date.now()}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  } catch (e) {
+    showToast(e.message || 'Export failed.', 'error');
+  }
+}
+
+/* ════════════════════════════
+   ORDERS — purchases & fulfilment
+════════════════════════════ */
+function ordQuery() {
+  const q = new URLSearchParams();
+  q.set('period', (document.getElementById('ordPeriod') || {}).value || 'all');
+  const st = (document.getElementById('ordStatus') || {}).value; if (st) q.set('status', st);
+  const dl = (document.getElementById('ordDelivery') || {}).value; if (dl) q.set('delivery', dl);
+  const s = ((document.getElementById('ordSearch') || {}).value || '').trim(); if (s) q.set('search', s);
+  return q;
+}
+
+const DELIVERY_LABELS = {
+  delivered: ['Delivered', 'badge-green'],
+  undelivered: ['Paid, not unlocked', 'badge-red'],
+  held_for_review: ['Held for review', 'badge-teal'],
+  not_delivered: ['Not delivered', 'badge-gray'],
+  awaiting_payment: ['Awaiting payment', 'badge-orange'],
+};
+const RESERVATION_LABELS = {
+  active: ['Reserved', 'badge-orange'],
+  expired: ['Reservation lapsed', 'badge-gray'],
+  held_by_other: ['Held by another buyer', 'badge-red'],
+  none: ['Not reserved', 'badge-gray'],
+  unknown: ['Unknown', 'badge-gray'],
+};
+
+function badgeFrom(map, key) {
+  const [label, cls] = map[key] || [key || '—', 'badge-gray'];
+  return `<span class="badge ${cls}" style="font-size:.6rem">${escapeHtml(label)}</span>`;
+}
+
+async function loadOrders(offset) {
+  if (typeof offset === 'number') ORD_STATE.offset = Math.max(0, offset);
+  const body = document.getElementById('ordPageBody');
+  const err = document.getElementById('ordError');
+  if (body) body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:#6b88aa">Loading...</td></tr>';
+  const q = ordQuery();
+  q.set('limit', String(ORD_STATE.limit));
+  q.set('offset', String(ORD_STATE.offset));
+  try {
+    const res = await api('/admin/finance/orders?' + q.toString(), { useAdmin: true });
+    if (err) err.style.display = 'none';
+    ORD_STATE.total = res.total || 0;
+    renderOrdPage(res.orders || []);
+  } catch (e) {
+    const unavailable = e && e.data && e.data.dataUnavailable;
+    if (err) { err.style.display = 'block'; setTxt('ordErrorText', unavailable ? 'Unable to load financial data.' : (e.message || 'Failed to load orders')); }
+    if (body) body.innerHTML = ledgerErrorHtml(e, unavailable, 10);
+  }
+}
+
+function renderOrdPage(rows) {
+  const body = document.getElementById('ordPageBody');
+  setTxt('ordTotal', String(ORD_STATE.total));
+  const pages = Math.max(1, Math.ceil(ORD_STATE.total / ORD_STATE.limit));
+  const cur = Math.floor(ORD_STATE.offset / ORD_STATE.limit) + 1;
+  setTxt('ordPageNum', String(cur)); setTxt('ordPages', String(pages));
+  const prev = document.getElementById('ordPrev'), next = document.getElementById('ordNext');
+  if (prev) prev.disabled = ORD_STATE.offset <= 0;
+  if (next) next.disabled = cur >= pages;
+  if (!body) return;
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:#6b88aa">No orders found.</td></tr>'; return; }
+  body.innerHTML = rows.map((o) => `<tr>
+      <td><strong class="mono">${escapeHtml(o.orderId || '—')}</strong>${o.fulfilmentIssues && o.fulfilmentIssues.length ? ' <span class="badge badge-danger" style="font-size:.55rem">Issue</span>' : ''}</td>
+      <td>${escapeHtml(o.customerName || '—')}${o.customerEmail ? `<div style="font-size:.65rem;color:#6b88aa">${escapeHtml(o.customerEmail)}</div>` : ''}</td>
+      <td>${escapeHtml(o.couponName || '—')}</td>
+      <td class="mono">${ledgerCurrency(o.couponFaceValue)}</td>
+      <td class="mono" style="color:#00E272">${ledgerCurrency(o.purchasePrice)}</td>
+      <td style="font-size:.78rem;color:#a8c0dc">${ledgerDate(o.createdAt)}</td>
+      <td>${paymentStatusBadge(o.status)}</td>
+      <td>${escapeHtml(o.paymentStatus || '—')}${o.paymentAttempts > 1 ? ` <span style="color:#6b88aa;font-size:.7rem">×${o.paymentAttempts}</span>` : ''}</td>
+      <td>${badgeFrom(RESERVATION_LABELS, o.reservationStatus)}</td>
+      <td>${badgeFrom(DELIVERY_LABELS, o.deliveryStatus)} <button class="btn btn-ghost btn-sm" style="margin-left:6px" onclick="openOrderDetail('${escapeHtml(o.orderId)}')">View</button></td>
+    </tr>`).join('');
+}
+
+function ordPage(dir) {
+  const n = ORD_STATE.offset + dir * ORD_STATE.limit;
+  if (n < 0) return;
+  ORD_STATE.offset = n;
+  loadOrders();
+}
+
+function exportOrdersCsv() { downloadLedgerCsv('/admin/finance/orders/export.csv?' + ordQuery().toString(), 'orders'); }
+
+async function openOrderDetail(orderId) {
+  const body = document.getElementById('ordDetailBody');
+  if (body) body.innerHTML = 'Loading…';
+  openModal('ordDetailModal');
+  try {
+    const d = await api('/admin/finance/orders/' + encodeURIComponent(orderId), { useAdmin: true });
+    renderOrderDetail(d);
+  } catch (e) {
+    if (body) body.innerHTML = `<div style="color:#ff8585">⚠️ ${escapeHtml(e.message || 'Could not load this order.')}</div>`;
+  }
+}
+
+function renderOrderDetail(d) {
+  const body = document.getElementById('ordDetailBody');
+  if (!body) return;
+  const o = d.order || {};
+  const grid = 'display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px';
+  const attempts = (d.attempts || []).map((a) => `<tr><td class="mono" style="font-size:.72rem">${escapeHtml(a.paymentId)}</td><td>${paymentStatusBadge(a.status)}</td><td class="mono">${ledgerCurrency(a.expectedAmount)}</td><td class="mono">${ledgerCurrency(a.detectedAmount)}</td><td class="mono" style="font-size:.72rem">${escapeHtml(a.utr || '—')}</td><td style="font-size:.74rem">${ledgerDate(a.createdAt)}</td></tr>`).join('') || '<tr><td colspan="6" style="color:#6b88aa">No payment attempts yet.</td></tr>';
+  const issues = (o.fulfilmentIssues || []).map((i) => `<li style="color:#ffb4a8">${escapeHtml(i)}</li>`).join('') || '<li style="color:#6b88aa">None.</li>';
+  const history = (d.history || []).map((h) => `<li style="margin-bottom:6px"><span class="mono" style="font-size:.7rem;color:#6b88aa">${escapeHtml(ledgerDate(h.at))}</span> — ${escapeHtml(h.event)}${h.notes ? `<div style="font-size:.72rem;color:#6b88aa">${escapeHtml(h.notes)}</div>` : ''}</li>`).join('') || '<li style="color:#6b88aa">No history.</li>';
+
+  body.innerHTML = `
+    <div style="${grid}">
+      ${kv('Order ID', o.orderId)}${kv('Transaction ID', o.transactionId)}${kv('User ID', o.userId)}
+      ${kv('Customer', o.customerName)}${kv('Email', o.customerEmail)}${kv('Coupon', o.couponName)}
+      ${kv('Coupon ID', o.couponId)}${kv('Face value', ledgerCurrency(o.couponFaceValue))}${kv('Purchase price', ledgerCurrency(o.purchasePrice))}
+      ${kv('Created', ledgerDate(o.createdAt))}${kv('Updated', ledgerDate(o.updatedAt))}${kv('Paid at', ledgerDate(o.paidAt))}
+      ${kv('Order status', o.status)}${kv('Payment status (latest)', o.paymentStatus)}${kv('Payment attempts', o.paymentAttempts)}
+      ${kv('Coupon unlocked at', ledgerDate(o.couponSoldAt))}${kv('Cancellation', o.cancellationType ? `${o.cancellationType} · ${ledgerDate(o.cancellationAt)}` : '')}
+    </div>
+    <div style="margin-bottom:12px"><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Status (kept separate)</div>
+      Reservation: ${badgeFrom(RESERVATION_LABELS, o.reservationStatus)} &nbsp; Delivery: ${badgeFrom(DELIVERY_LABELS, o.deliveryStatus)}</div>
+    <div style="margin-bottom:12px"><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Fulfilment issues</div><ul style="padding-left:18px;margin:0">${issues}</ul></div>
+    <div style="margin-bottom:12px"><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Payment attempts</div>
+      <div class="overflow-x"><table><thead><tr><th>Payment</th><th>Status</th><th>Expected</th><th>Detected</th><th>UTR</th><th>Created</th></tr></thead><tbody>${attempts}</tbody></table></div></div>
+    <div><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Order history</div><ul style="padding-left:18px;margin:0">${history}</ul></div>`;
 }
 
 /* ════════════════════════════
