@@ -306,7 +306,9 @@ async function api(endpoint, options = {}) {
         err.status = 429;
         err.isRateLimited = true;
         err.data = data;
-        if (data && data.code === 'RATE_LIMITED' && window.location.pathname !== '/429.html') {
+        // Only a user-initiated write sends the visitor to the 429 page. Background reads on page load (homepage, nav) surface an inline error instead, so a rate-limited read never navigates the page away.
+        const isRead = !options.method || String(options.method).toUpperCase() === 'GET';
+        if (data && data.code === 'RATE_LIMITED' && !isRead && window.location.pathname !== '/429.html') {
           const retryAfter = Math.max(0, Number(res.headers.get('Retry-After')) || 0);
           const currentPath = window.location.pathname + window.location.search + window.location.hash;
           const params = new URLSearchParams({ from: currentPath });

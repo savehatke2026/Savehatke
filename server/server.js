@@ -310,7 +310,7 @@ app.use('/api', distributedLimiter({ resolveCaller }));
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  max: 600, // 600 requests per window (index makes ~5 reads per load; shared NAT/IP headroom)
   standardHeaders: false,
   legacyHeaders: false,
   handler: safeRateLimitHandler(),
@@ -610,7 +610,8 @@ app.get('/admin/coupons/:couponId', (req, res) => {
 // same destination the API guard would have sent them to). This satisfies
 // the requirement that "normal users should still be able to authenticate"
 // even while maintenance is active.
-app.use('/api/auth', authLimiter, authRoutes);
+// /api/auth/me is a session read the homepage makes on every load, so it skips the sign-in limiter.
+app.use('/api/auth', (req, res, next) => (req.path === '/me' ? next() : authLimiter(req, res, next)), authRoutes);
 app.use('/api/coupons/proof', couponProofLimiter);
 app.use('/api/coupons/scan', couponScanLimiter);
 app.use('/api/coupons', apiLimiter, maintenanceGuard, couponRoutes);

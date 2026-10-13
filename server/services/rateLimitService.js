@@ -306,6 +306,9 @@ const RULES = [
   },
 
   // ── Authentication ───────────────────────────────────────────────────────
+  // Session read used on every page load (incl. the homepage, logged out). It is a
+  // cheap cookie check, not a sign-in attempt, so it draws from the public read budget.
+  { test: (p) => /^\/api\/auth\/me\/?$/i.test(p), both: { ip: 'public-read' } },
   { test: (p) => /^\/api\/auth(?:\/|$)/i.test(p), both: { ip: 'auth' }, sensitive: true },
 
   // ── Coupons ──────────────────────────────────────────────────────────────
