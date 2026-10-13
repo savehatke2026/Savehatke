@@ -767,6 +767,9 @@
   .match-timer.red    { color:#FF0000; box-shadow:0 0 10px rgba(255,0,0,.32), inset 0 0 6px rgba(255,0,0,.08); }
   .match-timer.final  { animation:matchTimerFlash 1.4s ease-in-out infinite; }
   .match-timer.expired { color:#8a94a6; border-color:rgba(138,148,166,.35); box-shadow:none; }
+  /* "Expires Soon" badge — sits on the banner. Solid amber with dark text so it
+     stays readable over any brand image and in both light and dark themes. */
+  .match-expires-soon { position:absolute; top:3.5cqw; left:3.5cqw; z-index:2; background:#FFB020; color:#1a1200; border-radius:99px; padding:1.4cqw 3.4cqw; font-size:3.8cqw; font-weight:800; letter-spacing:-.02em; line-height:1.2; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.35); pointer-events:none; }
   @keyframes matchTimerFlash { 0%,100%{ box-shadow:0 0 6px rgba(255,0,0,.25); } 50%{ box-shadow:0 0 16px rgba(255,0,0,.7); } }
   @media(prefers-reduced-motion:reduce){ .match-timer.final { animation:none; } }
 

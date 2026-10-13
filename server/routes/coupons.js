@@ -297,6 +297,9 @@ router.get('/', optionalAuth, async (req, res) => {
         pricingRate: buyerPrice.rate,
         pricingBand: buyerPrice.bandLabel,
         pricingPurchasable: buyerPrice.purchasable,
+        // "Expires Soon" — the card shows the badge; pricing already excluded
+        // this coupon from the last-24h rule above.
+        expiresSoon: buyerPrice.expiresSoon,
         // The legacy stored value, kept for diagnostics only — never used
         // for the buyer price.
         storedSellingPrice: c.sellingPrice,
@@ -1362,6 +1365,7 @@ router.get('/:id', async (req, res) => {
         pricingRate: buyerPrice.rate,
         pricingBand: buyerPrice.bandLabel,
         pricingPurchasable: buyerPrice.purchasable,
+        expiresSoon: buyerPrice.expiresSoon,
         storedSellingPrice: coupon.sellingPrice,
         // Checkout shows these two and had no way to learn them before.
         minOrderValue: coupon.minOrderValue || '',

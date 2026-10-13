@@ -226,6 +226,7 @@
     #couponGrid .match-timer { grid-column:3; justify-self:end; }
     #couponGrid .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
     #couponGrid .match-cost { font-size:6.1cqw; color:#00E272; font-weight:800; letter-spacing:-.04em; }
+    #couponGrid .match-expires-soon { position:absolute; top:3.5cqw; left:3.5cqw; z-index:2; background:#FFB020; color:#1a1200; border-radius:99px; padding:1.4cqw 3.4cqw; font-size:3.8cqw; font-weight:800; letter-spacing:-.02em; line-height:1.2; white-space:nowrap; box-shadow:0 2px 8px rgba(0,0,0,.35); pointer-events:none; }
     #couponGrid .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; }
     #couponGrid .match-timer svg { width:3cqw; height:3cqw; flex-shrink:0; }
     #couponGrid .match-timer { padding:1.2cqw 2.6cqw; border-radius:99px; border:1px solid currentColor; background:rgba(255,255,255,.03); min-width:0; max-width:100%; }
@@ -1190,10 +1191,13 @@
         timerHtml = `<span class="match-timer ${indexTimerBand(msLeftNow)}" data-band="${escapeIndexAttr(id)}">${INDEX_TIMER_SVG}<span data-timer="${escapeIndexAttr(id)}">${formatIndexCountdown(msLeftNow)}</span></span>`;
       }
       const origPrice = !isFree && c.originalValue ? ` <del>₹${escapeIndexAttr(c.originalValue)}</del>` : '';
+      // "Expires Soon" badge — shown only when the admin flagged this coupon.
+      const expiresSoonBadge = c.expiresSoon === true ? `<span class="match-expires-soon" role="note">Expires Soon</span>` : '';
 
       return `
         <article class="coupon-card" data-coupon-id="${escapeIndexAttr(id)}" style="cursor:pointer" onclick="goToCheckout('${escapeIndexAttr(id)}')">
           <div class="match-banner">
+            ${expiresSoonBadge}
             ${brandImg
               ? `<img src="${escapeIndexAttr(brandImg)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
               : `<div class="match-fallback" aria-hidden="true"><b>${escapeIndexAttr(initial)}</b><span>${escapeIndexAttr(origVal)}</span></div>`}

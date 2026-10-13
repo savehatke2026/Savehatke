@@ -450,6 +450,8 @@ let pricePreviewTimer = null;
 function readPricingForm(which) {
   const f = PRICING_FIELDS[which];
   const val = (id) => document.getElementById(id)?.value?.trim() || '';
+  // "Expires Soon" mirrors the create/edit checkbox so the preview matches checkout.
+  const expiresSoonId = which === 'edit' ? 'ceExpiresSoon' : 'acExpiresSoon';
   return {
     pricingMode: val(f.mode) || 'automatic',
     valueType: val(f.valueType) || 'face_value',
@@ -457,6 +459,7 @@ function readPricingForm(which) {
     manualPrice: val(f.manual),
     manualFinalPrice: val(f.finalPrice),
     expiryDate: val(f.expiry),
+    expiresSoon: !!document.getElementById(expiresSoonId)?.checked,
   };
 }
 
@@ -507,8 +510,10 @@ function schedulePricePreview(which) {
 
 function wirePricePreview(which) {
   const f = PRICING_FIELDS[which];
-  for (const key of ['mode', 'valueType', 'value', 'manual', 'finalPrice', 'expiry']) {
-    const el = document.getElementById(f[key]);
+  const expiresSoonId = which === 'edit' ? 'ceExpiresSoon' : 'acExpiresSoon';
+  for (const key of ['mode', 'valueType', 'value', 'manual', 'finalPrice', 'expiry', 'expiresSoon']) {
+    const id = key === 'expiresSoon' ? expiresSoonId : f[key];
+    const el = document.getElementById(id);
     // Guard so reopening the Edit modal never stacks duplicate listeners.
     if (!el || el.dataset.pricePreviewWired === '1') continue;
     el.dataset.pricePreviewWired = '1';
@@ -557,6 +562,8 @@ function initAddCouponForm() {
       const source = document.getElementById('acSource')?.value || 'admin';
       // Discount display is OFF by default; only an explicit tick turns it on.
       const discountOn = !!document.getElementById('acDiscountOn')?.checked;
+      // "Expires Soon" excludes the coupon from the last-24h rule. Off by default.
+      const expiresSoon = !!document.getElementById('acExpiresSoon')?.checked;
       const isFeatured = !!document.getElementById('acFeatured')?.checked;
       const isExclusive = !!document.getElementById('acExclusive')?.checked;
       const isVerified = !!document.getElementById('acVerified')?.checked;
@@ -590,6 +597,7 @@ function initAddCouponForm() {
           valueType,
           manualFinalPrice,
           discountOn,
+          expiresSoon,
           status,
           source,
           isFeatured,
@@ -3393,6 +3401,8 @@ function openCouponEdit(id) {
   setC('ceTimer', c.timerOn !== false);
   // Discount display is off unless the coupon was explicitly switched on.
   setC('ceDiscountOn', c.discountOn === true);
+  // "Expires Soon" is off unless the coupon was explicitly flagged.
+  setC('ceExpiresSoon', c.expiresSoon === true || c.expiresSoon === 'true');
   setC('ceFeatured', c.isFeatured === true || c.isFeatured === 'true');
   setC('ceExclusive', c.isExclusive === true || c.isExclusive === 'true');
   setC('ceVerified', c.isVerified === true || c.isVerified === 'true');
@@ -3487,9 +3497,11 @@ async function saveCouponEdit() {
       const curSale = cur.onSale !== false && cur.onSale !== 'false';
       const curTimer = cur.timerOn !== false && cur.timerOn !== 'false';
       const curDiscount = cur.discountOn === true || cur.discountOn === 'true';
+      const curExpiresSoon = cur.expiresSoon === true || cur.expiresSoon === 'true';
       if (ck('ceSale') !== curSale) out.onSale = ck('ceSale');
       if (ck('ceTimer') !== curTimer) out.timerOn = ck('ceTimer');
       if (ck('ceDiscountOn') !== curDiscount) out.discountOn = ck('ceDiscountOn');
+      if (ck('ceExpiresSoon') !== curExpiresSoon) out.expiresSoon = ck('ceExpiresSoon');
       return out;
     })()),
     isFeatured: ck('ceFeatured'),
@@ -3552,7 +3564,9 @@ function sellPriceFor(c) {
   const face = Number(String(c.originalValue || '').replace(/[^\d.]/g, ''));
   if (!Number.isFinite(face) || face <= 0) return null;
   const at = parseExpiry(c.expiryDate);
-  const lastDay = at !== null && at - Date.now() <= 24 * 60 * 60 * 1000;
+  // "Expires Soon" coupons are excluded from the last-24h rule, mirroring the server.
+  const expiresSoon = c.expiresSoon === true || c.expiresSoon === 'true';
+  const lastDay = !expiresSoon && at !== null && at - Date.now() <= 24 * 60 * 60 * 1000;
   return Math.round(face * (lastDay ? 0.10 : 0.20) * 100) / 100;
 }
 

@@ -94,6 +94,15 @@ function normValueType(raw) {
   return VALUE_TYPES.includes(v) ? v : 'face_value';
 }
 
+/**
+ * "Expires Soon" flag. Accepts the boolean, or the string forms the admin form
+ * and Sheets mirror produce. Anything else (including NULL / legacy rows) is
+ * false, so an unset flag never changes a coupon's price.
+ */
+function isExpiresSoon(raw) {
+  return raw === true || raw === 'true';
+}
+
 /** Manual price as paise, or null when blank / invalid (formula applies). */
 function manualPaiseOf(coupon) {
   const raw = coupon && coupon.manualPrice;
@@ -126,10 +135,15 @@ function getBuyerPrice(coupon, now = Date.now(), config = pricingConfig.getCache
   const valueType = normValueType(c.valueType);
   const faceValueNum = Number.isNaN(parseFaceValue(c.originalValue)) ? NaN : parseFaceValue(c.originalValue);
   const hoursRemaining = Number.isFinite(msLeft) ? Math.max(0, msLeft / MS_PER_HOUR) : Number.POSITIVE_INFINITY;
-  const finalDay = msLeft <= LAST_24H_MS;
+  // "Expires Soon" coupons are excluded from the last-24-hours rule: they keep
+  // the standard normal price even inside the final day. Decided here, on the
+  // server, so checkout, payment verification and every listing agree.
+  const expiresSoon = isExpiresSoon(c.expiresSoon);
+  const finalDay = !expiresSoon && msLeft <= LAST_24H_MS;
 
   const base = {
     expired,
+    expiresSoon,
     pricingMode: mode,
     valueType,
     faceValue: faceValueNum,
@@ -188,6 +202,8 @@ function getBuyerPrice(coupon, now = Date.now(), config = pricingConfig.getCache
     return { ...base, pricingError: 'INVALID_PRICE', bandLabel: 'Invalid price' };
   }
 
+  // Manual coupons with an explicit final-day price still apply it only when
+  // the last-24h rule is not excluded for this coupon.
   const price = finalDay ? final : normal;
   const percentLabel = source === 'auto' && valueType === 'face_value' && normal > 0
     ? (finalDay ? '10% of face value (last 24 hours)' : '20% of face value')
@@ -273,6 +289,7 @@ module.exports = {
   fromPaise,
   percentOfPaise,
   expiryMsLeft,
+  isExpiresSoon,
   PRICING_MODES,
   VALUE_TYPES,
   // Constants

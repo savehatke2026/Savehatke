@@ -696,6 +696,7 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       onSale,
       timerOn,
       discountOn,
+      expiresSoon,
       backgroundImage,
     } = req.body;
 
@@ -809,6 +810,9 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       ...(timerOn !== undefined ? { timerOn: Boolean(timerOn !== false && timerOn !== 'false') } : {}),
       // Discount display is OFF unless the admin explicitly turns it on.
       discountOn: discountOn === true || discountOn === 'true',
+      // "Expires Soon" is OFF unless the admin explicitly turns it on. Only sent
+      // when true, so a plain create still works before the migration is applied.
+      ...(expiresSoon === true || expiresSoon === 'true' ? { expiresSoon: true } : {}),
       // Card hero image — optional, length-capped. Same "only when provided"
       // rule as the switches so inserts work before
       // server/setup_coupon_background_image.sql is applied.
@@ -1045,6 +1049,7 @@ router.post('/pricing-preview', authenticateToken, requireAdmin, async (req, res
       manualPrice: body.manualPrice ?? '',
       manualFinalPrice: body.manualFinalPrice ?? '',
       expiryDate: body.expiryDate || '',
+      expiresSoon: body.expiresSoon === true || body.expiresSoon === 'true',
     };
     const check = dynamicPricing.validatePricing(candidate, pricingConfig.getCachedConfig());
     const info = dynamicPricing.getBuyerPrice(candidate, Date.now(), pricingConfig.getCachedConfig());
@@ -1138,7 +1143,7 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
       'code', 'brand', 'category', 'title', 'description', 'type', 'discount',
       'sellingPrice', 'manualPrice', 'pricingMode', 'valueType', 'manualFinalPrice',
       'minOrderValue', 'validFrom', 'expiryDate', 'affiliateLink',
-      'terms', 'howToUse', 'status', 'onSale', 'timerOn', 'discountOn', 'backgroundImage', 'brandLogo', 'isFeatured',
+      'terms', 'howToUse', 'status', 'onSale', 'timerOn', 'discountOn', 'expiresSoon', 'backgroundImage', 'brandLogo', 'isFeatured',
       'isExclusive', 'isVerified', 'adminNotes', 'proofUrl', 'soldAt', 'buyerEmail',
     ];
     for (const key of COPYABLE) {
@@ -1213,7 +1218,7 @@ router.put('/coupons/:id', authenticateToken, requireAdmin, adminMutationLimiter
     // Validate the merged coupon only when this save touches pricing. An
     // unrelated edit (title, expiry, switches) skips this check, so a legacy
     // coupon that has no price yet is never blocked by a save it didn't ask for.
-    const PRICING_TOUCHED = ['manualPrice', 'manualFinalPrice', 'pricingMode', 'valueType', 'originalValue'];
+    const PRICING_TOUCHED = ['manualPrice', 'manualFinalPrice', 'pricingMode', 'valueType', 'originalValue', 'expiresSoon'];
     if (PRICING_TOUCHED.some((k) => updates[k] !== undefined)) {
       const merged = { ...coupon, ...updates };
       const priceCheck = dynamicPricing.validatePricing(merged, pricingConfig.getCachedConfig());

@@ -443,6 +443,8 @@ function toSupabaseCoupon(c) {
     ...(c.pricingMode !== undefined ? { pricing_mode: c.pricingMode || null } : {}),
     ...(c.valueType !== undefined ? { value_type: c.valueType || null } : {}),
     ...(c.manualFinalPrice !== undefined ? { manual_final_price: c.manualFinalPrice === '' || c.manualFinalPrice == null ? null : String(c.manualFinalPrice) } : {}),
+    // "Expires Soon" flag — only sent when provided (20261013_coupon_expires_soon.sql).
+    ...(c.expiresSoon !== undefined ? { expires_soon: Boolean(c.expiresSoon === true || c.expiresSoon === 'true') } : {}),
     is_featured: Boolean(c.isFeatured === true || c.isFeatured === 'true'),
     is_exclusive: Boolean(c.isExclusive === true || c.isExclusive === 'true'),
     is_verified: Boolean(c.isVerified !== false && c.isVerified !== 'false'),
@@ -506,6 +508,8 @@ function fromSupabaseCoupon(r) {
     pricingMode: r.pricing_mode || '',
     valueType: r.value_type || '',
     manualFinalPrice: r.manual_final_price == null ? '' : String(r.manual_final_price),
+    // NULL / missing column (pre-migration) reads as false: no badge, normal pricing.
+    expiresSoon: r.expires_soon === true,
     isFeatured: String(Boolean(r.is_featured)),
     isExclusive: String(Boolean(r.is_exclusive)),
     isVerified: String(Boolean(r.is_verified)),
@@ -775,6 +779,8 @@ async function updateCoupon(id, updates) {
   if (updates.pricingMode !== undefined) patch.pricing_mode = updates.pricingMode || null;
   if (updates.valueType !== undefined) patch.value_type = updates.valueType || null;
   if (updates.manualFinalPrice !== undefined) patch.manual_final_price = updates.manualFinalPrice === '' || updates.manualFinalPrice == null ? null : String(updates.manualFinalPrice);
+  // "Expires Soon" — written only when the admin changes it, so an unrelated edit never resets it.
+  if (updates.expiresSoon !== undefined) patch.expires_soon = Boolean(updates.expiresSoon === true || updates.expiresSoon === 'true');
   // Free-text "How to use" steps, edited from Edit Coupon. Only sent when
   // provided, so the update still works before setup_coupon_how_to_use.sql runs.
   if (updates.howToUse !== undefined) patch.how_to_use = updates.howToUse || null;
