@@ -627,6 +627,7 @@
     .recent-meesho small { color:white; font-size:7px; line-height:9px; }
     .recent-amazon { background:#030303; }
     .recent-nykaa { background:#ed1769; color:white; font:italic 600 14px 'Outfit',sans-serif; }
+    .recent-generic { color:#fff; font:700 1.2rem 'Outfit',sans-serif; }
     .recent-copy { min-width:0; }
     .recent-copy p { color:#bdcde2; font-size:.7rem; line-height:1.5; }
     .recent-copy strong { display:block; color:#f4f7ff; font-size:.76rem; font-weight:600; line-height:1.6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -839,33 +840,13 @@
       </span>
     </div>
 
-    <section class="recent-purchases" aria-labelledby="recentPurchasesTitle">
+    <section class="recent-purchases" aria-labelledby="recentPurchasesTitle" hidden>
       <div class="recent-heading">
         <span class="recent-dot" aria-hidden="true"></span>
         <h3 id="recentPurchasesTitle">Recently Purchased</h3>
-        <span class="recent-subtitle">Recent purchases from SaveHatke users · Sample data</span>
+        <span class="recent-subtitle">Recent purchases from SaveHatke users</span>
       </div>
       <div class="recent-grid" id="recentPurchasesGrid">
-        <article class="recent-box">
-          <div class="recent-logo recent-zomato" aria-label="Zomato">zomato</div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹200 Zomato Coupon</strong><time>2 minutes ago</time></div>
-        </article>
-        <article class="recent-box">
-          <div class="recent-logo recent-flipkart" aria-label="Flipkart"><svg viewBox="0 0 48 50" aria-hidden="true"><path d="M12 12h24l4 31H8z" fill="#ffe82a"/><path d="M17 12V9a7 7 0 0 1 14 0v3" fill="none" stroke="#fff" stroke-width="2"/><path d="M32 17c-8-2-12 2-13 10h-6l-2 7h7l-3 14h9l3-14h7l2-7h-8c1-4 2-5 5-4z" fill="#2478df"/></svg></div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹500 Flipkart Coupon</strong><time>7 minutes ago</time></div>
-        </article>
-        <article class="recent-box">
-          <div class="recent-logo recent-swiggy" aria-label="Swiggy"><svg viewBox="0 0 48 50" aria-hidden="true"><path d="M24 6c-11 0-17 8-15 17 2 8 10 18 15 22 5-6 14-17 15-25C40 12 34 6 24 6z" fill="white"/><path d="M24 13v9h9v6H19v-8h-5v-7z" fill="#ff7900"/></svg></div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹150 Swiggy Coupon</strong><time>12 minutes ago</time></div>
-        </article>
-        <article class="recent-box">
-          <div class="recent-logo recent-meesho" aria-label="Meesho">m<small>meesho</small></div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹200 Meesho Coupon</strong><time>18 minutes ago</time></div>
-        </article>
-        <article class="recent-box">
-          <div class="recent-logo recent-amazon" aria-label="Amazon"><svg viewBox="0 0 48 50" aria-hidden="true"><text x="13" y="34" fill="white" font-size="42" font-weight="700" font-family="Georgia,serif">a</text><path d="M10 39q14 9 28-1m-6 0 6-1-1 5" fill="none" stroke="#ffae00" stroke-width="2" stroke-linecap="round"/></svg></div>
-          <div class="recent-copy"><p>Someone purchased</p><strong>₹100 Amazon Coupon</strong><time>25 minutes ago</time></div>
-        </article>
       </div>
     </section>
 
@@ -1731,8 +1712,7 @@
             couponsTradedContainer.style.display = 'none';
           }
           // Recently Purchased strip — admin toggle (Settings page).
-          const recentEl = document.querySelector('.recent-purchases');
-          if (recentEl) recentEl.hidden = !isVisible(s.showRecentPurchases);
+          // Recently Purchased visibility is handled by its own sales loader.
           // Saved by Users
           const savedByUsersEl = document.getElementById('stat-saved-by-users');
           const savedByUsersContainer = savedByUsersEl ? savedByUsersEl.parentElement : null;
@@ -1849,147 +1829,54 @@
 </script>
 <script>
   (function () {
-    const grid = document.getElementById('recentPurchasesGrid');
     const section = document.querySelector('.recent-purchases');
-    const cards = Array.from(grid.querySelectorAll('.recent-box'));
-    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const easing = 'cubic-bezier(.22,.61,.36,1)';
-    const purchases = cards.map(function (card) { return card.innerHTML; });
-    purchases.unshift('<div class="recent-logo recent-nykaa" aria-label="Nykaa">Nykaa</div><div class="recent-copy"><p>Someone purchased</p><strong>₹250 Nykaa Coupon</strong><time>Just now</time></div>');
-    const additionalPurchases = [
-      { brand:'Zomato', amount:150 },
-      { brand:'Flipkart', amount:1000 },
-      { brand:'Swiggy', amount:100 },
-      { brand:'Meesho', amount:300 },
-      { brand:'Amazon', amount:500 },
-      { brand:'Nykaa', amount:400 },
-      { brand:'Zomato', amount:300 },
-      { brand:'Flipkart', amount:250 },
-      { brand:'Swiggy', amount:200 },
-      { brand:'Meesho', amount:150 },
-      { brand:'Amazon', amount:1000 },
-      { brand:'Nykaa', amount:150 },
-      { brand:'Zomato', amount:100 },
-      { brand:'Flipkart', amount:750 },
-      { brand:'Swiggy', amount:250 },
-      { brand:'Meesho', amount:500 },
-      { brand:'Amazon', amount:250 },
-      { brand:'Nykaa', amount:600 },
-      { brand:'Zomato', amount:400 },
-      { brand:'Flipkart', amount:1500 },
-      { brand:'Swiggy', amount:350 },
-      { brand:'Meesho', amount:100 },
-      { brand:'Amazon', amount:750 },
-      { brand:'Nykaa', amount:1000 }
-    ];
-    const brandTemplates = new Map(purchases.map(function (markup) {
-      const template = document.createElement('div');
-      template.innerHTML = markup;
-      return [template.querySelector('.recent-logo').getAttribute('aria-label'), template];
-    }));
-    additionalPurchases.forEach(function (purchase) {
-      const template = brandTemplates.get(purchase.brand).cloneNode(true);
-      template.querySelector('strong').textContent = '₹' + purchase.amount + ' ' + purchase.brand + ' Coupon';
-      template.querySelector('time').textContent = 'Just now';
-      purchases.push(template.innerHTML);
-    });
-    const sampleSellingPrices = [
-      100, 50, 350, 60, 80, 25,
-      45, 700, 30, 120, 350, 180,
-      90, 150, 75, 50, 750, 60,
-      25, 500, 100, 200, 150, 300,
-      150, 1100, 140, 35, 500, 650
-    ];
-    const currency = new Intl.NumberFormat('en-IN', { maximumFractionDigits:2 });
-
-    function updateSavingTag(card) {
-      const title = card.querySelector('.recent-copy strong');
-      const value = Number(title.dataset.couponValue);
-      const price = Number(title.dataset.sellingPrice);
-      card.querySelectorAll('.recent-save').forEach(function (tag) { tag.remove(); });
-      if (!Number.isFinite(value) || !Number.isFinite(price) || value < 0 || price < 0) return;
-      const tag = document.createElement('span');
-      tag.className = 'recent-save';
-      tag.textContent = 'SAVE ₹' + currency.format(Math.max(0, value - price));
-      title.insertAdjacentElement('afterend', tag);
+    const grid = document.getElementById('recentPurchasesGrid');
+    if (!section || !grid) return;
+    const money = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+    const brandColors = {
+      zomato: '#ff003b', flipkart: '#2874f0', swiggy: '#fc8019',
+      meesho: '#9b1d9f', amazon: '#232f3e', nykaa: '#ed1769'
+    };
+    function esc(v) {
+      return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
     }
-
-    const purchaseTemplates = new Map();
-    purchases.forEach(function (markup, index) {
-      const template = document.createElement('div');
-      template.innerHTML = markup;
-      const title = template.querySelector('strong');
-      title.dataset.couponValue = title.textContent.match(/₹([\d,]+)/)[1].replace(/,/g, '');
-      title.dataset.sellingPrice = String(sampleSellingPrices[index]);
-      updateSavingTag(template);
-      purchases[index] = template.innerHTML;
-      purchaseTemplates.set(title.textContent, template);
-    });
-    cards.forEach(function (card) {
-      const template = purchaseTemplates.get(card.querySelector('strong').textContent);
-      card.innerHTML = template.innerHTML;
-    });
-    const oldestFirst = cards.slice().reverse();
-    let nextPurchase = 0;
-    let visible = false;
-    let entered = false;
-    let stopped = false;
-    let timer;
-
-    function enterCards() {
-      if (entered) return;
-      entered = true;
-      if (reducedMotion.matches) return;
-      cards.forEach(function (card, index) {
-        card.animate([
-          { opacity:0, transform:'translateY(10px)' },
-          { opacity:1, transform:'translateY(0)' }
-        ], { duration:420, delay:index * 100, easing:easing, fill:'backwards' });
-      });
+    function timeAgo(iso) {
+      const mins = Math.floor((Date.now() - Date.parse(iso)) / 60000);
+      if (mins < 1) return 'Just now';
+      if (mins < 60) return mins + (mins === 1 ? ' minute ago' : ' minutes ago');
+      const hours = Math.floor(mins / 60);
+      if (hours < 24) return hours + (hours === 1 ? ' hour ago' : ' hours ago');
+      const days = Math.floor(hours / 24);
+      return days + (days === 1 ? ' day ago' : ' days ago');
     }
-
-    async function rotatePurchase() {
-      if (!visible || document.hidden || reducedMotion.matches || section.matches(':hover') || section.contains(document.activeElement)) return;
-      const card = oldestFirst[0];
-      await card.animate([
-        { opacity:1, transform:'translateX(0)' },
-        { opacity:0, transform:'translateX(-10px)' }
-      ], { duration:240, easing:easing, fill:'forwards' }).finished;
-      card.innerHTML = purchases[nextPurchase % purchases.length];
-      updateSavingTag(card);
-      card.querySelector('time').textContent = 'Just now';
-      nextPurchase += 1;
-      card.getAnimations().forEach(function (animation) { animation.cancel(); });
-      const arrival = card.animate([
-        { opacity:0, transform:'translateX(10px)' },
-        { opacity:1, transform:'translateX(0)' }
-      ], { duration:340, easing:easing });
-      card.animate([
-        { borderColor:'rgba(79,195,247,.18)', boxShadow:'0 0 0 rgba(0,226,114,0)' },
-        { borderColor:'rgba(0,226,114,.42)', boxShadow:'0 0 14px rgba(0,226,114,.09)', offset:.3 },
-        { borderColor:'rgba(79,195,247,.18)', boxShadow:'0 0 0 rgba(0,226,114,0)' }
-      ], { duration:1000, easing:'ease-in-out' });
-      await arrival.finished;
-      oldestFirst.push(oldestFirst.shift());
+    function cardMarkup(sale) {
+      const key = sale.brand.toLowerCase();
+      const color = brandColors[key] || '#1f4e79';
+      const letter = sale.brand.charAt(0).toUpperCase();
+      const hasPrice = sale.price !== null && Number.isFinite(sale.price);
+      const saving = hasPrice ? sale.value - sale.price : NaN;
+      const saveTag = Number.isFinite(saving) && saving > 0
+        ? '<span class="recent-save">SAVE \u20B9' + money.format(saving) + '</span>'
+        : '';
+      return '<article class="recent-box">' +
+        '<div class="recent-logo recent-generic" style="background:' + color + '" aria-label="' + esc(sale.brand) + '">' + esc(letter) + '</div>' +
+        '<div class="recent-copy"><p>Someone purchased</p>' +
+        '<strong>\u20B9' + money.format(sale.value) + ' ' + esc(sale.brand) + ' Coupon</strong>' +
+        saveTag +
+        '<time datetime="' + esc(sale.soldAt) + '">' + timeAgo(sale.soldAt) + '</time>' +
+        '</div></article>';
     }
-
-    function scheduleRotation() {
-      if (stopped) return;
-      timer = window.setTimeout(async function () {
-        try { await rotatePurchase(); } finally { scheduleRotation(); }
-      }, 8000 + Math.random() * 4000);
-    }
-
-    const observer = new IntersectionObserver(function (entries) {
-      visible = entries[0].isIntersecting;
-      if (visible) enterCards();
-    }, { threshold:.15 });
-    observer.observe(section);
-    scheduleRotation();
-    window.addEventListener('pagehide', function () { stopped = true; clearTimeout(timer); });
-    window.addEventListener('pageshow', function () {
-      if (stopped) { stopped = false; scheduleRotation(); }
-    });
+    // Real completed sales from /api/coupons/recent-sales. The endpoint returns
+    // an empty list when the admin toggle is off, so the strip stays hidden.
+    fetch('/api/coupons/recent-sales', { credentials: 'same-origin' })
+      .then(function (res) { return res.ok ? res.json() : { sales: [] }; })
+      .then(function (data) {
+        const sales = Array.isArray(data.sales) ? data.sales : [];
+        grid.innerHTML = sales.map(cardMarkup).join('');
+        section.hidden = sales.length === 0;
+      })
+      .catch(function () { section.hidden = true; });
   })();
 </script>
 <script src="js/chatbot.js"></script>

@@ -629,6 +629,25 @@ async function getCoupons(filters = {}) {
   return (data || []).map(fromSupabaseCoupon);
 }
 
+// Public "Recently Purchased" feed. Only sold rows, newest first, and only the
+// columns the homepage strip needs: no buyer email, no coupon code, no ids.
+async function getRecentSoldCoupons({ limit = 5 } = {}) {
+  const client = getClient();
+  if (!client) return [];
+  const { data, error } = await client
+    .from('coupons')
+    .select('brand, original_value, selling_price, sold_at')
+    .eq('status', 'sold')
+    .not('sold_at', 'is', null)
+    .order('sold_at', { ascending: false })
+    .limit(limit);
+  if (error) {
+    console.warn('Supabase getRecentSoldCoupons warning:', error.message);
+    return [];
+  }
+  return data || [];
+}
+
 // Financial payout reservations are kept in Postgres rather than process memory
 // or Google Sheets so requests and admin settlement share one per-seller lock
 // across Vercel instances. The matching RPCs are service-role only.
@@ -1925,6 +1944,7 @@ module.exports = {
   // Coupon methods
   createCoupon,
   getCoupons,
+  getRecentSoldCoupons,
   getActiveSellerPayoutReservations,
   reserveSellerPayout,
   claimSellerPayoutReservation,

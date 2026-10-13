@@ -82,6 +82,16 @@ function homePathForUser(user) {
     const adminPages = ['vault.html', 'vault', 'login.html', 'login', 'admin-gmail.html', 'admin-gmail', 'admin-review.html', 'admin-review'];
     if (adminPages.includes(filename)) return;
 
+    // Loop-prevention guard: if a redirect to vault was already attempted in this tab
+    // in the last 8 seconds, don't loop again. This protects against cases where the
+    // server rejects the session (expired or revoked) and redirects back to /.
+    const lastBounce = Number(sessionStorage.getItem('sh_vault_bounce_ts') || 0);
+    if (Date.now() - lastBounce < 8000) {
+      sessionStorage.removeItem('sh_vault_bounce_ts');
+      if (document.documentElement) document.documentElement.style.display = '';
+      return;
+    }
+
     const authenticated = localStorage.getItem('sh_authenticated') === '1';
     const adminUserRaw = localStorage.getItem('sh_admin_user') || localStorage.getItem('sh_user');
     if (!authenticated || !adminUserRaw) return;
@@ -95,10 +105,19 @@ function homePathForUser(user) {
     );
 
     if (isAdmin) {
-      if (document.documentElement) document.documentElement.style.display = 'none';
-      window.location.replace('vault');
+      sessionStorage.setItem('sh_vault_bounce_ts', String(Date.now()));
+      if (document.documentElement) {
+        document.documentElement.style.display = 'none';
+        // Safety net: restore visibility if the browser stays on the page
+        setTimeout(() => {
+          if (document.documentElement) document.documentElement.style.display = '';
+        }, 1500);
+      }
+      window.location.replace('/vault');
     }
-  } catch (e) {}
+  } catch (e) {
+    if (document.documentElement) document.documentElement.style.display = '';
+  }
 })();
 
 // ── Maintenance Mode Page Guard (client-side) ─────────────────────────────

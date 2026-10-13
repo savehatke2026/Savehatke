@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const { getPublicSettings } = require('../services/publicSettings');
 const paymentStore = require('../services/paymentStore');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
@@ -1275,6 +1276,32 @@ router.get('/sell-eligibility', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Sell eligibility error:', err);
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+// GET /api/coupons/recent-sales - Public feed for the homepage "Recently
+// Purchased" strip. Returns brand, face value, selling price and sold time only.
+// Buyer identity and coupon codes are never included. Respects the admin toggle
+// (showRecentPurchases) by returning an empty list when it is off.
+router.get('/recent-sales', async (req, res) => {
+  try {
+    const settings = await getPublicSettings();
+    const enabled = settings.showRecentPurchases === true || settings.showRecentPurchases === 'true';
+    if (!enabled) return res.json({ sales: [] });
+    const rows = await supabase.getRecentSoldCoupons({ limit: 5 });
+    const sales = rows
+      .map((r) => ({
+        brand: String(r.brand || '').trim(),
+        value: Number(r.original_value),
+        price: r.selling_price === null || r.selling_price === undefined || r.selling_price === '' ? null : Number(r.selling_price),
+        soldAt: r.sold_at,
+      }))
+      .filter((x) => x.brand && Number.isFinite(x.value) && x.value > 0 && Number.isFinite(Date.parse(x.soldAt)));
+    res.set('Cache-Control', 'public, max-age=60');
+    res.json({ sales });
+  } catch (err) {
+    console.error('Recent sales error:', err);
+    res.json({ sales: [] });
   }
 });
 

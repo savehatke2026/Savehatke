@@ -32,6 +32,13 @@
     // it waits for app.js instead of guessing a destination here.
     (function redirectIfLoggedIn() {
       try {
+        if (window.location.search.includes('expired=') || window.location.search.includes('logout=') || window.location.search.includes('google=')) {
+          localStorage.removeItem('sh_authenticated');
+          localStorage.removeItem('sh_user');
+          localStorage.removeItem('sh_admin_user');
+          return;
+        }
+
         const legacyBearer = localStorage.getItem('sh_token') || localStorage.getItem('sh_admin_token');
         if (legacyBearer && !(localStorage.getItem('sh_user') || localStorage.getItem('sh_admin_user'))) {
           localStorage.removeItem('sh_token');
@@ -46,9 +53,14 @@
 
         const role = String(u.role || '').toLowerCase();
         const isAdmin = role === 'admin' || role === 'owner' || role === 'super admin' || role === 'support';
-        document.documentElement.style.display = 'none';
+        if (document.documentElement) {
+          document.documentElement.style.display = 'none';
+          setTimeout(() => { if (document.documentElement) document.documentElement.style.display = ''; }, 1500);
+        }
         window.location.replace(isAdmin ? '/vault' : (u.needs_name_setup ? '/onboarding.html' : '/dashboard.html'));
-      } catch (e) {}
+      } catch (e) {
+        if (document.documentElement) document.documentElement.style.display = '';
+      }
     })();
   </script>
   <style>

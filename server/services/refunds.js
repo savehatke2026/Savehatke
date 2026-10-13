@@ -423,7 +423,7 @@ async function createLateRefundTask({
   orderCode = '',
   receivedAmount,
   transactionId = '',
-  verificationDeadline = '',
+  paymentExpiresAt = '',
   transactionAt = '',
   payerName = '',
 }) {
@@ -465,7 +465,7 @@ async function createLateRefundTask({
     refund_reference: '',
     admin_note: [
       `Late payment: transaction ${transactionId || 'n/a'} at ${transactionAt || 'unknown'}`,
-      `after verification deadline ${verificationDeadline || 'n/a'}.`,
+      `first verified after the 10-minute deadline ${paymentExpiresAt || 'n/a'}.`,
       `Payer name on email: ${payerName || 'n/a'}.`,
       'Not fulfilled; no coupon delivered.',
     ].join(' '),

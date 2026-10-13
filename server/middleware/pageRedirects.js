@@ -15,9 +15,7 @@
 // no unverified cookie, no client flag is trusted here.
 //
 // Loop safety: the redirect targets are "/" and the guards never redirect "/"
-// itself, so a redirect cannot chain back into itself.
-
-const { resolveCaller } = require('./maintenance');
+const { resolveCaller, isAdminRole } = require('./maintenance');
 
 // Paths compared after lower-casing, with any trailing slash removed.
 function normalisePath(req) {
@@ -27,11 +25,16 @@ function normalisePath(req) {
   return p.replace(/\.html$/, '');
 }
 
-const ALWAYS_HOME_PAGES = new Set(['/vault']);
+const ALWAYS_HOME_PAGES = new Set([]);
+const VAULT_PAGES = new Set(['/vault']);
 const LOGIN_PAGES = new Set(['/login']);
 
 function isDashboardPath(p) {
   return p === '/dashboard' || p.startsWith('/dashboard/');
+}
+
+function isVaultPath(p) {
+  return p === '/vault' || p.startsWith('/vault/');
 }
 
 function isGetOrHead(req) {
@@ -51,24 +54,31 @@ async function pageRedirectGuard(req, res, next) {
     return res.redirect(302, '/');
   }
 
-  // Rules 2 and 3 need the session.
+  // Rules 2, 3 and 4 need the session.
+  const isVault = isVaultPath(p);
   const isDash = isDashboardPath(p);
   const isLogin = LOGIN_PAGES.has(p);
-  if (!isDash && !isLogin) return next();
+  if (!isVault && !isDash && !isLogin) return next();
 
   let caller = null;
   try {
     caller = await resolveCaller(req);
   } catch (e) {
-    // Fail closed for the dashboard: an unverifiable session is not a session.
+    // Fail closed for the dashboard and vault: an unverifiable session is not a session.
     // Fail open for login so a Supabase blip never locks people out of signing in.
     caller = null;
     if (isLogin) return next();
   }
   const loggedIn = Boolean(caller && caller.id);
+  const isAdmin = Boolean(caller && (isAdminRole(caller) || ['admin', 'super admin', 'support'].includes(String(caller.role || '').toLowerCase())));
 
+  // Vault is strictly for authenticated admins; non-admins bounce to /
+  if (isVault && !isAdmin) return res.redirect(302, '/');
+  // Dashboard requires a valid login session
   if (isDash && !loggedIn) return res.redirect(302, '/');
-  if (isLogin && loggedIn) return res.redirect(302, '/');
+  // Logged-in users skip the login page and land on / (unless explicitly arriving via expired, logout, or oauth failure params)
+  const hasExitParam = Boolean(req.query && (req.query.expired || req.query.logout || req.query.google));
+  if (isLogin && loggedIn && !hasExitParam) return res.redirect(302, '/');
   return next();
 }
 
