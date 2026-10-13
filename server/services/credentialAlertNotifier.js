@@ -7,10 +7,13 @@
 //
 // Guarantees:
 //   * Isolation: each service is evaluated and notified separately.
-//   * Recipients: the server-owned admin roster (configuredAdminEmails), the
-//     same source used by the monthly reports. No address is hard-coded here.
-//   * Sender: sendCustomEmail with sender 'noreply'. It never sends through the
-//     OAuth connection being monitored, so a broken connection can still alert.
+//   * Recipients: the server-owned admin roster (configuredAdminEmails), read from
+//     Supabase admin_allowlist via config/security. No address is hard-coded here,
+//     and no extra admin list or environment variable is introduced.
+//   * Sender: sendCustomEmail with sender 'security', the existing security
+//     channel. Its From is security.savehatke@gmail.com only when the server's
+//     SMTP login is that account (resolveMainFromAddress enforces alignment and
+//     never spoofs a From). It never uses the monitored OAuth connection.
 //   * Dedup: one row per (service, recipient, IST day, state). Written only after
 //     a successful send, so a failed send is retried on the next run.
 //   * Secrets: nothing here reads or logs a refresh token. Only the safe status
@@ -32,6 +35,7 @@ const securityCredentialsLazy = lazy('./securityCredentialsStore');
 const emailServiceLazy = lazy('./emailService');
 const supabaseLazy = lazy('./supabase');
 const monthlyReportsLazy = lazy('./monthlyReports');
+const configLazy = lazy('../config/security');
 
 const TABLE = 'credential_alert_state';
 const SERVICES = ['support_gmail', 'google_drive', 'payment_gmail'];
@@ -100,10 +104,25 @@ async function runCredentialAlertCheck(opts = {}) {
     getSafeStatus: (...a) => securityCredentialsLazy().getSafeStatus(...a),
     getClient: () => supabaseLazy().getClient(),
     configuredAdminEmails: () => monthlyReportsLazy().configuredAdminEmails(),
+    // Roster hydration: wait for the Supabase admin_allowlist read, then report
+    // whether the roster is still the env fallback (which must never receive mail).
+    ensureRosterReady: () => configLazy().ensureAdminRosterReady(),
+    isRosterStale: () => configLazy().isAdminRosterStale(),
     ...(opts.deps || {}),
   };
+  await deps.ensureRosterReady();
+  if (deps.isRosterStale()) {
+    return {
+      ok: false,
+      error: 'Admin roster is not loaded from Supabase yet; alerts were not sent.',
+      checked: 0, sent: 0, skipped: 0, failed: 0, results: [],
+    };
+  }
   const nowMs = opts.nowMs || Date.now();
-  const send = opts.send || ((p) => emailServiceLazy().sendCustomEmail({ ...p, sender: 'noreply' }));
+  // 'security' is the existing server-side security sender (SMTP_USER/SMTP_FROM,
+  // resolved by resolveMainFromAddress). It is independent of every monitored
+  // OAuth connection, so a broken Gmail token cannot block its own alert.
+  const send = opts.send || ((p) => emailServiceLazy().sendCustomEmail({ ...p, sender: 'security' }));
   const today = policy.istDay(nowMs);
   const recipients = deps.configuredAdminEmails();
   const client = deps.getClient();

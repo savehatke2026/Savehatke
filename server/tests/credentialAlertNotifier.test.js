@@ -70,7 +70,7 @@ t('warning inside 4 days sends to every admin on first run', async () => {
   const r = await run({
     deps: {
       getClient: () => client,
-      configuredAdminEmails: () => ADMINS,
+      ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ADMINS,
       getSafeStatus: statusFor({ payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + 3 * DAY) } }),
     },
     send: async (p) => { sent.push(p); return { success: true }; },
@@ -86,7 +86,7 @@ t('expiry at exactly 4 days triggers the warning', async () => {
   await run({
     deps: {
       getClient: () => fakeClient(),
-      configuredAdminEmails: () => ['solo@example.com'],
+      ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
       getSafeStatus: statusFor({ payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + 4 * DAY) } }),
     },
     send: async (p) => { sent.push(p); return { success: true }; },
@@ -99,7 +99,7 @@ t('expiry 4 days + 1 minute away sends nothing', async () => {
   await run({
     deps: {
       getClient: () => fakeClient(),
-      configuredAdminEmails: () => ['solo@example.com'],
+      ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
       getSafeStatus: statusFor({ payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + 4 * DAY + 60000) } }),
     },
     send: async (p) => { sent.push(p); return { success: true }; },
@@ -113,7 +113,7 @@ t('a second run the same IST day sends nothing (duplicate prevention)', async ()
   const client = fakeClient();
   const deps = {
     getClient: () => client,
-    configuredAdminEmails: () => ['solo@example.com'],
+    ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
     getSafeStatus: statusFor({ payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + 2 * DAY) } }),
   };
   const send = async (p) => { sent.push(p); return { success: true }; };
@@ -128,7 +128,7 @@ t('next IST day sends a daily reminder while still in the window', async () => {
   const client = fakeClient();
   const deps = {
     getClient: () => client,
-    configuredAdminEmails: () => ['solo@example.com'],
+    ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
     getSafeStatus: statusFor({ payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + 2 * DAY) } }),
   };
   const send = async (p) => { sent.push(p); return { success: true }; };
@@ -143,7 +143,7 @@ t('revoked token sends an immediate critical alert', async () => {
   await run({
     deps: {
       getClient: () => fakeClient(),
-      configuredAdminEmails: () => ['solo@example.com'],
+      ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
       getSafeStatus: statusFor({ google_drive: { status: 'reauthorization_required', email: 'db@example.com' } }),
     },
     send: async (p) => { sent.push(p); return { success: true }; },
@@ -158,7 +158,7 @@ t('state change from warning to critical sends on the same day', async () => {
   let status = { status: 'active', estimatedExpiresAt: iso(NOW + 2 * DAY) };
   const deps = {
     getClient: () => client,
-    configuredAdminEmails: () => ['solo@example.com'],
+    ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
     getSafeStatus: async (s) => (s === 'payment_gmail'
       ? { service: s, exists: true, email: 'p@example.com', ...status }
       : { service: s, exists: false, status: null }),
@@ -177,7 +177,7 @@ t('unknown expiry (Drive) never produces a countdown or warning', async () => {
   await run({
     deps: {
       getClient: () => fakeClient(),
-      configuredAdminEmails: () => ['solo@example.com'],
+      ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
       getSafeStatus: statusFor({ google_drive: { status: 'active', estimatedExpiresAt: null } }),
     },
     send: async (p) => { sent.push(p); return { success: true }; },
@@ -192,7 +192,7 @@ t('reconnection (healthy again) stops reminders', async () => {
   let status = { status: 'active', estimatedExpiresAt: iso(NOW + 2 * DAY) };
   const deps = {
     getClient: () => client,
-    configuredAdminEmails: () => ['solo@example.com'],
+    ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
     getSafeStatus: async (s) => (s === 'payment_gmail'
       ? { service: s, exists: true, email: 'p@example.com', ...status }
       : { service: s, exists: false, status: null }),
@@ -210,7 +210,7 @@ t('email failure writes no state so the next run retries', async () => {
   const client = fakeClient();
   const deps = {
     getClient: () => client,
-    configuredAdminEmails: () => ['solo@example.com'],
+    ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
     getSafeStatus: statusFor({ payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + DAY) } }),
   };
   const failed = await run({ deps, send: async () => ({ success: false, error: 'SMTP down' }) });
@@ -227,7 +227,7 @@ t('Supabase state read failure is reported, not silently sent', async () => {
   const r = await run({
     deps: {
       getClient: () => fakeClient({ readError: { code: '42P01', message: 'relation missing' } }),
-      configuredAdminEmails: () => ['solo@example.com'],
+      ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
       getSafeStatus: statusFor({ payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + DAY) } }),
     },
     send: async (p) => { sent.push(p); return { success: true }; },
@@ -241,7 +241,7 @@ t('Supabase write failure after a send is reported as sent_unrecorded', async ()
   const r = await run({
     deps: {
       getClient: () => fakeClient({ writeError: { code: '42501', message: 'denied' } }),
-      configuredAdminEmails: () => ['solo@example.com'],
+      ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
       getSafeStatus: statusFor({ payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + DAY) } }),
     },
     send: async () => ({ success: true }),
@@ -253,16 +253,47 @@ t('Supabase write failure after a send is reported as sent_unrecorded', async ()
 t('missing Supabase client fails closed and sends nothing', async () => {
   const sent = [];
   const r = await run({
-    deps: { getClient: () => null, configuredAdminEmails: () => ['solo@example.com'], getSafeStatus: statusFor({}) },
+    deps: { getClient: () => null, ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'], getSafeStatus: statusFor({}) },
     send: async (p) => { sent.push(p); return { success: true }; },
   });
   assert.equal(r.ok, false);
   assert.equal(sent.length, 0);
 });
 
+t('env-fallback (not Supabase) admin roster never receives alerts', async () => {
+  const sent = [];
+  const r = await run({
+    deps: {
+      ensureRosterReady: async () => {},
+      isRosterStale: () => true,
+      getClient: () => fakeClient(),
+      configuredAdminEmails: () => ['stale@example.com'],
+      getSafeStatus: statusFor({ payment_gmail: { status: 'reauthorization_required' } }),
+    },
+    send: async (p) => { sent.push(p); return { success: true }; },
+  });
+  assert.equal(r.ok, false);
+  assert.equal(sent.length, 0, 'no mail to a stale env-list address');
+});
+
+t('roster hydration is awaited before recipients are read', async () => {
+  const order = [];
+  await run({
+    deps: {
+      ensureRosterReady: async () => { order.push('hydrate'); },
+      isRosterStale: () => false,
+      getClient: () => fakeClient(),
+      configuredAdminEmails: () => { order.push('read'); return ['solo@example.com']; },
+      getSafeStatus: statusFor({}),
+    },
+    send: async () => ({ success: true }),
+  });
+  assert.deepEqual(order, ['hydrate', 'read']);
+});
+
 t('no admin recipients fails closed', async () => {
   const r = await run({
-    deps: { getClient: () => fakeClient(), configuredAdminEmails: () => [], getSafeStatus: statusFor({}) },
+    deps: { getClient: () => fakeClient(), ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => [], getSafeStatus: statusFor({}) },
     send: async () => ({ success: true }),
   });
   assert.equal(r.ok, false);
@@ -273,7 +304,7 @@ t('one service status read failure does not block the others', async () => {
   const r = await run({
     deps: {
       getClient: () => fakeClient(),
-      configuredAdminEmails: () => ['solo@example.com'],
+      ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
       getSafeStatus: async (s) => {
         if (s === 'support_gmail') throw new Error('boom');
         if (s === 'payment_gmail') return { service: s, exists: true, email: 'p@example.com', status: 'reauthorization_required' };
@@ -292,7 +323,7 @@ t('dedup rows are keyed per service: one service never suppresses another', asyn
   const client = fakeClient();
   const deps = {
     getClient: () => client,
-    configuredAdminEmails: () => ['solo@example.com'],
+    ensureRosterReady: async () => {}, isRosterStale: () => false, configuredAdminEmails: () => ['solo@example.com'],
     getSafeStatus: statusFor({
       payment_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + DAY) },
       support_gmail: { status: 'active', estimatedExpiresAt: iso(NOW + DAY) },
