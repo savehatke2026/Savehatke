@@ -3069,8 +3069,9 @@ SaveHatke`;
       .sh-secondary { color:#B8B8B8 !important; }
       .sh-muted     { color:#B8B8B8 !important; }
       .sh-green     { color:#00E272 !important; }
-      .sh-btn       { background:#00E272 !important; }
-      .sh-btn a     { color:#000000 !important; }
+      .sh-greet     { color:#00E272 !important; }
+      .sh-btn       { background:#00E272 !important; background-color:#00E272 !important; }
+      .sh-btn a     { color:#062B1B !important; }
 ${EMAIL_GREEN_DARK_RULES}
     }
 
@@ -3116,7 +3117,7 @@ ${EMAIL_GREEN_DARK_RULES}
           <!-- GREETING + INTRO -->
           <tr>
             <td class="sh-pad" style="padding:26px 40px 0;">
-              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello <span class="sh-green" style="color:#00E272;font-weight:700;">${safeName}</span>,</p>
+              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello <span class="sh-greet" style="color:#00A152;font-weight:700;">${safeName}</span>,</p>
               <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;font-weight:400;color:#111827;">Your payment has been successfully received. Here are your transaction details for your records.</p>
             </td>
           </tr>
@@ -3138,7 +3139,7 @@ ${EMAIL_GREEN_DARK_RULES}
             <td class="sh-pad" align="center" style="padding:28px 40px 6px;">
               <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td class="sh-btn" align="center" bgcolor="#00E272" style="background:#00E272;border-radius:8px;">
-                  <a href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#000000;text-decoration:none;">View Order</a>
+                  <a href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#062B1B;text-decoration:none;">View Order</a>
                 </td>
               </tr></table>
             </td>
