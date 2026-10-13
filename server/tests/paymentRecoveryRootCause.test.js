@@ -765,6 +765,47 @@ await check('H1 a Sheets outage refuses settlement instead of succeeding from me
   );
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  I. PAYMENT-MAILBOX OAUTH REDIRECT URI
+// ═══════════════════════════════════════════════════════════════════════════
+// The redirect_uri Google is given for payment-mailbox OAuth must always be
+// this flow's callback. Reusing the user-login redirect fails Google's
+// redirect_uri check, and a failed re-authorisation flips the mailbox to
+// `reauthorization_required`, which stops payment detection outright.
+
+await check('I1 the redirect URI is never the user-login OAuth callback', async () => {
+  const pm = require(path.join(__dirname, '..', 'services', 'paymentMailbox'));
+  const KEYS = ['APP_BASE_URL', 'GOOGLE_REDIRECT_URI', 'PAYMENT_GMAIL_REDIRECT_URI'];
+  const saved = {};
+  KEYS.forEach((k) => { saved[k] = process.env[k]; });
+
+  const withEnv = (env, base) => {
+    KEYS.forEach((k) => {
+      if (env[k] === undefined) delete process.env[k];
+      else process.env[k] = env[k];
+    });
+    try { return pm.getRedirectUri(base); } finally { KEYS.forEach((k) => { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k]; }); }
+  };
+
+  const CALLBACK = '/api/admin/gmail/callback';
+  const LOGIN_FLOW = 'https://savehatke.vercel.app/api/auth/google-redirect';
+
+  // The exact production shape that used to leak the login redirect: no
+  // APP_BASE_URL, GOOGLE_REDIRECT_URI pointing at the user-login flow.
+  const leaked = withEnv({ GOOGLE_REDIRECT_URI: LOGIN_FLOW });
+  assert.ok(leaked.endsWith(CALLBACK), `expected the payment callback, got ${leaked}`);
+  assert.equal(leaked, 'https://savehatke.vercel.app' + CALLBACK);
+
+  assert.ok(withEnv({ GOOGLE_REDIRECT_URI: LOGIN_FLOW, APP_BASE_URL: 'https://savehatke.vercel.app' }).endsWith(CALLBACK));
+  assert.ok(withEnv({ PAYMENT_GMAIL_REDIRECT_URI: 'https://savehatke.vercel.app' + CALLBACK }).endsWith(CALLBACK));
+  assert.ok(withEnv({ APP_BASE_URL: 'https://savehatke.vercel.app' }).endsWith(CALLBACK));
+  assert.ok(withEnv({ GOOGLE_REDIRECT_URI: 'http://localhost:3000/api/auth/google-redirect' }).endsWith(CALLBACK));
+
+  // A stale APP_BASE_URL must win over the override's origin rather than
+  // silently reusing a foreign origin, but still target the right path.
+  assert.ok(withEnv({ GOOGLE_REDIRECT_URI: LOGIN_FLOW, APP_BASE_URL: 'https://stale.example.com' }).endsWith(CALLBACK));
+});
+
 // ── Report ─────────────────────────────────────────────────────────────────
 restoreWorld();
 console.log = realLog; console.warn = realWarn; console.error = realError;

@@ -87,15 +87,27 @@ function getRedirectUri(requestBase) {
   // Require origin + pathname match. GOOGLE_REDIRECT_URI now belongs to the
   // user-login OAuth flow (/api/auth/google-redirect) — a pathless origin
   // match would let the user-login URL leak into payment Gmail OAuth.
+  //
+  // The origin check below is the one that actually protects this: with no
+  // APP_BASE_URL configured there is still an origin to compare against, taken
+  // from the override itself. Returning the override unchecked whenever `base`
+  // is empty bypassed the guard entirely, so a deploy with APP_BASE_URL unset
+  // asked Google to redirect to the user-login callback — and a failed
+  // re-authorisation flips the mailbox to `reauthorization_required`, which
+  // stops payment detection outright. When the override points at another
+  // flow, keep its ORIGIN and swap in this flow's path.
   if (override) {
-    if (!base) return override;
-    try {
-      const parsed = new URL(override);
-      const baseParsed = new URL(base);
-      if (parsed.origin === baseParsed.origin && parsed.pathname === PAYMENT_GMAIL_REDIRECT_PATH) {
+    let parsed = null;
+    try { parsed = new URL(override); } catch (e) { /* malformed */ }
+    if (parsed) {
+      let baseParsed = null;
+      if (base) { try { baseParsed = new URL(base); } catch (e) { /* malformed */ } }
+      const sameOrigin = !baseParsed || parsed.origin === baseParsed.origin;
+      if (sameOrigin && parsed.pathname === PAYMENT_GMAIL_REDIRECT_PATH) {
         return override;
       }
-    } catch (e) { /* malformed override — fall through */ }
+      if (!base) return `${parsed.origin}${PAYMENT_GMAIL_REDIRECT_PATH}`;
+    }
   }
   return `${(base || 'http://localhost:3000')}${PAYMENT_GMAIL_REDIRECT_PATH}`;
 }
