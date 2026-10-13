@@ -3046,12 +3046,10 @@ SaveHatke`;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <!-- Intentional LIGHT + DARK support. Both palettes are defined explicitly so
-       dark-mode clients render a DESIGNED dark version instead of auto-inverting
-       the receipt. The meta hints plus the prefers-color-scheme block below keep
-       the design coherent; Gmail may still nudge colors, but nothing inverts. -->
-  <meta name="color-scheme" content="light dark" />
-  <meta name="supported-color-schemes" content="light dark" />
+  <!-- Fixed white design. Light-only on purpose: no dark-mode overrides, so every
+       colour below is the intended one and is applied inline on each element. -->
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
   <title>Payment Confirmation – SaveHatke</title>
   <style>
     /* Minimal, email-safe resets */
@@ -3059,21 +3057,6 @@ SaveHatke`;
     table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
     img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
     a { text-decoration:none; }
-    a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; }
-
-    /* ── DARK MODE: explicitly designed, NOT an auto-invert. Only colors change;
-       spacing and layout stay identical to light mode. ── */
-    @media (prefers-color-scheme: dark) {
-      body, .sh-bg, .sh-body { background:#0F1115 !important; background-color:#0F1115 !important; }
-      .sh-primary   { color:#FFFFFF !important; }
-      .sh-secondary { color:#B8B8B8 !important; }
-      .sh-muted     { color:#B8B8B8 !important; }
-      .sh-green     { color:#00E272 !important; }
-      .sh-greet     { color:#00E272 !important; }
-      .sh-btn       { background:#00E272 !important; background-color:#00E272 !important; }
-      .sh-btn a     { color:#062B1B !important; }
-${EMAIL_GREEN_DARK_RULES}
-    }
 
     /* ── MOBILE ── */
     @media only screen and (max-width:480px) {
@@ -3083,7 +3066,7 @@ ${EMAIL_GREEN_DARK_RULES}
     }
   </style>
 </head>
-<body class="sh-body" bgcolor="#FFFFFF" style="margin:0;padding:0;background:#FFFFFF;">
+<body class="sh-body" bgcolor="#FFFFFF" style="margin:0;padding:0;background:#FFFFFF;color:#111827;">
   <table role="presentation" class="sh-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background:#FFFFFF;">
     <tr>
       <td align="center" style="padding:24px 12px;">
@@ -3117,7 +3100,7 @@ ${EMAIL_GREEN_DARK_RULES}
           <!-- GREETING + INTRO -->
           <tr>
             <td class="sh-pad" style="padding:26px 40px 0;">
-              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello <span class="sh-greet" style="color:#00A152;font-weight:700;">${safeName}</span>,</p>
+              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello <span class="sh-greet" style="color:#008F4C;font-weight:700;">${safeName}</span>,</p>
               <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;font-weight:400;color:#111827;">Your payment has been successfully received. Here are your transaction details for your records.</p>
             </td>
           </tr>
@@ -3139,7 +3122,7 @@ ${EMAIL_GREEN_DARK_RULES}
             <td class="sh-pad" align="center" style="padding:28px 40px 6px;">
               <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
                 <td class="sh-btn" align="center" bgcolor="#00E272" style="background:#00E272;border-radius:8px;">
-                  <a href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#062B1B;text-decoration:none;">View Order</a>
+                  <a href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;background-color:#00E272;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#062B1B;text-decoration:none;">View Order</a>
                 </td>
               </tr></table>
             </td>
