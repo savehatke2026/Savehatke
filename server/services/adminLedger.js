@@ -213,7 +213,6 @@ function transactionRow(p, ctx) {
     detectedAmount: detected,
     receivedAmount: received,
     currency: str(p.currency) || 'INR',
-    paymentMethod: 'UPI',
     utr: str(p.verified_utr),
     gatewayTransactionId: str(p.verified_transaction_id),
     status,
@@ -226,6 +225,7 @@ function transactionRow(p, ctx) {
     verificationNotes: notes,
     issues,
     refund: refund,
+    refundId: refund ? refund.id : '',
     refundAmount: refund ? refund.amount : null,
     refundReference: refund ? refund.reference : '',
     refundStatus: refund ? refund.status : '',
@@ -573,15 +573,14 @@ function toCsv(columns, rows) {
 }
 
 const TRANSACTION_COLUMNS = [
-  { label: 'Payment ID', value: (r) => r.paymentId },
-  { label: 'Order ID', value: (r) => r.orderId },
   { label: 'Transaction ID', value: (r) => r.transactionId },
+  { label: 'Order ID', value: (r) => r.orderId },
+  { label: 'Refund ID', value: (r) => r.refundId },
   { label: 'Customer Name', value: (r) => r.customerName },
   { label: 'Customer Email', value: (r) => r.customerEmail },
   { label: 'Coupon', value: (r) => r.couponName },
   { label: 'Expected Amount', value: (r) => r.expectedAmount },
   { label: 'Detected Amount', value: (r) => (r.detectedAmount == null ? '' : r.detectedAmount) },
-  { label: 'Payment Method', value: (r) => r.paymentMethod },
   { label: 'UTR', value: (r) => r.utr },
   { label: 'Gateway Transaction ID', value: (r) => r.gatewayTransactionId },
   { label: 'Payment Status', value: (r) => r.status },
@@ -640,5 +639,5 @@ module.exports = {
   exportTransactionsCsv,
   exportOrdersCsv,
   // exposed for tests
-  _internals: { loadLedger, transactionRow, orderRow, paymentIssues, reservationStatus, deliveryStatus, soldToBuyer, csvCell, toCsv, auditPaymentId, buildPaymentHistory },
+  _internals: { loadLedger, transactionRow, orderRow, paymentIssues, reservationStatus, deliveryStatus, soldToBuyer, csvCell, toCsv, auditPaymentId, buildPaymentHistory, transactionColumns: TRANSACTION_COLUMNS },
 };

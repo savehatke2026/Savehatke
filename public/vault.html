@@ -2255,8 +2255,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
         <div class="overflow-x">
           <table>
-            <thead><tr><th>Payment ID</th><th>Order ID</th><th>Customer</th><th>Expected</th><th>Detected</th><th>Method / UTR</th><th>Detected At</th><th>Payment Status</th><th>Issues</th><th>Refund</th><th></th></tr></thead>
-            <tbody id="txnPageBody"><tr><td colspan="11" style="text-align:center;padding:24px;color:#6b88aa">Loading...</td></tr></tbody>
+            <thead><tr><th>Transaction ID</th><th>Order ID</th><th>Refund ID</th><th>Customer</th><th>Expected</th><th>Detected</th><th>UTR</th><th>Detected At</th><th>Payment Status</th><th>Issues</th><th>Refund</th><th></th></tr></thead>
+            <tbody id="txnPageBody"><tr><td colspan="12" style="text-align:center;padding:24px;color:#6b88aa">Loading...</td></tr></tbody>
           </table>
         </div>
         <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px">
@@ -5382,19 +5382,19 @@ function renderTxnPage(rows) {
   if (prev) prev.disabled = TXN_STATE.offset <= 0;
   if (next) next.disabled = cur >= pages;
   if (!body) return;
-  if (!rows.length) { body.innerHTML = '<tr><td colspan="11" style="text-align:center;padding:24px;color:#6b88aa">No transactions found.</td></tr>'; return; }
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="12" style="text-align:center;padding:24px;color:#6b88aa">No transactions found.</td></tr>'; return; }
   body.innerHTML = rows.map((t) => {
     const refund = t.refundStatus
       ? `<div><span class="badge badge-red" style="font-size:.6rem">${escapeHtml(t.refundStatus)}</span> <span class="mono" style="font-size:.7rem">${ledgerCurrency(t.refundAmount)}</span></div>`
       : '<span style="color:#6b88aa">—</span>';
-    const method = `<div>${escapeHtml(t.paymentMethod || 'UPI')}</div><div class="mono" style="font-size:.66rem;color:#6b88aa">${escapeHtml(t.utr || '—')}</div>`;
     return `<tr>
-      <td><strong class="mono">${escapeHtml(t.paymentId || '—')}</strong></td>
+      <td><strong class="mono">${escapeHtml(t.transactionId || '—')}</strong></td>
       <td class="mono" style="font-size:.74rem">${escapeHtml(t.orderId || '—')}</td>
+      <td class="mono" style="font-size:.74rem">${t.refundId ? escapeHtml(t.refundId) : '<span style="color:#6b88aa">—</span>'}</td>
       <td>${escapeHtml(t.customerName || '—')}${t.customerEmail ? `<div style="font-size:.65rem;color:#6b88aa">${escapeHtml(t.customerEmail)}</div>` : ''}</td>
       <td class="mono">${ledgerCurrency(t.expectedAmount)}</td>
       <td class="mono" style="color:${t.detectedAmount == null ? '#6b88aa' : '#00E272'}">${ledgerCurrency(t.detectedAmount)}</td>
-      <td>${method}</td>
+      <td class="mono" style="font-size:.74rem">${escapeHtml(t.utr || '—')}</td>
       <td style="font-size:.78rem;color:#a8c0dc">${ledgerDate(t.detectedAt || '')}</td>
       <td>${paymentStatusBadge(t.status)}</td>
       <td>${issueBadges(t.issues)}</td>
@@ -5442,10 +5442,10 @@ function renderTxnDetail(d) {
 
   body.innerHTML = `
     <div style="${grid}">
-      ${kv('Payment ID', p.paymentId)}${kv('Order ID', p.orderId)}${kv('Transaction ID', p.transactionId)}
+      ${kv('Transaction ID', p.transactionId)}${kv('Order ID', p.orderId)}${kv('Refund ID', p.refundId)}
       ${kv('Customer', p.customerName)}${kv('Email', p.customerEmail)}${kv('Coupon', p.couponName)}
       ${kv('Expected amount', ledgerCurrency(p.expectedAmount))}${kv('Detected amount', ledgerCurrency(p.detectedAmount))}
-      ${kv('Payment method', p.paymentMethod)}${kv('UTR / UPI reference', p.utr)}${kv('Gateway transaction ID', p.gatewayTransactionId)}
+      ${kv('UTR / UPI reference', p.utr)}${kv('Gateway transaction ID', p.gatewayTransactionId)}
       ${kv('Payment status', p.status)}${kv('Created', ledgerDate(p.createdAt))}${kv('Detected at', ledgerDate(p.detectedAt))}
       ${kv('Verification started', ledgerDate(p.verificationStartedAt))}${kv('Verification deadline', ledgerDate(p.verificationDeadline))}
       ${kv('Last checked', ledgerDate(p.lastCheckedAt))}${kv('Verification source', p.verificationSource)}

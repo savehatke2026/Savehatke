@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const path = require('node:path');
 
 const ledger = require(path.join(__dirname, '..', 'services', 'adminLedger'));
-const { paymentIssues, reservationStatus, deliveryStatus, soldToBuyer, csvCell, toCsv, auditPaymentId, buildPaymentHistory } = ledger._internals;
+const { paymentIssues, reservationStatus, deliveryStatus, soldToBuyer, csvCell, toCsv, auditPaymentId, buildPaymentHistory, transactionColumns } = ledger._internals;
 
 let passed = 0;
 let failed = 0;
@@ -123,6 +123,18 @@ check('CSV formula injection is neutralised for =,+,-,@ and tab', () => {
   assert.equal(csvCell('+1').startsWith('"\'+'), true);
   assert.equal(csvCell('-2').startsWith('"\'-'), true);
   assert.equal(csvCell('@sum').startsWith('"\'@'), true);
+});
+check('Transactions CSV uses Transaction/Order/Refund IDs and no Payment ID or Payment Method', () => {
+  const labels = transactionColumns.map((c) => c.label);
+  assert.ok(labels.includes('Transaction ID'));
+  assert.ok(labels.includes('Order ID'));
+  assert.ok(labels.includes('Refund ID'));
+  assert.ok(!labels.includes('Payment ID'));
+  assert.ok(!labels.includes('Payment Method'));
+  const withRefund = transactionColumns.find((c) => c.label === 'Refund ID').value({ refundId: 'rfnd_abc' });
+  const noRefund = transactionColumns.find((c) => c.label === 'Refund ID').value({ refundId: '' });
+  assert.equal(withRefund, 'rfnd_abc');
+  assert.equal(noRefund, '');
 });
 check('CSV output has a UTF-8 BOM, CRLF rows and a header row', () => {
   const csv = toCsv([{ label: 'A', value: (r) => r.a }], [{ a: 1 }, { a: 2 }]);
