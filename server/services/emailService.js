@@ -2950,47 +2950,27 @@ async function sendPaymentSuccessEmail({
   //
   // Account resolution (all the SAME Gmail/nodemailer integration — no new
   // provider, no second mail system):
-  //   1. PAYMENTS_GMAIL_USER (default payments.savehatke@gmail.com) + PAYMENTS_GMAIL_PASS
-  //   2. else the existing payment transporter (PAYMENT_SMTP_USER/PASS)
-  //   3. else the no-reply transport
-  // In every branch From == the account we actually authenticated as.
+  // Single account only: PAYMENTS_GMAIL_USER (default payments.savehatke@gmail.com)
+  // + PAYMENTS_GMAIL_PASS. There is NO fallback to the main, support or no-reply
+  // transports. From == the account we authenticated as, and Reply-To is the same.
   const PAYMENTS_SENDER_EMAIL = (process.env.PAYMENTS_GMAIL_USER || 'payments.savehatke@gmail.com').trim().toLowerCase();
   const PAYMENTS_SENDER_NAME = 'Payments';
   const paymentsPass = (process.env.PAYMENTS_GMAIL_PASS || '').trim();
 
-  let t;
-  let fromEmail;
-  const fromName = PAYMENTS_SENDER_NAME;
-
-  if (paymentsPass) {
-    // Authenticate AS the Payments account and send from it (fully aligned).
-    t = nodemailer.createTransport({
+  // No fallback: the receipt is never sent from the main, support or no-reply
+  // account. Missing credentials fail safely with a clear server-side error.
+  if (!paymentsPass && !opts.renderOnly) {
+    console.error(`❌ [EmailService] Payment receipt NOT sent to ${cleanEmail}: PAYMENTS_GMAIL_PASS is not set. Set PAYMENTS_GMAIL_USER=${PAYMENTS_SENDER_EMAIL} and PAYMENTS_GMAIL_PASS (Gmail App Password for that account).`);
+    return { success: false, error: 'PAYMENTS_GMAIL_PASS is not configured.' };
+  }
+  const t = paymentsPass
+    ? nodemailer.createTransport({
       service: 'gmail',
       auth: { user: PAYMENTS_SENDER_EMAIL, pass: paymentsPass.replace(/\s+/g, '') },
-    });
-    fromEmail = PAYMENTS_SENDER_EMAIL;
-  } else {
-    // Fallbacks. From still follows the authenticated account so we never
-    // spoof; a warning fires if that is not the Payments account.
-    const paymentSender = getPaymentTransporter();
-    if (paymentSender) {
-      t = paymentSender.transporter;
-      fromEmail = String(paymentSender.fromEmail || '').trim();
-    } else {
-      t = getNoreplyTransporter();
-      const noreplyAuthUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
-      const desiredNoreply = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || '').trim();
-      const hasDedicatedNoreply = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
-      const domainOf = (addr) => (String(addr).split('@')[1] || '').toLowerCase();
-      const canSendAsNoreply = hasDedicatedNoreply
-        || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
-        || Boolean(desiredNoreply && noreplyAuthUser && domainOf(desiredNoreply) === domainOf(noreplyAuthUser));
-      fromEmail = canSendAsNoreply ? desiredNoreply : (noreplyAuthUser || desiredNoreply);
-    }
-    if (t && !opts.renderOnly && String(fromEmail).toLowerCase() !== PAYMENTS_SENDER_EMAIL) {
-      console.warn(`⚠️ [EmailService] Payment receipt is authenticating as "${fromEmail}", not ${PAYMENTS_SENDER_EMAIL}. Set PAYMENTS_GMAIL_USER=${PAYMENTS_SENDER_EMAIL} + PAYMENTS_GMAIL_PASS (a Gmail App Password for that account) so the From matches the authenticated account exactly.`);
-    }
-  }
+    })
+    : null;
+  const fromEmail = PAYMENTS_SENDER_EMAIL;
+  const fromName = PAYMENTS_SENDER_NAME;
 
   // siteUrl still powers the CTA link below (SITE_URL env, default savehatke.vercel.app).
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
@@ -3035,8 +3015,8 @@ async function sendPaymentSuccessEmail({
   void gatewayReference;
 
   if (!t && !opts.renderOnly) {
-    console.warn(`⚠️ [EmailService] SMTP not configured. Payment confirmation for ${cleanEmail} was NOT sent.`);
-    return { success: false, isSimulated: true, error: 'SMTP credentials not configured on server.' };
+    console.error(`❌ [EmailService] Payment confirmation for ${cleanEmail} was NOT sent: payments transport unavailable.`);
+    return { success: false, error: 'Payments email transport is not configured.' };
   }
 
   const textBody =
@@ -3127,7 +3107,7 @@ ${EMAIL_GREEN_DARK_RULES}
 
           <!-- SUCCESS TITLE + SUBTITLE -->
           <tr>
-            <td class="sh-pad sh-primary sh-title" align="center" style="padding:18px 40px 4px;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:36px;font-weight:700;color:#111827;">Payment Successful!</td>
+            <td class="sh-pad sh-primary sh-title" align="center" style="padding:18px 40px 4px;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:36px;font-weight:700;color:#111827;">Payment successful</td>
           </tr>
           <tr>
             <td class="sh-pad sh-secondary" align="center" style="padding:0 40px 6px;font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:24px;font-weight:400;color:#64748B;">Your transaction has been confirmed</td>
@@ -3199,6 +3179,7 @@ ${EMAIL_GREEN_DARK_RULES}
   try {
     const info = await t.sendMail({
       from: `"${fromName}" <${fromEmail}>`,
+      replyTo: PAYMENTS_SENDER_EMAIL,
       to: cleanEmail,
       subject,
       text: textBody,
@@ -3207,7 +3188,7 @@ ${EMAIL_GREEN_DARK_RULES}
     console.log(`✅ [EmailService] Payment confirmation sent to ${cleanEmail} from ${fromEmail} (Message ID: ${info.messageId})`);
     return { success: true, messageId: info.messageId };
   } catch (err) {
-    console.error(`❌ [EmailService] Failed to send payment confirmation to ${cleanEmail}:`, err.message);
+    console.error(`❌ [EmailService] Failed to send payment confirmation to ${cleanEmail} from ${fromEmail}: ${err.code || 'SMTP_ERROR'} ${err.message}`);
     return { success: false, error: err.message };
   }
 }
