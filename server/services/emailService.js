@@ -3344,7 +3344,6 @@ Coupon Details
 Brand: ${String(brandName || '').trim() || '—'}
 Description: ${String(couponDescription || '').trim() || '—'}
 Coupon Value: ₹${couponValueStr}
-Valid Until: ${expiryStr}
 Order ID: ${String(orderId || '').trim() || '—'}
 
 You can securely access and use your coupon from your SaveHatke account.
@@ -3352,8 +3351,9 @@ View your coupon: ${ctaUrl}
 
 Thank you for choosing SaveHatke.
 
-Regards,
-SaveHatke Team`;
+Best,
+
+You’re receiving this email because a coupon was purchased through your SaveHatke account.`;
 
   const htmlContent = `<!doctype html>
 <html lang="en">
@@ -3418,8 +3418,9 @@ SaveHatke Team`;
         display: inline-block;
         margin: 0;
         padding: 13px 24px;
-        background-color: #00e272;
-        color: #000000;
+        border-radius: 8px;
+        background-color: #000000;
+        color: #FFFFFF;
         font-size: 16px;
         font-weight: 700;
         text-decoration: none;
@@ -3455,6 +3456,10 @@ SaveHatke Team`;
         /* Brand green + the green button stay on-brand and readable on dark. */
         .green { color: #00e272 !important; }
 ${EMAIL_GREEN_DARK_RULES}
+        /* View Coupon button: WHITE fill + BLACK label in dark (inverse of light).
+           Declared after the shared green rules so it wins over them. */
+        a.button, .button { background-color: #FFFFFF !important; background: #FFFFFF !important; color: #000000 !important; }
+        .disclaimer { color: #B8B8B8 !important; }
       }
     </style>
   </head>
@@ -3465,18 +3470,17 @@ ${EMAIL_GREEN_DARK_RULES}
         <span class="brand-text">Save<span class="green">Hatke</span></span>
       </div>
 
-      <p>Hello <span class="green">${safeName}</span>,</p>
+      <p>Hello, <strong>${safeName}</strong></p>
 
       <p>Your coupon is now available in your SaveHatke account.</p>
 
       <p><strong>Coupon Details</strong></p>
 
       <div class="details">
-        <p>Brand: ${safeBrand}</p>
-        <p>Description: ${safeDesc}</p>
-        <p>Coupon Value: <span class="green">₹${safeValue}</span></p>
-        <p>Valid Until: ${safeExpiry}</p>
-        <p>Order ID: ${safeOrder}</p>
+        <p><strong>Brand:</strong> ${safeBrand}</p>
+        <p><strong>Description:</strong> ${safeDesc}</p>
+        <p><strong>Coupon Value:</strong> <span class="green">₹${safeValue}</span></p>
+        <p><strong>Order ID:</strong> ${safeOrder}</p>
       </div>
 
       <p>
@@ -3487,17 +3491,16 @@ ${EMAIL_GREEN_DARK_RULES}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" class="cta">
         <tr>
           <td align="center">
-            <a class="button" href="${ctaUrl}" style="display:inline-block;padding:13px 24px;background-color:#00e272;color:#000000;font-size:16px;font-weight:700;text-decoration:none;font-family:Arial,Helvetica,sans-serif;">View Coupon</a>
+            <a class="button" href="${ctaUrl}" style="display:inline-block;padding:13px 24px;border-radius:8px;background-color:#000000;color:#FFFFFF;font-size:16px;font-weight:700;text-decoration:none;font-family:Arial,Helvetica,sans-serif;">View Coupon</a>
           </td>
         </tr>
       </table>
 
-      <p>Thank you for choosing SaveHatke.</p>
+      <p class="thanks" style="text-align:center;font-weight:400;">Thank you for choosing <span style="font-weight:400;">SaveHatke</span>.</p>
 
-      <p>
-        Regards,<br />
-        SaveHatke Team
-      </p>
+      <p class="signoff" style="text-align:center;font-weight:400;">Best,</p>
+
+      <p class="disclaimer" style="margin:28px 0 0;text-align:center;font-size:12px;line-height:18px;font-weight:400;color:#64748B;">You’re receiving this email because a coupon was purchased through your SaveHatke account.</p>
     </div>
   </body>
 </html>`;
