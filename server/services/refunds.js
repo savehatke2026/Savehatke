@@ -14,19 +14,17 @@
 //
 // Every refund is created from server-side data the payment verifier
 // already approved. The browser never gets to choose the amounts: it can
-// only inspect what the server has stored. The Sheets `Refunds` tab and the
-// Supabase `refunds` table are written together so the dashboard reads
-// whatever is the most-up-to-date mirror.
+// only inspect what the server has stored.
 //
-// Money is stored as a 2-decimal string ("100.00") everywhere it touches
-// Sheets, mirroring the existing Payments-tab shape — the paise arithmetic
-// happens in money2() / moneyEquals() helpers. Supabase stores the same
-// shape as numeric(12,2) via toNumber() so the JSON contract stays a
-// string for the existing API consumers.
+// The Google Sheets `Refunds` tab is the ONLY refund store. Supabase is not
+// used for refund records. Reads are strict: if Sheets is unavailable a
+// RefundStoreUnavailableError is thrown, never an empty list.
+//
+// Money is stored as a 2-decimal rupee string ("100.00") in Sheets; the
+// paise arithmetic happens in money2() / toPaise().
 
 const { v4: uuidv4 } = require('uuid');
 const db = require('./googleSheets');
-const supabase = require('./supabase');
 const ids = require('../utils/identifiers');
 
 const SHEETS = db.SHEETS;
@@ -100,7 +98,7 @@ function computeRefund({ required, received }) {
   return { mismatchType: 'underpayment', refundAmount: x / 100, delta: shortPaise / 100 };
 }
 
-// Format a refund row the same way regardless of source (Sheets or Supabase).
+// Format a refund row the same way regardless of source.
 // Returns a clean object whose amount fields are always paise-precise
 // strings and whose dates are ISO-8601.
 function normalize(row) {
@@ -166,85 +164,28 @@ function toSheetsRow(r) {
   };
 }
 
-// Supabase shape: numeric columns accept a JS number; paise-precise to
-// 2 decimals is fine because the input is already 2-decimal-rounded by
-// money2().
-function toSupabaseRow(r) {
-  return {
-    id: r.id || undefined,                 // uuid is server-set; let Supabase default fire
-    refund_id: r.refundId,
-    user_id: r.userId,
-    user_email: r.userEmail,
-    payment_id: r.paymentId,
-    coupon_id: r.couponId,
-    order_code: r.orderCode,
-    required_amount: toNumber(r.requiredAmount),
-    received_amount: toNumber(r.receivedAmount),
-    refund_amount: toNumber(r.refundAmount),
-    currency: r.currency,
-    mismatch_type: r.mismatchType,
-    refund_reason: r.refundReason,
-    status: r.status,
-    refund_reference: r.refundReference,
-    admin_note: r.adminNote,
-    processed_at: r.processedAt || null,
-    processed_by: r.processedBy,
-    // Canonical financial identifiers (see server/utils/identifiers.js).
-    order_id: r.orderId || null,
-    transaction_id: r.transactionId || null,
-    transaction_type: r.transactionType || 'REFUND',
-    // created_at and updated_at default to now() at the SQL level — only
-    // send values when the caller has an authoritative timestamp.
-    ...(r.createdAt ? { created_at: r.createdAt } : {}),
-    ...(r.updatedAt ? { updated_at: r.updatedAt } : {}),
-  };
-}
-
 // ── Read helpers ──────────────────────────────────────────────────────────
 
-async function readAllFromSheets() {
-  try {
-    const rows = await db.getRows(SHEETS.REFUNDS);
-    return (rows || []).map(normalize).filter(Boolean);
-  } catch (e) {
-    console.warn('[refunds] Sheets read notice:', e.message);
-    return [];
+// Google Sheets `Refunds` tab is the ONLY refund store. A read failure is
+// thrown (never converted to an empty list) so callers cannot show a false
+// zero refund total. Routes map the error to a 503 with dataUnavailable.
+class RefundStoreUnavailableError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = 'RefundStoreUnavailableError';
+    this.code = 'REFUND_STORE_UNAVAILABLE';
   }
 }
 
-async function readFromSupabase() {
-  if (!supabase.isConfigured()) return [];
-  const client = supabase.getClient();
-  if (!client) return [];
-  try {
-    const { data, error } = await client
-      .from('refunds')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (error) {
-      console.warn('[refunds] Supabase read notice:', error.message);
-      return [];
-    }
-    return (data || []).map(normalize).filter(Boolean);
-  } catch (e) {
-    console.warn('[refunds] Supabase read notice:', e.message);
-    return [];
-  }
-}
-
-// Sheet-first read with Supabase fallback (and vice versa) — never silently
-// drop a refund because one store is empty.
 async function readAllRefunds() {
-  const sheets = await readAllFromSheets();
-  if (sheets.length > 0) {
-    // Sheets is the operator-readable mirror. A row that exists only in
-    // Supabase is also surfaced so a brand-new write that has not yet
-    // mirrored to Sheets is still visible.
-    const supa = await readFromSupabase();
-    const seen = new Set(sheets.map((r) => r.refundId || r.id));
-    return sheets.concat(supa.filter((r) => !seen.has(r.refundId || r.id)));
+  let rows;
+  try {
+    rows = await db.getRows(SHEETS.REFUNDS, { strict: true });
+  } catch (e) {
+    console.warn('[refunds] Sheets read failed:', e && e.message);
+    throw new RefundStoreUnavailableError('Refund records could not be loaded from Google Sheets.');
   }
-  return readFromSupabase();
+  return (rows || []).map(normalize).filter(Boolean);
 }
 
 async function getRefundsForUser(userId) {
@@ -304,8 +245,14 @@ async function createOrUpdateRefund({
   const isUnderpayment = computed.mismatchType === 'underpayment';
   const reasonText = isUnderpayment ? REASON_UNDERPAYMENT : REASON_OVERPAYMENT;
 
-  // Find an existing row by payment_id (the unique-per-payment key).
-  const allRefunds = await readAllRefunds();
+  // Find an existing row by payment_id (the unique-per-payment key). If the
+  // store cannot be read, fail closed: never create a refund blind.
+  let allRefunds;
+  try {
+    allRefunds = await readAllRefunds();
+  } catch (e) {
+    return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'The refund record could not be saved to Google Sheets. No refund was created.' };
+  }
   const existing = allRefunds.find((r) => r.paymentId === paymentId) || null;
 
   // Mint canonical identifiers for a NEW refund; an existing refund keeps the
@@ -348,68 +295,21 @@ async function createOrUpdateRefund({
     updated_at: now,
   });
 
-  // Dual-write: Sheets first (operator mirror), then Supabase (structured
-  // store).
-  //
-  // The Sheets write is STRICT. A refund is money owed to a buyer, so "the
-  // mirror was unreachable" must not be reported as "recorded": a non-strict
-  // updateRow silently falls back to this instance's in-memory copy, which
-  // returns ok:true for a row that exists nowhere authoritative and is gone
-  // after a restart — while a buyer-facing "your refund is being processed"
-  // message has already gone out.
-  let sheetsSaved = false;
-  let sheetsError = '';
+  // Google Sheets is the only refund store. The write is STRICT: a non-strict
+  // updateRow would fall back to an in-memory copy and report success for a
+  // row that exists nowhere authoritative.
   try {
     if (existing) {
       await db.updateRow(SHEETS.REFUNDS, 'id', existing.refundId || existing.id, toSheetsRow(merged), { strict: true });
     } else {
       await db.appendRow(SHEETS.REFUNDS, toSheetsRow(merged), { strict: true });
     }
-    sheetsSaved = true;
   } catch (e) {
-    sheetsError = e && e.message ? e.message : 'Sheets write failed';
-    console.warn('[refunds] Sheets write notice:', sheetsError);
-  }
-
-  // Supabase carries a unique index on payment_id, which is what actually makes
-  // "one refund per payment" true across instances. The result used to be
-  // discarded, so a duplicate insert failed invisibly and the caller still got
-  // ok:true. It is now inspected: a unique-constraint violation means another
-  // writer already created this refund, which is reported, not swallowed.
-  let supabaseSaved = false;
-  let supabaseConflict = false;
-  let supabaseError = '';
-  if (supabase.isConfigured()) {
-    try {
-      const client = supabase.getClient();
-      if (client) {
-        const { error } = existing
-          ? await client.from('refunds').update(toSupabaseRow(merged)).eq('refund_id', merged.refundId)
-          : await client.from('refunds').insert(toSupabaseRow(merged));
-        if (error) {
-          supabaseError = error.message || 'Supabase write failed';
-          if (error.code === '23505' || /duplicate key|unique constraint/i.test(supabaseError)) {
-            supabaseConflict = true;
-          }
-          console.warn('[refunds] Supabase write notice:', supabaseError);
-        } else {
-          supabaseSaved = true;
-        }
-      }
-    } catch (e) {
-      supabaseError = e && e.message ? e.message : 'Supabase write failed';
-      console.warn('[refunds] Supabase write notice:', supabaseError);
-    }
-  }
-
-  // Fail closed. At least one authoritative store must have accepted the row.
-  if (!sheetsSaved && !supabaseSaved) {
+    console.warn('[refunds] Sheets write failed:', e && e.message);
     return {
       ok: false,
-      code: supabaseConflict ? 'REFUND_ALREADY_EXISTS' : 'STORAGE_UNAVAILABLE',
-      error: supabaseConflict
-        ? 'A refund for this payment already exists.'
-        : 'The refund record could not be saved. No refund was created.',
+      code: 'STORAGE_UNAVAILABLE',
+      error: 'The refund record could not be saved to Google Sheets. No refund was created.',
     };
   }
 
@@ -421,7 +321,7 @@ async function createOrUpdateRefund({
  * verification deadline. Full received amount, never fulfilled, never a coupon.
  *
  * Idempotent per payment: the existing row is returned unchanged on any repeat
- * call, and the Supabase unique index on payment_id is the cross-instance guard.
+ * call (the existing-row lookup in readAllRefunds is the duplicate guard).
  * The task starts 'pending' and only moves to 'refunded' through the admin gate
  * in updateRefundStatus (UTR + explicit confirmation).
  */
@@ -445,7 +345,12 @@ async function createLateRefundTask({
     return { ok: false, code: 'INVALID_INPUT', error: 'A positive received amount is required.' };
   }
 
-  const allRefunds = await readAllRefunds();
+  let allRefunds;
+  try {
+    allRefunds = await readAllRefunds();
+  } catch (e) {
+    return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'The refund task could not be saved to Google Sheets.' };
+  }
   const existing = allRefunds.find((r) => r.paymentId === paymentId) || null;
   if (existing) {
     // Never rewrite a task that already exists, whatever its status.
@@ -485,43 +390,11 @@ async function createLateRefundTask({
     updated_at: now,
   });
 
-  let sheetsSaved = false;
-  let sheetsError = '';
   try {
     await db.appendRow(SHEETS.REFUNDS, toSheetsRow(merged), { strict: true });
-    sheetsSaved = true;
   } catch (e) {
-    sheetsError = e && e.message ? e.message : 'Sheets write failed';
-    console.warn('[refunds] Sheets late-task write notice:', sheetsError);
-  }
-
-  let supabaseSaved = false;
-  let supabaseConflict = false;
-  if (supabase.isConfigured()) {
-    try {
-      const client = supabase.getClient();
-      if (client) {
-        const { error } = await client.from('refunds').insert(toSupabaseRow(merged));
-        if (error) {
-          const msg = error.message || '';
-          if (error.code === '23505' || /duplicate key|unique constraint/i.test(msg)) supabaseConflict = true;
-          console.warn('[refunds] Supabase late-task write notice:', msg);
-        } else {
-          supabaseSaved = true;
-        }
-      }
-    } catch (e) {
-      console.warn('[refunds] Supabase late-task write notice:', e.message);
-    }
-  }
-
-  if (supabaseConflict) {
-    // Another instance created the task first. Return it instead of failing.
-    const again = (await readAllRefunds()).find((r) => r.paymentId === paymentId) || null;
-    return { ok: true, created: false, refund: again, reason: 'already_exists' };
-  }
-  if (!sheetsSaved && !supabaseSaved) {
-    return { ok: false, code: 'STORAGE_UNAVAILABLE', error: sheetsError || 'Refund task could not be saved.' };
+    console.warn('[refunds] Sheets late-task write failed:', e && e.message);
+    return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'The refund task could not be saved to Google Sheets.' };
   }
   return { ok: true, created: true, refund: merged };
 }
@@ -542,7 +415,12 @@ async function updateRefundStatus(refundId, { status, adminNote, refundReference
     return { ok: false, code: 'INVALID_STATUS', error: 'Invalid refund status.' };
   }
 
-  const all = await readAllRefunds();
+  let all;
+  try {
+    all = await readAllRefunds();
+  } catch (e) {
+    return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'The refund status could not be saved to Google Sheets. Nothing was changed — please try again.' };
+  }
   const existing = all.find((r) => (r.refundId || r.id) === refundId);
   if (!existing) return { ok: false, code: 'NOT_FOUND', error: 'Refund not found.' };
 
@@ -591,38 +469,16 @@ async function updateRefundStatus(refundId, { status, adminNote, refundReference
     updated_at: now,
   });
 
-  // Sheets first, then Supabase (same dual-write pattern). Both are checked:
-  // reporting success for a status change that no authoritative store accepted
-  // would tell an admin the money is marked refunded when it is not.
-  let sheetsSaved = false;
+  // Google Sheets is the only refund store. Fail closed: a status change that
+  // Sheets did not accept must not be reported as done.
   try {
     await db.updateRow(SHEETS.REFUNDS, 'id', existing.refundId || existing.id, toSheetsRow(updated), { strict: true });
-    sheetsSaved = true;
   } catch (e) {
-    console.warn('[refunds] Sheets status update notice:', e.message);
-  }
-  let supabaseSaved = false;
-  if (supabase.isConfigured()) {
-    try {
-      const client = supabase.getClient();
-      if (client) {
-        const { error } = await client.from('refunds').update(toSupabaseRow(updated)).eq('refund_id', updated.refundId);
-        if (error) console.warn('[refunds] Supabase status update notice:', error.message);
-        else supabaseSaved = true;
-      }
-    } catch (e) {
-      console.warn('[refunds] Supabase status update notice:', e.message);
-    }
-  }
-
-  // Fail closed: a status change that no authoritative store accepted must not
-  // be reported as done, or an admin is told the money is marked refunded while
-  // the ledger still shows it pending.
-  if (!sheetsSaved && !supabaseSaved) {
+    console.warn('[refunds] Sheets status update failed:', e && e.message);
     return {
       ok: false,
       code: 'STORAGE_UNAVAILABLE',
-      error: 'The refund status could not be saved. Nothing was changed — please try again.',
+      error: 'The refund status could not be saved to Google Sheets. Nothing was changed — please try again.',
       refund: existing,
     };
   }
@@ -705,5 +561,5 @@ module.exports = {
   // Exported for tests and other services that need the canonical shape.
   normalize,
   toSheetsRow,
-  toSupabaseRow,
+  RefundStoreUnavailableError,
 };
