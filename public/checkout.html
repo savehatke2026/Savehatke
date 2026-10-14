@@ -764,8 +764,8 @@
       <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
     </div>
 
-    <h2 class="succ-title">Extra Amount <span>Received</span></h2>
-    <p class="succ-subtitle">You paid more than the required amount.</p>
+    <h2 class="succ-title">Extra <span>Payment Detected</span></h2>
+    <p class="succ-subtitle" id="xaMessage">You paid more than the required amount.</p>
 
     <div class="succ-details">
       <div class="succ-row">
@@ -786,10 +786,11 @@
 
     <div class="xa-info">
       <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      <div class="xa-info-text">The extra amount of <b id="xaRefundInline">₹0</b> will be refunded to your <b>original payment method</b> automatically.</div>
+      <div class="xa-info-text">You paid <b id="xaRefundInline">₹0</b> extra. The excess amount will be refunded to you.</div>
     </div>
 
-    <p class="xa-note">We'll process the refund shortly and notify you once it's completed.</p>
+    <div class="succ-row"><span class="succ-label">Refund Status</span><span class="succ-value" id="xaRefundStatus">Refund pending</span></div>
+    <p class="xa-note">A refund is sent only after the transfer is confirmed. We'll notify you when its status changes.</p>
     <p class="xa-redirect" id="xaRedirect">Revealing your coupon in 5s…</p>
 
     <div class="succ-foot">
@@ -825,8 +826,8 @@
       </svg>
     </div>
 
-    <h2 class="succ-title">Insufficient <span class="ip-accent">Payment</span></h2>
-    <p class="succ-subtitle">You paid less than the required amount.</p>
+    <h2 class="succ-title">Payment <span class="ip-accent">Amount Mismatch</span></h2>
+    <p class="succ-subtitle" id="ipMessage">You paid less than the required amount. Your purchase has been cancelled, and your full payment will be refunded.</p>
 
     <div class="succ-details">
       <div class="succ-row">
@@ -847,10 +848,11 @@
 
     <div class="xa-info xa-info-under">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      <div class="xa-info-text">Your payment of <b id="ipPaidInline">₹0</b> is lower than the required amount. It will be refunded to your <b>original payment method</b> automatically.</div>
+      <div class="xa-info-text">Your payment of <b id="ipPaidInline">₹0</b> is lower than the required amount. Your purchase has been cancelled and the full amount will be refunded.</div>
     </div>
 
-    <p class="xa-note">We'll process the refund shortly and notify you once it's completed.</p>
+    <div class="succ-row"><span class="succ-label">Refund Status</span><span class="succ-value" id="ipRefundStatus">Refund pending</span></div>
+    <p class="xa-note">A refund is sent only after the transfer is confirmed. We'll notify you when its status changes.</p>
 
     <button class="xa-confirm" id="ipConfirmBtn" type="button" onclick="closeInsufficientAmount()">
       <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
@@ -2366,6 +2368,88 @@
   // and the code stays covered by the scratch foil until the buyer scratches
   // it. There is no auto-redirect any more: the buyer scratches, copies and
   // redeems right here, and the × simply closes the box.
+  // ── Payment amount mismatch (restored; the definitions were lost in c599c85) ──
+  // All comparisons are integer paise. The coupon is unlocked ONLY for an
+  // overpayment the server has already verified; an underpayment never reaches
+  // showSuccessScreen. Refund copy never claims a refund was already sent.
+  let xaTimer = null;
+  function toPaiseLocal(n) { return Math.round(Number(n) * 100); }
+
+  function showExtraAmountThenSuccess(required, received) {
+    const refundPaise = Math.max(0, toPaiseLocal(received) - toPaiseLocal(required));
+    const refund = refundPaise / 100;
+    const set = (id, txt) => { const el = upiEl(id); if (el) el.textContent = txt; };
+    set('xaRequired', formatRupees(required));
+    set('xaPaid', formatRupees(received));
+    set('xaRefund', formatRupees(refund));
+    set('xaRefundInline', formatRupees(refund));
+    set('xaRefundStatus', 'Refund pending');
+
+    const overlay = upiEl('extraAmountOverlay');
+    if (!overlay) { showSuccessScreen(); return; } // fail safe: still reveal the code
+
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+
+    let secs = 5;
+    const redirectEl = upiEl('xaRedirect');
+    const paint = () => {
+      if (redirectEl) redirectEl.textContent = secs > 0
+        ? ('Revealing your coupon in ' + secs + 's...')
+        : 'Revealing your coupon...';
+    };
+    paint();
+    clearInterval(xaTimer);
+    xaTimer = setInterval(function () {
+      secs -= 1;
+      paint();
+      if (secs <= 0) continueFromExtraAmount();
+    }, 1000);
+  }
+
+  function continueFromExtraAmount() {
+    clearInterval(xaTimer); xaTimer = null;
+    const overlay = upiEl('extraAmountOverlay');
+    if (overlay) overlay.classList.remove('show');
+    showSuccessScreen();
+  }
+
+  function showInsufficientAmountScreen(required, received) {
+    const shortPaise = Math.max(0, toPaiseLocal(required) - toPaiseLocal(received));
+    const set = (id, txt) => { const el = upiEl(id); if (el) el.textContent = txt; };
+    set('ipRequired', formatRupees(required));
+    set('ipPaid', formatRupees(received));
+    set('ipShort', formatRupees(shortPaise / 100));
+    set('ipPaidInline', formatRupees(received));
+    set('ipRefundStatus', 'Refund pending');
+
+    // Terminal state for this attempt: close the QR / countdown surface.
+    stopUpiStream();
+    stopUpiPoll();
+    closeUpiBox({ instant: true });
+
+    const overlay = upiEl('insufficientAmountOverlay');
+    if (!overlay) return;
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+
+    const cta = upiEl('ipConfirmBtn');
+    if (cta) {
+      try { cta.focus({ preventScroll: true }); } catch (_) { cta.focus(); }
+    }
+  }
+
+  function closeInsufficientAmount() {
+    const overlay = upiEl('insufficientAmountOverlay');
+    if (overlay) overlay.classList.remove('show');
+    document.body.style.overflow = '';
+    // Honest status: the refund is pending until the transfer is confirmed.
+    showToastLocal(
+      'Your payment is being refunded. The order was cancelled and no coupon was issued. You will be notified when the refund is confirmed.',
+      'info'
+    );
+  }
+
   // ── Purchased coupon box (shared component) ─────────────────────────────
   // The box itself lives in js/purchased-coupon-modal.js and is the same one the
   // dashboard opens. These thin adapters keep the existing PAID / overpayment

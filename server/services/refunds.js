@@ -76,18 +76,28 @@ const REASON_LATE_PAYMENT = 'Payment was made after the verification deadline; f
 // Compute the refund arithmetic. This is the single place the rule lives —
 // everywhere else reads from the persisted refund_amount and never
 // re-derives it from a client-supplied value.
+// Rupees -> integer paise. Rounding happens once here, so every comparison
+// below is exact integer arithmetic (no float drift such as 0.1 + 0.2).
+function toPaise(n) {
+  const num = Number(n);
+  if (!Number.isFinite(num) || num < 0) return 0;
+  return Math.round(num * 100);
+}
+
 function computeRefund({ required, received }) {
-  const r = Math.max(0, toNumber(required));
-  const x = Math.max(0, toNumber(received));
+  const r = toPaise(toNumber(required));
+  const x = toPaise(toNumber(received));
   if (x === r) {
     return { mismatchType: null, refundAmount: 0, delta: 0 };
   }
   if (x > r) {
-    return { mismatchType: 'overpayment', refundAmount: x - r, delta: x - r };
+    const excessPaise = x - r;
+    return { mismatchType: 'overpayment', refundAmount: excessPaise / 100, delta: excessPaise / 100 };
   }
   // Underpayment: the refund equals exactly what we received — the buyer
   // gets back everything they actually paid, never more.
-  return { mismatchType: 'underpayment', refundAmount: x, delta: r - x };
+  const shortPaise = r - x;
+  return { mismatchType: 'underpayment', refundAmount: x / 100, delta: shortPaise / 100 };
 }
 
 // Format a refund row the same way regardless of source (Sheets or Supabase).

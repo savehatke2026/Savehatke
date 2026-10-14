@@ -757,10 +757,13 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
   //    their money back without a coupon.
   const requiredForMismatch = Number(payment.amount || 0);
   const receivedForMismatch = Number(candidate.amount || 0);
+  // Integer-paise comparison: avoids float drift from the old "+ 0.005" fudge.
+  const requiredPaise = Math.round(requiredForMismatch * 100);
+  const receivedPaise = Math.round(receivedForMismatch * 100);
   const isUnderpayment = mismatchPath
-    && Number.isFinite(requiredForMismatch)
-    && Number.isFinite(receivedForMismatch)
-    && receivedForMismatch + 0.005 < requiredForMismatch;
+    && Number.isFinite(requiredPaise)
+    && Number.isFinite(receivedPaise)
+    && receivedPaise < requiredPaise;
 
   let result;
   try {
