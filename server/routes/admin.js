@@ -17,6 +17,7 @@ const payoutMethodReminder = require('../services/payoutMethodReminder');
 const monthlyReports = require('../services/monthlyReports');
 const couponListCache = require('../services/couponListCache');
 const googleDrive = require('../services/googleDrive');
+const brandStore = require('../services/brandStore');
 const securityStore = require('../services/securityCredentialsStore');
 const paymentMailbox = require('../services/paymentMailbox');
 // Payout withholding and the seller status vocabulary live with the Payouts tab,
@@ -703,6 +704,15 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
     if (!code || !brand) {
       return res.status(400).json({ error: 'Coupon code and brand are required.' });
     }
+    // Brand must be an active directory brand; the canonical name is stored.
+    let resolvedBrand;
+    try {
+      resolvedBrand = await brandStore.resolveActiveBrand(String(brand));
+    } catch (e) {
+      if (e && e.code === 'BRAND_NOT_ACTIVE') return res.status(400).json({ error: e.message, code: 'BRAND_NOT_ACTIVE' });
+      if (e && (e.code === 'BRANDS_SCHEMA_MISSING' || e.code === 'BRANDS_UNAVAILABLE')) return res.status(503).json({ error: e.message, code: e.code });
+      throw e;
+    }
 
     // Hybrid pricing: validate the mode, value type and final-day price before
     // anything is written. A new coupon defaults to automatic, face value.
@@ -769,7 +779,8 @@ router.post('/coupons', authenticateToken, requireAdmin, adminMutationLimiter, a
       title: title ? title.trim() : '',
       type: type ? type.trim() : 'Public',
       category: category ? category.trim() : 'General',
-      brand: brand.trim(),
+      brand: resolvedBrand.brand.name,
+      brandId: resolvedBrand.brandId,
       // The typed description wins; the title is only the fallback when blank.
       description: description || title || discount || '',
       discount: discount ? discount.trim() : '',

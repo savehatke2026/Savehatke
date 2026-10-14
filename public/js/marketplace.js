@@ -1064,7 +1064,9 @@ function initFilterPanel() {
   const moreCategories = ['Hotels & Stays', 'Gaming & Entertainment', 'Fitness & Sports', 'Education', 'Health & Pharmacy', 'Finance & Payments', 'General'];
   const chipGroup = (name, values) => `<div class="filter-chips" data-group="${name}">${values.map((value, i) => `<button type="button" class="filter-chip" aria-pressed="${i === 0}" data-value="${escapeCoupon(value)}">${escapeCoupon(value)}</button>`).join('')}</div>`;
   const range = (name, minimum) => `<div class="filter-range-labels"><output id="${name}MinLabel">₹${minimum}</output><output id="${name}MaxLabel">₹10,000+</output></div><div class="filter-range"><div class="filter-range-track"></div><input type="range" id="${name}Min" aria-label="Minimum ${name}" min="${minimum}" max="10000" value="${minimum}" step="1"><input type="range" id="${name}Max" aria-label="Maximum ${name}" min="${minimum}" max="10000" value="10000" step="1"></div>`;
-  const brands = ['Amazon', 'Myntra', 'Swiggy', 'Nykaa', 'Flipkart', 'Zomato', 'Ajio', 'MakeMyTrip', 'Lovee of India', 'Tata Nutrikorner', 'Bare Anatomy', 'Brillare', 'Rhana'];
+  // Brand list comes from the admin-managed directory (Admin > Brands).
+  // Active brands only; an empty list simply shows 'All Brands'.
+  const brands = (window.SH_BRANDS || []).map((b) => b.name);
 
   panel.innerHTML = `
     <header class="filter-panel-header"><h3 id="filterPanelTitle">Filters</h3><button type="button" class="filter-close" aria-label="Close filters"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 18 18M21 3 3 21"/></svg></button></header>

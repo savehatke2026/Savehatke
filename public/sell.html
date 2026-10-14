@@ -942,6 +942,7 @@
      resolve logos from the SaveHatke Assets Drive — Google Drive is the
      single source of truth here, exactly like the marketplace cards. -->
 <script src="js/coupon-meta.js"></script>
+<script src="js/brand-directory.js"></script>
 <!-- Client-side coupon screenshot OCR (PaddleOCR.js — the official
      @paddleocr/paddleocr-js SDK, vendored same-origin and loaded lazily via
      dynamic import on the first scan — nothing runs at page load; the PP-OCRv5
@@ -1173,6 +1174,9 @@ const FALLBACK_CATEGORY = 'General';
  * "Swiggy Instamart" still resolve. Unknown brands → "General".
  */
 function deriveCategory(brandRaw) {
+  // Category comes from the admin-managed directory (Admin > Brands).
+  const dir = typeof window.brandCategoryFor === 'function' ? window.brandCategoryFor(brandRaw) : null;
+  if (dir) return dir;
   const brand = String(brandRaw || '').trim().toLowerCase().replace(/\s+/g, ' ');
   if (!brand) return '';
   if (BRAND_CATEGORY[brand]) return BRAND_CATEGORY[brand];
@@ -1248,7 +1252,7 @@ function titleCaseBrand(name) {
 }
 
 /** [{ name, category }], grouped in the order the categories first appear. */
-const BRAND_OPTIONS = (function buildBrandOptions() {
+let BRAND_OPTIONS = (function buildBrandOptions() {
   const squash = (s) => (typeof normBrandKey === 'function'
     ? normBrandKey(s)
     : String(s).toLowerCase().replace(/[^a-z0-9]/g, ''));
@@ -1271,6 +1275,17 @@ const BRAND_OPTIONS = (function buildBrandOptions() {
   }
   return out;
 })();
+
+// Prefer the admin-managed directory (Admin > Brands). Rebuilt once it loads;
+// the static map above is only a fallback when the directory is unreachable.
+if (window.brandDirectoryReady) {
+  window.brandDirectoryReady.then(function () {
+    const live = (window.SH_BRANDS || []).map((b) => ({ name: b.name, category: b.category || 'General' }));
+    if (live.length) {
+      BRAND_OPTIONS = live.sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name));
+    }
+  });
+}
 
 /* ══════════════════════════════════════
    BRAND PICKER (one per coupon card)

@@ -425,6 +425,7 @@ function toSupabaseCoupon(c) {
     type: c.type || 'Public',
     category: c.category || 'General',
     brand: c.brand || '',
+    brandId: c.brand_id || c.brandId || null,
     description: c.description || '',
     discount: c.discount || '',
     original_value: String(c.originalValue || '0'),
@@ -468,6 +469,7 @@ function toSupabaseCoupon(c) {
     // tolerate databases where
     // 20261009_coupon_brand_logo_and_list_indexes.sql hasn't been applied yet.
     ...(c.brandLogo !== undefined ? { brand_logo: c.brandLogo || null } : {}),
+    ...(c.brandId !== undefined ? { brand_id: c.brandId || null } : {}),
     ...(c.proofUrl !== undefined ? { proof_url: c.proofUrl || '' } : {}),
     ...(c.adminNotes !== undefined ? { admin_notes: c.adminNotes || '' } : {}),
     ...(c.verifiedAt !== undefined ? { verified_at: c.verifiedAt || null } : {}),
@@ -488,6 +490,7 @@ function fromSupabaseCoupon(r) {
     type: r.type || 'Public',
     category: r.category || 'General',
     brand: r.brand || '',
+    brandId: r.brand_id || null,
     description: r.description || '',
     discount: r.discount || '',
     originalValue: r.original_value || '0',

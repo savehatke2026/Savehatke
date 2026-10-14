@@ -465,6 +465,11 @@ function getBrandBackground(brand) {
 }
 
 function getBrandLogo(brand) {
+  // 0) The admin-chosen logo from the central brand directory (Admin > Brands).
+  if (typeof window.brandLogoFor === 'function') {
+    const admin = window.brandLogoFor(brand);
+    if (admin) return admin;
+  }
   // 1) Google Drive reference when this brand's resolution is cached
   const drive = getDriveAsset(brand);
   if (drive && drive.logo) return drive.logo;

@@ -165,6 +165,7 @@ async function _listFolder(drive, folderId) {
   const byKey = new Map();
   const fileIds = new Set();
   const mimeById = new Map();
+  const nameById = new Map();
   let pageToken;
   do {
     const res = await drive.files.list({
@@ -179,6 +180,7 @@ async function _listFolder(drive, folderId) {
       if (!f || !f.id) continue;
       fileIds.add(f.id);
       mimeById.set(f.id, f.mimeType || '');
+      nameById.set(f.id, f.name || f.id);
       const stem = String(f.name || '').replace(/\.[^.]+$/, '');
       const key = normalizeBrand(stem);
       if (!key) continue;
@@ -187,7 +189,7 @@ async function _listFolder(drive, folderId) {
     }
     pageToken = res.data.nextPageToken || undefined;
   } while (pageToken);
-  return { byKey, fileIds, mimeById };
+  return { byKey, fileIds, mimeById, nameById };
 }
 
 async function getFolderListing(folderId) {
@@ -334,6 +336,59 @@ function cachedMimeFor(fileId) {
   return null;
 }
 
+// ── Admin helpers (Brand Management) ─────────────────────────────────────────
+
+/** Drop cached brand resolutions and the logo listing so an admin change shows
+ *  up on the next request instead of after the TTL. */
+function invalidateBrandCaches() {
+  brandCache.clear();
+  listingCache.clear();
+}
+
+/** Accept a bare Drive file id or any common Drive link form. Returns the id or null. */
+function extractDriveFileId(input) {
+  const raw = String(input || '').trim();
+  if (!raw) return null;
+  const fromPath = /\/d\/([a-zA-Z0-9_-]{10,80})/.exec(raw) || /[?&]id=([a-zA-Z0-9_-]{10,80})/.exec(raw);
+  const id = fromPath ? fromPath[1] : raw;
+  return /^[a-zA-Z0-9_-]{10,80}$/.test(id) ? id : null;
+}
+
+/** Image files in the Brand Logos folder (name + id only, no Drive metadata beyond that). */
+async function listLogoFiles() {
+  const ids = await getAssetFolderIds();
+  if (!ids.logos) return [];
+  const listing = await getFolderListing(ids.logos);
+  if (listing.error) throw new Error('Brand Logos folder listing unavailable');
+  const out = [];
+  for (const [fileId, mime] of listing.mimeById.entries()) {
+    if (!/^image\//i.test(mime || '')) continue;
+    out.push({ id: fileId, name: listing.nameById.get(fileId) || fileId, mimeType: mime });
+  }
+  out.sort((a, b) => a.name.localeCompare(b.name));
+  return out;
+}
+
+/**
+ * Verify a Drive file is an accessible image before it is assigned to a brand.
+ * Returns { ok, reason?, file? }. Never returns Drive tokens or raw metadata.
+ */
+async function checkLogoFile(fileId) {
+  const drive = await googleDrive.getDriveClient();
+  if (!drive) return { ok: false, reason: 'drive_unavailable' };
+  try {
+    const meta = await googleDrive.getFileMeta(fileId);
+    if (!meta) return { ok: false, reason: 'not_found' };
+    if (!/^image\//i.test(meta.mimeType || '')) return { ok: false, reason: 'not_image' };
+    return { ok: true, file: { id: fileId, name: meta.name || fileId, mimeType: meta.mimeType }, url: fileUrl(fileId) };
+  } catch (e) {
+    const status = e && (e.code || (e.response && e.response.status));
+    if (status === 404) return { ok: false, reason: 'not_found' };
+    if (status === 403) return { ok: false, reason: 'no_access' };
+    throw e;
+  }
+}
+
 module.exports = {
   normalizeBrand,
   resolveBrandAssets,
@@ -341,6 +396,10 @@ module.exports = {
   isKnownAssetFile,
   cachedMimeFor,
   fileUrl,
+  listLogoFiles,
+  checkLogoFile,
+  extractDriveFileId,
+  invalidateBrandCaches,
   // Exposed for diagnostics
   _getAssetFolderIds: getAssetFolderIds,
 };

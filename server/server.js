@@ -66,6 +66,7 @@ const driveProxyRoutes = require('./routes/driveProxy');
 // Brand logos / coupon backgrounds resolved from the "SaveHatke Assets" Drive
 // folders (server-side resolution + public image endpoint).
 const brandAssetRoutes = require('./routes/brandAssets');
+const brandRoutes = require('./routes/brands');
 const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
 const { checkPageAccess, resolveCaller, isAdminRole, isWhitelistedEmail } = require('./middleware/maintenance');
@@ -634,6 +635,9 @@ app.use('/api/admin/email-testing', adminApiLimiter, adminEmailTestingRoutes);
 // 100/15min cap was causing "Too many requests" errors on the user / session
 // / coupon / payout pages.
 app.use('/api/admin/coupon-images', adminApiLimiter, couponImageRoutes); // image uploads; must precede /api/admin (own 4.25mb parser)
+// Brand directory admin routes (own requireAdmin + mutation limiter per route).
+// Mounted before the generic /api/admin router so they are never shadowed.
+app.use('/api/admin/brands', adminApiLimiter, brandRoutes.adminRouter);
 app.use('/api/admin', adminApiLimiter, adminRoutes);
 
 // Admin payout routes live in routes/payouts.js (defined with paths like
@@ -672,6 +676,8 @@ app.use('/api/proxy/drive', apiLimiter, maintenanceGuard, driveProxyRoutes); // 
 // Public brand-logo / coupon-background resolver + image streaming from the
 // "SaveHatke Assets" Drive folders. Resolution and credentials stay server-side.
 app.use('/api/brand-assets', apiLimiter, maintenanceGuard, brandAssetRoutes);
+// Public active-brand directory (no admin data, no Drive credentials).
+app.use('/api/brands', apiLimiter, maintenanceGuard, brandRoutes);
 // Read-only view of the visitor's cookie consent. Mounted before the generic
 // '/api' router below so it is not shadowed by it, and left off the rate limiter
 // on purpose: it is a cheap cookie read that any page may call on load, and

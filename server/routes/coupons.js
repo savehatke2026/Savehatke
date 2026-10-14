@@ -8,6 +8,7 @@ const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, optionalAuth } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const brandStore = require('../services/brandStore');
 const { getPublicSettings } = require('../services/publicSettings');
 const paymentStore = require('../services/paymentStore');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
@@ -831,7 +832,24 @@ const handleCouponSubmission = async (req, res) => {
       }
 
       const cleanCode = String(c.code).toUpperCase().trim().slice(0, 60);
-      const cleanBrand = cleanStr(c.brand, 80);
+      // Brand must be an ACTIVE directory brand. The canonical directory name
+      // replaces the typed spelling so variants ("cult fit") never fork brands.
+      let cleanBrand = cleanStr(c.brand, 80);
+      let brandId = null;
+      try {
+        const resolved = await brandStore.resolveActiveBrand(cleanBrand);
+        cleanBrand = resolved.brand.name;
+        brandId = resolved.brandId;
+      } catch (e) {
+        if (e && e.code === 'BRAND_NOT_ACTIVE') {
+          skipped.push(`Coupon ${i + 1}: ${e.message}`);
+          continue;
+        }
+        if (e && (e.code === 'BRANDS_SCHEMA_MISSING' || e.code === 'BRANDS_UNAVAILABLE')) {
+          return res.status(503).json({ error: e.message, code: e.code });
+        }
+        throw e;
+      }
       const cleanDescription = cleanStr(c.description, 500) || cleanStr(c.title, 500);
       // The validated face value is stored verbatim as the authoritative
       // original value — never replaced by a fallback '0'.
@@ -892,6 +910,7 @@ const handleCouponSubmission = async (req, res) => {
         code: cleanCode,
         category: String(c.category).trim().slice(0, 60),
         brand: cleanBrand,
+        brandId,
         title: itemTitle,
         description: cleanDescription,
         type: itemType,

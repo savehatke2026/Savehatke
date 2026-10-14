@@ -1301,7 +1301,53 @@ tbody td strong{color:#e2ecff;font-weight:600}
 }
 </style>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-  </head>
+    <style>
+    /* ── Brand Directory (Admin > Brands) ─────────────────────────────── */
+    .bd-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:0 0 14px}
+    .bd-stat{padding:14px 16px;text-align:center}
+    .bd-stat-n{font-size:1.5rem;font-weight:800;color:#e8f4ff}
+    .bd-stat-l{font-size:.75rem;color:#6b88aa;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+    .bd-toolbar{display:flex;flex-wrap:wrap;gap:10px;padding:12px;margin-bottom:14px}
+    .bd-input{flex:1 1 180px;min-width:0;padding:9px 12px;border-radius:10px;border:1px solid rgba(79,195,247,.2);background:#060d1f;color:#e8f4ff;font:inherit;font-size:.88rem}
+    .bd-input:focus{outline:none;border-color:#4fc3f7}
+    .bd-list{padding:6px}
+    .bd-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:12px;flex-wrap:wrap}
+    .bd-row+.bd-row{border-top:1px solid rgba(79,195,247,.08)}
+    .bd-row-inactive{opacity:.6}
+    .bd-row-main{display:flex;align-items:center;gap:12px;min-width:0;flex:1 1 220px}
+    .bd-logo{width:40px;height:40px;object-fit:contain;border-radius:8px;background:#fff;flex-shrink:0;padding:4px}
+    .bd-logo-fallback{width:40px;height:40px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;background:#1a2b52;color:#4fc3f7;font-weight:800;flex-shrink:0}
+    .bd-name{font-weight:700;color:#e8f4ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bd-meta{font-size:.76rem;color:#6b88aa}
+    .bd-row-side{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .bd-count{font-size:.8rem;color:#9bb4d6}
+    .bd-status{font-size:.74rem;font-weight:700;padding:3px 9px;border-radius:999px}
+    .bd-status.on{background:rgba(0,226,114,.14);color:#00E272}
+    .bd-status.off{background:rgba(255,255,255,.08);color:#9bb4d6}
+    .bd-empty{padding:28px;text-align:center;color:#6b88aa;font-size:.9rem}
+    .bd-error{color:#ff8a80}
+    .bd-modal{max-width:560px}
+    .bd-modal-wide{max-width:760px}
+    .bd-field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;font-size:.82rem;color:#9bb4d6}
+    .bd-field em{color:#ff8a80;font-style:normal}
+    .bd-check{display:flex;align-items:center;gap:8px;font-size:.84rem;color:#9bb4d6;margin:4px 0 12px}
+    .bd-logo-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+    .bd-logo-preview{width:96px;height:96px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;border:1px solid rgba(79,195,247,.2)}
+    .bd-logo-preview-img{max-width:100%;max-height:100%;object-fit:contain;padding:8px}
+    .bd-logo-preview-empty{font-size:.72rem;color:#6b88aa;text-align:center;padding:6px}
+    .bd-logo-actions{display:flex;flex-direction:column;gap:8px}
+    .bd-manual{margin-top:10px;font-size:.8rem;color:#9bb4d6}
+    .bd-manual summary{cursor:pointer;color:#4fc3f7}
+    .bd-manual-row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+    .bd-error:empty{display:none}
+    .bd-error{font-size:.82rem;margin:4px 0 8px}
+    .bd-picker-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;max-height:55vh;overflow:auto;padding:4px}
+    .bd-pick{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border-radius:12px;border:1px solid rgba(79,195,247,.15);background:#060d1f;color:#9bb4d6;cursor:pointer;font:inherit;font-size:.72rem}
+    .bd-pick:hover{border-color:#4fc3f7}
+    .bd-pick img{width:72px;height:72px;object-fit:contain;background:#fff;border-radius:8px;padding:4px}
+    .bd-pick span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+    @media (max-width:640px){.bd-stats{grid-template-columns:1fr 1fr 1fr;gap:8px}.bd-stat-n{font-size:1.2rem}.bd-row-side{width:100%;justify-content:flex-start}}  </style>
+</head>
 <body>
 
 <!-- SIDEBAR OVERLAY (mobile) -->
@@ -2554,16 +2600,81 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ BRANDS ════════════════ -->
     <div class="section-view" id="sec-brands">
       <div class="page-title-row">
-        <div><div class="page-title">Brand <span class="gtext">Directory</span></div><div class="page-subtitle">Manage partner brands, stores, and logos</div></div>
-        <button class="btn btn-primary btn-lg">+ Add Brand</button>
+        <div><div class="page-title">Brand <span class="gtext">Directory</span></div><div class="page-subtitle">One list for the whole website — logos come from Google Drive. Changes appear on every page.</div></div>
+        <button class="btn btn-primary btn-lg" id="brandsAddBtn" type="button">+ Add Brand</button>
       </div>
-      <div class="two-col">
-        <div class="card">
-          <div class="card-title">Top Partner Brands</div>
-          <div class="info-row"><span class="irl"><img src="logos/nykaa.svg" alt="Nykaa" class="brand-logo"> Nykaa</span><span class="badge badge-green">142 Coupons</span></div>
-          <div class="info-row"><span class="irl"><img src="logos/myntra.svg" alt="Myntra" class="brand-logo brand-logo-myntra"> Myntra</span><span class="badge badge-green">87 Coupons</span></div>
-          <div class="info-row"><span class="irl"><img src="logos/amazon.svg" alt="Amazon" class="brand-logo"> Amazon</span><span class="badge badge-blue">56 Coupons</span></div>
-          <div class="info-row"><span class="irl"><img src="logos/zomato.svg" alt="Zomato" class="brand-logo"> Zomato</span><span class="badge badge-purple">48 Coupons</span></div>
+
+      <div class="bd-stats">
+        <div class="card bd-stat"><div class="bd-stat-n" id="brandsStatTotal">0</div><div class="bd-stat-l">Total brands</div></div>
+        <div class="card bd-stat"><div class="bd-stat-n" id="brandsStatActive">0</div><div class="bd-stat-l">Active</div></div>
+        <div class="card bd-stat"><div class="bd-stat-n" id="brandsStatInactive">0</div><div class="bd-stat-l">Inactive</div></div>
+      </div>
+
+      <div class="card bd-toolbar">
+        <input type="search" id="brandsSearch" class="bd-input" placeholder="Search brands by name…" autocomplete="off">
+        <select id="brandsStatusFilter" class="bd-input" aria-label="Filter by status">
+          <option value="">All statuses</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+        <select id="brandsCategoryFilter" class="bd-input" aria-label="Filter by category">
+          <option value="">All categories</option>
+        </select>
+      </div>
+
+      <div class="card bd-list" id="brandsList"></div>
+    </div>
+
+    <!-- Add / edit brand -->
+    <div class="modal-overlay" id="brandFormModal">
+      <div class="modal bd-modal">
+        <div class="modal-title" id="brandFormTitle">Add brand</div>
+        <label class="bd-field"><span>Brand name <em>*</em></span>
+          <input type="text" id="brandFormName" class="bd-input" maxlength="80" autocomplete="off"></label>
+        <label class="bd-field"><span>Category</span>
+          <select id="brandFormCategory" class="bd-input"></select></label>
+        <label class="bd-field"><span>Short description (optional)</span>
+          <textarea id="brandFormDescription" class="bd-input" rows="2" maxlength="300"></textarea></label>
+        <label class="bd-field"><span>Display order</span>
+          <input type="number" id="brandFormOrder" class="bd-input" value="0" step="1"></label>
+        <label class="bd-check"><input type="checkbox" id="brandFormActive" checked> Active (visible to users and selectable for new coupons)</label>
+
+        <div class="bd-field"><span>Logo (Google Drive)</span>
+          <div class="bd-logo-row">
+            <div class="bd-logo-preview" id="brandLogoPreview"><span class="bd-logo-preview-empty">No logo selected</span></div>
+            <div class="bd-logo-actions">
+              <button class="btn" type="button" id="brandPickDriveBtn">Choose from Drive</button>
+              <button class="btn" type="button" id="brandClearLogoBtn">Remove logo</button>
+            </div>
+          </div>
+          <details class="bd-manual">
+            <summary>Or paste a Drive file ID / link</summary>
+            <div class="bd-manual-row">
+              <input type="text" id="brandFormFileId" class="bd-input" placeholder="Drive file ID or link" autocomplete="off">
+              <button class="btn" type="button" id="brandCheckFileIdBtn">Verify &amp; use</button>
+            </div>
+          </details>
+        </div>
+
+        <div class="bd-error" id="brandFormError" role="alert"></div>
+        <div class="modal-actions">
+          <button class="btn" type="button" onclick="closeModal('brandFormModal')">Cancel</button>
+          <button class="btn btn-primary" type="button" id="brandFormSave">Save brand</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drive logo picker -->
+    <div class="modal-overlay" id="brandPickerModal">
+      <div class="modal bd-modal bd-modal-wide">
+        <div class="modal-title">Choose a logo from Google Drive</div>
+        <div class="bd-toolbar">
+          <input type="search" id="brandPickerSearch" class="bd-input" placeholder="Filter by file name…" autocomplete="off">
+          <button class="btn" type="button" id="brandPickerRefresh">Refresh</button>
+        </div>
+        <div class="bd-picker-grid" id="brandPickerGrid"></div>
+        <div class="modal-actions">
+          <button class="btn" type="button" onclick="closeModal('brandPickerModal')">Close</button>
         </div>
       </div>
     </div>
@@ -4019,8 +4130,10 @@ tbody td strong{color:#e2ecff;font-weight:600}
      closeModal/timeAgo/showCouponTab/loadDashboardFinance that admin.js uses.
 ============================================================ -->
 <script src="js/app.js"></script>
+<script src="js/brand-directory.js"></script>
 <script src="js/coupon-meta.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/brands-admin.js"></script>
 <script src="js/chatbotAdmin.js"></script>
 <script src="js/gmail.js"></script>
 <script>
@@ -4926,96 +5039,15 @@ function applyRevenueOverview(o) {
 /* ════════════════════════════
    CUSTOM BRAND SELECTOR WITH SVG LOGOS
 ════════════════════════════ */
-const BRANDS_DATA = [
-  // 🛒 E-Commerce
-  { name: 'Amazon', category: '🛒 E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a9/Amazon_logo.svg' },
-  { name: 'Flipkart', category: '🛒 E-Commerce', logo: 'https://upload.wikimedia.org/wikipedia/commons/e/e5/Flipkart_logo_%282026%29.svg' },
-  { name: 'Meesho', category: '🛒 E-Commerce', icon: '📦' },
-  { name: 'Snapdeal', category: '🛒 E-Commerce', logo: '/logos/snapdeal.png' },
-  { name: 'Shopsy', category: '🛒 E-Commerce', logo: '/logos/shopsy.jpg', big: true },
-  { name: 'Tata CLiQ', category: '🛒 E-Commerce', logo: '/logos/tata-cliq.jpg' },
-  { name: 'Croma', category: '🛒 E-Commerce', icon: '⚡' },
-  // 👗 Fashion
-  { name: 'Myntra', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/b/bc/Myntra_Logo.png', big: true },
-  { name: 'AJIO', category: '👗 Fashion', icon: '👟' },
-  { name: 'H&M', category: '👗 Fashion', icon: '🧥' },
-  { name: 'Nykaa Fashion', category: '👗 Fashion', icon: '👗' },
-  { name: 'Puma', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/ae/Puma-logo-%28text%29.svg', wordmark: true },
-  { name: 'Adidas', category: '👗 Fashion', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
-  // 💄 Beauty & Personal Care
-  { name: 'Nykaa', category: '💄 Beauty & Personal Care', logo: 'https://upload.wikimedia.org/wikipedia/commons/0/00/Nykaa_New_Logo.svg' },
-  { name: 'Purplle', category: '💄 Beauty & Personal Care', icon: '💜' },
-  { name: 'Mamaearth', category: '💄 Beauty & Personal Care', icon: '🌿' },
-  { name: 'Minimalist', category: '💄 Beauty & Personal Care', icon: '🧴' },
-  { name: 'Lakmé', category: '💄 Beauty & Personal Care', icon: '💄' },
-  // 🍔 Food & Delivery
-  { name: 'Swiggy', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/1/13/Swiggy_logo.png', wordmark: true },
-  { name: 'Zomato', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/7/75/Zomato_logo.png' },
-  { name: 'Domino\'s', category: '🍔 Food & Delivery', logo: 'https://upload.wikimedia.org/wikipedia/commons/3/3e/Domino%27s_pizza_logo.svg' },
-  { name: 'Pizza Hut', category: '🍔 Food & Delivery', icon: '🍕' },
-  { name: 'EatSure', category: '🍔 Food & Delivery', icon: '🍱' },
-  { name: 'KFC', category: '🍔 Food & Delivery', logo: '/logos/kfc.png' },
-  { name: 'McDonald\'s', category: '🍔 Food & Delivery', logo: '/logos/mcdonalds.svg' },
-  { name: 'Subway', category: '🍔 Food & Delivery', logo: '/logos/subway.png', wordmark: true },
-  // 🚕 Travel & Transport
-  { name: 'MakeMyTrip', category: '🚕 Travel & Transport', logo: 'https://upload.wikimedia.org/wikipedia/commons/6/61/Makemytrip_logo.svg' },
-  { name: 'Cleartrip', category: '🚕 Travel & Transport', icon: '✈️' },
-  { name: 'EaseMyTrip', category: '🚕 Travel & Transport', icon: '🧳' },
-  { name: 'ixigo', category: '🚕 Travel & Transport', logo: '/logos/ixigo.svg', wordmark: true },
-  { name: 'Uber', category: '🚕 Travel & Transport', icon: '🚗' },
-  { name: 'Rapido', category: '🚕 Travel & Transport', icon: '🛵' },
-  // 🏨 Hotels & Stays
-  { name: 'MakeMyTrip', category: '🏨 Hotels & Stays', logo: 'https://upload.wikimedia.org/wikipedia/commons/6/61/Makemytrip_logo.svg' },
-  { name: 'Booking.com', category: '🏨 Hotels & Stays', icon: '🏨' },
-  { name: 'Agoda', category: '🏨 Hotels & Stays', icon: '🌏' },
-  { name: 'Goibibo', category: '🏨 Hotels & Stays', icon: '🛏️' },
-  // 📱 Electronics & Gadgets
-  { name: 'Croma', category: '📱 Electronics & Gadgets', icon: '⚡' },
-  { name: 'Reliance Digital', category: '📱 Electronics & Gadgets', icon: '🔌' },
-  { name: 'Vijay Sales', category: '📱 Electronics & Gadgets', icon: '🏬' },
-  { name: 'Samsung', category: '📱 Electronics & Gadgets', icon: '📱' },
-  { name: 'OnePlus', category: '📱 Electronics & Gadgets', icon: '📲' },
-  // 🎮 Gaming & Entertainment
-  { name: 'PlayStation', category: '🎮 Gaming & Entertainment', icon: '🎮' },
-  { name: 'Xbox', category: '🎮 Gaming & Entertainment', icon: '🕹️' },
-  { name: 'Steam', category: '🎮 Gaming & Entertainment', icon: '💠' },
-  { name: 'Google Play', category: '🎮 Gaming & Entertainment', icon: '▶️' },
-  { name: 'Apple App Store', category: '🎮 Gaming & Entertainment', icon: '🍎' },
-  // 🎬 Entertainment & OTT
-  { name: 'Netflix', category: '🎬 Entertainment & OTT', logo: '/logos/netflix.svg', wordmark: true },
-  { name: 'Amazon Prime', category: '🎬 Entertainment & OTT', icon: '📺' },
-  { name: 'Disney+ Hotstar', category: '🎬 Entertainment & OTT', icon: '⭐' },
-  { name: 'SonyLIV', category: '🎬 Entertainment & OTT', icon: '📡' },
-  { name: 'ZEE5', category: '🎬 Entertainment & OTT', icon: '🎥' },
-  { name: 'BookMyShow', category: '🎬 Entertainment & OTT', icon: '🎟️' },
-  // 🏋️ Fitness & Sports
-  { name: 'Cult.fit', category: '🏋️ Fitness & Sports', icon: '🏋️' },
-  { name: 'Decathlon', category: '🏋️ Fitness & Sports', icon: '🏃' },
-  { name: 'Adidas', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/2/20/Adidas_Logo.svg' },
-  { name: 'Puma', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/ae/Puma-logo-%28text%29.svg', wordmark: true },
-  { name: 'Nike', category: '🏋️ Fitness & Sports', logo: 'https://upload.wikimedia.org/wikipedia/commons/a/a6/Logo_NIKE.svg' },
-  // 🏠 Home & Lifestyle
-  { name: 'IKEA', category: '🏠 Home & Lifestyle', icon: '🛋️' },
-  { name: 'Pepperfry', category: '🏠 Home & Lifestyle', icon: '🪑' },
-  { name: 'Urban Ladder', category: '🏠 Home & Lifestyle', icon: '🏠' },
-  { name: 'Home Centre', category: '🏠 Home & Lifestyle', icon: '🛏️' },
-  // 🛍️ Grocery & Daily Needs
-  { name: 'Blinkit', category: '🛍️ Grocery & Daily Needs', icon: '🛒' },
-  { name: 'Zepto', category: '🛍️ Grocery & Daily Needs', icon: '🚀' },
-  { name: 'Swiggy Instamart', category: '🛍️ Grocery & Daily Needs', icon: '🛒' },
-  { name: 'BigBasket', category: '🛍️ Grocery & Daily Needs', icon: '🧺' },
-  { name: 'JioMart', category: '🛍️ Grocery & Daily Needs', icon: '🛍️' },
-  // 💳 Finance & Payments
-  { name: 'CRED', category: '💳 Finance & Payments', logo: '/logos/cred.png', wordmark: true },
-  // 🎓 Education
-  { name: 'Coursera', category: '🎓 Education', logo: '/logos/coursera.svg', wordmark: true },
-  // Added Oct-2026 (no verified logo on file yet → emoji fallback)
-  { name: 'Lovee of India', category: '🍔 Food & Delivery', icon: '🌿' },
-  { name: 'Tata Nutrikorner', category: '🛍️ Grocery & Daily Needs', icon: '🛒' },
-  { name: 'Bare Anatomy', category: '💄 Beauty & Personal Care', icon: '🧴' },
-  { name: 'Brillare', category: '💄 Beauty & Personal Care', icon: '💧' },
-  { name: 'Rhana', category: '🛍️ Grocery & Daily Needs', icon: '🏬' }
-];
+// Live brand list from the central directory (Admin > Brands). Filled by
+// brand-directory.js; never hardcoded here.
+let BRANDS_DATA = [];
+window.brandDirectoryReady.then(function () {
+  BRANDS_DATA = (window.SH_BRANDS || []).map(function (b) {
+    return { name: b.name, category: b.category || 'General', logo: b.logo || null, icon: '🏬' };
+  });
+  if (typeof window.refreshBrandSelector === 'function') window.refreshBrandSelector();
+});
 
 function initBrandSelector() {
   const container = document.getElementById('customBrandSelect');
@@ -5106,6 +5138,7 @@ function initBrandSelector() {
   });
 
   renderOptions();
+  window.refreshBrandSelector = function () { renderOptions(searchInput ? searchInput.value : ''); };
 }
 
 if (document.readyState === 'loading') {
