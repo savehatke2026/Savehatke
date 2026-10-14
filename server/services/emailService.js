@@ -383,7 +383,7 @@ async function sendWelcomeEmail(to, userName, opts = {}) {
   const textBody =
 `SaveHatke
 
-Hi, ${displayName}
+Hello, ${displayName}
 
 Your account has been successfully created. You can now access your SaveHatke account and use the available features on the website.
 
@@ -467,13 +467,19 @@ You’re receiving this email because a SaveHatke account was created using this
 
       .button {
         display: inline-block;
-        padding: 14px 24px;
+        padding: 10px 18px;
         border-radius: 6px;
         background: #00E272;
         color: #000000;
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 700;
+        line-height: 1.2;
         text-decoration: none;
+      }
+
+      .welcome-email {
+        color: #007BFF;
+        font-weight: 700;
       }
 
       .footer {
@@ -500,7 +506,16 @@ You’re receiving this email because a SaveHatke account was created using this
         body, p, .brand-text, .support-link { color:#FFFFFF !important; }
         .footer { border-top-color:#29302D !important; color:#B8B8B8 !important; }
 ${EMAIL_GREEN_DARK_RULES}
+        /* Button: keep #00E272 fill, white label in dark. Placed AFTER the shared
+           green rules so it wins over the shared black label pin. */
+        .button, a.button, td.button a, .button a, .button-label, a.button-label { color:#FFFFFF !important; }
+        /* Blue address stays blue (the shared rules only re-pin brand green). */
+        .welcome-email, span.welcome-email { color:#4DA3FF !important; }
       }
+
+      /* Client-specific dark mode (Gmail app / Outlook.com set data-ogsc). */
+      [data-ogsc] .button, [data-ogsc] .button a, [data-ogsc] .button-label { color:#FFFFFF !important; }
+      [data-ogsc] .welcome-email { color:#4DA3FF !important; }
     </style>
   </head>
   <body>
@@ -528,7 +543,7 @@ ${EMAIL_GREEN_DARK_RULES}
                 </p>
 
                 <p>
-                  Hi, <strong>${safeName}</strong>
+                  Hello, <strong>${safeName}</strong>
                 </p>
 
                 <p>
@@ -539,7 +554,7 @@ ${EMAIL_GREEN_DARK_RULES}
 
                 <p>
                   Your account was created using
-                  <span style="color:#00E272;font-weight:700;">${safeEmail}</span> on ${signupDate}.
+                  <span class="welcome-email" style="color:#007BFF;font-weight:700;">${safeEmail}</span> on ${signupDate}.
                 </p>
 
                 <p>
@@ -552,10 +567,11 @@ ${EMAIL_GREEN_DARK_RULES}
                     <tr>
                       <td class="button" bgcolor="#00E272" style="border-radius:6px;background-color:#00E272;">
                         <a
+                          class="button-label"
                           href="${siteUrl}"
                           target="_blank"
                           rel="noopener noreferrer"
-                          style="display:inline-block;padding:14px 24px;border-radius:6px;background-color:#00E272;color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;line-height:1.2;text-decoration:none;"
+                          style="display:inline-block;padding:10px 18px;border-radius:6px;background-color:#00E272;color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;line-height:1.2;text-decoration:none;"
                           >Go to SaveHatke &rarr;</a
                         >
                       </td>
