@@ -214,6 +214,15 @@ const refunds = require(refundsPath);
     assert.equal(refunds.toSupabaseRow, undefined);
   });
 
+  await check('ledger refund read surfaces a Sheets outage instead of zero refunds', async () => {
+    resetState();
+    sheetsDown = true;
+    const ledgerPath = path.join(root, 'adminLedger.js');
+    delete require.cache[ledgerPath];
+    const ledger = require(ledgerPath);
+    await assert.rejects(() => ledger._internals.loadLedger());
+  });
+
   console.log(lines.join('\n'));
   console.log(`\nrefundsSheetsOnly: ${passed} passed, ${failed} failed`);
 })();
