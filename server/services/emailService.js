@@ -3022,7 +3022,7 @@ async function sendPaymentSuccessEmail({
   const textBody =
 `Payment successful${orderCode ? ` — ${orderCode}` : ''}
 
-Hello ${displayName},
+Hello, ${displayName}
 
 Your payment has been successfully received. Here are your transaction details for your records.
 
@@ -3057,6 +3057,16 @@ SaveHatke`;
     table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
     img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
     a { text-decoration:none; }
+
+    /* View Order: black button + white label in light; white button + black
+       label in dark. Dark is best-effort — clients that strip <style> or force
+       their own colours (Gmail app) may keep the light values. */
+    @media (prefers-color-scheme: dark) {
+      .sh-btn, .sh-btn a.sh-view-btn { background:#FFFFFF !important; background-color:#FFFFFF !important; }
+      .sh-btn a.sh-view-btn { color:#000000 !important; }
+    }
+    [data-ogsc] .sh-btn, [data-ogsc] .sh-btn a.sh-view-btn { background-color:#FFFFFF !important; }
+    [data-ogsc] .sh-btn a.sh-view-btn { color:#000000 !important; }
 
     /* ── MOBILE ── */
     @media only screen and (max-width:480px) {
@@ -3100,7 +3110,7 @@ SaveHatke`;
           <!-- GREETING + INTRO -->
           <tr>
             <td class="sh-pad" style="padding:26px 40px 0;">
-              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello <span class="sh-greet" style="color:#008F4C;font-weight:700;">${safeName}</span>,</p>
+              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello, <span class="sh-greet" style="color:#008F4C;font-weight:700;">${safeName}</span></p>
               <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;font-weight:400;color:#111827;">Your payment has been successfully received. Here are your transaction details for your records.</p>
             </td>
           </tr>
@@ -3121,8 +3131,8 @@ SaveHatke`;
           <tr>
             <td class="sh-pad" align="center" style="padding:28px 40px 6px;">
               <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
-                <td class="sh-btn" align="center" bgcolor="#00E272" style="background:#00E272;border-radius:8px;">
-                  <a href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;background-color:#00E272;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#062B1B;text-decoration:none;">View Order</a>
+                <td class="sh-btn" align="center" bgcolor="#000000" style="background:#000000;border-radius:8px;">
+                  <a class="sh-view-btn" href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;background-color:#000000;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;">View Order</a>
                 </td>
               </tr></table>
             </td>
