@@ -389,7 +389,68 @@ async function checkLogoFile(fileId) {
   }
 }
 
+// ── Device upload → Google Drive "Brand Logos" ───────────────────────────────
+// The original image is stored in Drive, never in the DB or browser storage.
+// Bytes are verified by magic number, not by the client-declared MIME type.
+const LOGO_UPLOAD_MAX_BYTES = 2 * 1024 * 1024;
+const LOGO_UPLOAD_TYPES = {
+  png: { mime: 'image/png', ext: '.png' },
+  jpg: { mime: 'image/jpeg', ext: '.jpg' },
+  webp: { mime: 'image/webp', ext: '.webp' },
+};
+
+function sniffLogoType(buf) {
+  if (buf.length >= 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return 'png';
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'jpg';
+  if (buf.length >= 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'webp';
+  return null;
+}
+
+/**
+ * Validate and store one logo in the Brand Logos Drive folder.
+ * Throws an Error with .code: LOGO_EMPTY | LOGO_TOO_LARGE | LOGO_BAD_TYPE |
+ * DRIVE_NOT_CONFIGURED | DRIVE_UPLOAD_FAILED.
+ */
+async function uploadBrandLogo({ buffer, originalName }) {
+  const fail = (code, message) => {
+    const e = new Error(message);
+    e.code = code;
+    throw e;
+  };
+  if (!buffer || !Buffer.isBuffer(buffer) || buffer.length === 0) fail('LOGO_EMPTY', 'The file is empty.');
+  if (buffer.length > LOGO_UPLOAD_MAX_BYTES) fail('LOGO_TOO_LARGE', 'Logo must be 2 MB or smaller.');
+  const kind = sniffLogoType(buffer);
+  if (!kind) fail('LOGO_BAD_TYPE', 'Upload a PNG, JPG or WebP image.');
+
+  const folders = await getAssetFolderIds();
+  if (!folders.logos) fail('DRIVE_NOT_CONFIGURED', 'The Brand Logos Drive folder is not configured.');
+
+  const base = String(originalName || 'logo').replace(/\.[a-z0-9]+$/i, '').replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40) || 'logo';
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const { ext, mime } = LOGO_UPLOAD_TYPES[kind];
+  let uploaded;
+  try {
+    uploaded = await googleDrive.uploadProofScreenshot({
+      buffer,
+      filename: `brand-${base}-${stamp}${ext}`,
+      mimeType: mime,
+      folderId: folders.logos,
+      description: 'SaveHatke brand logo (admin upload)',
+      forcePrivate: true,
+    });
+  } catch (err) {
+    const e = new Error('Google Drive upload failed: ' + (err && err.message ? err.message : 'unknown error'));
+    e.code = err && err.code === 'DRIVE_NOT_CONFIGURED' ? 'DRIVE_NOT_CONFIGURED' : 'DRIVE_UPLOAD_FAILED';
+    throw e;
+  }
+  if (!uploaded || !uploaded.fileId) fail('DRIVE_UPLOAD_FAILED', 'Google Drive did not return a file id.');
+  invalidateBrandCaches();
+  return { fileId: uploaded.fileId, mimeType: mime, url: fileUrl(uploaded.fileId) };
+}
+
 module.exports = {
+  uploadBrandLogo,
+  LOGO_UPLOAD_MAX_BYTES,
   normalizeBrand,
   resolveBrandAssets,
   resolveBrands,

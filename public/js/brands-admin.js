@@ -227,9 +227,12 @@
     var grid = $('brandPickerGrid');
     if (!grid) return;
     if (driveFiles && !force) return renderDriveFiles();
-    grid.innerHTML = '<div class="bd-empty">Loading Google Drive logos…</div>';
-    api('/drive-logos').then(function (data) {
+    grid.innerHTML = '<div class="bd-empty">Loading Google Drive logos...</div>';
+    var unOnly = $('brandPickerUnassigned') && $('brandPickerUnassigned').checked;
+    api('/drive-logos' + (unOnly ? '?unassigned=1' : '')).then(function (data) {
       driveFiles = data.files || [];
+      var cnt = $('brandPickerUnassignedCount');
+      if (cnt) cnt.textContent = '(' + (data.unassigned || 0) + ' of ' + (data.allFiles || 0) + ' unused)';
       renderDriveFiles();
     }).catch(function (err) {
       driveFiles = null;
@@ -283,6 +286,49 @@
     }).catch(function (err) { msg.textContent = err.message || 'Could not verify the file.'; });
   }
 
+  // Device upload: the file is sent to the server, which stores the original in
+  // the Brand Logos Drive folder and returns the Drive file id. The browser never
+  // keeps the image or talks to Drive directly.
+  var LOGO_MAX_BYTES = 2 * 1024 * 1024;
+  var LOGO_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
+
+  function uploadLogoFromDevice(file) {
+    var msg = $('brandFormError');
+    msg.textContent = '';
+    if (!file) return;
+    if (LOGO_TYPES.indexOf(file.type) === -1) {
+      msg.textContent = 'Choose a PNG, JPG or WebP image.';
+      return;
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      msg.textContent = 'Logo must be 2 MB or smaller.';
+      return;
+    }
+    var btn = $('brandUploadLogoBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Uploading...'; }
+    var reader = new FileReader();
+    reader.onerror = function () {
+      if (btn) { btn.disabled = false; btn.textContent = 'Upload from device'; }
+      msg.textContent = 'Could not read that file.';
+    };
+    reader.onload = function () {
+      var dataBase64 = String(reader.result).split(',')[1] || '';
+      api('/logo-upload', {
+        method: 'POST',
+        body: { fileName: file.name, dataBase64: dataBase64 },
+      }).then(function (res) {
+        pickedLogo = { id: res.fileId, name: file.name, url: res.url };
+        setLogoPreview(res.url, file.name);
+        toast('Logo uploaded to Google Drive.', 'success');
+      }).catch(function (err) {
+        msg.textContent = err.message || 'Upload failed. The logo was not saved.';
+      }).then(function () {
+        if (btn) { btn.disabled = false; btn.textContent = 'Upload from device'; }
+      });
+    };
+    reader.readAsDataURL(file);
+  }
+
   // ── Wiring ─────────────────────────────────────────────────────────────────
   function bind() {
     var list = $('brandsList');
@@ -322,8 +368,20 @@
     if (clear) clear.addEventListener('click', function () { pickedLogo = null; setLogoPreview(null); });
     var manual = $('brandCheckFileIdBtn');
     if (manual) manual.addEventListener('click', checkManualFileId);
+    var upBtn = $('brandUploadLogoBtn');
+    var upInput = $('brandLogoFileInput');
+    if (upBtn && upInput) {
+      upBtn.addEventListener('click', function () { upInput.click(); });
+      upInput.addEventListener('change', function () {
+        var f = upInput.files && upInput.files[0];
+        upInput.value = '';
+        uploadLogoFromDevice(f);
+      });
+    }
     var ps = $('brandPickerSearch');
     if (ps) ps.addEventListener('input', renderDriveFiles);
+    var pu = $('brandPickerUnassigned');
+    if (pu) pu.addEventListener('change', function () { driveFiles = null; loadDriveFiles(false); });
     var pg = $('brandPickerGrid');
     if (pg) pg.addEventListener('click', function (e) {
       var b = e.target.closest('button[data-file]');

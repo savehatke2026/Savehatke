@@ -96,10 +96,55 @@ adminRouter.get('/drive-logos', async (req, res) => {
     const filtered = search
       ? files.filter((f) => f.name.toLowerCase().includes(search))
       : files;
-    return res.json({ files: filtered.slice(0, 500), total: filtered.length });
+    // Files no brand currently uses — for the "unassigned" view in the Admin Panel.
+    const assigned = new Set(
+      (await brandStore.listBrands({ withCounts: false })).map((b) => b.logoFileId).filter(Boolean)
+    );
+    const unassignedOnly = req.query.unassigned === '1';
+    const list = unassignedOnly ? filtered.filter((f) => !assigned.has(f.id)) : filtered;
+    return res.json({
+      files: list.slice(0, 500),
+      total: list.length,
+      allFiles: files.length,
+      unassigned: files.filter((f) => !assigned.has(f.id)).length,
+    });
   } catch (err) {
     console.error('[brands] drive logo list failed:', err && err.message);
     return res.status(502).json({ error: 'Could not read the Google Drive brand logo folder.', code: 'DRIVE_UNAVAILABLE' });
+  }
+});
+
+const LOGO_UPLOAD_ERRORS = {
+  LOGO_EMPTY: [400, 'The file is empty.'],
+  LOGO_TOO_LARGE: [413, 'Logo must be 2 MB or smaller.'],
+  LOGO_BAD_TYPE: [400, 'Upload a PNG, JPG or WebP image.'],
+  DRIVE_NOT_CONFIGURED: [503, 'Google Drive is not configured for brand logos.'],
+  DRIVE_UPLOAD_FAILED: [502, 'Google Drive upload failed. The logo was not saved.'],
+};
+
+// POST /api/admin/brands/logo-upload  { fileName, dataBase64 }
+// Stores the original image in the Drive "Brand Logos" folder and returns the
+// Drive file id. Does NOT assign it to a brand — the caller saves the brand.
+adminRouter.post('/logo-upload', adminMutationLimiter, async (req, res) => {
+  const { fileName, dataBase64 } = req.body || {};
+  if (typeof dataBase64 !== 'string' || !dataBase64) {
+    return res.status(400).json({ error: 'dataBase64 is required.', code: 'LOGO_EMPTY' });
+  }
+  const raw = dataBase64.replace(/^data:[^,]*,/, '');
+  const buffer = Buffer.from(raw, 'base64');
+  try {
+    const result = await brandAssets.uploadBrandLogo({
+      buffer,
+      originalName: typeof fileName === 'string' ? fileName.slice(0, 120) : 'logo',
+    });
+    return res.status(201).json({ fileId: result.fileId, url: result.url, mimeType: result.mimeType });
+  } catch (err) {
+    const mapped = LOGO_UPLOAD_ERRORS[err && err.code];
+    if (mapped) {
+      return res.status(mapped[0]).json({ error: err.message || mapped[1], code: err.code });
+    }
+    console.error('[brands] logo upload failed:', err && err.message);
+    return res.status(502).json({ error: 'Google Drive upload failed. The logo was not saved.', code: 'DRIVE_UPLOAD_FAILED' });
   }
 });
 

@@ -2644,6 +2644,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <div class="bd-logo-preview" id="brandLogoPreview"><span class="bd-logo-preview-empty">No logo selected</span></div>
             <div class="bd-logo-actions">
               <button class="btn" type="button" id="brandPickDriveBtn">Choose from Drive</button>
+              <button class="btn" type="button" id="brandUploadLogoBtn">Upload from device</button>
+              <input type="file" id="brandLogoFileInput" accept="image/png,image/jpeg,image/webp" hidden>
               <button class="btn" type="button" id="brandClearLogoBtn">Remove logo</button>
             </div>
           </div>
@@ -2669,7 +2671,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="modal bd-modal bd-modal-wide">
         <div class="modal-title">Choose a logo from Google Drive</div>
         <div class="bd-toolbar">
-          <input type="search" id="brandPickerSearch" class="bd-input" placeholder="Filter by file name…" autocomplete="off">
+          <input type="search" id="brandPickerSearch" class="bd-input" placeholder="Filter by file name..." autocomplete="off">
+          <label class="bd-check"><input type="checkbox" id="brandPickerUnassigned"> Unassigned only <span id="brandPickerUnassignedCount" class="bd-count"></span></label>
           <button class="btn" type="button" id="brandPickerRefresh">Refresh</button>
         </div>
         <div class="bd-picker-grid" id="brandPickerGrid"></div>

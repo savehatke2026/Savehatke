@@ -37,6 +37,7 @@ function request(method, path, token) {
     ['POST', '/api/admin/brands'],
     ['PUT', '/api/admin/brands/b_x'],
     ['POST', '/api/admin/brands/b_x/active'],
+    ['POST', '/api/admin/brands/logo-upload'],
   ];
   let pass = 0;
   for (const [method, path] of cases) {
