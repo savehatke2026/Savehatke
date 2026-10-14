@@ -56,6 +56,7 @@ const supabase = require('../services/supabase');
 const store = require('../services/paymentStore');
 const upi = require('../services/upi');
 const verifier = require('../services/paymentVerifier');
+const refunds = require('../services/refunds');
 const dynamicPricing = require('../services/dynamicPricing');
 const { safeRateLimitHandler } = require('../utils/rateLimit');
 
@@ -337,6 +338,31 @@ function evaluateCoupon(coupon, { userId, userEmail }) {
  * Shape a payment for the frontend. Only the fields the existing modal needs,
  * plus the status the realtime/polling layer watches.
  */
+// Exact overpayment refund for the extra-amount window. Uses the same
+// computeRefund() rule that writes the refund row, so the number the buyer
+// sees is the number the server will refund. 0 when there is no overpayment.
+function overpaymentRefundFor(payment) {
+  if (payment.receivedAmount === undefined || payment.receivedAmount === null) return 0;
+  const r = refunds.computeRefund({ required: payment.amount, received: payment.receivedAmount });
+  return r.mismatchType === 'overpayment' ? Number(r.refundAmount.toFixed(2)) : 0;
+}
+
+// Exact underpayment figures for the insufficient-payment window, computed on the
+// server from the same computeRefund() rule. short = required - received (paise
+// math inside refunds.js); refund = the full received amount, per the business rule.
+// Both are 0 unless the verified received amount is below the required amount.
+function underpaymentFor(payment) {
+  if (payment.receivedAmount === undefined || payment.receivedAmount === null) {
+    return { short: 0, refund: 0 };
+  }
+  const r = refunds.computeRefund({ required: payment.amount, received: payment.receivedAmount });
+  if (r.mismatchType !== 'underpayment') return { short: 0, refund: 0 };
+  return {
+    short: Number(r.delta.toFixed(2)),
+    refund: Number(Number(payment.receivedAmount).toFixed(2)),
+  };
+}
+
 async function presentPayment(payment, { coupon = null, order = null } = {}) {
   const payee = upi.getPayee();
   let qr = null;
@@ -378,6 +404,12 @@ async function presentPayment(payment, { coupon = null, order = null } = {}) {
       payment.receivedAmount === undefined || payment.receivedAmount === null
         ? null
         : Number(Number(payment.receivedAmount).toFixed(2)),
+    // Exact extra amount to be refunded (overpayment only), computed server-side.
+    refund_amount: overpaymentRefundFor(payment),
+    // Underpayment window figures, computed server-side. short_amount = required
+    // minus received; underpayment_refund_amount = the full received amount.
+    short_amount: underpaymentFor(payment).short,
+    underpayment_refund_amount: underpaymentFor(payment).refund,
     currency: payment.currency,
     expires_at: payment.expiresAt,
     // The 10-minute countdown above is only the on-screen window. The backend

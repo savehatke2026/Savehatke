@@ -466,6 +466,60 @@
     .xa-note { font-size:13px; color:#8a9dc0; line-height:1.45; margin-bottom:8px; }
     .xa-redirect { font-size:12.5px; color:#00E272; font-weight:600; margin:0; }
 
+    /* EXTRA-AMOUNT WINDOW — design replica (prefix .ew-, scoped to #extraAmountOverlay).
+       Numbers come from the server (refund_amount / received_amount); CSS only styles. */
+    #extraAmountOverlay .ew-window { position:relative; width:714px; max-width:100%; padding:35px 33px 28px; border:2px solid #008c78; border-radius:31px; background:#051224; box-shadow:0 18px 65px #0008, inset 0 0 24px #03101d; text-align:center; font-family:"Trebuchet MS",Arial,sans-serif; color:#f8f9fc; transform:scale(.94); transition:transform .35s; }
+    #extraAmountOverlay.show .ew-window { transform:scale(1); }
+    #extraAmountOverlay .ew-close { position:absolute; top:14px; right:13px; width:72px; height:72px; display:grid; place-items:center; border:2px solid #1c3757; border-radius:15px; background:#09182b; color:#b3c5ed; cursor:pointer; }
+    #extraAmountOverlay .ew-close svg { width:31px; height:31px; }
+    #extraAmountOverlay .ew-close:focus-visible { outline:3px solid #78adff; outline-offset:5px; }
+    #extraAmountOverlay .ew-orbit { width:185px; height:185px; margin:0 auto 19px; display:grid; place-items:center; border:3px solid #005b37; border-radius:50%; background:radial-gradient(circle,#003528,#042622 75%); }
+    #extraAmountOverlay .ew-orbit svg { width:128px; height:128px; }
+    #extraAmountOverlay .ew-title { margin:0; font-family:Arial,sans-serif; font-size:54px; font-weight:750; line-height:1.45; letter-spacing:-1.5px; white-space:nowrap; }
+    #extraAmountOverlay .ew-green { color:#00E272; }
+    #extraAmountOverlay .ew-sub { margin:9px 0 31px; font-size:32px; line-height:1.5; color:#b5c6e9; letter-spacing:-.6px; }
+    #extraAmountOverlay .ew-amounts { overflow:hidden; border:2px solid #1a3451; border-radius:21px; background:#08172a; text-align:left; }
+    #extraAmountOverlay .ew-row { min-height:79px; margin:0 24px; padding:18px 9px; display:flex; align-items:center; justify-content:space-between; gap:15px; font-size:29px; color:#b8c8e9; }
+    #extraAmountOverlay .ew-row + .ew-row { border-top:2px solid #1b3656; }
+    #extraAmountOverlay .ew-row strong { color:#f7f8fc; font-family:Arial,sans-serif; font-size:38px; }
+    #extraAmountOverlay .ew-row.ew-refund { margin:0; padding:16px 34px; background:#003a332e; color:#00E272; font-weight:bold; font-size:32px; }
+    #extraAmountOverlay .ew-row.ew-refund strong { color:#00E272; font-size:42px; }
+    #extraAmountOverlay .ew-notice { margin-top:31px; padding:26px 28px; border:2px solid #173c65; border-radius:22px; display:flex; align-items:center; gap:30px; text-align:left; background:#07162a; }
+    #extraAmountOverlay .ew-info-ico { width:58px; height:58px; flex-shrink:0; color:#72afff; }
+    #extraAmountOverlay .ew-notice p { margin:0; color:#d2dcf3; font-size:27px; line-height:1.32; letter-spacing:-.35px; }
+    #extraAmountOverlay .ew-notice strong { color:#fafaff; }
+    #extraAmountOverlay .ew-flow { display:flex; justify-content:center; align-items:center; gap:15px; margin:29px 0 15px; }
+    #extraAmountOverlay .ew-rupee { width:111px; height:111px; border:3px solid #354b69; border-radius:50%; display:grid; place-items:center; font:bold 61px Arial,sans-serif; color:#e2e8f7; background:#0d1c2e; }
+    #extraAmountOverlay .ew-arrow { width:92px; height:54px; }
+    #extraAmountOverlay .ew-orbit.ew-small { width:112px; height:112px; margin:0; border-width:2px; }
+    #extraAmountOverlay .ew-orbit.ew-small svg { width:86px; height:86px; }
+    #extraAmountOverlay .ew-processing { margin:0 auto 14px; max-width:530px; font-size:24px; line-height:1.4; color:#bdcbea; letter-spacing:-.3px; }
+    #extraAmountOverlay .ew-status { font-size:21px; color:#8a9dc0; margin:0 0 6px; }
+    #extraAmountOverlay .ew-status b { color:#ffd740; font-weight:700; }
+    #extraAmountOverlay .ew-redirect { font-size:20px; color:#00E272; font-weight:600; margin:0 0 18px; }
+    #extraAmountOverlay .ew-foot { display:flex; align-items:center; justify-content:center; gap:23px; margin-top:30px; font-size:23px; color:#b5c6e9; white-space:nowrap; }
+    #extraAmountOverlay .ew-foot strong { color:#00E272; }
+    #extraAmountOverlay .ew-foot-lbl { display:flex; align-items:center; gap:9px; }
+    #extraAmountOverlay .ew-shield { width:32px; height:36px; }
+    @media (max-width:740px) {
+      #extraAmountOverlay .ew-window { padding:28px 22px 24px; border-radius:25px; }
+      #extraAmountOverlay .ew-title { font-size:clamp(24px,5.7vw,48px); letter-spacing:-.8px; white-space:normal; }
+      #extraAmountOverlay .ew-sub { font-size:clamp(16px,3.4vw,27px); margin-bottom:24px; }
+      #extraAmountOverlay .ew-orbit { width:145px; height:145px; }
+      #extraAmountOverlay .ew-orbit svg { width:105px; height:105px; }
+      #extraAmountOverlay .ew-close { width:46px; height:46px; border-radius:12px; }
+      #extraAmountOverlay .ew-close svg { width:24px; height:24px; }
+      #extraAmountOverlay .ew-row { font-size:clamp(17px,3.5vw,27px); min-height:66px; margin:0 14px; padding:14px 4px; }
+      #extraAmountOverlay .ew-row strong { font-size:30px; }
+      #extraAmountOverlay .ew-row.ew-refund { padding:14px 18px; font-size:clamp(19px,3.7vw,29px); }
+      #extraAmountOverlay .ew-row.ew-refund strong { font-size:33px; }
+      #extraAmountOverlay .ew-notice { padding:20px 17px; gap:16px; margin-top:24px; }
+      #extraAmountOverlay .ew-notice p { font-size:clamp(17px,3.2vw,25px); }
+      #extraAmountOverlay .ew-info-ico { width:43px; height:43px; }
+      #extraAmountOverlay .ew-processing { font-size:clamp(16px,3vw,23px); }
+      #extraAmountOverlay .ew-foot { font-size:clamp(14px,2.8vw,21px); gap:12px; margin-top:29px; }
+    }
+
     /* INSUFFICIENT-PAYMENT (UNDERPAYMENT) OVERLAY
        Sits in the same .success-overlay / .success-box shell so it inherits
        the modal styling; only the warning palette and the "Okay, Got it"
@@ -488,6 +542,31 @@
     .xa-confirm svg { width:18px; height:18px; stroke:#fff; stroke-width:2.4; fill:none; stroke-linecap:round; stroke-linejoin:round; }
     .ip-close { color:#ff4d63; border-color: rgba(255,68,84,.35); }
     .ip-close:hover { background:rgba(255,68,84,.1); border-color: rgba(255,68,84,.6); }
+    /* Insufficient-payment window: Figma design, scoped to this overlay only. */
+    #insufficientAmountOverlay .payment-window { position:relative; width:100%; max-width:560px; padding:26px 24px; border:2px solid #ff1744; border-radius:24px; background:#03111f; box-shadow:0 18px 65px #000b, inset 0 0 24px #03101d; text-align:center; color:#f8f9fc; }
+    #insufficientAmountOverlay .ip-x { position:absolute; top:12px; right:12px; width:48px; height:48px; display:grid; place-items:center; border:2px solid #1c3757; border-radius:12px; background:#09182b; color:#b3c5ed; cursor:pointer; }
+    #insufficientAmountOverlay .ip-x svg { width:22px; height:22px; stroke:currentColor; stroke-width:2.5; fill:none; }
+    #insufficientAmountOverlay .ip-orbit { width:132px; height:132px; margin:0 auto 16px; display:grid; place-items:center; border:3px solid #760d2a; border-radius:50%; background:radial-gradient(circle,#201020,#190e1c 75%); }
+    #insufficientAmountOverlay .ip-orbit svg { width:92px; height:92px; }
+    #insufficientAmountOverlay .ip-title { margin:0; font-family:Arial,sans-serif; font-size:clamp(24px,5.5vw,36px); font-weight:750; line-height:1.3; letter-spacing:-.8px; }
+    #insufficientAmountOverlay .ip-sub { margin:8px 0 20px; font-size:clamp(14px,3.2vw,18px); line-height:1.5; color:#b5c6e9; }
+    #insufficientAmountOverlay .ip-amounts { overflow:hidden; border:2px solid #1a3451; border-radius:16px; background:#08172a; text-align:left; }
+    #insufficientAmountOverlay .ip-row { display:flex; justify-content:space-between; align-items:center; gap:12px; min-height:58px; padding:14px 18px; font-size:clamp(15px,3.2vw,18px); color:#b8c8e9; }
+    #insufficientAmountOverlay .ip-row + .ip-row { border-top:2px solid #1b3656; }
+    #insufficientAmountOverlay .ip-row strong { color:#f7f8fc; font-family:Arial,sans-serif; font-size:clamp(18px,3.8vw,24px); }
+    #insufficientAmountOverlay .ip-row.refund { background:#200d20; color:#ff284b; font-weight:700; }
+    #insufficientAmountOverlay .ip-row.refund strong { color:#ff284b; }
+    #insufficientAmountOverlay .ip-notice { margin-top:18px; padding:16px 18px; border:2px solid #173c65; border-radius:16px; display:flex; align-items:center; gap:14px; text-align:left; background:#07162a; }
+    #insufficientAmountOverlay .ip-notice svg { width:44px; height:44px; flex-shrink:0; }
+    #insufficientAmountOverlay .ip-notice p { margin:0; color:#d2dcf3; font-size:clamp(14px,3vw,17px); line-height:1.45; }
+    #insufficientAmountOverlay .ip-notice strong { color:#fafaff; }
+    #insufficientAmountOverlay .ip-red { color:#ff536b; font-weight:700; }
+    #insufficientAmountOverlay .ip-status { display:flex; justify-content:space-between; align-items:center; gap:12px; margin:14px 0 4px; padding:12px 16px; border:1px solid #1a3451; border-radius:12px; background:#08172a; color:#b8c8e9; font-size:14px; }
+    #insufficientAmountOverlay .ip-status span:last-child { color:#ffd166; font-weight:700; }
+    #insufficientAmountOverlay .ip-foot { margin:14px 0 0; font-size:13px; line-height:1.45; color:#8a9dc0; }
+    #insufficientAmountOverlay .ip-ok { width:100%; min-height:48px; margin-top:16px; border:1px solid #ff284b; border-radius:12px; background:#051224; color:#ff536b; font-size:15px; font-weight:700; cursor:pointer; }
+    #insufficientAmountOverlay .ip-secure { display:flex; align-items:center; justify-content:center; gap:8px; margin-top:16px; font-size:13px; color:#b5c6e9; }
+    #insufficientAmountOverlay .ip-secure strong { color:#00E272; }
     @media(max-width:480px){ .xa-confirm{ font-size:14px; min-height:46px; } }
 
     /* CONFETTI */
@@ -755,52 +834,51 @@
      only explains the refund the server has already recorded, then hands off to
      the success overlay so the code is always revealed. -->
 <div class="success-overlay" id="extraAmountOverlay">
-  <div class="success-box">
-    <button class="succ-close" onclick="continueFromExtraAmount()" aria-label="Continue to coupon">
-      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  <div class="ew-window" role="dialog" aria-modal="true" aria-labelledby="xaTitle" aria-describedby="xaSubtitle">
+    <button class="ew-close" type="button" onclick="continueFromExtraAmount()" aria-label="Continue to coupon">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19" stroke="currentColor" stroke-width="2.5"/></svg>
     </button>
 
-    <div class="xa-icon">
-      <svg viewBox="0 0 24 24"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/></svg>
+    <div class="ew-orbit">
+      <svg viewBox="0 0 128 128" aria-hidden="true">
+        <defs>
+          <linearGradient id="ewGreen" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#00E272"/><stop offset="1" stop-color="#00E272"/></linearGradient>
+          <linearGradient id="ewGold" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffe36e"/><stop offset="1" stop-color="#ffb92d"/></linearGradient>
+        </defs>
+        <path d="M20 40 82 19q8-3 10 5l5 19" fill="none" stroke="url(#ewGreen)" stroke-width="8" stroke-linejoin="round"/>
+        <path d="M36 101H23q-8 0-8-8V49q0-8 8-8h73q8 0 8 8v13" fill="none" stroke="url(#ewGreen)" stroke-width="9" stroke-linecap="round"/>
+        <circle cx="32" cy="59" r="5" fill="#00E272"/>
+        <path d="m54 79-13 12 13 11M43 91h18q7 0 7 8v12" fill="none" stroke="#00E272" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="98" cy="93" r="24" fill="url(#ewGold)" stroke="#06332a" stroke-width="5"/>
+        <text x="98" y="105" text-anchor="middle" fill="#062337" font-family="Arial, sans-serif" font-size="31" font-weight="bold">₹</text>
+      </svg>
     </div>
 
-    <h2 class="succ-title">Extra <span>Payment Detected</span></h2>
-    <p class="succ-subtitle" id="xaMessage">You paid more than the required amount.</p>
+    <h2 class="ew-title" id="xaTitle">Extra <span class="ew-green">Received</span></h2>
+    <p class="ew-sub" id="xaSubtitle">You paid more than the required amount.</p>
 
-    <div class="succ-details">
-      <div class="succ-row">
-        <span class="succ-label">Required Amount</span>
-        <span class="succ-value" id="xaRequired">—</span>
-      </div>
-      <div class="succ-divider"></div>
-      <div class="succ-row">
-        <span class="succ-label">Amount Paid</span>
-        <span class="succ-value" id="xaPaid">—</span>
-      </div>
-      <div class="succ-divider"></div>
-      <div class="succ-row xa-row-refund">
-        <span class="succ-label">Refund Amount</span>
-        <span class="succ-value large" id="xaRefund">—</span>
-      </div>
+    <section class="ew-amounts" aria-label="Payment breakdown">
+      <div class="ew-row"><span>Required Amount:</span><strong id="xaRequired">—</strong></div>
+      <div class="ew-row"><span>Amount Paid:</span><strong id="xaPaid">—</strong></div>
+      <div class="ew-row ew-refund"><span>Refund Amount:</span><strong id="xaRefund">—</strong></div>
+    </section>
+
+    <div class="ew-notice">
+      <svg class="ew-info-ico" viewBox="0 0 60 60" fill="none" aria-hidden="true"><circle cx="30" cy="30" r="27" fill="#0e3b76" stroke="currentColor" stroke-width="4"/><path d="M30 28v15" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="30" cy="19" r="3.5" fill="currentColor"/></svg>
+      <p>The extra amount of <strong id="xaRefundInline">₹0</strong> will be refunded to your <span class="ew-green">original payment method</span> automatically.</p>
     </div>
 
-    <div class="xa-info">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      <div class="xa-info-text">You paid <b id="xaRefundInline">₹0</b> extra. The excess amount will be refunded to you.</div>
+    <div class="ew-flow" aria-hidden="true">
+      <div class="ew-rupee">₹</div>
+      <svg class="ew-arrow" viewBox="0 0 92 54" fill="none"><circle cx="6" cy="27" r="4" fill="#00E272" opacity=".15"/><circle cx="22" cy="27" r="4" fill="#00E272" opacity=".4"/><circle cx="38" cy="27" r="4" fill="#00E272" opacity=".7"/><path d="M52 27h31M69 11l16 16-16 16" stroke="#00E272" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="ew-orbit ew-small"><svg viewBox="0 0 128 128" aria-hidden="true"><path d="M20 40 82 19q8-3 10 5l5 19" fill="none" stroke="#00E272" stroke-width="8" stroke-linejoin="round"/><path d="M36 101H23q-8 0-8-8V49q0-8 8-8h73q8 0 8 8v13" fill="none" stroke="#00E272" stroke-width="9" stroke-linecap="round"/><circle cx="32" cy="59" r="5" fill="#00E272"/><circle cx="98" cy="93" r="24" fill="#ffc83a" stroke="#06332a" stroke-width="5"/></svg></div>
     </div>
 
-    <div class="succ-row"><span class="succ-label">Refund Status</span><span class="succ-value" id="xaRefundStatus">Refund pending</span></div>
-    <p class="xa-note">A refund is sent only after the transfer is confirmed. We'll notify you when its status changes.</p>
-    <p class="xa-redirect" id="xaRedirect">Revealing your coupon in 5s…</p>
+    <p class="ew-processing">We’ll process the refund shortly and notify you once it’s completed.</p>
+    <p class="ew-status">Refund status: <b id="xaRefundStatus">Refund pending</b></p>
+    <p class="ew-redirect" id="xaRedirect">Revealing your coupon in 5s...</p>
 
-    <div class="succ-foot">
-      <div class="succ-foot-line"></div>
-      <div class="succ-foot-content">
-        <span class="succ-shield"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
-        Secured by <span class="succ-foot-brand">SaveHatke</span>
-      </div>
-      <div class="succ-foot-line"></div>
-    </div>
+    <footer class="ew-foot"><span class="ew-foot-lbl"><svg class="ew-shield" viewBox="0 0 32 36" aria-hidden="true"><path d="M16 1 30 6v12c0 8-7 13-14 17C9 31 2 26 2 18V6Z" fill="#00E272"/><path d="m10 17 4 4 8-9" fill="none" stroke="#04182b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Secured by <strong>SaveHatke</strong></span></span></footer>
   </div>
 </div>
 
@@ -811,62 +889,42 @@
      service writes an underpayment row for the full received amount, so the
      buyer is made whole automatically. There is no coupon reveal here. -->
 <div class="success-overlay" id="insufficientAmountOverlay">
-  <div class="success-box">
-    <button class="succ-close ip-close" onclick="closeInsufficientAmount()" aria-label="Close payment confirmation">
-      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+  <div class="payment-window" role="dialog" aria-modal="true" aria-labelledby="ipTitle" aria-describedby="ipMessage">
+    <button class="ip-x" type="button" onclick="closeInsufficientAmount()" aria-label="Close payment window">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 5 14 14M19 5 5 19"/></svg>
     </button>
 
-    <div class="xa-icon xa-icon-under">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/>
-        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/>
-        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z"/>
-        <line x1="9" y1="9" x2="15" y2="15" class="ip-warn"/>
-        <line x1="15" y1="9" x2="9" y2="15" class="ip-warn"/>
+    <div class="ip-orbit" aria-hidden="true">
+      <svg viewBox="0 0 128 128">
+        <path d="M20 40 76 18q8-3 10 5l3 10" fill="none" stroke="#ff4d63" stroke-width="8" stroke-linejoin="round"/>
+        <path d="M50 101H23q-8 0-8-8V49q0-8 8-8h65q8 0 8 8v13M91 62H77q-12 0-12 12v5q0 9 12 9H40" fill="none" stroke="#ff4d63" stroke-width="8" stroke-linecap="round"/>
+        <circle cx="31" cy="58" r="4.5" fill="#ff536b"/>
+        <circle cx="94" cy="92" r="27" fill="#ff2447" stroke="#251022" stroke-width="5"/>
+        <path d="M94 79v16" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="94" cy="103" r="3" fill="#fff"/>
       </svg>
     </div>
 
-    <h2 class="succ-title">Payment <span class="ip-accent">Amount Mismatch</span></h2>
-    <p class="succ-subtitle" id="ipMessage">You paid less than the required amount. Your purchase has been cancelled, and your full payment will be refunded.</p>
+    <h2 class="ip-title" id="ipTitle">Insufficient <span class="ip-red">Payment</span></h2>
+    <p class="ip-sub" id="ipMessage">You have paid less than the required amount.</p>
 
-    <div class="succ-details">
-      <div class="succ-row">
-        <span class="succ-label">Required Amount</span>
-        <span class="succ-value" id="ipRequired">—</span>
-      </div>
-      <div class="succ-divider"></div>
-      <div class="succ-row">
-        <span class="succ-label">Amount Paid</span>
-        <span class="succ-value" id="ipPaid">—</span>
-      </div>
-      <div class="succ-divider"></div>
-      <div class="succ-row xa-row-refund xa-row-under">
-        <span class="succ-label">Short Amount</span>
-        <span class="succ-value large" id="ipShort">—</span>
-      </div>
+    <section class="ip-amounts" aria-label="Payment breakdown">
+      <div class="ip-row"><span>Required Amount:</span><strong id="ipRequired">—</strong></div>
+      <div class="ip-row"><span>Amount Paid:</span><strong id="ipPaid">—</strong></div>
+      <div class="ip-row refund"><span>Short Amount:</span><strong id="ipShort">—</strong></div>
+    </section>
+
+    <div class="ip-notice">
+      <svg viewBox="0 0 60 60" fill="none" aria-hidden="true"><circle cx="30" cy="30" r="27" fill="#51132b" stroke="#ff4d63" stroke-width="4"/><path d="M30 28v15" stroke="#fff" stroke-width="6" stroke-linecap="round"/><circle cx="30" cy="19" r="3.5" fill="#fff"/></svg>
+      <p>Your payment of <strong id="ipPaidInline">₹0</strong> is lower than the required amount. This amount will be refunded to your <span class="ip-red">original payment method</span> automatically.</p>
     </div>
 
-    <div class="xa-info xa-info-under">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-      <div class="xa-info-text">Your payment of <b id="ipPaidInline">₹0</b> is lower than the required amount. Your purchase has been cancelled and the full amount will be refunded.</div>
-    </div>
+    <div class="ip-status"><span>Refund status</span><span id="ipRefundStatus">Refund pending</span></div>
+    <p class="ip-foot">We’ll process the refund shortly and notify you once it’s completed. A refund is sent only after the transfer is confirmed.</p>
 
-    <div class="succ-row"><span class="succ-label">Refund Status</span><span class="succ-value" id="ipRefundStatus">Refund pending</span></div>
-    <p class="xa-note">A refund is sent only after the transfer is confirmed. We'll notify you when its status changes.</p>
+    <button class="ip-ok" id="ipConfirmBtn" type="button" onclick="closeInsufficientAmount()">Okay, Got it</button>
 
-    <button class="xa-confirm" id="ipConfirmBtn" type="button" onclick="closeInsufficientAmount()">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
-      <span>Okay, Got it</span>
-    </button>
-
-    <div class="succ-foot">
-      <div class="succ-foot-line"></div>
-      <div class="succ-foot-content">
-        <span class="succ-shield"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>
-        Secured by <span class="succ-foot-brand">SaveHatke</span>
-      </div>
-      <div class="succ-foot-line"></div>
-    </div>
+    <div class="ip-secure"><span>Secured by <strong>SaveHatke</strong></span></div>
   </div>
 </div>
 
@@ -1672,7 +1730,7 @@
           if (recAmt !== null && Number.isFinite(recAmt) && Number.isFinite(reqAmt) && recAmt + 0.005 < reqAmt) {
             if (upiState.successShown) break;
             upiState.successShown = true;
-            showInsufficientAmountScreen(reqAmt, recAmt);
+            showInsufficientAmountScreen(reqAmt, recAmt, data);
             break;
           }
         }
@@ -2041,7 +2099,11 @@
       : Number(data.received_amount);
     if (receivedAmt !== null && Number.isFinite(receivedAmt) && Number.isFinite(requiredAmt)
         && receivedAmt > requiredAmt + 0.005) {
-      showExtraAmountThenSuccess(requiredAmt, receivedAmt);
+      // refund_amount is computed by the server (refunds.computeRefund); the
+      // client only falls back to the same arithmetic if the field is absent.
+      const serverRefund = Number(data.refund_amount);
+      showExtraAmountThenSuccess(requiredAmt, receivedAmt,
+        Number.isFinite(serverRefund) && serverRefund > 0 ? serverRefund : null);
       return;
     }
 
@@ -2375,8 +2437,11 @@
   let xaTimer = null;
   function toPaiseLocal(n) { return Math.round(Number(n) * 100); }
 
-  function showExtraAmountThenSuccess(required, received) {
-    const refundPaise = Math.max(0, toPaiseLocal(received) - toPaiseLocal(required));
+  function showExtraAmountThenSuccess(required, received, serverRefund) {
+    // Prefer the server's refund figure; fall back to the identical paise rule.
+    const refundPaise = serverRefund !== null && serverRefund !== undefined
+      ? toPaiseLocal(serverRefund)
+      : Math.max(0, toPaiseLocal(received) - toPaiseLocal(required));
     const refund = refundPaise / 100;
     const set = (id, txt) => { const el = upiEl(id); if (el) el.textContent = txt; };
     set('xaRequired', formatRupees(required));
@@ -2414,12 +2479,16 @@
     showSuccessScreen();
   }
 
-  function showInsufficientAmountScreen(required, received) {
-    const shortPaise = Math.max(0, toPaiseLocal(required) - toPaiseLocal(received));
+  function showInsufficientAmountScreen(required, received, data) {
+    // Amounts come from the backend (short_amount / received_amount). The browser
+    // only formats them. Falls back to the verified payload if the server field is absent.
+    const serverShort = data && data.short_amount !== undefined && data.short_amount !== null
+      ? Number(data.short_amount) : null;
+    const shortAmt = Number.isFinite(serverShort) ? serverShort : 0;
     const set = (id, txt) => { const el = upiEl(id); if (el) el.textContent = txt; };
     set('ipRequired', formatRupees(required));
     set('ipPaid', formatRupees(received));
-    set('ipShort', formatRupees(shortPaise / 100));
+    set('ipShort', formatRupees(shortAmt));
     set('ipPaidInline', formatRupees(received));
     set('ipRefundStatus', 'Refund pending');
 
