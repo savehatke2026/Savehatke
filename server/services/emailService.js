@@ -467,11 +467,11 @@ You’re receiving this email because a SaveHatke account was created using this
 
       .button {
         display: inline-block;
-        padding: 10px 18px;
+        padding: 8px 14px;
         border-radius: 6px;
         background: #00E272;
         color: #000000;
-        font-size: 14px;
+        font-size: 13px;
         font-weight: 700;
         line-height: 1.2;
         text-decoration: none;
@@ -571,8 +571,8 @@ ${EMAIL_GREEN_DARK_RULES}
                           href="${siteUrl}"
                           target="_blank"
                           rel="noopener noreferrer"
-                          style="display:inline-block;padding:10px 18px;border-radius:6px;background-color:#00E272;color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;line-height:1.2;text-decoration:none;"
-                          >Go to SaveHatke &rarr;</a
+                          style="display:inline-block;padding:8px 14px;border-radius:6px;background-color:#00E272;color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;line-height:1.2;text-decoration:none;"
+                          >Go to SaveHatke &rarr;</
                         >
                       </td>
                     </tr>
