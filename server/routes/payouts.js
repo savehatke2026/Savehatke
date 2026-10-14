@@ -392,6 +392,21 @@ async function loadSellerPayoutDetails(sellerEmail) {
   return rows.find((r) => String(r.sellerEmail || '').toLowerCase().trim() === email) || null;
 }
 
+// Per-seller promise chain: runs `fn` only after earlier saves for the same seller
+// have finished. Serializes this process's read-modify-write of the account row.
+const sellerDetailsLocks = new Map();
+function withSellerDetailsLock(sellerEmail, fn) {
+  const key = String(sellerEmail || '').toLowerCase().trim();
+  const prev = sellerDetailsLocks.get(key) || Promise.resolve();
+  const run = prev.catch(() => {}).then(fn);
+  const tail = run.catch(() => {});
+  sellerDetailsLocks.set(key, tail);
+  tail.then(() => {
+    if (sellerDetailsLocks.get(key) === tail) sellerDetailsLocks.delete(key);
+  });
+  return run;
+}
+
 // A destination is only usable when the chosen method carries everything a
 // transfer needs — the same rule the payout request form enforced field by field.
 function payoutDetailsComplete(row) {
@@ -970,28 +985,34 @@ router.put('/payouts/details', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Please upload your payment QR code image.' });
     }
 
-    const existing = await loadSellerPayoutDetails(email);
-    const now = nowIso();
-    // Only the chosen method's destination is kept: there is no reason to leave
-    // the account a seller has just moved away from sitting in the sheet.
-    const row = {
-      id: (existing && existing.id) || uuidv4(),
-      sellerEmail: email,
-      sellerUserId: String(req.user.id || req.user.user_id || (existing && existing.sellerUserId) || ''),
-      method: cleanMethod,
-      upiId: cleanMethod === 'UPI' ? cleanUpi : '',
-      qrFileId: cleanMethod === 'QR' ? cleanQrId : '',
-      qrFileName: cleanMethod === 'QR' ? cleanQrName : '',
-      beneficiaryName: cleanName,
-      createdAt: (existing && existing.createdAt) || now,
-      updatedAt: now,
-    };
+    // The read-modify-write runs under a per-seller lock so a double-click or two
+    // overlapping saves cannot both see "no record" and append duplicate rows, and
+    // an older request cannot land after a newer one and silently revert it.
+    const { existing, row, now } = await withSellerDetailsLock(email, async () => {
+      const existing = await loadSellerPayoutDetails(email);
+      const now = nowIso();
+      // Only the chosen method's destination is kept: there is no reason to leave
+      // the account a seller has just moved away from sitting in the sheet.
+      const row = {
+        id: (existing && existing.id) || uuidv4(),
+        sellerEmail: email,
+        sellerUserId: String(req.user.id || req.user.user_id || (existing && existing.sellerUserId) || ''),
+        method: cleanMethod,
+        upiId: cleanMethod === 'UPI' ? cleanUpi : '',
+        qrFileId: cleanMethod === 'QR' ? cleanQrId : '',
+        qrFileName: cleanMethod === 'QR' ? cleanQrName : '',
+        beneficiaryName: cleanName,
+        createdAt: (existing && existing.createdAt) || now,
+        updatedAt: now,
+      };
 
-    if (existing) {
-      await db.updateRow(db.SHEETS.SELLER_PAYOUT_DETAILS, 'sellerEmail', existing.sellerEmail || email, row);
-    } else {
-      await db.appendRow(db.SHEETS.SELLER_PAYOUT_DETAILS, row);
-    }
+      if (existing) {
+        await db.updateRow(db.SHEETS.SELLER_PAYOUT_DETAILS, 'sellerEmail', existing.sellerEmail || email, row);
+      } else {
+        await db.appendRow(db.SHEETS.SELLER_PAYOUT_DETAILS, row);
+      }
+      return { existing, row, now };
+    });
 
     // Payment-method notification. Fired only after the Sheets write above has
     // succeeded. An unchanged re-save (same method and same stored value) is a
