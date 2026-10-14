@@ -3062,10 +3062,12 @@ SaveHatke`;
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-  <!-- Fixed white design. Light-only on purpose: no dark-mode overrides, so every
-       colour below is the intended one and is applied inline on each element. -->
-  <meta name="color-scheme" content="light" />
-  <meta name="supported-color-schemes" content="light" />
+  <!-- Intentional LIGHT + DARK support. Both palettes are defined explicitly so
+       dark-mode clients render a DESIGNED dark version instead of auto-inverting
+       the receipt. The meta hints plus the prefers-color-scheme block below keep
+       the design coherent; Gmail may still nudge colors, but nothing inverts. -->
+  <meta name="color-scheme" content="light dark" />
+  <meta name="supported-color-schemes" content="light dark" />
   <title>Payment Confirmation – SaveHatke</title>
   <style>
     /* Minimal, email-safe resets */
@@ -3073,16 +3075,29 @@ SaveHatke`;
     table { border-collapse:collapse; mso-table-lspace:0pt; mso-table-rspace:0pt; }
     img { border:0; outline:none; text-decoration:none; -ms-interpolation-mode:bicubic; }
     a { text-decoration:none; }
+    a[x-apple-data-detectors] { color:inherit !important; text-decoration:none !important; }
 
-    /* View Order: black button + white label in light; white button + black
-       label in dark. Dark is best-effort — clients that strip <style> or force
-       their own colours (Gmail app) may keep the light values. */
+    /* ── DARK MODE: explicitly designed, NOT an auto-invert. Only colors change;
+       spacing and layout stay identical to light mode. ── */
     @media (prefers-color-scheme: dark) {
-      .sh-btn, .sh-btn a.sh-view-btn { background:#FFFFFF !important; background-color:#FFFFFF !important; }
-      .sh-btn a.sh-view-btn { color:#000000 !important; }
+      body, .sh-bg, .sh-body { background:#0F1115 !important; background-color:#0F1115 !important; }
+      .sh-primary   { color:#FFFFFF !important; }
+      .sh-secondary { color:#B8B8B8 !important; }
+      .sh-muted     { color:#B8B8B8 !important; }
+      .sh-green     { color:#00E272 !important; }
+      /* Dark CTA fill: white label on the bright #00E272 is unreadable (~1.7:1),
+         so the dark-mode button uses a deeper green (#047857, ~5.5:1 with white). */
+      .sh-btn       { background:#047857 !important; background-color:#047857 !important; }
+${EMAIL_GREEN_DARK_RULES}
+      /* View Order label: white in dark mode. Class selector (0,2,1) beats the
+         shared sh-btn anchor black pin above. */
+      .sh-btn a.sh-view-btn { color:#FFFFFF !important; }
     }
-    [data-ogsc] .sh-btn, [data-ogsc] .sh-btn a.sh-view-btn { background-color:#FFFFFF !important; }
-    [data-ogsc] .sh-btn a.sh-view-btn { color:#000000 !important; }
+
+    /* Client-specific dark mode (Gmail app / Outlook.com set data-ogsc/data-ogsb
+       on the body in dark mode). Kept outside the media query on purpose. */
+    [data-ogsc] .sh-view-btn { color:#FFFFFF !important; }
+    [data-ogsc] .sh-btn      { background:#047857 !important; background-color:#047857 !important; }
 
     /* ── MOBILE ── */
     @media only screen and (max-width:480px) {
@@ -3092,7 +3107,7 @@ SaveHatke`;
     }
   </style>
 </head>
-<body class="sh-body" bgcolor="#FFFFFF" style="margin:0;padding:0;background:#FFFFFF;color:#111827;">
+<body class="sh-body" bgcolor="#FFFFFF" style="margin:0;padding:0;background:#FFFFFF;">
   <table role="presentation" class="sh-bg" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#FFFFFF" style="background:#FFFFFF;">
     <tr>
       <td align="center" style="padding:24px 12px;">
@@ -3117,7 +3132,7 @@ SaveHatke`;
 
           <!-- SUCCESS TITLE + SUBTITLE -->
           <tr>
-            <td class="sh-pad sh-primary sh-title" align="center" style="padding:18px 40px 4px;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:36px;font-weight:700;color:#111827;">Payment successful</td>
+            <td class="sh-pad sh-primary sh-title" align="center" style="padding:18px 40px 4px;font-family:Arial,Helvetica,sans-serif;font-size:30px;line-height:36px;font-weight:700;color:#111827;">Payment Successful!</td>
           </tr>
           <tr>
             <td class="sh-pad sh-secondary" align="center" style="padding:0 40px 6px;font-family:Arial,Helvetica,sans-serif;font-size:17px;line-height:24px;font-weight:400;color:#64748B;">Your transaction has been confirmed</td>
@@ -3126,7 +3141,7 @@ SaveHatke`;
           <!-- GREETING + INTRO -->
           <tr>
             <td class="sh-pad" style="padding:26px 40px 0;">
-              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello, <span class="sh-greet" style="color:#008F4C;font-weight:700;">${safeName}</span></p>
+              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello, <span class="sh-green" style="color:#00E272;font-weight:700;">${safeName}</span></p>
               <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;font-weight:400;color:#111827;">Your payment has been successfully received. Here are your transaction details for your records.</p>
             </td>
           </tr>
@@ -3147,8 +3162,8 @@ SaveHatke`;
           <tr>
             <td class="sh-pad" align="center" style="padding:28px 40px 6px;">
               <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
-                <td class="sh-btn" align="center" bgcolor="#000000" style="background:#000000;border-radius:8px;">
-                  <a class="sh-view-btn" href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;background-color:#000000;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;">View Order</a>
+                <td class="sh-btn" align="center" bgcolor="#00E272" style="background:#00E272;border-radius:8px;">
+                  <a class="sh-view-btn" href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#000000;text-decoration:none;">View Order</a>
                 </td>
               </tr></table>
             </td>
