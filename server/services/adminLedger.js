@@ -163,8 +163,8 @@ function refundFor(ctx, paymentId) {
 function refundRow(r) {
   return {
     id: str(r.id),
-    // Refund amounts are stored as integer paise (see services/finance.js).
-    amount: money(num(r.refund_amount) / 100),
+    // Refund amounts are stored in rupees (see services/finance.js refundRupees).
+    amount: money(num(r.refund_amount)),
     reference: str(r.refund_reference),
     status: lower(r.status),
     reason: str(r.refund_reason),
@@ -671,5 +671,5 @@ module.exports = {
   exportTransactionsCsv,
   exportOrdersCsv,
   // exposed for tests
-  _internals: { loadLedger, transactionRow, orderRow, paymentIssues, reservationStatus, deliveryStatus, soldToBuyer, csvCell, toCsv, auditPaymentId, buildPaymentHistory, transactionColumns: TRANSACTION_COLUMNS, isHiddenNoPaymentSession, PAYMENT_HIDE_AFTER_MS },
+  _internals: { loadLedger, transactionRow, orderRow, refundRow, paymentIssues, reservationStatus, deliveryStatus, soldToBuyer, csvCell, toCsv, auditPaymentId, buildPaymentHistory, transactionColumns: TRANSACTION_COLUMNS, isHiddenNoPaymentSession, PAYMENT_HIDE_AFTER_MS },
 };

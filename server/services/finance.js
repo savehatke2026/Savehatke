@@ -61,6 +61,7 @@ const DISTRIBUTION = Object.freeze({ admin1: 0.40, admin2: 0.40, platform: 0.20 
 const PAID = 'PAID';
 const PENDING = 'PENDING';
 const CANCELLED_SET = new Set(['CANCELLED', 'EXPIRED']);
+const REVIEW = 'REVIEW';
 const REFUND_DONE = 'refunded';
 const REFUND_OPEN = new Set(['pending', 'processing']);
 
@@ -70,9 +71,12 @@ function num(v) {
   return Number.isFinite(n) ? n : 0;
 }
 
-// Refund sheet stores integer paise; everything else is rupees.
-function paiseToRupees(v) {
-  return num(v) / 100;
+// Refund amounts are stored as RUPEES with two decimals (the writer in
+// services/refunds.js formats them with money2, e.g. "20.00"). The older
+// "integer paise" comment and migration are stale; dividing here understated
+// every refund by 100x. Keep this the single place the refund unit is read.
+function refundRupees(v) {
+  return num(v);
 }
 
 function timeOf(v) {
@@ -210,10 +214,13 @@ async function fetchCoupons() {
   return merged;
 }
 
-async function fetchOrders() { try { return await db.getRows(db.SHEETS.ORDERS) || []; } catch (e) { return []; } }
-async function fetchPayments() { try { return await db.getRows(db.SHEETS.PAYMENTS) || []; } catch (e) { return []; } }
-async function fetchRefunds() { try { return await db.getRows(db.SHEETS.REFUNDS) || []; } catch (e) { return []; } }
-async function fetchPayouts() { try { return await db.getRows(db.SHEETS.PAYOUTS) || []; } catch (e) { return []; } }
+// Authoritative financial ledgers use STRICT reads: if the spreadsheet is down the
+// error propagates and the route answers 503 "Unable to load financial data",
+// instead of an outage silently becoming an empty ledger (a false ₹0 dashboard).
+async function fetchOrders() { return (await db.getRows(db.SHEETS.ORDERS, { strict: true })) || []; }
+async function fetchPayments() { return (await db.getRows(db.SHEETS.PAYMENTS, { strict: true })) || []; }
+async function fetchRefunds() { return (await db.getRows(db.SHEETS.REFUNDS, { strict: true })) || []; }
+async function fetchPayouts() { return (await db.getRows(db.SHEETS.PAYOUTS, { strict: true })) || []; }
 
 // ── Normalisers ─────────────────────────────────────────────────────────────
 function normCoupon(c) {
@@ -278,8 +285,12 @@ function computeOverviewFromData(data, win) {
   const admins = data.admins || [];
 
   // ── Sales waterfall from the Orders ledger (windowed by created_at) ──
-  let gross = 0, pending = 0, cancelled = 0, paid = 0;
-  let ordersCount = 0, paidCount = 0, pendingCount = 0, cancelledCount = 0;
+  // REVIEW = an underpayment parked for admin action (paymentStore markUnderpayment).
+  // It is NOT collected revenue: the buyer has not paid in full and the coupon is
+  // not unlocked. It is tracked on its own line so it can never fall through into
+  // settled sales (the waterfall previously counted any unlisted status as settled).
+  let gross = 0, pending = 0, cancelled = 0, paid = 0, review = 0;
+  let ordersCount = 0, paidCount = 0, pendingCount = 0, cancelledCount = 0, reviewCount = 0;
   for (const o of orders) {
     const at = timeOf(o.created_at);
     if (!inWindow(at, win)) continue;
@@ -290,15 +301,16 @@ function computeOverviewFromData(data, win) {
     if (st === PAID) { paid += amt; paidCount += 1; }
     else if (st === PENDING) { pending += amt; pendingCount += 1; }
     else if (CANCELLED_SET.has(st)) { cancelled += amt; cancelledCount += 1; }
+    else if (st === REVIEW) { review += amt; reviewCount += 1; }
   }
 
-  // ── Refunds (windowed by created_at; amounts are paise) ──
+  // ── Refunds (windowed by created_at; amounts are rupees) ──
   let refundedValue = 0, refundedCount = 0, refundPendingCount = 0;
   for (const r of refunds) {
     const at = timeOf(r.created_at);
     if (!inWindow(at, win)) continue;
     const st = lower(r.status);
-    if (st === REFUND_DONE) { refundedValue += paiseToRupees(r.refund_amount); refundedCount += 1; }
+    if (st === REFUND_DONE) { refundedValue += refundRupees(r.refund_amount); refundedCount += 1; }
     else if (REFUND_OPEN.has(st)) { refundPendingCount += 1; }
   }
   refundedValue = round2(refundedValue);
@@ -316,7 +328,7 @@ function computeOverviewFromData(data, win) {
   soldSellingPrice = round2(soldSellingPrice);
 
   // ── Waterfall ──
-  const settledSales = round2(gross - pending - cancelled - refundedValue);
+  const settledSales = round2(gross - pending - cancelled - review - refundedValue);
   const platformServiceFeeRevenue = round2(settledSales - sellerRevenue);
   const gatewayFees = 0;   // Not recorded anywhere — direct UPI. Do NOT invent.
   const otherCharges = 0;  // Not recorded anywhere.
@@ -337,6 +349,7 @@ function computeOverviewFromData(data, win) {
     grossSales: round2(gross),
     pendingValue: round2(pending),
     cancelledValue: round2(cancelled),
+    reviewValue: round2(review),
     refundedValue,
     paidValue: round2(paid),
     settledSales,
@@ -356,6 +369,7 @@ function computeOverviewFromData(data, win) {
       paidOrders: paidCount,
       pendingOrders: pendingCount,
       cancelledOrders: cancelledCount,
+      reviewOrders: reviewCount,
       soldCoupons: soldCount,
       refundsCompleted: refundedCount,
       refundsOpen: refundPendingCount,
@@ -494,7 +508,7 @@ const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
 async function fetchAdminPayouts() {
-  try { return (await db.getRows(db.SHEETS.ADMIN_PAYOUTS)) || []; } catch (e) { return []; }
+  return (await db.getRows(db.SHEETS.ADMIN_PAYOUTS, { strict: true })) || [];
 }
 
 // Normalise one AdminPayouts ledger row.
@@ -650,7 +664,7 @@ async function buildMonthlyReportData(year, month) {
   const refundsDone = monthRefunds.filter((r) => lower(r.status) === REFUND_DONE);
   const refundsOpen = monthRefunds.filter((r) => REFUND_OPEN.has(lower(r.status)));
   const refundsRejected = monthRefunds.filter((r) => lower(r.status) === 'rejected');
-  const refundAmount = round2(refundsDone.reduce((s, r) => s + paiseToRupees(r.refund_amount), 0));
+  const refundAmount = round2(refundsDone.reduce((s, r) => s + refundRupees(r.refund_amount), 0));
 
   // Sold coupons (seller-side) in month
   const soldCoupons = coupons.filter((c) => c.status === 'sold' && inWindow(c.soldAt, win));
@@ -914,5 +928,5 @@ module.exports = {
   monthWindowYM,
   normAdminPayout,
   // exposed for reuse/testing
-  _internals: { normCoupon, isSellerListing, sellerRevenueForCoupon, inWindow, paiseToRupees },
+  _internals: { normCoupon, isSellerListing, sellerRevenueForCoupon, inWindow, refundRupees },
 };
