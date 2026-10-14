@@ -469,8 +469,8 @@ You’re receiving this email because a SaveHatke account was created using this
         display: inline-block;
         padding: 8px 14px;
         border-radius: 6px;
-        background: #00E272;
-        color: #000000;
+        background: #000000;
+        color: #FFFFFF;
         font-size: 13px;
         font-weight: 700;
         line-height: 1.2;
@@ -506,15 +506,17 @@ You’re receiving this email because a SaveHatke account was created using this
         body, p, .brand-text, .support-link { color:#FFFFFF !important; }
         .footer { border-top-color:#29302D !important; color:#B8B8B8 !important; }
 ${EMAIL_GREEN_DARK_RULES}
-        /* Button: keep #00E272 fill, white label in dark. Placed AFTER the shared
-           green rules so it wins over the shared black label pin. */
-        .button, a.button, td.button a, .button a, .button-label, a.button-label { color:#FFFFFF !important; }
+        /* Button: WHITE fill + BLACK label in dark (inverse of light). Placed AFTER
+           the shared green rules so it wins over the shared green fill and black pin. */
+        td.button, .button, a.button-label, .button-label { background:#FFFFFF !important; background-color:#FFFFFF !important; }
+        .button, a.button, td.button a, .button a, .button-label, a.button-label { color:#000000 !important; }
         /* Blue address stays blue (the shared rules only re-pin brand green). */
         .welcome-email, span.welcome-email { color:#4DA3FF !important; }
       }
 
       /* Client-specific dark mode (Gmail app / Outlook.com set data-ogsc). */
-      [data-ogsc] .button, [data-ogsc] .button a, [data-ogsc] .button-label { color:#FFFFFF !important; }
+      [data-ogsc] .button, [data-ogsc] .button a, [data-ogsc] .button-label { color:#000000 !important; }
+      [data-ogsc] td.button, [data-ogsc] .button-label { background-color:#FFFFFF !important; }
       [data-ogsc] .welcome-email { color:#4DA3FF !important; }
     </style>
   </head>
@@ -565,13 +567,13 @@ ${EMAIL_GREEN_DARK_RULES}
                 <div class="button-wrap" style="margin:0 0 20px;text-align:center;">
                   <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
                     <tr>
-                      <td class="button" bgcolor="#00E272" style="border-radius:6px;background-color:#00E272;">
+                      <td class="button" bgcolor="#000000" style="border-radius:6px;background-color:#000000;">
                         <a
                           class="button-label"
                           href="${siteUrl}"
                           target="_blank"
                           rel="noopener noreferrer"
-                          style="display:inline-block;padding:8px 14px;border-radius:6px;background-color:#00E272;color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;line-height:1.2;text-decoration:none;"
+                          style="display:inline-block;padding:8px 14px;border-radius:6px;background-color:#000000;color:#FFFFFF;font-family:Arial,Helvetica,sans-serif;font-size:13px;font-weight:700;line-height:1.2;text-decoration:none;"
                           >Go to SaveHatke &rarr;</
                         >
                       </td>
