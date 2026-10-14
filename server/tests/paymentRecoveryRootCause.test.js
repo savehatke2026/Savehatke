@@ -65,6 +65,18 @@ function famBody({ amount, payer = 'Test Buyer', txn, utr, atMs = T0 + 60_000, t
 }
 
 const T0 = Date.parse('2026-10-13T12:00:00Z');
+// The fixtures are written against T0. Pin the clock to T0 so the suite is
+// deterministic: payment sessions are judged against Date.now() (the 10-minute
+// window + 30-minute verification grace), so without this every fixture went
+// stale on the real calendar and the verifier correctly reported "No active
+// order" / "not waiting", making B1, B2, C1, F7, G1 and G2 fail on any later
+// date. Only the wall clock is pinned; production code runs unmodified.
+const RealDate = Date;
+class PinnedDate extends RealDate {
+  constructor(...args) { if (args.length === 0) super(T0 + 30_000); else super(...args); }
+  static now() { return T0 + 30_000; }
+}
+global.Date = PinnedDate;
 const iso = (ms) => new Date(ms).toISOString();
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
