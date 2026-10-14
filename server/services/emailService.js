@@ -1635,7 +1635,8 @@ async function sendSignInAlertEmail({
   const year = new Date().getFullYear();
 
   const t = getTransporter();
-  if (!t || !isEmailConfigured()) {
+  // renderOnly (Admin Email Testing preview) must not need SMTP; only a real send does.
+  if ((!t || !isEmailConfigured()) && !opts.renderOnly) {
     console.warn(`⚠️ [EmailService] SMTP not configured. New-device alert for ${cleanEmail} was NOT sent.`);
     return {
       success: false,
@@ -1651,7 +1652,7 @@ async function sendSignInAlertEmail({
 
 New sign-in detected on your SaveHatke account
 
-Hello, ${userName && String(userName).trim() ? userName.trim() : 'there'}.
+Hello, ${userName && String(userName).trim() ? userName.trim() : 'there'}
 
 Your SaveHatke account ${accountText} was recently signed in from a new device or browser:
 
@@ -1672,8 +1673,12 @@ This alert is triggered when we detect a sign-in from a device, browser, or oper
 
 If you believe someone else accessed your account, please contact SaveHatke Support${supportFrom ? ` (${supportFrom})` : ''} as soon as possible.
 
-Regards,
-SaveHatke Team`;
+Best,
+SaveHatke
+
+Manage your notification settings: ${notifUrl}
+
+You are receiving this email because a new sign-in was detected on your SaveHatke account.`;
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="en">
@@ -1773,6 +1778,12 @@ SaveHatke Team`;
         .footer { border-top-color:#29302D !important; color:#B8B8B8 !important; }
         .footer a { color:#FFFFFF !important; }
 ${EMAIL_GREEN_DARK_RULES}
+        /* Blue account email, security links and settings link stay #0066CC in dark
+           (readable on #0F1115). Declared after the shared green rules. */
+        .acct-blue, .sec-link, .notif-link a { color:#0066CC !important; }
+        .support-link { color:#FFFFFF !important; text-decoration:underline !important; }
+        .fb-save { color:#FFFFFF !important; }
+        .disclaimer { color:#B8B8B8 !important; }
       }
     </style>
   </head>
@@ -1785,11 +1796,11 @@ ${EMAIL_GREEN_DARK_RULES}
 
       <h1>New sign-in detected on your SaveHatke account</h1>
 
-      <p>Hello, ${safeName}.</p>
+      <p>Hello, <strong>${safeName}</strong></p>
 
       <p>
         Your SaveHatke account
-        <span class="green">${safeAccount}</span> was recently signed
+        <span class="acct-blue" style="color:#0066CC;">${safeAccount}</span> was recently signed
         in from a new device or browser:
       </p>
 
@@ -1806,8 +1817,8 @@ ${EMAIL_GREEN_DARK_RULES}
       <p><strong>Don't recognize this activity?</strong></p>
 
       <p>
-        <a class="green" href="${secureUrl}">Review your recent activity</a> and
-        <a class="green" href="${accountUrl}">access your account security settings now.</a>
+        <a class="sec-link" href="${secureUrl}" style="color:#0066CC;text-decoration:none;">Review your recent activity</a> and
+        <a class="sec-link" href="${accountUrl}" style="color:#0066CC;text-decoration:none;">access your account security settings now.</a>
       </p>
 
       <p>
@@ -1819,13 +1830,20 @@ ${EMAIL_GREEN_DARK_RULES}
 
       <p>
         If you believe someone else accessed your account, please contact
-        SaveHatke Support as soon as possible.
+        <a class="support-link" href="${supportFrom ? `mailto:${escapeHtml(supportFrom)}` : `${siteUrl}/support.html`}" style="color:#222222;text-decoration:underline;">SaveHatke Support</a> as soon as possible.
       </p>
 
-      <p>
-        Regards,<br />
-        SaveHatke Team
+      <p class="signoff" style="text-align:center;margin:28px 0 0;">Best,</p>
+
+      <p class="sh-footer-brand" style="text-align:center;margin:14px 0 0;font-size:22px;font-weight:400;">
+        <span class="fb-save" style="color:#111111;">Save</span><span class="green" style="color:#00E272;">Hatke</span>
       </p>
+
+      <p class="notif-link" style="text-align:center;margin:18px 0 0;">
+        <a href="${notifUrl}" style="color:#0066CC;text-decoration:underline;">Manage your notification settings</a>
+      </p>
+
+      <p class="disclaimer" style="margin:28px 0 0;text-align:center;font-size:12px;line-height:18px;color:#64748B;">You are receiving this email because a new sign-in was detected on your SaveHatke account.</p>
     </main>
   </body>
 </html>`;
