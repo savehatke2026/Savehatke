@@ -3011,8 +3011,6 @@ async function sendPaymentSuccessEmail({
   // predate the internal transaction id.
   const txnRef = String(transactionId || '').trim() || '—';
   const safeTxn = escapeHtml(txnRef);
-  // UPI is the only checkout method. Kept as a labelled static value.
-  const paymentMethod = 'UPI';
   // Human-readable date & time in IST (the business timezone), e.g.
   // "27 Sep 2026, 8:56 PM IST". Derived from the settlement timestamp.
   const paidWhen = (() => {
@@ -3048,15 +3046,16 @@ Transaction Details
 Order ID: ${orderCode || '—'}
 Transaction ID: ${txnRef}
 Amount Paid: ${amountStr}
-Payment Method: ${paymentMethod}
 Date & Time: ${paidWhen}
 
 View your order: ${siteUrl}/dashboard
 
 Thank you for choosing SaveHatke.
 
-Regards,
-SaveHatke`;
+Best,
+SaveHatke
+
+You’re receiving this email because a payment associated with a purchase through your SaveHatke account has been successfully received and confirmed.`;
 
   const htmlContent = `<!DOCTYPE html>
 <html lang="en" style="margin:0;padding:0;">
@@ -3126,8 +3125,10 @@ ${EMAIL_GREEN_DARK_RULES}
           <!-- SUCCESS ICON -->
           <tr>
             <td class="sh-pad" align="center" style="padding:10px 40px 0;">
-              <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
-                <td align="center" valign="middle" width="64" height="64" style="width:64px;height:64px;background:#00E272;border-radius:50%;text-align:center;font-family:Arial,Helvetica,sans-serif;font-size:34px;line-height:64px;font-weight:700;color:#FFFFFF;">&#10003;</td>
+              <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;"><tr>
+                <td align="center" valign="middle" width="88" height="88" role="img" aria-label="Success" style="width:88px;height:88px;background:#22a65a;border-radius:50%;text-align:center;vertical-align:middle;">
+                  <div style="width:23px;height:41px;margin:0 auto;padding-top:0;border-right:7px solid #FFFFFF;border-bottom:7px solid #FFFFFF;transform:translateY(-5px) rotate(45deg);-webkit-transform:translateY(-5px) rotate(45deg);font-size:0;line-height:0;">&nbsp;</div>
+                </td>
               </tr></table>
             </td>
           </tr>
@@ -3143,7 +3144,7 @@ ${EMAIL_GREEN_DARK_RULES}
           <!-- GREETING + INTRO -->
           <tr>
             <td class="sh-pad" style="padding:26px 40px 0;">
-              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello, <strong class="sh-green" style="color:#00E272;font-weight:700;">${safeName}</strong></p>
+              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello, <strong class="sh-primary" style="color:#111827;font-weight:700;">${safeName}</strong></p>
               <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;font-weight:400;color:#111827;">Your payment has been successfully received. Here are your transaction details for your records.</p>
             </td>
           </tr>
@@ -3155,7 +3156,6 @@ ${EMAIL_GREEN_DARK_RULES}
               <p style="margin:0 0 11px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Order ID:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${safeOrder}</span></p>
               <p style="margin:0 0 11px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Transaction ID:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${safeTxn}</span></p>
               <p style="margin:0 0 11px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Amount Paid:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${amountStr}</span></p>
-              <p style="margin:0 0 11px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Payment Method:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${paymentMethod}</span></p>
               <p style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;overflow-wrap:break-word;word-break:break-word;"><span class="sh-primary" style="font-weight:700;color:#111827;">Date &amp; Time:</span> <span class="sh-primary" style="font-weight:400;color:#111827;">${safePaidWhen}</span></p>
             </td>
           </tr>
@@ -3171,17 +3171,17 @@ ${EMAIL_GREEN_DARK_RULES}
             </td>
           </tr>
 
-          <!-- THANK YOU -->
+          <!-- THANK YOU + SIGN-OFF — centered as one block, all regular weight -->
           <tr>
-            <td class="sh-pad sh-primary" style="padding:24px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Thank you for choosing <span style="font-weight:700;">SaveHatke</span>.</td>
+            <td class="sh-pad" align="center" style="padding:24px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">
+              <p class="sh-primary" style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;text-align:center;">Thank you for choosing SaveHatke.</p>
+              <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;text-align:center;">Best,<br />SaveHatke</p>
+            </td>
           </tr>
 
-          <!-- SIGNATURE -->
+          <!-- DISCLAIMER — last content in the email -->
           <tr>
-            <td class="sh-pad" style="padding:16px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;">
-              <span class="sh-secondary" style="font-weight:400;color:#64748B;">Regards,</span><br />
-              <span class="sh-primary" style="font-weight:700;color:#111827;">SaveHatke</span>
-            </td>
+            <td class="sh-pad sh-muted" align="center" style="padding:28px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:18px;font-weight:400;color:#64748B;text-align:center;">You’re receiving this email because a payment associated with a purchase through your SaveHatke account has been successfully received and confirmed.</td>
           </tr>
 
         </table>

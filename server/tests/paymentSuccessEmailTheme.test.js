@@ -41,6 +41,32 @@ function check(name, fn) {
     assert.match(html, /\[data-ogsc\] a\.sh-view-btn \{ color:#000000/);
   });
 
+  await check('username is bold and in normal text colour (not green)', () => {
+    assert.match(html, /Hello, <strong[^>]*color:#111827[^>]*>Parly Das<\/strong>/);
+    assert.ok(!/<strong[^>]*color:#00E272[^>]*>Parly Das/.test(html));
+  });
+
+  await check('Payment Method row is completely removed', () => {
+    assert.ok(!html.includes('Payment Method'));
+    assert.ok(!html.includes('>UPI<'));
+  });
+
+  await check('closing uses Best, and a centered thank-you + SaveHatke with no bold', () => {
+    assert.ok(!html.includes('Regards,'));
+    assert.match(html, /<p[^>]*text-align:center;">Thank you for choosing SaveHatke\.<\/p>/);
+    assert.match(html, /<p[^>]*text-align:center;">Best,<br \/>SaveHatke<\/p>/);
+    assert.ok(!/font-weight:700[^>]*>SaveHatke</.test(html.slice(html.indexOf('Best,') - 300, html.indexOf('Best,') + 200)));
+  });
+
+  await check('disclaimer is the exact last content, 12px, centered, gray', () => {
+    const msg = 'You’re receiving this email because a payment associated with a purchase through your SaveHatke account has been successfully received and confirmed.';
+    const idx = html.indexOf(msg);
+    assert.ok(idx > html.indexOf('Best,'), 'disclaimer comes after sign-off');
+    const tail = html.slice(idx);
+    assert.match(tail, /^[^<]*<\/td>\s*<\/tr>\s*<\/table>\s*<\/td>\s*<\/tr>\s*<\/table>\s*<\/body>/);
+    assert.match(html.slice(html.lastIndexOf('<td', idx), idx), /font-size:12px;[^"]*text-align:center/);
+  });
+
   await check('no stale green CTA remains', () => {
     assert.ok(!html.includes('bgcolor="#00E272" style="background:#00E272;border-radius:8px;"'));
   });
