@@ -3085,19 +3085,19 @@ SaveHatke`;
       .sh-secondary { color:#B8B8B8 !important; }
       .sh-muted     { color:#B8B8B8 !important; }
       .sh-green     { color:#00E272 !important; }
-      /* Dark CTA fill: white label on the bright #00E272 is unreadable (~1.7:1),
-         so the dark-mode button uses a deeper green (#047857, ~5.5:1 with white). */
-      .sh-btn       { background:#047857 !important; background-color:#047857 !important; }
 ${EMAIL_GREEN_DARK_RULES}
-      /* View Order label: white in dark mode. Class selector (0,2,1) beats the
-         shared sh-btn anchor black pin above. */
-      .sh-btn a.sh-view-btn { color:#FFFFFF !important; }
+      /* View Order: WHITE button + BLACK label in dark mode. Declared AFTER the
+         shared green rules and with a more specific selector so it wins. */
+      .sh-view-btn-cell,
+      td.sh-view-btn-cell { background:#FFFFFF !important; background-color:#FFFFFF !important; }
+      a.sh-view-btn,
+      td.sh-view-btn-cell a.sh-view-btn { color:#000000 !important; background:#FFFFFF !important; background-color:#FFFFFF !important; }
     }
 
     /* Client-specific dark mode (Gmail app / Outlook.com set data-ogsc/data-ogsb
        on the body in dark mode). Kept outside the media query on purpose. */
-    [data-ogsc] .sh-view-btn { color:#FFFFFF !important; }
-    [data-ogsc] .sh-btn      { background:#047857 !important; background-color:#047857 !important; }
+    [data-ogsc] .sh-view-btn-cell { background-color:#FFFFFF !important; }
+    [data-ogsc] a.sh-view-btn { color:#000000 !important; background-color:#FFFFFF !important; }
 
     /* ── MOBILE ── */
     @media only screen and (max-width:480px) {
@@ -3141,7 +3141,7 @@ ${EMAIL_GREEN_DARK_RULES}
           <!-- GREETING + INTRO -->
           <tr>
             <td class="sh-pad" style="padding:26px 40px 0;">
-              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello, <span class="sh-green" style="color:#00E272;font-weight:700;">${safeName}</span></p>
+              <p class="sh-primary" style="margin:0 0 14px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">Hello, <strong class="sh-green" style="color:#00E272;font-weight:700;">${safeName}</strong></p>
               <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:26px;font-weight:400;color:#111827;">Your payment has been successfully received. Here are your transaction details for your records.</p>
             </td>
           </tr>
@@ -3162,8 +3162,8 @@ ${EMAIL_GREEN_DARK_RULES}
           <tr>
             <td class="sh-pad" align="center" style="padding:28px 40px 6px;">
               <table role="presentation" align="center" cellpadding="0" cellspacing="0" border="0"><tr>
-                <td class="sh-btn" align="center" bgcolor="#00E272" style="background:#00E272;border-radius:8px;">
-                  <a class="sh-view-btn" href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#000000;text-decoration:none;">View Order</a>
+                <td class="sh-btn sh-view-btn-cell" align="center" bgcolor="#000000" style="background:#000000;border-radius:8px;">
+                  <a class="sh-view-btn" href="${siteUrl}/dashboard" style="display:inline-block;padding:13px 34px;background-color:#000000;border-radius:8px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:20px;font-weight:700;color:#FFFFFF;text-decoration:none;">View Order</a>
                 </td>
               </tr></table>
             </td>
