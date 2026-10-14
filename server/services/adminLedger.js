@@ -116,8 +116,10 @@ async function loadLedger({ audit = false } = {}) {
     db.getRows(db.SHEETS.ORDERS),
     db.getRows(db.SHEETS.PAYMENTS),
   ]);
+  // Refunds are financial truth: a read failure must propagate (route → 503),
+  // never show as zero refunds in the transaction and ledger views.
   const [refunds, notifications, auditRows, coupons] = await Promise.all([
-    optionalRows(db.SHEETS.REFUNDS),
+    db.getRows(db.SHEETS.REFUNDS, { strict: true }).then((r) => r || []),
     optionalRows(db.SHEETS.PAYMENT_NOTIFICATIONS),
     audit ? optionalRows(db.SHEETS.SECURITY_AUDIT) : Promise.resolve([]),
     fetchCouponRows().catch(() => []),
