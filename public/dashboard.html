@@ -2286,7 +2286,6 @@
                 <th>Transaction ID</th>
                 <th>Date &amp; Time</th>
                 <th>Status</th>
-                <th></th>
               </tr>
             </thead>
             <tbody id="txTableBody"></tbody>
@@ -5205,7 +5204,6 @@
         <td><div class="txp-id"><span>${escapeHtml(txnId)}</span></div></td>
         <td><div class="txp-date-main">${escapeHtml(txDate(r.date))}</div><div class="txp-date-sub">${escapeHtml(txTime(r.date))}</div></td>
         <td><span class="txp-badge ${r.badge}">${escapeHtml(String(r.status).toUpperCase())}</span></td>
-        <td><span class="txp-chevron">›</span></td>
       </tr>`;
     }).join('');
 
