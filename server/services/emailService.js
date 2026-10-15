@@ -1784,7 +1784,9 @@ You are receiving this email because a new sign-in was detected on your SaveHatk
 ${EMAIL_GREEN_DARK_RULES}
         /* Blue account email, security links and settings link stay #0066CC in dark
            (readable on #0F1115). Declared after the shared green rules. */
-        .acct-blue, .sec-link, .notif-link a { color:#0066CC !important; }
+        .acct-blue, .sec-link { color:#0066CC !important; }
+        .notif-link a { color:#FFFFFF !important; }
+        .signoff, .sh-footer-brand, .sh-footer-brand span { color:#FFFFFF !important; }
         .support-link { color:#FFFFFF !important; text-decoration:underline !important; }
         .fb-save { color:#FFFFFF !important; }
         .disclaimer { color:#B8B8B8 !important; }
@@ -1836,14 +1838,14 @@ ${EMAIL_GREEN_DARK_RULES}
         <a class="support-link" href="${supportFrom ? `mailto:${escapeHtml(supportFrom)}` : `${siteUrl}/support.html`}" style="color:#222222;text-decoration:underline;">SaveHatke Support</a> as soon as possible.
       </p>
 
-      <p class="signoff" style="text-align:center;margin:28px 0 0;">Best,</p>
+      <p class="signoff" style="text-align:left;margin:28px 0 0;">Best,</p>
 
-      <p class="sh-footer-brand" style="text-align:center;margin:14px 0 0;font-size:22px;font-weight:400;">
-        <span class="fb-save" style="color:#111111;">Save</span><span class="green" style="color:#00E272;">Hatke</span>
+      <p class="sh-footer-brand" style="text-align:left;margin:8px 0 0;font-size:16px;font-weight:700;">
+        <span class="fb-save">Save</span><span>Hatke</span>
       </p>
 
       <p class="notif-link" style="text-align:center;margin:18px 0 0;">
-        <a href="${notifUrl}" style="color:#0066CC;text-decoration:underline;">Manage your notification settings</a>
+        <a href="${notifUrl}" style="color:#222222;text-decoration:underline;">Manage your notification settings</a>
       </p>
 
       <p class="disclaimer" style="margin:28px 0 0;text-align:center;font-size:12px;line-height:18px;color:#64748B;">You are receiving this email because a new sign-in was detected on your SaveHatke account.</p>
