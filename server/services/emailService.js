@@ -3198,11 +3198,11 @@ ${EMAIL_GREEN_DARK_RULES}
             </td>
           </tr>
 
-          <!-- THANK YOU + SIGN-OFF — centered as one block, all regular weight -->
+          <!-- THANK YOU + SIGN-OFF — left-aligned block; "Best," regular, "SaveHatke" bold -->
           <tr>
-            <td class="sh-pad" align="center" style="padding:24px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;">
-              <p class="sh-primary" style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;text-align:center;">Thank you for choosing SaveHatke.</p>
-              <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;text-align:center;">Best,<br />SaveHatke</p>
+            <td class="sh-pad" align="left" style="padding:24px 40px 0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;text-align:left;">
+              <p class="sh-primary" style="margin:0 0 16px;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;text-align:left;">Thank you for choosing SaveHatke.</p>
+              <p class="sh-primary" style="margin:0;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:24px;font-weight:400;color:#111827;text-align:left;">Best,<br /><span style="font-weight:700;color:#111827;">SaveHatke</span></p>
             </td>
           </tr>
 
