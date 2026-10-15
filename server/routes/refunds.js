@@ -17,8 +17,6 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { adminFinancialLimiter } = require('../utils/adminRateLimit');
 const { safeRateLimitHandler } = require('../utils/rateLimit');
 const refundsService = require('../services/refunds');
-const supabase = require('../services/supabase');
-const db = require('../services/googleSheets');
 
 const router = express.Router();
 
@@ -37,6 +35,18 @@ const refundRequestAccountLimiter = rateLimit({
   keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '').trim()}`,
   handler: safeRateLimitHandler('Too many refund requests for this account. Please wait before trying again.'),
 });
+
+// A Sheets outage is reported as 503 with dataUnavailable so the UI shows an
+// error instead of a false zero. Anything else stays a generic 500.
+function sendRefundError(res, err, fallbackMessage) {
+  if (err && err.code === 'REFUND_STORE_UNAVAILABLE') {
+    return res.status(503).json({
+      error: 'Refund data is temporarily unavailable. Please try again shortly.',
+      dataUnavailable: true,
+    });
+  }
+  return res.status(500).json({ error: fallbackMessage });
+}
 
 // Helper: the canonical user identifier the auth middleware put on req.
 // Returns either the user id claim or the email as a last-resort match key.
@@ -63,7 +73,7 @@ router.get('/', authenticateToken, async (req, res) => {
     res.json({ refunds: list, summary });
   } catch (err) {
     console.error('List refunds error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    sendRefundError(res, err, 'Internal server error.');
   }
 });
 
@@ -86,7 +96,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     });
   } catch (err) {
     console.error('Get refund error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    sendRefundError(res, err, 'Internal server error.');
   }
 });
 
@@ -123,7 +133,7 @@ router.post('/:id/request', refundRequestIpLimiter, authenticateToken, refundReq
     res.json({ ok: true, refund: result.refund });
   } catch (err) {
     console.error('Request refund error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    sendRefundError(res, err, 'Internal server error.');
   }
 });
 
@@ -148,7 +158,7 @@ router.post('/admin/:id/mark-refunded', authenticateToken, requireAdmin, adminFi
     res.json({ ok: true, refund: result.refund });
   } catch (err) {
     console.error('Mark refunded error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    sendRefundError(res, err, 'Internal server error.');
   }
 });
 
@@ -166,7 +176,7 @@ router.post('/admin/:id/reject', authenticateToken, requireAdmin, adminFinancial
     res.json({ ok: true, refund: result.refund });
   } catch (err) {
     console.error('Reject refund error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    sendRefundError(res, err, 'Internal server error.');
   }
 });
 
