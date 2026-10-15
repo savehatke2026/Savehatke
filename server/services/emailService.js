@@ -540,8 +540,7 @@ ${EMAIL_GREEN_DARK_RULES}
             <tr>
               <td class="content">
                 <p class="brand">
-                  <img class="brand-logo" src="${logoUrl}" alt="SaveHatke logo" width="32" height="25" style="display:inline-block;width:32px;height:25px;border:0;vertical-align:middle;margin-right:10px;" />
-                  <span class="brand-text" style="font-family:Arial,Helvetica,sans-serif;font-size:24px;font-weight:700;color:#222222;vertical-align:middle;">Save<span class="green" style="color:#00E272;font-weight:700;">Hatke</span></span>
+                  <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
                 </p>
 
                 <p>
@@ -692,7 +691,7 @@ async function sendOTPEmail(to, otp, opts = {}) {
           <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-bottom:22px;">
             <tr>
               <td style="text-align:center;">
-                <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="34" height="34" style="display:inline-block;vertical-align:middle;width:34px;height:34px;object-fit:contain;border:0;margin-right:9px;" /><span style="vertical-align:middle;font-size:1.3rem;font-weight:800;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+                <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
               </td>
             </tr>
           </table>
@@ -939,11 +938,8 @@ Regards,
               <a href="${siteUrl}/index.html" style="text-decoration:none;">
                 <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="display:inline-table;">
                   <tr>
-                    <td style="vertical-align:middle;padding-right:10px;">
-                      <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" style="width:34px;height:34px;border-radius:8px;object-fit:contain;display:block;">
-                    </td>
                     <td style="vertical-align:middle;">
-                      <span style="font-size:1.25rem;font-weight:800;color:#0f1e3a;white-space:nowrap;">Save<span style="color:#00E272;">Hatke</span></span>
+                      <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:block;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;">
                     </td>
                   </tr>
                 </table>
@@ -1440,8 +1436,7 @@ ${EMAIL_GREEN_DARK_RULES}
     <!-- Brand Header -->
     <div class="email-header">
       <a href="${siteUrl}/index.html" class="brand-link">
-        <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="width:38px;height:38px;object-fit:contain;border:0;vertical-align:middle;" />
-        <span>Save<span class="bhl">Hatke</span></span>
+        <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
       </a>
     </div>
 
@@ -1799,8 +1794,7 @@ ${EMAIL_GREEN_DARK_RULES}
   <body>
     <main class="email">
       <div class="brand">
-        <img src="${logoUrl}" alt="SaveHatke" width="30" height="30" style="vertical-align:middle;margin-right:8px;" />
-        <span style="vertical-align:middle;">Save<span class="green">Hatke</span></span>
+        <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
       </div>
 
       <h1>New sign-in detected on your SaveHatke account</h1>
@@ -2031,7 +2025,7 @@ Team SaveHatke`;
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e3eaf4;border-radius:16px;overflow:hidden">
         <tr><td align="center" style="background:#0a1024;padding:22px 28px;text-align:center">
-          <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="34" height="34" style="display:inline-block;vertical-align:middle;width:34px;height:34px;object-fit:contain;border:0;margin-right:9px;" /><span style="vertical-align:middle;font-size:18px;font-weight:800;color:#ffffff;letter-spacing:-.3px">Save<span style="color:#00E272">Hatke</span></span>
+          <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
           <span style="display:block;margin-top:6px;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#8ea6c4">Security notification</span>
         </td></tr>
         <tr><td style="padding:28px">
@@ -2201,7 +2195,7 @@ If you did not authorize this activity, immediately review the security logs and
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
@@ -2321,7 +2315,7 @@ async function sendMonthlyReportEmail(p, opts = {}) {
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
@@ -2460,7 +2454,7 @@ ${reviewUrl}`;
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
@@ -2606,7 +2600,7 @@ Status: Pending Payment
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
@@ -3144,8 +3138,7 @@ ${EMAIL_GREEN_DARK_RULES}
           <!-- HEADER — centered brand lockup (logo.png + wordmark), no border -->
           <tr>
             <td class="sh-pad" align="center" style="padding:8px 40px 22px;">
-              <img src="${logoUrl}" alt="SaveHatke" width="46" height="36" style="display:inline-block;width:46px;height:36px;vertical-align:middle;border:0;" />
-              <span class="sh-primary" style="display:inline-block;vertical-align:middle;margin-left:10px;font-family:Arial,Helvetica,sans-serif;font-size:22px;font-weight:700;letter-spacing:-0.3px;color:#111827;">Save<span class="sh-green" style="color:#00E272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
 
@@ -3493,8 +3486,7 @@ ${EMAIL_GREEN_DARK_RULES}
   <body>
     <div class="email">
       <div class="brand">
-        <img src="${logoUrl}" alt="SaveHatke" width="34" height="34" />
-        <span class="brand-text">Save<span class="green">Hatke</span></span>
+        <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
       </div>
 
       <p>Hello, <strong>${safeName}</strong></p>
@@ -3623,7 +3615,7 @@ SaveHatke`;
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:14px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.08);">
           <tr>
             <td align="center" style="padding:22px 32px 6px;background:#ffffff;text-align:center;">
-              <img src="https://savehatke.vercel.app/logo.png" alt="SaveHatke" width="38" height="38" style="display:inline-block;vertical-align:middle;width:38px;height:38px;object-fit:contain;border:0;margin-right:9px;" /><span style="display:inline-block;vertical-align:middle;font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:20px;font-weight:800;letter-spacing:-.3px;color:#0f1e3a;">Save<span style="color:#00e272;">Hatke</span></span>
+              <img src="https://savehatke.vercel.app/images/savehatke-email-header.jpg" alt="SaveHatke" width="220" height="79" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;" />
             </td>
           </tr>
           <tr>
