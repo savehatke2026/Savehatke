@@ -5041,7 +5041,9 @@
   // Transaction ID (TXN-…). Legacy rows fall back to the older values and blank
   // ids degrade to '—' at render time.
   function purchaseTxnId(c) {
-    return c.orderCode || c.id || '';
+    // Order ID comes only from the purchase's order record. Never fall back to
+    // the coupon id: that is a coupon identifier, not an order identifier.
+    return c.orderCode || '';
   }
   function purchaseTransactionId(c) {
     return c.transactionId || '';
