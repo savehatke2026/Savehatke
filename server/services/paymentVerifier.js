@@ -827,6 +827,19 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
       if (created && created.ok && created.refund) {
         refundRecord = created.refund;
       }
+      // Admin notice for a NEW overpayment only. `created` is false on any
+      // replay, so this fires at most once per payment. Notification only:
+      // it never issues a refund and never changes the settlement result.
+      if (created && created.ok && created.created === true
+          && refundRecord && refundRecord.mismatchType === 'overpayment') {
+        await notifyAdminsOfExtraPayment({ payment, candidate, refundRecord, required, received });
+      }
+      // Admin notice for a NEW underpayment only (same once-per-payment guard).
+      // Manual review: the order stays unconfirmed and this never issues a refund.
+      if (created && created.ok && created.created === true
+          && refundRecord && refundRecord.mismatchType === 'underpayment') {
+        await notifyAdminsOfUnderpayment({ payment, candidate, refundRecord, required, received });
+      }
     } catch (e) {
       console.warn('[paymentVerifier] refund record notice:', e.message);
     }
@@ -1485,6 +1498,85 @@ async function loadCouponForEmail(couponId) {
     return await db.findRow(db.SHEETS.COUPONS, 'id', couponId);
   } catch (e) {
     return null;
+  }
+}
+
+/**
+ * Notify administrators that a customer overpaid. Manual review only: this
+ * never issues a refund. Amounts come from the validated refund record and the
+ * server-set payment row, in integer paise. The customer's refund UPI is the
+ * payer VPA from the verified notification, shown only when present.
+ * Failures are logged and swallowed so they can never affect payment status.
+ */
+async function notifyAdminsOfExtraPayment({ payment, candidate, refundRecord, required, received }) {
+  try {
+    const requiredPaise = Math.round(Number(required || 0) * 100);
+    const receivedPaise = Math.round(Number(received || 0) * 100);
+    if (!Number.isFinite(requiredPaise) || !Number.isFinite(receivedPaise)) return;
+    if (receivedPaise <= requiredPaise) return;
+    const extraPaise = receivedPaise - requiredPaise;
+    const refundUpiId = String((candidate && candidate.payerVpa) || '').trim();
+    const order = payment.orderId
+      ? await store.findOrderById(payment.orderId).catch(() => null)
+      : null;
+
+    const res = await emailService.sendExtraPaymentAdminEmail({
+      adminName: 'Admin',
+      orderId: (order && order.orderCode) || payment.orderCode || payment.paymentId,
+      userName: (order && order.buyerName) || '',
+      userEmail: (order && (order.buyerEmail || order.userEmail)) || payment.userEmail || '',
+      requiredAmount: requiredPaise / 100,
+      receivedAmount: receivedPaise / 100,
+      extraAmount: extraPaise / 100,
+      refundUpiId,
+    });
+    if (res && res.success) {
+      console.log(`[Admin Email] Extra-payment notice sent for payment ${payment.paymentId} (refund ${refundRecord.refundId}).`);
+    } else {
+      console.warn(`[Admin Email] Extra-payment notice not sent for payment ${payment.paymentId}: ${(res && res.failed && res.failed[0] && res.failed[0].error) || 'unknown error'}.`);
+    }
+  } catch (e) {
+    console.warn(`[Admin Email] Extra-payment notice error for payment ${payment && payment.paymentId}: ${e && e.message}`);
+  }
+}
+
+/**
+ * Notify administrators that a customer underpaid. The order is NOT confirmed
+ * and the coupon is not unlocked (settleMatch parks it in REVIEW). The email
+ * asks for a full refund of the verified amount actually received. It never
+ * issues a refund itself. Amounts are integer paise from server-set records.
+ * Failures are logged and swallowed so they can never affect payment status.
+ */
+async function notifyAdminsOfUnderpayment({ payment, candidate, refundRecord, required, received }) {
+  try {
+    const requiredPaise = Math.round(Number(required || 0) * 100);
+    const receivedPaise = Math.round(Number(received || 0) * 100);
+    // Only a verified, positive amount strictly below the required amount.
+    if (!Number.isFinite(requiredPaise) || !Number.isFinite(receivedPaise)) return;
+    if (receivedPaise <= 0 || receivedPaise >= requiredPaise) return;
+    const shortPaise = requiredPaise - receivedPaise;
+    const refundUpiId = String((candidate && candidate.payerVpa) || '').trim();
+    const order = payment.orderId
+      ? await store.findOrderById(payment.orderId).catch(() => null)
+      : null;
+
+    const res = await emailService.sendUnderpaymentAdminEmail({
+      adminName: 'Admin',
+      orderId: (order && order.orderCode) || payment.orderCode || payment.paymentId,
+      userName: (order && order.buyerName) || '',
+      userEmail: (order && (order.buyerEmail || order.userEmail)) || payment.userEmail || '',
+      requiredAmount: requiredPaise / 100,
+      receivedAmount: receivedPaise / 100,
+      shortAmount: shortPaise / 100,
+      refundUpiId,
+    });
+    if (res && res.success) {
+      console.log(`[Admin Email] Underpayment notice sent for payment ${payment.paymentId} (refund ${refundRecord.refundId}).`);
+    } else {
+      console.warn(`[Admin Email] Underpayment notice not sent for payment ${payment.paymentId}: ${(res && res.failed && res.failed[0] && res.failed[0].error) || 'unknown error'}.`);
+    }
+  } catch (e) {
+    console.warn(`[Admin Email] Underpayment notice error for payment ${payment && payment.paymentId}: ${e && e.message}`);
   }
 }
 

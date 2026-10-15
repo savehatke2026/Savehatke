@@ -904,9 +904,10 @@ View Support Request: ${viewUrl}
 
 If you did not submit this request, please contact us immediately.
 
-Regards,
+Best,
+**SaveHatke**
 
-**SaveHatke Support Team**`;
+You’re receiving this email because a SaveHatke account was created using this email address.`;
 
   const logoUrl = `https://savehatke.vercel.app/logo.png`;
 
@@ -920,6 +921,14 @@ Regards,
     <meta name="supported-color-schemes" content="light dark">
     <title>Support Request Received — SaveHatke</title>
   ${EMAIL_DARK_STYLE}
+    <style>
+    /* View Support Request: black button in light, white button in dark.
+       Dark query text must stay exactly as the shared dark block so the
+       Admin Email Testing preview can toggle it. */
+    ${EMAIL_DARK_MEDIA} {
+      .sh-view-support { background:#FFFFFF !important; background-color:#FFFFFF !important; color:#000000 !important; }
+    }
+    </style>
   </head>
   <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
 
@@ -966,7 +975,7 @@ Regards,
               </table>
 
               <!-- Greeting -->
-              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello <strong style="color:#00E272;font-weight:700;">${safeName}</strong>,</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello, <strong style="color:#374151;font-weight:700;">${safeName}</strong>,</p>
 
               <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">We've received your support request and created a case for it.</p>
 
@@ -1011,17 +1020,21 @@ Regards,
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
                 <tr>
                   <td align="center">
-                    <a href="${viewUrl}" class="sh-btn" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#00E272;color:#000000;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
+                    <a href="${viewUrl}" class="sh-view-support" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#000000;background-color:#000000;color:#FFFFFF;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
                   </td>
                 </tr>
               </table>
 
-              <p style="font-size:0.86rem;color:#92400e;line-height:1.65;margin:0 0 24px;">If you did not submit this request, please contact us immediately.</p>
+              <p style="font-size:0.86rem;color:#374151;line-height:1.65;margin:0 0 24px;">If you did not submit this request, please contact us immediately.</p>
 
               <!-- Sign-off -->
               <div style="margin-top:24px;padding-top:22px;border-top:1px solid #e5e7eb;">
-                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;">Regards,<br><strong style="color:#0f1e3a;font-weight:700;">SaveHatke Support Team</strong></p>
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;text-align:left;">Best,</p>
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:4px 0 0;text-align:left;"><strong style="color:#374151;font-weight:700;">SaveHatke</strong></p>
               </div>
+
+              <!-- Footer disclaimer -->
+              <p style="font-size:0.75rem;color:#64748B;line-height:1.6;margin:28px 0 0;text-align:left;">You’re receiving this email because a SaveHatke account was created using this email address.</p>
 
             </td>
           </tr>
@@ -1202,287 +1215,121 @@ SaveHatke Support Team`;
     <meta name="color-scheme" content="light dark">
     <meta name="supported-color-schemes" content="light dark">
     <title>Support Case Resolved — SaveHatke</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=DM+Serif+Display:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <style>
-      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      html { scroll-behavior: smooth; }
-      body {
-        font-family: 'Outfit', sans-serif;
-        background: #ffffff;
-        color: #0f1e3a;
-        -webkit-font-smoothing: antialiased;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        padding: 48px 16px 64px;
-        line-height: 1.65;
-      }
-
-      .email-wrapper {
-        position: relative;
-        width: 100%;
-        max-width: 620px;
-      }
-
-      /* Top brand bar */
-      .email-header {
-        text-align: center;
-        margin-bottom: 28px;
-      }
-      .brand-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 10px;
-        text-decoration: none;
-        color: #0f1e3a;
-        font-size: 1.3rem;
-        font-weight: 800;
-      }
-      .brand-icon {
-        width: 38px;
-        height: 38px;
-        border-radius: 10px;
-        background: linear-gradient(135deg, #00E272, #4fc3f7);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.1rem;
-      }
-      .bhl { color: #00E272; }
-
-      /* Main email card — fully white */
-      .email-card {
-        background: #ffffff;
-        border: 1px solid #e5e7eb;
-        border-radius: 20px;
-        overflow: hidden;
-        box-shadow: 0 8px 28px rgba(15, 30, 58, 0.08);
-      }
-
-      .email-body { padding: 36px 40px; }
-
-      .email-title {
-        font-family: 'DM Serif Display', serif;
-        font-size: 1.65rem;
-        font-weight: 400;
-        line-height: 1.25;
-        color: #0f1e3a;
-        margin-bottom: 6px;
-      }
-      .email-subtitle {
-        font-size: 1.1rem;
-        font-weight: 700;
-        line-height: 1.45;
-        color: #0f1e3a;
-        margin-bottom: 28px;
-        padding-bottom: 22px;
-        border-bottom: 1px solid #e5e7eb;
-      }
-
-      .line {
-        font-size: 0.95rem;
-        color: #374151;
-        line-height: 1.75;
-        margin-bottom: 18px;
-      }
-      .line strong { color: #0f1e3a; font-weight: 700; }
-      .mono { font-family: 'JetBrains Mono', monospace; }
-
-      .case-list {
-        list-style: none;
-        padding: 14px 20px;
-        margin: 0 0 24px;
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-      }
-      .case-list li {
-        font-size: 0.95rem;
-        color: #374151;
-        line-height: 1.7;
-        padding: 4px 0;
-      }
-      .case-list li strong { color: #000000; font-weight: 800; }
-
-      .status-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        background: #dcfce7;
-        color: #166534;
-        font-size: 0.75rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        padding: 3px 10px;
-        border-radius: 9999px;
-        border: 1px solid #bbf7d0;
-        margin-left: 4px;
-        vertical-align: middle;
-      }
-
-      .section-h {
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: #6b7280;
-        margin: 24px 0 10px;
-      }
-      .msg-box, .resolution-box {
-        background: #f9fafb;
-        border: 1px solid #e5e7eb;
-        border-radius: 0 12px 12px 0;
-        padding: 18px 20px;
-        font-size: 0.92rem;
-        color: #374151;
-        line-height: 1.75;
-        margin: 0 0 24px;
-        word-break: break-word;
-        white-space: pre-wrap;
-      }
-      .msg-box { border-left: 3px solid #00E272; }
-      .resolution-box { border-left: 3px solid #0ea5e9; }
-
-      /* CTA Button — website green */
-      .cta-wrap {
-        text-align: center;
-        margin: 28px 0 24px;
-      }
-      .cta-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 0 40px;
-        height: 52px;
-        border-radius: 12px;
-        background: linear-gradient(135deg, #00E272, #00E272);
-        color: #000000;
-        font-family: 'Outfit', sans-serif;
-        font-size: 1rem;
-        font-weight: 800;
-        letter-spacing: 0.01em;
-        text-decoration: none;
-        box-shadow: 0 10px 24px rgba(0, 226, 114, 0.35);
-      }
-
-      .signoff {
-        font-size: 0.92rem;
-        color: #374151;
-        line-height: 1.75;
-        margin-top: 24px;
-        padding-top: 22px;
-        border-top: 1px solid #e5e7eb;
-      }
-      .signoff strong { color: #0f1e3a; font-weight: 700; }
-
-      .email-footer {
-        background: #f9fafb;
-        border-top: 1px solid #e5e7eb;
-        padding: 22px 40px;
-        text-align: center;
-      }
-      .footer-copy {
-        font-size: 0.78rem;
-        color: #6b7280;
-      }
-
-      @media (max-width: 600px) {
-        body { padding: 28px 12px 48px; }
-        .email-body { padding: 28px 24px; }
-        .email-footer { padding: 20px 24px; }
-      }
-
-      /* ── DARK MODE: SaveHatke designed dark theme for this class-based
-         template (its colours live in classes, so the shared attribute-selector
-         overrides can't reach them — it needs its own block). Layout/spacing is
-         untouched; only colours adapt. Query text MUST stay exactly
-         "@media (prefers-color-scheme: dark)" so the Admin → Email Testing
-         preview can force it on. Light mode remains the default fallback. */
-      @media (prefers-color-scheme: dark) {
-        body { background:#0F1115 !important; color:#FFFFFF !important; }
-        .brand-link { color:#FFFFFF !important; }
-        .email-card { background:#171B19 !important; border-color:#29302D !important; }
-        .email-title { color:#FFFFFF !important; }
-        .email-subtitle { color:#FFFFFF !important; border-bottom-color:#29302D !important; }
-        .line { color:#B8B8B8 !important; }
-        .line strong, .signoff strong { color:#FFFFFF !important; }
-        .case-list { background:#0F1115 !important; border-color:#29302D !important; }
-        .case-list li { color:#B8B8B8 !important; }
-        .case-list li strong { color:#FFFFFF !important; }
-        .section-h, .footer-copy { color:#B8B8B8 !important; }
-        .msg-box, .resolution-box { background:#0F1115 !important; border-color:#29302D !important; color:#B8B8B8 !important; }
-        .msg-box { border-left-color:#00E272 !important; }
-        .resolution-box { border-left-color:#0ea5e9 !important; }
-        .status-pill { background:#0b2a1b !important; color:#00E272 !important; border-color:#29302D !important; }
-        .signoff { color:#B8B8B8 !important; border-top-color:#29302D !important; }
-        .email-footer { background:#0F1115 !important; border-top-color:#29302D !important; }
-${EMAIL_GREEN_DARK_RULES}
-      }
-    </style>
   ${EMAIL_DARK_STYLE}
+    <style>
+    /* View Case Details: black button in light, white button in dark.
+       Query text must stay exactly as the shared dark block so the Admin Email
+       Testing preview can toggle it. */
+    ${EMAIL_DARK_MEDIA} {
+      .sh-case-btn { background:#FFFFFF !important; background-color:#FFFFFF !important; color:#000000 !important; }
+    }
+    </style>
   </head>
-  <body>
+  <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
 
   <!-- Preheader (hidden inbox preview line) -->
   <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your SaveHatke support case #${safeCaseId} has been resolved.</div>
 
-  <div class="email-wrapper">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;">
+    <tr>
+      <td align="center" style="padding:48px 16px 64px;">
 
-    <!-- Brand Header -->
-    <div class="email-header">
-      <a href="${siteUrl}/index.html" class="brand-link">
-        <img src="https://savehatke.vercel.app/images/savehatke-neon-logo.jpg" alt="SaveHatke" width="220" height="74" style="display:inline-block;vertical-align:middle;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;border-radius:14px;" />
-      </a>
-    </div>
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;">
 
-    <!-- Email Card -->
-    <div class="email-card">
+          <!-- Brand Header with Logo -->
+          <tr>
+            <td align="center" style="padding-bottom:32px;">
+              <a href="${siteUrl}/index.html" style="text-decoration:none;">
+                <img src="https://savehatke.vercel.app/images/savehatke-neon-logo.jpg" alt="SaveHatke" width="220" height="74" style="display:block;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;border-radius:14px;">
+              </a>
+            </td>
+          </tr>
 
-      <div class="email-body">
+          <!-- Email Body -->
+          <tr>
+            <td style="padding:0;">
 
-        <h1 class="email-title">SaveHatke Support</h1>
-        <h2 class="email-subtitle">Your support case has been resolved ✅</h2>
+              <!-- Title -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="padding-bottom:8px;">
+                    <h2 style="margin:0;font-size:1.1rem;font-weight:700;color:#0f1e3a;line-height:1.45;">Your support case has been resolved ✅</h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom:28px;">
+                    <div style="height:1px;background:#e5e7eb;"></div>
+                  </td>
+                </tr>
+              </table>
 
-        <p class="line">Hello <strong>${safeName}</strong>,</p>
+              <!-- Greeting -->
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello, <strong style="color:#374151;font-weight:700;">${safeName}</strong>,</p>
 
-        <p class="line">We're writing to let you know that your support request has been resolved.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">We're writing to let you know that your support request has been resolved.</p>
 
-        <ul class="case-list">
-          <li><strong>Case ID:</strong> <span class="mono">#${safeCaseId}</span></li>
-          <li><strong>Subject:</strong> ${safeSubject}</li>
-          <li><strong>Resolved:</strong> <span class="mono">${escapeHtml(resolvedDate)} IST</span></li>
-          <li><strong>Status:</strong> <span class="status-pill">✅ Resolved</span></li>
-        </ul>
+              <!-- Case Details — no box, clean lines -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Case ID:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">#${safeCaseId}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Subject:</strong>&nbsp; ${safeSubject}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Resolved:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${escapeHtml(resolvedDate)} IST</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Status:</strong>&nbsp; Resolved
+                  </td>
+                </tr>
+              </table>
 
-        <h3 class="section-h">Your Message</h3>
-        <div class="msg-box">${safeUserMessage}</div>
+              <!-- Your Message — no box -->
+              <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Your Message</p>
+              <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0 0 24px;word-break:break-word;white-space:pre-wrap;">${safeUserMessage}</p>
 
-        <h3 class="section-h">Resolution</h3>
-        <div class="resolution-box">${safeResolution}</div>
+              <!-- Resolution — no box -->
+              <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Resolution</p>
+              <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0 0 24px;word-break:break-word;white-space:pre-wrap;">${safeResolution}</p>
 
-        <p class="line">We hope your issue has been resolved successfully. If you're still experiencing the same problem or need further assistance, you can reopen this case or contact our support team again.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">We hope your issue has been resolved successfully. If you're still experiencing the same problem or need further assistance, you can reopen this case or contact our support team again.</p>
 
-        <div class="cta-wrap">
-          <a href="${viewUrl}" class="cta-btn" style="display:inline-block;background:#00E272;color:#000000;padding:14px 40px;border-radius:12px;font-weight:800;text-decoration:none;">View Case Details</a>
-        </div>
+              <!-- CTA Button -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
+                <tr>
+                  <td align="center">
+                    <a href="${viewUrl}" class="sh-case-btn" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#000000;background-color:#000000;color:#FFFFFF;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:800;text-decoration:none;">View Case Details</a>
+                  </td>
+                </tr>
+              </table>
 
-        <p class="line">Thank you for contacting SaveHatke Support.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Thank you for contacting SaveHatke Support.</p>
 
-        <div class="signoff">
-          Regards,<br>
-          <strong>SaveHatke Support Team</strong>
-        </div>
+              <!-- Sign-off -->
+              <div style="margin-top:24px;padding-top:22px;border-top:1px solid #e5e7eb;">
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;text-align:left;">Best,</p>
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:4px 0 0;text-align:left;"><strong style="color:#374151;font-weight:700;">SaveHatke</strong></p>
+              </div>
 
-      </div>
+              <!-- Footer disclaimer -->
+              <p style="font-size:0.75rem;color:#64748B;line-height:1.6;margin:28px 0 0;text-align:left;">You’re receiving this email because you contacted SaveHatke Support about a support case.</p>
 
-    </div>
+            </td>
+          </tr>
 
-  </div>
+        </table>
+
+      </td>
+    </tr>
+  </table>
 
   </body>
   </html>
@@ -3683,6 +3530,421 @@ SaveHatke`;
   }
 }
 
+/**
+ * Admin notice: a customer paid MORE than the required order amount.
+ *
+ * Manual review only. This email never triggers a refund; it asks an
+ * administrator to verify the payment and process the excess by hand.
+ * Sent from the no-reply mailbox to every address in ADMIN_ALERT_EMAILS,
+ * one message per administrator, mirroring sendCouponSubmissionAdminEmail.
+ *
+ * All amounts must come from server-validated order/payment/refund records.
+ * The caller computes extraAmount as received - required in paise.
+ *
+ * @param {{adminName?: string, orderId: string, userName?: string, userEmail?: string,
+ *          requiredAmount: number, receivedAmount: number, extraAmount: number,
+ *          refundUpiId?: string}} p
+ * @returns {Promise<{success: boolean, delivered: string[], failed: Array<{to: string, error: string}>}>}
+ */
+async function sendExtraPaymentAdminEmail(p, opts = {}) {
+  const recipients = String(process.env.ADMIN_ALERT_EMAILS || 'rupayandas2024@gmail.com,jaggik8888@gmail.com')
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!recipients.length) return { success: false, delivered: [], failed: [] };
+
+  const t = opts.renderOnly ? null : getNoreplyTransporter();
+  if (!opts.renderOnly && !t) {
+    console.warn('[EmailService] SMTP not configured. Extra-payment admin notice NOT sent.');
+    return { success: false, delivered: [], failed: recipients.map((to) => ({ to, error: 'SMTP not configured' })) };
+  }
+
+  // Same From rule as the other admin notices: only claim the no-reply address
+  // when this transport is genuinely authenticated as it.
+  const authUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const desired = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || '').trim();
+  const dedicated = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
+  const domainOf = (a) => (String(a).split('@')[1] || '').toLowerCase();
+  const canSendAsNoreply = dedicated
+    || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+    || Boolean(desired && authUser && domainOf(desired) === domainOf(authUser));
+  const fromEmail = canSendAsNoreply ? desired : (authUser || desired);
+  const fromName = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
+
+  const orderId = String(p.orderId || '').trim() || '(not provided)';
+  const adminName = String(p.adminName || '').trim() || 'Admin';
+  const userName = String(p.userName || '').trim() || '(not provided)';
+  const userEmail = String(p.userEmail || '').trim() || '(not provided)';
+  const refundUpi = String(p.refundUpiId || '').trim();
+  const money = (n) => Number(n || 0).toFixed(2);
+  const required = money(p.requiredAmount);
+  const received = money(p.receivedAmount);
+  const extra = money(p.extraAmount);
+
+  const subject = `Action Required: Extra Payment Received \u2014 SaveHatke Order ${orderId}`;
+
+  const refundLine = refundUpi
+    ? `Refund UPI ID: ${refundUpi}`
+    : 'Refund UPI ID: not available. Obtain and verify the correct refund details before processing.';
+
+  const textBody = `Hello ${adminName},
+
+An extra payment has been received for a SaveHatke order.
+
+Order Details
+
+- Order ID: ${orderId}
+- Customer: ${userName}
+- Customer Email: ${userEmail}
+- Required Amount: \u20B9${required}
+- Amount Received: \u20B9${received}
+- Extra Amount: \u20B9${extra}
+
+The customer has paid more than the required order amount.
+
+Required Action
+
+Please process a refund of \u20B9${extra} to the customer's provided refund UPI ID.
+${refundLine}
+
+Please verify the payment details before processing the refund.
+
+Best,
+SaveHatke
+
+You\u2019re receiving this email because an extra payment was detected for a SaveHatke order.`;
+
+  const row = (k, v) => `
+    <tr>
+      <td style="padding:8px 0;font-size:0.86rem;color:#374151;white-space:nowrap;width:190px;vertical-align:top;">${escapeHtml(k)}</td>
+      <td style="padding:8px 0;font-size:0.86rem;color:#374151;word-break:break-word;">${escapeHtml(v)}</td>
+    </tr>`;
+
+  const htmlContent = `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>${escapeHtml(subject)}</title>
+  ${EMAIL_DARK_STYLE}
+  </head>
+  <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
+
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Extra payment received for SaveHatke order ${escapeHtml(orderId)}. Refund review required.</div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;">
+    <tr>
+      <td align="center" style="padding:48px 16px 64px;">
+
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;">
+
+          <!-- Brand Header with Logo -->
+          <tr>
+            <td align="center" style="padding-bottom:32px;">
+              <a href="${escapeHtml(process.env.SITE_URL || 'https://savehatke.vercel.app')}/index.html" style="text-decoration:none;">
+                <img src="https://savehatke.vercel.app/images/savehatke-neon-logo.jpg" alt="SaveHatke" width="220" height="74" style="display:block;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;border-radius:14px;">
+              </a>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0;">
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="padding-bottom:8px;">
+                    <h2 style="margin:0;font-size:1.1rem;font-weight:700;color:#0f1e3a;line-height:1.45;">Extra Payment Received</h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom:28px;">
+                    <div style="height:1px;background:#e5e7eb;"></div>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello, <strong style="color:#374151;font-weight:700;">${escapeHtml(adminName)}</strong>,</p>
+
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">An extra payment has been received for a SaveHatke order.</p>
+
+              <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Order Details</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-top:1px solid #e5e7eb;margin:0 0 24px;">
+                ${row('Order ID', orderId)}
+                ${row('Customer', userName)}
+                ${row('Customer Email', userEmail)}
+                ${row('Required Amount', `\u20B9${required}`)}
+                ${row('Amount Received', `\u20B9${received}`)}
+              </table>
+
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">The customer has paid more than the required order amount.</p>
+
+              <p style="font-size:1.1rem;font-weight:700;color:#0f1e3a;line-height:1.6;margin:0 0 24px;">Extra Amount: \u20B9${extra}</p>
+
+              <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Required Action</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Please process a refund of <strong style="color:#0f1e3a;font-weight:700;">\u20B9${extra}</strong> to the customer's provided refund UPI ID.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;"><strong style="color:#0f1e3a;font-weight:700;">Refund UPI ID:</strong> ${refundUpi ? escapeHtml(refundUpi) : 'not available. Obtain and verify the correct refund details before processing.'}</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">Please verify the payment details before processing the refund.</p>
+
+              <div style="margin-top:24px;padding-top:22px;border-top:1px solid #e5e7eb;">
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;text-align:left;">Best,</p>
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:4px 0 0;text-align:left;"><strong style="color:#374151;font-weight:700;">SaveHatke</strong></p>
+              </div>
+
+              <p style="font-size:0.75rem;color:#64748B;line-height:1.6;margin:28px 0 0;text-align:left;">You\u2019re receiving this email because an extra payment was detected for a SaveHatke order.</p>
+
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+  </body>
+  </html>`;
+
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
+  const delivered = [];
+  const failed = [];
+
+  // One message per administrator so neither address is disclosed to the other.
+  for (const to of recipients) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      const info = await t.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to,
+        subject,
+        text: textBody,
+        html: htmlContent,
+        envelope: { from: fromEmail, to },
+        headers: {
+          'X-Entity-Ref-ID': `extra-payment-${orderId}-${Date.now()}`,
+          'Auto-Submitted': 'auto-generated',
+        },
+      });
+      delivered.push(to);
+      console.log(`[EmailService] Extra-payment admin notice sent to ${to} (order ${orderId}).`);
+      void info;
+    } catch (e) {
+      // Failure is logged and reported to the caller; it must never change payment status.
+      failed.push({ to, error: e && e.message ? e.message : 'send failed' });
+      console.warn(`[EmailService] Extra-payment admin notice FAILED for ${to} (order ${orderId}): ${e && e.message}`);
+    }
+  }
+
+  return { success: delivered.length > 0, delivered, failed };
+}
+
+/**
+ * Admin notice: a verified payment came in BELOW the required order amount.
+ *
+ * Manual review only. The order must not be confirmed. The email asks an
+ * administrator to refund the full verified amount actually received. It
+ * never triggers a refund itself. Sent from the no-reply mailbox to every
+ * address in ADMIN_ALERT_EMAILS, one message per administrator.
+ *
+ * All amounts must come from server-validated records. shortAmount is
+ * required - received, computed by the caller in integer paise.
+ *
+ * @param {{adminName?: string, orderId: string, userName?: string, userEmail?: string,
+ *          requiredAmount: number, receivedAmount: number, shortAmount: number,
+ *          refundUpiId?: string}} p
+ * @returns {Promise<{success: boolean, delivered: string[], failed: Array<{to: string, error: string}>}>}
+ */
+async function sendUnderpaymentAdminEmail(p, opts = {}) {
+  const recipients = String(process.env.ADMIN_ALERT_EMAILS || 'rupayandas2024@gmail.com,jaggik8888@gmail.com')
+    .split(',')
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!recipients.length) return { success: false, delivered: [], failed: [] };
+
+  const t = opts.renderOnly ? null : getNoreplyTransporter();
+  if (!opts.renderOnly && !t) {
+    console.warn('[EmailService] SMTP not configured. Underpayment admin notice NOT sent.');
+    return { success: false, delivered: [], failed: recipients.map((to) => ({ to, error: 'SMTP not configured' })) };
+  }
+
+  // Same From rule as the other admin notices.
+  const authUser = (process.env.NOREPLY_SMTP_USER || process.env.SMTP_USER || process.env.EMAIL_USER || '').trim();
+  const desired = (process.env.NOREPLY_EMAIL || process.env.NOREPLY_SMTP_USER || '').trim();
+  const dedicated = Boolean((process.env.NOREPLY_SMTP_USER || '').trim() && (process.env.NOREPLY_SMTP_PASS || '').trim());
+  const domainOf = (a) => (String(a).split('@')[1] || '').toLowerCase();
+  const canSendAsNoreply = dedicated
+    || process.env.NOREPLY_VERIFIED_ALIAS === 'true'
+    || Boolean(desired && authUser && domainOf(desired) === domainOf(authUser));
+  const fromEmail = canSendAsNoreply ? desired : (authUser || desired);
+  const fromName = (process.env.NOREPLY_NAME || 'SaveHatke').trim();
+
+  const orderId = String(p.orderId || '').trim() || '(not provided)';
+  const adminName = String(p.adminName || '').trim() || 'Admin';
+  const userName = String(p.userName || '').trim() || '(not provided)';
+  const userEmail = String(p.userEmail || '').trim() || '(not provided)';
+  const refundUpi = String(p.refundUpiId || '').trim() || 'Not provided \u2014 verify with the customer';
+  const money = (n) => Number(n || 0).toFixed(2);
+  const required = money(p.requiredAmount);
+  const received = money(p.receivedAmount);
+  const short = money(p.shortAmount);
+
+  const subject = `Action Required: Underpayment Received \u2014 ${orderId}`;
+
+  const textBody = `Hello ${adminName},
+
+A payment below the required amount has been received for a SaveHatke order.
+
+Order Details
+
+- Order ID: ${orderId}
+- Payer: ${userName}
+- Customer Email: ${userEmail}
+- Required Amount: \u20B9${required}
+- Amount Received: \u20B9${received}
+- Short Amount: \u20B9${short}
+- Refund UPI ID: ${refundUpi}
+
+The customer has not paid the exact required amount.
+
+Required Action:
+
+The order must not be confirmed. Please process a full refund of \u20B9${received} to the customer's provided refund UPI ID.
+
+Please verify the payment details before processing the refund.
+
+Best,
+SaveHatke`;
+
+  const row = (k, v) => `
+    <tr>
+      <td style="padding:8px 0;font-size:0.86rem;color:#374151;white-space:nowrap;width:190px;vertical-align:top;">${escapeHtml(k)}</td>
+      <td style="padding:8px 0;font-size:0.86rem;color:#374151;word-break:break-word;">${escapeHtml(v)}</td>
+    </tr>`;
+
+  const htmlContent = `<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="light dark">
+    <meta name="supported-color-schemes" content="light dark">
+    <title>${escapeHtml(subject)}</title>
+  ${EMAIL_DARK_STYLE}
+  </head>
+  <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
+
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Underpayment received for SaveHatke order ${escapeHtml(orderId)}. Full refund review required.</div>
+
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;">
+    <tr>
+      <td align="center" style="padding:48px 16px 64px;">
+
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="width:100%;max-width:600px;">
+
+          <!-- Brand Header with Logo -->
+          <tr>
+            <td align="center" style="padding-bottom:32px;">
+              <a href="${escapeHtml(process.env.SITE_URL || 'https://savehatke.vercel.app')}/index.html" style="text-decoration:none;">
+                <img src="https://savehatke.vercel.app/images/savehatke-neon-logo.jpg" alt="SaveHatke" width="220" height="74" style="display:block;width:220px;height:auto;max-width:100%;border:0;outline:none;text-decoration:none;border-radius:14px;">
+              </a>
+            </td>
+          </tr>
+
+          <tr>
+            <td style="padding:0;">
+
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" style="padding-bottom:8px;">
+                    <h2 style="margin:0;font-size:1.1rem;font-weight:700;color:#0f1e3a;line-height:1.45;">Underpayment Received</h2>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-bottom:28px;">
+                    <div style="height:1px;background:#e5e7eb;"></div>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello, <strong style="color:#374151;font-weight:700;">${escapeHtml(adminName)}</strong>,</p>
+
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">A payment below the required amount has been received for a SaveHatke order.</p>
+
+              <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Order Details</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-top:1px solid #e5e7eb;margin:0 0 24px;">
+                ${row('Order ID', orderId)}
+                ${row('Payer', userName)}
+                ${row('Customer Email', userEmail)}
+                ${row('Required Amount', `\u20B9${required}`)}
+                ${row('Amount Received', `\u20B9${received}`)}
+                ${row('Short Amount', `\u20B9${short}`)}
+                ${row('Refund UPI ID', refundUpi)}
+              </table>
+
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">The customer has not paid the exact required amount.</p>
+
+              <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Required Action</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">The order must not be confirmed. Please process a <strong style="color:#0f1e3a;font-weight:700;">full refund of \u20B9${received}</strong> to the customer's provided refund UPI ID.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">Please verify the payment details before processing the refund.</p>
+
+              <div style="margin-top:24px;padding-top:22px;border-top:1px solid #e5e7eb;">
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;text-align:left;">Best,</p>
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:4px 0 0;text-align:left;"><strong style="color:#374151;font-weight:700;">SaveHatke</strong></p>
+              </div>
+
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+  </body>
+  </html>`;
+
+  if (opts.renderOnly) {
+    return { success: true, isPreview: true, subject, text: textBody, html: htmlContent };
+  }
+
+  const delivered = [];
+  const failed = [];
+
+  // One message per administrator so neither address is disclosed to the other.
+  for (const to of recipients) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await t.sendMail({
+        from: `"${fromName}" <${fromEmail}>`,
+        to,
+        subject,
+        text: textBody,
+        html: htmlContent,
+        envelope: { from: fromEmail, to },
+        headers: {
+          'X-Entity-Ref-ID': `underpayment-${orderId}-${Date.now()}`,
+          'Auto-Submitted': 'auto-generated',
+        },
+      });
+      delivered.push(to);
+      console.log(`[EmailService] Underpayment admin notice sent to ${to} (order ${orderId}).`);
+    } catch (e) {
+      // Logged and reported only; must never change payment status.
+      failed.push({ to, error: e && e.message ? e.message : 'send failed' });
+      console.warn(`[EmailService] Underpayment admin notice FAILED for ${to} (order ${orderId}): ${e && e.message}`);
+    }
+  }
+
+  return { success: delivered.length > 0, delivered, failed };
+}
+
 module.exports = {
   sendPayoutMethodReminderEmail,
   sendPaymentSuccessEmail,
@@ -3695,6 +3957,8 @@ module.exports = {
   sendSignInAlertEmail,
   sendSosAccessAlertEmail,
   sendCouponSubmissionAdminEmail,
+  sendExtraPaymentAdminEmail,
+  sendUnderpaymentAdminEmail,
   sendPayoutRequestAdminEmail,
   sendMonthlyReportEmail,
   isEmailConfigured,
