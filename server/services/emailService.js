@@ -858,7 +858,8 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
     : (process.env.SMTP_FROM || process.env.EMAIL_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || 'support.savehatke@gmail.com');
   const fromName = (process.env.SUPPORT_FROM_NAME || 'SaveHatke Support').trim();
   const siteUrl = (process.env.SITE_URL || 'https://savehatke.vercel.app').replace(/\/+$/, '');
-  const viewUrl = `https://savehatke.vercel.app/dashboard`;
+  // No per-ticket support page exists, so the button opens the existing Help & Support page.
+  const viewUrl = `${siteUrl}/support.html`;
   const year = new Date().getFullYear();
 
   const t = getSupportTransporter();
@@ -873,7 +874,7 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
     };
   }
 
-  const subject_ = `SaveHatke Support — Request received (Case ${safeCaseId})`;
+  const subject_ = `We’ve Received Your Support Request — SaveHatke`;
 
   const textBody =
 `# SaveHatke Support
@@ -882,32 +883,31 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
 
 Hello ${userName ? String(userName).trim() : 'there'},
 
-We've received your support request and created a case for it.
+Thank you for contacting SaveHatke Support.
 
-**Case ID:** ${caseId}
+We’ve successfully received your support request. Our support team will review the information you submitted and get back to you as soon as possible.
 
-**Subject:** ${subject}
-${orderIdText ? `\n**Order ID:** ${orderIdText}\n` : ''}
-**Created:** ${createdDate}
+**Request Details**
+- Support Request ID: ${caseId}
+- Subject: ${subject}${orderIdText ? `\n- Order ID: ${orderIdText}` : ''}
+- Submitted On: ${createdDate}
+- Status: Received
 
-**Status:** Open
+Please keep your Support Request ID for future reference. If you contact us again about this issue, include this ID so we can assist you more efficiently.
 
-### Your Message
+Button: View Support Request — ${viewUrl}
 
-${message}
+We appreciate your patience and the opportunity to help.
 
-Our support team will review your request and get back to you as soon as possible.
+Thank you for choosing SaveHatke!
 
-Please keep your **Case ID ${caseId}** for future reference when contacting SaveHatke Support about this request.
+Best regards,
+SaveHatke Support Team
+India’s Coupon Marketplace
 
-View Support Request: ${viewUrl}
+Need more help? Contact the SaveHatke Support Team through the official website: https://savehatke.vercel.app
 
-If you did not submit this request, please contact us immediately.
-
-Best,
-**SaveHatke**
-
-You’re receiving this email because a SaveHatke account was created using this email address.`;
+This is an automated confirmation that your support request was received. Please do not reply directly if this email address is not monitored.`;
 
   const logoUrl = `https://savehatke.vercel.app/logo.png`;
 
@@ -919,21 +919,21 @@ You’re receiving this email because a SaveHatke account was created using this
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="light dark">
     <meta name="supported-color-schemes" content="light dark">
-    <title>Support Request Received — SaveHatke</title>
+    <title>We’ve Received Your Support Request — SaveHatke</title>
   ${EMAIL_DARK_STYLE}
     <style>
-    /* View Support Request: black button in light, white button in dark.
+    /* View Support Request: green button with black text in light and dark.
        Dark query text must stay exactly as the shared dark block so the
        Admin Email Testing preview can toggle it. */
     ${EMAIL_DARK_MEDIA} {
-      .sh-view-support { background:#FFFFFF !important; background-color:#FFFFFF !important; color:#000000 !important; }
+      .sh-view-support { background:#00E272 !important; background-color:#00E272 !important; color:#000000 !important; }
     }
     </style>
   </head>
   <body style="margin:0;padding:0;background-color:#ffffff;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f1e3a;">
 
   <!-- Preheader (hidden inbox preview line) -->
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">We've received your support request — Case ${safeCaseId} is now open.</div>
+  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Thank you for contacting SaveHatke Support. Your Support Request ID is ${safeCaseId}.</div>
 
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#ffffff;">
     <tr>
@@ -977,13 +977,16 @@ You’re receiving this email because a SaveHatke account was created using this
               <!-- Greeting -->
               <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Hello, <strong style="color:#374151;font-weight:700;">${safeName}</strong>,</p>
 
-              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">We've received your support request and created a case for it.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Thank you for contacting SaveHatke Support.</p>
 
-              <!-- Case Details — no box, clean lines -->
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">We’ve successfully received your support request. Our support team will review the information you submitted and get back to you as soon as possible.</p>
+
+              <!-- Request Details — no box, clean lines -->
+              <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Request Details</p>
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 24px;">
                 <tr>
                   <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
-                    <strong style="color:#0f1e3a;font-weight:700;">Case ID:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${safeCaseId}</span>
+                    <strong style="color:#0f1e3a;font-weight:700;">Support Request ID:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${safeCaseId}</span>
                   </td>
                 </tr>
                 <tr>
@@ -998,12 +1001,12 @@ You’re receiving this email because a SaveHatke account was created using this
                 </tr>` : ''}
                 <tr>
                   <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
-                    <strong style="color:#0f1e3a;font-weight:700;">Created:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${escapeHtml(createdDate)} IST</span>
+                    <strong style="color:#0f1e3a;font-weight:700;">Submitted On:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${escapeHtml(createdDate)} IST</span>
                   </td>
                 </tr>
                 <tr>
                   <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
-                    <strong style="color:#0f1e3a;font-weight:700;">Status:</strong>&nbsp; Open
+                    <strong style="color:#0f1e3a;font-weight:700;">Status:</strong>&nbsp; Received
                   </td>
                 </tr>
               </table>
@@ -1012,29 +1015,30 @@ You’re receiving this email because a SaveHatke account was created using this
               <p style="font-size:0.78rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#6b7280;margin:0 0 10px;">Your Message</p>
               <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0 0 24px;word-break:break-word;white-space:pre-wrap;">${safeMessage}</p>
 
-              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Our support team will review your request and get back to you as soon as possible.</p>
-
-              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Please keep your <strong style="color:#0f1e3a;font-weight:700;">Case ID ${safeCaseId}</strong> for future reference when contacting SaveHatke Support about this request.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">Please keep your Support Request ID for future reference. If you contact us again about this issue, include this ID so we can assist you more efficiently.</p>
 
               <!-- CTA Button — website green -->
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0 24px;">
                 <tr>
                   <td align="center">
-                    <a href="${viewUrl}" class="sh-view-support" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#000000;background-color:#000000;color:#FFFFFF;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
+                    <a href="${viewUrl}" class="sh-view-support" style="display:inline-block;padding:14px 40px;border-radius:12px;background:#00E272;background-color:#00E272;color:#000000;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:1rem;font-weight:700;text-decoration:none;">View Support Request</a>
                   </td>
                 </tr>
               </table>
 
-              <p style="font-size:0.86rem;color:#374151;line-height:1.65;margin:0 0 24px;">If you did not submit this request, please contact us immediately.</p>
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 18px;">We appreciate your patience and the opportunity to help.</p>
+
+              <p style="font-size:0.95rem;color:#374151;line-height:1.75;margin:0 0 24px;">Thank you for choosing SaveHatke!</p>
 
               <!-- Sign-off -->
               <div style="margin-top:24px;padding-top:22px;border-top:1px solid #e5e7eb;">
-                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;text-align:left;">Best,</p>
-                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:4px 0 0;text-align:left;"><strong style="color:#374151;font-weight:700;">SaveHatke</strong></p>
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:0;text-align:left;">Best regards,</p>
+                <p style="font-size:0.92rem;color:#374151;line-height:1.75;margin:4px 0 0;text-align:left;"><strong style="color:#374151;font-weight:700;">SaveHatke Support Team</strong><br><span style="color:#6b7280;">India’s Coupon Marketplace</span></p>
               </div>
 
-              <!-- Footer disclaimer -->
-              <p style="font-size:0.75rem;color:#64748B;line-height:1.6;margin:28px 0 0;text-align:left;">You’re receiving this email because a SaveHatke account was created using this email address.</p>
+              <!-- Footer -->
+              <p style="font-size:0.8rem;color:#374151;line-height:1.6;margin:28px 0 0;text-align:left;"><strong style="color:#0f1e3a;">Need more help?</strong> Contact the SaveHatke Support Team through the <a href="https://savehatke.vercel.app" style="color:#00E272;text-decoration:none;font-weight:700;">official website</a>.</p>
+              <p style="font-size:0.75rem;color:#64748B;line-height:1.6;margin:12px 0 0;text-align:left;">This is an automated confirmation that your support request was received. Please do not reply directly if this email address is not monitored.</p>
 
             </td>
           </tr>
