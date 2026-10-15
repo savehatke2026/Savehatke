@@ -830,12 +830,15 @@ function isSupportEmailConfigured() {
  * @param {string} params.message - The user's submitted message
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
-async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, message }, opts = {}) {
+async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, message, orderId }, opts = {}) {
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
   const safeCaseId = escapeHtml(caseId);
   const safeSubject = escapeHtml(subject);
   const safeMessage = escapeHtml(message);
+  // Optional. Shown only when the user supplied one; never a fabricated value.
+  const orderIdText = orderId ? String(orderId).trim().slice(0, 120) : '';
+  const safeOrderId = escapeHtml(orderIdText);
 
   const createdDate = createdAt
     ? new Date(createdAt).toLocaleString('en-IN', {
@@ -860,7 +863,8 @@ async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, m
   const year = new Date().getFullYear();
 
   const t = getSupportTransporter();
-  if (!t || !isSupportEmailConfigured()) {
+  // renderOnly (Email Testing preview) must not need SMTP; only a real send does.
+  if ((!t || !isSupportEmailConfigured()) && !opts.renderOnly) {
     console.warn(`⚠️ [EmailService] Support email not configured. Acknowledgment for case ${safeCaseId} was NOT sent.`);
     console.warn(`ℹ️ Add SUPPORT_EMAIL + SUPPORT_EMAIL_PASSWORD (or SMTP_USER/SMTP_PASS) to your .env file.`);
     return {
@@ -884,7 +888,7 @@ We've received your support request and created a case for it.
 **Case ID:** ${caseId}
 
 **Subject:** ${subject}
-
+${orderIdText ? `\n**Order ID:** ${orderIdText}\n` : ''}
 **Created:** ${createdDate}
 
 **Status:** Open
@@ -982,6 +986,11 @@ Regards,
                     <strong style="color:#0f1e3a;font-weight:700;">Subject:</strong>&nbsp; ${safeSubject}
                   </td>
                 </tr>
+                ${orderIdText ? `<tr>
+                  <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
+                    <strong style="color:#0f1e3a;font-weight:700;">Order ID:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${safeOrderId}</span>
+                  </td>
+                </tr>` : ''}
                 <tr>
                   <td style="font-size:0.95rem;color:#374151;line-height:1.7;padding:5px 0;">
                     <strong style="color:#0f1e3a;font-weight:700;">Created:</strong>&nbsp; <span style="font-family:'Courier New',Courier,monospace;">${escapeHtml(createdDate)} IST</span>

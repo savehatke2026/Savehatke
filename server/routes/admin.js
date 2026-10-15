@@ -1043,6 +1043,9 @@ router.put('/pricing-config', authenticateToken, requireAdmin, adminMutationLimi
     // Buyer prices derive from this config, so any cached coupon listing that
     // shows the old price must be dropped now, not after the TTL.
     invalidateCouponListCache();
+    // Buyer prices derive from this config, so any cached coupon listing that
+    // shows the old price must be dropped now, not after the TTL.
+    invalidateCouponListCache();
     res.json({ message: 'Pricing settings saved.', config: result.config });
   } catch (err) {
     console.error('Admin save pricing config error:', err);
