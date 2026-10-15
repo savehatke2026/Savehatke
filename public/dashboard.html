@@ -2152,9 +2152,6 @@
       #view-wallet .txp-det-desc{font-size:.75rem;color:#6b88aa}
 
       #view-wallet .txp-id{display:flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:.78rem;color:#8ea6c4}
-      #view-wallet .txp-copy{background:none;border:none;cursor:pointer;color:#5f7c9e;padding:2px;line-height:0;transition:color .14s}
-      #view-wallet .txp-copy:hover{color:#00E272}
-      #view-wallet .txp-copy svg{width:13px;height:13px}
 
       #view-wallet .txp-amt{font-family:'JetBrains Mono',monospace;font-size:.95rem;font-weight:600;color:#00E272;white-space:nowrap}
       #view-wallet .txp-date-main{font-size:.82rem;color:#a8c0dc;white-space:nowrap}
@@ -4253,17 +4250,6 @@
     else { window.MCX_Q.purchased = val || ''; renderMyCoupons(); }
   }
 
-  let mcxToastTimer;
-  function mcxCopy(e, text) {
-    if (e) e.stopPropagation();
-    try { navigator.clipboard.writeText(text); } catch (err) {}
-    const t = document.getElementById('mcxToast');
-    if (t) {
-      t.classList.add('show');
-      clearTimeout(mcxToastTimer);
-      mcxToastTimer = setTimeout(() => t.classList.remove('show'), 1600);
-    }
-  }
 
   // White Type-column box for a purchased coupon: the brand logo (Google Drive
   // reference via coupon-meta.js, local/clearbit fallback) or the brand initial.
@@ -4393,7 +4379,6 @@
             : '—');
       const dateSub = (exp && !isNaN(exp.getTime())) ? 'Expiry date' : `Added ${timeAgo(c.addedAt)}`;
       const safeOrder = escapeHtml(c.orderId || '');
-      const jsOrder = String(c.orderId || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       const rowPayload = encodeURIComponent(JSON.stringify({
         brand: c.brand, code: c.code, value: c.value,
         exp: c.exp, kind: c.kind, category: c.category || '', addedAt: c.addedAt,
@@ -4407,7 +4392,7 @@
             <div class="mcx-desc">${escapeHtml(dateSub)}</div>
           </td>
           <td class="mcx-hide-sm">
-            <div class="mcx-code"><span>${safeOrder || '—'}</span>${safeOrder ? `<button class="mcx-copy" title="Copy order ID" onclick="mcxCopy(event,'${jsOrder}')">${MCX_ICON.copy}</button>` : ''}</div>
+            <div class="mcx-code"><span>${safeOrder || '—'}</span></div>
           </td>
           <td class="mcx-hide-md"><span class="mcx-amt">${escapeHtml(c.value || '—')}</span></td>
           <td class="mcx-hide-md"><div class="mcx-date">${escapeHtml(dateMain)}</div></td>
@@ -5239,13 +5224,6 @@
           <span class="txp-badge ${r.badge}">${escapeHtml(String(r.status).toUpperCase())}</span>
         </div>
       </div>`).join('');
-  }
-
-  // Copy a transaction ID from the ledger; reuses the dashboard toast.
-  function copyTxnId(e, id, label) {
-    if (e) e.stopPropagation();
-    try { navigator.clipboard.writeText(id); } catch (_) {}
-    if (typeof showToast === 'function') showToast((label || 'Transaction ID') + ' copied', 'success');
   }
 
   function renderPayouts() {
