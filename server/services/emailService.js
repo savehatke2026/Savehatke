@@ -3498,7 +3498,7 @@ ${EMAIL_GREEN_DARK_RULES}
       <div class="details">
         <p><strong>Brand:</strong> ${safeBrand}</p>
         <p><strong>Description:</strong> ${safeDesc}</p>
-        <p><strong>Coupon Value:</strong> <span class="green">₹${safeValue}</span></p>
+        <p><strong>Coupon Value:</strong> <span>₹${safeValue}</span></p>
         <p><strong>Order ID:</strong> ${safeOrder}</p>
       </div>
 
@@ -3515,9 +3515,9 @@ ${EMAIL_GREEN_DARK_RULES}
         </tr>
       </table>
 
-      <p class="thanks" style="text-align:center;font-weight:400;">Thank you for choosing <span style="font-weight:400;">SaveHatke</span>.</p>
+      <p class="thanks" style="text-align:left;font-weight:400;">Thank you for choosing SaveHatke.</p>
 
-      <p class="signoff" style="text-align:center;font-weight:400;">Best,</p>
+      <p class="signoff" style="text-align:left;font-weight:400;">Best,<br /><span style="font-weight:700;">SaveHatke</span></p>
 
       <p class="disclaimer" style="margin:28px 0 0;text-align:center;font-size:12px;line-height:18px;font-weight:400;color:#64748B;">You’re receiving this email because a coupon was purchased through your SaveHatke account.</p>
     </div>
