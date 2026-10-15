@@ -14,6 +14,7 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken } = require('../middleware/auth');
 const db = require('../services/googleSheets');
+const paymentStore = require('../services/paymentStore');
 
 const router = express.Router();
 
@@ -68,6 +69,62 @@ function validateReviewInput(body) {
 }
 
 /**
+ * Build the reviewable record for a purchase whose live coupon row is gone.
+ * Uses the same gate as GET /api/coupons/my-purchases: a PAID order owned by
+ * this user, linked to this coupon, with a matching PAID payment for the same
+ * amount. Returns null when no such purchase exists, so an unrelated user or an
+ * unknown coupon still cannot be reviewed.
+ * @returns {Promise<object|null>} coupon-shaped record, or null
+ */
+async function findPaidOrderSnapshot(couponId, user) {
+  const email = normEmail(user.email);
+  const userId = String(user.id || user.userId || '').trim();
+  const belongsToUser = (row) => {
+    const rowUserId = String(row.user_id || row.userId || '').trim();
+    if (rowUserId) return !!userId && rowUserId === userId;
+    const rowEmail = normEmail(row.user_email || row.buyer_email || row.buyerEmail);
+    return !!email && rowEmail === email;
+  };
+
+  const [orderRows, paymentRows] = await Promise.all([
+    db.getRowsFresh(db.SHEETS.ORDERS),
+    db.getRowsFresh(db.SHEETS.PAYMENTS),
+  ]);
+
+  const paidPayment = new Map();
+  for (const row of paymentRows || []) {
+    const payment = paymentStore.fromPayment(row);
+    if (!payment || String(payment.status).toUpperCase() !== 'PAID' || !payment.orderId ||
+        String(payment.couponId) !== String(couponId) || !belongsToUser(row)) continue;
+    paidPayment.set(String(payment.orderId), payment);
+  }
+
+  for (const row of orderRows || []) {
+    const order = paymentStore.fromOrder(row);
+    if (!order || String(order.status).toUpperCase() !== 'PAID' || String(order.couponId) !== String(couponId) ||
+        !belongsToUser(row)) continue;
+    const payment = paidPayment.get(String(order.id));
+    if (!payment || !paymentStore.moneyEquals(payment.amount, order.amount)) continue;
+
+    // Reconstruct the coupon fields the review needs from the order itself.
+    let snap = {};
+    try { snap = order.couponSnapshot ? JSON.parse(order.couponSnapshot) : {}; } catch { snap = {}; }
+    return {
+      id: String(couponId),
+      brand: snap.brand || order.couponBrand || '',
+      title: snap.title || '',
+      description: snap.description || '',
+      sellingPrice: snap.sellingPrice !== undefined && snap.sellingPrice !== '' ? snap.sellingPrice : order.amount,
+      buyerEmail: order.buyerEmail || order.userEmail || '',
+      sellerEmail: snap.sellerEmail || '',
+      status: 'sold',
+      soldAt: order.paidAt || '',
+    };
+  }
+  return null;
+}
+
+/**
  * Resolve the coupon the user is trying to review and confirm they are allowed
  * to review it.
  * @returns {Promise<{ok:true, coupon:object}|{ok:false, status:number, error:string}>}
@@ -75,8 +132,18 @@ function validateReviewInput(body) {
 async function resolveReviewableCoupon(couponId, user) {
   if (!couponId) return { ok: false, status: 400, error: 'A coupon is required.' };
 
-  const coupon = await db.findRow(db.SHEETS.COUPONS, 'id', couponId);
-  if (!coupon) return { ok: false, status: 404, error: 'That coupon no longer exists.' };
+  let coupon = await db.findRow(db.SHEETS.COUPONS, 'id', couponId);
+  if (!coupon) {
+    // The live coupon row can be gone (sold and removed from inventory) while
+    // the purchase is still real. The dashboard lists that purchase from the
+    // paid order, so the review check must accept the same record rather than
+    // reject it as "no longer exists".
+    const snapshot = await findPaidOrderSnapshot(couponId, user);
+    if (!snapshot) {
+      return { ok: false, status: 404, error: 'That coupon no longer exists.' };
+    }
+    coupon = snapshot;
+  }
 
   const buyer = normEmail(user.email);
   if (!buyer || normEmail(coupon.buyerEmail) !== buyer) {
