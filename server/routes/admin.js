@@ -1040,6 +1040,9 @@ router.put('/pricing-config', authenticateToken, requireAdmin, adminMutationLimi
     if (!result.ok) {
       return res.status(400).json({ error: result.errors[0], errors: result.errors, code: 'PRICING_CONFIG_INVALID' });
     }
+    // Buyer prices derive from this config, so any cached coupon listing that
+    // shows the old price must be dropped now, not after the TTL.
+    invalidateCouponListCache();
     res.json({ message: 'Pricing settings saved.', config: result.config });
   } catch (err) {
     console.error('Admin save pricing config error:', err);

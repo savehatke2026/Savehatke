@@ -69,6 +69,7 @@ const brandAssetRoutes = require('./routes/brandAssets');
 const brandRoutes = require('./routes/brands');
 const consentRoutes = require('./routes/consent');
 const maintenanceGuard = require('./middleware/maintenance');
+const { noStoreSensitiveApi } = require('./middleware/sensitiveCache');
 const { checkPageAccess, resolveCaller, isAdminRole, isWhitelistedEmail } = require('./middleware/maintenance');
 const pageRedirectGuard = require('./middleware/pageRedirects');
 const supabase = require('./services/supabase');
@@ -180,6 +181,13 @@ if (process.env.NODE_ENV !== 'production') {
   allowedOrigins.add('http://localhost:3000');
   allowedOrigins.add('http://127.0.0.1:3000');
 }
+
+// Private/financial/admin API responses must never be stored by a browser,
+// proxy or CDN. This is header-only: it only sets Cache-Control/Pragma and calls
+// next(). It is mounted before CORS and the origin/CSRF check below, so even a
+// 403 from those checks carries no-store. It does not change any status code,
+// body or auth decision, and it runs before every sensitive router and limiter.
+app.use(noStoreSensitiveApi);
 
 app.use(cors({
   origin(origin, callback) {
