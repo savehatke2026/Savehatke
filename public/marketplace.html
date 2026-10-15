@@ -747,14 +747,17 @@
 
   .match-meta { display:flex; align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
   /* Price centred in the row, timer pushed to the right edge. */
-  .match-meta-row { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(auto,1.5fr); align-items:center; }
-  .match-meta-row .match-discount { grid-column:1; justify-self:start; }
-  .match-meta-row .match-cost { grid-column:2; justify-self:center; display:inline-flex; align-items:baseline; gap:1.2cqw; text-align:center; }
+  .match-meta-row { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(max-content,1.5fr); align-items:center; }
+  .match-meta-row .match-discount { grid-column:1; justify-self:start; min-width:0; }
+  .match-meta-row .match-cost { grid-column:2; justify-self:center; margin-right:4cqw; min-width:0; display:inline-flex; align-items:baseline; gap:1.2cqw; text-align:center; }
   .match-meta-row .match-timer-slot { grid-column:3; justify-self:end; }
   .match-meta-row .match-discount:empty { display:none; }
+  .match-meta-row .match-soon-tag { grid-column:3; justify-self:end; }
   .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
   .match-cost { font-size:6.1cqw; color:#00E272; font-weight:800; letter-spacing:-.04em; }
-  .match-cost del { font-size:4.2cqw; color:#6b88aa; font-weight:600; margin-left:0; }
+  .match-cost del { font-size:4.2cqw; color:#f7f8fc; font-weight:600; margin-left:1cqw; }
+  /* Expires Soon tag — replaces the countdown pill in the timer slot. */
+  .match-soon-tag { display:inline-flex; align-items:center; box-sizing:border-box; max-width:100%; background:#FFB020; color:#1a1200; border-radius:99px; padding:1.2cqw 2.6cqw; font-size:4cqw; font-weight:800; letter-spacing:-.02em; line-height:1.2; white-space:nowrap; }
   /* The mockup ships the timer with no dedicated styling; only the icon is
      sized here, because an unsized SVG would blow out the meta row. */
   .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; }

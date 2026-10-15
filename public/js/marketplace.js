@@ -233,10 +233,9 @@ function renderCouponGrid(gridId, coupons) {
       // Discount is hidden unless the admin switched it on for this coupon.
       const showDiscount = c.discountOn === true;
       const discountPill = showDiscount ? `<span class="match-discount">${escapeCoupon(origVal)}</span>` : '';
-      // "Expires Soon" badge — shown only when the admin flagged this coupon.
-      const expiresSoonBadge = c.expiresSoon === true
-        ? `<span class="match-expires-soon" role="note">Expires Soon</span>`
-        : '';
+      // "Expires Soon" replaces the countdown in the timer slot — shown only when
+      // the admin flagged this coupon, and then the countdown is not rendered.
+      const expiresSoon = c.expiresSoon === true;
       // The description only renders as its own line when it carries text the
       // title doesn't already show, so the card never repeats itself.
       const title = c.title || c.description || 'Verified Discount Offer';
@@ -249,7 +248,9 @@ function renderCouponGrid(gridId, coupons) {
       // turned the timer off or the coupon has no expiry.
       const expiresAt = c.timerOn === false ? null : parseExpiry(c.expiryDate);
       let timerHtml = '';
-      if (expiresAt !== null) {
+      if (expiresSoon) {
+        timerHtml = `<span class="match-soon-tag" role="note">Expires Soon</span>`;
+      } else if (expiresAt !== null) {
         claimTimers.set(id, expiresAt);
         const msLeft = expiresAt - Date.now();
         const band = claimTimerBand(msLeft);
@@ -279,7 +280,6 @@ function renderCouponGrid(gridId, coupons) {
       return `
         <article class="coupon-card" data-coupon-id="${id}">
           <div class="match-banner banner-${escapeCoupon(id)}">
-            ${expiresSoonBadge}
             ${brandImg
               ? `<img src="${escapeCoupon(brandImg)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">`
               : `<div class="match-fallback" aria-hidden="true"><b>${escapeCoupon(initial)}</b>${showDiscount ? `<span>${escapeCoupon(origVal)}</span>` : ''}</div>`}

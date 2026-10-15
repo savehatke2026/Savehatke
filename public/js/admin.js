@@ -849,10 +849,14 @@ function cmCardHtml(c) {
   // Same countdown pill the marketplace card shows ("2d 6h 35m left", ticking
   // HH:MM:SS under 24h, coloured green / yellow / red). Timer switched off or
   // no expiry → no pill, matching the marketplace.
+  // "Expires Soon" replaces the countdown — the tag shows instead of the timer.
+  const expiresSoonFlag = c.expiresSoon === true || c.expiresSoon === 'true';
   const expAt = c.timerOn === false ? null : parseExpiry(c.expiryDate);
-  const expiryChip = expAt !== null
-    ? `<span class="match-timer ${cmClaimBand(expAt - Date.now())}" data-band="${id}"><span data-inv-expiry="${expAt}">${cmClaimCountdownText(expAt - Date.now())}</span></span>`
-    : '';
+  const expiryChip = expiresSoonFlag
+    ? `<span class="match-soon-tag" role="note">Expires Soon</span>`
+    : (expAt !== null
+      ? `<span class="match-timer ${cmClaimBand(expAt - Date.now())}" data-band="${id}"><span data-inv-expiry="${expAt}">${cmClaimCountdownText(expAt - Date.now())}</span></span>`
+      : '');
   const origPrice = c.originalValue ? ` <del>₹${escHtml(c.originalValue)}</del>` : '';
   // Price the marketplace charges right now (server-computed buyerPrice). The
   // stored sellingPrice is only a legacy fallback.
