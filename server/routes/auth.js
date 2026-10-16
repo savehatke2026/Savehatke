@@ -24,7 +24,7 @@ const emailService = require('../services/emailService');
 const deviceRecognition = require('../services/deviceRecognition');
 const getClientIP = require('../middleware/getClientIP');
 const sessionCleanup = require('../services/sessionCleanup');
-const twoFactor = require('../services/twoFactorService');
+const securityAudit = require('../services/securityAudit');
 const { getAdminAccount, getJwtSecret, normalizeEmail, isAdminRosterStale, ensureAdminRosterReady } = require('../config/security');
 
 const router = express.Router();
@@ -337,6 +337,7 @@ async function finishGoogleLogin(req, res, identity) {
   const userId = String(sheetUser.user_id || sheetUser.user_ID || sheetUser.id || '').trim();
   if (!userId) return res.status(503).json({ error: 'Account storage is temporarily unavailable.' });
   const name = String(sheetUser.preferred_name || sheetUser.name || googleName).trim().slice(0, 120);
+
   // sheetUser is the row this handler already resolved for the exact same
   // email — hand it to createLoginSession so resolveSessionUserId can skip
   // its redundant Sheets re-read. Admin logins (above) keep the original
@@ -690,7 +691,7 @@ async function enrichSessionGeo(sessionId, ip, geo) {
 function logLoginFailure(req, { email, userId = '', detail = '' }) {
   try {
     const { deviceStr, osStr, browserStr } = parseUserAgent(req);
-    twoFactor.logSecurityEvent({
+    securityAudit.logSecurityEvent({
       userId,
       email,
       event: 'login_failed',
@@ -716,8 +717,8 @@ async function flagUnfamiliarSignIn({ userId, email, ip, device, isNewDevice, ge
     if (!email) return;
 
     if (isNewDevice) {
-      await twoFactor.logSecurityEvent({
-        userId, email, event: twoFactor.EVENTS.NEW_DEVICE, ip, device,
+      await securityAudit.logSecurityEvent({
+        userId, email, event: securityAudit.EVENTS.NEW_DEVICE, ip, device,
         detail: 'Signed in from a device not used before',
       });
     }
@@ -729,8 +730,8 @@ async function flagUnfamiliarSignIn({ userId, email, ip, device, isNewDevice, ge
     if (!previous.length) return; // first ever sign-in: nothing to compare against
     if (previous.some((r) => placeOf(r).toLowerCase() === place.toLowerCase())) return;
 
-    await twoFactor.logSecurityEvent({
-      userId, email, event: twoFactor.EVENTS.NEW_LOCATION, ip, device,
+    await securityAudit.logSecurityEvent({
+      userId, email, event: securityAudit.EVENTS.NEW_LOCATION, ip, device,
       detail: `Signed in from a new approximate location: ${place}`,
     });
   } catch (e) { /* alerting is best-effort */ }
@@ -1080,8 +1081,12 @@ router.post('/sessions/revoke-others', authenticateToken, async (req, res) => {
 //   â€¢ user_sessions        â†’ every successful sign-in (a session only exists
 //                            because the login succeeded), including ones that
 //                            have since expired or been logged out.
-//   â€¢ SecurityAudit rows   â†’ rejected attempts (blocked email path, failed 2FA
-//                            code), which never produce a session row.
+//   - SecurityAudit rows   -> rejected attempts (blocked email path, failed
+//                            sign-in), which never produce a session row.
+//                            Legacy 2fa_* rows from before that feature was
+//                            removed are still rendered here on purpose: the
+//                            audit log is append-only history and is never
+//                            rewritten, so old rows must stay readable.
 //
 // Never exposes session tokens. It does return the sign-in IP: the account
 // owner needs it to recognise their own activity, and the route is behind
