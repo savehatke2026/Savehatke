@@ -1041,10 +1041,9 @@ router.put('/pricing-config', authenticateToken, requireAdmin, adminMutationLimi
       return res.status(400).json({ error: result.errors[0], errors: result.errors, code: 'PRICING_CONFIG_INVALID' });
     }
     // Buyer prices derive from this config, so any cached coupon listing that
-    // shows the old price must be dropped now, not after the TTL.
-    invalidateCouponListCache();
-    // Buyer prices derive from this config, so any cached coupon listing that
-    // shows the old price must be dropped now, not after the TTL.
+    // shows the old price must be dropped now, not after the TTL. Exactly one
+    // call: the list payload cache and the shared source snapshot both go in a
+    // single invalidate(), and the response is only sent after it has run.
     invalidateCouponListCache();
     res.json({ message: 'Pricing settings saved.', config: result.config });
   } catch (err) {

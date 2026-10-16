@@ -104,6 +104,30 @@ check('public settings save invalidates the public settings cache', () => {
     '/api/admin/settings must drop the publicSettings cache');
 });
 
+// A duplicated invalidate() is not harmless: it shipped once and made the
+// pricing-config handler drop the listing twice per save. The behavioural
+// guard lives in cacheInvalidationRuntime.test.js (invalidations === 1); this
+// pins the same rule at the source so the duplicate cannot be re-introduced
+// unnoticed between runtime runs.
+check('the pricing-config handler invalidates exactly once', () => {
+  const body = handlerBody(adminSrc, "router.put('/pricing-config',");
+  assert.ok(body, 'route not found: router.put(\'/pricing-config\',');
+  const calls = (body.match(/invalidateCouponListCache\(\)/g) || []).length;
+  assert.equal(calls, 1,
+    `the pricing-config save must invalidate the coupon list exactly once, found ${calls}` +
+    ' (two calls double-drop the cache; zero leaves stale buyer prices until the TTL)');
+});
+
+check('the pricing-config save is stored before the cache is dropped', () => {
+  const body = handlerBody(adminSrc, "router.put('/pricing-config',");
+  const saveAt = body.indexOf('saveConfig(');
+  const invalidateAt = body.indexOf('invalidateCouponListCache()');
+  const replyAt = body.indexOf('res.json(');
+  assert.ok(saveAt >= 0 && invalidateAt >= 0 && replyAt >= 0, 'handler shape changed');
+  assert.ok(saveAt < invalidateAt, 'the config must be saved before the cache is dropped');
+  assert.ok(invalidateAt < replyAt, 'the response must not be sent before the invalidation runs');
+});
+
 for (const marker of ["adminRouter.post('/', ", "adminRouter.put('/:id', ", "adminRouter.post('/:id/active', "]) {
   check(`brand write ${marker.replace(/', $/, '')} invalidates brand caches`, () => {
     const body = handlerBody(brandsSrc, marker);
