@@ -69,10 +69,6 @@ const adminSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    two_factor_enabled: {
-      type: Boolean,
-      default: false,
-    },
     last_login: {
       type: Date,
       default: null,

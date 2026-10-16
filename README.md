@@ -118,7 +118,7 @@ SaveHatke/
 ## 🛡️ Security
 
 - JWT-based authentication with configurable expiry
-- Passwordless authentication: email-only sign-in or Google OAuth; no account passwords are stored (bcrypt still hashes 2FA recovery codes, SOS answers and backup codes)
+- Passwordless authentication: email-only sign-in or Google OAuth; no account passwords are stored (bcrypt still hashes SOS answers and backup codes)
 - Helmet.js security headers
 - Rate limiting on all API endpoints (100 req/15min, 20 for auth)
 - Separate admin authentication

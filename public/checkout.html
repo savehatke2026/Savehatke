@@ -368,27 +368,36 @@
     .success-overlay { position:fixed; inset:0; z-index:360; background:rgba(6,13,31,.96); backdrop-filter:blur(8px); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .35s; }
     .success-overlay.show { opacity:1; pointer-events:auto; }
 
-    /* PAYMENT SUCCESSFUL card (spec: Figma export, scaled to the card width) */
-    .pay-ok-overlay { position:fixed; inset:0; z-index:370; background:radial-gradient(ellipse at center,#041322 0%,#040f1e 60%,#050e1b 100%); display:flex; align-items:center; justify-content:center; padding:24px; opacity:0; pointer-events:none; transition:opacity .3s; }
+    /* PAYMENT SUCCESSFUL card (spec: Figma export, scaled to the card width).
+       Sizing only: the box was sized up for the original 754px design and left
+       a lot of empty space around the icon and the redirect line. The card is a
+       container (`container-type:inline-size`) and every interior dimension is
+       in `cqw`, so narrowing the card scales the whole card down as one piece.
+       Colours, fonts, border and the celebration artwork are unchanged. */
+    .pay-ok-overlay { position:fixed; inset:0; z-index:370; background:radial-gradient(ellipse at center,#041322 0%,#040f1e 60%,#050e1b 100%); display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .3s; }
     .pay-ok-overlay.show { opacity:1; pointer-events:auto; }
-    .pay-ok-card { container-type:inline-size; width:min(754px, calc(100vw - 48px)); border:3px solid #00ed89; border-radius:clamp(20px,3.8vw,36px); background:#081422; box-shadow:0 18px 60px #0004; text-align:center; font-family:'Century Gothic','Trebuchet MS',Arial,sans-serif; color:#f8f9fc; }
-    .pay-ok-content { display:flex; flex-direction:column; padding:14.5cqw 8.3cqw 6.1cqw; }
-    .pay-ok-celebration { display:block; width:61cqw; height:37cqw; margin:0 auto 2.7cqw; overflow:visible; }
-    .pay-ok-title { margin:0; font-size:8.15cqw; line-height:1.2; font-weight:800; letter-spacing:-.22cqw; white-space:nowrap; }
+    .pay-ok-card { container-type:inline-size; width:min(540px, calc(100vw - 40px), calc((100dvh - 40px) * 0.74)); max-height:calc(100dvh - 32px); overflow:auto; overscroll-behavior:contain; border:3px solid #00ed89; border-radius:clamp(18px,3vw,28px); background:#081422; box-shadow:0 18px 60px #0004; text-align:center; font-family:'Century Gothic','Trebuchet MS',Arial,sans-serif; color:#f8f9fc; }
+    .pay-ok-content { display:flex; flex-direction:column; padding:10cqw 7.6cqw 4.6cqw; }
+    .pay-ok-celebration { display:block; width:50cqw; height:30.5cqw; margin:0 auto 1.4cqw; overflow:visible; }
+    /* `max()` keeps a readable floor on narrow phones, where 1cqw is small. */
+    .pay-ok-title { margin:0; font-size:max(24px,7.5cqw); line-height:1.18; font-weight:800; letter-spacing:-.2cqw; text-wrap:balance; overflow-wrap:anywhere; }
     .pay-ok-accent { color:#00efa7; }
-    .pay-ok-subtitle { margin:2.8cqw -3cqw 5.5cqw; font-size:4.35cqw; line-height:1.4; color:#d4d5ef; letter-spacing:-.08cqw; }
+    .pay-ok-subtitle { margin:1.6cqw -2.6cqw 3.4cqw; font-size:max(13.5px,4.1cqw); line-height:1.4; color:#d4d5ef; letter-spacing:-.06cqw; }
     .pay-ok-details { margin:0; text-align:left; }
-    .pay-ok-row { display:grid; grid-template-columns:53% 47%; align-items:center; min-height:14.6cqw; border-bottom:1.5px solid #355575; }
-    .pay-ok-details dt { color:#bcc5e8; font-size:4.1cqw; }
-    .pay-ok-details dd { margin:0; font-size:3.9cqw; white-space:nowrap; letter-spacing:-.08cqw; overflow:hidden; text-overflow:ellipsis; }
-    .pay-ok-amount { font-size:5.3cqw; font-weight:800; }
-    .pay-ok-redirect { margin:7cqw 0 8cqw; font-size:3.45cqw; color:#dbdcee; }
+    .pay-ok-row { display:grid; grid-template-columns:53% 47%; align-items:center; min-height:11.6cqw; padding:.6cqw 0; border-bottom:1.5px solid #355575; }
+    .pay-ok-details dt { color:#bcc5e8; font-size:max(13px,3.6cqw); }
+    .pay-ok-details dd { margin:0; font-size:max(12.5px,3.5cqw); white-space:nowrap; letter-spacing:-.06cqw; overflow:hidden; text-overflow:ellipsis; }
+    .pay-ok-amount { font-size:max(17px,4.7cqw); font-weight:800; }
+    .pay-ok-redirect { margin:4.2cqw 0 4.6cqw; font-size:max(12.5px,3.2cqw); color:#dbdcee; }
     .pay-ok-redirect strong { color:#00efa7; font-weight:600; }
     .pay-ok-security { display:flex; align-items:center; justify-content:center; }
-    .pay-ok-security-label { display:flex; align-items:center; gap:2.2cqw; white-space:nowrap; font-size:3.7cqw; color:#c4cee9; letter-spacing:-.06cqw; }
+    .pay-ok-security-label { display:flex; align-items:center; gap:1.8cqw; white-space:nowrap; font-size:max(12px,3.3cqw); color:#c4cee9; letter-spacing:-.05cqw; }
     .pay-ok-security strong { color:#f8f9fc; font-weight:700; }
-    .pay-ok-shield { width:4.9cqw; height:5.9cqw; }
-    @media (max-width:500px) { .pay-ok-card { width:calc(100vw - 32px); } }
+    .pay-ok-shield { width:4.2cqw; height:5cqw; flex-shrink:0; }
+    /* Landscape phones / short windows: give the icon back its vertical room
+       instead of letting the card scroll. */
+    @media (max-height:640px) { .pay-ok-celebration { width:36cqw; height:22cqw; margin-bottom:.8cqw; } .pay-ok-content { padding:5cqw 7.6cqw 3.4cqw; } .pay-ok-redirect { margin:3cqw 0 3.2cqw; } }
+    @media (max-width:500px) { .pay-ok-card { width:calc(100vw - 28px); } }
     .success-box { position:relative; max-width:440px; width:100%; border-radius:24px; padding:40px 32px 32px; background:#0c1628; border:1px solid rgba(0,226,114,.25); box-shadow:0 0 0 1px rgba(0,226,114,.08),0 0 60px rgba(0,226,114,.06),0 30px 80px rgba(0,0,0,.6); text-align:center; font-family:'Inter',sans-serif; transform:scale(.94); transition:transform .35s; }
     .success-overlay.show .success-box { transform:scale(1); }
 
@@ -1530,9 +1539,12 @@
     skewMs: 0,
     pollId: null,
     opening: false,
-    // Guards against showing the success screen twice when the poll and the SSE
-    // stream both observe PAID (or a repeated PAID event arrives).
-    successShown: false,
+    // Which payment result window is already on screen for this attempt. The
+    // poll, the SSE stream and a manual "Check status" can all observe the same
+    // verified payment, so this records the window that is showing: a repeat
+    // of the same state is ignored, and a genuinely different verified state
+    // replaces the old window instead of stacking on top of it.
+    shownWindow: '',
   };
 
   function upiEl(id) { return document.getElementById(id); }
@@ -1642,6 +1654,87 @@
     }
   }
 
+  // ── Payment window selection ─────────────────────────────────────────────
+  //
+  // ONE place decides which of the three existing windows the buyer sees. The
+  // backend already compared the verified received amount against the required
+  // order amount and ships that verdict as `payment_outcome`, so that word —
+  // not anything recomputed here — picks the window:
+  //
+  //   'exact'     → Payment Successful   (#payOkOverlay)
+  //   'overpaid'  → Extra Payment        (#extraAmountOverlay)
+  //   'underpaid' → Insufficient Payment (#insufficientAmountOverlay)
+  //
+  // Both amounts come from the server response only. Nothing the buyer submits
+  // reaches this decision.
+  function toPaiseAmount(n) {
+    const v = Number(n);
+    return Number.isFinite(v) ? Math.round(v * 100) : null;
+  }
+
+  function classifyVerifiedAmounts(data) {
+    if (!data) return null;
+
+    // The server's verdict wins whenever it is present.
+    const declared = typeof data.payment_outcome === 'string'
+      ? data.payment_outcome.trim().toLowerCase()
+      : '';
+    if (declared === 'exact' || declared === 'overpaid' || declared === 'underpaid') return declared;
+    if (declared === 'unknown') return 'unknown';
+
+    // Fallback for payloads that predate the field: the identical integer-paise
+    // rule the server uses. A mismatch here still opens the mismatch window,
+    // never the success window.
+    const reqPaise = toPaiseAmount(data.amount);
+    // "absent" and "present but unusable" are different: an absent received
+    // amount on a settled payment is a legacy exact-amount row, whereas a
+    // malformed one must fail closed instead of claiming success.
+    const hasReceived = data.received_amount !== undefined
+      && data.received_amount !== null
+      && data.received_amount !== '';
+    const recPaise = hasReceived ? toPaiseAmount(data.received_amount) : null;
+
+    if (reqPaise === null) return 'unknown';
+    if (!hasReceived) {
+      // No verified received amount recorded. On a settled payment that is a
+      // legacy exact-amount row; otherwise nothing has been verified yet.
+      return String(data.status || '').toUpperCase() === 'PAID' ? 'exact' : null;
+    }
+    if (recPaise === null) return 'unknown';
+    if (recPaise < reqPaise) return 'underpaid';
+    if (recPaise > reqPaise) return 'overpaid';
+    return 'exact';
+  }
+
+  /** The window to open for a server payload, plus the amounts to print in it. */
+  function selectPaymentWindow(data) {
+    const outcome = classifyVerifiedAmounts(data);
+    const required = Number(data && data.amount);
+    const recRaw = (data && data.received_amount !== undefined && data.received_amount !== null)
+      ? Number(data.received_amount)
+      : null;
+    const received = Number.isFinite(recRaw) ? recRaw : null;
+
+    let windowKey = null, overlayId = null;
+    if (outcome === 'exact') { windowKey = 'success'; overlayId = 'payOkOverlay'; }
+    else if (outcome === 'overpaid') { windowKey = 'extra'; overlayId = 'extraAmountOverlay'; }
+    else if (outcome === 'underpaid') { windowKey = 'insufficient'; overlayId = 'insufficientAmountOverlay'; }
+
+    return {
+      window: windowKey,
+      overlayId,
+      outcome,
+      required: Number.isFinite(required) ? required : 0,
+      received: received === null ? 0 : received,
+    };
+  }
+
+  /** A window is opened at most once per payment attempt. */
+  function windowAlreadyShown(key) {
+    return Boolean(upiState.shownWindow) && upiState.shownWindow === key;
+  }
+  function markWindowShown(key) { upiState.shownWindow = key || ''; }
+
   /** Paint the box from a server payment payload. */
   function applyPaymentState(data) {
     if (!data || !data.status) {
@@ -1689,18 +1782,21 @@
         }
         break;
 
-      case 'PAID':
-        // The poll and the SSE stream can both observe PAID; show success once.
-        if (upiState.successShown) break;
-        upiState.successShown = true;
+      case 'PAID': {
+        // The server verified a payment. Which window that opens is decided by
+        // the verified amounts, not by the PAID status alone.
+        const pick = selectPaymentWindow(data);
+        if (pick.window && windowAlreadyShown(pick.window)) break;  // already on screen
+        markWindowShown(pick.window);
         clearInterval(upiState.timerId); upiState.timerId = null;
         stopUpiStream();
         stopUpiPoll();
-        // Hand off directly to the success overlay — no fade-out cross-fade
+        // Hand off directly to the result window — no fade-out cross-fade
         // between the two surfaces.
         closeUpiBox({ instant: true });
-        showServerConfirmedSuccess(data);
+        showServerConfirmedSuccess(data, pick);
         break;
+      }
 
       case 'EXPIRED':
         clearInterval(upiState.timerId); upiState.timerId = null;
@@ -1711,31 +1807,27 @@
         showUpiState('expired');
         break;
 
-      case 'REVIEW':
+      case 'REVIEW': {
         clearInterval(upiState.timerId); upiState.timerId = null;
         stopUpiStream();
         stopUpiPoll();
         // Underpayment detection: finalizeUnderpayment() parks the payment
-        // as REVIEW AND records received_amount. If we see a verified
-        // received amount that's smaller than the required price, surface
-        // the insufficient-payment overlay (no coupon reveal — the refund
-        // service owns the buyer's notice). Anything else (coupon
-        // unavailable, manual review, etc.) keeps the existing generic
-        // "review" state.
-        {
-          const reqAmt = Number(data && data.amount);
-          const recAmt = (data && data.received_amount !== undefined && data.received_amount !== null)
-            ? Number(data.received_amount)
-            : null;
-          if (recAmt !== null && Number.isFinite(recAmt) && Number.isFinite(reqAmt) && recAmt + 0.005 < reqAmt) {
-            if (upiState.successShown) break;
-            upiState.successShown = true;
-            showInsufficientAmountScreen(reqAmt, recAmt, data);
-            break;
-          }
+        // as REVIEW AND records received_amount. If the verified received
+        // amount is smaller than the required price, surface the
+        // insufficient-payment overlay (no coupon reveal — the refund service
+        // owns the buyer's notice). Anything else (coupon unavailable, payer
+        // mismatch, manual review) keeps the existing generic "review" state,
+        // and a REVIEW row never reveals a coupon.
+        const pick = selectPaymentWindow(data);
+        if (pick.window === 'insufficient') {
+          if (windowAlreadyShown('insufficient')) break;
+          markWindowShown('insufficient');
+          showInsufficientAmountScreen(pick.required, pick.received, data);
+          break;
         }
         showUpiState('review');
         break;
+      }
 
       case 'CANCELLED':
         clearInterval(upiState.timerId); upiState.timerId = null;
@@ -1935,8 +2027,8 @@
       if (!overlay.classList.contains('show')) overlay.classList.add('show');
     }
     document.body.style.overflow = 'hidden';
-    // Fresh interaction: allow the success screen to show for this attempt.
-    upiState.successShown = false;
+    // Fresh interaction: allow the result window to show for this attempt.
+    markWindowShown('');
   }
 
   function closeUpiBox(opts) {
@@ -2062,7 +2154,18 @@
   }
 
   /** The server confirmed a real, verified payment. Reveal the code. */
-  function showServerConfirmedSuccess(data) {
+  function showServerConfirmedSuccess(data, pick) {
+    const selection = pick || selectPaymentWindow(data);
+
+    // A PAID row whose verified received amount is short must never reach the
+    // success window or reveal the coupon. The backend parks underpayments as
+    // REVIEW, so this only trips if a payment is ever settled before its
+    // amount is compared — fail closed instead of showing a wrong window.
+    if (selection.window === 'insufficient') {
+      showInsufficientAmountScreen(selection.required, selection.received, data);
+      return;
+    }
+
     if (data.coupon_code) {
       // The shared PurchasedCouponModal reads the verified code from here.
       currentCoupon.code = data.coupon_code;
@@ -2091,18 +2194,13 @@
 
     // Overpayment: the buyer paid more than the coupon's price. The coupon is
     // still unlocked (that is what PAID means), so we show the refund notice
-    // first and then reveal the code. `received_amount` is server-set and is
-    // null on a normal exact-amount payment, so the check is a no-op there.
-    const requiredAmt = Number(data.amount);
-    const receivedAmt = (data.received_amount === undefined || data.received_amount === null)
-      ? null
-      : Number(data.received_amount);
-    if (receivedAmt !== null && Number.isFinite(receivedAmt) && Number.isFinite(requiredAmt)
-        && receivedAmt > requiredAmt + 0.005) {
+    // first and then reveal the code. `received_amount` and `refund_amount` are
+    // server-set; `payment_outcome` is the server's own verdict on the pair.
+    if (selection.window === 'extra') {
       // refund_amount is computed by the server (refunds.computeRefund); the
       // client only falls back to the same arithmetic if the field is absent.
       const serverRefund = Number(data.refund_amount);
-      showExtraAmountThenSuccess(requiredAmt, receivedAmt,
+      showExtraAmountThenSuccess(selection.required, selection.received,
         Number.isFinite(serverRefund) && serverRefund > 0 ? serverRefund : null);
       return;
     }
@@ -2126,6 +2224,7 @@
     const ok = document.getElementById('payOkOverlay');
     if (!ok) { showSuccessScreen(); return; } // fail safe: still reveal the coupon
 
+    dismissPaymentWindows('success');
     ok.classList.add('show');
     document.body.style.overflow = 'hidden';
     let secs = 3;
@@ -2453,6 +2552,7 @@
     const overlay = upiEl('extraAmountOverlay');
     if (!overlay) { showSuccessScreen(); return; } // fail safe: still reveal the code
 
+    dismissPaymentWindows('extra');
     overlay.classList.add('show');
     document.body.style.overflow = 'hidden';
 
@@ -2499,6 +2599,7 @@
 
     const overlay = upiEl('insufficientAmountOverlay');
     if (!overlay) return;
+    dismissPaymentWindows('insufficient');
     overlay.classList.add('show');
     document.body.style.overflow = 'hidden';
 
@@ -2512,11 +2613,34 @@
     const overlay = upiEl('insufficientAmountOverlay');
     if (overlay) overlay.classList.remove('show');
     document.body.style.overflow = '';
+    markWindowShown('');
     // Honest status: the refund is pending until the transfer is confirmed.
     showToastLocal(
       'Your payment is being refunded. The order was cancelled and no coupon was issued. You will be notified when the refund is confirmed.',
       'info'
     );
+  }
+
+  /**
+   * Close every payment result window except the one about to open, so a later
+   * verified state (for example an underpayment that is settled in full)
+   * replaces the old window instead of stacking a second one on top of it.
+   */
+  function dismissPaymentWindows(exceptKey) {
+    if (exceptKey !== 'success') {
+      clearInterval(payOkTimer); payOkTimer = null;
+      const ok = upiEl('payOkOverlay');
+      if (ok) ok.classList.remove('show');
+    }
+    if (exceptKey !== 'extra') {
+      clearInterval(xaTimer); xaTimer = null;
+      const xa = upiEl('extraAmountOverlay');
+      if (xa) xa.classList.remove('show');
+    }
+    if (exceptKey !== 'insufficient') {
+      const ip = upiEl('insufficientAmountOverlay');
+      if (ip) ip.classList.remove('show');
+    }
   }
 
   // ── Purchased coupon box (shared component) ─────────────────────────────

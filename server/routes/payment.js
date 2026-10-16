@@ -410,6 +410,17 @@ async function presentPayment(payment, { coupon = null, order = null } = {}) {
     // minus received; underpayment_refund_amount = the full received amount.
     short_amount: underpaymentFor(payment).short,
     underpayment_refund_amount: underpaymentFor(payment).refund,
+    // Authoritative window selector: 'exact' | 'overpaid' | 'underpaid' |
+    // null (nothing verified yet) | 'unknown' (unusable received amount).
+    // Derived only from the stored required amount and the verified received
+    // amount, so the checkout never has to re-decide this from client state —
+    // it picks the Payment Successful, Extra Payment or Insufficient Payment
+    // window directly from this word.
+    payment_outcome: refunds.outcomeForPayment({
+      status: payment.status,
+      required: payment.amount,
+      received: payment.receivedAmount,
+    }),
     currency: payment.currency,
     expires_at: payment.expiresAt,
     // The 10-minute countdown above is only the on-screen window. The backend

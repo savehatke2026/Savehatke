@@ -551,9 +551,9 @@
 
     /* ===================================================
        ACCOUNT SECURITY PAGE
-       Three compact cards, all on one page: Security Overview
-       (verification, 2FA, last sign-in), Two-Factor and Active
-       Sessions. No sub-pages, no tabs.
+       Two compact cards, all on one page: Security Overview
+       (verification, last sign-in) and Active Sessions.
+       No sub-pages, no tabs.
        Scoped to #view-security so no other view is affected.
        #view-account borrows .sec-stack for the same rhythm.
     =================================================== */
@@ -574,8 +574,6 @@
     .sec-posture.secure .sec-posture-title{color:#00E272}
     .sec-posture.action .sec-posture-title{color:#ffd08a}
     .sec-posture-sub{font-size:.79rem;color:#8ea6c4;margin-top:3px;line-height:1.5;overflow-wrap:anywhere}
-    .sec-posture-act{flex:0 0 auto}
-
     /* Status tiles — the three at-a-glance facts, scannable in one pass */
     .sec-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:11px}
     .sec-tile{display:flex;flex-direction:column;gap:7px;min-width:0;padding:13px 14px;border-radius:12px;background:rgba(8,16,42,.5);border:1px solid rgba(79,195,247,.1)}
@@ -594,9 +592,6 @@
       /* The fix action drops to its own full-width row rather than shrinking
          beside the text. */
       .sec-posture{flex-wrap:wrap;gap:12px}
-      .sec-posture-act{width:100%}
-      .sec-posture-act .btn{width:100%;justify-content:center;min-height:42px}
-    }
     .sec-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;letter-spacing:.03em;color:#00E272;background:rgba(0,226,114,.09);border:1px solid rgba(0,226,114,.2);border-radius:999px;padding:4px 10px;white-space:nowrap}
     /* Neutral badge — a true "off" state, never styled as an error */
     .sec-status.off{color:#8ea6c4;background:rgba(107,136,170,.12);border-color:rgba(107,136,170,.24)}
@@ -642,71 +637,6 @@
       .sess-row{flex-wrap:wrap}
       .sess-act{width:100%;padding-top:2px;padding-left:46px}
       .sess-logout{width:100%;min-height:38px}
-    }
-
-    /* ===================================================
-       TWO-FACTOR AUTHENTICATION
-    =================================================== */
-    .tf-status{flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;font-size:.72rem;font-weight:700;letter-spacing:.03em;border-radius:999px;padding:4px 11px;white-space:nowrap;background:rgba(107,136,170,.12);border:1px solid rgba(107,136,170,.22);color:#8ea6c4}
-    .tf-status.on{background:rgba(0,226,114,.09);border-color:rgba(0,226,114,.28);color:#00E272}
-    .tf-dot{width:7px;height:7px;border-radius:50%;background:#8ea6c4;flex:0 0 auto}
-    .tf-status.on .tf-dot{background:#00E272}
-    .tf-blurb{font-size:.84rem;color:#a8c0dc;line-height:1.6;margin:0 0 18px}
-    .tf-meta{margin-bottom:18px;border-top:1px solid rgba(79,195,247,.07);padding-top:4px}
-    .tf-meta-row{display:flex;justify-content:space-between;gap:14px;padding:9px 0;font-size:.82rem;border-bottom:1px solid rgba(79,195,247,.06)}
-    .tf-meta-row:last-child{border-bottom:none}
-    .tf-meta-lbl{color:#6b88aa}
-    .tf-meta-val{color:#e2ecff;font-weight:600;text-align:right}
-    .tf-actions{display:flex;gap:9px;flex-wrap:wrap}
-    .tf-unavailable{font-size:.82rem;color:#ef9a9a;background:rgba(239,154,154,.07);border:1px solid rgba(239,154,154,.2);border-radius:11px;padding:13px 15px;line-height:1.55;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
-    .tf-unavailable-txt{min-width:0}
-    @media(max-width:480px){
-      .tf-unavailable .btn{width:100%;justify-content:center}
-    }
-
-    /* Step indicator */
-    .tf-steps{display:flex;align-items:center;gap:7px;margin-bottom:20px}
-    .tf-step-pip{height:3px;flex:1;border-radius:2px;background:rgba(107,136,170,.22);transition:background .25s}
-    .tf-step-pip.done{background:rgba(0,226,114,.45)}
-    .tf-step-pip.now{background:#00E272}
-
-    /* Code entry — one box per digit, mirroring the login OTP field. The row
-       holds 6 boxes for an authenticator code and 8 for the emailed enrolment
-       code, so the boxes are allowed to shrink rather than overflow the modal on
-       a narrow screen. */
-    .tf-code-row{display:flex;gap:9px;justify-content:center;margin:4px 0 6px;flex-wrap:nowrap}
-    .tf-code-box{flex:0 1 46px;width:46px;min-width:0;height:56px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:1.25rem;font-weight:600;color:#e2ecff;background:rgba(8,16,42,.75);border:1.5px solid rgba(79,195,247,.18);border-radius:12px;transition:border-color .18s,background .18s}
-    .tf-code-box:focus{outline:none;border-color:rgba(0,226,114,.6);background:rgba(0,226,114,.05)}
-    .tf-code-box.filled{border-color:rgba(79,195,247,.4)}
-    .tf-code-box.error{border-color:rgba(239,154,154,.65)}
-    .tf-hint{font-size:.78rem;color:#6b88aa;text-align:center;line-height:1.55;margin-top:10px}
-    .tf-hint a,.tf-linkbtn{color:#4fc3f7;background:none;border:none;padding:0;font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:3px}
-    .tf-linkbtn:disabled{color:#546e8f;cursor:default;text-decoration:none}
-
-    /* QR + manual key */
-    .tf-qr-wrap{display:flex;justify-content:center;margin:6px 0 16px}
-    .tf-qr{width:200px;height:200px;border-radius:14px;background:#fff;padding:10px;display:block}
-    .tf-qr-skeleton{width:200px;height:200px;border-radius:14px;background:rgba(79,195,247,.07);border:1px solid rgba(79,195,247,.14);display:flex;align-items:center;justify-content:center;font-size:.78rem;color:#6b88aa}
-    .tf-apps{font-size:.8rem;color:#a8c0dc;line-height:1.6;margin:0 0 16px}
-    .tf-key{margin-top:8px;background:rgba(8,16,42,.7);border:1px solid rgba(79,195,247,.16);border-radius:11px;padding:13px 15px}
-    .tf-key-lbl{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#6b88aa;margin-bottom:7px}
-    .tf-key-val{font-family:'JetBrains Mono',monospace;font-size:.86rem;color:#00E272;word-spacing:4px;overflow-wrap:anywhere;line-height:1.6}
-
-    /* Recovery codes */
-    .tf-codes-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:4px 0 16px}
-    .tf-code-chip{font-family:'JetBrains Mono',monospace;font-size:.88rem;color:#e2ecff;background:rgba(8,16,42,.72);border:1px solid rgba(79,195,247,.14);border-radius:9px;padding:10px 12px;text-align:center;letter-spacing:.04em}
-    .tf-code-chip.spent{color:#546e8f;text-decoration:line-through}
-    .tf-warn{font-size:.8rem;line-height:1.6;color:#ffd08a;background:rgba(255,183,77,.07);border:1px solid rgba(255,183,77,.22);border-radius:11px;padding:13px 15px;margin-bottom:16px}
-    .tf-danger{font-size:.82rem;line-height:1.6;color:#f3b6b6;background:rgba(239,154,154,.07);border:1px solid rgba(239,154,154,.2);border-radius:11px;padding:13px 15px;margin-bottom:18px}
-    .tf-copyrow{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:4px}
-    .tf-copyrow .btn{flex:1;justify-content:center;min-width:140px}
-
-    @media(max-width:480px){
-      .tf-code-row{gap:6px}
-      .tf-code-box{flex:0 1 40px;width:40px;height:50px;font-size:1.05rem;border-radius:10px}
-      .tf-codes-grid{grid-template-columns:minmax(0,1fr)}
-      .tf-actions .btn{width:100%;justify-content:center;min-height:44px}
-      .tf-copyrow .btn{min-width:0}
     }
 
     /* ===================================================
@@ -1368,8 +1298,6 @@
       .mobile-sb-btn{position:relative}
       .mobile-sb-btn::after{content:'';position:absolute;left:0;right:0;top:50%;height:44px;transform:translateY(-50%)}
       .modal-close-btn::after{content:'';position:absolute;top:50%;left:50%;width:44px;height:44px;transform:translate(-50%,-50%)}
-      .tf-linkbtn{position:relative}
-      .tf-linkbtn::after{content:'';position:absolute;left:0;right:0;top:50%;height:36px;transform:translateY(-50%)}
       /* Bell and avatar are 38px squares with a 10px gap, so a centred 44px
          overlay reaches the target without touching its neighbour. */
       .notif-btn,.nav-profile-btn{position:relative}
@@ -1634,14 +1562,14 @@
       <button class="sb-item" data-view="refunds" onclick="showView('refunds')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 4-4 4 4 4M3 8h11a6 6 0 0 1 0 12H9"/></svg></span> Refunds</button>
 
       <!-- Account Settings holds profile and account identity only. Anything
-           that protects the account — verification, 2FA, sessions, last login —
+           that protects the account — verification, sessions, last login —
            lives on the Security page instead, so a user always knows which of
            the two pages to open. -->
       <button class="sb-item" data-view="account" onclick="showView('account')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="m9 3-1 3-3 1-2 3 2 2-1 4 3 2 3-1 2 4 3-2 1-3 4-1 1-4-3-2-1-4-4 1Z"/></svg></span> Account Settings</button>
 
       <div class="sb-section-label">Security</div>
 
-      <!-- One page, no children. Sessions, 2FA and the last sign-in are cards on
+      <!-- One page, no children. Sessions and the last sign-in are cards on
            it, not sub-navigation: the two sub-items that used to sit here only
            scrolled to anchors on this same page. -->
       <button class="sb-item" data-view="security" onclick="showView('security')"><span class="sb-item-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6Z"/><path d="m8.5 12 2.5 2.5 4.5-5"/></svg></span> Security</button>
@@ -2476,7 +2404,7 @@
          painted by renderAccountSettings() from the session
          the user is already signed in with — this page adds
          no new endpoint and stores nothing of its own.
-         Security posture (verification status, 2FA, sessions,
+         Security posture (verification status, sessions,
          last sign-in) deliberately lives on the Security page.
     ═══════════════════════════════════════════════ -->
     <div id="view-account" class="db-view">
@@ -2548,16 +2476,15 @@
           </div>
 
           <!-- Account Security Status, promoted to a banner: the overall posture
-               is what a user opens this page to check. Tone, copy and the inline
-               fix action are all set by renderSecurityPosture(). -->
+               is what a user opens this page to check. Tone and copy are set by
+               renderSecurityPosture(). Two-factor authentication is disabled, so
+               there is no second status to merge and no inline fix to offer —
+               email verification happens on the sign-in path. -->
           <div class="sec-posture" id="securityPosture">
             <div class="sec-posture-ico" id="securityPostureIco" aria-hidden="true">⋯</div>
             <div class="sec-posture-txt">
               <div class="sec-posture-title" id="securityAccountStatusTag">Checking…</div>
               <div class="sec-posture-sub" id="securityAccountStatus">Reading your account security settings.</div>
-            </div>
-            <div class="sec-posture-act" id="securityPostureAct" style="display:none">
-              <button class="btn btn-primary btn-sm" onclick="startTwoFactor('enable')">Enable 2FA</button>
             </div>
           </div>
 
@@ -2570,66 +2497,10 @@
               </div>
             </div>
 
-            <!-- Mirrors the 2FA card below; both are painted from the same
-                 /api/auth/2fa/status response so they can never disagree. -->
-            <div class="sec-tile">
-              <div class="sec-tile-lbl">Two-Factor Authentication</div>
-              <div class="sec-tile-val" id="securityTwoFactor">Authenticator app</div>
-              <div class="sec-tile-foot">
-                <span class="sec-status off" id="securityTwoFactorTag">Checking…</span>
-              </div>
-            </div>
-
             <div class="sec-tile">
               <div class="sec-tile-lbl">Last Successful Login</div>
               <div class="sec-tile-val" id="securityLastLogin">—</div>
             </div>
-          </div>
-        </div>
-
-        <!-- CARD 1b — Two-factor authentication.
-             Status, enabled-state detail and the entry points into the setup /
-             manage / disable flows. Everything here is painted from
-             GET /api/auth/2fa/status; nothing about 2FA is decided client-side. -->
-        <div class="card" id="secTwoFactor">
-          <div class="card-hdr">
-            <div class="card-title"><span class="ico">🛡️</span> Two-Factor Authentication</div>
-            <span class="tf-status" id="tfStatusPill">
-              <span class="tf-dot" id="tfStatusDot"></span><span id="tfStatusText">Checking…</span>
-            </span>
-          </div>
-
-          <p class="tf-blurb" id="tfBlurb">Add an extra layer of security to protect your SaveHatke account.</p>
-
-          <div class="tf-meta" id="tfMeta" style="display:none">
-            <div class="tf-meta-row">
-              <span class="tf-meta-lbl">Authenticator app</span>
-              <span class="tf-meta-val">Connected</span>
-            </div>
-            <div class="tf-meta-row">
-              <span class="tf-meta-lbl">Enabled on</span>
-              <span class="tf-meta-val" id="tfEnabledAt">—</span>
-            </div>
-            <div class="tf-meta-row">
-              <span class="tf-meta-lbl">Recovery codes left</span>
-              <span class="tf-meta-val" id="tfCodesLeft">—</span>
-            </div>
-          </div>
-
-          <div class="tf-actions" id="tfActionsDisabled">
-            <button class="btn btn-primary btn-sm" onclick="startTwoFactor('enable')">Enable 2FA</button>
-          </div>
-
-          <div class="tf-actions" id="tfActionsEnabled" style="display:none">
-            <button class="btn btn-ghost btn-sm" onclick="startTwoFactor('manage')">Manage 2FA</button>
-            <button class="btn btn-danger btn-sm" onclick="startTwoFactor('disable')">Disable 2FA</button>
-          </div>
-
-          <!-- Shown only for a real backend/service failure — never as a
-               resting state. renderTwoFactorStatus() owns the copy. -->
-          <div class="tf-unavailable" id="tfUnavailable" style="display:none">
-            <span class="tf-unavailable-txt" id="tfUnavailableTxt"></span>
-            <button class="btn btn-ghost btn-sm" onclick="loadTwoFactorStatus()">Try Again</button>
           </div>
         </div>
 
@@ -2967,156 +2838,6 @@
 <!-- =====================================================
      MODALS
 ===================================================== -->
-
-<!-- ═══════════════════════════════════════════════
-     TWO-FACTOR AUTHENTICATION MODAL
-     One shell, several panels. The active flow (enable / manage / disable /
-     regenerate) decides which panels are visited; every panel's action is
-     verified server-side, so the panel order is presentation only.
-═══════════════════════════════════════════════ -->
-<div class="modal-overlay" id="twofaModal" onclick="handleOverlayClick(event,'twofaModal')">
-  <div class="modal modal-lg">
-    <button class="modal-close-btn" onclick="closeTwoFactor()">✕</button>
-
-    <div class="modal-hdr">
-      <div class="modal-title" id="tfTitle">Verify your <span class="gtext">account</span></div>
-      <div class="modal-sub" id="tfSub">Confirm it's you before changing security settings.</div>
-    </div>
-
-    <div class="tf-steps" id="tfSteps">
-      <span class="tf-step-pip" data-pip="1"></span>
-      <span class="tf-step-pip" data-pip="2"></span>
-      <span class="tf-step-pip" data-pip="3"></span>
-      <span class="tf-step-pip" data-pip="4"></span>
-    </div>
-
-    <!-- ── Step 0: confirm intent. Nothing is sent and nothing changes until
-         "Confirm & Continue" is pressed, so an accidental click on Enable 2FA
-         costs the user no email and no state. ── -->
-    <div class="tf-panel" id="tfPanelConfirm" style="display:none">
-      <p class="tf-apps">
-        Adding two-factor authentication will make your account more secure.
-        Before continuing, we'll verify your email address.
-      </p>
-      <div class="tf-warn">
-        An 8-digit verification code will be sent to your registered email address
-        <strong id="tfConfirmEmail">your email</strong>.
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Cancel</button>
-        <button class="btn btn-primary" style="flex:1" id="tfConfirmBtn" onclick="confirmTwoFactorStart()">Confirm &amp; Continue</button>
-      </div>
-    </div>
-
-    <!-- ── Step 1: email OTP (8 digits — not the 6-digit authenticator code) ── -->
-    <div class="tf-panel" id="tfPanelEmail" style="display:none">
-      <p class="tf-apps">We've sent an 8-digit verification code to <strong id="tfMaskedEmail">your email</strong>.</p>
-      <div class="tf-code-row" id="tfEmailCodeRow"></div>
-      <div class="tf-hint">
-        <span id="tfEmailExpiry"></span>
-        Didn't get it?
-        <button type="button" class="tf-linkbtn" id="tfResendBtn" onclick="resendTwoFactorEmail()">Resend code</button>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Cancel</button>
-        <button class="btn btn-primary" style="flex:1" id="tfVerifyEmailBtn" onclick="submitTwoFactorEmail()">Verify Code</button>
-      </div>
-    </div>
-
-    <!-- ── Step 2: scan the QR ── -->
-    <div class="tf-panel" id="tfPanelScan" style="display:none">
-      <p class="tf-apps">Open Google Authenticator, Microsoft Authenticator, Authy or any other TOTP app and scan this code.</p>
-      <div class="tf-qr-wrap" id="tfQrWrap">
-        <div class="tf-qr-skeleton">Generating…</div>
-      </div>
-      <div class="tf-hint">
-        Can't scan?
-        <button type="button" class="tf-linkbtn" onclick="toggleSetupKey()" id="tfKeyToggle">Show setup key</button>
-      </div>
-      <div class="tf-key" id="tfKeyBox" style="display:none">
-        <div class="tf-key-lbl">Setup key</div>
-        <div class="tf-key-val" id="tfKeyVal">—</div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Cancel</button>
-        <button class="btn btn-primary" style="flex:1" onclick="goToTwoFactorCode()">Continue</button>
-      </div>
-    </div>
-
-    <!-- ── Step 3: confirm a live code ── -->
-    <div class="tf-panel" id="tfPanelCode" style="display:none">
-      <div class="tf-code-row" id="tfTotpCodeRow"></div>
-      <p class="tf-hint" id="tfCodeHint">Enter the 6-digit code currently shown in your authenticator app.</p>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Cancel</button>
-        <button class="btn btn-primary" style="flex:1" id="tfCodeSubmitBtn" onclick="submitTwoFactorCode()">Verify &amp; Enable 2FA</button>
-      </div>
-    </div>
-
-    <!-- ── Step 4: recovery codes, shown exactly once ── -->
-    <div class="tf-panel" id="tfPanelCodes" style="display:none">
-      <div class="tf-warn">
-        Save these recovery codes somewhere secure. Each code can only be used once.
-        If you lose access to your authenticator app, a recovery code can help you regain access.
-      </div>
-      <div class="tf-codes-grid" id="tfRecoveryGrid"></div>
-      <div class="tf-copyrow">
-        <button class="btn btn-ghost btn-sm" onclick="downloadRecoveryCodes()">Download Recovery Codes</button>
-        <button class="btn btn-ghost btn-sm" id="tfCopyBtn" onclick="copyRecoveryCodes()">Copy Codes</button>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary" style="flex:1" onclick="closeTwoFactor()">I've Saved My Codes</button>
-      </div>
-    </div>
-
-    <!-- ── Manage ── -->
-    <div class="tf-panel" id="tfPanelManage" style="display:none">
-      <p class="tf-apps">Your account is protected by an authenticator app.</p>
-      <div class="tf-meta">
-        <div class="tf-meta-row">
-          <span class="tf-meta-lbl">Recovery codes left</span>
-          <span class="tf-meta-val" id="tfManageCodesLeft">—</span>
-        </div>
-      </div>
-      <div class="tf-actions" style="flex-direction:column">
-        <button class="btn btn-ghost btn-sm btn-full" onclick="beginRegenerate()">Regenerate Recovery Codes</button>
-        <button class="btn btn-ghost btn-sm btn-full" onclick="beginReplaceAuthenticator()">Connect a Different Authenticator</button>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Close</button>
-      </div>
-    </div>
-
-    <!-- ── Disable confirmation ── -->
-    <div class="tf-panel" id="tfPanelDisable" style="display:none">
-      <div class="tf-danger">
-        Turning off two-factor authentication removes the authenticator requirement from your account and
-        invalidates every recovery code. Anyone who gets into your email will be able to sign in.
-      </div>
-      <div class="tf-code-row" id="tfDisableCodeRow"></div>
-      <p class="tf-hint">
-        Enter the 6-digit code from your authenticator app, or
-        <button type="button" class="tf-linkbtn" onclick="useRecoveryForDisable()">use a recovery code</button>.
-      </p>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Cancel</button>
-        <button class="btn btn-danger" style="flex:1" id="tfDisableBtn" onclick="submitTwoFactorDisable()">Disable 2FA</button>
-      </div>
-    </div>
-
-    <!-- ── Recovery-code entry (used by the disable flow) ── -->
-    <div class="tf-panel" id="tfPanelRecovery" style="display:none">
-      <p class="tf-apps">Enter one of the recovery codes you saved when you set up two-factor authentication.</p>
-      <input class="rv-textarea" id="tfRecoveryInput" style="min-height:0;height:52px;font-family:'JetBrains Mono',monospace;letter-spacing:.08em;text-align:center;text-transform:uppercase" placeholder="XXXX-XXXX" maxlength="9" autocomplete="one-time-code">
-      <p class="tf-hint">Each recovery code works once.</p>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" style="flex:1" onclick="closeTwoFactor()">Cancel</button>
-        <button class="btn btn-danger" style="flex:1" id="tfRecoveryBtn" onclick="submitTwoFactorDisable(true)">Disable 2FA</button>
-      </div>
-    </div>
-
-  </div>
-</div>
 
 <!-- WRITE / EDIT REVIEW MODAL -->
 <div class="modal-overlay" id="reviewModal" onclick="handleOverlayClick(event,'reviewModal')">
@@ -4120,38 +3841,31 @@
   }
 
   // ─── Security posture ──────────────────────────────────────────
-  // "Account Security Status" is derived, never stored: it is Secure only when
-  // the email is verified AND two-factor authentication is on. Both inputs
-  // arrive asynchronously (profile, then /auth/2fa/status), so each writer
-  // updates its own field and repaints.
-  const SEC_POSTURE = { emailVerified: null, twoFactor: null };
+  // "Account Security Status" is derived, never stored: it is Secure when the
+  // account email is verified. Two-factor authentication is disabled, so
+  // verification is the only input this page can act on; the sign-in path
+  // still owns the verification flow itself.
+  const SEC_POSTURE = { emailVerified: null };
 
   function renderSecurityPosture() {
     const wrap = document.getElementById('securityPosture');
     const ico = document.getElementById('securityPostureIco');
     const title = document.getElementById('securityAccountStatusTag');
     const sub = document.getElementById('securityAccountStatus');
-    const act = document.getElementById('securityPostureAct');
     if (!wrap || !title || !sub) return;
 
-    const { emailVerified, twoFactor } = SEC_POSTURE;
-    if (emailVerified === null || twoFactor === null) return; // still loading
+    const { emailVerified } = SEC_POSTURE;
+    if (emailVerified === null) return; // still loading
 
-    const secure = emailVerified === true && twoFactor === true;
+    const secure = emailVerified === true;
     wrap.classList.toggle('secure', secure);
     wrap.classList.toggle('action', !secure);
     if (ico) ico.textContent = secure ? '✓' : '!';
 
     title.textContent = secure ? 'Secure' : 'Action Required';
     sub.textContent = secure
-      ? 'Your email is verified and two-factor authentication is on.'
-      : (twoFactor === false
-        ? 'Two-factor authentication is off. Turn it on to protect your account if your email is ever compromised.'
-        : 'Your email address is not verified yet.');
-
-    // Only the 2FA gap gets an inline fix, because it is the only one this page
-    // can actually start. Email verification happens on the sign-in path.
-    if (act) act.style.display = (!secure && twoFactor === false) ? '' : 'none';
+      ? 'Your email is verified and your account is protected.'
+      : 'Your email address is not verified yet.';
   }
 
   // ─── Suspension state ──────────────────────────────────────────
@@ -6584,607 +6298,6 @@
     }, duration);
   }
 
-  // ─── Two-factor authentication ─────────────────────────────────
-  //   Presentation only. Every decision that matters — whether 2FA is on,
-  //   whether a code is correct, whether a recovery code is still unused — is
-  //   made by /api/auth/2fa/* on the server. Nothing here is trusted, and the
-  //   TOTP secret only ever exists in the QR/setup-key response.
-  const TF = {
-    flow: null,          // enable | manage | disable | regenerate | replace
-    stepUpToken: '',     // proof of recent email verification
-    recoveryCodes: [],   // held only while the one-time display is on screen
-    status: null,
-    resendTimer: null,
-    resendUntil: 0,
-    expiryTimer: null,
-  };
-
-  // ── Digit-box helpers ──
-  // Single-character inputs behave better on mobile keyboards than one field,
-  // and match the OTP entry on the login page.
-  // count is 6 for an authenticator code and 8 for the emailed enrolment code —
-  // the two are deliberately different lengths so they cannot be confused.
-  function buildCodeBoxes(rowId, onComplete, count = 6) {
-    const row = document.getElementById(rowId);
-    if (!row) return;
-    const n = Number(count) > 0 ? Math.floor(Number(count)) : 6;
-    const last = n - 1;
-    row.innerHTML = Array.from({ length: n }, (_, i) =>
-      `<input class="tf-code-box" inputmode="numeric" autocomplete="one-time-code" maxlength="1"
-              aria-label="Digit ${i + 1} of ${n}" data-idx="${i}">`).join('');
-
-    const boxes = Array.from(row.querySelectorAll('.tf-code-box'));
-    const sync = () => boxes.forEach((b) => b.classList.toggle('filled', Boolean(b.value)));
-
-    boxes.forEach((box, i) => {
-      box.addEventListener('input', () => {
-        box.value = box.value.replace(/\D/g, '').slice(0, 1);
-        box.classList.remove('error');
-        sync();
-        if (box.value && i < last) boxes[i + 1].focus();
-        if (boxes.every((b) => b.value) && typeof onComplete === 'function') onComplete();
-      });
-      box.addEventListener('keydown', (e) => {
-        if (e.key === 'Backspace' && !box.value && i > 0) boxes[i - 1].focus();
-        if (e.key === 'Enter' && boxes.every((b) => b.value) && typeof onComplete === 'function') onComplete();
-      });
-      // Pasting the whole code into any box should fill the row.
-      box.addEventListener('paste', (e) => {
-        const digits = String((e.clipboardData || {}).getData ? e.clipboardData.getData('text') : '')
-          .replace(/\D/g, '').slice(0, n);
-        if (!digits) return;
-        e.preventDefault();
-        boxes.forEach((b, j) => { b.value = digits[j] || ''; });
-        sync();
-        boxes[Math.min(digits.length, last)].focus();
-        if (digits.length === 6 && typeof onComplete === 'function') onComplete();
-      });
-    });
-  }
-
-  function readCodeBoxes(rowId) {
-    const row = document.getElementById(rowId);
-    if (!row) return '';
-    return Array.from(row.querySelectorAll('.tf-code-box')).map((b) => b.value).join('');
-  }
-
-  function focusCodeBoxes(rowId) {
-    const first = document.querySelector(`#${rowId} .tf-code-box`);
-    if (first) setTimeout(() => first.focus(), 80);
-  }
-
-  function flashCodeError(rowId) {
-    const boxes = Array.from(document.querySelectorAll(`#${rowId} .tf-code-box`));
-    boxes.forEach((b) => b.classList.add('error'));
-    setTimeout(() => {
-      boxes.forEach((b) => { b.value = ''; b.classList.remove('error', 'filled'); });
-      if (boxes[0]) boxes[0].focus();
-    }, 800);
-  }
-
-  // ── Status card ──
-  // `serviceError` is only ever true when a request actually failed — the
-  // resting state of a 2FA-less account is "Not Enabled", never an error.
-  function renderTwoFactorStatus(status, serviceError) {
-    TF.status = status || null;
-    const on = Boolean(status && status.enabled);
-    const configured = !status || status.available !== false;
-    const broken = Boolean(serviceError) || (!on && !configured);
-
-    const pill = document.getElementById('tfStatusPill');
-    if (pill) pill.classList.toggle('on', on);
-    setText('tfStatusText', on ? 'Enabled' : 'Not Enabled');
-
-    const blurb = document.getElementById('tfBlurb');
-    if (blurb) {
-      blurb.textContent = on
-        ? 'Your account is protected with an authenticator app. A 6-digit code from it is required every time you sign in.'
-        : 'Use an authenticator app such as Google Authenticator or Authy to protect your SaveHatke account with a 6-digit code at sign-in.';
-    }
-
-    const meta = document.getElementById('tfMeta');
-    if (meta) meta.style.display = on ? 'block' : 'none';
-    if (on) {
-      setText('tfEnabledAt', status.enabledAt ? txDate(status.enabledAt) : '—');
-      setText('tfCodesLeft', `${status.recoveryCodesRemaining} of ${status.recoveryCodesTotal}`);
-    }
-
-    const offActions = document.getElementById('tfActionsDisabled');
-    const onActions = document.getElementById('tfActionsEnabled');
-    const unavailable = document.getElementById('tfUnavailable');
-    if (offActions) offActions.style.display = (!on && !broken) ? 'flex' : 'none';
-    if (onActions) onActions.style.display = on ? 'flex' : 'none';
-    if (unavailable) {
-      unavailable.style.display = broken ? 'flex' : 'none';
-      if (broken) {
-        setText('tfUnavailableTxt', serviceError
-          ? 'We could not reach the two-factor service. Your account is unchanged — please try again.'
-          : 'Two-factor setup is temporarily unavailable. Please try again shortly.');
-      }
-    }
-
-    // Keep the Security Overview badge in step with this card.
-    const ovVal = document.getElementById('securityTwoFactor');
-    const ovTag = document.getElementById('securityTwoFactorTag');
-    if (ovVal) {
-      ovVal.textContent = on ? 'Authenticator app' : (broken ? 'Status unavailable' : 'Not set up');
-      ovVal.classList.toggle('muted', !on);
-    }
-    if (ovTag) {
-      ovTag.textContent = on ? '✓ Enabled' : (broken ? 'Unavailable' : 'Not Enabled');
-      ovTag.classList.toggle('off', !on);
-      ovTag.classList.toggle('pending', Boolean(broken));
-    }
-
-    // Feeds the derived "Account Security Status" row. A service failure is
-    // left as unknown rather than reported as insecure.
-    SEC_POSTURE.twoFactor = broken ? null : on;
-    renderSecurityPosture();
-  }
-
-  async function loadTwoFactorStatus() {
-    try {
-      renderTwoFactorStatus(await api('/auth/2fa/status'));
-    } catch (err) {
-      // A dropped session is handled globally — don't paint it as a 2FA fault.
-      if (!err.sessionExpired) renderTwoFactorStatus(null, true);
-    }
-  }
-
-  // ── Panel routing ──
-  const TF_PANELS = ['tfPanelConfirm', 'tfPanelEmail', 'tfPanelScan', 'tfPanelCode', 'tfPanelCodes',
-    'tfPanelManage', 'tfPanelDisable', 'tfPanelRecovery'];
-
-  function showTfPanel(id, { title, sub, step = 0, steps = 0 }) {
-    TF_PANELS.forEach((p) => {
-      const el = document.getElementById(p);
-      if (el) el.style.display = p === id ? 'block' : 'none';
-    });
-    if (title) document.getElementById('tfTitle').innerHTML = title;
-    if (sub) setText('tfSub', sub);
-
-    // The pip row is hidden for flows that are not a numbered sequence.
-    const pipRow = document.getElementById('tfSteps');
-    if (pipRow) {
-      pipRow.style.display = steps > 1 ? 'flex' : 'none';
-      Array.from(pipRow.querySelectorAll('.tf-step-pip')).forEach((pip, i) => {
-        pip.style.display = i < steps ? 'block' : 'none';
-        pip.classList.toggle('done', i < step - 1);
-        pip.classList.toggle('now', i === step - 1);
-      });
-    }
-  }
-
-  function stopResendTimer() {
-    if (TF.resendTimer) { clearInterval(TF.resendTimer); TF.resendTimer = null; }
-  }
-
-  function stopOtpExpiryTimer() {
-    if (TF.expiryTimer) { clearInterval(TF.expiryTimer); TF.expiryTimer = null; }
-  }
-
-  // "Code expires in 9:41" — the server owns the real deadline; this only shows
-  // the user how long is left so an expired code is not a surprise.
-  function startOtpExpiryCountdown(seconds) {
-    const el = document.getElementById('tfEmailExpiry');
-    if (!el) return;
-    stopOtpExpiryTimer();
-
-    const total = Number(seconds) > 0 ? Number(seconds) : 0;
-    if (!total) { el.textContent = ''; return; }
-    const until = Date.now() + total * 1000;
-
-    const tick = () => {
-      const left = Math.max(0, Math.ceil((until - Date.now()) / 1000));
-      if (left <= 0) {
-        stopOtpExpiryTimer();
-        el.textContent = 'This verification code has expired. Please request a new code. ';
-        return;
-      }
-      const mins = Math.floor(left / 60);
-      const secs = String(left % 60).padStart(2, '0');
-      el.textContent = `Code expires in ${mins}:${secs}. `;
-    };
-    tick();
-    TF.expiryTimer = setInterval(tick, 1000);
-  }
-
-  function startResendCooldown(seconds) {
-    const btn = document.getElementById('tfResendBtn');
-    if (!btn) return;
-    stopResendTimer();
-    TF.resendUntil = Date.now() + Math.max(0, Number(seconds) || 0) * 1000;
-
-    const tick = () => {
-      const left = Math.ceil((TF.resendUntil - Date.now()) / 1000);
-      if (left <= 0) {
-        stopResendTimer();
-        btn.disabled = false;
-        btn.textContent = 'Resend code';
-        return;
-      }
-      btn.disabled = true;
-      btn.textContent = `Resend in ${left}s`;
-    };
-    tick();
-    TF.resendTimer = setInterval(tick, 1000);
-  }
-
-  function closeTwoFactor() {
-    stopResendTimer();
-    stopOtpExpiryTimer();
-    closeModal('twofaModal');
-    // Nothing sensitive is left in the page once the modal closes, and an
-    // abandoned setup is left with 2FA still off: the pending secret the server
-    // holds expires on its own and was never marked enabled.
-    TF.flow = null;
-    TF.stepUpToken = '';
-    TF.recoveryCodes = [];
-    const expiry = document.getElementById('tfEmailExpiry');
-    if (expiry) expiry.textContent = '';
-    const key = document.getElementById('tfKeyBox');
-    if (key) key.style.display = 'none';
-    const toggle = document.getElementById('tfKeyToggle');
-    if (toggle) toggle.textContent = 'Show setup key';
-    const qr = document.getElementById('tfQrWrap');
-    if (qr) qr.innerHTML = '<div class="tf-qr-skeleton">Generating…</div>';
-    setText('tfKeyVal', '—');
-    const grid = document.getElementById('tfRecoveryGrid');
-    if (grid) grid.innerHTML = '';
-    const rec = document.getElementById('tfRecoveryInput');
-    if (rec) rec.value = '';
-    loadTwoFactorStatus();
-  }
-
-  // The emailed enrolment code. 8 digits, so it can never be mistaken for the
-  // 6-digit code the authenticator app shows. The server is the authority — it
-  // reports otpLength on /setup/start and this is only the pre-response default.
-  const TF_EMAIL_OTP_LENGTH = 8;
-
-  // Every flow proves control of the registered email first, because the account
-  // is passwordless and a live session alone is not recent proof. Turning 2FA on
-  // asks for confirmation before that: clicking "Enable 2FA" must not send an
-  // email or create any setup state on its own.
-  async function startTwoFactor(flow) {
-    TF.flow = flow;
-    TF.stepUpToken = '';
-    TF.recoveryCodes = [];
-
-    if (flow === 'enable') {
-      setText('tfConfirmEmail', (TF.status && TF.status.maskedEmail) || 'your email');
-      showTfPanel('tfPanelConfirm', {
-        title: 'Turn on <span class="gtext">Two-Factor Authentication</span>',
-        sub: 'Nothing changes until you confirm.',
-        steps: 0,
-      });
-      openModal('twofaModal');
-      return;
-    }
-
-    openModal('twofaModal');
-    await requestTwoFactorEmailCode(flow);
-  }
-
-  /** "Confirm & Continue" — the first point at which anything is sent. */
-  async function confirmTwoFactorStart() {
-    const btn = document.getElementById('tfConfirmBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
-    try {
-      await requestTwoFactorEmailCode(TF.flow || 'enable');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Continue'; }
-    }
-  }
-
-  /** Shows the email panel and asks the server for the 8-digit code. */
-  async function requestTwoFactorEmailCode(flow) {
-    const numbered = (flow === 'enable' || flow === 'replace') ? 4 : 0;
-    buildCodeBoxes('tfEmailCodeRow', submitTwoFactorEmail, TF_EMAIL_OTP_LENGTH);
-    showTfPanel('tfPanelEmail', {
-      title: 'Verify Your <span class="gtext">Email</span>',
-      sub: "We've sent an 8-digit verification code to your registered email address.",
-      step: 1,
-      steps: numbered,
-    });
-    setText('tfMaskedEmail', (TF.status && TF.status.maskedEmail) || 'your email');
-
-    const btn = document.getElementById('tfVerifyEmailBtn');
-    if (btn) btn.disabled = true;
-    try {
-      const data = await api('/auth/2fa/setup/start', { method: 'POST' });
-      setText('tfMaskedEmail', data.maskedEmail || 'your email');
-      if (data.otpLength && Number(data.otpLength) !== TF_EMAIL_OTP_LENGTH) {
-        buildCodeBoxes('tfEmailCodeRow', submitTwoFactorEmail, Number(data.otpLength));
-      }
-      startResendCooldown(data.cooldownSeconds || 30);
-      startOtpExpiryCountdown(data.expiresInSeconds);
-      focusCodeBoxes('tfEmailCodeRow');
-    } catch (err) {
-      if (!err.sessionExpired) showToast(err.message || 'Could not send a verification code.', 'error');
-      closeTwoFactor();
-    } finally {
-      if (btn) btn.disabled = false;
-    }
-  }
-
-  async function resendTwoFactorEmail() {
-    const btn = document.getElementById('tfResendBtn');
-    if (btn && btn.disabled) return;
-    try {
-      const data = await api('/auth/2fa/setup/start', { method: 'POST' });
-      setText('tfMaskedEmail', data.maskedEmail || 'your email');
-      // A resend issues a new code and invalidates the previous one server-side,
-      // so the boxes are cleared rather than left holding a dead code.
-      buildCodeBoxes('tfEmailCodeRow', submitTwoFactorEmail,
-        Number(data.otpLength) || TF_EMAIL_OTP_LENGTH);
-      startResendCooldown(data.cooldownSeconds || 30);
-      startOtpExpiryCountdown(data.expiresInSeconds);
-      focusCodeBoxes('tfEmailCodeRow');
-      showToast('New code sent', 'success', 2200);
-    } catch (err) {
-      if (!err.sessionExpired) showToast(err.message || 'Could not resend the code.', 'error');
-      // Even a refused resend gets a cooldown, so the button is not spammable.
-      startResendCooldown(30);
-    }
-  }
-
-  async function submitTwoFactorEmail() {
-    const row = document.getElementById('tfEmailCodeRow');
-    const expected = row ? row.querySelectorAll('.tf-code-box').length : TF_EMAIL_OTP_LENGTH;
-    const otp = readCodeBoxes('tfEmailCodeRow');
-    if (otp.length < expected) return;
-
-    const btn = document.getElementById('tfVerifyEmailBtn');
-    const label = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
-    try {
-      const data = await api('/auth/2fa/setup/verify-email', { method: 'POST', body: { otp } });
-      TF.stepUpToken = data.stepUpToken;
-      stopResendTimer();
-      await afterEmailVerified();
-    } catch (err) {
-      if (!err.sessionExpired) showToast(err.message || 'That code is not valid.', 'error');
-      flashCodeError('tfEmailCodeRow');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = label; }
-    }
-  }
-
-  /** Where each flow goes once the email step is done. */
-  async function afterEmailVerified() {
-    if (TF.flow === 'enable' || TF.flow === 'replace') return requestAuthenticatorSecret();
-    if (TF.flow === 'manage') return showManagePanel();
-    if (TF.flow === 'regenerate') return showCodePanelForRegenerate();
-    if (TF.flow === 'disable') return showDisablePanel();
-    return closeTwoFactor();
-  }
-
-  // ── Step 2: QR + manual key ──
-  async function requestAuthenticatorSecret() {
-    showTfPanel('tfPanelScan', {
-      title: 'Set Up Your <span class="gtext">Authenticator</span>',
-      sub: 'Use an authenticator app such as Google Authenticator, Microsoft Authenticator, or Authy.',
-      step: 2,
-      steps: 4,
-    });
-    try {
-      const data = await api('/auth/2fa/setup/secret', {
-        method: 'POST', body: { stepUpToken: TF.stepUpToken },
-      });
-      const wrap = document.getElementById('tfQrWrap');
-      if (wrap) {
-        wrap.innerHTML = `<img class="tf-qr" alt="Authenticator setup QR code" src="${escapeHtml(data.qrDataUrl)}">`;
-      }
-      setText('tfKeyVal', data.manualKey || '—');
-    } catch (err) {
-      if (!err.sessionExpired) showToast(err.message || 'Could not start authenticator setup.', 'error');
-      closeTwoFactor();
-    }
-  }
-
-  function toggleSetupKey() {
-    const box = document.getElementById('tfKeyBox');
-    const toggle = document.getElementById('tfKeyToggle');
-    if (!box || !toggle) return;
-    const show = box.style.display === 'none';
-    box.style.display = show ? 'block' : 'none';
-    toggle.textContent = show ? 'Hide setup key' : 'Show setup key';
-  }
-
-  // ── Step 3: confirm a live code ──
-  function goToTwoFactorCode() {
-    buildCodeBoxes('tfTotpCodeRow', submitTwoFactorCode);
-    showTfPanel('tfPanelCode', {
-      title: 'Enter authentication <span class="gtext">code</span>',
-      sub: 'Confirm your authenticator app is set up correctly.',
-      step: 3,
-      steps: 4,
-    });
-    const btn = document.getElementById('tfCodeSubmitBtn');
-    if (btn) btn.textContent = TF.flow === 'replace' ? 'Verify & Connect' : 'Verify & Enable 2FA';
-    focusCodeBoxes('tfTotpCodeRow');
-  }
-
-  function showCodePanelForRegenerate() {
-    buildCodeBoxes('tfTotpCodeRow', submitTwoFactorCode);
-    showTfPanel('tfPanelCode', {
-      title: 'Confirm with your <span class="gtext">authenticator</span>',
-      sub: 'New codes replace your current set, so this needs a live code.',
-      step: 0,
-      steps: 0,
-    });
-    const btn = document.getElementById('tfCodeSubmitBtn');
-    if (btn) btn.textContent = 'Generate New Codes';
-    focusCodeBoxes('tfTotpCodeRow');
-  }
-
-  async function submitTwoFactorCode() {
-    const code = readCodeBoxes('tfTotpCodeRow');
-    if (code.length < 6) return;
-
-    const btn = document.getElementById('tfCodeSubmitBtn');
-    const label = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
-
-    const regenerating = TF.flow === 'regenerate';
-    const endpoint = regenerating ? '/auth/2fa/recovery-codes/regenerate' : '/auth/2fa/setup/enable';
-
-    try {
-      const data = await api(endpoint, {
-        method: 'POST', body: { stepUpToken: TF.stepUpToken, code },
-      });
-      showRecoveryCodes(data.recoveryCodes || [], regenerating);
-      showToast(regenerating ? 'New recovery codes generated' : 'Two-factor authentication enabled', 'success');
-    } catch (err) {
-      if (!err.sessionExpired) showToast(err.message || 'That code is not valid.', 'error');
-      flashCodeError('tfTotpCodeRow');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = label; }
-    }
-  }
-
-  // ── Step 4: one-time recovery-code display ──
-  function showRecoveryCodes(codes, regenerated) {
-    TF.recoveryCodes = Array.isArray(codes) ? codes : [];
-    const grid = document.getElementById('tfRecoveryGrid');
-    if (grid) {
-      grid.innerHTML = TF.recoveryCodes
-        .map((c) => `<div class="tf-code-chip">${escapeHtml(c)}</div>`).join('');
-    }
-    showTfPanel('tfPanelCodes', {
-      title: regenerated
-        ? 'Your new <span class="gtext">recovery codes</span>'
-        : 'Two-Factor Authentication <span class="gtext">Enabled</span>',
-      sub: regenerated
-        ? 'Every previous recovery code has been invalidated.'
-        : 'Your SaveHatke account is now protected with two-factor authentication.',
-      step: 4,
-      steps: TF.flow === 'enable' || TF.flow === 'replace' ? 4 : 0,
-    });
-  }
-
-  function recoveryCodesAsText() {
-    const when = new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-    return [
-      'SaveHatke — two-factor recovery codes',
-      `Account: ${(STATE.user && STATE.user.email) || ''}`,
-      `Generated: ${when}`,
-      '',
-      'Each code can be used once. Keep this file somewhere secure.',
-      '',
-      ...TF.recoveryCodes,
-      '',
-    ].join('\n');
-  }
-
-  function downloadRecoveryCodes() {
-    if (!TF.recoveryCodes.length) return;
-    const blob = new Blob([recoveryCodesAsText()], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'savehatke-recovery-codes.txt';
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    // Revoke on the next tick so the download has started.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
-
-  async function copyRecoveryCodes() {
-    if (!TF.recoveryCodes.length) return;
-    const btn = document.getElementById('tfCopyBtn');
-    try {
-      await navigator.clipboard.writeText(TF.recoveryCodes.join('\n'));
-      if (btn) {
-        btn.textContent = 'Copied';
-        setTimeout(() => { btn.textContent = 'Copy Codes'; }, 1800);
-      }
-    } catch (e) {
-      showToast('Could not copy. Please use Download instead.', 'warning');
-    }
-  }
-
-  // ── Manage ──
-  function showManagePanel() {
-    const left = TF.status
-      ? `${TF.status.recoveryCodesRemaining} of ${TF.status.recoveryCodesTotal}`
-      : '—';
-    setText('tfManageCodesLeft', left);
-    showTfPanel('tfPanelManage', {
-      title: 'Manage <span class="gtext">2FA</span>',
-      sub: 'Replace your authenticator or issue a new set of recovery codes.',
-      step: 0,
-      steps: 0,
-    });
-  }
-
-  // Both of these reuse the step-up token already earned in this session, so
-  // the user is not asked to verify their email twice.
-  function beginRegenerate() {
-    TF.flow = 'regenerate';
-    showCodePanelForRegenerate();
-  }
-
-  function beginReplaceAuthenticator() {
-    TF.flow = 'replace';
-    requestAuthenticatorSecret();
-  }
-
-  // ── Disable ──
-  function showDisablePanel() {
-    buildCodeBoxes('tfDisableCodeRow', () => submitTwoFactorDisable(false));
-    showTfPanel('tfPanelDisable', {
-      title: 'Disable <span class="gtext">2FA</span>?',
-      sub: 'This removes the authenticator requirement from your account.',
-      step: 0,
-      steps: 0,
-    });
-    focusCodeBoxes('tfDisableCodeRow');
-  }
-
-  function useRecoveryForDisable() {
-    showTfPanel('tfPanelRecovery', {
-      title: 'Enter recovery <span class="gtext">code</span>',
-      sub: 'Use a recovery code to turn off two-factor authentication.',
-      step: 0,
-      steps: 0,
-    });
-    const input = document.getElementById('tfRecoveryInput');
-    if (input) setTimeout(() => input.focus(), 80);
-  }
-
-  async function submitTwoFactorDisable(useRecovery) {
-    const body = { stepUpToken: TF.stepUpToken };
-    let btn;
-
-    if (useRecovery) {
-      const input = document.getElementById('tfRecoveryInput');
-      const value = input ? input.value.trim() : '';
-      if (!value) return;
-      body.recoveryCode = value;
-      btn = document.getElementById('tfRecoveryBtn');
-    } else {
-      const code = readCodeBoxes('tfDisableCodeRow');
-      if (code.length < 6) return;
-      body.code = code;
-      btn = document.getElementById('tfDisableBtn');
-    }
-
-    const label = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Disabling…'; }
-    try {
-      await api('/auth/2fa/disable', { method: 'POST', body });
-      showToast('Two-factor authentication disabled', 'success');
-      closeTwoFactor();
-    } catch (err) {
-      if (!err.sessionExpired) showToast(err.message || 'Could not disable two-factor authentication.', 'error');
-      if (!useRecovery) flashCodeError('tfDisableCodeRow');
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = label; }
-    }
-  }
-
   // ─── Reviews ───────────────────────────────────────────────────
   //   Buyer-side only. A purchase becomes reviewable when it is a completed
   //   purchase made by this user, is not their own listing, and has no review
@@ -7718,7 +6831,6 @@
       // Re-read the sessions each time the page opens, so the list (and the
       // loading state) is never stale from an earlier visit.
       if (typeof loadMySessions === 'function') loadMySessions();
-      if (typeof loadTwoFactorStatus === 'function') loadTwoFactorStatus();
     } else if (name === 'account') {
       // Repaint from the signed-in session — no fetch, so re-entering the page
       // cannot show a stale profile or flash a skeleton.

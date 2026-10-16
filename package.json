@@ -17,6 +17,7 @@
     "cron-secret": "node scripts/ensure-cron-secret.cjs",
     "create-brand": "node scripts/create-brand.js",
     "preview:modal": "node scripts/preview-payment-modal.cjs",
+    "preview:pay-ok": "node scripts/preview-pay-ok-window.cjs",
     "ai:prepare": "node scripts/ai/prepareData.js",
     "ai:vocab": "node scripts/ai/buildVocabulary.js",
     "ai:train": "node scripts/ai/train.js",

@@ -98,6 +98,37 @@ function computeRefund({ required, received }) {
   return { mismatchType: 'underpayment', refundAmount: x / 100, delta: shortPaise / 100 };
 }
 
+// Reduce the same comparison to the single word the checkout needs to decide
+// which payment window to show. This is the authoritative, server-side
+// classification: it is computed only from the stored required amount and the
+// verified received amount, never from anything the browser sent.
+//
+//   received === required -> 'exact'     -> Payment Successful window
+//   received >  required -> 'overpaid'  -> Extra Payment window
+//   received <  required -> 'underpaid' -> Insufficient Payment window
+//
+// Returns null when nothing has been verified yet (no received amount recorded
+// on a payment that is still pending), and 'unknown' when a received amount
+// exists but is unusable. Neither may ever be treated as an exact payment, so
+// the caller keeps the buyer out of the success window in both cases.
+function outcomeForPayment({ status = '', required, received } = {}) {
+  if (received === undefined || received === null || received === '') {
+    // No verified received amount. A PAID row without one is a legacy
+    // exact-amount settlement — the same reading adminLedger.js applies. Any
+    // other status simply has not been verified yet.
+    return String(status || '').toUpperCase() === 'PAID' ? 'exact' : null;
+  }
+
+  const recv = Number(received);
+  const req = Number(required);
+  if (!Number.isFinite(recv) || !Number.isFinite(req)) return 'unknown';
+
+  const { mismatchType } = computeRefund({ required: req, received: recv });
+  if (mismatchType === 'underpayment') return 'underpaid';
+  if (mismatchType === 'overpayment') return 'overpaid';
+  return 'exact';
+}
+
 // Format a refund row the same way regardless of source.
 // Returns a clean object whose amount fields are always paise-precise
 // strings and whose dates are ISO-8601.
@@ -550,6 +581,7 @@ module.exports = {
   money2,
   toNumber,
   computeRefund,
+  outcomeForPayment,
   readAllRefunds,
   getRefundsForUser,
   getRefundById,

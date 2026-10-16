@@ -45,7 +45,6 @@ async function runSeed() {
           profile_image: adminData.profile_image,
           is_active: true,
           email_verified: true,
-          two_factor_enabled: false,
           last_login: null,
         });
 

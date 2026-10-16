@@ -620,6 +620,11 @@ app.get('/admin/coupons/:couponId', (req, res) => {
 // the requirement that "normal users should still be able to authenticate"
 // even while maintenance is active.
 // /api/auth/me is a session read the homepage makes on every load, so it skips the sign-in limiter.
+//
+// Two-factor authentication has been removed. There is deliberately no /api/auth/2fa
+// mount left: the router that used to serve it (routes/twoFactor.js) is gone, so
+// every former endpoint falls through to the generic 404. Do not reintroduce a
+// second factor here without an explicit product decision.
 app.use('/api/auth', (req, res, next) => (req.path === '/me' ? next() : authLimiter(req, res, next)), authRoutes);
 app.use('/api/coupons/proof', couponProofLimiter);
 app.use('/api/coupons/scan', couponScanLimiter);
