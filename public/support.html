@@ -147,8 +147,17 @@
     .contact-val a { color:#4fc3f7; transition:color .2s; }
     .contact-val a:hover { color:#00E272; }
 
-    /* TWO-COLUMN LAYOUT */
-    .support-grid { display:grid; grid-template-columns:1fr; gap:40px; align-items:stretch; }
+    /* SUPPORT FORM — narrower on desktop, full-width within mobile gutters */
+    .support-grid {
+      display:grid;
+      grid-template-columns:minmax(0, 1fr);
+      gap:40px;
+      align-items:stretch;
+      width:100%;
+      max-width:760px;
+      margin-left:auto;
+      margin-right:auto;
+    }
 
     /* SECTION HEADINGS */
     .section-heading { font-family:'DM Serif Display',serif; font-size:1.7rem; color:#e2ecff; margin-bottom:28px; display:flex; align-items:center; gap:10px; }
