@@ -91,7 +91,8 @@ async function run() {
     assert.equal(store.length, 1);
     assert.equal(emailCalls.length, 1);
     assert.equal(emailCalls[0].kind, 'added');
-    assert.equal(r.body.details.upiId.includes('asha@upi'), false, 'response must mask the UPI id');
+    assert.equal(r.body.details.upiId.includes('asha@upi'), false, 'legacy UPI field must remain masked');
+    assert.equal(r.body.details.upiIdFull, 'asha@upi', 'authenticated owner must receive their full UPI ID for display/edit');
   });
 
   await check('unchanged resave is a no-op: no duplicate row, no email', async () => {
