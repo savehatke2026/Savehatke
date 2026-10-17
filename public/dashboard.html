@@ -3939,10 +3939,12 @@
       .reduce((s, c) => s + priceOf(c), 0);
 
     // Overview cards — Coupons (active listings), Purchased, Sold, Wallet Balance
-    setText('statCoupons', activeListings);
-    setText('statPurchased', totalPurchased);
-    setText('statSold', soldCount);
-    setText('statBalance', inr(availableBalance));
+    // Unknown is not the same as zero: on a failed first load, keep the
+    // overview from falsely claiming that the user has no purchases/listings.
+    setText('statCoupons', STATE.salesLoaded ? activeListings : '—');
+    setText('statPurchased', STATE.purchasesLoaded ? totalPurchased : '—');
+    setText('statSold', STATE.salesLoaded ? soldCount : '—');
+    setText('statBalance', STATE.salesLoaded ? inr(availableBalance) : '—');
 
     // Kept on STATE (not scraped back out of the DOM) so the withdraw modal
     // still validates correctly now that the wallet card is gone.

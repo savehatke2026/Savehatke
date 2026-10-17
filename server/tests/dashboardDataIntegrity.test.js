@@ -38,6 +38,11 @@ check('Dashboard seller earnings preserve two decimal places', () => {
   assert.match(dashboard, /return Math\.round\(serverPayout \* 100\) \/ 100;/);
 });
 
+check('Overview stats do not show false zeroes before a successful load', () => {
+  assert.match(dashboard, /setText\('statPurchased', STATE\.purchasesLoaded \? totalPurchased : '—'\);/);
+  assert.match(dashboard, /setText\('statSold', STATE\.salesLoaded \? soldCount : '—'\);/);
+});
+
 check('Purchase request failure cannot be converted into a successful empty list', () => {
   const loader = between(dashboard, 'async function loadMyPurchases()', 'async function loadMyReviews()');
   assert.doesNotMatch(loader, /catch\s*\([^)]*\)\s*\{[\s\S]*?return\s+\[\s*\]/);
@@ -54,4 +59,4 @@ check('Sales request failure cannot be converted into a successful empty list', 
   assert.match(dashboard, /return STATE\.sales;/);
 });
 
-console.log('\\nDashboard data integrity regression checks passed.');
+console.log('\nDashboard data integrity regression checks passed.');
