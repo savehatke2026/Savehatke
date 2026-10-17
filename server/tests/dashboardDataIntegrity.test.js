@@ -24,6 +24,35 @@ function check(name, fn) {
   console.log('PASS ' + name);
 }
 
+function assertCssBalanced(css) {
+  let state = 0; // 0 = normal, 1 = comment, 2 = single-quoted string, 3 = double-quoted string
+  let depth = 0;
+  for (let i = 0; i < css.length; i += 1) {
+    const ch = css[i];
+    const next = css[i + 1];
+    if (state === 0) {
+      if (ch === '/' && next === '*') { state = 1; i += 1; continue; }
+      if (ch.charCodeAt(0) === 39) { state = 2; continue; }
+      if (ch.charCodeAt(0) === 34) { state = 3; continue; }
+      if (ch === '{') depth += 1;
+      if (ch === '}') {
+        depth -= 1;
+        assert.ok(depth >= 0, 'CSS contains a closing brace without an opening brace.');
+      }
+    } else if (state === 1) {
+      if (ch === '*' && next === '/') { state = 0; i += 1; }
+    } else if (state === 2) {
+      if (ch.charCodeAt(0) === 92) i += 1;
+      else if (ch.charCodeAt(0) === 39) state = 0;
+    } else if (state === 3) {
+      if (ch.charCodeAt(0) === 92) i += 1;
+      else if (ch.charCodeAt(0) === 34) state = 0;
+    }
+  }
+  assert.equal(state, 0, 'CSS comment or string is not closed.');
+  assert.equal(depth, 0, 'CSS contains an unclosed rule or media-query brace.');
+}
+
 check('My Purchases uses the matching paid order amount when available', () => {
   const route = between(
     coupons,
@@ -89,6 +118,18 @@ check('Dashboard navigation keeps views mutually exclusive', () => {
   assert.match(dashboard, /v\.hidden = true/);
   assert.match(dashboard, /view\.hidden = false/);
   assert.match(dashboard, /view\.classList\.add\('active'\)/);
+});
+
+check('Dashboard stylesheet is balanced and visibility rules are not trapped in mobile CSS', () => {
+  const firstStyle = dashboard.match(/<style>([\s\S]*?)<\/style>/i);
+  assert.ok(firstStyle, 'main dashboard stylesheet exists');
+  const css = firstStyle[1];
+  assertCssBalanced(css);
+  assert.ok(
+    css.includes('.sec-posture{flex-wrap:wrap;gap:12px}\n    }\n    .sec-status{'),
+    'the 520px media query must close before the following security styles and view-visibility rules'
+  );
+  assert.ok(css.indexOf('.db-view{display:none}') > css.indexOf('.sec-status{'), 'view visibility rules remain after the closed media section');
 });
 
 console.log('\nDashboard data integrity regression checks passed.');
