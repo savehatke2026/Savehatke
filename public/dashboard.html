@@ -5126,7 +5126,8 @@
       }).catch((err) => {
         STATE.purchasesLoadError = err.message || 'Purchase data could not be loaded.';
         console.warn('my-purchases failed:', err.message);
-        renderMyCoupons();
+        // Final refresh rendering happens after all independent requests settle,
+        // so the retry button cannot be clicked while STATE.isFetching is true.
         return STATE.purchases;
       });
       const salesP = loadMySales().then((sales) => {
@@ -5138,7 +5139,7 @@
       }).catch((err) => {
         STATE.salesLoadError = err.message || 'Sales data could not be loaded.';
         console.warn('my-sales failed:', err.message);
-        renderMyListings();
+        // Final refresh rendering happens after all independent requests settle.
         return STATE.sales;
       });
 
