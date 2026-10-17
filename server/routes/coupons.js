@@ -1170,15 +1170,20 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
       ]);
       const belongsToCurrentUser = (row) => {
         const rowUserId = String(row.user_id || row.userId || '').trim();
-        if (rowUserId) return !!userId && rowUserId === userId;
-        const rowEmail = String(row.user_email || row.buyer_email || row.buyerEmail || '').trim().toLowerCase();
+        if (rowUserId && userId && rowUserId === userId) return true;
+        // Some legacy rows use a different user-id representation. A matching
+        // authenticated account email is still an ownership match.
+        const rowEmail = String(row.user_email || row.userEmail || row.buyer_email || row.buyerEmail || '').trim().toLowerCase();
         return !!email && rowEmail === email;
       };
       const paidPaymentsByOrder = new Map();
       for (const row of paymentRows || []) {
         const payment = paymentStore.fromPayment(row);
+        // Payment ownership is established through the exact orderId/couponId/
+        // amount join below. The order itself is separately checked against the
+        // current user, avoiding false negatives on legacy payment user_id fields.
         if (!payment || String(payment.status).toUpperCase() !== 'PAID' || !payment.orderId ||
-            !payment.couponId || !belongsToCurrentUser(row)) continue;
+            !payment.couponId) continue;
         const existing = paidPaymentsByOrder.get(String(payment.orderId));
         if (!existing || new Date(payment.updatedAt || payment.createdAt || 0) > new Date(existing.updatedAt || existing.createdAt || 0)) {
           paidPaymentsByOrder.set(String(payment.orderId), payment);
@@ -1272,9 +1277,13 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
           backgroundImage: c.backgroundImage || '',
           terms: c.terms || '',
           // Canonical purchase identifiers (blank for legacy orders).
-          orderCode: ord.order_code || '',
-          transactionId: ord.transaction_id || '',
-          transactionType: ord.transaction_type || (ord.order_code ? 'PURCHASE' : ''),
+          orderCode: ord.order_code || (purchase && purchase.order.orderCode) || '',
+          transactionId: ord.transaction_id ||
+            (purchase && purchase.order.transactionId) ||
+            (purchase && purchase.payment.verifiedTransactionId) || '',
+          transactionType: ord.transaction_type ||
+            (purchase && purchase.order.transactionType) ||
+            (ord.order_code ? 'PURCHASE' : ''),
         };
       }),
     });

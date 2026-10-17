@@ -1054,12 +1054,21 @@ router.get('/payouts/my', authenticateToken, async (req, res) => {
     const mine = all
       .filter((p) => String(p.sellerEmail || '').toLowerCase() === email)
       .sort((a, b) => new Date(b.requestedAt || 0) - new Date(a.requestedAt || 0));
-    const balance = await calculateSellerPayoutBalance(email, all);
+    // Payout history is its own ledger and must not disappear just because the
+    // optional available-balance calculation cannot currently be verified.
+    let balance = null;
+    try {
+      balance = await calculateSellerPayoutBalance(email, all);
+    } catch (balanceErr) {
+      console.error('My payouts balance unavailable; returning payout history:', balanceErr.message);
+    }
 
     const summary = {
       totalPaid: mine.filter((p) => String(p.status).toLowerCase() === 'paid').reduce((s, p) => s + Number(p.amount || 0), 0),
       pending: mine.filter((p) => String(p.status || 'pending').toLowerCase() === 'pending').reduce((s, p) => s + Number(p.amount || 0), 0),
-      available: balance.available,
+      // null means unknown; do not report a false zero if this calculation fails.
+      available: balance ? balance.available : null,
+      balanceAvailable: Boolean(balance),
       rejected: mine.filter((p) => String(p.status).toLowerCase() === 'rejected').length,
       totalCount: mine.length,
     };

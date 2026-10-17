@@ -9,6 +9,7 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..', '..');
 const coupons = fs.readFileSync(path.join(root, 'server/routes/coupons.js'), 'utf8');
+const payouts = fs.readFileSync(path.join(root, 'server/routes/payouts.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'public/dashboard.html'), 'utf8');
 const support = fs.readFileSync(path.join(root, 'public/support.html'), 'utf8');
 
@@ -190,6 +191,36 @@ check('Transactions preserve visible rows when an individual source fails', () =
 
 check('Support form width is reduced and remains responsive', () => {
   assert.match(support, /\.support-grid\s*\{[\s\S]{0,250}max-width:640px;/);
+  assert.match(support, /width:100%;/);
+});
+
+check('Payout history remains available if balance calculation fails', () => {
+  const route = between(payouts, "router.get('/payouts/my'", "router.get('/payouts/coupon-status'");
+  assert.match(route, /try\s*\{\s*balance = await calculateSellerPayoutBalance/);
+  assert.match(route, /catch \(balanceErr\)/);
+  assert.match(route, /available: balance \? balance\.available : null/);
+  assert.match(route, /res\.json\(\{ payouts: mine\.map\(sanitizeForSeller\), summary \}\)/);
+  assert.doesNotMatch(route, /balance = await calculateSellerPayoutBalance[\s\S]*?\n\s*\} catch \(err\)/);
+});
+
+check('Purchase IDs join to the owning PAID order without a payment-row user-ID false negative', () => {
+  const route = between(coupons, "router.get('/my-purchases'", "router.get('/sell-eligibility'");
+  assert.match(route, /if \(rowUserId && userId && rowUserId === userId\) return true/);
+  assert.match(route, /!payment\.couponId\) continue/);
+  assert.doesNotMatch(route, /!payment\.couponId \|\| !belongsToCurrentUser\(row\)/);
+  assert.match(route, /orderCode: ord\.order_code \|\| \(purchase && purchase\.order\.orderCode\)/);
+  assert.match(route, /transactionId: ord\.transaction_id \|\|\s*\(purchase && purchase\.order\.transactionId\)/);
+});
+
+check('Dashboard and Support pages have no site footer', () => {
+  assert.doesNotMatch(dashboard, /<footer class="footer"/);
+  assert.doesNotMatch(support, /<footer class="footer"/);
+  assert.doesNotMatch(dashboard, /js\/site-footer\.js/);
+  assert.doesNotMatch(support, /js\/site-footer\.js/);
+});
+
+check('Support form width stays responsive and is reduced to 560px', () => {
+  assert.match(support, /\.support-grid\s*\{[\s\S]{0,250}max-width:560px;/);
   assert.match(support, /width:100%;/);
 });
 

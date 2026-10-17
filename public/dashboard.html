@@ -795,17 +795,6 @@
     }
 
     /* ===================================================
-       FOOTER — matches index.html footer exactly
-    =================================================== */
-    .footer{background:rgba(9,16,34,.95);border-top:1px solid rgba(79,195,247,.1);padding:36px 0 0}
-    .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:32px;padding-bottom:28px}
-    .fbrand p{font-size:.84rem;color:#6b88aa;line-height:1.6;margin-top:12px;max-width:320px}
-    .fcol h4{font-size:.78rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:12px}
-    .fcol a{display:block;font-size:.84rem;color:#6b88aa;margin-bottom:8px;transition:color .2s}
-    .fcol a:hover{color:#00E272}
-    .fbot{border-top:1px solid rgba(79,195,247,.1);padding:14px 0;display:flex;justify-content:space-between;font-size:.78rem;color:#6b88aa}
-
-    /* ===================================================
        MODALS
     =================================================== */
     .modal-overlay{position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.78);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;opacity:0;pointer-events:none;transition:opacity .25s}
@@ -2802,42 +2791,7 @@
 <!-- =====================================================
      FOOTER — matches index.html
 ===================================================== -->
-<footer class="footer" aria-label="Site footer">
-  <div class="container">
-    <div class="footer-grid">
-      <div class="fbrand">
-        <a href="index" class="nav-brand" style="font-size:1.2rem" aria-label="SaveHatke home">
-          <img src="logo.png" alt="SaveHatke" class="brand-icon" onerror="this.hidden=true"><span class="brand-name">Save<span class="bhl">Hatke</span></span>
-        </a>
-        <p>SaveHatke is a marketplace where users can discover available coupons and submit eligible unused coupons for review and potential sale.</p>
-      </div>
-      <div class="fcol">
-        <h4>Platform</h4>
-        <a href="marketplace">Coupon Marketplace</a>
-        <a href="sell">Sell Coupons</a>
-        <a href="how-it-works">How it Works</a>
-      </div>
-      <div class="fcol">
-        <h4>Company</h4>
-        <a href="support">Help Center</a>
-        <a href="support">Contact Us</a>
-        <a href="terms">Terms &amp; Conditions</a>
-        <a href="privacy">Privacy Policy</a>
-      </div>
-      <div class="fcol">
-        <h4>Categories</h4>
-        <a href="marketplace?cat=Makeup">Makeup Coupons</a>
-        <a href="marketplace?cat=Electronics">Electronics Deals</a>
-        <a href="marketplace?cat=Fashion">Fashion Codes</a>
-        <a href="marketplace?cat=Food">Food &amp; Delivery</a>
-      </div>
-    </div>
-    <div class="fbot">
-      <span>&copy; 2026 SaveHatke. All rights reserved.</span>
-      <span>Made with ❤️ in India</span>
-    </div>
-  </div>
-</footer>
+
 
 </div><!-- /pageWrapper -->
 
@@ -3998,10 +3952,11 @@
 
     // Wallet balance is calculated by the server after paid and reserved payouts.
     // Lifetime earnings are not the available balance once money has been paid out.
-    const rawAvailableBalance = Number(STATE.payoutsSummary && STATE.payoutsSummary.available);
-    const availableBalance = STATE.payoutsLoaded && Number.isFinite(rawAvailableBalance)
-      ? Math.max(0, rawAvailableBalance)
-      : 0;
+    const rawAvailableBalance = STATE.payoutsSummary ? STATE.payoutsSummary.available : null;
+    const hasAvailableBalance = STATE.payoutsLoaded &&
+      rawAvailableBalance !== null && rawAvailableBalance !== undefined &&
+      rawAvailableBalance !== '' && Number.isFinite(Number(rawAvailableBalance));
+    const availableBalance = hasAvailableBalance ? Math.max(0, Number(rawAvailableBalance)) : 0;
 
     // Overview cards — Coupons (active listings), Purchased, Sold, Wallet Balance
     // Unknown is not the same as zero: on a failed first load, keep the
@@ -4009,7 +3964,7 @@
     setText('statCoupons', STATE.salesLoaded ? activeListings : '—');
     setText('statPurchased', STATE.purchasesLoaded ? totalPurchased : '—');
     setText('statSold', STATE.salesLoaded ? soldCount : '—');
-    setText('statBalance', STATE.payoutsLoaded ? inr(availableBalance) : '—');
+    setText('statBalance', hasAvailableBalance ? inr(availableBalance) : '—');
 
     // Kept on STATE (not scraped back out of the DOM) so the withdraw modal
     // still validates correctly now that the wallet card is gone.
@@ -7143,7 +7098,6 @@
 })();
 </script>
 <script src="js/purchased-coupon-modal.js"></script>
-  <script src="js/site-footer.js"></script>
 
 <style>
 /* ── Mobile responsive hardening (CSS-only; desktop unchanged) ──
