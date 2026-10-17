@@ -189,8 +189,18 @@ check('Transactions preserve visible rows when an individual source fails', () =
   assert.match(renderer, /Available records are still shown/);
 });
 
+check('Payment method box reflects saved state and exposes Edit', () => {
+  assert.match(dashboard, /id="paymentMethodStatusBox"/);
+  assert.match(dashboard, /id="paymentMethodStatusTitle"/);
+  assert.match(dashboard, /Payment Method Added/);
+  assert.match(dashboard, /'Edit', 'btn-ghost', \(\) => openPayoutDetailsModal\(\)/);
+  assert.match(dashboard, /editing \? 'Edit Payment Method' : 'Add Payment Method'/);
+  assert.match(dashboard, /editing \? 'Save Changes' : 'Save'/);
+  assert.match(dashboard, /payoutDetailsPromise/);
+});
+
 check('Support form width is reduced and remains responsive', () => {
-  assert.match(support, /\.support-grid\s*\{[\s\S]{0,250}max-width:640px;/);
+  assert.match(support, /\.support-grid\s*\{[\s\S]{0,250}max-width:560px;/);
   assert.match(support, /width:100%;/);
 });
 
