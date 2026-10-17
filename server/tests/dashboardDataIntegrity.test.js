@@ -10,6 +10,11 @@ const path = require('node:path');
 const root = path.join(__dirname, '..', '..');
 const coupons = fs.readFileSync(path.join(root, 'server/routes/coupons.js'), 'utf8');
 const payouts = fs.readFileSync(path.join(root, 'server/routes/payouts.js'), 'utf8');
+const reviewsRoute = fs.readFileSync(path.join(root, 'server/routes/reviews.js'), 'utf8');
+const testimonialsRoute = fs.readFileSync(path.join(root, 'server/routes/testimonials.js'), 'utf8');
+const googleSheets = fs.readFileSync(path.join(root, 'server/services/googleSheets.js'), 'utf8');
+const adminJs = fs.readFileSync(path.join(root, 'public/js/admin.js'), 'utf8');
+const vault = fs.readFileSync(path.join(root, 'public/vault.html'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'public/dashboard.html'), 'utf8');
 const support = fs.readFileSync(path.join(root, 'public/support.html'), 'utf8');
 
@@ -187,6 +192,29 @@ check('Transactions preserve visible rows when an individual source fails', () =
   const renderer = between(dashboard, 'function renderTransactions()', 'function renderPayouts()');
   assert.match(renderer, /const failedSources = sources\.filter\(\(source\) => source\.error\)/);
   assert.match(renderer, /Available records are still shown/);
+});
+
+check('Submitted buyer reviews appear in the admin Homepage Testimonials queue', () => {
+  assert.match(reviewsRoute, /router\.get\('\/admin-submissions', authenticateToken, requireAdmin/);
+  assert.match(reviewsRoute, /buyerName: String\(req\.user\.name/);
+  assert.match(googleSheets, /'buyerName'/);
+  assert.match(adminJs, /api\('\/reviews\/admin-submissions', \{ useAdmin: true \}\)/);
+  assert.match(vault, /id="buyerReviewSubmissions"/);
+  assert.match(vault, /loadHomepageTestimonialsWorkspace\(\)/);
+});
+
+check('Buyer review promotion creates an unpublished testimonial draft only once', () => {
+  assert.match(testimonialsRoute, /router\.post\('\/from-review\/:reviewId', authenticateToken, requireAdmin/);
+  assert.match(testimonialsRoute, /sourceReviewId/);
+  assert.match(testimonialsRoute, /isVisible: 'false'/);
+  assert.match(testimonialsRoute, /This buyer review has already been added/);
+  assert.match(testimonialsRoute, /sortOrder, sourceReviewId, \.\.\.card/);
+});
+
+check('Admin review queue does not return customer email addresses', () => {
+  const queue = reviewsRoute.slice(reviewsRoute.indexOf("router.get('/admin-submissions'"), reviewsRoute.indexOf("router.get('/my'"));
+  assert.doesNotMatch(queue, /buyerEmail:\s*row\.buyerEmail/);
+  assert.match(vault, /Submitted Buyer Reviews/);
 });
 
 check('Payment method box reflects saved state and exposes Edit', () => {

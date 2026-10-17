@@ -260,6 +260,7 @@ const HEADERS = {
     'couponId',
     'buyerEmail',
     'buyerUserId',
+    'buyerName',
     'brand',
     'couponTitle',
     'pricePaid',
@@ -302,6 +303,8 @@ const HEADERS = {
     'sortOrder',
     'createdAt',
     'updatedAt',
+    // Source buyer-review ID prevents duplicate promotion from the admin queue.
+    'sourceReviewId',
   ],
   // One row per user holding their authenticator-app enrolment.
   //

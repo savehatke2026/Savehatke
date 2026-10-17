@@ -2061,8 +2061,19 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="page-title-row">
         <div><div class="page-title">Homepage <span class="gtext">Testimonials</span></div><div class="page-subtitle">The review cards on the landing page — write them, reorder them, or hide one without deleting it</div></div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-ghost btn-sm" onclick="loadTestimonials()" title="Refresh">↻ Refresh</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadHomepageTestimonialsWorkspace()" title="Refresh buyer reviews and testimonials">↻ Refresh</button>
           <button class="btn btn-primary btn-lg" style="background:#00E272;color:#0a0e1a;font-weight:700" onclick="openTestimonialModal()">➕ Add Testimonial</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:18px">
+        <div class="cm-card-head">
+          <div class="card-title" style="margin-bottom:0"><span class="ct-icon">📝</span> Submitted Buyer Reviews</div>
+          <span id="buyerReviewCount" style="font-size:.78rem;color:#6b88aa">—</span>
+        </div>
+        <p style="color:#6b88aa;font-size:.84rem;margin:10px 0 14px">New reviews submitted by buyers appear here. Add written reviews as hidden testimonial drafts, then review them under Testimonial Cards and enable visibility when ready for the homepage.</p>
+        <div id="buyerReviewSubmissions" class="cm-list" style="margin-top:16px">
+          <div class="cm-loading">Loading buyer reviews…</div>
         </div>
       </div>
 
@@ -4240,8 +4251,8 @@ function showSection(id, navEl) {
   if (id === 'coupons' && typeof loadInventory === 'function') {
     loadInventory();
   }
-  if (id === 'reviews' && typeof loadTestimonials === 'function') {
-    loadTestimonials();
+  if (id === 'reviews' && typeof loadHomepageTestimonialsWorkspace === 'function') {
+    loadHomepageTestimonialsWorkspace();
   }
   if (id === 'payment-methods' && typeof loadSellerPayoutDetails === 'function') {
     loadSellerPayoutDetails();

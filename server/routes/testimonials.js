@@ -78,6 +78,7 @@ function sanitize(row) {
     offer: row.offer || '',
     detail: row.detail || '',
     savings: Number.isFinite(savings) && savings >= 0 ? Math.round(savings) : 0,
+    sourceReviewId: String(row.sourceReviewId || ''),
     isVisible: toBool(row.isVisible),
     sortOrder: Number(row.sortOrder) || 0,
     createdAt: row.createdAt || '',
@@ -217,7 +218,7 @@ router.get('/', async (req, res) => {
       section: sectionFrom(settings),
       testimonials: testimonials
         .filter((t) => t.isVisible)
-        .map(({ isVisible, createdAt, updatedAt, sortOrder, ...card }) => card),
+        .map(({ isVisible, createdAt, updatedAt, sortOrder, sourceReviewId, ...card }) => card),
     });
   } catch (err) {
     console.error('[testimonials] public list failed:', err.message);
@@ -235,6 +236,66 @@ router.get('/all', authenticateToken, requireAdmin, async (req, res) => {
   } catch (err) {
     console.error('[testimonials] admin list failed:', err.message);
     res.status(500).json({ error: 'Unable to load the testimonials.' });
+  }
+});
+
+// ─── POST /api/testimonials/from-review/:reviewId — admin promotes a buyer review ──
+// Promotion creates a hidden draft; publishing remains a separate, explicit toggle.
+router.post('/from-review/:reviewId', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
+  try {
+    const reviewId = String(req.params.reviewId || '').trim();
+    if (!reviewId) return res.status(400).json({ error: 'A buyer review ID is required.' });
+
+    const review = await db.findRow(db.SHEETS.REVIEWS, 'id', reviewId);
+    if (!review) return res.status(404).json({ error: 'That buyer review no longer exists.' });
+
+    const matches = await db.findRows(db.SHEETS.TESTIMONIALS, 'sourceReviewId', reviewId);
+    const duplicate = (matches || []).find((row) => String(row.sourceReviewId || '') === reviewId);
+    if (duplicate) {
+      return res.json({
+        message: 'This buyer review has already been added to Homepage Testimonials.',
+        alreadyImported: true,
+        testimonial: sanitize(duplicate),
+      });
+    }
+
+    const quote = String(review.reviewText || '').trim();
+    if (!quote) {
+      return res.status(422).json({ error: 'This review has a rating but no written text, so it cannot be used as a homepage testimonial.' });
+    }
+
+    const rows = (await db.getRows(db.SHEETS.TESTIMONIALS) || []).filter((row) => row && row.id).map(sanitize);
+    const ratingValue = Number(review.rating);
+    const rating = Number.isInteger(ratingValue) && ratingValue >= 1 && ratingValue <= 5 ? ratingValue : 5;
+    const reviewerName = String(review.buyerName || '').trim() || 'Verified buyer';
+    const row = {
+      id: uuidv4(),
+      sourceReviewId: reviewId,
+      name: reviewerName.slice(0, MAX_NAME),
+      role: 'Verified buyer',
+      quote: quote.slice(0, MAX_QUOTE),
+      rating: String(rating),
+      verified: 'true',
+      photo: '',
+      brand: String(review.brand || '').trim().slice(0, MAX_BRAND),
+      offer: String(review.couponTitle || '').trim().slice(0, MAX_OFFER),
+      detail: '',
+      savings: '0',
+      isVisible: 'false',
+      sortOrder: String(nextSortOrder(rows)),
+      createdAt: nowIso(),
+      updatedAt: '',
+    };
+
+    await db.appendRow(db.SHEETS.TESTIMONIALS, row);
+    res.status(201).json({
+      message: 'Buyer review added as a hidden testimonial draft.',
+      alreadyImported: false,
+      testimonial: sanitize(row),
+    });
+  } catch (err) {
+    console.error('[testimonials] buyer review promotion failed:', err.message);
+    res.status(500).json({ error: 'Unable to add the buyer review as a testimonial.' });
   }
 });
 
@@ -257,6 +318,7 @@ router.post('/', authenticateToken, requireAdmin, adminMutationLimiter, async (r
       offer: valid.value.offer,
       detail: valid.value.detail,
       savings: String(valid.value.savings),
+      sourceReviewId: '',
       isVisible: String(valid.value.isVisible),
       sortOrder: String(nextSortOrder(testimonials)),
       createdAt: nowIso(),

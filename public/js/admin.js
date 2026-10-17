@@ -2088,6 +2088,93 @@ function mrViewLatestPdf() {
 let testimonialsCache = [];
 let testimonialsSection = null;
 let testimonialsLoading = false;
+let buyerReviewCache = [];
+let buyerReviewsLoading = false;
+
+async function loadBuyerReviewSubmissions() {
+  const list = document.getElementById('buyerReviewSubmissions');
+  if (buyerReviewsLoading) return;
+  buyerReviewsLoading = true;
+  if (list && !buyerReviewCache.length) list.innerHTML = '<div class="cm-loading">Loading submitted buyer reviews…</div>';
+  try {
+    const data = await api('/reviews/admin-submissions', { useAdmin: true });
+    buyerReviewCache = Array.isArray(data.reviews) ? data.reviews : [];
+    renderBuyerReviewSubmissions();
+  } catch (err) {
+    if (err.sessionExpired) return;
+    if (list) list.innerHTML = cmStateHtml('⚠️', 'Could not load buyer reviews', escapeHtml(err.message || 'Please try again.'));
+  } finally {
+    buyerReviewsLoading = false;
+  }
+}
+
+function renderBuyerReviewSubmissions() {
+  const list = document.getElementById('buyerReviewSubmissions');
+  const count = document.getElementById('buyerReviewCount');
+  if (!list) return;
+  const pendingCount = buyerReviewCache.filter((review) => !review.importedToHomepage && review.hasWrittenReview).length;
+  if (count) count.textContent = pendingCount ? `${pendingCount} ready for review` : `${buyerReviewCache.length} submitted`;
+
+  if (!buyerReviewCache.length) {
+    list.innerHTML = cmStateHtml('💬', 'No buyer reviews yet', 'When a customer submits a review from their User Dashboard, it will appear here.');
+    return;
+  }
+
+  list.innerHTML = `<div class="tm-cards">${buyerReviewCache.map((review) => {
+    const id = escapeHtml(review.id);
+    const rating = Math.max(1, Math.min(5, Number(review.rating) || 5));
+    const name = escapeHtml(review.buyerName || 'Verified buyer');
+    const coupon = escapeHtml([review.brand, review.couponTitle].filter(Boolean).join(' · ') || 'Purchased coupon');
+    const when = review.createdAt ? escapeHtml(new Date(review.createdAt).toLocaleString()) : '';
+    const quote = String(review.reviewText || '').trim();
+    const alreadyAdded = Boolean(review.importedToHomepage);
+    const hasText = Boolean(quote);
+    const action = alreadyAdded
+      ? '<button class="btn btn-ghost btn-xs" disabled>Already added</button>'
+      : hasText
+        ? `<button class="btn btn-primary btn-xs" onclick="promoteBuyerReviewToTestimonial('${id}', this)">Add as draft</button>`
+        : '<button class="btn btn-ghost btn-xs" disabled title="A written review is required for a homepage testimonial">Rating only</button>';
+    const quoteMarkup = hasText
+      ? `<div class="tm-quote">“${escapeHtml(quote)}”</div>`
+      : '<div class="tm-role">This submission contains a rating only; a written quote is needed for a homepage testimonial.</div>';
+    return `<div class="tm-card${alreadyAdded ? ' hidden-card' : ''}" data-buyer-review-id="${id}" style="grid-template-columns:34px minmax(0,1fr) auto">
+      <div class="tm-slot" title="Buyer rating">${rating}★</div>
+      <div style="min-width:0">
+        <div class="tm-name">${name}</div>
+        <div class="tm-role">${coupon}${when ? ' · ' + when : ''}</div>
+        ${quoteMarkup}
+      </div>
+      <div class="tm-side">${action}${alreadyAdded ? '<div class="tm-role">Draft or testimonial already created</div>' : ''}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+async function promoteBuyerReviewToTestimonial(reviewId, button) {
+  const review = buyerReviewCache.find((item) => String(item.id) === String(reviewId));
+  if (!review || !String(review.reviewText || '').trim()) {
+    showToast('Only reviews with written text can be added as homepage testimonials.', 'warning');
+    return;
+  }
+  const original = button ? button.innerHTML : '';
+  if (button) { button.disabled = true; button.innerHTML = '⏳ Adding…'; }
+  try {
+    const data = await api(`/testimonials/from-review/${encodeURIComponent(reviewId)}`, {
+      method: 'POST',
+      useAdmin: true,
+      body: {},
+    });
+    showToast(data.message || 'Buyer review added as a testimonial draft.', 'success');
+    await Promise.all([loadTestimonials(), loadBuyerReviewSubmissions()]);
+  } catch (err) {
+    if (!err.sessionExpired) showToast(err.message || 'Could not add this review as a testimonial.', 'error');
+  } finally {
+    if (button && button.isConnected) { button.disabled = false; button.innerHTML = original; }
+  }
+}
+
+async function loadHomepageTestimonialsWorkspace() {
+  await Promise.all([loadTestimonials(), loadBuyerReviewSubmissions()]);
+}
 
 async function loadTestimonials() {
   const list = document.getElementById('testimonialList');
@@ -2625,6 +2712,9 @@ window.invPrev = invPrev;
 window.invNext = invNext;
 window.invGoToPage = invGoToPage;
 window.loadTestimonials = loadTestimonials;
+window.loadBuyerReviewSubmissions = loadBuyerReviewSubmissions;
+window.promoteBuyerReviewToTestimonial = promoteBuyerReviewToTestimonial;
+window.loadHomepageTestimonialsWorkspace = loadHomepageTestimonialsWorkspace;
 window.openTestimonialModal = openTestimonialModal;
 window.closeTestimonialModal = closeTestimonialModal;
 window.saveTestimonial = saveTestimonial;

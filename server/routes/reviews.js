@@ -12,7 +12,7 @@
 
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const paymentStore = require('../services/paymentStore');
 
@@ -40,6 +40,7 @@ function sanitize(row) {
   return {
     id: row.id,
     couponId: row.couponId || '',
+    buyerName: String(row.buyerName || '').trim(),
     brand: row.brand || '',
     couponTitle: row.couponTitle || '',
     pricePaid: Number(row.pricePaid || 0),
@@ -177,6 +178,37 @@ async function findOwnReview(reviewId, user) {
   return { ok: true, row };
 }
 
+// ─── GET /api/reviews/admin-submissions — admin-only homepage review queue ──
+// Reviews and homepage testimonials remain separate: admin can inspect each
+// submission, then explicitly promote written reviews into hidden draft cards.
+router.get('/admin-submissions', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const [rows, testimonialRows] = await Promise.all([
+      db.getRowsFresh(db.SHEETS.REVIEWS),
+      db.getRowsFresh(db.SHEETS.TESTIMONIALS),
+    ]);
+    const importedReviewIds = new Set((testimonialRows || [])
+      .map((row) => String(row.sourceReviewId || '').trim())
+      .filter(Boolean));
+
+    const submissions = (rows || [])
+      .filter((row) => row && row.id)
+      .map((row) => ({
+        ...sanitize(row),
+        buyerName: String(row.buyerName || '').trim() || 'Verified buyer',
+        hasWrittenReview: Boolean(String(row.reviewText || '').trim()),
+        importedToHomepage: importedReviewIds.has(String(row.id)),
+      }))
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
+    // Never return customer email addresses from this admin queue.
+    res.json({ reviews: submissions });
+  } catch (err) {
+    console.error('[reviews] admin submissions failed:', err.message);
+    res.status(500).json({ error: 'Unable to load submitted buyer reviews.' });
+  }
+});
+
 // ─── GET /api/reviews/my — the signed-in buyer's own reviews ──────────────
 router.get('/my', authenticateToken, async (req, res) => {
   try {
@@ -216,6 +248,7 @@ router.post('/', authenticateToken, async (req, res) => {
       couponId,
       buyerEmail: normEmail(req.user.email),
       buyerUserId: req.user.id || '',
+      buyerName: String(req.user.name || req.user.displayName || '').trim().slice(0, 60),
       brand: coupon.brand || '',
       couponTitle: coupon.title || coupon.description || '',
       pricePaid: Number(coupon.sellingPrice || 0),
