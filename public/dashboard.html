@@ -2129,7 +2129,7 @@
           <div class="view-subtitle">View your purchase, refund and payout history.</div>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="refreshDashboard({silent:true})" title="Refresh">↻ Refresh</button>
+          <button class="btn btn-ghost btn-sm" onclick="refreshTransactionsData({silent:false})" title="Refresh transactions">↻ Refresh</button>
         </div>
       </div>
 
@@ -3636,12 +3636,26 @@
     return data.coupons;
   }
 
+  const dashboardSourceRequests = Object.create(null);
+
+  function shareDashboardSource(key, loader) {
+    if (dashboardSourceRequests[key]) return dashboardSourceRequests[key];
+    let shared;
+    shared = Promise.resolve().then(loader).finally(() => {
+      if (dashboardSourceRequests[key] === shared) delete dashboardSourceRequests[key];
+    });
+    dashboardSourceRequests[key] = shared;
+    return shared;
+  }
+
   async function loadMyPurchases() {
-    const data = await api('/coupons/my-purchases');
-    if (!data || !Array.isArray(data.coupons)) {
-      throw new Error('Invalid response from the purchases endpoint.');
-    }
-    return data.coupons;
+    return shareDashboardSource('purchases', async () => {
+      const data = await api('/coupons/my-purchases');
+      if (!data || !Array.isArray(data.coupons)) {
+        throw new Error('Invalid response from the purchases endpoint.');
+      }
+      return data.coupons;
+    });
   }
 
   async function loadMyReviews() {
@@ -3657,9 +3671,11 @@
   }
 
   async function loadMyPayouts() {
-    const data = await api('/payouts/my');
-    if (!data || !Array.isArray(data.payouts)) throw new Error('Invalid response from the payouts endpoint.');
-    return { payouts: data.payouts, summary: data.summary || { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 } };
+    return shareDashboardSource('payouts', async () => {
+      const data = await api('/payouts/my');
+      if (!data || !Array.isArray(data.payouts)) throw new Error('Invalid response from the payouts endpoint.');
+      return { payouts: data.payouts, summary: data.summary || { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 } };
+    });
   }
 
   // The transaction ledger uses the same auth-scoped refunds endpoint.
@@ -3687,6 +3703,71 @@
 
   async function loadMyRefunds() {
     return fetchRefundsSnapshot();
+  }
+
+  // Transactions refreshes its own sources on entry, independent of the overview.
+  // In-flight purchases/payouts requests are shared with the main dashboard refresh.
+  let transactionsRefreshPromise = null;
+
+  function refreshTransactionsData({ silent = true } = {}) {
+    if (transactionsRefreshPromise) return transactionsRefreshPromise;
+
+    STATE.purchasesLoadError = '';
+    STATE.payoutsLoadError = '';
+    STATE.refundsLoadError = '';
+    renderTransactions();
+
+    const purchaseTask = loadMyPurchases().then((purchases) => {
+      STATE.purchases = purchases;
+      STATE.purchasesLoaded = true;
+      STATE.purchasesLoadError = '';
+      renderMyCoupons();
+      renderStats();
+      renderTransactions();
+      return null;
+    }).catch((err) => {
+      STATE.purchasesLoadError = err.message || 'Purchase data could not be loaded.';
+      renderTransactions();
+      return { label: 'Purchases', error: STATE.purchasesLoadError };
+    });
+
+    const payoutTask = loadMyPayouts().then((data) => {
+      STATE.payouts = data.payouts;
+      STATE.payoutsSummary = data.summary;
+      STATE.payoutsLoaded = true;
+      STATE.payoutsLoadError = '';
+      renderStats();
+      renderPayouts();
+      renderTransactions();
+      return null;
+    }).catch((err) => {
+      STATE.payoutsLoadError = err.message || 'Payout data could not be loaded.';
+      renderTransactions();
+      return { label: 'Payouts', error: STATE.payoutsLoadError };
+    });
+
+    const refundTask = loadMyRefunds().then((data) => {
+      renderRefundsSnapshot(data.refunds, data.summary, { fromServer: true });
+      return null;
+    }).catch((err) => {
+      STATE.refundsLoadError = err.message || 'Refund data could not be loaded.';
+      renderTransactions();
+      return { label: 'Refunds', error: STATE.refundsLoadError };
+    });
+
+    let pending;
+    pending = Promise.all([purchaseTask, payoutTask, refundTask]).then((results) => {
+      renderStats();
+      renderTransactions();
+      const failed = results.filter(Boolean);
+      if (failed.length && !silent) {
+        showToast('Could not refresh: ' + failed.map((item) => item.label).join(', ') + '. Available records remain visible.', 'error');
+      }
+    }).finally(() => {
+      if (transactionsRefreshPromise === pending) transactionsRefreshPromise = null;
+    });
+    transactionsRefreshPromise = pending;
+    return pending;
   }
 
   /**
@@ -4896,7 +4977,7 @@
     ];
     const loadedSources = sources.filter((source) => source.loaded);
     const pendingSources = sources.filter((source) => !source.loaded && !source.error);
-    const failedSources = sources.filter((source) => !source.loaded && source.error);
+    const failedSources = sources.filter((source) => source.error);
     const tbody = document.getElementById('txTableBody');
     const mob = document.getElementById('txMobile');
     const emptyBox = document.getElementById('txEmpty');
@@ -4914,7 +4995,7 @@
           notice.innerHTML = 'Some data is unavailable: ' +
             escapeHtml(failedSources.map((source) => source.label).join(', ')) +
             '. Available records are still shown. ' +
-            '<button type="button" class="btn btn-ghost btn-sm" onclick="refreshDashboard({silent:false})">Try again</button>';
+            '<button type="button" class="btn btn-ghost btn-sm" onclick="refreshTransactionsData({silent:false})">Try again</button>';
         } else {
           notice.textContent = 'Loading ' + pendingSources.map((source) => source.label).join(', ') + '…';
         }
@@ -4933,7 +5014,7 @@
       if (emptyBox) {
         emptyBox.style.display = '';
         emptyBox.innerHTML = failedSources.length
-          ? dashboardLoadErrorMarkup('transaction data')
+          ? '<div class="pc-empty" role="status"><div class="pc-empty-ico">⚠️</div><div class="pc-empty-title">Unable to load transaction data</div><div class="pc-empty-sub">Check your connection and retry. No records have been deleted.</div><button type="button" class="btn btn-primary btn-sm" onclick="refreshTransactionsData({silent:false})">Try again</button></div>'
           : dashboardLoadingMarkup('transactions');
       }
       return;
@@ -6966,8 +7047,10 @@
         .then(() => { if (typeof renderMyListings === 'function') renderMyListings(); })
         .catch(() => {});
     } else if (name === 'wallet') {
-      // Transactions view — repaint the ledger with whatever data is loaded
+      // Fetch each ledger source on entry, rather than depending only on the
+      // dashboard overview refresh having already finished successfully.
       if (typeof renderTransactions === 'function') renderTransactions();
+      if (typeof refreshTransactionsData === 'function') refreshTransactionsData({ silent: true });
     } else if (name === 'refunds') {
       // Refunds view — fetch the auth-scoped list every time the page
       // opens, so a payment-amount mismatch that landed between visits is

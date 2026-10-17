@@ -10,6 +10,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..', '..');
 const coupons = fs.readFileSync(path.join(root, 'server/routes/coupons.js'), 'utf8');
 const dashboard = fs.readFileSync(path.join(root, 'public/dashboard.html'), 'utf8');
+const support = fs.readFileSync(path.join(root, 'public/support.html'), 'utf8');
 
 function between(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -171,6 +172,25 @@ check('Transaction totals are tied to the matching data source', () => {
   assert.match(stats, /STATE\.purchasesLoaded \? inr\(totalSpend\) : '—'/);
   assert.match(stats, /STATE\.payoutsLoaded \? inr\(totalPayout\) : '—'/);
   assert.match(stats, /STATE\.refundsLoaded \? inr\(totalRefund\) : '—'/);
+});
+
+check('Transactions fetches its data sources when the page opens', () => {
+  assert.match(dashboard, /function refreshTransactionsData\(\{ silent = true \} = \{\}\)/);
+  assert.match(dashboard, /refreshTransactionsData\(\{ silent: true \}\)/);
+  assert.match(dashboard, /onclick="refreshTransactionsData\(\{silent:false\}\)"/);
+  assert.match(dashboard, /shareDashboardSource\('purchases'/);
+  assert.match(dashboard, /shareDashboardSource\('payouts'/);
+});
+
+check('Transactions preserve visible rows when an individual source fails', () => {
+  const renderer = between(dashboard, 'function renderTransactions()', 'function renderPayouts()');
+  assert.match(renderer, /const failedSources = sources\.filter\(\(source\) => source\.error\)/);
+  assert.match(renderer, /Available records are still shown/);
+});
+
+check('Support form width is reduced and remains responsive', () => {
+  assert.match(support, /\.support-grid\s*\{[\s\S]{0,250}max-width:640px;/);
+  assert.match(support, /width:100%;/);
 });
 
 console.log('\nDashboard data integrity regression checks passed.');
