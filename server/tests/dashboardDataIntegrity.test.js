@@ -74,7 +74,17 @@ check('Dependent views show retry UI on first-load failures', () => {
     assert.ok(dashboard.includes(`dashboardLoadErrorMarkup('${section}')`), section);
   }
 });
-check('Dashboard page-level views are mutually exclusive', () => {
+check('Dashboard page-level views are hidden in the initial HTML', () => {
+  const views = [...dashboard.matchAll(/<div id="(view-[^"]+)" class="db-view([^"]*)"([^>]*)>/g)];
+  assert.equal(views.length, 10, 'all ten dashboard views must be present');
+  const initialActive = views.filter((m) => /\bactive\b/.test(m[2]));
+  assert.deepEqual(initialActive.map((m) => m[1]), ['view-dashboard']);
+  for (const view of views.filter((m) => m[1] !== 'view-dashboard')) {
+    assert.match(view[3], /\bhidden\b/, view[1] + ' must start hidden');
+  }
+});
+
+check('Dashboard navigation keeps views mutually exclusive', () => {
   assert.match(dashboard, /#pageWrapper \.db-view:not\(\.active\)[\s\S]{0,100}display:\s*none\s*!important/);
   assert.match(dashboard, /v\.hidden = true/);
   assert.match(dashboard, /view\.hidden = false/);
