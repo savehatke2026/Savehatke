@@ -1500,16 +1500,23 @@
 }
 .mc-sec-hdr.payment-method-row > .mc-sec-hdr-text { min-width: 0; }
 .payment-method-actions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; min-width:0; }
-.payment-method-status-box { display:flex; align-items:center; gap:9px; min-height:40px; max-width:100%; padding:7px 11px; border:1px solid rgba(79,195,247,.16); border-radius:10px; background:rgba(11,26,48,.68); color:#a9bad1; }
-.payment-method-status-icon { display:grid; place-items:center; flex:0 0 20px; width:20px; height:20px; border-radius:50%; background:rgba(148,163,184,.12); color:#a9bad1; font-size:.8rem; font-weight:800; }
-.payment-method-status-copy { min-width:0; }
-.payment-method-status-copy strong { display:block; font-size:.78rem; font-weight:700; line-height:1.35; }
-.payment-method-status-copy small { display:block; margin-top:2px; font-size:.7rem; line-height:1.35; opacity:.72; overflow-wrap:anywhere; }
-.payment-method-status-box[data-state="saved"] { border-color:rgba(0,226,114,.3); background:rgba(0,226,114,.06); color:#a9f4d1; }
-.payment-method-status-box[data-state="saved"] .payment-method-status-icon { background:rgba(0,226,114,.13); color:#00e272; }
-.payment-method-status-box[data-state="empty"] { border-color:rgba(79,195,247,.16); }
-.payment-method-status-box[data-state="error"] { border-color:rgba(255,116,116,.32); background:rgba(255,90,90,.05); color:#ffc0c0; }
-.payment-method-status-box[data-state="error"] .payment-method-status-icon { background:rgba(255,90,90,.12); color:#ff9a9a; }
+.payment-method-current {
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  min-width:0; max-width:100%; padding:8px 10px;
+  border:1px solid rgba(0,226,114,.28); border-radius:12px;
+  background:rgba(0,226,114,.055); color:#e2ecff;
+}
+.payment-method-current[hidden] { display:none; }
+.payment-method-current-content {
+  min-width:0; flex:1 1 auto; overflow-wrap:anywhere;
+  color:#e2ecff; font-size:.84rem; font-weight:700; line-height:1.5;
+}
+.payment-method-current-content img {
+  display:block; width:76px; height:76px; object-fit:contain;
+  border:1px solid rgba(79,195,247,.2); border-radius:8px;
+  background:#fff; padding:4px;
+}
+#paymentMethodAddBtn[hidden] { display:none; }
 @media (max-width:540px) {
   .payment-method-actions { width:100%; justify-content:stretch; }
   .payment-method-status-box { flex:1 1 180px; }
@@ -1977,7 +1984,11 @@
             <div class="mc-sec-sub">Coupons you've submitted for sale.</div>
           </div>
           <div class="payment-method-actions" id="paymentMethodActions">
-            <button type="button" class="btn btn-primary btn-sm" id="paymentMethodActionBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method">Add Payment Method</button>
+            <div class="payment-method-current" id="paymentMethodCurrentBox" hidden>
+              <div class="payment-method-current-content" id="paymentMethodCurrentContent"></div>
+              <button type="button" class="btn btn-ghost btn-sm" id="paymentMethodActionBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method">Edit</button>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="paymentMethodAddBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method" disabled>Loading…</button>
           </div>
         </div>
 
@@ -5851,43 +5862,57 @@
   let payoutDetailsPromise = null;
 
   function renderPaymentMethodStatus() {
-    const box = document.getElementById('paymentMethodStatusBox');
-    const icon = document.getElementById('paymentMethodStatusIcon');
-    const title = document.getElementById('paymentMethodStatusTitle');
-    const description = document.getElementById('paymentMethodStatusDescription');
-    const action = document.getElementById('paymentMethodActionBtn');
-    if (!box || !icon || !title || !description || !action) return;
+    const box = document.getElementById('paymentMethodCurrentBox');
+    const content = document.getElementById('paymentMethodCurrentContent');
+    const editButton = document.getElementById('paymentMethodActionBtn');
+    const addButton = document.getElementById('paymentMethodAddBtn');
+    if (!box || !content || !editButton || !addButton) return;
 
-    const setStatus = (state, glyph, heading, subtext, actionText, buttonClass, actionHandler, disabled = false) => {
-      box.dataset.state = state;
-      icon.textContent = glyph;
-      title.textContent = heading;
-      description.textContent = subtext;
-      action.textContent = actionText;
-      action.className = 'btn ' + buttonClass + ' btn-sm';
-      action.disabled = disabled;
-      action.onclick = actionHandler;
+    const showAddButton = (label, handler, disabled = false) => {
+      box.hidden = true;
+      addButton.hidden = false;
+      addButton.textContent = label;
+      addButton.disabled = disabled;
+      addButton.onclick = handler;
+      content.replaceChildren();
     };
 
     if (payoutDetails.loading && !payoutDetails.loaded) {
-      setStatus('loading', '…', 'Checking payment method', 'Loading your saved details…', 'Loading…', 'btn-primary', () => {}, true);
+      showAddButton('Loading…', () => {}, true);
       return;
     }
     if (payoutDetails.error) {
-      setStatus('error', '!', 'Unable to check payment method', 'Your saved details have not been changed.', 'Try Again', 'btn-ghost', () => loadPayoutDetails({ force: true }));
+      showAddButton('Try Again', () => loadPayoutDetails({ force: true }));
       return;
     }
 
     const d = payoutDetails.details;
     if (!payoutDetails.complete || !d) {
-      setStatus('empty', '+', 'No payment method added', 'Add a UPI ID or QR code for your seller payouts.', '+ Add Payment Method', 'btn-primary', () => openPayoutDetailsModal());
+      showAddButton('Add Payment Method', () => openPayoutDetailsModal());
       return;
     }
 
-    const isQr = String(d.method || '').toUpperCase() === 'QR';
-    const methodLabel = isQr ? 'UPI QR Code saved' : 'UPI ID saved';
-    const maskedUpi = !isQr && d.upiId ? ' · ' + d.upiId : '';
-    setStatus('saved', '✓', 'Payment Method Added', methodLabel + maskedUpi, 'Edit', 'btn-ghost', () => openPayoutDetailsModal());
+    addButton.hidden = true;
+    box.hidden = false;
+    content.replaceChildren();
+
+    if (String(d.method || '').toUpperCase() === 'QR') {
+      const img = document.createElement('img');
+      img.alt = 'Saved UPI QR code';
+      img.loading = 'lazy';
+      img.src = d.qrFileId
+        ? '/api/proxy/drive/' + encodeURIComponent(d.qrFileId)
+        : '';
+      content.appendChild(img);
+    } else {
+      // Full UPI is returned only by the authenticated endpoint for this
+      // seller's own saved payout destination.
+      content.textContent = String(d.upiIdFull || d.upiId || '');
+    }
+
+    editButton.textContent = 'Edit';
+    editButton.disabled = false;
+    editButton.onclick = () => openPayoutDetailsModal();
   }
 
   function loadPayoutDetails({ force = false } = {}) {
@@ -6017,12 +6042,12 @@
     if (savedSummaryValue) {
       savedSummaryValue.textContent = method === 'qr'
         ? 'UPI QR Code' + (d.qrFileName ? ' · ' + d.qrFileName : ' saved')
-        : 'UPI ID · ' + (d.upiId || 'Saved (partially hidden)');
+        : 'UPI ID · ' + (d.upiIdFull || d.upiId || 'Saved');
     }
     if (savedSummaryNote) {
       savedSummaryNote.textContent = method === 'qr'
         ? 'Your saved QR code preview appears below. Choose a new image only if you want to replace it.'
-        : 'Your saved UPI ID is partially hidden for safety. Enter a new UPI ID below only if you want to replace it.';
+        : 'Your full saved UPI ID is prefilled. Edit it here only if you want to change it.';
     }
 
     // Wire radios; the surrounding CSS hides everything that does not match.
@@ -6031,13 +6056,12 @@
     if (upiRadio) upiRadio.checked = method === 'upi';
     if (qrRadio) qrRadio.checked = method === 'qr';
 
-    // Stored UPI comes back masked for safety. The edit form deliberately starts
-    // blank so the user must enter the complete replacement rather than saving
-    // a masked value accidentally.
+    // Prefill the full UPI ID for this authenticated seller so editing is
+    // straightforward and a masked value can never be saved by mistake.
     const upiInput = document.getElementById('payment-upi-value');
     if (upiInput) {
-      upiInput.value = '';
-      upiInput.placeholder = editing ? 'Enter the new UPI ID to replace the saved one' : 'yourname@upi';
+      upiInput.value = editing && method === 'upi' ? String(d.upiIdFull || '') : '';
+      upiInput.placeholder = 'yourname@upi';
     }
 
     // An existing QR carries over unless a new file is chosen.
