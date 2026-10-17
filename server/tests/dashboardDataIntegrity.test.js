@@ -59,4 +59,19 @@ check('Sales request failure cannot be converted into a successful empty list', 
   assert.match(dashboard, /return STATE\.sales;/);
 });
 
+check('Reviews, support, payouts and refunds errors preserve old data', () => {
+  assert.match(dashboard, /STATE\.reviewsLoadError\s*=\s*err\.message/);
+  assert.match(dashboard, /STATE\.ticketsLoadError\s*=\s*err\.message/);
+  assert.match(dashboard, /STATE\.payoutsLoadError\s*=\s*err\.message/);
+  assert.match(dashboard, /STATE\.refundsLoadError\s*=\s*err\.message/);
+  assert.match(dashboard, /return STATE\.tickets;/);
+  assert.match(dashboard, /return STATE\.reviews;/);
+  assert.match(dashboard, /return \{ payouts: STATE\.payouts, summary: STATE\.payoutsSummary \};/);
+  assert.match(dashboard, /return \{ refunds: STATE\.refunds, summary: STATE\.refundsSummary \};/);
+});
+check('Dependent views show retry UI on first-load failures', () => {
+  for (const section of ['support cases','payouts','transactions','activity','your reviews','refunds']) {
+    assert.ok(dashboard.includes(`dashboardLoadErrorMarkup('${section}')`), section);
+  }
+});
 console.log('\nDashboard data integrity regression checks passed.');

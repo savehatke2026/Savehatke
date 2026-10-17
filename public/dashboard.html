@@ -3287,11 +3287,19 @@
     salesLoadError: '',
     purchasesLoadError: '',
     tickets: [],            // /api/support/tickets
-    payouts: [],            // /api/payouts/my → seller's payouts
+    ticketsLoaded: false,
+    ticketsLoadError: '',
+    payouts: [],             // /api/payouts/my → seller's payouts
+    payoutsLoaded: false,
+    payoutsLoadError: '',
     payoutsSummary: { totalPaid: 0, pending: 0, available: 0, rejected: 0, totalCount: 0 },
-    refunds: [],            // /api/refunds → this buyer's refund records
+    refunds: [],             // /api/refunds → this buyer's refund records
+    refundsLoaded: false,
+    refundsLoadError: '',
     refundsSummary: {},     // /api/refunds summary block
-    reviews: [],            // /api/reviews/my → this buyer's own reviews
+    reviews: [],             // /api/reviews/my → this buyer's own reviews
+    reviewsLoaded: false,
+    reviewsLoadError: '',
     notifications: [],
     lastUpdated: null,
     refreshTimer: null,
@@ -3622,56 +3630,34 @@
   }
 
   async function loadMyReviews() {
-    try {
-      const data = await api('/reviews/my');
-      return Array.isArray(data.reviews) ? data.reviews : [];
-    } catch (err) {
-      console.warn('reviews failed:', err.message);
-      return [];
-    }
+    const data = await api('/reviews/my');
+    if (!data || !Array.isArray(data.reviews)) throw new Error('Invalid response from the reviews endpoint.');
+    return data.reviews;
   }
 
   async function loadMyTickets() {
-    try {
-      const data = await api('/support/tickets');
-      return Array.isArray(data.tickets) ? data.tickets : [];
-    } catch (err) {
-      console.warn('tickets failed:', err.message);
-      return [];
-    }
+    const data = await api('/support/tickets');
+    if (!data || !Array.isArray(data.tickets)) throw new Error('Invalid response from the support endpoint.');
+    return data.tickets;
   }
 
   async function loadMyPayouts() {
-    try {
-      const data = await api('/payouts/my');
-      return {
-        payouts: Array.isArray(data.payouts) ? data.payouts : [],
-        summary: data.summary || { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 },
-      };
-    } catch (err) {
-      console.warn('my-payouts failed:', err.message);
-      return { payouts: [], summary: { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 } };
-    }
+    const data = await api('/payouts/my');
+    if (!data || !Array.isArray(data.payouts)) throw new Error('Invalid response from the payouts endpoint.');
+    return { payouts: data.payouts, summary: data.summary || { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 } };
   }
 
-  // Refund records for the Transactions ledger. Uses the same auth-scoped
-  // /api/refunds endpoint the Refunds view reads; amounts stay server-owned.
+  // The transaction ledger uses the same auth-scoped refunds endpoint.
+  // Errors bubble up so the coordinator can preserve the last good snapshot.
   async function loadMyRefunds() {
-    try {
-      const res = await fetch('/api/refunds', {
-        credentials: 'include',
-        headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) return { refunds: [], summary: {} };
-      return {
-        refunds: Array.isArray(data.refunds) ? data.refunds : [],
-        summary: data.summary || {},
-      };
-    } catch (err) {
-      console.warn('my-refunds failed:', err.message);
-      return { refunds: [], summary: {} };
-    }
+    const res = await fetch('/api/refunds', {
+      credentials: 'include',
+      headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Could not load refund records.');
+    if (!data || !Array.isArray(data.refunds)) throw new Error('Invalid response from the refunds endpoint.');
+    return { refunds: data.refunds, summary: data.summary || {} };
   }
 
   /**
@@ -4376,6 +4362,12 @@
     const emptyBox = document.getElementById('activityEmpty');
     const feed = document.getElementById('activityFeed');
     if (!tbody || !mob) return;
+    if ((STATE.salesLoadError && !STATE.salesLoaded) || (STATE.purchasesLoadError && !STATE.purchasesLoaded)) {
+      tbody.innerHTML = ''; mob.innerHTML = '';
+      if (feed) feed.style.display = 'none';
+      if (emptyBox) { emptyBox.style.display = ''; emptyBox.innerHTML = dashboardLoadErrorMarkup('activity'); }
+      return;
+    }
 
     // Build a single chronological feed from sales + purchases
     const events = [];
@@ -4558,6 +4550,13 @@
     const wrap = document.getElementById('supportTableWrap');
     const empty = document.getElementById('supportEmpty');
     if (!tbody || !mob || !empty) return;
+    if (STATE.ticketsLoadError && !STATE.ticketsLoaded) {
+      setText('supportOpenCount', '—'); setText('supportResolvedCount', '—'); setText('supportTotalCount', '—');
+      tbody.innerHTML = ''; mob.innerHTML = '';
+      if (wrap) wrap.style.display = 'none';
+      empty.innerHTML = dashboardLoadErrorMarkup('support cases');
+      return;
+    }
 
     if (rows.length === 0) {
       tbody.innerHTML = '';
@@ -4891,6 +4890,18 @@
   }
 
   function renderTransactions() {
+    const initialSourceError = (STATE.purchasesLoadError && !STATE.purchasesLoaded) ||
+      (STATE.payoutsLoadError && !STATE.payoutsLoaded) || (STATE.refundsLoadError && !STATE.refundsLoaded);
+    if (initialSourceError) {
+      ['txpStatAmount', 'txpStatPurchases', 'txpStatPayout', 'txpStatRefunds'].forEach((id) => setText(id, '—'));
+      const errorBody = document.getElementById('txTableBody'), errorMob = document.getElementById('txMobile');
+      const errorWrap = document.getElementById('txTableWrap'), errorEmpty = document.getElementById('txEmpty');
+      if (errorBody) errorBody.innerHTML = '';
+      if (errorMob) { errorMob.innerHTML = ''; errorMob.style.display = 'none'; }
+      if (errorWrap) errorWrap.style.display = 'none';
+      if (errorEmpty) { errorEmpty.style.display = ''; errorEmpty.innerHTML = dashboardLoadErrorMarkup('transactions'); }
+      return;
+    }
     renderTxStats();
 
     const tbody = document.getElementById('txTableBody');
@@ -4962,13 +4973,17 @@
   function renderPayouts() {
     const summary = STATE.payoutsSummary || { totalPaid: 0, pending: 0, rejected: 0, totalCount: 0 };
     const payouts = STATE.payouts || [];
-
+    const container = document.getElementById('myPayoutsList');
+    if (STATE.payoutsLoadError && !STATE.payoutsLoaded) {
+      setText('payoutsTotalPaid', '—'); setText('payoutsPending', '—');
+      setText('payoutsCount', '—'); setText('payoutsRejected', '—');
+      if (container) container.innerHTML = dashboardLoadErrorMarkup('payouts');
+      return;
+    }
     setText('payoutsTotalPaid', inr(summary.totalPaid));
     setText('payoutsPending', inr(summary.pending));
     setText('payoutsCount', String(summary.totalCount));
     setText('payoutsRejected', String(summary.rejected));
-
-    const container = document.getElementById('myPayoutsList');
     if (!container) return;
 
     if (payouts.length === 0) {
@@ -5133,26 +5148,44 @@
         return STATE.purchases;
       });
       const salesP = loadMySales().then((sales) => {
-        STATE.sales = sales;
-        STATE.salesLoaded = true;
-        STATE.salesLoadError = '';
-        renderMyListings();
-        return sales;
+        STATE.sales = sales; STATE.salesLoaded = true; STATE.salesLoadError = '';
+        renderMyListings(); return sales;
       }).catch((err) => {
         STATE.salesLoadError = err.message || 'Sales data could not be loaded.';
-        console.warn('my-sales failed:', err.message);
-        // Final refresh rendering happens after all independent requests settle.
-        return STATE.sales;
+        console.warn('my-sales failed:', err.message); return STATE.sales;
+      });
+
+      const ticketsP = loadMyTickets().then((tickets) => {
+        STATE.tickets = tickets; STATE.ticketsLoaded = true; STATE.ticketsLoadError = ''; return tickets;
+      }).catch((err) => {
+        STATE.ticketsLoadError = err.message || 'Support cases could not be loaded.';
+        console.warn('tickets failed:', err.message); return STATE.tickets;
+      });
+      const payoutsP = loadMyPayouts().then((data) => {
+        STATE.payouts = data.payouts; STATE.payoutsSummary = data.summary;
+        STATE.payoutsLoaded = true; STATE.payoutsLoadError = ''; return data;
+      }).catch((err) => {
+        STATE.payoutsLoadError = err.message || 'Payouts could not be loaded.';
+        console.warn('my-payouts failed:', err.message);
+        return { payouts: STATE.payouts, summary: STATE.payoutsSummary };
+      });
+      const reviewsP = loadMyReviews().then((reviews) => {
+        STATE.reviews = reviews; STATE.reviewsLoaded = true; STATE.reviewsLoadError = ''; return reviews;
+      }).catch((err) => {
+        STATE.reviewsLoadError = err.message || 'Reviews could not be loaded.';
+        console.warn('reviews failed:', err.message); return STATE.reviews;
+      });
+      const refundsP = loadMyRefunds().then((data) => {
+        STATE.refunds = data.refunds; STATE.refundsSummary = data.summary;
+        STATE.refundsLoaded = true; STATE.refundsLoadError = ''; return data;
+      }).catch((err) => {
+        STATE.refundsLoadError = err.message || 'Refunds could not be loaded.';
+        console.warn('my-refunds failed:', err.message);
+        return { refunds: STATE.refunds, summary: STATE.refundsSummary };
       });
 
       const [user, sales, purchases, tickets, payoutsData, reviews, refundsData] = await Promise.all([
-        loadMe(),
-        salesP,
-        purchasesP,
-        loadMyTickets(),
-        loadMyPayouts(),
-        loadMyReviews(),
-        loadMyRefunds(),
+        loadMe(), salesP, purchasesP, ticketsP, payoutsP, reviewsP, refundsP,
       ]);
       STATE.user = user || STATE.user || Auth.getUser() || null;
       STATE.sales = sales;
@@ -5163,9 +5196,14 @@
       STATE.refunds = refundsData.refunds;
       STATE.refundsSummary = refundsData.summary;
       STATE.reviews = reviews;
-      if ((STATE.purchasesLoadError || STATE.salesLoadError) && !silent) {
-        showToast('Some purchase or sales data could not be refreshed. Please try again.', 'error');
-      }
+      if ([
+        STATE.purchasesLoadError && !STATE.purchasesLoaded,
+        STATE.salesLoadError && !STATE.salesLoaded,
+        STATE.ticketsLoadError && !STATE.ticketsLoaded,
+        STATE.payoutsLoadError && !STATE.payoutsLoaded,
+        STATE.refundsLoadError && !STATE.refundsLoaded,
+        STATE.reviewsLoadError && !STATE.reviewsLoaded,
+      ].some(Boolean) && !silent) showToast('Some dashboard data could not be loaded. Please try again.', 'error');
 
       // Brand logos are already resolved per coupon by mcxBrandBoxInner's
       // helpers; resolve in the background and repaint only if a logo lands.
@@ -6207,6 +6245,14 @@
     openModal('howRefundsWorkModal');
   }
 
+  function showRefundsLoadError() {
+    ['refundsTotal', 'refundsPending', 'refundsProcessing', 'refundsRefunded', 'refundsRejected',
+      'refundsTotalCount', 'refundsPendingCount', 'refundsProcessingCount',
+      'refundsRefundedCount', 'refundsRejectedCount'].forEach((id) => setText(id, '—'));
+    const container = document.getElementById('refundsList');
+    if (container) container.innerHTML = dashboardLoadErrorMarkup('refunds');
+  }
+
   async function loadRefunds(opts = {}) {
     const silent = !!opts.silent;
     if (!silent) showToast('Loading refunds…', 'info');
@@ -6217,11 +6263,15 @@
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        STATE.refundsLoadError = data.error || 'Could not load refund records.';
+        if (!STATE.refundsLoaded) showRefundsLoadError();
         if (!silent) showToast(data.error || 'Could not load refunds.', 'error');
         return;
       }
-      const refunds = Array.isArray(data.refunds) ? data.refunds : [];
-      const summary = data.summary || {};
+      if (!data || !Array.isArray(data.refunds)) throw new Error('Invalid response from the refunds endpoint.');
+      const refunds = data.refunds, summary = data.summary || {};
+      STATE.refundsLoaded = true;
+      STATE.refundsLoadError = '';
       setText('refundsTotal',     '₹' + Number(summary.total    || 0).toLocaleString('en-IN'));
       setText('refundsPending',   '₹' + Number(summary.pending  || 0).toLocaleString('en-IN'));
       setText('refundsProcessing','₹' + Number(summary.processing || 0).toLocaleString('en-IN'));
@@ -6237,6 +6287,8 @@
       _allRefunds = refunds;
       renderRefundsList();
     } catch (e) {
+      STATE.refundsLoadError = e.message || 'Network error loading refunds.';
+      if (!STATE.refundsLoaded) showRefundsLoadError();
       if (!silent) showToast('Network error loading refunds.', 'error');
     }
   }
@@ -6409,9 +6461,10 @@
   function renderReviews() {
     const given = STATE.reviews || [];
     const pending = pendingReviewPurchases();
-
-    setText('rvGivenCount', given.length);
-    setText('rvPendingCount', pending.length);
+    const reviewsUnavailable = STATE.reviewsLoadError && !STATE.reviewsLoaded;
+    const purchasesUnavailable = STATE.purchasesLoadError && !STATE.purchasesLoaded;
+    setText('rvGivenCount', reviewsUnavailable ? '—' : given.length);
+    setText('rvPendingCount', purchasesUnavailable ? '—' : pending.length);
 
     // ── Pending Reviews ──
     // Always present, so the section that carries the count in the summary
@@ -6422,7 +6475,9 @@
     if (pendingSection && pendingList) {
       pendingSection.style.display = 'block';
 
-      pendingList.innerHTML = pending.length
+      pendingList.innerHTML = purchasesUnavailable
+        ? dashboardLoadErrorMarkup('purchases for pending reviews')
+        : pending.length
         ? pending.map((c) => {
             const brand = c.brand || 'Coupon';
             const label = reviewableCouponLabel(c);
@@ -6458,7 +6513,9 @@
     // ── Your Reviews ──
     const givenList = document.getElementById('rvGivenList');
     if (givenList) {
-      givenList.innerHTML = given.length
+      givenList.innerHTML = reviewsUnavailable
+        ? dashboardLoadErrorMarkup('your reviews')
+        : given.length
         ? given.map((r) => {
             const brand = r.brand || 'Coupon';
             const label = r.couponTitle || (r.pricePaid ? `${inr(r.pricePaid)} Coupon` : 'Coupon');
