@@ -1417,6 +1417,28 @@
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
 }
+.payment-method-saved-summary {
+  margin: 0 0 18px;
+  padding: 14px;
+  border: 1px solid rgba(0, 226, 114, .24);
+  border-radius: 12px;
+  background: rgba(0, 226, 114, .06);
+}
+.payment-method-saved-summary[hidden] { display: none; }
+.payment-method-saved-summary-heading {
+  margin-bottom: 6px;
+  color: #8da5c4;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.payment-method-saved-summary-value {
+  color: #e2ecff;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.payment-method-saved-summary .payment-method-help { margin: 6px 0 0; }
 .payment-method::backdrop { background: rgba(0, 0, 0, .65); backdrop-filter: blur(4px); }
 .payment-method .card-hdr { align-items: flex-start; flex-wrap: wrap; gap: 16px; }
 .payment-method h2, .payment-method h3 { margin: 0; }
@@ -3101,6 +3123,11 @@
   <div class="payment-method-editor">
     <div class="payment-method-form-body">
       <form id="payment-method-form" class="payment-method-form" enctype="multipart/form-data" novalidate>
+        <div class="payment-method-saved-summary" id="payment-method-saved-summary" hidden aria-live="polite">
+          <div class="payment-method-saved-summary-heading">Current saved payment method</div>
+          <div class="payment-method-saved-summary-value" id="payment-method-saved-summary-value"></div>
+          <p class="payment-method-help" id="payment-method-saved-summary-note"></p>
+        </div>
         <fieldset class="payment-method-options">
           <legend>Choose a payout method</legend>
           <label class="payment-method-option" for="payment-upi">
@@ -5986,6 +6013,24 @@
     }
     if (saveButton) saveButton.textContent = editing ? 'Save Changes' : 'Save';
     const method = String(d.method || 'UPI').toUpperCase() === 'QR' ? 'qr' : 'upi';
+
+    // Show the existing destination inside the form when editing. The API
+    // deliberately returns only a masked UPI ID, so this never exposes the
+    // full payout destination in the browser.
+    const savedSummary = document.getElementById('payment-method-saved-summary');
+    const savedSummaryValue = document.getElementById('payment-method-saved-summary-value');
+    const savedSummaryNote = document.getElementById('payment-method-saved-summary-note');
+    if (savedSummary) savedSummary.hidden = !editing;
+    if (savedSummaryValue) {
+      savedSummaryValue.textContent = method === 'qr'
+        ? 'UPI QR Code' + (d.qrFileName ? ' · ' + d.qrFileName : ' saved')
+        : 'UPI ID · ' + (d.upiId || 'Saved (partially hidden)');
+    }
+    if (savedSummaryNote) {
+      savedSummaryNote.textContent = method === 'qr'
+        ? 'Your saved QR code preview appears below. Choose a new image only if you want to replace it.'
+        : 'Your saved UPI ID is partially hidden for safety. Enter a new UPI ID below only if you want to replace it.';
+    }
 
     // Wire radios; the surrounding CSS hides everything that does not match.
     const upiRadio = document.getElementById('payment-upi');
