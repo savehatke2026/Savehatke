@@ -132,4 +132,27 @@ check('Dashboard stylesheet is balanced and visibility rules are not trapped in 
   assert.ok(css.indexOf('.db-view{display:none}') > css.indexOf('.sec-status{'), 'view visibility rules remain after the closed media section');
 });
 
+check('Wallet balance uses the server-calculated available amount', () => {
+  const stats = between(dashboard, 'function renderStats()', '// ─── My-Coupons reskin');
+  assert.match(stats, /STATE\.payoutsSummary\s*&&\s*STATE\.payoutsSummary\.available/);
+  assert.match(stats, /setText\('statBalance', STATE\.payoutsLoaded \? inr\(availableBalance\) : '—'\);/);
+  assert.doesNotMatch(stats, /const availableBalance = totalEarnings/);
+});
+
+check('Recent Activity uses seller payout instead of coupon selling price', () => {
+  const activity = between(dashboard, 'function renderActivity()', '// ─── Help & Support');
+  assert.match(activity, /const sellerPayout = c\.sellerPayout/);
+  assert.match(activity, /Number\.isFinite\(sellerPayout\)/);
+  assert.doesNotMatch(activity, /amount: c\.sellingPrice/);
+});
+
+check('Refunds and Transactions share a single authoritative snapshot', () => {
+  assert.match(dashboard, /function renderRefundsSnapshot\(refunds, summary/);
+  assert.match(dashboard, /STATE\.refunds = Array\.isArray\(refunds\) \? refunds : \[\]/);
+  assert.match(dashboard, /STATE\.refundsSummary = summary/);
+  assert.match(dashboard, /_allRefunds = records/);
+  assert.match(dashboard, /function fetchRefundsSnapshot\(\)/);
+  assert.match(dashboard, /Date\.now\(\) - STATE\.refundsLoadedAt < 20000/);
+});
+
 console.log('\nDashboard data integrity regression checks passed.');

@@ -3300,6 +3300,7 @@
     payoutsSummary: { totalPaid: 0, pending: 0, available: 0, rejected: 0, totalCount: 0 },
     refunds: [],             // /api/refunds → this buyer's refund records
     refundsLoaded: false,
+    refundsLoadedAt: 0,
     refundsLoadError: '',
     refundsSummary: {},     // /api/refunds summary block
     reviews: [],             // /api/reviews/my → this buyer's own reviews
@@ -3595,6 +3596,14 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  function dashboardLoadingMarkup(title) {
+    return `<div class="pc-empty" role="status" aria-live="polite">
+      <div class="pc-empty-ico">⏳</div>
+      <div class="pc-empty-title">Loading ${escapeHtml(title)}</div>
+      <div class="pc-empty-sub">Fetching the latest records…</div>
+    </div>`;
+  }
+
   function dashboardLoadErrorMarkup(title) {
     return `<div class="pc-empty" role="status">
       <div class="pc-empty-ico">⚠️</div>
@@ -3654,15 +3663,29 @@
 
   // The transaction ledger uses the same auth-scoped refunds endpoint.
   // Errors bubble up so the coordinator can preserve the last good snapshot.
+  let refundsRequestPromise = null;
+
+  function fetchRefundsSnapshot() {
+    if (refundsRequestPromise) return refundsRequestPromise;
+    const pending = (async () => {
+      const res = await fetch('/api/refunds', {
+        credentials: 'include',
+        headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Could not load refund records.');
+      if (!data || !Array.isArray(data.refunds)) throw new Error('Invalid response from the refunds endpoint.');
+      return { refunds: data.refunds, summary: data.summary || {} };
+    })();
+    refundsRequestPromise = pending;
+    pending.finally(() => {
+      if (refundsRequestPromise === pending) refundsRequestPromise = null;
+    }).catch(() => {});
+    return pending;
+  }
+
   async function loadMyRefunds() {
-    const res = await fetch('/api/refunds', {
-      credentials: 'include',
-      headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Could not load refund records.');
-    if (!data || !Array.isArray(data.refunds)) throw new Error('Invalid response from the refunds endpoint.');
-    return { refunds: data.refunds, summary: data.summary || {} };
+    return fetchRefundsSnapshot();
   }
 
   /**
@@ -3891,43 +3914,12 @@
     const activeListings = sales.filter(isAvailable).length;
     const totalPurchased = purchases.length;
 
-    // Earnings: a sold coupon pays the seller 7% of its FACE VALUE — never the
-    // marketplace sellingPrice. This mirrors server/services/sellerPayout.js
-    // exactly, and mirrors createAutoPayout in server/routes/payouts.js which
-    // now resolves the payout from the coupon's originalValue. The server is
-    // the only authority on the payout amount; the dashboard only displays it.
-    //
-    // The my-sales endpoint returns the server-computed payout on every row
-    // (see server/routes/coupons.js — `sellerPayout` numeric field plus the
-    // `couponPayoutInfo` spread with payoutEligible). We always use that value
-    // and never recompute from sellingPrice.
-    const priceOf = (c) => {
-      if (!c) return 0;
-      // 1. Prefer the server-computed payout amount (7% of face value).
-      const serverPayout = Number(c.sellerPayout);
-      if (Number.isFinite(serverPayout) && serverPayout > 0) return Math.round(serverPayout * 100) / 100;
-      // 2. Fall back to a client-side mirror of the same formula — paise-precise
-      //    so a 7.04 payout doesn't silently round to 7. The client never
-      //    decides the payout; this is purely so the dashboard renders
-      //    something useful while the server response is in flight.
-      const face = Number(c.originalValue);
-      if (Number.isFinite(face) && face >= 100 && face <= 10000) {
-        return Math.round(face * 7) / 100;
-      }
-      return 0;
-    };
-    const totalEarnings = sales.filter(isSold).reduce((s, c) => s + priceOf(c), 0);
-    const pendingEarnings = sales.filter(isPending).reduce((s, c) => s + priceOf(c), 0);
-    const availableBalance = totalEarnings; // no withdrawal flow wired yet
-    const monthEarnings = sales
-      .filter(isSold)
-      .filter((c) => {
-        const d = new Date(c.soldAt || c.addedAt);
-        if (isNaN(d.getTime())) return false;
-        const now = new Date();
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-      })
-      .reduce((s, c) => s + priceOf(c), 0);
+    // Wallet balance is calculated by the server after paid and reserved payouts.
+    // Lifetime earnings are not the available balance once money has been paid out.
+    const rawAvailableBalance = Number(STATE.payoutsSummary && STATE.payoutsSummary.available);
+    const availableBalance = STATE.payoutsLoaded && Number.isFinite(rawAvailableBalance)
+      ? Math.max(0, rawAvailableBalance)
+      : 0;
 
     // Overview cards — Coupons (active listings), Purchased, Sold, Wallet Balance
     // Unknown is not the same as zero: on a failed first load, keep the
@@ -3935,7 +3927,7 @@
     setText('statCoupons', STATE.salesLoaded ? activeListings : '—');
     setText('statPurchased', STATE.purchasesLoaded ? totalPurchased : '—');
     setText('statSold', STATE.salesLoaded ? soldCount : '—');
-    setText('statBalance', STATE.salesLoaded ? inr(availableBalance) : '—');
+    setText('statBalance', STATE.payoutsLoaded ? inr(availableBalance) : '—');
 
     // Kept on STATE (not scraped back out of the DOM) so the withdraw modal
     // still validates correctly now that the wallet card is gone.
@@ -4379,11 +4371,12 @@
 
     STATE.sales.forEach((c) => {
       if (isSold(c)) {
+        const sellerPayout = c.sellerPayout == null || c.sellerPayout === '' ? NaN : Number(c.sellerPayout);
         events.push({
           type: 'Sale',
           icon: '💼',
           detail: `${c.brand || 'Coupon'}${c.originalValue ? ' ' + inr(c.originalValue) + ' Voucher' : ''}`,
-          amount: c.sellingPrice != null && c.sellingPrice !== '' ? `+${inr(c.sellingPrice)}` : '—',
+          amount: Number.isFinite(sellerPayout) ? `+${inr(sellerPayout)}` : '—',
           amountClass: 'text-green',
           date: c.soldAt || c.addedAt,
           status: 'sold',
@@ -6250,6 +6243,31 @@
     openModal('howRefundsWorkModal');
   }
 
+  function renderRefundsSnapshot(refunds, summary, { fromServer = false } = {}) {
+    STATE.refunds = Array.isArray(refunds) ? refunds : [];
+    STATE.refundsSummary = summary && typeof summary === 'object' ? summary : {};
+    STATE.refundsLoaded = true;
+    STATE.refundsLoadError = '';
+    if (fromServer || !STATE.refundsLoadedAt) STATE.refundsLoadedAt = Date.now();
+
+    const records = STATE.refunds;
+    const totals = STATE.refundsSummary;
+    setText('refundsTotal', '₹' + Number(totals.total || 0).toLocaleString('en-IN'));
+    setText('refundsPending', '₹' + Number(totals.pending || 0).toLocaleString('en-IN'));
+    setText('refundsProcessing', '₹' + Number(totals.processing || 0).toLocaleString('en-IN'));
+    setText('refundsRefunded', '₹' + Number(totals.refunded || 0).toLocaleString('en-IN'));
+    setText('refundsRejected', '₹' + Number(totals.rejected || 0).toLocaleString('en-IN'));
+    setText('refundsTotalCount', String(totals.totalCount != null ? totals.totalCount : records.length));
+    setText('refundsPendingCount', String(totals.pendingCount || 0));
+    setText('refundsProcessingCount', String(totals.processingCount || 0));
+    setText('refundsRefundedCount', String(totals.refundedCount || 0));
+    setText('refundsRejectedCount', String(totals.rejectedCount || 0));
+
+    _allRefunds = records;
+    renderRefundsList();
+    renderTransactions();
+  }
+
   function showRefundsLoadError() {
     ['refundsTotal', 'refundsPending', 'refundsProcessing', 'refundsRefunded', 'refundsRejected',
       'refundsTotalCount', 'refundsPendingCount', 'refundsProcessingCount',
@@ -6258,47 +6276,40 @@
     if (container) container.innerHTML = dashboardLoadErrorMarkup('refunds');
   }
 
+  let refundsViewLoadPromise = null;
+
   async function loadRefunds(opts = {}) {
     const silent = !!opts.silent;
-    if (!silent) showToast('Loading refunds…', 'info');
-    try {
-      const res = await fetch('/api/refunds', {
-        credentials: 'include',
-        headers: (typeof Auth !== 'undefined' && Auth.getAuthHeaders) ? Auth.getAuthHeaders() : { 'Content-Type': 'application/json' },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        STATE.refundsLoadError = data.error || 'Could not load refund records.';
-        if (!STATE.refundsLoaded) showRefundsLoadError();
-        if (!silent) showToast(data.error || 'Could not load refunds.', 'error');
-        return;
-      }
-      if (!data || !Array.isArray(data.refunds)) throw new Error('Invalid response from the refunds endpoint.');
-      const refunds = data.refunds, summary = data.summary || {};
-      STATE.refundsLoaded = true;
-      STATE.refundsLoadError = '';
-      setText('refundsTotal',     '₹' + Number(summary.total    || 0).toLocaleString('en-IN'));
-      setText('refundsPending',   '₹' + Number(summary.pending  || 0).toLocaleString('en-IN'));
-      setText('refundsProcessing','₹' + Number(summary.processing || 0).toLocaleString('en-IN'));
-      setText('refundsRefunded',  '₹' + Number(summary.refunded  || 0).toLocaleString('en-IN'));
-      setText('refundsRejected',  '₹' + Number(summary.rejected  || 0).toLocaleString('en-IN'));
-      // Count pills (server-supplied) for the card headers.
-      setText('refundsTotalCount',      String(summary.totalCount      || refunds.length || 0));
-      setText('refundsPendingCount',    String(summary.pendingCount    || 0));
-      setText('refundsProcessingCount', String(summary.processingCount || 0));
-      setText('refundsRefundedCount',   String(summary.refundedCount   || 0));
-      setText('refundsRejectedCount',   String(summary.rejectedCount   || 0));
+    const force = !!opts.force;
+    if (refundsViewLoadPromise) return refundsViewLoadPromise;
 
-      _allRefunds = refunds;
-      renderRefundsList();
-    } catch (e) {
-      STATE.refundsLoadError = e.message || 'Network error loading refunds.';
-      if (!STATE.refundsLoaded) showRefundsLoadError();
-      if (!silent) showToast('Network error loading refunds.', 'error');
+    const isFresh = STATE.refundsLoaded && STATE.refundsLoadedAt &&
+      (Date.now() - STATE.refundsLoadedAt < 20000);
+    if (!force && isFresh) {
+      renderRefundsSnapshot(STATE.refunds, STATE.refundsSummary);
+      return;
+    }
+    if (!silent) showToast('Loading refunds…', 'info');
+
+    const pending = (async () => {
+      try {
+        const snapshot = await fetchRefundsSnapshot();
+        renderRefundsSnapshot(snapshot.refunds, snapshot.summary, { fromServer: true });
+      } catch (e) {
+        STATE.refundsLoadError = e.message || 'Network error loading refunds.';
+        if (!STATE.refundsLoaded) showRefundsLoadError();
+        if (!silent) showToast(e.message || 'Network error loading refunds.', 'error');
+      }
+    })();
+    refundsViewLoadPromise = pending;
+    try {
+      await pending;
+    } finally {
+      if (refundsViewLoadPromise === pending) refundsViewLoadPromise = null;
     }
   }
 
-  // The current detail record, kept on window so the action button can
+    // The current detail record, kept on window so the action button can
   // read it without an extra fetch.
   let _refundDetail = null;
 
