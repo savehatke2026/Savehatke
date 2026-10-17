@@ -1159,6 +1159,11 @@
     /* VIEWS */
     .db-view{display:none}
     .db-view.active{display:block}
+    /* Keep page-level dashboard views mutually exclusive even if a later
+       component stylesheet accidentally overrides the base visibility rule. */
+    #pageWrapper .db-view:not(.active),
+    #pageWrapper .db-view[hidden] { display: none !important; }
+    #pageWrapper .db-view.active:not([hidden]) { display: block !important; }
 
     /* VIEW HEADERS */
     .view-hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:18px;border-bottom:1px solid rgba(79,195,247,.07);flex-wrap:wrap;gap:14px}
@@ -6866,9 +6871,16 @@
   //                                * for security, scrolls to a section anchor
   //                                  (active-sessions)
   function showView(name, sub) {
-    document.querySelectorAll('.db-view').forEach(v => v.classList.remove('active'));
+    const views = document.querySelectorAll('#pageWrapper .db-view');
+    views.forEach((v) => {
+      v.classList.remove('active');
+      v.hidden = true;
+    });
     const view = document.getElementById('view-' + name);
-    if (view) view.classList.add('active');
+    if (view && document.getElementById('pageWrapper').contains(view)) {
+      view.hidden = false;
+      view.classList.add('active');
+    }
 
     // Top-level sb-item active state. There is no second level: every sidebar
     // entry is a page, so `sub` only ever selects something *inside* a view.

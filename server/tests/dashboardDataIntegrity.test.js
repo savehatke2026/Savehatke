@@ -74,4 +74,11 @@ check('Dependent views show retry UI on first-load failures', () => {
     assert.ok(dashboard.includes(`dashboardLoadErrorMarkup('${section}')`), section);
   }
 });
+check('Dashboard page-level views are mutually exclusive', () => {
+  assert.match(dashboard, /#pageWrapper \.db-view:not\(\.active\)[\s\S]{0,100}display:\s*none\s*!important/);
+  assert.match(dashboard, /v\.hidden = true/);
+  assert.match(dashboard, /view\.hidden = false/);
+  assert.match(dashboard, /view\.classList\.add\('active'\)/);
+});
+
 console.log('\nDashboard data integrity regression checks passed.');
