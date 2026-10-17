@@ -425,7 +425,11 @@ function toSellerDetails(row) {
   if (!row) return null;
   return {
     method: normalizeMethod(row.method) || '',
+    // Keep the masked field for existing consumers, and include the full UPI ID
+    // solely in the authenticated owner's GET/PUT payout-details responses so
+    // that the owner can verify and edit their own saved payment destination.
     upiId: maskUpi(row.upiId),
+    upiIdFull: String(row.upiId || '').trim(),
     // The file id is not a credential and the seller needs it to see their own
     // QR through /api/proxy/drive/:fileId, which authorises every view.
     qrFileId: String(row.qrFileId || ''),
@@ -939,11 +943,11 @@ router.post('/payouts/details/qr', authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/payouts/details — the signed-in seller's stored payout destination
+// GET /api/payouts/details — the signed-in seller's stored payout destination.
 // The seller is taken from the verified session, never from a query or body
 // field, so one seller can never read another's destination by guessing an
-// email. Values come back masked: this response only has to prove which account
-// is on file, not reproduce it.
+// email. The masked compatibility field remains, and the full UPI ID is returned
+// separately only for this authenticated seller's own payment-method display/edit UI.
 router.get('/payouts/details', authenticateToken, async (req, res) => {
   try {
     const email = (req.user.email || '').toLowerCase().trim();
