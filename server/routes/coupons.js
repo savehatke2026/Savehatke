@@ -1257,7 +1257,10 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
           discount: c.discount,
           originalValue: c.originalValue,
           sellingPrice: c.sellingPrice,
-          pricePaid: c.sellingPrice,
+          // The actual purchase price is the canonical amount from the matching
+          // PAID order + payment. The stored coupon price is only a legacy
+          // fallback when no qualifying order record exists.
+          pricePaid: purchase ? Number(ord.amount) : c.sellingPrice,
           expiryDate: c.expiryDate,
           status: c.status,
           addedAt: c.addedAt,

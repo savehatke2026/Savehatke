@@ -3282,6 +3282,10 @@
     user: null,             // { id, name, email, role, ... }
     sales: [],              // /api/coupons/my-sales → coupons
     purchases: [],          // /api/coupons/my-purchases → coupons
+    salesLoaded: false,
+    purchasesLoaded: false,
+    salesLoadError: '',
+    purchasesLoadError: '',
     tickets: [],            // /api/support/tickets
     payouts: [],            // /api/payouts/my → seller's payouts
     payoutsSummary: { totalPaid: 0, pending: 0, available: 0, rejected: 0, totalCount: 0 },
@@ -3578,6 +3582,15 @@
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  function dashboardLoadErrorMarkup(title) {
+    return `<div class="pc-empty" role="status">
+      <div class="pc-empty-ico">⚠️</div>
+      <div class="pc-empty-title">Unable to load ${escapeHtml(title)}</div>
+      <div class="pc-empty-sub">Please check your connection and try again. Your last successfully loaded records are preserved.</div>
+      <button type="button" class="btn btn-primary btn-sm" onclick="refreshDashboard({silent:false})">Try again</button>
+    </div>`;
+  }
+
   // ─── Loaders ────────────────────────────────────────────────────
   async function loadMe() {
     try {
@@ -3593,23 +3606,19 @@
   }
 
   async function loadMySales() {
-    try {
-      const data = await api('/coupons/my-sales');
-      return Array.isArray(data.coupons) ? data.coupons : [];
-    } catch (err) {
-      console.warn('my-sales failed:', err.message);
-      return [];
+    const data = await api('/coupons/my-sales');
+    if (!data || !Array.isArray(data.coupons)) {
+      throw new Error('Invalid response from the sales endpoint.');
     }
+    return data.coupons;
   }
 
   async function loadMyPurchases() {
-    try {
-      const data = await api('/coupons/my-purchases');
-      return Array.isArray(data.coupons) ? data.coupons : [];
-    } catch (err) {
-      console.warn('my-purchases failed:', err.message);
-      return [];
+    const data = await api('/coupons/my-purchases');
+    if (!data || !Array.isArray(data.coupons)) {
+      throw new Error('Invalid response from the purchases endpoint.');
     }
+    return data.coupons;
   }
 
   async function loadMyReviews() {
@@ -3905,7 +3914,7 @@
       if (!c) return 0;
       // 1. Prefer the server-computed payout amount (7% of face value).
       const serverPayout = Number(c.sellerPayout);
-      if (Number.isFinite(serverPayout) && serverPayout > 0) return Math.round(serverPayout);
+      if (Number.isFinite(serverPayout) && serverPayout > 0) return Math.round(serverPayout * 100) / 100;
       // 2. Fall back to a client-side mirror of the same formula — paise-precise
       //    so a 7.04 payout doesn't silently round to 7. The client never
       //    decides the payout; this is purely so the dashboard renders
@@ -4067,6 +4076,10 @@
 
     const container = document.getElementById('myCouponsList');
     if (!container) return;
+    if (STATE.purchasesLoadError) {
+      if (!STATE.purchasesLoaded) container.innerHTML = dashboardLoadErrorMarkup('your purchases');
+      return;
+    }
 
     if (list.length === 0) {
       container.innerHTML = `
@@ -4303,6 +4316,10 @@
 
     const container = document.getElementById('myListingsList');
     if (!container) return;
+    if (STATE.salesLoadError) {
+      if (!STATE.salesLoaded) container.innerHTML = dashboardLoadErrorMarkup('your listings');
+      return;
+    }
 
     if (list.length === 0) {
       container.innerHTML = `
@@ -5102,13 +5119,27 @@
       // request returns, instead of waiting for every other dashboard request.
       const purchasesP = loadMyPurchases().then((purchases) => {
         STATE.purchases = purchases;
+        STATE.purchasesLoaded = true;
+        STATE.purchasesLoadError = '';
         renderMyCoupons();
         return purchases;
+      }).catch((err) => {
+        STATE.purchasesLoadError = err.message || 'Purchase data could not be loaded.';
+        console.warn('my-purchases failed:', err.message);
+        renderMyCoupons();
+        return STATE.purchases;
       });
       const salesP = loadMySales().then((sales) => {
         STATE.sales = sales;
+        STATE.salesLoaded = true;
+        STATE.salesLoadError = '';
         renderMyListings();
         return sales;
+      }).catch((err) => {
+        STATE.salesLoadError = err.message || 'Sales data could not be loaded.';
+        console.warn('my-sales failed:', err.message);
+        renderMyListings();
+        return STATE.sales;
       });
 
       const [user, sales, purchases, tickets, payoutsData, reviews, refundsData] = await Promise.all([
@@ -5129,6 +5160,9 @@
       STATE.refunds = refundsData.refunds;
       STATE.refundsSummary = refundsData.summary;
       STATE.reviews = reviews;
+      if ((STATE.purchasesLoadError || STATE.salesLoadError) && !silent) {
+        showToast('Some purchase or sales data could not be refreshed. Please try again.', 'error');
+      }
 
       // Brand logos are already resolved per coupon by mcxBrandBoxInner's
       // helpers; resolve in the background and repaint only if a logo lands.
