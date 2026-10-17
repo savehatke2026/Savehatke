@@ -2208,6 +2208,7 @@
           <span class="txp-history-title">Transaction History</span>
         </div>
 
+        <div class="txp-empty" id="txLoadNotice" role="status" aria-live="polite" style="display:none"></div>
         <div class="txp-tbl-wrap" id="txTableWrap">
           <table class="txp-tbl">
             <thead>
@@ -4810,7 +4811,7 @@
   function buildTransactions() {
     const rows = [];
 
-    (STATE.purchases || []).forEach((c) => {
+    if (STATE.purchasesLoaded) (STATE.purchases || []).forEach((c) => {
       const paid = c.pricePaid != null ? c.pricePaid : c.sellingPrice;
       rows.push({
         group: 'purchases',
@@ -4826,7 +4827,7 @@
       });
     });
 
-    (STATE.refunds || []).forEach((r) => {
+    if (STATE.refundsLoaded) (STATE.refunds || []).forEach((r) => {
       const s = String(r.status || 'pending').toLowerCase();
       const [label, badge] = TX_REFUND_BADGE[s] || [r.status || 'Pending', 'pending'];
       const amt = r.refundAmount != null ? r.refundAmount : r.requiredAmount;
@@ -4844,7 +4845,7 @@
       });
     });
 
-    (STATE.payouts || []).forEach((p) => {
+    if (STATE.payoutsLoaded) (STATE.payouts || []).forEach((p) => {
       const s = String(p.status || 'pending').toLowerCase();
       const [label, badge] = TX_PAYOUT_BADGE[s] || [p.status || 'Pending', 'pending'];
       const dest = (p.method === 'UPI' && p.upiId) ? `UPI · ${p.upiId}`
@@ -4881,32 +4882,62 @@
     const totalRefund = (STATE.refundsSummary && STATE.refundsSummary.total != null)
       ? txNum(STATE.refundsSummary.total)
       : refunds.reduce((s, r) => s + txNum(r.refundAmount != null ? r.refundAmount : r.requiredAmount), 0);
-    setText('txpStatAmount', inr(totalSpend));
-    setText('txpStatPurchases', String(purchases.length));
-    setText('txpStatPayout', inr(totalPayout));
-    setText('txpStatRefunds', inr(totalRefund));
+    setText('txpStatAmount', STATE.purchasesLoaded ? inr(totalSpend) : '—');
+    setText('txpStatPurchases', STATE.purchasesLoaded ? String(purchases.length) : '—');
+    setText('txpStatPayout', STATE.payoutsLoaded ? inr(totalPayout) : '—');
+    setText('txpStatRefunds', STATE.refundsLoaded ? inr(totalRefund) : '—');
   }
 
   function renderTransactions() {
-    const initialSourceError = (STATE.purchasesLoadError && !STATE.purchasesLoaded) ||
-      (STATE.payoutsLoadError && !STATE.payoutsLoaded) || (STATE.refundsLoadError && !STATE.refundsLoaded);
-    if (initialSourceError) {
-      ['txpStatAmount', 'txpStatPurchases', 'txpStatPayout', 'txpStatRefunds'].forEach((id) => setText(id, '—'));
-      const errorBody = document.getElementById('txTableBody'), errorMob = document.getElementById('txMobile');
-      const errorWrap = document.getElementById('txTableWrap'), errorEmpty = document.getElementById('txEmpty');
-      if (errorBody) errorBody.innerHTML = '';
-      if (errorMob) { errorMob.innerHTML = ''; errorMob.style.display = 'none'; }
-      if (errorWrap) errorWrap.style.display = 'none';
-      if (errorEmpty) { errorEmpty.style.display = ''; errorEmpty.innerHTML = dashboardLoadErrorMarkup('transactions'); }
-      return;
-    }
-    renderTxStats();
-
+    const sources = [
+      { label: 'Purchases', loaded: STATE.purchasesLoaded, error: STATE.purchasesLoadError },
+      { label: 'Payouts', loaded: STATE.payoutsLoaded, error: STATE.payoutsLoadError },
+      { label: 'Refunds', loaded: STATE.refundsLoaded, error: STATE.refundsLoadError },
+    ];
+    const loadedSources = sources.filter((source) => source.loaded);
+    const pendingSources = sources.filter((source) => !source.loaded && !source.error);
+    const failedSources = sources.filter((source) => !source.loaded && source.error);
     const tbody = document.getElementById('txTableBody');
     const mob = document.getElementById('txMobile');
     const emptyBox = document.getElementById('txEmpty');
     const wrap = document.getElementById('txTableWrap');
+    const notice = document.getElementById('txLoadNotice');
     if (!tbody || !mob) return;
+
+    renderTxStats();
+
+    if (notice) {
+      const unavailable = [...failedSources, ...pendingSources];
+      if (unavailable.length) {
+        notice.style.display = '';
+        if (failedSources.length) {
+          notice.innerHTML = 'Some data is unavailable: ' +
+            escapeHtml(failedSources.map((source) => source.label).join(', ')) +
+            '. Available records are still shown. ' +
+            '<button type="button" class="btn btn-ghost btn-sm" onclick="refreshDashboard({silent:false})">Try again</button>';
+        } else {
+          notice.textContent = 'Loading ' + pendingSources.map((source) => source.label).join(', ') + '…';
+        }
+      } else {
+        notice.style.display = 'none';
+        notice.textContent = '';
+      }
+    }
+
+    // Until at least one source has answered, don't present a misleading empty ledger.
+    if (!loadedSources.length) {
+      tbody.innerHTML = '';
+      mob.innerHTML = '';
+      if (wrap) wrap.style.display = 'none';
+      mob.style.display = 'none';
+      if (emptyBox) {
+        emptyBox.style.display = '';
+        emptyBox.innerHTML = failedSources.length
+          ? dashboardLoadErrorMarkup('transaction data')
+          : dashboardLoadingMarkup('transactions');
+      }
+      return;
+    }
 
     const filter = window.TX_FILTER || 'all';
     const q = window.TX_SEARCH || '';
@@ -4925,9 +4956,13 @@
       mob.style.display = 'none';
       if (emptyBox) {
         emptyBox.style.display = '';
-        emptyBox.textContent = q
-          ? 'No transactions match your search.'
-          : (filter === 'all' ? 'No transactions yet.' : `You have no ${filter} yet.`);
+        emptyBox.textContent = (failedSources.length || pendingSources.length)
+          ? (q
+              ? 'No available transactions match your search. Some data sources have not loaded.'
+              : 'No records in the available sources yet. Some transaction data is unavailable.')
+          : (q
+              ? 'No transactions match your search.'
+              : (filter === 'all' ? 'No transactions yet.' : `You have no ${filter} yet.`));
       }
       return;
     }

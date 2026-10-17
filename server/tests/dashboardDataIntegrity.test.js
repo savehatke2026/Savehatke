@@ -155,4 +155,22 @@ check('Refunds and Transactions share a single authoritative snapshot', () => {
   assert.match(dashboard, /Date\.now\(\) - STATE\.refundsLoadedAt < 20000/);
 });
 
+check('Transactions display available sources when one ledger source fails', () => {
+  const renderer = between(dashboard, 'function renderTransactions()', 'function renderPayouts()');
+  assert.match(renderer, /const loadedSources = sources\.filter\(\(source\) => source\.loaded\)/);
+  assert.match(renderer, /Available records are still shown/);
+  assert.doesNotMatch(renderer, /if \(initialSourceError\)\s*\{/);
+  const builder = between(dashboard, 'function buildTransactions()', '// Strip currency/formatting');
+  assert.match(builder, /if \(STATE\.purchasesLoaded\) \(STATE\.purchases \|\| \[\]\)\.forEach/);
+  assert.match(builder, /if \(STATE\.refundsLoaded\) \(STATE\.refunds \|\| \[\]\)\.forEach/);
+  assert.match(builder, /if \(STATE\.payoutsLoaded\) \(STATE\.payouts \|\| \[\]\)\.forEach/);
+});
+
+check('Transaction totals are tied to the matching data source', () => {
+  const stats = between(dashboard, 'function renderTxStats()', 'function renderTransactions()');
+  assert.match(stats, /STATE\.purchasesLoaded \? inr\(totalSpend\) : '—'/);
+  assert.match(stats, /STATE\.payoutsLoaded \? inr\(totalPayout\) : '—'/);
+  assert.match(stats, /STATE\.refundsLoaded \? inr\(totalRefund\) : '—'/);
+});
+
 console.log('\nDashboard data integrity regression checks passed.');
