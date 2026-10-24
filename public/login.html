@@ -768,17 +768,93 @@
   window.addEventListener('load', () => scheduleLoginPageGoogleInit());
 
   /* ── Google button click handler — REDIRECT mode (same page) ── */
-  function handleGoogleSignIn() {
+  let googleSignInStarting = false;
+
+  function redirectToGoogleSignIn() {
+    // The backend still verifies Google OAuth state, nonce and PKCE as usual.
+    window.location.assign('/api/auth/google-redirect');
+  }
+
+  async function captureOptionalLoginLocation() {
+    if (!navigator.geolocation) return;
+    // A short timeout keeps location optional: denying permission or having no
+    // GPS signal must never prevent sign-in.
+    const position = await new Promise((resolve) => {
+      let settled = false;
+      const finish = (value) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(value);
+      };
+      const timer = setTimeout(() => finish(null), 4500);
+      navigator.geolocation.getCurrentPosition(
+        (value) => finish(value),
+        () => finish(null),
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 60000 }
+      );
+    });
+    if (!position || !position.coords) return;
+
+    const latitude = Number(position.coords.latitude);
+    const longitude = Number(position.coords.longitude);
+    const accuracyMeters = Number(position.coords.accuracy);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) ||
+        latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 ||
+        !Number.isFinite(accuracyMeters) || accuracyMeters > 5000) return;
+
+    // Coordinates are sent only to the reverse-geocoding provider to obtain
+    // place names. They are never posted to or stored by SaveHatke.
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2500);
+      let response;
+      try {
+        response = await fetch(
+          'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' +
+            encodeURIComponent(latitude) + '&longitude=' + encodeURIComponent(longitude) +
+            '&localityLanguage=en',
+          { signal: controller.signal, cache: 'no-store' }
+        );
+      } finally {
+        clearTimeout(timeout);
+      }
+      if (!response || !response.ok) return;
+      const place = await response.json();
+      const country = String(place.countryName || '').trim().slice(0, 80);
+      const state = String(place.principalSubdivision || '').trim().slice(0, 100);
+      const city = String(place.city || place.locality || place.localityInfo?.administrative?.[0]?.name || '').trim().slice(0, 100);
+      if (!country) return;
+
+      await fetch('/api/auth/location-hint', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        cache: 'no-store',
+        body: JSON.stringify({ country, state, city, accuracyMeters })
+      });
+    } catch (e) {
+      // Best effort only. IP geolocation remains the fallback.
+    }
+  }
+
+  async function handleGoogleSignIn() {
+    if (googleSignInStarting) return;
+    googleSignInStarting = true;
     const btn = document.getElementById('googleSignInBtn');
     if (btn) {
       btn.disabled = true;
-      // Plain text state — no spinner/loading bar while redirecting to Google
-      btn.innerHTML = '<span class="g-btn-text">Authenticating&hellip;</span>';
+      btn.innerHTML = '<span class="g-btn-text">Checking location (optional)&hellip;</span>';
     }
 
-    // The backend creates and validates OAuth state, nonce and PKCE values.
-    // Keep the existing button and page design; only the flow target changes.
-    window.location.assign('/api/auth/google-redirect');
+    // Location permission is requested only after the visitor clicks Google
+    // sign-in. It is optional and never required for authentication.
+    try {
+      await captureOptionalLoginLocation();
+    } catch (e) {
+      // Permission, device, or network failures must not block login.
+    }
+    redirectToGoogleSignIn();
   }
 
   /* ══════════════════════════════════════════
