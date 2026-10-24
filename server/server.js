@@ -120,7 +120,7 @@ app.use(helmet({
 // files that never reach this process — keep the two in step.
 app.use((req, res, next) => {
   res.setHeader('Permissions-Policy',
-    'camera=(), microphone=(), geolocation=(), payment=(), usb=(), ' +
+    'camera=(), microphone=(), geolocation=(self), payment=(), usb=(), ' +
     'magnetometer=(), accelerometer=(), gyroscope=(), interest-cohort=()');
   next();
 });
