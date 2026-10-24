@@ -125,8 +125,8 @@ function clearLocationHintCookie(res) {
 
 function cleanLocationLabel(value, maxLength = 100) {
   return String(value || '')
-    .replace(/[<>\\x00-\\x1f\\x7f]/g, ' ')
-    .replace(/\\s+/g, ' ')
+    .replace(/[<>\x00-\x1f\x7f]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim()
     .slice(0, maxLength);
 }
