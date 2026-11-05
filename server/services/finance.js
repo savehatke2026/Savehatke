@@ -502,6 +502,52 @@ async function getTransactions(period, opts = {}) {
   return { period: { key: win.key, label: win.label }, total, limit, offset, transactions: page };
 }
 
+// Read-only Orders view backed by the Supabase payment ledger.
+async function getOrders(period, opts = {}) {
+  const win = resolveWindow(period, opts);
+  const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 20, 1), 200);
+  const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
+  const status = upper(opts.status || '');
+  const delivery = lower(opts.delivery || '');
+  const search = lower(opts.search || '');
+  const [orders, payments, coupons] = await Promise.all([fetchOrders(), fetchPayments(), fetchCoupons()]);
+  const paymentsByOrder = new Map();
+  for (const p of payments || []) {
+    const key = String(p.order_id || '');
+    if (!key) continue;
+    if (!paymentsByOrder.has(key)) paymentsByOrder.set(key, []);
+    paymentsByOrder.get(key).push(p);
+  }
+  const couponById = new Map((coupons || []).map((c) => [String(c.id || ''), c]));
+  let rows = (orders || []).map((o) => {
+    const attempts = (paymentsByOrder.get(String(o.id)) || []).sort((a,b) => (timeOf(b.created_at)||0)-(timeOf(a.created_at)||0));
+    const latest = attempts[0] || {};
+    const coupon = couponById.get(String(o.coupon_id || '')) || {};
+    const couponName = [coupon.brand || o.coupon_brand, coupon.title].filter(Boolean).join(' — ');
+    const reservationStatus = upper(o.status) === PENDING
+      ? (timeOf(o.expires_at) > Date.now() ? 'active' : 'expired') : 'none';
+    // Delivery can only be confirmed when the coupon inventory row shows sold
+    // and belongs to this buyer. Otherwise keep it explicitly unknown.
+    const delivered = lower(coupon.status) === 'sold' && lower(coupon.buyerEmail || coupon.buyer_email) === lower(o.buyer_email || o.user_email);
+    const deliveryStatus = delivered ? 'delivered' : (upper(o.status) === PAID ? 'unknown' : 'awaiting_payment');
+    return {
+      orderId: String(o.id || ''), orderCode: o.order_code || '', transactionId: o.transaction_id || '',
+      userId: o.user_id || '', customerName: o.buyer_name || '', customerEmail: o.buyer_email || o.user_email || '',
+      couponId: o.coupon_id || '', couponName, couponFaceValue: num(coupon.originalValue != null ? coupon.originalValue : coupon.original_value),
+      purchasePrice: num(o.amount), createdAt: o.created_at || '', updatedAt: o.updated_at || '', paidAt: o.paid_at || '',
+      status: upper(o.status), paymentStatus: upper(latest.status || ''), paymentAttempts: attempts.length,
+      reservationStatus, deliveryStatus, fulfilmentIssues: [], _ms: timeOf(o.created_at),
+    };
+  });
+  if (win.key !== 'all') rows = rows.filter((r) => inWindow(r._ms, win));
+  if (status) rows = rows.filter((r) => r.status === status);
+  if (delivery) rows = rows.filter((r) => r.deliveryStatus === delivery);
+  if (search) rows = rows.filter((r) => [r.orderId,r.orderCode,r.customerName,r.customerEmail,r.couponName,r.transactionId].some((v) => lower(v).includes(search)));
+  rows.sort((a,b) => (b._ms || 0) - (a._ms || 0));
+  const total = rows.length;
+  return { period: { key: win.key, label: win.label }, total, limit, offset, orders: rows.slice(offset, offset + limit).map(({_ms,...r}) => r) };
+}
+
 // Read-only notification ledger for the admin payment-verification view.
 async function getPaymentNotifications(opts = {}) {
   const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 50, 1), 200);
@@ -935,6 +981,7 @@ module.exports = {
   getOverview,
   getRevenueSeries,
   getTransactions,
+  getOrders,
   getPaymentNotifications,
   getSettlement,
   getAdminBalances,
