@@ -6,7 +6,6 @@
 <title>Admin Panel – SaveHatke</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="logo.png">
-<link rel="stylesheet" href="/js/admin-face-liveness.css">
 <link rel="apple-touch-icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2843,36 +2842,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <div class="section-view" id="sec-security">
       <div class="page-title-row">
         <div><div class="page-title">Security &amp; <span class="gtext">Access</span></div><div class="page-subtitle">API keys and authentication policies</div></div>
-      </div>
-
-      <!-- ── Admin biometric authentication ── -->
-      <div class="card" style="margin-bottom:18px">
-        <div class="card-title">🔑 Admin Passkeys</div>
-        <div style="color:#9eb8d0;font-size:.82rem;line-height:1.6;margin:-4px 0 14px">
-          Register a device passkey for administrator sign-in. Your device may verify you with Face Unlock, fingerprint or a device PIN. SaveHatke receives a cryptographic response, not your biometric data.
-        </div>
-        <button class="btn btn-primary" id="shRegisterPasskey" type="button" style="max-width:230px">＋ Register passkey</button>
-        <div id="shPasskeyStatus" role="status" aria-live="polite" style="font-size:.78rem;margin-top:12px;color:#9eb8d0"></div>
-        <div id="shPasskeyList" style="margin-top:10px">
-          <div style="color:#8ea8c2;font-size:.8rem">Loading registered passkeys…</div>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom:22px">
-        <div class="card-title">📷 Camera Face Recognition</div>
-        <div style="color:#9eb8d0;font-size:.82rem;line-height:1.6">
-          Enroll your face using AWS Face Liveness and a live identity comparison. The reference image is stored in a private S3 bucket encrypted with your AWS KMS key. Login videos and temporary reference images are not retained.
-        </div>
-        <div id="shFaceStatus" role="status" aria-live="polite" style="margin-top:12px;font-size:.78rem;color:#9eb8d0">Checking face recognition configuration…</div>
-        <label style="display:flex;align-items:flex-start;gap:9px;margin-top:14px;color:#b8cce0;font-size:.78rem;line-height:1.55">
-          <input id="shFaceConsent" type="checkbox" style="margin-top:3px;accent-color:#00E272">
-          <span>I consent to SaveHatke processing my live camera verification and retaining an encrypted face reference image only for administrator sign-in. I understand I can remove this face profile later.</span>
-        </label>
-        <div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:14px">
-          <button class="btn btn-primary" id="shRegisterFace" type="button" disabled style="max-width:220px">＋ Register face</button>
-          <button class="btn btn-ghost" id="shRemoveFace" type="button" disabled>Remove face profile</button>
-        </div>
-        <div id="shFaceLivenessMount" style="display:none;margin-top:16px;overflow:hidden;border-radius:12px"></div>
       </div>
 
       <!-- ── Payment Gmail (security_credentials) ── -->
@@ -7280,7 +7249,5 @@ function maybeLoadPayouts() {
   .modal{max-height:92vh;max-height:calc(100dvh - 32px);overflow-y:auto}
 }
 </style>
-<script src="https://unpkg.com/@simplewebauthn/browser@13.3.0/dist/bundle/index.umd.min.js"></script>
-<script src="/js/admin-passkeys.js"></script>
 </body>
 </html>
