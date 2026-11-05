@@ -1,0 +1,45 @@
+name: Admin biometric auth checks
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "server/routes/adminBiometric.js"
+      - "server/routes/auth.js"
+      - "server/services/supabase.js"
+      - "server/server.js"
+      - "public/admin-biometric-login.html"
+      - "public/js/admin-passkey-login.js"
+      - "public/js/admin-passkeys.js"
+      - "supabase/migrations/20261105_admin_biometric_auth.sql"
+      - "package.json"
+      - "vercel.json"
+  push:
+    branches: [feature/admin-biometric-auth]
+
+permissions:
+  contents: read
+
+jobs:
+  passkey-foundation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install dependencies (refreshes lock resolution in the runner)
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Check JavaScript syntax
+        run: |
+          node --check server/routes/adminBiometric.js
+          node --check server/routes/auth.js
+          node --check server/services/supabase.js
+          node --check server/server.js
+          node --check public/js/admin-passkey-login.js
+          node --check public/js/admin-passkeys.js
+      - name: Run existing security regression checks
+        run: |
+          npm run verify:security
+          npm run verify:fail-closed
