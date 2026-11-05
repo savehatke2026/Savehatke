@@ -22,7 +22,10 @@
     "qrcode": "1.5.4",
     "twilio": "^6.1.0",
     "uuid": "^10.0.0",
-    "@simplewebauthn/server": "^13.3.3"
+    "@simplewebauthn/server": "^13.3.3",
+    "@aws-sdk/client-rekognition": "^3.1158.0",
+    "@aws-sdk/client-s3": "^3.1158.0",
+    "@aws-sdk/client-cognito-identity": "^3.1162.0"
   },
   "keywords": [
     "ecommerce",
