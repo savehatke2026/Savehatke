@@ -763,16 +763,12 @@ function withDeadline(promise, ms) {
 
 const GEO_WAIT_FOR_EMAIL_MS = 3500;
 
-async function createLoginSession(req, userId, loginMethod, email, userName, res, googleSub, knownUserRow, verifiedAuthContext) {
+async function createLoginSession(req, userId, loginMethod, email, userName, res, googleSub, knownUserRow) {
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const verifiedGoogleSub = String(googleSub || '').trim();
     const isAdminLogin = /admin/i.test(String(loginMethod || ''));
-    const verifiedBiometric = isAdminLogin && verifiedAuthContext &&
-      verifiedAuthContext.verified === true &&
-      verifiedAuthContext.method === String(loginMethod || '') &&
-      ['Admin Passkey', 'Admin Face Recognition'].includes(verifiedAuthContext.method);
-    if (!verifiedGoogleSub && !verifiedBiometric) throw new Error('A verified Google or approved biometric assertion is required.');
+    if (!verifiedGoogleSub) throw new Error('Verified Google subject is required.');
 
     const { deviceStr, osStr, browserStr, raw: userAgentRaw } = parseUserAgent(req);
     const ip = getClientIP(req); // Real client IP only â€” never a sample/hardcoded address
@@ -924,47 +920,6 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
       .replace(/^Could not create an enforceable session:?\s*/, '');
     throw new Error(`Could not create an enforceable session: ${upstream || 'no upstream detail'}`);
   }
-}
-
-/**
- * Create the existing revocable 2-hour admin session after a dedicated
- * biometric route has already cryptographically verified its assertion.
- * This helper deliberately does not accept a client-supplied role or a Google
- * subject; current admin roster membership is rechecked server-side.
- */
-async function createBiometricAdminSession(req, res, email, method) {
-  const cleanEmail = normalizeEmail(email);
-  if (!['Admin Passkey', 'Admin Face Recognition'].includes(String(method || ''))) {
-    throw new Error('Unsupported biometric admin login method.');
-  }
-
-  await ensureAdminRosterReady();
-  const account = getAdminAccount(cleanEmail);
-  if (!account || !account.active || isAdminRosterStale()) {
-    throw new Error('Administrator access is unavailable.');
-  }
-
-  const name = String(account.name || cleanEmail.split('@')[0]).trim().slice(0, 120);
-  const session = await createLoginSession(
-    req,
-    account.id || cleanEmail,
-    method,
-    cleanEmail,
-    name,
-    res,
-    '',
-    null,
-    { verified: true, method },
-  );
-  setSessionCookie(res, session.token, session.ttlMs);
-
-  return {
-    id: session.userId,
-    userId: session.userId,
-    email: cleanEmail,
-    name,
-    role: 'admin',
-  };
 }
 
 // ─── Login ────────────────────────────────────────────────────────────
@@ -1699,7 +1654,6 @@ module.exports = router;
 // session creator requires a verified Google subject, so those routes cannot
 // mint an alternate authentication session if accidentally mounted.
 module.exports.createLoginSession = createLoginSession;
-module.exports.createBiometricAdminSession = createBiometricAdminSession;
 module.exports.issueLoginToken = () => { throw new Error('Bearer session tokens are retired.'); };
 module.exports.setSessionCookie = setSessionCookie;
 
