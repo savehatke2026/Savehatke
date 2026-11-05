@@ -772,7 +772,6 @@ async function loadInventory() {
               <thead><tr>
                 <th>Brand</th><th>Seller</th>
                 <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th>
-                ${SELLER_DEST_HEAD_HTML}
                 <th class="ta-right">Actions</th>
               </tr></thead>
               <tbody>${coupons.map(sellerRowHtml).join('')}</tbody>
@@ -1487,18 +1486,6 @@ function sellerBrandBoxHtml(brand, c) {
        ><span class="st-brand-initial" style="display:none">${initial}</span>`
     : `<span class="st-brand-initial">${initial}</span>`;
   return `<div class="st-brand-box" title="${escHtml(brand || '')}">${inner}</div>`;
-}
-
-/** Seller payment-method columns, read from the coupon row (saved at submission). */
-const SELLER_DEST_HEAD_HTML = '<th>Payment method</th><th>UPI ID</th>';
-
-function sellerDestCellsHtml(c) {
-  const dash = '<span style="color:#6b88aa">—</span>';
-  const method = String(c.paymentMethod || '').toUpperCase();
-  return [
-    method ? `<td>${escHtml(method)}</td>` : `<td>${dash}</td>`,
-    c.upiId ? `<td class="mono">${escHtml(c.upiId)}</td>` : `<td>${dash}</td>`,
-  ].join('');
 }
 
 /** One seller-submission row. Code is hidden until revealed; images load via Drive refs. */

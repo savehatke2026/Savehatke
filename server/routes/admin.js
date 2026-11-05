@@ -878,8 +878,6 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
       const pageRows = pageSlice.map((c) => {
       const account = accountByEmail.get(String(c.sellerEmail || '').toLowerCase().trim()) || {};
       return {
-      paymentMethod: c.paymentMethod || '',
-      upiId: c.upiId || '',
       id: c.id,
       brand: c.brand || '',
       title: c.title || '',
@@ -930,8 +928,13 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
 router.post('/coupons/:id/reveal-code', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     const { id } = req.params;
-    const rows = await db.getRowsFresh(db.SHEETS.COUPONS);
-    const coupon = (rows || []).find((r) => String(r.id) === String(id));
+    // Seller submissions remain in SellerCoupons until they are published.
+    // Check that source first so the review modal can reveal their code too.
+    let coupon = await db.findRow(db.SHEETS.SELLER_COUPONS, 'id', id).catch(() => null);
+    if (!coupon) {
+      const rows = await db.getRowsFresh(db.SHEETS.COUPONS);
+      coupon = (rows || []).find((r) => String(r.id) === String(id)) || null;
+    }
     if (!coupon) return res.status(404).json({ error: 'Coupon not found.' });
     await logCouponAudit(id, req.user.email, 'reveal_code', '');
     res.json({ code: coupon.code || '' });
@@ -1553,8 +1556,16 @@ router.get('/coupons/:id/review', authenticateToken, requireAdmin, async (req, r
   try {
     const { id } = req.params;
 
+    // Pending seller submissions are stored in SellerCoupons, not Coupons.
+    // Resolve that row first; otherwise the modal receives a 404/empty state
+    // for the exact records shown in Coupon Management → Seller Coupons.
     let coupon = null;
-    if (supabase.isConfigured()) {
+    try {
+      coupon = await db.findRow(db.SHEETS.SELLER_COUPONS, 'id', id);
+    } catch (e) {
+      console.warn('Admin seller review read notice:', e.message);
+    }
+    if (!coupon && supabase.isConfigured()) {
       try {
         coupon = await supabase.findCouponById(id);
       } catch (e) {}
@@ -1566,21 +1577,28 @@ router.get('/coupons/:id/review', authenticateToken, requireAdmin, async (req, r
       return res.status(404).json({ error: 'Coupon not found.' });
     }
 
-    // Duplicate-check result: any OTHER coupon sharing the same code
+    // Duplicate-check result: any OTHER coupon sharing the same code, across
+    // both stores where seller submissions and published coupons can reside.
     let duplicate = null;
     if (coupon.code) {
       const cleanCode = String(coupon.code).toUpperCase().trim();
       if (supabase.isConfigured()) {
         try {
           const dup = await supabase.findCouponByCode(cleanCode);
-          if (dup && dup.id !== id) duplicate = dup;
+          if (dup && String(dup.id) !== String(id)) duplicate = dup;
         } catch (e) {}
       }
       if (!duplicate) {
-        try {
-          const rows = await db.findRows(db.SHEETS.COUPONS, 'code', cleanCode);
-          duplicate = rows.find((r) => r.id !== id) || null;
-        } catch (e) {}
+        for (const sheetName of [db.SHEETS.COUPONS, db.SHEETS.SELLER_COUPONS]) {
+          try {
+            const rows = await db.getRowsFresh(sheetName);
+            duplicate = (rows || []).find((r) =>
+              String(r.id) !== String(id) &&
+              String(r.code || '').toUpperCase().trim() === cleanCode
+            ) || null;
+            if (duplicate) break;
+          } catch (e) {}
+        }
       }
     }
 
