@@ -53,3 +53,11 @@ jobs:
         run: |
           npm run verify:security
           npm run verify:fail-closed
+      - name: Upload refreshed npm lockfile
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-biometric-npm-lockfile
+          path: package-lock.json
+          if-no-files-found: error
+          retention-days: 1
