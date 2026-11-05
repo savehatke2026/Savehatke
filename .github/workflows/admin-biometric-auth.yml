@@ -7,6 +7,8 @@ on:
       - "server/routes/adminBiometric.js"
       - "server/routes/auth.js"
       - "server/services/supabase.js"
+      - "server/services/adminFaceLiveness.js"
+      - "verify-admin-biometric-config.cjs"
       - "server/server.js"
       - "public/admin-biometric-login.html"
       - "public/js/admin-passkey-login.js"
@@ -33,6 +35,7 @@ jobs:
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Check JavaScript syntax
         run: |
+          node --check verify-admin-biometric-config.cjs
           node --check server/routes/adminBiometric.js
           node --check server/services/adminFaceLiveness.js
           node --check public/js/admin-face-liveness.mjs
@@ -53,6 +56,8 @@ jobs:
         run: |
           npm run verify:security
           npm run verify:fail-closed
+      - name: Verify face-recognition configuration fails closed
+        run: npm run verify:biometric
       - name: Upload refreshed npm lockfile
         if: success()
         uses: actions/upload-artifact@v4
