@@ -824,7 +824,7 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const pageSize = Math.min(50, Math.max(5, parseInt(req.query.pageSize, 10) || 20));
 
-    const STATUS_FILTERS = ['pending', 'available', 'rejected', 'sold', 'expired'];
+    const STATUS_FILTERS = ['pending', 'proof_requested', 'available', 'rejected', 'sold', 'expired'];
     const statusFilter = STATUS_FILTERS.includes(String(req.query.status || '').toLowerCase())
       ? String(req.query.status).toLowerCase() : '';
 
@@ -1624,7 +1624,15 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
     // Handle their rejection / proof-request outcomes here so the admin queue,
     // review page, and seller dashboard all read the same status and note.
     if (action === 'reject' || action === 'request_proof') {
-      const sellerRow = await db.findRow(db.SHEETS.SELLER_COUPONS, 'id', id).catch(() => null);
+      let sellerRow = null;
+      try {
+        sellerRow = await db.findRow(db.SHEETS.SELLER_COUPONS, 'id', id);
+      } catch (e) {
+        console.error('Seller coupon review: could not read SellerCoupons:', e.message);
+        return res.status(500).json({
+          error: 'Could not load the seller submission. Please try again.',
+        });
+      }
       if (sellerRow) {
         const cleanNotes = String(notes || '').trim().slice(0, 500);
         if (action === 'reject' && !cleanNotes) {
