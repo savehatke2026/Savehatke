@@ -29,7 +29,6 @@
 //     and an HTTP endpoint /api/auth/session-cleanup is driven daily by
 //     Vercel Cron (see vercel.json).
 
-const mongoose = require('mongoose');
 const supabaseService = require('./supabase');
 
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // every 10 minutes
