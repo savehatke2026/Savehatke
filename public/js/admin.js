@@ -209,6 +209,10 @@ async function loadAdminStats() {
     // here anymore — that keeps the dashboard and Revenue Overview consistent.
   } catch (err) {
     console.warn('Stats warning:', err.message);
+    ['statUsers', 'statCoupons', 'statPending', 'kpi-visitors', 'kpi-abuse'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = 'Unavailable';
+    });
   }
 }
 
