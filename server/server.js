@@ -543,7 +543,6 @@ app.use(maintenancePageGuard);
 app.use(protectedPageGuard);
 app.use(protectedPublicPageGuard);
 
-
 // ── Landing page — hero counters rendered server-side ─────────────────────
 // The homepage's three counters (Active Users / Coupons Traded / Saved by
 // Users) used to paint with hardcoded defaults and then wait on a
