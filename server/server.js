@@ -53,6 +53,8 @@ const payoutRoutes = require('./routes/payouts');
 const refundRoutes = require('./routes/refunds');
 // Read-only admin financial API (Phase 1 single source of truth — services/finance.js).
 const adminFinanceRoutes = require('./routes/adminFinance');
+// Isolated WebAuthn admin passkey endpoints (biometric routes use their own auth/rate limits).
+const adminBiometricRoutes = require('./routes/adminBiometric');
 const adminEmailTestingRoutes = require('./routes/adminEmailTesting');
 const reviewRoutes = require('./routes/reviews');
 const testimonialRoutes = require('./routes/testimonials');
@@ -543,6 +545,17 @@ app.use(maintenancePageGuard);
 app.use(protectedPageGuard);
 app.use(protectedPublicPageGuard);
 
+
+// Dedicated admin biometric page. Camera permission is narrowly granted to
+// this origin/page only; every other SaveHatke route remains camera=().
+app.get('/admin-biometric-login', (req, res) => {
+  res.setHeader('Permissions-Policy',
+    'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), ' +
+    'magnetometer=(), accelerometer=(), gyroscope=(), interest-cohort=()');
+  res.setHeader('Cache-Control', 'no-store');
+  return res.sendFile(path.join(__dirname, '..', 'public', 'admin-biometric-login.html'));
+});
+
 // ── Landing page — hero counters rendered server-side ─────────────────────
 // The homepage's three counters (Active Users / Coupons Traded / Saved by
 // Users) used to paint with hardcoded defaults and then wait on a
@@ -641,6 +654,8 @@ app.use('/api/admin/finance', adminApiLimiter, adminFinanceRoutes);
 // /email-testing/* routes match first; shares the admin limiter and the same
 // authenticateToken + requireAdmin gate, plus its own per-admin send rate limit.
 app.use('/api/admin/email-testing', adminApiLimiter, adminEmailTestingRoutes);
+// Passkey registration/login has dedicated route-level rate limits and admin guards.
+app.use('/api/admin/biometric', adminBiometricRoutes);
 
 // Admin API — use a much more generous limiter than the public one. The admin
 // panel makes 5+ requests per page-load (users + sessions + coupons + stats
