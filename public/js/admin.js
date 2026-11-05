@@ -772,7 +772,6 @@ async function loadInventory() {
               <thead><tr>
                 <th>Brand</th><th>Seller</th>
                 <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th>
-                ${SELLER_DEST_HEAD_HTML}
                 <th class="ta-right">Actions</th>
               </tr></thead>
               <tbody>${coupons.map(sellerRowHtml).join('')}</tbody>
