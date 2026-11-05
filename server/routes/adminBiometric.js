@@ -24,9 +24,18 @@ const {
   getPublicOrigin,
 } = require('../config/security');
 const { createBiometricAdminSession } = require('./auth');
+const faceLiveness = require('../services/adminFaceLiveness');
 
 const router = express.Router();
 const CHALLENGE_TTL_MS = 5 * 60 * 1000;
+const FACE_CHALLENGE_TTL_MS = 150 * 1000;
+const faceLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many face verification attempts. Please try again later.' },
+});
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 8,
@@ -89,7 +98,7 @@ async function requireFreshAdminSession(req) {
   }
 }
 
-async function createChallenge(email, purpose, challenge) {
+async function createChallenge(email, purpose, challenge, ttlMs = CHALLENGE_TTL_MS) {
   const client = getStore();
   // Bound table growth on serverless deployments. Challenges are short-lived;
   // expired records are removed opportunistically on each new challenge.
@@ -99,7 +108,7 @@ async function createChallenge(email, purpose, challenge) {
 
   const id = crypto.randomUUID();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + CHALLENGE_TTL_MS).toISOString();
+  const expiresAt = new Date(now.getTime() + ttlMs).toISOString();
   const { error } = await client.from('admin_auth_challenges').insert({
     id,
     admin_email: email,
@@ -401,6 +410,345 @@ router.delete('/passkey/:id', authenticateToken, requireAdmin, async (req, res) 
     return res.json({ success: true, passkeys: (await listActiveCredentials(email)).map(safeCredential) });
   } catch (error) {
     return res.status(400).json({ error: error.message || 'Could not revoke passkey.' });
+  }
+});
+
+
+// ── Camera Face Recognition (AWS Face Liveness + server-side face match) ────
+
+async function auditFace(email, event, outcome, requestId, details = {}) {
+  try {
+    await getStore().from('admin_biometric_audit').insert({
+      admin_email: email,
+      method: 'face',
+      event,
+      outcome,
+      request_id: String(requestId || '').slice(0, 100) || null,
+      details,
+    });
+  } catch (_) {
+    // Never leak biometric material or mask the authentication decision.
+  }
+}
+
+function parseFaceChallenge(raw) {
+  try {
+    const value = JSON.parse(String(raw || ''));
+    if (!value || typeof value !== 'object' ||
+        !/^[0-9a-f-]{36}$/i.test(String(value.sessionId || '')) ||
+        typeof value.keyPrefix !== 'string' ||
+        !value.keyPrefix.startsWith('admin-biometric/')) return null;
+    return value;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function activeFaceEnrollment(email) {
+  const { data, error } = await getStore().from('admin_biometric_enrollments')
+    .select('id, reference_image_key, enrolled_at, consent_version')
+    .eq('admin_email', email)
+    .eq('provider', 'aws_rekognition')
+    .eq('status', 'active')
+    .is('revoked_at', null)
+    .maybeSingle();
+  if (error) throw new Error('Could not load the registered face profile.');
+  return data || null;
+}
+
+async function startFaceSession(email, purpose, consent) {
+  const config = faceLiveness.getPublicConfig();
+  if (!config.enabled) throw new Error('Camera face recognition is not configured.');
+  await requireCurrentAdmin(email);
+
+  const isEnrollment = purpose === 'face_enrollment';
+  const existing = isEnrollment ? null : await activeFaceEnrollment(email);
+  if (!isEnrollment && !existing) {
+    throw new Error('No face profile is registered for this administrator.');
+  }
+
+  const emailHash = crypto.createHash('sha256').update(email).digest('hex').slice(0, 24);
+  const nonce = crypto.randomUUID();
+  const keyPrefix = isEnrollment
+    ? `admin-biometric/enrolled/${emailHash}/${nonce}/`
+    : `admin-biometric/temporary/${emailHash}/${nonce}/`;
+  const awsSession = await faceLiveness.createSession({ keyPrefix });
+  const challengePayload = {
+    sessionId: awsSession.sessionId,
+    keyPrefix,
+    ...(isEnrollment ? {
+      consentVersion: config.consentVersion,
+      consentedAt: new Date().toISOString(),
+    } : {}),
+  };
+  const challengeId = await createChallenge(
+    email,
+    purpose,
+    JSON.stringify(challengePayload),
+    FACE_CHALLENGE_TTL_MS,
+  );
+  const credentials = await faceLiveness.getBrowserCredentials();
+
+  return {
+    sessionId: awsSession.sessionId,
+    challengeId,
+    region: config.region,
+    credentials,
+    expiresInSeconds: Math.floor(FACE_CHALLENGE_TTL_MS / 1000),
+  };
+}
+
+async function readFaceChallenge(id, email, purpose) {
+  if (!/^[0-9a-f-]{36}$/i.test(String(id || ''))) return null;
+  const now = new Date().toISOString();
+  const { data, error } = await getStore().from('admin_auth_challenges')
+    .select('challenge')
+    .eq('id', id)
+    .eq('admin_email', email)
+    .eq('purpose', purpose)
+    .is('used_at', null)
+    .gt('expires_at', now)
+    .maybeSingle();
+  if (error || !data) return null;
+  return parseFaceChallenge(data.challenge);
+}
+
+async function consumeFaceChallenge(id, email, purpose, expected) {
+  const raw = await consumeChallenge(id, email, purpose);
+  const parsed = parseFaceChallenge(raw);
+  if (!parsed || parsed.sessionId !== expected.sessionId ||
+      parsed.keyPrefix !== expected.keyPrefix) return null;
+  return parsed;
+}
+
+async function getCompletedFaceResult(challengeId, email, purpose) {
+  const challenge = await readFaceChallenge(challengeId, email, purpose);
+  if (!challenge) return { error: 'The face verification session expired. Start again.', status: 401 };
+
+  let result;
+  try {
+    result = await faceLiveness.getSessionResults(challenge.sessionId);
+  } catch (error) {
+    // AWS may briefly report an in-progress session after the browser callback.
+    const name = String(error && error.name || '');
+    if (/ProvisionedThroughputExceeded|Throttling|InternalServerError/i.test(name)) {
+      return { error: 'Face verification is temporarily busy. Please try again.', status: 503 };
+    }
+    return { error: 'Could not retrieve the face verification result. Start again.', status: 401 };
+  }
+
+  const state = String(result && result.Status || '').toUpperCase();
+  if (state === 'IN_PROGRESS') {
+    return { error: 'Face verification is still processing. Please try again.', status: 409, retryable: true };
+  }
+
+  const consumed = await consumeFaceChallenge(challengeId, email, purpose, challenge);
+  if (!consumed) return { error: 'The face verification session was already used. Start again.', status: 401 };
+  return { challenge, result, liveness: faceLiveness.evaluateLiveness(result) };
+}
+
+router.get('/face/config', (req, res) => {
+  return res.json(faceLiveness.getPublicConfig());
+});
+
+router.get('/face/status', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const email = normalizeEmail(req.user.email);
+    const enrollment = await activeFaceEnrollment(email);
+    return res.json({
+      configured: faceLiveness.isConfigured(),
+      enrolled: Boolean(enrollment),
+      enrolledAt: enrollment ? enrollment.enrolled_at : null,
+      consentVersion: enrollment ? enrollment.consent_version : null,
+    });
+  } catch (error) {
+    return res.status(503).json({ error: error.message || 'Could not load face recognition status.' });
+  }
+});
+
+router.post('/face/enroll-session', faceLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  const email = normalizeEmail(req.user.email);
+  try {
+    await requireFreshAdminSession(req);
+    const config = faceLiveness.getPublicConfig();
+    if (!config.enabled) return res.status(503).json({ error: 'Camera face recognition is not configured.' });
+    if (req.body && req.body.consent !== true ||
+        String(req.body && req.body.consentVersion || '') !== config.consentVersion) {
+      return res.status(400).json({ error: 'Please review and accept the biometric enrollment notice.' });
+    }
+    const result = await startFaceSession(email, 'face_enrollment', req.body);
+    return res.json(result);
+  } catch (error) {
+    await auditFace(email, 'enrollment_start', 'failure', req.requestId, { reason: 'session_creation_failed' });
+    return res.status(503).json({ error: error.message || 'Could not start face enrollment.' });
+  }
+});
+
+router.post('/face/enroll-verify', faceLimiter, authenticateToken, requireAdmin, async (req, res) => {
+  const email = normalizeEmail(req.user.email);
+  let image = null;
+  try {
+    await requireFreshAdminSession(req);
+    await requireCurrentAdmin(email);
+    const checked = await getCompletedFaceResult(
+      String(req.body && req.body.challengeId || ''),
+      email,
+      'face_enrollment',
+    );
+    if (checked.error) {
+      if (!checked.retryable) {
+        await auditFace(email, 'enrollment', 'failure', req.requestId, { reason: 'session_unavailable' });
+      }
+      return res.status(checked.status).json({ error: checked.error });
+    }
+    if (!checked.liveness.live) {
+      await auditFace(email, 'enrollment', 'failure', req.requestId, {
+        reason: 'liveness_failed',
+        status: checked.liveness.status,
+        confidenceBand: Math.round(checked.liveness.confidence / 5) * 5,
+      });
+      return res.status(401).json({ error: 'Face liveness was not verified. Please try again in good lighting.' });
+    }
+
+    const config = faceLiveness.readConfig();
+    image = faceLiveness.getReferenceImage(
+      checked.result,
+      config.bucket,
+      checked.challenge.keyPrefix,
+    );
+    const consentVersion = String(checked.challenge.consentVersion || '');
+    const consentedAt = String(checked.challenge.consentedAt || '');
+    if (!consentVersion || !consentedAt || consentVersion !== config.consentVersion) {
+      await faceLiveness.deleteReferenceImage(image).catch(() => {});
+      return res.status(400).json({ error: 'Biometric consent is no longer current. Please start enrollment again.' });
+    }
+
+    const previous = await activeFaceEnrollment(email);
+    if (previous) {
+      const { error: revokeError } = await getStore().from('admin_biometric_enrollments')
+        .update({ status: 'revoked', revoked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', previous.id)
+        .eq('admin_email', email)
+        .eq('status', 'active');
+      if (revokeError) throw new Error('Could not replace the previous face profile.');
+    }
+
+    const { error: insertError } = await getStore().from('admin_biometric_enrollments').insert({
+      admin_email: email,
+      provider: 'aws_rekognition',
+      reference_image_key: image.key,
+      status: 'active',
+      consent_version: consentVersion,
+      consented_at: consentedAt,
+    });
+    if (insertError) {
+      await faceLiveness.deleteReferenceImage(image).catch(() => {});
+      throw new Error('Could not save the enrolled face profile.');
+    }
+
+    if (previous && previous.reference_image_key) {
+      await faceLiveness.deleteReferenceImage({ bucket: config.bucket, key: previous.reference_image_key }).catch(() => {});
+    }
+    await auditFace(email, 'enrollment', 'enrolled', req.requestId, {});
+    return res.json({ success: true, enrolled: true, enrolledAt: new Date().toISOString() });
+  } catch (error) {
+    if (image) await faceLiveness.deleteReferenceImage(image).catch(() => {});
+    await auditFace(email, 'enrollment', 'failure', req.requestId, { reason: 'verification_error' });
+    return res.status(400).json({ error: error.message || 'Face enrollment failed.' });
+  }
+});
+
+router.post('/face/login-session', faceLimiter, async (req, res) => {
+  let email = '';
+  try {
+    email = normalizeEmail(req.body && req.body.email);
+    const result = await startFaceSession(email, 'face_login');
+    return res.json(result);
+  } catch (error) {
+    return res.status(503).json({ error: 'Face recognition is unavailable for this administrator.' });
+  }
+});
+
+router.post('/face/login-verify', faceLimiter, async (req, res) => {
+  let email = '';
+  let image = null;
+  try {
+    email = normalizeEmail(req.body && req.body.email);
+    await requireCurrentAdmin(email);
+    const enrollment = await activeFaceEnrollment(email);
+    if (!enrollment) return res.status(404).json({ error: 'No face profile is registered for this administrator.' });
+
+    const checked = await getCompletedFaceResult(
+      String(req.body && req.body.challengeId || ''),
+      email,
+      'face_login',
+    );
+    if (checked.error) {
+      if (!checked.retryable) {
+        await auditFace(email, 'login', 'failure', req.requestId, { reason: 'session_unavailable' });
+      }
+      return res.status(checked.status).json({ error: checked.error });
+    }
+    if (!checked.liveness.live) {
+      await auditFace(email, 'login', 'failure', req.requestId, {
+        reason: 'liveness_failed',
+        status: checked.liveness.status,
+        confidenceBand: Math.round(checked.liveness.confidence / 5) * 5,
+      });
+      return res.status(401).json({ error: 'Face liveness was not verified. Please try again.' });
+    }
+
+    const config = faceLiveness.readConfig();
+    image = faceLiveness.getReferenceImage(checked.result, config.bucket, checked.challenge.keyPrefix);
+    const comparison = await faceLiveness.compareReferenceImages(
+      { bucket: config.bucket, key: enrollment.reference_image_key },
+      image,
+    );
+    await faceLiveness.deleteReferenceImage(image);
+    image = null;
+    if (!comparison.matched) {
+      await auditFace(email, 'login', 'failure', req.requestId, {
+        reason: 'face_mismatch',
+        similarityBand: Math.round(comparison.similarity / 5) * 5,
+      });
+      return res.status(401).json({ error: 'The live face did not match this administrator profile.' });
+    }
+
+    const user = await createBiometricAdminSession(req, res, email, 'Admin Face Recognition');
+    await auditFace(email, 'login', 'success', req.requestId, {});
+    return res.json({ success: true, user });
+  } catch (error) {
+    if (image) await faceLiveness.deleteReferenceImage(image).catch(() => {});
+    if (email) await auditFace(email, 'login', 'failure', req.requestId, { reason: 'verification_error' });
+    return res.status(401).json({ error: 'Face recognition could not verify this sign-in.' });
+  }
+});
+
+router.delete('/face/enrollment', authenticateToken, requireAdmin, async (req, res) => {
+  const email = normalizeEmail(req.user.email);
+  try {
+    await requireFreshAdminSession(req);
+    const existing = await activeFaceEnrollment(email);
+    if (!existing) return res.status(404).json({ error: 'No face profile is registered.' });
+    const passkeys = await listActiveCredentials(email);
+    if (!passkeys.length) {
+      return res.status(409).json({ error: 'Register a passkey before removing the face profile.' });
+    }
+
+    const now = new Date().toISOString();
+    const { error } = await getStore().from('admin_biometric_enrollments')
+      .update({ status: 'revoked', revoked_at: now, updated_at: now })
+      .eq('id', existing.id)
+      .eq('admin_email', email)
+      .eq('status', 'active');
+    if (error) throw new Error('Could not remove the registered face profile.');
+
+    const config = faceLiveness.readConfig();
+    await faceLiveness.deleteReferenceImage({ bucket: config.bucket, key: existing.reference_image_key }).catch(() => {});
+    await auditFace(email, 'revoke', 'revoked', req.requestId, {});
+    return res.json({ success: true, enrolled: false });
+  } catch (error) {
+    return res.status(400).json({ error: error.message || 'Could not remove face profile.' });
   }
 });
 
