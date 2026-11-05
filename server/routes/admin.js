@@ -586,84 +586,39 @@ router.get('/me', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/stats — Dashboard statistics
+// GET /api/admin/stats — Dashboard statistics. Every count is read from its
+// authoritative store; an unavailable source returns 503 instead of a fake zero.
 router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    // Last month's report is due on the 1st. This deployment is serverless, so
-    // there is no always-on scheduler: the check rides along with the first
-    // dashboard load of the day instead (throttled inside the service, never
-    // awaited, and it cannot fail this response).
+    // This maintenance task is intentionally non-blocking.
     monthlyReports.maybeEnsure({ actor: 'admin-dashboard' });
+    if (!supabase.isConfigured()) throw new Error('Supabase is not configured');
 
-    let totalUsers = 0;
-    try {
-      totalUsers = await db.countRows(db.SHEETS.USERS);
-    } catch (e) {}
+    const [users, allCoupons, tracked, tickets] = await Promise.all([
+      db.getRows(db.SHEETS.USERS, { strict: true }),
+      supabase.getCoupons({ strict: true }),
+      db.getRows(db.SHEETS.PRICE_TRACKING, { strict: true }),
+      db.getRows(db.SHEETS.SUPPORT_TICKETS, { strict: true }),
+    ]);
 
-    let allCoupons = [];
-    if (supabase.isConfigured()) {
-      try {
-        allCoupons = await supabase.getCoupons();
-      } catch (e) {}
-    }
-    // Supabase only: the admin coupon stats do not read the Coupons sheet.
-    allCoupons = allCoupons || [];
-    const totalCoupons = allCoupons.length;
-    const availableCoupons = allCoupons.filter((c) => c.status === 'available').length;
-    const soldCoupons = allCoupons.filter((c) => c.status === 'sold').length;
-    const pendingCoupons = allCoupons.filter((c) => c.status === 'pending').length;
+    const coupons = Array.isArray(allCoupons) ? allCoupons : [];
+    const soldCoupons = coupons.filter((c) => String(c.status || '').toLowerCase() === 'sold').length;
+    const availableCoupons = coupons.filter((c) => String(c.status || '').toLowerCase() === 'available').length;
+    const pendingCoupons = coupons.filter((c) => String(c.status || '').toLowerCase() === 'pending').length;
 
-    // Calculate revenue (sum of selling prices for sold coupons)
-    const revenue = allCoupons
-      .filter((c) => c.status === 'sold')
-      .reduce((sum, c) => sum + Number(c.sellingPrice || 0), 0);
-
-    // Calculate costs: a sold user-submitted coupon owes the seller its 7%
-    // payout of the coupon's face value — NOT the marketplace sellingPrice.
-    // couponPayoutInfo derives the payout from the authoritative face value, so
-    // a stale stored payout cannot understate or overstate the cost.
-    const costs = allCoupons
-      .filter((c) => c.status === 'sold' && c.source === 'user-submitted')
-      .reduce((sum, c) => {
-        const info = couponPayoutInfo(c);
-        return sum + (info.payoutEligible && Number.isFinite(info.sellerPayout) ? info.sellerPayout : 0);
-      }, 0);
-
-    let totalTracked = 0;
-    let totalTickets = 0;
-    try {
-      totalTracked = await db.countRows(db.SHEETS.PRICE_TRACKING);
-      totalTickets = await db.countRows(db.SHEETS.SUPPORT_TICKETS);
-    } catch (e) {}
-
-    res.json({
-      stats: {
-        totalUsers,
-        totalCoupons,
-        availableCoupons,
-        soldCoupons,
-        pendingCoupons,
-        revenue: `₹${revenue}`,
-        profit: `₹${revenue - costs}`,
-        totalTracked,
-        totalTickets,
-      },
-    });
+    res.set('Cache-Control', 'no-store');
+    res.json({ stats: {
+      totalUsers: users.length,
+      totalCoupons: coupons.length,
+      availableCoupons,
+      soldCoupons,
+      pendingCoupons,
+      totalTracked: tracked.length,
+      totalTickets: tickets.length,
+    } });
   } catch (err) {
-    console.error('Stats error:', err);
-    res.json({
-      stats: {
-        totalUsers: 0,
-        totalCoupons: 0,
-        availableCoupons: 0,
-        soldCoupons: 0,
-        pendingCoupons: 0,
-        revenue: '₹0',
-        profit: '₹0',
-        totalTracked: 0,
-        totalTickets: 0,
-      },
-    });
+    console.error('Stats error:', err && err.message ? err.message : err);
+    res.status(503).json({ error: 'Dashboard statistics are temporarily unavailable.', dataUnavailable: true });
   }
 });
 
