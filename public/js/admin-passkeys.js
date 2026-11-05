@@ -164,7 +164,7 @@
     faceMount.replaceChildren();
     setFaceStatus('Starting secure face enrollment…');
     try {
-      const faceModule = await import('/js/admin-face-liveness.js');
+      const faceModule = await import('/js/admin-face-liveness.mjs');
       await faceModule.startFaceLiveness({
         flow: 'enroll',
         consentVersion: faceConfig.consentVersion,
