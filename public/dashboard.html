@@ -3327,7 +3327,7 @@
   const inr = (n) => '₹' + Number(n || 0).toLocaleString('en-IN');
 
   // Server status "available" / "pending" / "sold" / "rejected" / "" (legacy)
-  const isPending   = (c) => ['pending', 'review', 'awaiting', 'submitted'].includes(String(c.status || '').toLowerCase());
+  const isPending   = (c) => ['pending', 'review', 'awaiting', 'submitted', 'proof_requested'].includes(String(c.status || '').toLowerCase());
   const isSold      = (c) => String(c.status || '').toLowerCase() === 'sold';
   const isAvailable = (c) => String(c.status || '').toLowerCase() === 'available';
 
@@ -4362,7 +4362,7 @@
 
     const stageIs = (s) => listed.filter((c) => c.stage === s);
     const activeList = stageIs('active');
-    const pendingList = stageIs('pending_review');
+    const pendingList = listed.filter((c) => ['pending_review', 'proof_requested'].includes(c.stage));
     // Everything the seller is owed money for, at whatever point of the payout
     // it has reached.
     const payableList = listed.filter((c) => ['eligible', 'payout_processing'].includes(c.stage));
