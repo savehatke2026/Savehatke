@@ -116,3 +116,28 @@ Add automated tests for:
 - existing Google login tests and user login tests remain unchanged.
 
 Do not claim real biometric success from mocks. Before production cutover, test physical Windows Hello and Android/iOS passkeys and real camera liveness in deployed HTTPS Preview. Keep Google login until the owner confirms both methods have been enrolled and verified for every admin.
+
+
+## Implementation status — 5 November 2026
+
+### Delivered on this feature branch
+- Supabase migration: 20261105_admin_biometric_auth.sql creates server-only passkey credentials, one-time challenges, biometric enrollment metadata and audit tables. RLS is enabled and browser roles have no table access.
+- server/routes/adminBiometric.js implements passkey enrollment options/verification, login options/verification, device listing and revocation. Challenges are short-lived and atomically consumed; login checks the active Supabase admin allowlist and creates the existing revocable 2-hour admin session only after WebAuthn verification.
+- server/routes/auth.js exposes a narrow internal helper for a previously verified biometric assertion. Existing Google login still requires its verified Google subject; the new path does not fabricate one.
+- server/services/supabase.js routes Admin Passkey sessions into the existing admin_sessions table.
+- Added public/admin-biometric-login.html and public/js/admin-passkey-login.js for admin passkey sign-in, plus passkey management in the Security section of public/vault.html.
+- Camera permission is narrowed to /admin-biometric-login; the rest of the website remains camera=().
+- The existing Google sign-in path is preserved during rollout. It must not be removed until every admin has verified an alternative login in production.
+
+### Not yet delivered
+- Camera face recognition is deliberately NOT enabled. The UI identifies it as not configured. The AWS Face Liveness account setup, least-privilege Cognito Identity Pool, private S3/KMS bucket, server-side CompareFaces flow, consent/enrollment flow and real-device spoof-resistance tests are still required. No placeholder endpoint pretends that face recognition works.
+- Real browser/hardware passkey tests and production Supabase migration have not been performed from this environment.
+
+### Deployment notes before enabling passkeys
+1. Apply supabase/migrations/20261105_admin_biometric_auth.sql to the production Supabase project.
+2. Configure WEBAUTHN_ORIGIN=https://savehatke.vercel.app and WEBAUTHN_RP_ID=savehatke.vercel.app in the intended Vercel environment. Keep them aligned with the final production domain.
+3. Regenerate and commit the root package-lock.json with npm install after adding @simplewebauthn/server@^13.3.3; this workspace could not reach the npm registry, so the lockfile has not been regenerated here. Do not use npm ci until the lockfile is synchronized.
+4. Test registration and login on supported Android, iOS, Windows and macOS devices over HTTPS. Verify revoked credential, stale allowlist, replayed/expired challenge, wrong origin/RP ID, Supabase outage and 2-hour session expiry.
+5. Only after tests pass, enable the passkey login route for the production admin roster. Keep the existing Google path until all admins are enrolled and owner-controlled recovery is confirmed.
+
+The package is pinned to the SimpleWebAuthn 13.x API (@simplewebauthn/server 13.3.3 and browser UMD 13.3.0). The backend is CommonJS; use the package's Node/CommonJS entry point.
