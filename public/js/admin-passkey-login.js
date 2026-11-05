@@ -96,7 +96,7 @@
     faceMount.replaceChildren();
     setStatus('Starting face recognition…');
     try {
-      const faceModule = await import('/js/admin-face-liveness.js');
+      const faceModule = await import('/js/admin-face-liveness.mjs');
       await faceModule.startFaceLiveness({
         flow: 'login',
         email,
