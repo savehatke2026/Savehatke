@@ -18,10 +18,6 @@
 //     Security page's login history. Only definitely-ended, definitely-old
 //     rows are removed — an Active session is never deleted.
 //
-//   Phase 3 (mongo): expired SOS recovery sessions in MongoDB are swept the
-//     same way. MongoDB's TTL index collects them eventually, but a TTL
-//     index only runs on a replica set with a working clock — this sweep
-//     makes the guarantee explicit, idempotent, and observable.
 //
 // Supabase's own auth.* tables are never touched: this application manages
 // sessions in its own tables and does not use Supabase Auth.
@@ -47,36 +43,13 @@ let lastPurgeAt = 0;
 let intervalStarted = false;
 
 /**
- * Delete SOS recovery sessions in MongoDB whose expires_at has passed.
- * MongoDB's TTL index is the primary collector; this is the explicit,
- * observable backstop for the cases it misses. Only rows whose expiry has
- * DEFINITELY passed (strictly earlier than now) are removed, so a session
- * that is still live can never be swept. Idempotent by construction.
- * @returns {Promise<number>} documents removed
- */
-async function purgeExpiredSosSessions() {
-  try {
-    if (!mongoose.connection || mongoose.connection.readyState !== 1) return 0;
-    const SosSession = require('../models/SosSession');
-    const result = await SosSession.deleteMany({ expires_at: { $lt: new Date() } });
-    return result ? Number(result.deletedCount || 0) : 0;
-  } catch (err) {
-    // Log the failure without any document contents — a Mongo error string
-    // never carries session tokens, but stay in the habit anyway.
-    console.warn('SOS session purge warning:', err && err.message ? err.message : err);
-    return 0;
-  }
-}
-
-/**
  * Run one full cleanup pass immediately. Always resolves — never throws.
  * Errors in one phase never stop the others.
- * @returns {Promise<{expired:number, purged:number, sosPurged:number}>}
+ * @returns {Promise<{expired:number, purged:number}>}
  */
 async function runSessionCleanup() {
   let expired = 0;
   let purged = 0;
-  let sosPurged = 0;
 
   try {
     const result = await supabaseService.expireOutdatedSessions();
@@ -99,12 +72,8 @@ async function runSessionCleanup() {
     console.log(`🗑️  Session cleanup: ${purged} ended session${purged === 1 ? '' : 's'} deleted (past ${days}-day retention).`);
   }
 
-  sosPurged = await purgeExpiredSosSessions();
-  if (sosPurged > 0) {
-    console.log(`🗑️  Session cleanup: ${sosPurged} expired SOS recovery session${sosPurged === 1 ? '' : 's'} deleted.`);
-  }
 
-  return { expired, purged, sosPurged };
+  return { expired, purged };
 }
 
 /**
@@ -141,7 +110,7 @@ async function maybeRunSessionCleanup() {
 /**
  * Start the periodic timer (skipped on serverless — no persistent runtime).
  * Every 10 minutes: expire flip. Hourly (every 6th tick): full pass with
- * purge + SOS sweep. A full pass also runs shortly after boot.
+ * purge. A full pass also runs shortly after boot.
  */
 function startSessionCleanupInterval() {
   if (process.env.VERCEL) return; // serverless: rely on lazy sweep + cron endpoint
@@ -151,7 +120,7 @@ function startSessionCleanupInterval() {
   setInterval(() => {
     tick += 1;
     if (tick % 6 === 0) {
-      // Hourly: expire + purge + SOS sweep.
+      // Hourly: expire + purge.
       runSessionCleanup().catch((e) => console.warn('Session cleanup warning:', e && e.message ? e.message : e));
     } else {
       // 10-minute cadence: just flip past-expiry rows to 'Expired'.
@@ -175,5 +144,4 @@ module.exports = {
   runSessionCleanup,
   maybeRunSessionCleanup,
   startSessionCleanupInterval,
-  purgeExpiredSosSessions,
 };
