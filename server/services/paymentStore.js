@@ -1,5 +1,5 @@
 // ============================================
-// SaveHatke — Payment Store (Google Sheets)
+// SaveHatke — Payment Store (Supabase)
 // ============================================
 // The only place orders and payments are read or written.
 //
@@ -41,7 +41,7 @@
 // ============================================
 
 const crypto = require('crypto');
-const db = require('./googleSheets');
+const db = require('./paymentLedgerDb');
 const supabase = require('./supabase');
 const claims = require('./paymentReferenceClaims');
 const ids = require('../utils/identifiers');
@@ -171,7 +171,8 @@ function fromPayment(r) {
 function fromNotification(r) {
   if (!r || !r.id) return null;
   let raw = null;
-  if (r.raw) { try { raw = JSON.parse(r.raw); } catch (e) { raw = { text: String(r.raw) }; } }
+  if (r.raw && typeof r.raw === 'object') raw = r.raw;
+  else if (r.raw) { try { raw = JSON.parse(r.raw); } catch (e) { raw = { text: String(r.raw) }; } }
   return {
     id: String(r.id),
     fingerprint: r.fingerprint || '',
@@ -243,30 +244,29 @@ async function ensureReady({ force = false } = {}) {
     return _availability;
   }
 
-  if (!db.isSheetsConnected()) {
+  if (!db.isConfigured()) {
     try { await db.initialize(); } catch (e) { /* reported below */ }
   }
 
-  if (!db.isSheetsConnected()) {
+  if (!db.isConfigured()) {
     _availability = {
       ok: false,
       checkedAt: Date.now(),
       reason:
-        'Google Sheets is not connected, so payment records cannot be stored. Check GOOGLE_SHEETS_SPREADSHEET_ID and the service-account credentials.',
+        'Supabase payment ledger is not configured. Check SUPABASE_URL and SUPABASE_SERVICE_KEY.',
     };
     return _availability;
   }
 
   try {
-    // A fresh read of the Payments tab proves both the connection and that the
-    // tab exists (ensureSheets creates it on initialize).
+    // A fresh read of the Supabase Payments table proves the ledger is ready.
     await db.getRowsFresh(PAYMENTS);
     _availability = { ok: true, checkedAt: Date.now(), reason: '' };
   } catch (err) {
     _availability = {
       ok: false,
       checkedAt: Date.now(),
-      reason: 'The Payments tab could not be read from the spreadsheet. (' + err.message + ')',
+      reason: 'The Supabase Payments table could not be read. (' + err.message + ')',
     };
   }
   return _availability;
@@ -274,7 +274,7 @@ async function ensureReady({ force = false } = {}) {
 
 /** Credentials are present (static check — does not touch the network). */
 function isConfigured() {
-  return Boolean(process.env.GOOGLE_SHEETS_SPREADSHEET_ID);
+  return db.isConfigured();
 }
 
 /**
@@ -290,12 +290,12 @@ function isConfigured() {
  * Throws an Error with a caller-safe message; nothing internal is exposed.
  */
 async function ensureReadyOrThrow() {
-  if (!db.isSheetsConnected()) {
+  if (!db.isConfigured()) {
     try { await db.initialize(); } catch (e) { /* handled by the strict read */ }
   }
-  // Strict + fresh: bypasses the read cache and refuses the in-memory fallback.
+  // Strict + fresh: confirms both financial tables are reachable before settlement.
   await db.getRowsFresh(PAYMENTS, STRICT);
-  // The Orders tab is the second half of every settlement write.
+  // The Orders table is the second half of every settlement write.
   await db.getRowsFresh(ORDERS, STRICT);
 }
 
@@ -710,19 +710,8 @@ async function createPayment({
  */
 async function transitionPayment(paymentId, fromStatus, toStatus, extra = {}) {
   return withLock(async () => {
-    const before = await rowsStrict(PAYMENTS);
-    const current = before.find((r) => String(r.payment_id) === String(paymentId));
-    if (!current || current.status !== fromStatus) return null;
-
     const patch = { status: toStatus, updated_at: new Date().toISOString(), ...extra };
-    // Strict: Sheets must acknowledge the status change. A non-strict write
-    // returns "success" from an in-memory mirror during an outage, and the
-    // read-back below would then confirm a change that never reached the ledger.
-    await db.updateRow(PAYMENTS, 'payment_id', paymentId, patch, STRICT);
-
-    const after = await rowsStrict(PAYMENTS);
-    const written = after.find((r) => String(r.payment_id) === String(paymentId));
-    if (!written || written.status !== toStatus) return null; // lost the race
+    const written = await db.compareAndSet(PAYMENTS, 'payment_id', paymentId, fromStatus, patch);
     return fromPayment(written);
   });
 }
@@ -766,16 +755,8 @@ async function stampVerificationWindow(paymentId, nowMs = Date.now()) {
 
 async function transitionOrder(orderId, fromStatus, toStatus, extra = {}) {
   return withLock(async () => {
-    const before = await rowsStrict(ORDERS);
-    const current = before.find((r) => String(r.id) === String(orderId));
-    if (!current || current.status !== fromStatus) return null;
-
     const patch = { status: toStatus, updated_at: new Date().toISOString(), ...extra };
-    await db.updateRow(ORDERS, 'id', orderId, patch, STRICT);
-
-    const after = await rowsStrict(ORDERS);
-    const written = after.find((r) => String(r.id) === String(orderId));
-    if (!written || written.status !== toStatus) return null;
+    const written = await db.compareAndSet(ORDERS, 'id', orderId, fromStatus, patch);
     return fromOrder(written);
   });
 }
@@ -1288,13 +1269,16 @@ async function finalizeUnderpayment({
         `Underpayment: required ${money2(payment.amount)}, received ${money2(receivedAmount)}. Coupon NOT unlocked; refund record created for full received amount.`,
       updated_at: occurredAt,
     };
-    await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, patch, STRICT);
-    // Order mirrors the payment so the listing stays available (coupon still
-    // locked) while admin processes the refund.
-    await db.updateRow(ORDERS, 'id', payment.orderId, {
-      status: 'REVIEW',
-      updated_at: occurredAt,
-    }, STRICT);
+    const atomic = await db.updatePaymentAndOrder(
+      payment.paymentId,
+      'PENDING',
+      patch,
+      { status: 'REVIEW', updated_at: occurredAt }
+    );
+    if (!atomic || !atomic.updated) {
+      return { ok: false, code: 'PAYMENT_NOT_PENDING', payment_status: atomic && atomic.payment_status || 'UNKNOWN' };
+    }
+    // Payment and order are now REVIEW together in one PostgreSQL transaction.
     // The buyer is getting a refund and there is no live session left; hand the
     // coupon's visibility back to the marketplace (best-effort).
     if (payment.couponId) {
@@ -1324,17 +1308,18 @@ async function markPaid({ payment, txn, reference, source, notes, settledAt, rec
   if (receivedAmount !== undefined && receivedAmount !== null) {
     patch.received_amount = money2(receivedAmount);
   }
-  // Strict writes: the ledger must acknowledge PAID before this returns. If
-  // either write fails the caller sees the throw, flags the notification for
-  // review and never reports a settlement — which is the correct outcome, since
-  // the coupon flip that has already happened is visible to an admin, whereas a
-  // PAID row that exists only in this process's memory is not.
-  await db.updateRow(PAYMENTS, 'payment_id', payment.paymentId, patch, STRICT);
-  await db.updateRow(ORDERS, 'id', payment.orderId, {
-    status: 'PAID',
-    paid_at: settledAt,
-    updated_at: new Date().toISOString(),
-  }, STRICT);
+    // PostgreSQL updates payment + order atomically. If the RPC fails, both
+  // rows roll back and the caller can safely retry/reconcile the coupon sale.
+  const atomic = await db.updatePaymentAndOrder(
+    payment.paymentId,
+    'PENDING',
+    patch,
+    { status: 'PAID', paid_at: settledAt, updated_at: new Date().toISOString() }
+  );
+  if (!atomic || !atomic.updated) {
+    if (atomic && atomic.reason === 'STATUS_MISMATCH' && atomic.payment_status === 'PAID') return;
+    throw new Error('Atomic payment/order settlement was not applied: ' + (atomic && atomic.reason || 'unknown result'));
+  }
   console.log(`[PAYMENT_STATUS] sessionId=${payment.paymentId} status=PAID`);
   // The sale itself removes the coupon from every listing; dropping the
   // reservation row fields keeps the record clean. Best-effort: the sold flip
@@ -1620,8 +1605,19 @@ async function recordNotification({
       raw: raw ? JSON.stringify(raw).slice(0, 1000) : '',
     };
 
-    await db.appendRow(NOTIFICATIONS, row);
-    return { notification: fromNotification(row), duplicate: false };
+    try {
+      await db.appendRow(NOTIFICATIONS, row);
+      return { notification: fromNotification(row), duplicate: false };
+    } catch (error) {
+      // PostgreSQL's unique fingerprint constraint is the cross-instance
+      // deduplication guarantee. A concurrent insert wins once; the loser
+      // returns that already-persisted notification as a duplicate.
+      if (error && (error.code === '23505' || error.databaseCode === '23505')) {
+        const duplicate = await findNotificationByFingerprint(fingerprint);
+        if (duplicate) return { notification: duplicate, duplicate: true };
+      }
+      throw error;
+    }
   });
 }
 
