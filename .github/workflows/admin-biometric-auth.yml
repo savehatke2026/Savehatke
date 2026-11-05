@@ -84,7 +84,7 @@ jobs:
           cp public/js/admin-face-liveness.mjs /tmp/admin-face-liveness.mjs
           cp public/js/admin-face-liveness.css /tmp/admin-face-liveness.css
           git fetch origin "$SOURCE_BRANCH"
-          git checkout -B "$SOURCE_BRANCH" "origin/$SOURCE_BRANCH"
+          git checkout -B "$SOURCE_BRANCH" FETCH_HEAD
           cp /tmp/admin-biometric-package-lock.json package-lock.json
           cp /tmp/admin-face-liveness.mjs public/js/admin-face-liveness.mjs
           cp /tmp/admin-face-liveness.css public/js/admin-face-liveness.css
@@ -92,8 +92,17 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package-lock.json public/js/admin-face-liveness.mjs public/js/admin-face-liveness.css
           if git diff --cached --quiet; then
-            echo "package-lock.json is already synchronized"
+            echo "package-lock.json and the generated face bundle are already synchronized"
             exit 0
           fi
           git commit -m "build: sync npm lockfile for admin biometric dependencies"
-          git push origin "HEAD:$SOURCE_BRANCH"
+          for attempt in 1 2 3; do
+            if git push origin "HEAD:$SOURCE_BRANCH"; then
+              exit 0
+            fi
+            echo "Branch moved during generated-file sync; rebasing on latest remote head (attempt $attempt)."
+            git fetch origin "$SOURCE_BRANCH"
+            git rebase FETCH_HEAD
+          done
+          echo "Could not sync generated files after three safe push attempts."
+          exit 1
