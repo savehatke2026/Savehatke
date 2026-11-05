@@ -23,7 +23,8 @@
     "ai:train": "node scripts/ai/train.js",
     "ai:eval": "node scripts/ai/evaluate.js",
     "ai:test": "node scripts/ai/test.js",
-    "ai:build": "npm run ai:prepare && npm run ai:vocab && npm run ai:train && npm run ai:eval && npm run ai:test"
+    "ai:build": "npm run ai:prepare && npm run ai:vocab && npm run ai:train && npm run ai:eval && npm run ai:test",
+    "migrate:payment-ledger": "node scripts/migrate-payment-ledger-to-supabase.cjs"
   },
   "dependencies": {
     "@pdf-lib/fontkit": "^1.1.1",
