@@ -722,7 +722,9 @@ async function loadInventory() {
     // If a newer request started while we were awaiting, drop this response
     if (seq !== inventoryRequestSeq) return;
 
-    const pageCoupons = data.coupons || [];
+    const pageCoupons = (data.coupons || []).filter((coupon) =>
+      invPillFilter !== 'seller' || isSellerSubmission(coupon)
+    );
     const totalPages = Math.max(1, data.totalPages || 1);
     if (invCurrentPage > totalPages) invCurrentPage = totalPages;
     INVENTORY_ALL = pageCoupons;
@@ -1293,7 +1295,8 @@ function activeRowHtml(c) {
 /** Anything not admin-entered came in through a seller submission → review. */
 function isSellerSubmission(c) {
   const src = String(c.source || '').toLowerCase();
-  return src === 'user-submitted' || src === 'user';
+  const sellerEmail = String(c.sellerEmail || '').trim();
+  return (src === 'user-submitted' || src === 'user') && sellerEmail !== '';
 }
 
 /**
