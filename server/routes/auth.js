@@ -963,7 +963,7 @@ async function createBiometricAdminSession(req, res, email, method) {
     userId: session.userId,
     email: cleanEmail,
     name,
-    role: account.role || 'admin',
+    role: 'admin',
   };
 }
 
