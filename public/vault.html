@@ -1565,7 +1565,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend">Live</span></div>
           <div class="stat-val gtext" id="statRevenue">—</div>
           <div class="stat-lbl">Total Earnings</div>
-          <div class="stat-sub">Website visitor analytics not connected</div>
+          <div class="stat-sub">Gross sales recorded this month</div>
         </div>
         <div class="stat-card sc-teal">
           <div class="stat-card-top"><div class="stat-icon si-teal">💳</div><span class="stat-trend">Live</span></div>
@@ -1576,14 +1576,14 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div class="stat-card sc-blue">
           <div class="stat-card-top"><div class="stat-icon si-blue">🌐</div><span class="stat-trend">Not tracked</span></div>
           <div class="stat-val" style="color:#4fc3f7" id="kpi-visitors">—</div>
-          <div class="stat-lbl">Website Visitors</div>
-          <div class="stat-sub">This month</div>
+          <div class="stat-lbl">Products Tracked</div>
+          <div class="stat-sub">Products in price tracker</div>
         </div>
         <div class="stat-card sc-red">
           <div class="stat-card-top"><div class="stat-icon si-red">🚩</div><span class="stat-trend">Not tracked</span></div>
           <div class="stat-val" style="color:#ef9a9a" id="kpi-abuse">—</div>
-          <div class="stat-lbl">Abuse Reports</div>
-          <div class="stat-sub">Abuse reports not connected</div>
+          <div class="stat-lbl">Support Tickets</div>
+          <div class="stat-sub">Tickets recorded in support</div>
         </div>
       </div>
 
@@ -4949,7 +4949,7 @@ function applyDashboardMonth(o) {
 
 function applyDashboardToday(o) {
   if (!o) return;
-  setTxt('kpi-txns', inrFull(o.paidValue)); // Transactions Today = today's settled value
+  setTxt('kpi-txns', Number(o.counts && o.counts.paidOrders || 0).toLocaleString('en-IN')); // Count of paid orders today
 }
 
 async function loadDashboardActivity() {
