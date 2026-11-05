@@ -154,11 +154,11 @@ app.use((req, res, next) => {
     // host (sell page's client-side coupon OCR: the SDK bundle + ORT wasm are
     // vendored same-origin; only the PP-OCRv5 model tars are fetched from
     // paddle-model-ecology.bj.bcebos.com on the first scan).
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com https://unpkg.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net https://paddle-model-ecology.bj.bcebos.com",
+    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://paddle-model-ecology.bj.bcebos.com https://streaming-rekognition.ap-south-1.amazonaws.com wss://streaming-rekognition.ap-south-1.amazonaws.com",
     "frame-src https://accounts.google.com https://challenges.cloudflare.com",
     "worker-src 'self' blob:",
   ].join('; '));
