@@ -604,6 +604,14 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+      // Camera is granted only on the admin-only vault page, where the
+      // authenticated owner can enroll/remove the face profile. All other
+      // ordinary site pages keep camera access denied.
+      if (path.basename(filePath).toLowerCase() === 'vault.html') {
+        res.setHeader('Permissions-Policy',
+          'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), ' +
+          'magnetometer=(), accelerometer=(), gyroscope=(), interest-cohort=()');
+      }
     } else {
       // Static assets are immutable per deploy and referenced by stable paths,
       // so let browsers skip re-fetching them for a day (the CDN keeps serving
