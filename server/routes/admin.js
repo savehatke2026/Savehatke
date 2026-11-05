@@ -1655,15 +1655,15 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
           reviewedAt,
         };
 
-        // Mirror the safe status and admin note to the matching Supabase row
-        // too, if present. Do not publish anything: neither status is live.
+        // Mirror only the supported, non-public status to Supabase when a copy
+        // exists. SellerCoupons remains authoritative for the review note/time.
         let supabaseSellerRow = null;
         if (supabase.isConfigured()) {
           supabaseSellerRow = await supabase.findCouponById(id).catch(() => null);
         }
         if (supabaseSellerRow) {
           try {
-            await supabase.updateCoupon(id, updates);
+            await supabase.updateCoupon(id, { status: updates.status });
           } catch (e) {
             console.error('Seller coupon review: Supabase status update failed:', e.message);
             return res.status(500).json({
@@ -1680,8 +1680,6 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
           if (supabaseSellerRow) {
             await supabase.updateCoupon(id, {
               status: supabaseSellerRow.status || 'pending',
-              adminNotes: supabaseSellerRow.adminNotes || '',
-              reviewedAt: supabaseSellerRow.reviewedAt || '',
             }).catch((rollbackError) => {
               console.error('Seller coupon review: Supabase rollback failed:', rollbackError.message);
             });
