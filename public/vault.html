@@ -2903,7 +2903,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div style="margin-top:16px">
           <button class="btn btn-primary" id="gdReconnectBtn" disabled onclick="gdReconnect()">Reconnect Google Drive</button>
         </div>
-        <div class="pg-note">Reconnect signs in with the Drive account and mints a fresh refresh token, then updates the existing Supabase record. Google Drive has no fixed expiry countdown — it is monitored via real authorization errors.</div>
+        <div class="pg-note">Reconnect signs in with the Drive account and stores a fresh encrypted refresh token in Supabase. The estimated countdown uses Google's 7-day refresh-token window when the OAuth app is in Testing; Google's actual authorization response remains authoritative.</div>
       </div>
     </div>
 
@@ -4510,11 +4510,22 @@ window.addEventListener('load', function(){
 
 /* ════════════════════════════
    GOOGLE DRIVE (security_credentials) — admin Security section
-   Reads the google_drive credential from /api/admin/security-credentials.
-   Google Drive has NO Testing-mode countdown, so no remaining-time is shown;
-   a 🔴 state only appears on a real invalid_grant / revocation. The refresh
-   token is never received here.
+   Reads safe credential metadata from /api/admin/security-credentials.
+   Shows the estimated 7-day OAuth Testing-window countdown when an
+   authorization timestamp is available. A real authorization failure from
+   Google remains the source of truth for revocation/expiry. Tokens never
+   reach this page.
    ════════════════════════════ */
+var GD_STATE = { estimatedExpiresAt: null, timer: null };
+function gdRemainingMs(){
+  if (!GD_STATE.estimatedExpiresAt) return null;
+  var t = Date.parse(GD_STATE.estimatedExpiresAt);
+  return isNaN(t) ? null : t - Date.now();
+}
+function gdTick(){
+  var el = document.getElementById('gdRemainingCell');
+  if (el) el.textContent = pgFormatRemaining(gdRemainingMs());
+}
 function gdBadge(status, connected){
   if (status === 'active' && connected) return '<span class="badge badge-green">Connected</span>';
   if (status === 'reauthorization_required') return '<span class="badge badge-amber">Reauthorization Required</span>';
@@ -4562,6 +4573,11 @@ async function loadDriveStatus(){
     var list = (data && data.credentials) || [];
     var d = list.filter(function(c){ return c.service === 'google_drive'; })[0] || {};
     var email = d.email || 'database.savehatke@gmail.com';
+    var authorizedMs = Date.parse(d.authorizedAt || '');
+    GD_STATE.estimatedExpiresAt = d.estimatedExpiresAt ||
+      (d.connected && Number.isFinite(authorizedMs)
+        ? new Date(authorizedMs + 7 * 24 * 60 * 60 * 1000).toISOString()
+        : null);
     var folders = Array.isArray(data.driveFolders) ? data.driveFolders : [];
     var folderRows = folders.map(function(folder){
       var ok = Boolean(folder.accessible);
@@ -4578,14 +4594,13 @@ async function loadDriveStatus(){
     }).join('');
     var accessibleCount = folders.filter(function(folder){ return Boolean(folder.accessible); }).length;
     rows.innerHTML = [
-      '<div class="info-row"><span class="irl">Google account</span><span class="irv">' + pgEsc(email) + '</span></div>',
-      '<div class="info-row"><span class="irl">Connection status</span><span class="irv">' + gdBadge(d.status, d.connected) + '</span></div>',
+      '<div class="info-row"><span class="irl">Email</span><span class="irv">' + pgEsc(email) + '</span></div>',
+      '<div class="info-row"><span class="irl">Status</span><span class="irv">' + gdBadge(d.status, d.connected) + '</span></div>',
       '<div class="info-row"><span class="irl">Authorization</span><span class="irv">' + (d.connected ? 'Active' : (d.status === 'reauthorization_required' ? 'Expired / revoked' : '—')) + '</span></div>',
-      '<div class="info-row"><span class="irl">OAuth configuration</span><span class="irv">' + (d.configured ? '<span class="badge badge-green">Configured</span>' : '<span class="badge badge-red">Not configured</span>') + '</span></div>',
-      '<div class="info-row"><span class="irl">Credential storage</span><span class="irv">' + (data.supabaseReady ? 'Supabase · encrypted' : 'Supabase unavailable') + '</span></div>',
       '<div class="info-row"><span class="irl">Connected</span><span class="irv">' + pgFmt(d.connectedAt) + '</span></div>',
       '<div class="info-row"><span class="irl">Authorized</span><span class="irv">' + pgFmt(d.authorizedAt) + '</span></div>',
-      '<div class="info-row"><span class="irl">Token expiry</span><span class="irv">No fixed expiry countdown — monitored by Drive authorization checks</span></div>',
+      '<div class="info-row"><span class="irl">Estimated expiry</span><span class="irv">' + pgFmt(GD_STATE.estimatedExpiresAt) + '</span></div>',
+      '<div class="info-row"><span class="irl">Authorization status</span><span class="irv" id="gdRemainingCell">' + pgFormatRemaining(gdRemainingMs()) + '</span></div>',
       '<div class="info-row"><span class="irl">Last checked</span><span class="irv">' + pgFmt(d.lastUsedAt) + '</span></div>',
       '<div class="info-row"><span class="irl">Last verified</span><span class="irv">' + pgFmt(d.lastVerifiedAt) + '</span></div>',
       '<div class="info-row"><span class="irl">Last error</span><span class="irv">' + (d.lastError ? pgEsc(d.lastError) : '—') + '</span></div>',
@@ -4595,6 +4610,8 @@ async function loadDriveStatus(){
     ].join('');
     gdRenderBanner(d.warning, d.exists, d.connected);
     if (btn) btn.disabled = false;
+    if (GD_STATE.timer) clearInterval(GD_STATE.timer);
+    if (GD_STATE.estimatedExpiresAt) GD_STATE.timer = setInterval(gdTick, 60000);
   } catch (e) {
     rows.innerHTML = '<div class="info-row"><span class="irl">Error</span><span class="irv">Unable to connect to SaveHatke. <a href="javascript:void(0)" onclick="loadDriveStatus()">Retry</a></span></div>';
   }
