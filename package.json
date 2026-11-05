@@ -48,7 +48,10 @@
     "twilio": "^6.1.0",
     "ua-parser-js": "^2.0.10",
     "uuid": "^11.1.1",
-    "@simplewebauthn/server": "^13.3.3"
+    "@simplewebauthn/server": "^13.3.3",
+    "@aws-sdk/client-rekognition": "^3.1158.0",
+    "@aws-sdk/client-s3": "^3.1158.0",
+    "@aws-sdk/client-cognito-identity": "^3.1162.0"
   },
   "overrides": {
     "uuid": "^11.1.1"
