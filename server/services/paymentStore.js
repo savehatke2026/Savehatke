@@ -171,7 +171,8 @@ function fromPayment(r) {
 function fromNotification(r) {
   if (!r || !r.id) return null;
   let raw = null;
-  if (r.raw) { try { raw = JSON.parse(r.raw); } catch (e) { raw = { text: String(r.raw) }; } }
+  if (r.raw && typeof r.raw === 'object') raw = r.raw;
+  else if (r.raw) { try { raw = JSON.parse(r.raw); } catch (e) { raw = { text: String(r.raw) }; } }
   return {
     id: String(r.id),
     fingerprint: r.fingerprint || '',
@@ -258,8 +259,7 @@ async function ensureReady({ force = false } = {}) {
   }
 
   try {
-    // A fresh read of the Payments tab proves both the connection and that the
-    // tab exists (ensureSheets creates it on initialize).
+    // A fresh read of the Supabase Payments table proves the ledger is ready.
     await db.getRowsFresh(PAYMENTS);
     _availability = { ok: true, checkedAt: Date.now(), reason: '' };
   } catch (err) {
@@ -290,10 +290,10 @@ function isConfigured() {
  * Throws an Error with a caller-safe message; nothing internal is exposed.
  */
 async function ensureReadyOrThrow() {
-  if (!db.isSheetsConnected()) {
+  if (!db.isConfigured()) {
     try { await db.initialize(); } catch (e) { /* handled by the strict read */ }
   }
-  // Strict + fresh: bypasses the read cache and refuses the in-memory fallback.
+  // Strict + fresh: confirms both financial tables are reachable before settlement.
   await db.getRowsFresh(PAYMENTS, STRICT);
   // The Orders table is the second half of every settlement write.
   await db.getRowsFresh(ORDERS, STRICT);
@@ -1308,11 +1308,8 @@ async function markPaid({ payment, txn, reference, source, notes, settledAt, rec
   if (receivedAmount !== undefined && receivedAmount !== null) {
     patch.received_amount = money2(receivedAmount);
   }
-  // Strict writes: the ledger must acknowledge PAID before this returns. If
-  // either write fails the caller sees the throw, flags the notification for
-  // review and never reports a settlement — which is the correct outcome, since
-  // the coupon flip that has already happened is visible to an admin, whereas a
-  // PAID row that exists only in this process's memory is not.
+    // PostgreSQL updates payment + order atomically. If the RPC fails, both
+  // rows roll back and the caller can safely retry/reconcile the coupon sale.
   const atomic = await db.updatePaymentAndOrder(
     payment.paymentId,
     'PENDING',
