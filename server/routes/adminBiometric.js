@@ -31,7 +31,7 @@ const CHALLENGE_TTL_MS = 5 * 60 * 1000;
 const FACE_CHALLENGE_TTL_MS = 150 * 1000;
 const faceLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 5,
+  max: 8,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: 'Too many face verification attempts. Please try again later.' },
@@ -444,6 +444,21 @@ function parseFaceChallenge(raw) {
   }
 }
 
+async function cleanupFailedFaceReference(result, keyPrefix) {
+  try {
+    const config = faceLiveness.readConfig();
+    const reference = result && result.ReferenceImage && result.ReferenceImage.S3Object;
+    if (!reference || reference.Bucket !== config.bucket ||
+        typeof reference.Name !== 'string' || !reference.Name.startsWith(keyPrefix)) return;
+    await faceLiveness.deleteReferenceImage({
+      bucket: reference.Bucket,
+      key: reference.Name,
+    });
+  } catch (_) {
+    // Best-effort cleanup; never replace the original biometric decision.
+  }
+}
+
 async function activeFaceEnrollment(email) {
   const { data, error } = await getStore().from('admin_biometric_enrollments')
     .select('id, reference_image_key, enrolled_at, consent_version')
@@ -602,6 +617,7 @@ router.post('/face/enroll-verify', faceLimiter, authenticateToken, requireAdmin,
       return res.status(checked.status).json({ error: checked.error });
     }
     if (!checked.liveness.live) {
+      await cleanupFailedFaceReference(checked.result, checked.challenge.keyPrefix);
       await auditFace(email, 'enrollment', 'failure', req.requestId, {
         reason: 'liveness_failed',
         status: checked.liveness.status,
@@ -690,6 +706,7 @@ router.post('/face/login-verify', faceLimiter, async (req, res) => {
       return res.status(checked.status).json({ error: checked.error });
     }
     if (!checked.liveness.live) {
+      await cleanupFailedFaceReference(checked.result, checked.challenge.keyPrefix);
       await auditFace(email, 'login', 'failure', req.requestId, {
         reason: 'liveness_failed',
         status: checked.liveness.status,
