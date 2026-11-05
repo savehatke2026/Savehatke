@@ -2,9 +2,8 @@
 -- SaveHatke — Supabase payment ledger
 -- ============================================
 -- Apply this migration BEFORE deploying the Supabase-backed paymentStore.
--- Existing Google Sheets tabs (Orders, Payments, PaymentNotifications) are
--- retained as a read-only migration/backup source; the application stops
--- writing to them after cutover.
+-- Existing Google Sheets rows are historical archive data and are NOT copied.
+-- From cutover onward, new orders, payments and notifications are stored here.
 --
 -- All tables are accessed from server code with SUPABASE_SERVICE_KEY only.
 -- RLS is enabled and browser roles receive no table privileges.
@@ -141,8 +140,8 @@ CREATE OR REPLACE FUNCTION public.savehatke_update_payment_order(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
+SECURITY INVOKER
+SET search_path = ''
 AS $$
 DECLARE
   v_payment public.payments%ROWTYPE;
