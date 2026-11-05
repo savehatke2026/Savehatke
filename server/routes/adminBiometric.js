@@ -386,8 +386,8 @@ router.post('/passkey/login-verify', loginLimiter, async (req, res) => {
   }
 });
 
-// Revoke a credential but retain its audit trail. At least one credential
-// must remain until face recognition is fully configured and verified.
+// Revoke a credential but retain its audit trail. At least one biometric
+// sign-in method (passkey or enrolled face profile) must remain available.
 router.delete('/passkey/:id', authenticateToken, requireAdmin, async (req, res) => {
   const email = normalizeEmail(req.user.email);
   try {
@@ -396,8 +396,8 @@ router.delete('/passkey/:id', authenticateToken, requireAdmin, async (req, res) 
     const rows = await listActiveCredentials(email);
     const target = rows.find((row) => row.id === req.params.id);
     if (!target) return res.status(404).json({ error: 'Passkey not found.' });
-    if (rows.length <= 1) {
-      return res.status(409).json({ error: 'Register another passkey before revoking the last one.' });
+    if (rows.length <= 1 && !(await activeFaceEnrollment(email))) {
+      return res.status(409).json({ error: 'Register another passkey or enroll face recognition before revoking the last login method.' });
     }
     const now = new Date().toISOString();
     const { error } = await getStore().from('admin_passkey_credentials')
