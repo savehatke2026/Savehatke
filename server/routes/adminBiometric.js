@@ -14,7 +14,7 @@ const {
   generateAuthenticationOptions,
   verifyAuthenticationResponse,
 } = require('@simplewebauthn/server');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, hashSessionToken } = require('../middleware/auth');
 const supabase = require('../services/supabase');
 const {
   ensureAdminRosterReady,
@@ -68,6 +68,25 @@ async function requireCurrentAdmin(email) {
     throw new Error('Administrator access is temporarily unavailable.');
   }
   return { email: cleanEmail, account };
+}
+
+async function requireFreshAdminSession(req) {
+  // Enrollment and credential revocation are account-security changes. Require
+  // a recent authenticated admin session (10 minutes), not merely a still
+  // valid two-hour cookie that could have been left unattended.
+  const rawToken = String(req.authSessionToken || '');
+  if (!rawToken) throw new Error('Sign in again before changing passkeys.');
+  const session = await supabase.findSessionByToken(hashSessionToken(rawToken));
+  if (!session || session.unavailable || session.status !== 'Active' ||
+      normalizeEmail(session.email) !== normalizeEmail(req.user && req.user.email) ||
+      !/^(?:google\\s+)?admin(?:\\s|$)/i.test(String(session.login_method || ''))) {
+    throw new Error('A recent administrator sign-in is required.');
+  }
+  const loginAt = Date.parse(session.login_time || '');
+  const age = Date.now() - loginAt;
+  if (!Number.isFinite(loginAt) || age < -60000 || age > 10 * 60 * 1000) {
+    throw new Error('For security, sign in again before changing passkeys.');
+  }
 }
 
 async function createChallenge(email, purpose, challenge) {
@@ -164,6 +183,7 @@ router.get('/passkeys', authenticateToken, requireAdmin, async (req, res) => {
 // Authenticated admin: create a registration challenge.
 router.post('/passkey/register-options', authenticateToken, requireAdmin, async (req, res) => {
   try {
+    await requireFreshAdminSession(req);
     const { email, account } = await requireCurrentAdmin(req.user.email);
     const { rpName, rpID } = getRpConfig(req);
     const existing = await listActiveCredentials(email);
@@ -199,6 +219,7 @@ router.post('/passkey/register-options', authenticateToken, requireAdmin, async 
 router.post('/passkey/register-verify', authenticateToken, requireAdmin, async (req, res) => {
   const email = normalizeEmail(req.user.email);
   try {
+    await requireFreshAdminSession(req);
     await requireCurrentAdmin(email);
     const challengeId = String(req.body && req.body.challengeId || '');
     const response = req.body && req.body.response;
@@ -361,6 +382,7 @@ router.post('/passkey/login-verify', loginLimiter, async (req, res) => {
 router.delete('/passkey/:id', authenticateToken, requireAdmin, async (req, res) => {
   const email = normalizeEmail(req.user.email);
   try {
+    await requireFreshAdminSession(req);
     await requireCurrentAdmin(email);
     const rows = await listActiveCredentials(email);
     const target = rows.find((row) => row.id === req.params.id);
