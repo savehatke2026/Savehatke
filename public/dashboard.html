@@ -3358,6 +3358,8 @@
     payout_processing: ['Payout Processing',  'badge-purple'],
     paid:              ['Paid',               'badge-green'],
     validation_failed: ['Validation Failed',  'badge-red'],
+    rejected:          ['Rejected',              'badge-red'],
+    proof_requested:   ['More Proof Requested',  'badge-blue'],
   };
 
   // The server owns this ladder (GET /api/payouts/coupon-status). Its labels are
@@ -3371,6 +3373,8 @@
     'payout processing': 'payout_processing',
     paid: 'paid',
     'validation failed': 'validation_failed',
+    rejected: 'rejected',
+    'more proof requested': 'proof_requested',
   };
 
   /** couponId → stage key, from the server's own derivation. */
@@ -3415,7 +3419,8 @@
     // A coupon marked invalid after review withholds payment, whatever else it
     // looks like, so this is checked before anything payable.
     if (c && (c.invalidated || c.invalidatedAt || status === 'invalid')) return 'validation_failed';
-    if (status === 'rejected') return 'validation_failed';
+    if (status === 'rejected') return 'rejected';
+    if (status === 'proof_requested') return 'proof_requested';
     if (isPending(c)) return 'pending_review';
     if (isSold(c)) {
       const payout = payoutForCoupon(c.id);
@@ -3520,8 +3525,21 @@
 
     // 3 — the review outcome, dated from the approval stamp. Coupons approved
     //     before that stamp existed show no date.
+    if (stage === 'rejected') {
+      steps.push(mlTimelineStep('failed', 'Coupon Rejected', mlDate(rec.reviewedAt || c.reviewedAt)));
+      const reason = c.reviewReason || rec.reviewReason || rec.invalidationReason
+        || 'The admin rejected this coupon submission.';
+      return `<ul class="ml-tl">${steps.join('')}</ul>
+        <div class="ml-tl-note">${escapeHtml(reason)}</div>`;
+    }
+    if (stage === 'proof_requested') {
+      steps.push(mlTimelineStep('current', 'More Proof Requested', mlDate(rec.reviewedAt || c.reviewedAt)));
+      const note = c.reviewReason || rec.reviewReason || 'Please upload the additional proof requested by our team.';
+      return `<ul class="ml-tl">${steps.join('')}</ul>
+        <div class="ml-tl-note">${escapeHtml(note)}</div>`;
+    }
     if (stage === 'validation_failed') {
-      steps.push(mlTimelineStep('failed', 'Coupon Approved', ''));
+      steps.push(mlTimelineStep('failed', 'Coupon Validation Failed', ''));
       const reason = rec.invalidationReason
         || (rec.payout && rec.payout.rejectionReason)
         || 'This coupon did not pass our validation checks, so it cannot be sold or paid out.';
@@ -4335,6 +4353,8 @@
         code: c.code || '',
         value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.discount || c.title || ''),
         status: c.status || '',
+        reviewReason: c.adminNotes || '',
+        reviewedAt: c.reviewedAt || '',
         addedAt: c.addedAt || '',
         at: c.soldAt || c.addedAt || '',
       };
