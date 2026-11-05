@@ -141,3 +141,59 @@ Do not claim real biometric success from mocks. Before production cutover, test 
 5. Only after tests pass, enable the passkey login route for the production admin roster. Keep the existing Google path until all admins are enrolled and owner-controlled recovery is confirmed.
 
 The package is pinned to the SimpleWebAuthn 13.x API (@simplewebauthn/server 13.3.3 and browser UMD 13.3.0). The backend is CommonJS; use the package's Node/CommonJS entry point.
+
+
+## Camera face recognition implementation — 5 November 2026
+
+### Server and UI now present on the feature branch
+- `server/services/adminFaceLiveness.js` uses AWS SDK v3 clients for Rekognition, Cognito Identity and S3.
+- `server/routes/adminBiometric.js` creates Face Liveness sessions for enrollment and login, gets temporary Cognito unauthenticated-role credentials, retrieves the liveness result, checks the configured liveness confidence, compares the live reference image to the enrolled reference image with Rekognition CompareFaces, and issues the existing 2-hour admin session only after both checks pass.
+- The browser uses Amplify UI's `FaceLivenessDetectorCore` with a custom credential provider. The browser receives short-lived Cognito credentials only; long-lived AWS access keys remain server-side.
+- Face enrollment requires explicit consent with a versioned notice. Reference images are stored in a private S3 bucket and encrypted by the KMS key specified in the CreateFaceLivenessSession request. Login reference images are deleted after comparison; failed-liveness references are also deleted where AWS returned one.
+- Face status, enrollment, removal and camera login controls are wired into the existing Security page and dedicated admin login page.
+- Camera permission is granted only on the dedicated admin biometric login page and the authenticated `/vault` admin page. All other site routes continue to deny camera access.
+
+### Required Vercel environment variables
+Set these only in the intended environment (Preview first, then Production):
+
+```env
+WEBAUTHN_ORIGIN=https://savehatke.vercel.app
+WEBAUTHN_RP_ID=savehatke.vercel.app
+
+AWS_ACCESS_KEY_ID=
+AWS_SECRET_ACCESS_KEY=
+# Optional only when using temporary IAM credentials
+AWS_SESSION_TOKEN=
+
+FACE_LIVENESS_REGION=ap-south-1
+FACE_LIVENESS_BUCKET=
+FACE_LIVENESS_KMS_KEY_ID=
+FACE_LIVENESS_IDENTITY_POOL_ID=
+FACE_LIVENESS_MIN_CONFIDENCE=
+FACE_MATCH_MIN_SIMILARITY=
+ADMIN_FACE_CONSENT_VERSION=2026-11-05-v1
+```
+
+Face Recognition reports `enabled: false` until every required setting is present and both confidence thresholds are numeric values from 1 to 100. The browser config endpoint exposes only enabled/region/consent version; it never returns server AWS credentials.
+
+### AWS resource and IAM setup
+1. Create a private S3 bucket in the same AWS region as Rekognition (Mumbai `ap-south-1` recommended for this app). Enable Block Public Access, enforce TLS-only access, and configure default encryption with a customer-managed KMS key. Do not add public bucket policies or public object ACLs.
+2. Configure a lifecycle rule that deletes objects under `admin-biometric/temporary/` after one day. The application deletes normal temporary login references immediately, while the lifecycle rule is a cleanup backstop for abandoned or timed-out liveness sessions.
+3. Create a customer-managed KMS key in the same region. Set `FACE_LIVENESS_KMS_KEY_ID` to its key ARN or ID. The backend IAM principal and Rekognition Face Liveness service must be allowed to use the key for the reference/audit image flow.
+4. Create a Cognito Identity Pool in the same region and enable unauthenticated identities. Set its ID as `FACE_LIVENESS_IDENTITY_POOL_ID`. Attach an unauthenticated-role policy that allows only `rekognition:StartFaceLivenessSession` (the Amplify Face Liveness streaming call) and no S3 read, KMS or admin API permissions. This is the only AWS permission exposed through temporary browser credentials.
+5. The server IAM principal needs: `rekognition:CreateFaceLivenessSession`, `rekognition:GetFaceLivenessSessionResults`, `rekognition:CompareFaces`, `cognito-identity:GetId`, `cognito-identity:GetCredentialsForIdentity`, and narrowly scoped S3 `GetObject` / `DeleteObject` permissions for the `admin-biometric/*` objects. It also needs the required KMS permissions for the configured key. Rekognition must be allowed to write Face Liveness output objects to the configured prefix.
+6. Store `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` only in Vercel server-side environment variables (never in public/client variables or GitHub). Restrict the IAM user's permissions to these operations and the single bucket/prefix/key.
+
+### Threshold calibration and privacy
+- `FACE_LIVENESS_MIN_CONFIDENCE` is the minimum AWS Face Liveness confidence (0–100); `FACE_MATCH_MIN_SIMILARITY` is the minimum CompareFaces similarity (0–100). They must be calibrated with real devices, lighting, false accept/false reject testing and the intended admin population; do not use sample thresholds blindly.
+- AWS Face Liveness is probabilistic and does not guarantee perfect spoof detection. Require both liveness and identity match; continue monitoring false accept/reject rates.
+- Do not log face images, video, temporary AWS credentials, access keys, KMS keys, or raw liveness payloads. Only coarse confidence bands and non-biometric audit outcomes are recorded.
+- Face profile removal revokes the DB record and attempts to delete its S3 reference object. A passkey must remain before the face profile can be removed.
+- Review consent, retention, data subject rights and vendor processing arrangements under applicable privacy law before Production enrollment.
+
+### What still requires AWS owner action and real-world verification
+- Provision the AWS S3/KMS/Cognito resources and least-privilege policies.
+- Apply the Supabase migration before the routes can write/read biometric records.
+- Set the environment variables above and deploy to a protected Preview.
+- Test Android Chrome, iOS Safari, desktop Chrome/Edge and Firefox where supported; verify camera permissions, liveness challenges, poor lighting, replay/photo spoof attempts, face mismatch, timeout, expired AWS session and AWS/Supabase outages.
+- Confirm that all admins have both passkey and face login working before any future decision to remove the current Google fallback.
