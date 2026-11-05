@@ -53,8 +53,6 @@ const payoutRoutes = require('./routes/payouts');
 const refundRoutes = require('./routes/refunds');
 // Read-only admin financial API (Phase 1 single source of truth — services/finance.js).
 const adminFinanceRoutes = require('./routes/adminFinance');
-// Isolated WebAuthn admin passkey endpoints (biometric routes use their own auth/rate limits).
-const adminBiometricRoutes = require('./routes/adminBiometric');
 const adminEmailTestingRoutes = require('./routes/adminEmailTesting');
 const reviewRoutes = require('./routes/reviews');
 const testimonialRoutes = require('./routes/testimonials');
@@ -154,11 +152,11 @@ app.use((req, res, next) => {
     // host (sell page's client-side coupon OCR: the SDK bundle + ORT wasm are
     // vendored same-origin; only the PP-OCRv5 model tars are fetched from
     // paddle-model-ecology.bj.bcebos.com on the first scan).
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com https://unpkg.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' data: https://fonts.gstatic.com",
     "img-src 'self' data: blob: https:",
-    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://paddle-model-ecology.bj.bcebos.com https://streaming-rekognition.ap-south-1.amazonaws.com wss://streaming-rekognition.ap-south-1.amazonaws.com",
+    "connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://cdn.jsdelivr.net https://paddle-model-ecology.bj.bcebos.com",
     "frame-src https://accounts.google.com https://challenges.cloudflare.com",
     "worker-src 'self' blob:",
   ].join('; '));
@@ -546,16 +544,6 @@ app.use(protectedPageGuard);
 app.use(protectedPublicPageGuard);
 
 
-// Dedicated admin biometric page. Camera permission is narrowly granted to
-// this origin/page only; every other SaveHatke route remains camera=().
-app.get('/admin-biometric-login', (req, res) => {
-  res.setHeader('Permissions-Policy',
-    'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), ' +
-    'magnetometer=(), accelerometer=(), gyroscope=(), interest-cohort=()');
-  res.setHeader('Cache-Control', 'no-store');
-  return res.sendFile(path.join(__dirname, '..', 'public', 'admin-biometric-login.html'));
-});
-
 // ── Landing page — hero counters rendered server-side ─────────────────────
 // The homepage's three counters (Active Users / Coupons Traded / Saved by
 // Users) used to paint with hardcoded defaults and then wait on a
@@ -604,14 +592,6 @@ app.use(express.static(path.join(__dirname, '..', 'public'), {
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
-      // Camera is granted only on the admin-only vault page, where the
-      // authenticated owner can enroll/remove the face profile. All other
-      // ordinary site pages keep camera access denied.
-      if (path.basename(filePath).toLowerCase() === 'vault.html') {
-        res.setHeader('Permissions-Policy',
-          'camera=(self), microphone=(), geolocation=(), payment=(), usb=(), ' +
-          'magnetometer=(), accelerometer=(), gyroscope=(), interest-cohort=()');
-      }
     } else {
       // Static assets are immutable per deploy and referenced by stable paths,
       // so let browsers skip re-fetching them for a day (the CDN keeps serving
@@ -662,8 +642,6 @@ app.use('/api/admin/finance', adminApiLimiter, adminFinanceRoutes);
 // /email-testing/* routes match first; shares the admin limiter and the same
 // authenticateToken + requireAdmin gate, plus its own per-admin send rate limit.
 app.use('/api/admin/email-testing', adminApiLimiter, adminEmailTestingRoutes);
-// Passkey registration/login has dedicated route-level rate limits and admin guards.
-app.use('/api/admin/biometric', adminBiometricRoutes);
 
 // Admin API — use a much more generous limiter than the public one. The admin
 // panel makes 5+ requests per page-load (users + sessions + coupons + stats
