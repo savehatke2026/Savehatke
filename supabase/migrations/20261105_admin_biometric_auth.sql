@@ -27,7 +27,7 @@ create table if not exists public.admin_auth_challenges (
   id uuid primary key default gen_random_uuid(),
   admin_email text not null,
   purpose text not null check (purpose in ('passkey_registration', 'passkey_login', 'face_enrollment', 'face_login')),
-  challenge_hash text not null,
+  challenge text not null,
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
   used_at timestamptz,
