@@ -13,6 +13,10 @@ on:
       - "public/admin-biometric-login.html"
       - "public/js/admin-passkey-login.js"
       - "public/js/admin-passkeys.js"
+      - "public/js/admin-face-liveness.mjs"
+      - "public/js/admin-face-liveness.css"
+      - "scripts/admin-face-liveness-entry.jsx"
+      - "scripts/build-admin-face-liveness.cjs"
       - "supabase/migrations/20261105_admin_biometric_auth.sql"
       - "package.json"
       - "vercel.json"
@@ -33,10 +37,13 @@ jobs:
           cache: npm
       - name: Install dependencies (refreshes lock resolution in the runner)
         run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Build self-hosted face liveness UI
+        run: npm run build:admin-face-liveness
       - name: Check JavaScript syntax
         run: |
           node --check verify-admin-biometric-config.cjs
           node --check server/routes/adminBiometric.js
+          node --check public/js/admin-face-liveness.mjs
           node --check server/services/adminFaceLiveness.js
           node --check public/js/admin-face-liveness.mjs
           node --check server/routes/auth.js
@@ -63,7 +70,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: admin-biometric-npm-lockfile
-          path: package-lock.json
+          path: |
+            package-lock.json
+            public/js/admin-face-liveness.mjs
+            public/js/admin-face-liveness.css
           if-no-files-found: error
           retention-days: 1
       - name: Sync refreshed lockfile to the feature branch
@@ -72,12 +82,16 @@ jobs:
           SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
         run: |
           cp package-lock.json /tmp/admin-biometric-package-lock.json
+          cp public/js/admin-face-liveness.mjs /tmp/admin-face-liveness.mjs
+          cp public/js/admin-face-liveness.css /tmp/admin-face-liveness.css
           git fetch origin "$SOURCE_BRANCH"
           git checkout -B "$SOURCE_BRANCH" "origin/$SOURCE_BRANCH"
           cp /tmp/admin-biometric-package-lock.json package-lock.json
+          cp /tmp/admin-face-liveness.mjs public/js/admin-face-liveness.mjs
+          cp /tmp/admin-face-liveness.css public/js/admin-face-liveness.css
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json
+          git add package-lock.json public/js/admin-face-liveness.mjs public/js/admin-face-liveness.css
           if git diff --cached --quiet; then
             echo "package-lock.json is already synchronized"
             exit 0
