@@ -1620,6 +1620,81 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
     const { id } = req.params;
     const { action, notes } = req.body || {};
 
+    // Seller submissions live in SellerCoupons, not the regular Coupons sheet.
+    // Handle their rejection / proof-request outcomes here so the admin queue,
+    // review page, and seller dashboard all read the same status and note.
+    if (action === 'reject' || action === 'request_proof') {
+      const sellerRow = await db.findRow(db.SHEETS.SELLER_COUPONS, 'id', id).catch(() => null);
+      if (sellerRow) {
+        const cleanNotes = String(notes || '').trim().slice(0, 500);
+        if (action === 'reject' && !cleanNotes) {
+          return res.status(400).json({
+            error: 'A rejection reason is required.',
+            code: 'REASON_REQUIRED',
+          });
+        }
+        if (String(sellerRow.approvedAt || '').trim() && action === 'reject') {
+          return res.status(409).json({
+            error: 'This coupon was already approved. Use the Invalidate action if it must be taken down.',
+            code: 'COUPON_ALREADY_APPROVED',
+          });
+        }
+
+        const reviewedAt = new Date().toISOString();
+        const updates = {
+          status: action === 'reject' ? 'rejected' : 'proof_requested',
+          adminNotes: cleanNotes,
+          reviewedAt,
+        };
+
+        // Mirror the safe status and admin note to the matching Supabase row
+        // too, if present. Do not publish anything: neither status is live.
+        let supabaseSellerRow = null;
+        if (supabase.isConfigured()) {
+          supabaseSellerRow = await supabase.findCouponById(id).catch(() => null);
+        }
+        if (supabaseSellerRow) {
+          try {
+            await supabase.updateCoupon(id, updates);
+          } catch (e) {
+            console.error('Seller coupon review: Supabase status update failed:', e.message);
+            return res.status(500).json({
+              error: 'Could not update the coupon review status. Please try again.',
+            });
+          }
+        }
+
+        try {
+          await db.updateRow(db.SHEETS.SELLER_COUPONS, 'id', id, updates);
+        } catch (e) {
+          // Best-effort rollback keeps the two stores aligned if the Sheet write
+          // fails after Supabase accepted the update.
+          if (supabaseSellerRow) {
+            await supabase.updateCoupon(id, {
+              status: supabaseSellerRow.status || 'pending',
+              adminNotes: supabaseSellerRow.adminNotes || '',
+              reviewedAt: supabaseSellerRow.reviewedAt || '',
+            }).catch((rollbackError) => {
+              console.error('Seller coupon review: Supabase rollback failed:', rollbackError.message);
+            });
+          }
+          console.error('Seller coupon review: SellerCoupons update failed:', e.message);
+          return res.status(500).json({
+            error: 'Could not update the seller submission. Please try again.',
+          });
+        }
+
+        await logCouponAudit(id, req.user.email, action, cleanNotes);
+        invalidateCouponListCache();
+        return res.json({
+          message: action === 'reject'
+            ? 'Coupon rejected. The reason has been saved for the seller.'
+            : 'More proof requested from the seller.',
+          coupon: { ...sellerRow, ...updates },
+        });
+      }
+    }
+
     // Approve on a SellerCoupons row: the row is stamped approved and hidden from
     // the Seller Coupons list. It is NOT published to the marketplace here — the
     // admin does that explicitly via POST /coupons/:id/publish. The seller's
