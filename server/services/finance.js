@@ -45,6 +45,7 @@
 
 const db = require('./googleSheets');
 const supabase = require('./supabase');
+const paymentLedgerDb = require('./paymentLedgerDb');
 const sellerPayout = require('./sellerPayout');
 const monthlyReports = require('./monthlyReports');
 
@@ -214,11 +215,11 @@ async function fetchCoupons() {
   return merged;
 }
 
-// Authoritative financial ledgers use STRICT reads: if the spreadsheet is down the
-// error propagates and the route answers 503 "Unable to load financial data",
-// instead of an outage silently becoming an empty ledger (a false ₹0 dashboard).
-async function fetchOrders() { return (await db.getRows(db.SHEETS.ORDERS, { strict: true })) || []; }
-async function fetchPayments() { return (await db.getRows(db.SHEETS.PAYMENTS, { strict: true })) || []; }
+// Orders, payments and payment notifications are authoritative Supabase ledgers.
+// Errors propagate so the admin panel never displays a false zero during an outage.
+async function fetchOrders() { return (await paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.ORDERS)) || []; }
+async function fetchPayments() { return (await paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.PAYMENTS)) || []; }
+async function fetchPaymentNotifications() { return (await paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.PAYMENT_NOTIFICATIONS)) || []; }
 async function fetchRefunds() { return (await db.getRows(db.SHEETS.REFUNDS, { strict: true })) || []; }
 async function fetchPayouts() { return (await db.getRows(db.SHEETS.PAYOUTS, { strict: true })) || []; }
 
@@ -499,6 +500,20 @@ async function getTransactions(period, opts = {}) {
   const total = rows.length;
   const page = rows.slice(offset, offset + limit).map((r) => { delete r._ms; return r; });
   return { period: { key: win.key, label: win.label }, total, limit, offset, transactions: page };
+}
+
+// Read-only notification ledger for the admin payment-verification view.
+async function getPaymentNotifications(opts = {}) {
+  const limit = Math.min(Math.max(parseInt(opts.limit, 10) || 50, 1), 200);
+  const offset = Math.max(parseInt(opts.offset, 10) || 0, 0);
+  const status = upper(opts.status || '');
+  const search = lower(opts.search || '');
+  let rows = await fetchPaymentNotifications();
+  if (status) rows = rows.filter((r) => upper(r.status) === status);
+  if (search) rows = rows.filter((r) => [r.id, r.source, r.transaction_id, r.utr, r.payer_vpa, r.payee_vpa, r.reference, r.matched_payment_id, r.notes]
+    .some((v) => String(v || '').toLowerCase().includes(search)));
+  rows.sort((a, b) => (timeOf(b.created_at) || 0) - (timeOf(a.created_at) || 0));
+  return { total: rows.length, limit, offset, notifications: rows.slice(offset, offset + limit) };
 }
 
 // ============================================================================
@@ -920,6 +935,7 @@ module.exports = {
   getOverview,
   getRevenueSeries,
   getTransactions,
+  getPaymentNotifications,
   getSettlement,
   getAdminBalances,
   getAdminPayoutStats,
