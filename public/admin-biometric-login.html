@@ -7,6 +7,10 @@
   <meta name="theme-color" content="#071426">
   <title>Admin Biometric Login — SaveHatke</title>
   <link rel="icon" href="/logo.png">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aws-amplify/ui-react@6.15.7/dist/styles.css">
+  <script type="importmap">
+    {"imports":{"react":"https://esm.sh/react@19.3.1","react-dom":"https://esm.sh/react-dom@19.3.1","react-dom/client":"https://esm.sh/react-dom@19.3.1/client?external=react","react/jsx-runtime":"https://esm.sh/react@19.3.1/jsx-runtime"}}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -45,9 +49,10 @@
     <label for="adminEmail">Administrator email</label>
     <input id="adminEmail" type="email" autocomplete="username" inputmode="email" placeholder="admin@example.com" required>
     <button class="primary" id="passkeyLoginBtn" type="button">Continue with Passkey</button>
-    <button class="secondary" id="faceLoginBtn" type="button" disabled aria-describedby="faceStatus">Face Recognition — Not configured</button>
+    <button class="secondary" id="faceLoginBtn" type="button" disabled aria-describedby="faceStatus">Login with Face Recognition — Not configured</button>
     <div class="status" id="loginStatus" role="status" aria-live="polite"></div>
     <div class="note" id="faceStatus">Camera-based face recognition is not enabled yet. It requires AWS Face Liveness, identity matching, private reference-image storage and account-level setup before it can be used for admin login.</div>
+    <div id="faceLivenessMount" style="display:none;margin-top:18px;overflow:hidden;border-radius:12px" aria-live="polite"></div>
     <a class="back" href="/login">← Return to SaveHatke sign in</a>
   </main>
 </body>
