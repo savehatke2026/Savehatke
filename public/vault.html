@@ -4578,21 +4578,6 @@ async function loadDriveStatus(){
       (d.connected && Number.isFinite(authorizedMs)
         ? new Date(authorizedMs + 7 * 24 * 60 * 60 * 1000).toISOString()
         : null);
-    var folders = Array.isArray(data.driveFolders) ? data.driveFolders : [];
-    var folderRows = folders.map(function(folder){
-      var ok = Boolean(folder.accessible);
-      var state = ok
-        ? '<span class="badge badge-green">Accessible</span>'
-        : '<span class="badge badge-red">Not accessible</span>';
-      var detail = ok ? 'Drive folder can be opened by the connected account.'
-        : (folder.error === 'no_token' ? 'No refresh token is available.'
-          : (folder.error === 401 || folder.error === 403 ? 'Permission or authorization issue.'
-            : (folder.error === 404 ? 'Folder not found or access denied.' : 'Could not verify folder access.')));
-      return '<div class="info-row"><span class="irl">' + pgEsc(folder.name || 'Drive folder') +
-        '<small style="display:block;opacity:.55;font-size:.72rem;margin-top:3px">' + pgEsc(detail) +
-        '</small></span><span class="irv">' + state + '</span></div>';
-    }).join('');
-    var accessibleCount = folders.filter(function(folder){ return Boolean(folder.accessible); }).length;
     rows.innerHTML = [
       '<div class="info-row"><span class="irl">Email</span><span class="irv">' + pgEsc(email) + '</span></div>',
       '<div class="info-row"><span class="irl">Status</span><span class="irv">' + gdBadge(d.status, d.connected) + '</span></div>',
@@ -4604,9 +4589,7 @@ async function loadDriveStatus(){
       '<div class="info-row"><span class="irl">Last checked</span><span class="irv">' + pgFmt(d.lastUsedAt) + '</span></div>',
       '<div class="info-row"><span class="irl">Last verified</span><span class="irv">' + pgFmt(d.lastVerifiedAt) + '</span></div>',
       '<div class="info-row"><span class="irl">Last error</span><span class="irv">' + (d.lastError ? pgEsc(d.lastError) : '—') + '</span></div>',
-      '<div class="info-row"><span class="irl">Folder access</span><span class="irv">' + accessibleCount + ' / ' + folders.length + ' accessible</span></div>',
-      '<div style="margin:12px 0 6px;font-size:.78rem;font-weight:700;opacity:.7">DRIVE FOLDER CHECKS</div>',
-      (folderRows || '<div class="info-row"><span class="irl">Folder checks</span><span class="irv">No folder data returned</span></div>')
+
     ].join('');
     gdRenderBanner(d.warning, d.exists, d.connected);
     if (btn) btn.disabled = false;
