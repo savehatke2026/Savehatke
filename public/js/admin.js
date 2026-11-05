@@ -1489,18 +1489,6 @@ function sellerBrandBoxHtml(brand, c) {
   return `<div class="st-brand-box" title="${escHtml(brand || '')}">${inner}</div>`;
 }
 
-/** Seller payment-method columns, read from the coupon row (saved at submission). */
-const SELLER_DEST_HEAD_HTML = '<th>Payment method</th><th>UPI ID</th>';
-
-function sellerDestCellsHtml(c) {
-  const dash = '<span style="color:#6b88aa">—</span>';
-  const method = String(c.paymentMethod || '').toUpperCase();
-  return [
-    method ? `<td>${escHtml(method)}</td>` : `<td>${dash}</td>`,
-    c.upiId ? `<td class="mono">${escHtml(c.upiId)}</td>` : `<td>${dash}</td>`,
-  ].join('');
-}
-
 /** One seller-submission row. Code is hidden until revealed; images load via Drive refs. */
 function sellerRowHtml(c) {
   const id = escHtml(c.id || '');
