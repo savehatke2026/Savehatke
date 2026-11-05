@@ -79,7 +79,7 @@ async function requireFreshAdminSession(req) {
   const session = await supabase.findSessionByToken(hashSessionToken(rawToken));
   if (!session || session.unavailable || session.status !== 'Active' ||
       normalizeEmail(session.email) !== normalizeEmail(req.user && req.user.email) ||
-      !/^(?:google\\s+)?admin(?:\\s|$)/i.test(String(session.login_method || ''))) {
+      !/^(?:google\s+)?admin(?:\s|$)/i.test(String(session.login_method || ''))) {
     throw new Error('A recent administrator sign-in is required.');
   }
   const loginAt = Date.parse(session.login_time || '');
