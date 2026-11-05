@@ -45,7 +45,6 @@ jobs:
           node --check server/routes/adminBiometric.js
           node --check public/js/admin-face-liveness.mjs
           node --check server/services/adminFaceLiveness.js
-          node --check public/js/admin-face-liveness.mjs
           node --check server/routes/auth.js
           node --check server/services/supabase.js
           node --check server/server.js
