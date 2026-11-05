@@ -868,7 +868,7 @@ const SESSION_TABLES = [USER_SESSIONS_TABLE, ADMIN_SESSIONS_TABLE];
 
 // Admin logins record login_method 'Admin' or 'Google Admin'.
 function isAdminLoginMethod(method) {
-  return /^(google\s+)?admin$/i.test(String(method || '').trim());
+  return /^(?:google\s+)?admin(?:\s|$)/i.test(String(method || '').trim());
 }
 
 // Pick the destination table for a brand-new session from its login_method.
