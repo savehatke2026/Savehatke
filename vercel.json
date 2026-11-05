@@ -48,34 +48,7 @@
         },
         {
           "key": "Content-Security-Policy-Report-Only",
-          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com https://cognito-identity.ap-south-1.amazonaws.com https://streaming-rekognition.ap-south-1.amazonaws.com wss://streaming-rekognition.ap-south-1.amazonaws.com; frame-src https://accounts.google.com https://challenges.cloudflare.com; worker-src 'self' blob:"
-        }
-      ]
-    },
-    {
-      "source": "/admin-biometric-login",
-      "headers": [
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), interest-cohort=()"
-        }
-      ]
-    },
-    {
-      "source": "/vault",
-      "headers": [
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), interest-cohort=()"
-        }
-      ]
-    },
-    {
-      "source": "/vault.html",
-      "headers": [
-        {
-          "key": "Permissions-Policy",
-          "value": "camera=(self), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), accelerometer=(), gyroscope=(), interest-cohort=()"
+          "value": "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'self'; form-action 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://accounts.google.com https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://accounts.google.com https://challenges.cloudflare.com; frame-src https://accounts.google.com https://challenges.cloudflare.com; worker-src 'self' blob:"
         }
       ]
     },
@@ -177,10 +150,6 @@
     },
     {
       "src": "/admin/coupons/([^/]+)",
-      "dest": "/api/index.js"
-    },
-    {
-      "src": "/admin-biometric-login",
       "dest": "/api/index.js"
     },
     {
