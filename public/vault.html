@@ -1394,6 +1394,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="nav-sub-item" onclick="showSection('revenue',null)">Revenue Overview</div>
       <div class="nav-sub-item" onclick="showSection('transactions',null)">Transactions</div>
       <div class="nav-sub-item" onclick="showSection('orders',null)">Orders</div>
+      <div class="nav-sub-item" onclick="showSection('payment-notifications',null)">Payment Notifications</div>
       <div class="nav-sub-item" onclick="showSection('payouts',null)">Seller Payout <span class="nbadge" id="payoutsNavBadge">7</span></div>
             <div class="nav-sub-item" onclick="showSection('payment-methods',null)">Seller Payment Methods</div>
       <div class="nav-sub-item" onclick="showSection('admin-payouts',null)">Admin Payouts</div>
@@ -2379,6 +2380,25 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <span style="font-size:.8rem;color:#6b88aa">Page <span id="ordPageNum">1</span> of <span id="ordPages">1</span></span>
           <button class="btn btn-ghost btn-sm" id="ordNext" onclick="ordPage(1)">Next →</button>
         </div>
+      </div>
+    </div>
+
+    <!-- ════════════════ PAYMENT NOTIFICATIONS — Supabase audit ledger ════════════════ -->
+    <div class="section-view" id="sec-payment-notifications">
+      <div class="page-title-row">
+        <div><div class="page-title">Payment <span class="gtext">Notifications</span></div><div class="page-subtitle">Incoming payment signals recorded for matching and verification</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadPaymentNotifications(0)">↻ Refresh</button>
+      </div>
+      <div id="pnError" class="card" style="display:none;border-color:rgba(255,133,133,.4)"><div style="color:#ff8585;font-weight:600">⚠️ <span id="pnErrorText">Unable to load payment notifications.</span></div></div>
+      <div class="table-card">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid rgba(79,195,247,.08)">
+          <input type="search" class="form-input btn-sm" id="pnSearch" placeholder="Search UTR, transaction ID, VPA, reference…" style="width:270px" onkeydown="if(event.key==='Enter')loadPaymentNotifications(0)">
+          <select class="form-select btn-sm" id="pnStatus" style="width:160px" onchange="loadPaymentNotifications(0)"><option value="">All notification statuses</option><option value="RECEIVED">Received</option><option value="MATCHED">Matched</option><option value="PROCESSED">Processed</option><option value="UNMATCHED">Unmatched</option><option value="IGNORED">Ignored</option></select>
+          <button class="btn btn-ghost btn-sm" onclick="loadPaymentNotifications(0)">Apply</button>
+          <span style="margin-left:auto;font-size:.78rem;color:#6b88aa"><span id="pnTotal">0</span> records</span>
+        </div>
+        <div class="overflow-x"><table><thead><tr><th>Created</th><th>Source</th><th>Amount</th><th>Transaction ID</th><th>UTR</th><th>Payer VPA</th><th>Reference</th><th>Status</th><th>Matched Payment</th><th>Notes</th></tr></thead><tbody id="pnPageBody"><tr><td colspan="10" style="text-align:center;padding:24px;color:#6b88aa">Open this section to load notifications.</td></tr></tbody></table></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 20px"><button class="btn btn-ghost btn-sm" id="pnPrev" onclick="paymentNotificationPage(-1)">← Prev</button><span style="font-size:.8rem;color:#6b88aa">Page <span id="pnPageNum">1</span> of <span id="pnPages">1</span></span><button class="btn btn-ghost btn-sm" id="pnNext" onclick="paymentNotificationPage(1)">Next →</button></div>
       </div>
     </div>
 
@@ -4269,6 +4289,9 @@ function showSection(id, navEl) {
   if (id === 'orders' && typeof loadOrders === 'function') {
     loadOrders(0);
   }
+  if (id === 'payment-notifications' && typeof loadPaymentNotifications === 'function') {
+    loadPaymentNotifications(0);
+  }
   if (id === 'settlements' && typeof loadSettlement === 'function') {
     loadSettlement();
   }
@@ -5668,6 +5691,62 @@ function renderOrderDetail(d) {
     <div style="margin-bottom:12px"><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Payment attempts</div>
       <div class="overflow-x"><table><thead><tr><th>Payment</th><th>Status</th><th>Expected</th><th>Detected</th><th>UTR</th><th>Created</th></tr></thead><tbody>${attempts}</tbody></table></div></div>
     <div><div style="font-size:.68rem;color:#6b88aa;text-transform:uppercase;margin-bottom:4px">Order history</div><ul style="padding-left:18px;margin:0">${history}</ul></div>`;
+}
+
+/* ════════════════════════════
+   PAYMENT NOTIFICATIONS — Supabase audit ledger
+════════════════════════════ */
+const PN_STATE = { offset: 0, limit: 25, total: 0 };
+async function loadPaymentNotifications(offset) {
+  if (typeof offset === 'number') PN_STATE.offset = Math.max(0, offset);
+  const body = document.getElementById('pnPageBody');
+  const err = document.getElementById('pnError');
+  if (body) body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:#6b88aa">Loading...</td></tr>';
+  const q = new URLSearchParams();
+  q.set('limit', String(PN_STATE.limit)); q.set('offset', String(PN_STATE.offset));
+  const status = (document.getElementById('pnStatus') || {}).value || '';
+  const search = ((document.getElementById('pnSearch') || {}).value || '').trim();
+  if (status) q.set('status', status); if (search) q.set('search', search);
+  try {
+    const res = await api('/admin/finance/payment-notifications?' + q.toString(), { useAdmin: true });
+    if (err) err.style.display = 'none';
+    PN_STATE.total = Number(res.total || 0);
+    renderPaymentNotifications(res.notifications || []);
+  } catch (e) {
+    const unavailable = e && e.data && e.data.dataUnavailable;
+    if (err) { err.style.display = 'block'; setTxt('pnErrorText', unavailable ? 'Unable to load payment notifications.' : (e.message || 'Failed to load notifications')); }
+    if (body) body.innerHTML = ledgerErrorHtml(e, unavailable, 10);
+  }
+}
+function renderPaymentNotifications(rows) {
+  const body = document.getElementById('pnPageBody');
+  setTxt('pnTotal', String(PN_STATE.total));
+  const pages = Math.max(1, Math.ceil(PN_STATE.total / PN_STATE.limit));
+  const cur = Math.floor(PN_STATE.offset / PN_STATE.limit) + 1;
+  setTxt('pnPageNum', String(cur)); setTxt('pnPages', String(pages));
+  const prev = document.getElementById('pnPrev'), next = document.getElementById('pnNext');
+  if (prev) prev.disabled = PN_STATE.offset <= 0; if (next) next.disabled = cur >= pages;
+  if (!body) return;
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:24px;color:#6b88aa">No payment notifications found.</td></tr>'; return; }
+  body.innerHTML = rows.map((n) => {
+    const amount = n.amount == null ? '—' : ledgerCurrency(n.amount);
+    return '<tr>' +
+      '<td style="font-size:.76rem;color:#a8c0dc">' + ledgerDate(n.created_at || n.occurred_at || '') + '</td>' +
+      '<td>' + escapeHtml(n.source || '—') + '</td>' +
+      '<td class="mono">' + escapeHtml(amount) + '</td>' +
+      '<td class="mono" style="font-size:.72rem">' + escapeHtml(n.transaction_id || '—') + '</td>' +
+      '<td class="mono" style="font-size:.72rem">' + escapeHtml(n.utr || '—') + '</td>' +
+      '<td class="mono" style="font-size:.72rem">' + escapeHtml(n.payer_vpa || '—') + '</td>' +
+      '<td class="mono" style="font-size:.72rem">' + escapeHtml(n.reference || '—') + '</td>' +
+      '<td>' + paymentStatusBadge(n.status || '') + '</td>' +
+      '<td class="mono" style="font-size:.72rem">' + escapeHtml(n.matched_payment_id || '—') + '</td>' +
+      '<td style="font-size:.74rem;max-width:240px;white-space:normal">' + escapeHtml(n.notes || '—') + '</td></tr>';
+  }).join('');
+}
+function paymentNotificationPage(dir) {
+  const next = PN_STATE.offset + dir * PN_STATE.limit;
+  if (next < 0 || next >= PN_STATE.total) return;
+  loadPaymentNotifications(next);
 }
 
 /* ════════════════════════════
