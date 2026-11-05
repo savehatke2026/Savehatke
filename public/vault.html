@@ -1529,8 +1529,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="page-subtitle">Here's what's happening with SaveHatke today.</div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-ghost btn-sm" id="refreshBtn" onclick="refreshDashboard()">↻ Refresh</button>
-          <button class="btn btn-ghost btn-lg" onclick="openSupportCases()">🎧 Support Cases</button>
+          <button class="btn btn-ghost btn-sm" id="refreshBtn" onclick="refreshDashboard()" title="Refresh dashboard" aria-label="Refresh dashboard" style="width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center"><span aria-hidden="true">↻</span></button>
           <button class="btn btn-primary btn-lg" onclick="exportReport()">📊 Export Report</button>
         </div>
       </div>
@@ -2089,8 +2088,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="page-title-row">
         <div><div class="page-title">Seller <span class="gtext">Payout</span></div><div class="page-subtitle">Pay sellers for their sold coupons. A payout for the price the seller set is created the moment a coupon is bought.</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" id="payoutsRefreshBtn" onclick="loadPayouts()" title="Refresh">↻ Refresh</button>
-          <button class="btn btn-primary btn-lg" id="payoutsBatchBtn" onclick="processBatchPayouts()">💰 Process Selected (<span id="payoutsSelectedCount">0</span>)</button>
+          <button class="btn btn-ghost btn-sm" id="payoutsRefreshBtn" onclick="loadPayouts()" title="Refresh payouts" aria-label="Refresh payouts" style="width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center"><span aria-hidden="true">↻</span></button>
         </div>
       </div>
 
@@ -2153,7 +2151,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="page-title-row">
         <div><div class="page-title">Seller <span class="gtext">Payment Methods</span></div><div class="page-subtitle">Where each seller wants to be paid. Sellers save this themselves; admins only view it.</div></div>
         <div style="display:flex;gap:8px;align-items:center">
-          <button class="btn btn-ghost btn-sm" onclick="loadSellerPayoutDetails()" title="Refresh">↻ Refresh</button>
+          <button class="btn btn-ghost btn-sm" onclick="loadSellerPayoutDetails()" title="Refresh seller payment methods" aria-label="Refresh seller payment methods" style="width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center"><span aria-hidden="true">↻</span></button>
         </div>
       </div>
       <div class="table-card">
@@ -2164,14 +2162,12 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div class="overflow-x"><table>
           <thead><tr>
             <th>Seller</th>
-            <th>Beneficiary</th>
             <th>Method</th>
             <th>UPI ID / QR</th>
-            <th>Complete</th>
             <th>Last updated</th>
           </tr></thead>
           <tbody id="payoutDetailsBody">
-            <tr><td colspan="6" style="text-align:center;padding:24px;color:#6b88aa">Loading seller payment methods...</td></tr>
+            <tr><td colspan="4" style="text-align:center;padding:24px;color:#6b88aa">Loading seller payment methods...</td></tr>
           </tbody>
         </table></div>
       </div>
@@ -4857,13 +4853,14 @@ renderChart(); // paints the "Loading…" placeholder; loadDashboardFinance() fe
 function refreshDashboard() {
   const btn = document.getElementById('refreshBtn');
   if (!btn) return;
-  const orig = btn.textContent;
-  btn.innerHTML = '<span class="spinning">↻</span> Refreshing…';
+  btn.innerHTML = '<span class="spinning" aria-hidden="true">↻</span>';
+  btn.setAttribute('aria-label', 'Refreshing dashboard');
   btn.disabled = true;
   if (typeof loadAdminStats === 'function') loadAdminStats();
   if (typeof loadDashboardFinance === 'function') loadDashboardFinance();
   setTimeout(() => {
-    btn.textContent = orig;
+    btn.innerHTML = '<span aria-hidden="true">↻</span>';
+    btn.setAttribute('aria-label', 'Refresh dashboard');
     btn.disabled = false;
     showToast('Dashboard refreshed successfully!', 'success');
   }, 1200);
@@ -6653,7 +6650,8 @@ async function loadPayouts({ silent = false } = {}) {
   const refreshBtn = document.getElementById('payoutsRefreshBtn');
   if (refreshBtn && !silent) {
     refreshBtn.disabled = true;
-    refreshBtn.textContent = '⏳ Refreshing';
+    refreshBtn.innerHTML = '<span class="spinning" aria-hidden="true">↻</span>';
+    refreshBtn.setAttribute('aria-label', 'Refreshing payouts');
   }
   try {
     const [listRes, statsRes] = await Promise.all([
@@ -6690,7 +6688,8 @@ async function loadPayouts({ silent = false } = {}) {
     PAYOUT_STATE.loading = false;
     if (refreshBtn) {
       refreshBtn.disabled = false;
-      refreshBtn.textContent = '↻ Refresh';
+      refreshBtn.innerHTML = '<span aria-hidden="true">↻</span>';
+      refreshBtn.setAttribute('aria-label', 'Refresh payouts');
     }
   }
 }
@@ -6706,7 +6705,7 @@ async function loadSellerPayoutDetails() {
     setText('payoutDetailsCount', String(details.length));
     if (!body) return;
     if (details.length === 0) {
-      body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#6b88aa">No sellers have saved payout details yet.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:#6b88aa">No sellers have saved payout details yet.</td></tr>`;
       return;
     }
     body.innerHTML = details.map((d) => {
@@ -6714,14 +6713,13 @@ async function loadSellerPayoutDetails() {
         ? `QR file: ${escapeHtml(d.qrFileName || d.qrFileId || '—')}`
         : escapeHtml(d.upiId || '—');
       return `<tr>
-        <td>${escapeHtml(d.sellerEmail)}</td>
-        <td>${escapeHtml(d.beneficiaryName || '—')}</td>
+        <td><div style="display:flex;align-items:center;gap:10px;min-width:0">${emailAvatarHtml(d.sellerEmail, 30)}<span style="overflow-wrap:anywhere">${escapeHtml(d.sellerEmail || '—')}</span></div></td>
         <td>${escapeHtml(d.method || '—')}</td>
         <td style="font-family:'JetBrains Mono',monospace">${dest}</td>
-        <td>${d.complete ? '✅ Yes' : '⚠️ No'}</td>
         <td>${escapeHtml(d.updatedAt ? timeAgo(new Date(d.updatedAt)) : '—')}</td>
       </tr>`;
     }).join('');
+    hydrateEmailAvatars(body);
   } catch (err) {
     console.error('Load seller payout details failed:', err);
     if (body) body.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:#ff8585">⚠️ ${escapeHtml(err.message || 'Failed to load seller payout details')}</td></tr>`;
