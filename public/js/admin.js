@@ -2980,22 +2980,15 @@ function statusTag(kind, label) {
 }
 
 /**
- * Google logins get the Google mark, email / OTP logins get the Gmail mark,
- * both on a 38px plate so they are actually legible in a table row.
+ * Keep login methods as plain text in the user and login-history tables.
  */
 function loginMethodBadge(method) {
   const m = String(method || '').toLowerCase().trim();
-  const plate = (src, label) =>
-    `<span class="login-method-icon" title="${escapeHtml(label)}" aria-label="${escapeHtml(label)}">` +
-    `<img src="${src}" alt="${escapeHtml(label)}"></span>`;
-  if (m.includes('google')) return plate('/google.png', method || 'Google');
-  if (m.includes('otp')) return plate('/gmail.svg', method || 'Email OTP');
-  if (m.includes('email') || m.includes('mail')) return plate('/gmail.svg', method || 'Email');
-  // Every remaining admin-panel sign-in is email-based too — "Google Admin"
-  // already matched above, so anything left here signed in with an email address.
-  if (m.includes('admin') || m.includes('password')) return plate('/gmail.svg', method || 'Email');
-  if (m) return `<span style="font-size:.82rem;color:#6b88aa">${escapeHtml(method)}</span>`;
-  return '<span style="font-size:.82rem;color:#6b88aa">—</span>';
+  let label = '—';
+  if (m.includes('google')) label = 'Google';
+  else if (m.includes('email') || m.includes('mail') || m.includes('otp') || m.includes('admin') || m.includes('password')) label = 'E-mail';
+  else if (m) label = method;
+  return `<span style="font-size:.82rem;color:#a8c0dc">${escapeHtml(label)}</span>`;
 }
 
 function userSessionStatusBadge(sessionStatus, accountStatus) {
@@ -3065,7 +3058,7 @@ function renderUsers() {
     const emailAttr = escapeHtml(String(u.email || '').replace(/'/g, '&#39;'));
     const toggleAction = suspended
       ? `<span class="user-action-activate" onclick="toggleUserStatus('${idAttr}','active')">✅ Activate</span>`
-      : `<span class="user-action-suspend" onclick="openSuspendModal('${idAttr}','${nameAttr}','${emailAttr}')">🚫 Suspend</span>`;
+      : `<span class="user-action-suspend" onclick="openSuspendModal('${idAttr}','${nameAttr}','${emailAttr}')">Suspend</span>`;
     return `<tr>
       <td style="text-align:center"><strong>${escapeHtml(u.name)}</strong></td>
       <td><div style="display:flex;align-items:center;gap:8px">${userAvatarHtml(u, 28)}<a href="mailto:${escapeHtml(u.email || '')}" style="color:#4fc3f7;font-size:.83rem">${escapeHtml(u.email || '—')}</a></div></td>
