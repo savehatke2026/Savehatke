@@ -767,8 +767,8 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
   try {
     const cleanEmail = String(email || '').toLowerCase().trim();
     const verifiedGoogleSub = String(googleSub || '').trim();
-    const isAdminLogin = /admin/i.test(String(loginMethod || ''));
     if (!verifiedGoogleSub) throw new Error('Verified Google subject is required.');
+    const isAdminLogin = /admin/i.test(String(loginMethod || ''));
 
     const { deviceStr, osStr, browserStr, raw: userAgentRaw } = parseUserAgent(req);
     const ip = getClientIP(req); // Real client IP only â€” never a sample/hardcoded address
