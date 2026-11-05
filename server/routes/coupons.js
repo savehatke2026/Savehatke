@@ -1118,6 +1118,8 @@ router.get('/my-sales', authenticateToken, async (req, res) => {
           addedAt: c.addedAt,
           soldAt: c.soldAt,
           buyerEmail: c.buyerEmail,
+          adminNotes: c.adminNotes || '',
+          reviewedAt: c.reviewedAt || '',
           // Computed payout info (faceValue, payoutRate, payoutEligible, …).
           ...info,
           // The seller-visible payout: null while pending, 7% × face value
