@@ -35,8 +35,6 @@ const router = express.Router();
 const GOOGLE_STATE_COOKIE = 'sh_google_oauth_state';
 const GOOGLE_STATE_TTL_SECONDS = 600;
 const GOOGLE_OAUTH_REDIRECT_PATH = '/api/auth/google-redirect';
-const LOCATION_HINT_COOKIE = 'sh_login_location_hint';
-const LOCATION_HINT_TTL_SECONDS = 600;
 const GOOGLE_CLIENT_ID_FALLBACK = '930893529973-2j5h36csl909m139urdq552n63h1hl1q.apps.googleusercontent.com';
 
 // Single source of truth for the production Google OAuth callback.
@@ -116,67 +114,6 @@ function clearOAuthStateCookie(res) {
   // the same cookie and deletes the existing record rather than leaving a stale
   // one behind.
   res.append('Set-Cookie', `${GOOGLE_STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${secure}`);
-}
-
-function clearLocationHintCookie(res) {
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  res.append('Set-Cookie', LOCATION_HINT_COOKIE + '=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0' + secure);
-}
-
-function cleanLocationLabel(value, maxLength = 100) {
-  return String(value || '')
-    .replace(/[<>\x00-\x1f\x7f]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, maxLength);
-}
-
-// Location hints are optional display metadata supplied only after the browser
-// prompts the visitor for location permission. They never grant or affect access.
-// The signed cookie/state expires after ten minutes; exact GPS coordinates are
-// never sent to SaveHatke or persisted.
-function normalizeLocationHint(value, nowSeconds = Math.floor(Date.now() / 1000)) {
-  if (!value || typeof value !== 'object') return null;
-  const issuedAt = Number(value.issuedAt || 0);
-  const age = nowSeconds - issuedAt;
-  if (!Number.isFinite(issuedAt) || issuedAt <= 0 || age < 0 || age > LOCATION_HINT_TTL_SECONDS) return null;
-  const country = cleanLocationLabel(value.country, 80);
-  if (!country) return null;
-  const accuracy = Number(value.accuracyMeters);
-  return {
-    country,
-    state: cleanLocationLabel(value.state, 100),
-    city: cleanLocationLabel(value.city, 100),
-    accuracyMeters: Number.isFinite(accuracy) && accuracy >= 0 && accuracy <= 5000
-      ? Math.round(accuracy) : null,
-    issuedAt,
-  };
-}
-
-function setLocationHintCookie(res, hint) {
-  const encoded = Buffer.from(JSON.stringify(hint)).toString('base64url');
-  const signature = crypto.createHmac('sha256', getJwtSecret()).update(encoded).digest('base64url');
-  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : '';
-  res.append('Set-Cookie', LOCATION_HINT_COOKIE + '=' + encoded + '.' + signature +
-    '; Path=/; HttpOnly; SameSite=Lax; Max-Age=' + LOCATION_HINT_TTL_SECONDS + secure);
-}
-
-function readLocationHintCookie(req) {
-  const part = String(req.headers.cookie || '').split(';').map((value) => value.trim())
-    .find((value) => value.startsWith(LOCATION_HINT_COOKIE + '='));
-  if (!part) return null;
-  const value = part.slice(LOCATION_HINT_COOKIE.length + 1);
-  const dot = value.lastIndexOf('.');
-  if (dot < 1) return null;
-  const encoded = value.slice(0, dot);
-  const supplied = Buffer.from(value.slice(dot + 1));
-  const expected = Buffer.from(crypto.createHmac('sha256', getJwtSecret()).update(encoded).digest('base64url'));
-  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) return null;
-  try {
-    return normalizeLocationHint(JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')));
-  } catch (e) {
-    return null;
-  }
 }
 
 function readOAuthStateCookie(req) {
@@ -435,28 +372,6 @@ router.post(['/google', '/google-redirect'], (req, res) => {
   return res.status(401).json({ error: 'Use the Google sign-in flow.', code: 'GOOGLE_OAUTH_REQUIRED' });
 });
 
-// Store only reverse-geocoded place names in a short-lived, signed HttpOnly
-// cookie. The browser sends live coordinates only to its geocoding provider;
-// SaveHatke receives country/state/city, never latitude or longitude.
-router.post('/location-hint', (req, res) => {
-  res.setHeader('Cache-Control', 'no-store');
-  const nowSeconds = Math.floor(Date.now() / 1000);
-  const body = req.body || {};
-  const hint = normalizeLocationHint({
-    country: body.country,
-    state: body.state,
-    city: body.city,
-    accuracyMeters: body.accuracyMeters,
-    issuedAt: nowSeconds,
-  }, nowSeconds);
-  if (!hint) {
-    clearLocationHintCookie(res);
-    return res.status(204).end();
-  }
-  setLocationHintCookie(res, hint);
-  return res.status(204).end();
-});
-
 router.get('/google-redirect', async (req, res) => {
   const clientId = String(process.env.GOOGLE_CLIENT_ID || GOOGLE_CLIENT_ID_FALLBACK).trim();
   const clientSecret = String(process.env.GOOGLE_CLIENT_SECRET || '').trim();
@@ -488,14 +403,11 @@ router.get('/google-redirect', async (req, res) => {
           `consent returned error=${req.query.error}`,
         );
       }
-      const locationHint = readLocationHintCookie(req);
-      clearLocationHintCookie(res);
       const state = crypto.randomBytes(32).toString('base64url');
       const nonce = crypto.randomBytes(32).toString('base64url');
       const verifier = crypto.randomBytes(32).toString('base64url');
       const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
       const oauthState = { state, nonce, verifier, redirectUri, issuedAt: Math.floor(Date.now() / 1000) };
-      if (locationHint) oauthState.locationHint = locationHint;
       setOAuthStateCookie(res, oauthState);
       return res.redirect(302, oauth.generateAuthUrl({
         response_type: 'code', redirect_uri: redirectUri,
@@ -543,7 +455,6 @@ router.get('/google-redirect', async (req, res) => {
       );
     }
 
-    req.authLocationHint = normalizeLocationHint(saved.locationHint);
     const { tokens } = await oauth.getToken({ code, codeVerifier: saved.verifier, redirect_uri: redirectUri });
     if (!tokens || !tokens.id_token) return fail('no_id_token', 'google getToken returned no id_token');
     const ticket = await oauth.verifyIdToken({ idToken: tokens.id_token, audience: clientId });
@@ -702,18 +613,7 @@ function parseUserAgent(req) {
  * the session-row enrichment and the "new sign-in" alert email, so a login
  * only ever costs one geo lookup.
  */
-async function resolveGeo(ip, locationHint) {
-  const trustedHint = normalizeLocationHint(locationHint);
-  if (trustedHint) {
-    return {
-      country: trustedHint.country,
-      state: trustedHint.state || 'Unknown',
-      city: trustedHint.city || 'Unknown',
-      source: 'device-location-consent',
-      accuracyMeters: trustedHint.accuracyMeters,
-    };
-  }
-
+async function resolveGeo(ip) {
   let country = 'Unknown', state = 'Unknown', city = 'Unknown';
   const isIPv6 = ip.includes(':');
   const lookupable = ip && ip !== 'unknown' && ip !== '127.0.0.1'
@@ -877,11 +777,8 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     // Location line) and the session row enrichment below. Never awaited on
     // the login response path.
     const signInAt = new Date().toISOString();
-    const geoPromise = resolveGeo(ip, req.authLocationHint).catch(() => null);
-    // A consented browser location resolves immediately and is written into
-    // the first session row, so the login-history view does not briefly show
-    // an incorrect IP-derived city. IP-only lookups remain asynchronous.
-    const initialGeo = req.authLocationHint ? await geoPromise : null;
+    const geoPromise = resolveGeo(ip).catch(() => null);
+    const initialGeo = null;
 
     // Is this a device the account has signed in from before? Awaited, because
     // the device token cookie it (re)issues has to be on this response, and
@@ -1385,7 +1282,6 @@ async function handleSessionCleanupRun(req, res) {
       message: 'Session cleanup complete.',
       expired: result.expired,
       purged: result.purged,
-      sosPurged: result.sosPurged,
       ranAt: new Date().toISOString(),
     });
   } catch (err) {
