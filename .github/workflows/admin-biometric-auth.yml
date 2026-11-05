@@ -20,7 +20,7 @@ on:
     branches: [feature/admin-biometric-auth]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   passkey-foundation:
@@ -66,3 +66,21 @@ jobs:
           path: package-lock.json
           if-no-files-found: error
           retention-days: 1
+      - name: Sync refreshed lockfile to the feature branch
+        if: success() && ((github.event_name == 'push' && github.ref == 'refs/heads/feature/admin-biometric-auth') || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository))
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          cp package-lock.json /tmp/admin-biometric-package-lock.json
+          git fetch origin "$SOURCE_BRANCH"
+          git checkout -B "$SOURCE_BRANCH" "origin/$SOURCE_BRANCH"
+          cp /tmp/admin-biometric-package-lock.json package-lock.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package-lock.json
+          if git diff --cached --quiet; then
+            echo "package-lock.json is already synchronized"
+            exit 0
+          fi
+          git commit -m "build: sync npm lockfile for admin biometric dependencies"
+          git push origin "HEAD:$SOURCE_BRANCH"
