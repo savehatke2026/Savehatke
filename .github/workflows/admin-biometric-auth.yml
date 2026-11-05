@@ -43,6 +43,11 @@ jobs:
         env:
           JWT_SECRET: ci-only-never-use-in-production-9876543210
           NODE_ENV: test
+          GOOGLE_CLIENT_ID: ci-test.apps.googleusercontent.com
+          GOOGLE_CLIENT_SECRET: ci-only-not-a-real-oauth-secret
+          GOOGLE_REDIRECT_URI: http://localhost:3199/api/auth/google-redirect
+          PAYMENT_WEBHOOK_SECRET: ci-only-not-a-real-webhook-secret
+          TURNSTILE_SITE_KEY: ci-test-public-site-key
         run: |
           npm run verify:security
           npm run verify:fail-closed
