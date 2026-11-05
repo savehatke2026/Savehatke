@@ -24,6 +24,7 @@
 // ============================================================================
 
 const db = require('./googleSheets');
+const paymentLedgerDb = require('./paymentLedgerDb');
 const finance = require('./finance');
 const sellerPayout = require('./sellerPayout');
 
@@ -113,14 +114,14 @@ async function optionalRows(sheet) {
 // (loadLedger({ audit: true })) so list pages stay cheap.
 async function loadLedger({ audit = false } = {}) {
   const [orders, payments] = await Promise.all([
-    db.getRows(db.SHEETS.ORDERS),
-    db.getRows(db.SHEETS.PAYMENTS),
+    paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.ORDERS),
+    paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.PAYMENTS),
   ]);
   // Refunds are financial truth: a read failure must propagate (route → 503),
   // never show as zero refunds in the transaction and ledger views.
   const [refunds, notifications, auditRows, coupons] = await Promise.all([
     db.getRows(db.SHEETS.REFUNDS, { strict: true }).then((r) => r || []),
-    optionalRows(db.SHEETS.PAYMENT_NOTIFICATIONS),
+    paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.PAYMENT_NOTIFICATIONS),
     audit ? optionalRows(db.SHEETS.SECURITY_AUDIT) : Promise.resolve([]),
     fetchCouponRows().catch(() => []),
   ]);
