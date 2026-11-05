@@ -104,6 +104,19 @@ router.get('/transactions', authenticateToken, requireAdmin, async (req, res) =>
   }
 });
 
+// GET /api/admin/finance/payment-notifications?status=&search=&limit=&offset=
+// Read-only audit view of payment notifications stored in Supabase.
+router.get('/payment-notifications', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { status, search, limit, offset } = req.query;
+    const data = await finance.getPaymentNotifications({ status, search, limit, offset });
+    res.json({ ok: true, ...data });
+  } catch (err) {
+    console.error('Payment notifications error:', err);
+    res.status(503).json({ error: 'Unable to load payment notifications.', dataUnavailable: true });
+  }
+});
+
 // GET /api/admin/finance/settlement?year=YYYY&month=M  — monthly reconciliation.
 // Also UPSERTS the MonthlySettlements sheet row (create-or-update by month;
 // never appends a duplicate). The sheet write is best-effort and never blocks
