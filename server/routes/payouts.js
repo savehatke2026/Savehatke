@@ -144,6 +144,8 @@ const SELLER_STATUS = {
   PROCESSING: 'Payout Processing',
   PAID: 'Paid',
   FAILED: 'Validation Failed',
+  REJECTED: 'Rejected',
+  PROOF_REQUESTED: 'More Proof Requested',
 };
 const SELLER_STATUS_LADDER = [
   SELLER_STATUS.PENDING_REVIEW,
@@ -478,7 +480,9 @@ async function describeCouponInvalidationById(couponId, coupon = null) {
 /** Where one coupon sits on the seller ladder, as a single ladder string. */
 function deriveSellerStatus(coupon, payout, invalidation) {
   const raw = String((coupon && coupon.status) || '').toLowerCase();
-  if ((invalidation && invalidation.invalidated) || raw === 'rejected') return SELLER_STATUS.FAILED;
+  if (invalidation && invalidation.invalidated) return SELLER_STATUS.FAILED;
+  if (raw === 'rejected') return SELLER_STATUS.REJECTED;
+  if (raw === 'proof_requested') return SELLER_STATUS.PROOF_REQUESTED;
   if (PRE_REVIEW_COUPON_STATUSES.includes(raw)) return SELLER_STATUS.PENDING_REVIEW;
   if (raw === 'sold') {
     const paidState = String((payout && payout.status) || '').toLowerCase();
@@ -1113,7 +1117,9 @@ router.get('/payouts/coupon-status', authenticateToken, async (req, res) => {
         title: c.title || '',
         couponStatus: c.status || '',
         sellerStatus,
-        // 1-based rung, or 0 for Validation Failed — that state is off the ladder
+        reviewReason: c.adminNotes || '',
+        reviewedAt: c.reviewedAt || '',
+        // 1-based rung, or 0 for Validation Failed / Rejected — these outcomes are off the payout ladder
         // rather than a step along it.
         sellerStatusStep: SELLER_STATUS_LADDER.indexOf(sellerStatus) + 1,
         paymentWithheld: Boolean(invalidation.paymentWithheld),
