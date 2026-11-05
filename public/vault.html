@@ -1538,52 +1538,52 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <!-- KPI Cards (Users / Coupons / Pending / Earnings are live via /admin/stats) -->
       <div class="stats-grid" id="kpiGrid">
         <div class="stat-card sc-green">
-          <div class="stat-card-top"><div class="stat-icon si-green">👥</div><span class="stat-trend trend-up">↑ 12%</span></div>
-          <div class="stat-val gtext" id="statUsers">12,840</div>
+          <div class="stat-card-top"><div class="stat-icon si-green">👥</div><span class="stat-trend" id="statUsersMeta">Live</span></div>
+          <div class="stat-val gtext" id="statUsers">—</div>
           <div class="stat-lbl">Total Users</div>
-          <div class="stat-sub">This month</div>
+          <div class="stat-sub">Registered accounts</div>
         </div>
         <div class="stat-card sc-blue">
-          <div class="stat-card-top"><div class="stat-icon si-blue">⚡</div><span class="stat-trend trend-up">↑ 8%</span></div>
-          <div class="stat-val" style="color:#4fc3f7" id="kpi-active">934</div>
+          <div class="stat-card-top"><div class="stat-icon si-blue">⚡</div><span class="stat-trend">Not tracked</span></div>
+          <div class="stat-val" style="color:#4fc3f7" id="kpi-active">—</div>
           <div class="stat-lbl">Active Users Today</div>
-          <div class="stat-sub">vs yesterday</div>
+          <div class="stat-sub">Daily active users not tracked</div>
         </div>
         <div class="stat-card sc-purple">
-          <div class="stat-card-top"><div class="stat-icon si-purple">🎟️</div><span class="stat-trend trend-up">↑ 24%</span></div>
-          <div class="stat-val" style="color:#ce93d8" id="statCoupons">4,217</div>
+          <div class="stat-card-top"><div class="stat-icon si-purple">🎟️</div><span class="stat-trend">Live</span></div>
+          <div class="stat-val" style="color:#ce93d8" id="statCoupons">—</div>
           <div class="stat-lbl">Total Coupons</div>
-          <div class="stat-sub">This month</div>
+          <div class="stat-sub">All coupons in inventory</div>
         </div>
         <div class="stat-card sc-orange">
-          <div class="stat-card-top"><div class="stat-icon si-orange">⏳</div><span class="stat-trend trend-warn">+2</span></div>
-          <div class="stat-val" style="color:#ffb74d" id="statPending">14</div>
+          <div class="stat-card-top"><div class="stat-icon si-orange">⏳</div><span class="stat-trend">Live</span></div>
+          <div class="stat-val" style="color:#ffb74d" id="statPending">—</div>
           <div class="stat-lbl">Pending Approvals</div>
-          <div class="stat-sub">Needs attention</div>
+          <div class="stat-sub">Pending coupon reviews</div>
         </div>
         <div class="stat-card sc-green">
-          <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend trend-up">↑ 18%</span></div>
+          <div class="stat-card-top"><div class="stat-icon si-green">💰</div><span class="stat-trend">Live</span></div>
           <div class="stat-val gtext" id="statRevenue">—</div>
           <div class="stat-lbl">Total Earnings</div>
-          <div class="stat-sub">This month</div>
+          <div class="stat-sub">Website visitor analytics not connected</div>
         </div>
         <div class="stat-card sc-teal">
-          <div class="stat-card-top"><div class="stat-icon si-teal">💳</div><span class="stat-trend trend-up">↑ 5%</span></div>
+          <div class="stat-card-top"><div class="stat-icon si-teal">💳</div><span class="stat-trend">Live</span></div>
           <div class="stat-val" style="color:#80cbc4" id="kpi-txns">—</div>
-          <div class="stat-lbl">Transactions Today</div>
-          <div class="stat-sub">vs yesterday</div>
+          <div class="stat-lbl">Paid Orders Today</div>
+          <div class="stat-sub">Successful orders today</div>
         </div>
         <div class="stat-card sc-blue">
-          <div class="stat-card-top"><div class="stat-icon si-blue">🌐</div><span class="stat-trend trend-up">↑ 31%</span></div>
-          <div class="stat-val" style="color:#4fc3f7" id="kpi-visitors">8,104</div>
+          <div class="stat-card-top"><div class="stat-icon si-blue">🌐</div><span class="stat-trend">Not tracked</span></div>
+          <div class="stat-val" style="color:#4fc3f7" id="kpi-visitors">—</div>
           <div class="stat-lbl">Website Visitors</div>
           <div class="stat-sub">This month</div>
         </div>
         <div class="stat-card sc-red">
-          <div class="stat-card-top"><div class="stat-icon si-red">🚩</div><span class="stat-trend trend-down">+1</span></div>
-          <div class="stat-val" style="color:#ef9a9a" id="kpi-abuse">3</div>
+          <div class="stat-card-top"><div class="stat-icon si-red">🚩</div><span class="stat-trend">Not tracked</span></div>
+          <div class="stat-val" style="color:#ef9a9a" id="kpi-abuse">—</div>
           <div class="stat-lbl">Abuse Reports</div>
-          <div class="stat-sub">Needs review</div>
+          <div class="stat-sub">Abuse reports not connected</div>
         </div>
       </div>
 
@@ -1614,22 +1614,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <span style="display:flex;align-items:center;gap:8px"><span class="ct-icon">🔔</span> Recent Activity</span>
             <button class="btn btn-ghost btn-sm" onclick="showSection('support',null)">View All</button>
           </div>
-          <div style="max-height:300px;overflow-y:auto;padding-right:4px">
-            <div class="activity-item">
-              <div class="activity-dot" style="background:#ffb74d"></div>
-              <div class="activity-text"><strong>Pending coupons</strong> are waiting for review in Coupons → Pending</div>
-              <div class="activity-time">now</div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-dot" style="background:#00E272"></div>
-              <div class="activity-text"><strong>Payouts</strong> pending processing — see Needs Attention below</div>
-              <div class="activity-time">now</div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-dot" style="background:#4fc3f7"></div>
-              <div class="activity-text"><strong>Support cases</strong> live feed is available in Support Cases</div>
-              <div class="activity-time">now</div>
-            </div>
+          <div id="dashboardActivity" style="max-height:300px;overflow-y:auto;padding-right:4px">
+            <div class="activity-item"><div class="activity-text">Loading recent activity…</div></div>
           </div>
         </div>
       </div>
@@ -1711,7 +1697,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="pending-item">
             <span class="pending-icon">🟡</span>
             <span class="pending-label">Seller Payouts Pending</span>
-            <span class="pending-count" id="pendingPayoutCount">7</span>
+            <span class="pending-count" id="pendingPayoutCount">—</span>
             <button class="btn btn-warning btn-sm" onclick="showSection('payouts',null)">Review</button>
           </div>
           <div class="pending-item">
@@ -1723,7 +1709,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="pending-item">
             <span class="pending-icon">🟡</span>
             <span class="pending-label">Admin Payouts Pending</span>
-            <span class="pending-count" id="attnAdminPayoutCount" title="Admin payout ledger not implemented yet (Phase 2)">—</span>
+            <span class="pending-count" id="attnAdminPayoutCount">—</span>
             <button class="btn btn-warning btn-sm" onclick="showSection('admin-payouts',null)">Review</button>
           </div>
           <div class="pending-item">
@@ -4944,6 +4930,7 @@ async function loadDashboardFinance() {
 
   loadChartSeries(currentPeriod);
   loadRecentTransactions();
+  loadDashboardActivity();
 }
 
 function applyDashboardMonth(o) {
@@ -4963,6 +4950,28 @@ function applyDashboardMonth(o) {
 function applyDashboardToday(o) {
   if (!o) return;
   setTxt('kpi-txns', inrFull(o.paidValue)); // Transactions Today = today's settled value
+}
+
+async function loadDashboardActivity() {
+  const box = document.getElementById('dashboardActivity');
+  if (!box) return;
+  try {
+    const res = await api('/admin/finance/orders?period=all&limit=6', { useAdmin: true });
+    const rows = Array.isArray(res.orders) ? res.orders : [];
+    if (!rows.length) { box.innerHTML = '<div class="activity-item"><div class="activity-text">No recorded order activity yet.</div></div>'; return; }
+    box.innerHTML = rows.map((o) => {
+      const status = String(o.status || 'UNKNOWN').toUpperCase();
+      const color = status === 'PAID' ? '#00E272' : status === 'PENDING' ? '#ffb74d' : '#ef9a9a';
+      const label = status === 'PAID' ? 'Order paid' : status === 'PENDING' ? 'Order awaiting payment' : 'Order ' + status.toLowerCase();
+      const who = o.customerName || o.customerEmail || 'Customer';
+      const order = o.orderRef || o.orderId || 'Order';
+      const amount = '₹' + Math.round(Number(o.purchasePrice) || 0).toLocaleString('en-IN');
+      const when = o.createdAt ? new Date(o.createdAt).toLocaleString('en-IN', { day:'numeric', month:'short', hour:'2-digit', minute:'2-digit' }) : '—';
+      return '<div class="activity-item"><div class="activity-dot" style="background:' + color + '"></div><div class="activity-text"><strong>' + escapeHtml(label) + '</strong><br>' + escapeHtml(String(who)) + ' · ' + escapeHtml(String(order)) + ' · ' + escapeHtml(amount) + '</div><div class="activity-time">' + escapeHtml(when) + '</div></div>';
+    }).join('');
+  } catch (err) {
+    box.innerHTML = '<div class="activity-item"><div class="activity-text" style="color:#ff8585">Recent activity is currently unavailable.</div></div>';
+  }
 }
 
 async function loadRecentTransactions() {
