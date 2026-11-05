@@ -6,6 +6,10 @@
 <title>Admin Panel – SaveHatke</title>
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" type="image/png" href="logo.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@aws-amplify/ui-react@6.15.7/dist/styles.css">
+<script type="importmap">
+  {"imports":{"react":"https://esm.sh/react@19.3.1","react-dom":"https://esm.sh/react-dom@19.3.1","react-dom/client":"https://esm.sh/react-dom@19.3.1/client?external=react","react/jsx-runtime":"https://esm.sh/react@19.3.1/jsx-runtime"}}
+</script>
 <link rel="apple-touch-icon" href="logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2860,11 +2864,18 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="card" style="margin-bottom:22px">
         <div class="card-title">📷 Camera Face Recognition</div>
         <div style="color:#9eb8d0;font-size:.82rem;line-height:1.6">
-          Not configured yet. This method will require AWS Face Liveness, live-face identity matching, private encrypted reference-image storage and admin enrollment. It will stay unavailable until those services are configured and tested.
+          Enroll your face using AWS Face Liveness and a live identity comparison. The reference image is stored in a private S3 bucket encrypted with your AWS KMS key. Login videos and temporary reference images are not retained.
         </div>
-        <div style="display:inline-flex;align-items:center;gap:7px;margin-top:12px;padding:6px 10px;border:1px solid rgba(255,183,77,.3);border-radius:7px;background:rgba(255,183,77,.08);color:#ffcc80;font-size:.72rem;font-weight:700">
-          <span aria-hidden="true">●</span> NOT CONFIGURED
+        <div id="shFaceStatus" role="status" aria-live="polite" style="margin-top:12px;font-size:.78rem;color:#9eb8d0">Checking face recognition configuration…</div>
+        <label style="display:flex;align-items:flex-start;gap:9px;margin-top:14px;color:#b8cce0;font-size:.78rem;line-height:1.55">
+          <input id="shFaceConsent" type="checkbox" style="margin-top:3px;accent-color:#00E272">
+          <span>I consent to SaveHatke processing my live camera verification and retaining an encrypted face reference image only for administrator sign-in. I understand I can remove this face profile later.</span>
+        </label>
+        <div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:14px">
+          <button class="btn btn-primary" id="shRegisterFace" type="button" disabled style="max-width:220px">＋ Register face</button>
+          <button class="btn btn-ghost" id="shRemoveFace" type="button" disabled>Remove face profile</button>
         </div>
+        <div id="shFaceLivenessMount" style="display:none;margin-top:16px;overflow:hidden;border-radius:12px"></div>
       </div>
 
       <!-- ── Payment Gmail (security_credentials) ── -->
