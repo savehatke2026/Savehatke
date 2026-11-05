@@ -193,11 +193,17 @@ async function loadAdminStats() {
     const s = data.stats;
 
     const uEl = document.getElementById('statUsers');
-    if (uEl) uEl.textContent = s.totalUsers;
+    if (uEl) uEl.textContent = Number(s.totalUsers).toLocaleString('en-IN');
     const cEl = document.getElementById('statCoupons');
-    if (cEl) cEl.textContent = s.availableCoupons;
+    if (cEl) cEl.textContent = Number(s.totalCoupons).toLocaleString('en-IN');
     const pEl = document.getElementById('statPending');
-    if (pEl) pEl.textContent = s.pendingCoupons;
+    if (pEl) pEl.textContent = Number(s.pendingCoupons).toLocaleString('en-IN');
+    const trackedEl = document.getElementById('kpi-visitors');
+    if (trackedEl) trackedEl.textContent = Number(s.totalTracked).toLocaleString('en-IN');
+    const ticketsEl = document.getElementById('kpi-abuse');
+    if (ticketsEl) ticketsEl.textContent = Number(s.totalTickets).toLocaleString('en-IN');
+    const activeEl = document.getElementById('kpi-active');
+    if (activeEl) activeEl.textContent = '—';
     // Total Earnings (#statRevenue) is now owned by loadDashboardFinance()
     // (this-month gross from /api/admin/finance/overview), so it is not set
     // here anymore — that keeps the dashboard and Revenue Overview consistent.
