@@ -117,6 +117,95 @@
     }
   }
 
+
+  const faceStatus = document.getElementById('shFaceStatus');
+  const faceRegister = document.getElementById('shRegisterFace');
+  const faceRemove = document.getElementById('shRemoveFace');
+  const faceConsent = document.getElementById('shFaceConsent');
+  const faceMount = document.getElementById('shFaceLivenessMount');
+  let faceConfig = { enabled: false, consentVersion: '' };
+  let faceEnrollment = { enrolled: false };
+
+  function setFaceStatus(message, kind) {
+    if (!faceStatus) return;
+    faceStatus.textContent = message || '';
+    faceStatus.style.color = kind === 'error' ? '#ff9999' : kind === 'success' ? '#69e5b5' : '#9eb8d0';
+  }
+
+  async function loadFaceSettings() {
+    if (!faceRegister || !faceStatus || !faceMount) return;
+    try {
+      faceConfig = await request('/api/admin/biometric/face/config', { method: 'GET', headers: {} });
+      faceEnrollment = await request('/api/admin/biometric/face/status', { method: 'GET', headers: {} });
+      faceRegister.disabled = !(faceConfig.enabled && faceConsent && faceConsent.checked);
+      faceRemove.disabled = !faceEnrollment.enrolled;
+      if (!faceConfig.enabled) {
+        setFaceStatus('Not configured. AWS Rekognition, a Cognito identity pool, a private KMS-encrypted S3 bucket and calibrated thresholds are required.', 'error');
+      } else if (faceEnrollment.enrolled) {
+        setFaceStatus('Face profile registered · ' + fmtDate(faceEnrollment.enrolledAt), 'success');
+      } else {
+        setFaceStatus('Ready to register. Review and accept the biometric notice above to continue.');
+      }
+    } catch (error) {
+      faceRegister.disabled = true;
+      faceRemove.disabled = true;
+      setFaceStatus(error.message || 'Could not load face recognition settings.', 'error');
+    }
+  }
+
+  async function registerFace() {
+    if (!faceConfig.enabled || !faceConsent || !faceConsent.checked) {
+      setFaceStatus('Accept the biometric enrollment notice before continuing.', 'error');
+      return;
+    }
+    faceRegister.disabled = true;
+    faceRegister.textContent = 'Preparing camera…';
+    faceMount.style.display = 'block';
+    faceMount.replaceChildren();
+    setFaceStatus('Starting secure face enrollment…');
+    try {
+      const faceModule = await import('/js/admin-face-liveness.js');
+      await faceModule.startFaceLiveness({
+        flow: 'enroll',
+        consentVersion: faceConfig.consentVersion,
+        mount: faceMount,
+        onStatus: (message) => setFaceStatus(message),
+        onComplete: async () => {
+          setFaceStatus('Face profile registered successfully.', 'success');
+          await loadFaceSettings();
+        },
+        onError: (error) => setFaceStatus(error.message || 'Face enrollment failed.', 'error'),
+      });
+    } catch (error) {
+      setFaceStatus(error.message || 'Face enrollment could not start.', 'error');
+      faceMount.style.display = 'none';
+    } finally {
+      faceRegister.disabled = !(faceConfig.enabled && faceConsent && faceConsent.checked);
+      faceRegister.textContent = '＋ Register face';
+    }
+  }
+
+  async function removeFace() {
+    if (!window.confirm('Remove the registered face profile? Camera face login will stop working until you enroll again.')) return;
+    faceRemove.disabled = true;
+    try {
+      await request('/api/admin/biometric/face/enrollment', { method: 'DELETE' });
+      faceMount.replaceChildren();
+      faceMount.style.display = 'none';
+      setFaceStatus('Face profile removed.', 'success');
+      await loadFaceSettings();
+    } catch (error) {
+      setFaceStatus(error.message || 'Could not remove the face profile.', 'error');
+      faceRemove.disabled = false;
+    }
+  }
+
   if (registerButton) registerButton.addEventListener('click', registerPasskey);
+  if (faceRegister) faceRegister.addEventListener('click', registerFace);
+  if (faceRemove) faceRemove.addEventListener('click', removeFace);
+  if (faceConsent) faceConsent.addEventListener('change', () => {
+    faceRegister.disabled = !(faceConfig.enabled && faceConsent.checked);
+  });
+  loadFaceSettings();
   loadPasskeys();
 })();
