@@ -610,18 +610,22 @@ async function findReachableKnownFolder(driveClient) {
 }
 /**
  * Persist a fresh Drive refresh token to Supabase (service = google_drive).
- * estimated_expires_at is intentionally NULL — the Drive credential has no
- * Testing-mode countdown; it relies on real invalid_grant detection instead.
+ * The current OAuth app uses Google's 7-day refresh-token window while in
+ * Testing, so we store an estimated expiry for the Security countdown. The
+ * estimate is informational; real Google authorization failures remain final.
  */
 async function saveConnection({ refresh_token, drive_email }) {
   const token = String(refresh_token || '');
   if (!token) throw new Error('A Google Drive refresh token is required.');
   const email = String(drive_email || '').toLowerCase() || driveEmail();
+  const authorizedAt = new Date();
+  const estimatedExpiresAt = new Date(authorizedAt.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
   await store.upsertCredential({
     service: store.SERVICES.GOOGLE_DRIVE,
     email,
     refresh_token: token,
-    estimatedExpiresAt: null,
+    authorizedAt: authorizedAt.toISOString(),
+    estimatedExpiresAt,
   });
   _lastSource = 'supabase';
   return { source: 'supabase', email };
