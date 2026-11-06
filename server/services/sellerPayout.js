@@ -9,8 +9,8 @@ const MAX_FACE_VALUE = 10000;
 const VALIDATION_MESSAGE = 'Coupon face value must be between ₹100 and ₹10,000, with at most two decimal places.';
 
 // Parse decimal rupees without permissive parseFloat/character stripping.
-// Integer paise avoid binary floating-point drift; fractions of a paise round
-// half-up, matching PostgreSQL ROUND(numeric, 2).
+// Integer paise avoid binary floating-point drift; final payout is rounded
+// half-up to a whole rupee using integer arithmetic.
 function moneyToPaise(value) {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
   const text = String(value).trim();
