@@ -250,7 +250,7 @@ async function countActiveSessions() {
 }
 
 module.exports = {
-  SESSION_TTL_MS, ADMIN_SESSION_TTL_MS, SESSION_RETENTION_MS,
+  SESSION_TTL_MS, ADMIN_SESSION_TTL_MS,
   createSession, findSessionByToken, findSessionById, endSessionByToken,
   updateSessionActivity, updateSessionFields, endSession, endAllUserSessions,
   expireOutdatedSessions, deleteExpiredSessions, getAllSessions,
