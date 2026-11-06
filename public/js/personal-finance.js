@@ -20,7 +20,6 @@
     try {
       const data = await request('/overview');
       el('pfBalance').textContent = money(data.balance);
-      el('pfAdditions').textContent = money(data.additions);
       el('pfExpenses').textContent = money(data.expenses);
       const body = el('pfTransactions');
       if (!data.transactions.length) {
