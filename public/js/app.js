@@ -16,6 +16,37 @@ try {
   }
 } catch (e) {}
 
+// ── User activity heartbeat ─────────────────────────────────────────────
+// A ping is sent only while the page is visible and the user has interacted
+// recently. The server independently rejects admin sessions.
+(function initUserActivityHeartbeat() {
+  if (window.__shActivityHeartbeatStarted) return;
+  window.__shActivityHeartbeatStarted = true;
+  let lastInteraction = Date.now();
+  const markActive = () => { lastInteraction = Date.now(); };
+  ['pointerdown', 'keydown', 'touchstart', 'scroll'].forEach((name) => {
+    window.addEventListener(name, markActive, { passive: true });
+  });
+  const ping = async () => {
+    try {
+      if (document.visibilityState !== 'visible' || Date.now() - lastInteraction > 20 * 60 * 1000) return;
+      if (typeof Auth === 'undefined' || !Auth.isLoggedIn()) return;
+      const user = Auth.getUser() || {};
+      if (['admin', 'super admin', 'support'].includes(String(user.role || '').toLowerCase())) return;
+      await fetch('/api/auth/activity/ping', {
+        method: 'POST', credentials: 'same-origin', keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: window.location.pathname }),
+      });
+    } catch (_) { /* Activity analytics must never interrupt browsing. */ }
+  };
+  window.addEventListener('load', () => { lastInteraction = Date.now(); ping(); }, { once: true });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') { lastInteraction = Date.now(); ping(); }
+  });
+  window.setInterval(ping, 5 * 60 * 1000);
+})();
+
 // ── Page Loading Progress Bar ───────────────────────────────────────────
 // Website-green bar at the very top: creeps forward while the page loads
 // and completes the full width once everything has loaded.
