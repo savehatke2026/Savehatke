@@ -19,7 +19,7 @@
 //     rows are removed — an Active session is never deleted.
 //
 //
-// Supabase is not used for session storage. Session rows are maintained only in Google Sheets.
+// Supabase is the sole session store. Google Sheets is not used for session reads, writes, validation, or cleanup.
 //
 // Two execution modes:
 //   • Local / long-running server: a real setInterval, every 10 minutes.
