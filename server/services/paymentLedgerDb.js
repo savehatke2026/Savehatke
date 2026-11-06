@@ -212,17 +212,6 @@ async function updatePaymentAndOrder(paymentId, expectedStatus, paymentPatch, or
   return data || null;
 }
 
-async function createCheckout(order, payment) {
-  const client = clientOrThrow();
-  const { data, error } = await client.rpc('savehatke_create_checkout', {
-    p_order: normalizeRow(order),
-    p_payment: normalizeRow(payment),
-  });
-  if (error) throwDatabaseError('atomic checkout creation', 'orders + payments', error);
-  if (!data || !data.order || !data.payment) throw new Error('Atomic checkout creation returned incomplete records.');
-  return data;
-}
-
 async function findRowsFresh(sheet, key, value) {
   if (sheet === SHEETS.COUPONS) return sheets.findRowsFresh(sheet, key, value);
   const rows = await getRowsFresh(sheet);
