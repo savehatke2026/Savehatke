@@ -230,10 +230,14 @@ router.post('/attachment', optionalAuth, async (req, res) => {
 // The 17 support categories. The server is the authority: a category that is
 // not in this list is refused, never stored.
 const SUPPORT_CATEGORIES = [
-  'Account & Login Issues', 'Buying Coupons', 'Payment Issues', 'Coupon Code Issues',
-  'Selling Coupons', 'Seller Payout', 'Refund Request', 'My Purchases', 'My Sales',
-  'Wallet & Transactions', 'Coupon Expiry', 'Offers & Pricing', 'Security & Privacy',
-  'Technical Issue / Bug', 'Report a User / Fraud', 'Feedback & Suggestions', 'Other Issues',
+  'Account & Login',
+  'Buying Coupons',
+  'Payments & Refunds',
+  'Coupon Issues',
+  'Selling Coupons',
+  'Seller Payouts',
+  'Security & Fraud',
+  'Other Issues & Feedback',
 ];
 const SUBJECT_MAX = 150;
 const MESSAGE_MIN = 20;
