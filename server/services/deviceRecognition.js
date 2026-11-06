@@ -5,8 +5,8 @@
 // from this device before? A "no" is what triggers the "new device detected"
 // security email; a "yes" stays silent.
 //
-// The ledger is the account's own session history in Supabase (user_sessions +
-// admin_sessions). Those rows already record the User-Agent of every
+// The ledger is the account's own session history in Google Sheets (UserSessions +
+// AdminSessions). Those rows already record the User-Agent of every
 // successful sign-in, are written for users and admins alike, and are never
 // deleted — logout and expiry only flip `status` — so they are a durable
 // record of which devices an account has actually used.
@@ -22,7 +22,7 @@
 
 const crypto = require('crypto');
 const UAParser = require('ua-parser-js');
-const supabase = require('./supabase');
+const sessionStore = require('./sessionStore');
 const { getJwtSecret } = require('../config/security');
 
 // Per-account cookie name, so signing into a second account in the same
@@ -203,7 +203,7 @@ async function evaluateSignInDevice({ req, res, email, userAgent, device, os, br
 
   const current = fingerprintsFor(accountKey, descriptor);
   const tokenFingerprint = readDeviceToken(req, accountKey);
-  const history = await supabase.getAccountSessionHistory(accountKey, HISTORY_LIMIT);
+  const history = await sessionStore.getAccountSessionHistory(accountKey, HISTORY_LIMIT);
 
   // Re-issued on every successful login so an active device keeps a fresh
   // token, and so a device recorded by this login carries its fingerprint
