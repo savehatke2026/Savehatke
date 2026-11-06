@@ -1032,6 +1032,8 @@ const normKey = (h) => String(h || '').trim().toLowerCase();
 // The default stays `id`/`code` — the previous behaviour — so every sheet not
 // listed here is completely unaffected.
 const NATURAL_KEYS = {
+  [SHEETS.USER_SESSIONS]: ['session_id'],
+  [SHEETS.ADMIN_SESSIONS]: ['session_id'],
   [SHEETS.ORDERS]: ['id', 'order_code'],
   [SHEETS.PAYMENTS]: ['payment_id'],
   [SHEETS.PAYMENT_NOTIFICATIONS]: ['id', 'fingerprint'],
