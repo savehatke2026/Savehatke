@@ -2104,6 +2104,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="page-title-row">
         <div><div class="page-title">Seller <span class="gtext">Payout</span></div><div class="page-subtitle">Pay sellers for their sold coupons. A payout for the price the seller set is created the moment a coupon is bought.</div></div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-warning btn-sm" id="recalculateLegacyPayoutsBtn" onclick="recalculateLegacySellerPayouts()" title="Preview and correct historical seller payout amounts">Fix historical payouts</button>
           <button class="btn btn-ghost btn-sm" id="payoutsRefreshBtn" onclick="loadPayouts()" title="Refresh payouts" aria-label="Refresh payouts" style="width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center"><span aria-hidden="true">↻</span></button>
         </div>
       </div>
@@ -6760,6 +6761,50 @@ async function loadPayouts({ silent = false } = {}) {
       refreshBtn.innerHTML = '<span aria-hidden="true">↻</span>';
       refreshBtn.setAttribute('aria-label', 'Refresh payouts');
     }
+  }
+}
+
+// Preview and, after explicit confirmation, correct old seller payout amounts.
+// The server leaves already-paid and processing transfers untouched.
+async function recalculateLegacySellerPayouts() {
+  const btn = document.getElementById('recalculateLegacyPayoutsBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Checking…'; }
+  try {
+    const preview = await api('/admin/payouts/recalculate-legacy', {
+      method: 'POST', useAdmin: true, body: {},
+    });
+    const coupons = Number(preview.couponRowsToUpdate || 0);
+    const payouts = Number(preview.pendingPayoutRowsToUpdate || 0);
+    const protectedRows = Number(preview.protectedPaidOrProcessingRows || 0);
+    if (!coupons && !payouts) {
+      showToast('Historical seller payouts are already correct. No changes needed.', 'success');
+      return;
+    }
+    const prompt = [
+      'Historical seller payout correction preview:',
+      'Coupon payout values to correct: ' + coupons,
+      'Pending payout rows to correct: ' + payouts,
+      'Paid / processing payout rows protected: ' + protectedRows,
+      '',
+      'Continue? Already-paid and processing transfers will NOT be changed.',
+    ].join('\n');
+    if (!confirm(prompt)) return;
+
+    if (btn) btn.textContent = 'Updating…';
+    const applied = await api('/admin/payouts/recalculate-legacy', {
+      method: 'POST', useAdmin: true, body: { apply: true },
+    });
+    showToast(
+      'Corrected ' + Number(applied.couponRowsToUpdate || 0) +
+      ' coupon rows and ' + Number(applied.pendingPayoutRowsToUpdate || 0) +
+      ' pending payout rows. Paid / processing transfers were protected.',
+      'success', 6000
+    );
+    await loadPayouts({ silent: true });
+  } catch (err) {
+    showToast(err.message || 'Historical payout correction failed.', 'error', 6000);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = 'Fix historical payouts'; }
   }
 }
 
