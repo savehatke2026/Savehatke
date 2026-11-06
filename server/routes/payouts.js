@@ -4,7 +4,7 @@
 // Admin pays sellers when their coupons are sold.
 //
 // Seller payout rule (single source of truth): every payout equals 7% of the
-// coupon's face value (`originalValue`), rounded half-up to the nearest whole rupee. There is no flat
+// coupon's face value (`originalValue`), rounded half-up to the nearest paise. There is no flat
 // fallback, no tiered rate, and no read of `sellingPrice` — the marketplace
 // selling price is a separate value and never feeds the payout. The arithmetic
 // lives in services/sellerPayout.js; this route only ever asks it for the
@@ -109,14 +109,12 @@ async function resolveCouponPayoutAmount(coupon) {
   return { ok: false, reason: `Coupon ${id} has no face value eligible for a payout (must be ₹100–₹10,000).` };
 }
 
-// Wraps the sellerPayout service so callers only see "an integer rupee" or
-// "no answer". Returning null on invalid face values lets the caller fall
-// through to the next source without a try/catch.
+// Preserve the canonical paise-precise amount. Invalid face values return
+// null so the resolver can fall through to another trusted source.
 function tryCompute7Percent(faceValue) {
   try {
     const rupees = sellerPayout.calculateSellerPayout(faceValue);
-    // sellerPayout already returns a whole-rupee integer (half-up rounded).
-    return Math.round(rupees);
+    return Math.round(rupees * 100) / 100;
   } catch (e) {
     return null;
   }
@@ -299,38 +297,42 @@ async function calculateSellerPayoutBalance(email, payoutRows = null) {
     uniqueCoupons.set(String(coupon.id), coupon);
   }
 
-  let earned = 0;
+  let earnedPaise = 0;
   for (const coupon of uniqueCoupons.values()) {
     if (String(coupon.status || '').toLowerCase() !== 'sold') continue;
     const invalidation = describeCouponInvalidation(coupon, auditRows, allPayouts);
     if (invalidation.invalidated || invalidation.paymentWithheld) continue;
     const result = await resolveCouponPayoutAmount(coupon);
-    if (!result.ok || !Number.isSafeInteger(result.amount) || result.amount <= 0) {
-      throw new Error('A seller earning could not be verified');
-    }
-    earned += result.amount;
-    if (!Number.isSafeInteger(earned)) throw new Error('Seller balance is out of range');
+    const amountPaise = result.ok ? sellerPayout.moneyToPaise(result.amount) : null;
+    if (amountPaise === null || amountPaise <= 0) throw new Error('A seller earning could not be verified');
+    earnedPaise += amountPaise;
+    if (!Number.isSafeInteger(earnedPaise)) throw new Error('Seller balance is out of range');
   }
 
   const ownPayouts = allPayouts.filter((p) => String(p.sellerEmail || '').toLowerCase().trim() === cleanEmail);
-  let paid = 0;
+  let paidPaise = 0;
   for (const payout of ownPayouts) {
     if (String(payout.status || '').toLowerCase() !== 'paid') continue;
     const amount = Number(payout.amount);
-    if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('Payout ledger is invalid');
-    paid += amount;
-    if (!Number.isSafeInteger(paid)) throw new Error('Payout balance is out of range');
+    const amountPaise = Number.isFinite(amount) && amount >= 0 ? Math.round(amount * 100) : NaN;
+    if (!Number.isSafeInteger(amountPaise)) throw new Error('Payout ledger is invalid');
+    paidPaise += amountPaise;
+    if (!Number.isSafeInteger(paidPaise)) throw new Error('Payout balance is out of range');
   }
 
-  let reserved = 0;
+  let reservedPaise = 0;
   for (const reservation of reservations) {
     const amount = Number(reservation.amount);
-    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Payout reservation ledger is invalid');
-    reserved += amount;
-    if (!Number.isSafeInteger(reserved)) throw new Error('Payout reservation total is out of range');
+    const amountPaise = Number.isFinite(amount) && amount > 0 ? Math.round(amount * 100) : NaN;
+    if (!Number.isSafeInteger(amountPaise)) throw new Error('Payout reservation ledger is invalid');
+    reservedPaise += amountPaise;
+    if (!Number.isSafeInteger(reservedPaise)) throw new Error('Payout reservation total is out of range');
   }
 
-  return { earned, paid, reserved, available: Math.max(0, earned - paid - reserved), payouts: ownPayouts };
+  const earned = earnedPaise / 100;
+  const paid = paidPaise / 100;
+  const reserved = reservedPaise / 100;
+  return { earned, paid, reserved, available: Math.max(0, earnedPaise - paidPaise - reservedPaise) / 100, payouts: ownPayouts };
 }
 
 async function reservePayoutAmount({ reservationId, payoutId, email, amount, balance }) {
@@ -347,7 +349,7 @@ async function reservePayoutAmount({ reservationId, payoutId, email, amount, bal
 async function reservePayoutForSettlement(payout, { forRejection = false } = {}) {
   const email = String(payout.sellerEmail || '').toLowerCase().trim();
   const amount = Number(payout.amount);
-  if (!email || !Number.isSafeInteger(amount) || amount <= 0) throw new Error('Payout record is invalid');
+  if (!email || !Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount * 100))) throw new Error('Payout record is invalid');
   const active = await supabase.getActiveSellerPayoutReservations(email);
   const existing = active.find((item) => item.payout_id === String(payout.id)
     || (payout.reservationId && item.reservation_id === payout.reservationId));
@@ -665,7 +667,7 @@ router.get('/admin/payouts/stats', authenticateToken, requireAdmin, async (req, 
 });
 
 // POST /api/admin/payouts/recalculate-legacy — repair stored seller payout
-// values created by the previous paise-based formula. Preview by default;
+undefined
 // only pending payout ledger rows are changed. Paid/processing rows are immutable.
 router.post('/admin/payouts/recalculate-legacy', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
@@ -688,7 +690,7 @@ router.post('/admin/payouts/recalculate-legacy', authenticateToken, requireAdmin
         try { expected = sellerPayout.calculateSellerPayout(sellerPayout.faceValueOf(coupon)); } catch (_) { continue; }
         couponById.set(String(coupon.id), { coupon, expected });
         const stored = Number(coupon.sellerPayout ?? coupon.seller_payout);
-        if (!Number.isFinite(stored) || Math.round(stored * 100) !== expected * 100) {
+        if (!Number.isFinite(stored) || Math.round(stored * 100) !== Math.round(expected * 100)) {
           couponChanges.push({ sheet, id: String(coupon.id), oldAmount: coupon.sellerPayout ?? coupon.seller_payout ?? null, newAmount: expected });
         }
       }
@@ -702,7 +704,7 @@ router.post('/admin/payouts/recalculate-legacy', authenticateToken, requireAdmin
       const source = couponById.get(sourceId);
       if (!source) continue;
       const oldAmount = Number(payout.amount);
-      if (!Number.isFinite(oldAmount) || Math.round(oldAmount * 100) !== source.expected * 100) {
+      if (!Number.isFinite(oldAmount) || Math.round(oldAmount * 100) !== Math.round(source.expected * 100)) {
         payoutChanges.push({ id: String(payout.id), oldAmount: payout.amount, newAmount: source.expected });
       }
     }
