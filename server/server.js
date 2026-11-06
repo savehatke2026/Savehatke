@@ -514,7 +514,8 @@ async function protectedPageGuard(req, res, next) {
       return res.redirect(302, access.redirect || '/maintenance.html');
     }
   } catch (e) {
-    console.warn('Protected page guard check failed, allowing:', e.message);
+    console.error('Protected page guard check failed; refusing request:', e.message);
+    return res.status(503).type('text/plain').send('SaveHatke is temporarily unavailable. Please try again shortly.');
   }
   return next();
 }
@@ -533,7 +534,8 @@ async function protectedPublicPageGuard(req, res, next) {
       return res.redirect(302, '/maintenance.html');
     }
   } catch (e) {
-    console.warn('Public page guard check failed, allowing:', e.message);
+    console.error('Public page guard check failed; refusing request:', e.message);
+    return res.status(503).type('text/plain').send('SaveHatke is temporarily unavailable. Please try again shortly.');
   }
   return next();
 }
@@ -810,7 +812,10 @@ app.get('*', async (req, res) => {
     if (!access.allowed) {
       return res.redirect(302, '/maintenance.html');
     }
-  } catch (e) { /* status check failed — fail open like the static guards */ }
+  } catch (e) {
+    console.error('Landing page access check failed; refusing request:', e.message);
+    return res.status(503).type('text/plain').send('SaveHatke is temporarily unavailable. Please try again shortly.');
+  }
   // Same server-rendered counters as the canonical landing page paths.
   return sendLandingPage(req, res);
 });
