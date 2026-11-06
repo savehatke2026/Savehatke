@@ -53,6 +53,7 @@ const payoutRoutes = require('./routes/payouts');
 const refundRoutes = require('./routes/refunds');
 // Read-only admin financial API (Phase 1 single source of truth — services/finance.js).
 const adminFinanceRoutes = require('./routes/adminFinance');
+const personalFinanceRoutes = require('./routes/personalFinance');
 const adminEmailTestingRoutes = require('./routes/adminEmailTesting');
 const reviewRoutes = require('./routes/reviews');
 const testimonialRoutes = require('./routes/testimonials');
@@ -636,6 +637,8 @@ app.use('/api/admin/payment-mailbox', paymentMailboxRoutes); // own rate limits;
 // so its /finance/* routes are matched first; it shares the admin limiter and
 // the same authenticateToken + requireAdmin gate the other admin routes use.
 app.use('/api/admin/finance', adminApiLimiter, adminFinanceRoutes);
+// Owner-only personal finance routes; all endpoints re-check the signed-in email.
+app.use('/api/admin/personal-finance', adminApiLimiter, personalFinanceRoutes);
 
 // Admin Email Testing tool. Mounted BEFORE the generic /api/admin router so its
 // /email-testing/* routes match first; shares the admin limiter and the same
