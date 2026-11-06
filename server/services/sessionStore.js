@@ -249,6 +249,7 @@ async function countActiveSessions() {
   return count;
 }
 
+// Export only the session TTL constants defined in this module.
 module.exports = {
   SESSION_TTL_MS, ADMIN_SESSION_TTL_MS,
   createSession, findSessionByToken, findSessionById, endSessionByToken,
