@@ -694,7 +694,7 @@ router.post('/admin/payouts/recalculate-legacy', authenticateToken, requireAdmin
       }
     }
 
-    const payoutRows = await getAllPayouts();
+    const payoutRows = await db.getRowsFresh(db.SHEETS.PAYOUTS, { strict: true });
     const payoutChanges = [];
     for (const payout of payoutRows || []) {
       if (String(payout.status || '').toLowerCase() !== 'pending') continue;
