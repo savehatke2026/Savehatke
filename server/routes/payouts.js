@@ -667,7 +667,7 @@ router.get('/admin/payouts/stats', authenticateToken, requireAdmin, async (req, 
 });
 
 // POST /api/admin/payouts/recalculate-legacy — repair stored seller payout
-// values created by the previous paise-based formula. Preview by default;
+undefined
 // only pending payout ledger rows are changed. Paid/processing rows are immutable.
 router.post('/admin/payouts/recalculate-legacy', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
