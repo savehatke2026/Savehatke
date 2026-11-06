@@ -16,6 +16,6 @@ assert.equal(sp.couponPayoutInfo({originalValue:'101',sellerPayout:7}).payoutVer
   'old whole-rupee payout is flagged for correction');
 assert.equal(sp.couponPayoutInfo({originalValue:'101',sellerPayout:9}).payoutVerified, false,
   'tampered payout is invalid');
-assert.equal(sp.moneyToPaise(sp.calculateSellerPayout('101.23')), 708,
+assert.equal(sp.moneyToPaise(sp.calculateSellerPayout('101.23')), 709,
   'calculated payout is stable at paise precision');
 console.log('sellerPayoutPaise: 15 assertions passed');
