@@ -58,7 +58,7 @@ const SHEETS = {
 
 // Column headers for each sheet (used for initialization and row mapping)
 const HEADERS = {
-  [SHEETS.PERSONAL_FINANCE_BALANCE]: ['id', 'openingBalance', 'updatedAt'],
+  [SHEETS.PERSONAL_FINANCE_BALANCE]: ['id', 'currentBalance', 'updatedAt'],
   [SHEETS.PERSONAL_FINANCE_LEDGER]: ['id', 'type', 'amount', 'category', 'note', 'transactionDate', 'createdAt', 'createdBy'],
   [SHEETS.USERS]: [
     'user_ID',
