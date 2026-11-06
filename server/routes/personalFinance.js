@@ -4,24 +4,65 @@ const express = require('express');
 const { v4: uuidv4 } = require('uuid');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const db = require('../services/googleSheets');
+const supabase = require('../services/supabase');
 
 const router = express.Router();
 const ALLOWED_ADMIN_EMAIL = 'rupayandas2024@gmail.com';
 const BALANCE_SHEET = db.SHEETS.PERSONAL_FINANCE_BALANCE;
 const LEDGER_SHEET = db.SHEETS.PERSONAL_FINANCE_LEDGER;
 
-async function readBalance() {
-  const rows = await db.getRows(BALANCE_SHEET, { strict: true });
-  const row = rows.find(item => item.id === 'current-balance');
-  const value = Number(row && row.currentBalance || 0);
-  return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) / 100 : 0;
+async function financeClient() {
+  const client = supabase.getClient();
+  if (!client) throw new Error('Supabase finance storage is unavailable.');
+  return client;
 }
-async function writeBalance(value) {
-  const rows = await db.getRows(BALANCE_SHEET, { strict: true });
-  const existing = rows.find(item => item.id === 'current-balance');
-  const data = { id: 'current-balance', currentBalance: Number(value).toFixed(2), updatedAt: new Date().toISOString() };
-  if (existing) await db.updateRow(BALANCE_SHEET, 'id', 'current-balance', data, { strict: true });
-  else await db.appendRow(BALANCE_SHEET, data, { strict: true });
+
+// One-time import from the existing Sheets wallet and expense ledger. The
+// database function locks the wallet row and refuses a second import, so two
+// simultaneous cold starts cannot overwrite one another.
+async function ensureFinanceInitialized() {
+  const client = await financeClient();
+  const { data: wallet, error } = await client
+    .from('personal_finance_wallet').select('imported_at').eq('id', 'personal').single();
+  if (error) throw new Error('Personal Finance database is unavailable.');
+  if (wallet && wallet.imported_at) return;
+  const [balanceRows, ledgerRows] = await Promise.all([
+    db.getRows(BALANCE_SHEET, { strict: true }),
+    db.getRows(LEDGER_SHEET, { strict: true }),
+  ]);
+  const balanceRow = balanceRows.find(item => item.id === 'current-balance');
+  const openingBalance = Number(balanceRow && balanceRow.currentBalance || 0);
+  if (!Number.isFinite(openingBalance) || openingBalance < 0) throw new Error('The existing Personal Finance balance is invalid.');
+  const entries = (ledgerRows || []).map(row => ({
+    id: String(row.id || ''),
+    type: String(row.type || 'EXPENSE').toUpperCase() === 'BALANCE_ADD' ? 'BALANCE_ADD' : 'EXPENSE',
+    amount: String(row.amount || '0'),
+    category: String(row.category || ''),
+    note: String(row.note || ''),
+    transactionDate: row.transactionDate || '',
+    createdAt: row.createdAt || '',
+    createdBy: row.createdBy || '',
+  }));
+  const { error: importError } = await client.rpc('savehatke_personal_finance_import', {
+    p_balance: openingBalance,
+    p_entries: entries,
+  });
+  if (importError) throw new Error('Existing Personal Finance data could not be imported safely.');
+}
+
+async function applyFinanceEntry({ type, amount, category = '', note = '', transactionDate, requestId }) {
+  const client = await financeClient();
+  const { data, error } = await client.rpc('savehatke_personal_finance_apply', {
+    p_request_id: requestId,
+    p_type: type,
+    p_amount: amount,
+    p_category: category,
+    p_note: note,
+    p_transaction_date: transactionDate,
+    p_created_by: ALLOWED_ADMIN_EMAIL,
+  });
+  if (error) throw new Error('Personal Finance transaction could not be saved.');
+  return data;
 }
 
 function personalFinanceAdminOnly(req, res, next) {
@@ -45,21 +86,25 @@ router.use(authenticateToken, requireAdmin, personalFinanceAdminOnly);
 
 router.get('/overview', async (req, res) => {
   try {
-    if (!db.isSheetsConnected()) return res.status(503).json({ error: 'Google Sheets is unavailable. No data was changed.' });
-    const [balanceRows, ledgerRows] = await Promise.all([
-      db.getRows(BALANCE_SHEET, { strict: true }),
-      db.getRows(LEDGER_SHEET, { strict: true }),
+    await ensureFinanceInitialized();
+    const client = await financeClient();
+    const [{ data: wallet, error: walletError }, { data: ledgerRows, error: ledgerError }] = await Promise.all([
+      client.from('personal_finance_wallet').select('balance').eq('id', 'personal').single(),
+      client.from('personal_finance_ledger').select('*').eq('type', 'EXPENSE').order('transaction_date', { ascending: false }).limit(2000),
     ]);
-    const balanceRow = balanceRows.find(r => r.id === 'current-balance');
-    const balance = Math.max(0, Number(balanceRow && balanceRow.currentBalance || 0));
-    const expenses = ledgerRows.filter(r => r.type === 'EXPENSE').reduce((n, r) => n + Number(r.amount || 0), 0);
-    const transactions = ledgerRows.filter(r => r.type === 'EXPENSE')
-      .sort((a, b) => String(b.transactionDate || b.createdAt).localeCompare(String(a.transactionDate || a.createdAt)));
+    if (walletError || ledgerError) throw new Error('Personal Finance database read failed.');
+    const balance = Number(wallet.balance || 0);
+    const transactions = (ledgerRows || []).map(row => ({
+      id: row.id, type: row.type, amount: Number(row.amount), category: row.category,
+      note: row.note, transactionDate: row.transaction_date, createdAt: row.created_at,
+      createdBy: row.created_by,
+    }));
+    const expenses = transactions.reduce((n, r) => n + Number(r.amount || 0), 0);
     res.set('Cache-Control', 'no-store');
     return res.json({ ok: true, balance, expenses, transactions });
   } catch (err) {
     console.error('Personal finance overview failed:', err.message);
-    return res.status(503).json({ error: 'Could not read Personal Finance from Google Sheets.' });
+    return res.status(503).json({ error: 'Could not read Personal Finance.' });
   }
 });
 
@@ -67,13 +112,15 @@ router.post('/balance-add', async (req, res) => {
   const amount = parseAmount(req.body && req.body.amount);
   if (!amount) return res.status(400).json({ error: 'Enter a valid amount greater than ₹0.' });
   try {
-    if (!db.isSheetsConnected()) return res.status(503).json({ error: 'Google Sheets is unavailable. Nothing was saved.' });
-    const current = await readBalance();
-    await writeBalance(Math.round((current + amount) * 100) / 100);
-    return res.json({ ok: true, message: 'Balance updated.' });
+    await ensureFinanceInitialized();
+    const result = await applyFinanceEntry({
+      type: 'BALANCE_ADD', amount, transactionDate: new Date().toISOString().slice(0, 10),
+      requestId: String(req.get('Idempotency-Key') || req.body?.requestId || uuidv4()).slice(0, 120),
+    });
+    return res.json({ ok: true, message: 'Balance updated.', balance: Number(result.balance), duplicate: !!result.duplicate });
   } catch (err) {
     console.error('Personal finance balance add failed:', err.message);
-    return res.status(503).json({ error: 'Balance could not be saved to Google Sheets.' });
+    return res.status(503).json({ error: 'Balance could not be saved.' });
   }
 });
 
@@ -86,21 +133,18 @@ router.post('/expense', async (req, res) => {
   if (!category) return res.status(400).json({ error: 'Choose or enter an expense category.' });
   if (!transactionDate) return res.status(400).json({ error: 'Enter a valid transaction date.' });
   try {
-    if (!db.isSheetsConnected()) return res.status(503).json({ error: 'Google Sheets is unavailable. Nothing was saved.' });
-    const [available, ledgerRows] = await Promise.all([
-      readBalance(),
-      db.getRows(LEDGER_SHEET, { strict: true }),
-    ]);
-    if (amount > available) return res.status(409).json({ error: 'Insufficient balance. Add balance before recording this expense.' });
-    await db.appendRow(LEDGER_SHEET, {
-      id: uuidv4(), type: 'EXPENSE', amount: amount.toFixed(2), category, note,
-      transactionDate, createdAt: new Date().toISOString(), createdBy: ALLOWED_ADMIN_EMAIL,
-    }, { strict: true });
-    await writeBalance(Math.round((available - amount) * 100) / 100);
-    return res.json({ ok: true, message: 'Expense saved.' });
+    await ensureFinanceInitialized();
+    const result = await applyFinanceEntry({
+      type: 'EXPENSE', amount, category, note, transactionDate,
+      requestId: String(req.get('Idempotency-Key') || req.body?.requestId || uuidv4()).slice(0, 120),
+    });
+    if (!result.ok && result.code === 'INSUFFICIENT_BALANCE') {
+      return res.status(409).json({ error: 'Insufficient balance. Add balance before recording this expense.', balance: Number(result.balance) });
+    }
+    return res.json({ ok: true, message: 'Expense saved.', balance: Number(result.balance), duplicate: !!result.duplicate });
   } catch (err) {
     console.error('Personal finance expense failed:', err.message);
-    return res.status(503).json({ error: 'Expense could not be saved to Google Sheets.' });
+    return res.status(503).json({ error: 'Expense could not be saved.' });
   }
 });
 
