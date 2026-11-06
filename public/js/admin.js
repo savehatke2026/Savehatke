@@ -3316,7 +3316,7 @@ async function loadSessions() {
     }
 
     renderSessions();
-    loadUserActivity();
+    // Daily User Activity is loaded only from its dedicated admin section.
   } catch (err) {
     if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load sessions: ${escapeHtml(err.message)}</td></tr>`;
   } finally {
