@@ -189,6 +189,17 @@ async function compareAndSet(sheet, key, value, expectedStatus, patch) {
  * migration's SECURITY DEFINER RPC. This is used for PAID and underpayment
  * settlement paths so the two ledger rows can never diverge on a partial write.
  */
+async function createCheckout(orderRow, paymentRow) {
+  const client = clientOrThrow();
+  const { data, error } = await client.rpc('savehatke_create_checkout', {
+    p_order: normalizeRow(orderRow),
+    p_payment: normalizeRow(paymentRow),
+  });
+  if (error) throwDatabaseError('atomic checkout creation', 'orders + payments', error);
+  if (!data || !data.order || !data.payment) throw new Error('Atomic checkout creation returned an incomplete result.');
+  return data;
+}
+
 async function updatePaymentAndOrder(paymentId, expectedStatus, paymentPatch, orderPatch) {
   const client = clientOrThrow();
   const { data, error } = await client.rpc('savehatke_update_payment_order', {
@@ -227,5 +238,6 @@ module.exports = {
   updateRow,
   compareAndSet,
   updatePaymentAndOrder,
+  createCheckout,
   findRowsFresh,
 };

@@ -664,9 +664,13 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
     // Every failure below must not leave the coupon hidden for a session that
     // never opened: release OUR reservation (ownership-scoped, so a concurrent
     // session's reservation on the same coupon is never touched).
-    let order;
+    // Build the UPI URI before writing. The order + payment rows are then
+    // inserted together in one Postgres transaction: no orphan order if a
+    // concurrent checkout wins the unique pending-payment constraint.
+    const upiUri = upi.buildUpiUri({ amount });
+    let checkout;
     try {
-      order = await store.createOrder({
+      checkout = await store.createOrder({
         userId,
         userEmail,
         couponId,
@@ -677,67 +681,25 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
         couponCode: (coupon && coupon.code) || '',
         couponBrand: (coupon && coupon.brand) || '',
         expiresAt,
+        paymentData: {
+          paymentId,
+          expiresAt,
+          checkExpiresAt,
+          upiId: payee.upiId,
+          payeeName: payee.payeeName,
+          upiUri,
+        },
       });
     } catch (e) {
-      if (reserved) {
-        try { await store.releaseCouponReservation({ couponId, paymentId }); } catch (_) {}
-      }
-      throw e;
-    }
-    // Exactly the four spec parameters — pa / pn / am / cu. The order code is
-    // deliberately NOT smuggled in as `tr`/`tn`: see buildUpiUri() for why the
-    // extra parameters were dropped, and what reconciliation gives up. The
-    // order code still lives on the order row, so nothing is lost server-side.
-    const upiUri = upi.buildUpiUri({ amount });
-
-    // Development: the full URI, so a reported "couldn't verify UPI ID" scan
-    // can be reproduced exactly from the log. Production: same line with the
-    // VPA masked. Never the webhook secret or any mailbox credential.
-    upi.logUpiUri(upiUri, `create ${paymentId} amount=${amount.toFixed(2)} order=${order.orderCode}`);
-    if (payee.warning) console.warn(`[payment] WARNING ${payee.warning.code}: ${payee.warning.error}`);
-
-    let payment;
-    try {
-      payment = await store.createPayment({
-        paymentId,
-        orderId: order.id,
-        userId,
-        userEmail,
-        couponId,
-        amount,
-        expiresAt,
-        checkExpiresAt,
-        upiId: payee.upiId,
-        payeeName: payee.payeeName,
-        upiUri,
-      });
-    } catch (e) {
-      // A unique index rejected this insert because a live payment already
-      // exists. Two constraints can fire, so both are checked:
-      //   uq_payments_one_live_per_order      — another request on THIS order
-      //   uq_payments_one_live_per_user_coupon — a concurrent request that
-      //     allocated its own order before either insert landed
-      // Whichever won the race is the one to use. The order this request just
-      // created is unreferenced, so it is retired rather than left PENDING.
-      let raced = await store.findLivePaymentForOrder(order.id);
-      if (!raced) raced = await store.findLivePaymentForUserCoupon(userId, couponId);
+      // The database's unique partial indexes are the cross-instance lock.
+      // Reuse the winner for this buyer/coupon instead of creating a second QR.
+      let raced = null;
+      try { raced = await store.findLivePaymentForUserCoupon(userId, couponId); } catch (_) {}
       if (raced && new Date(raced.expiresAt).getTime() > Date.now()) {
-        try {
-          await store.transitionOrder(order.id, 'PENDING', 'CANCELLED');
-        } catch (cleanupErr) {
-          // Best effort: a stale order row is harmless, a failed response is not.
-        }
-        // Hand the reservation to the session that actually won the race, so
-        // the coupon stays hidden under the live window (same buyer → the
-        // conditional UPDATE always accepts). If that transfer fails, fall back
-        // to releasing ours; either way the winner is not left unreserved.
         if (couponId && raced.couponId && String(raced.couponId) === String(couponId)) {
           try {
             await store.reserveCouponForPayment({
-              couponId,
-              userId,
-              userEmail,
-              paymentId: raced.paymentId,
+              couponId, userId, userEmail, paymentId: raced.paymentId,
               until: raced.checkExpiresAt || checkExpiresAt,
             });
           } catch (_) {
@@ -754,6 +716,15 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
       }
       throw e;
     }
+
+    const order = checkout;
+    const payment = checkout.payment;
+    if (!payment) throw new Error('Atomic checkout did not return a payment session.');
+
+    // Exactly the four spec parameters — pa / pn / am / cu. The order code is
+    // deliberately NOT smuggled in as tr/tn.
+    upi.logUpiUri(upiUri, `create ${paymentId} amount=${amount.toFixed(2)} order=${order.orderCode}`);
+    if (payee.warning) console.warn(`[payment] WARNING ${payee.warning.code}: ${payee.warning.error}`);
 
     // Session is live: log the lifecycle anchors and open the checking loop
     // immediately (the SSE tick keeps it going while the window is open; the
