@@ -414,23 +414,14 @@
               <label class="flabel" for="supportCategory">What do you need help with? *</label>
               <select class="fselect" id="supportCategory" required aria-describedby="supportCategoryError">
                 <option value="" disabled selected>Select a category</option>
-                <option value="Account &amp; Login Issues">Account &amp; Login Issues</option>
+                <option value="Account &amp; Login">Account &amp; Login</option>
                 <option value="Buying Coupons">Buying Coupons</option>
-                <option value="Payment Issues">Payment Issues</option>
-                <option value="Coupon Code Issues">Coupon Code Issues</option>
+                <option value="Payments &amp; Refunds">Payments &amp; Refunds</option>
+                <option value="Coupon Issues">Coupon Issues</option>
                 <option value="Selling Coupons">Selling Coupons</option>
-                <option value="Seller Payout">Seller Payout</option>
-                <option value="Refund Request">Refund Request</option>
-                <option value="My Purchases">My Purchases</option>
-                <option value="My Sales">My Sales</option>
-                <option value="Wallet &amp; Transactions">Wallet &amp; Transactions</option>
-                <option value="Coupon Expiry">Coupon Expiry</option>
-                <option value="Offers &amp; Pricing">Offers &amp; Pricing</option>
-                <option value="Security &amp; Privacy">Security &amp; Privacy</option>
-                <option value="Technical Issue / Bug">Technical Issue / Bug</option>
-                <option value="Report a User / Fraud">Report a User / Fraud</option>
-                <option value="Feedback &amp; Suggestions">Feedback &amp; Suggestions</option>
-                <option value="Other Issues">Other Issues</option>
+                <option value="Seller Payouts">Seller Payouts</option>
+                <option value="Security &amp; Fraud">Security &amp; Fraud</option>
+                <option value="Other Issues &amp; Feedback">Other Issues &amp; Feedback</option>
               </select>
               <small id="supportCategoryError" class="field-error" role="alert" hidden></small>
             </div>
@@ -440,43 +431,10 @@
               <small class="field-error" id="supportSubjectError" role="alert" hidden></small>
             </div>
 
-            <!-- Category-specific references. Only the rows relevant to the selected
-                 category are shown; values the user typed are kept when hidden. -->
-            <div class="fgroup support-ref" data-cats="Payment Issues Refund Request Wallet &amp; Transactions Seller Payout My Purchases My Sales Buying Coupons Selling Coupons Coupon Code Issues Coupon Expiry Offers &amp; Pricing Report a User / Fraud Account &amp; Login Issues Security &amp; Privacy Technical Issue / Bug Other Issues" hidden>
-              <label class="flabel" for="supportTransactionId">Transaction / Order ID</label>
-              <input class="finput" type="text" id="supportTransactionId" maxlength="120" placeholder="e.g. TXN123456 or ORD-98765">
-            </div>
-            <div class="fgroup support-ref" data-cats="Payment Issues Seller Payout" hidden>
-              <label class="flabel" for="supportUtr">Payment Reference / UTR</label>
-              <input class="finput" type="text" id="supportUtr" maxlength="120" placeholder="12-digit UTR or payment reference">
-            </div>
-            <div class="fgroup support-ref" data-cats="Payment Issues Refund Request Seller Payout" hidden>
-              <label class="flabel" for="supportAmount">Amount (₹)</label>
-              <input class="finput" type="text" id="supportAmount" maxlength="40" inputmode="decimal" placeholder="e.g. 250">
-            </div>
-            <div class="fgroup support-ref" data-cats="Payment Issues" hidden>
-              <label class="flabel" for="supportPaymentDate">Payment date</label>
-              <input class="finput" type="date" id="supportPaymentDate">
-            </div>
-            <div class="fgroup support-ref" data-cats="Seller Payout" hidden>
-              <label class="flabel" for="supportPayoutRef">Payout reference</label>
-              <input class="finput" type="text" id="supportPayoutRef" maxlength="120" placeholder="Payout reference or ID">
-            </div>
-            <div class="fgroup support-ref" data-cats="Selling Coupons My Sales Coupon Code Issues Coupon Expiry Offers &amp; Pricing" hidden>
-              <label class="flabel" for="supportCouponId">Coupon ID / reference</label>
-              <input class="finput" type="text" id="supportCouponId" maxlength="120" placeholder="Coupon ID or sale reference">
-            </div>
-            <div class="fgroup support-ref" data-cats="Coupon Code Issues Coupon Expiry" hidden>
-              <label class="flabel" for="supportBrand">Brand</label>
-              <input class="finput" type="text" id="supportBrand" maxlength="120" placeholder="e.g. Amazon, Swiggy">
-            </div>
-            <div class="fgroup support-ref" data-cats="Technical Issue / Bug" hidden>
-              <label class="flabel" for="supportPageUrl">Page URL</label>
-              <input class="finput" type="url" id="supportPageUrl" maxlength="500" placeholder="https://savehatke.vercel.app/...">
-            </div>
-            <div class="fgroup support-ref" data-cats="Report a User / Fraud" hidden>
-              <label class="flabel" for="supportReportedUser">Reported username or user reference</label>
-              <input class="finput" type="text" id="supportReportedUser" maxlength="120" placeholder="Their SaveHatke username or reference">
+            <!-- Optional reference: shown only for purchase, payment, coupon and payout issues. -->
+            <div class="fgroup support-ref" data-cats="Buying Coupons Payments &amp; Refunds Coupon Issues Selling Coupons Seller Payouts" hidden>
+              <label class="flabel" for="supportTransactionId">Transaction / Order ID (optional)</label>
+              <input class="finput" type="text" id="supportTransactionId" maxlength="120" placeholder="Enter it if you have one">
             </div>
 
             <div class="fgroup">
