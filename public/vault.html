@@ -6050,13 +6050,23 @@ function avatarHtml(name) {
 }
 
 let supportCasesLoading = false;
-async function loadSupportCases(silent) {
+let supportCasesFetchedAt = 0;
+const SUPPORT_CASES_CACHE_TTL_MS = 15 * 1000;
+
+async function loadSupportCases(silent, force = false) {
+  const cacheIsFresh = supportCasesLoaded && (Date.now() - supportCasesFetchedAt) < SUPPORT_CASES_CACHE_TTL_MS;
   if (supportCasesLoading) return;
+  // Render the last in-memory snapshot immediately; only contact the server
+  // when it is stale or a mutation explicitly requests a fresh copy.
+  if (supportCasesLoaded) renderAll();
+  if (!force && cacheIsFresh) return;
+
   supportCasesLoading = true;
   try {
     const data = await api('/admin/support-cases', { useAdmin: true });
-    cases = data.cases || [];
+    cases = Array.isArray(data.cases) ? data.cases : [];
     supportCasesLoaded = true;
+    supportCasesFetchedAt = Date.now();
     renderAll();
   } catch (err) {
     // Background refreshes stay quiet so a returning admin isn't greeted by a
@@ -6387,46 +6397,13 @@ async function updateCaseStatus(id, newStatus, extra) {
       body,
     });
     showToast(`Case ${shortId(id)} → ${newStatus}`, 'success');
-    await loadSupportCases();
+    await loadSupportCases(false, true);
   } catch (err) {
     showToast(err.message || 'Failed to update case status.', 'error');
   }
 }
 
-function exportCases(status) {
-  const data = status ? cases.filter(c => c.status === status) : cases;
-  if (!data.length) { showToast('No cases to export.', 'warning'); return; }
-  const csv = ['ID,Subject,User,Email,Status,Submitted,Resolved At'];
-  data.forEach(c => csv.push(`${c.id},"${String(c.subject).replace(/"/g,'""')}",${String(c.user).replace(/,/g,' ')},${c.email},${c.status},"${c.createdAt}","${c.resolvedAt || ''}"`));
-  const blob = new Blob([csv.join('\n')], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `support-cases-${status||'all'}-${Date.now()}.csv`; a.click();
-  URL.revokeObjectURL(url);
-  showToast(`Exported ${data.length} cases as CSV`, 'success');
-}
 
-function renderStatusBreakdown() {
-  const el = document.getElementById('statusBreakdown');
-  if (!el) return;
-  const total = cases.length || 1;
-  const rows = [
-    ['Open', 'open', '#ffb74d'],
-    ['In Progress', 'inprogress', '#4fc3f7'],
-    ['Resolved', 'resolved', '#00E272'],
-    ['Closed', 'closed', '#ce93d8'],
-  ];
-  el.innerHTML = rows.map(([label, key, color]) => {
-    const count = cases.filter(c => c.status === key).length;
-    return `
-      <div class="info-row">
-        <span class="irl">${label}</span>
-        <span class="irv">${count}</span>
-      </div>
-      <div class="prog-bar" style="margin-bottom:12px"><div class="prog-fill" style="width:${(count/total)*100}%;background:${color}"></div></div>
-    `;
-  }).join('');
-}
 
 function renderRecentActivity() {
   const el = document.getElementById('recentActivity');
@@ -6470,7 +6447,6 @@ document.addEventListener('keydown', e => {
 function renderAll() {
   ['open','inprogress','resolved','closed'].forEach(renderTable);
   updateStats();
-  renderStatusBreakdown();
   renderRecentActivity();
 }
 
