@@ -1429,6 +1429,10 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <span class="ni">📑</span> Reports <span class="nbadge" id="reportsNavBadge" style="display:none">0</span>
     </div>
 
+    <div class="nav-item" id="personalFinanceNav" style="display:none" onclick="showSection('personal-finance',this)">
+      <span class="ni">🔒</span> Personal Finance
+    </div>
+
     <span class="nav-group-label">Admin</span>
     <div class="nav-item" onclick="showSection('admins',this)">
       <span class="ni">👤</span> Admins &amp; Roles
@@ -2170,6 +2174,48 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <tr><td colspan="4" style="text-align:center;padding:24px;color:#6b88aa">Loading seller payment methods...</td></tr>
           </tbody>
         </table></div>
+      </div>
+    </div>
+
+    <!-- ════════════════ OWNER-ONLY PERSONAL FINANCE ════════════════ -->
+    <div class="section-view" id="sec-personal-finance">
+      <div class="page-title-row">
+        <div><div class="page-title">Personal <span class="gtext">Finance</span></div><div class="page-subtitle">Private balance and personal expense ledger</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadPersonalFinance()">↻ Refresh</button>
+      </div>
+      <div id="pfMessage" class="card" role="status" style="display:none;margin-bottom:16px"></div>
+      <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+        <div class="stat-card sc-green"><div class="stat-lbl">Available Balance</div><div class="stat-val gtext" id="pfBalance">—</div></div>
+        <div class="stat-card sc-blue"><div class="stat-lbl">Balance Added</div><div class="stat-val" id="pfAdditions">—</div></div>
+        <div class="stat-card sc-orange"><div class="stat-lbl">Total Expenses</div><div class="stat-val" id="pfExpenses">—</div></div>
+      </div>
+      <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+        <div class="card">
+          <div class="card-title">Add to balance</div>
+          <p class="page-subtitle" style="margin-bottom:12px">Adds money to your available balance. It does not create an income transaction.</p>
+          <form id="pfAddBalanceForm" style="display:grid;gap:10px">
+            <input class="form-input" id="pfAddAmount" type="number" min="0.01" max="100000000" step="0.01" placeholder="Amount (₹)" required>
+            <input class="form-input" id="pfAddNote" type="text" maxlength="240" placeholder="Note (optional)">
+            <button class="btn btn-primary" type="submit">Add Balance</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-title">Record an expense</div>
+          <form id="pfExpenseForm" style="display:grid;gap:10px">
+            <input class="form-input" id="pfExpenseAmount" type="number" min="0.01" max="100000000" step="0.01" placeholder="Amount (₹)" required>
+            <select class="form-select" id="pfExpenseCategory" required>
+              <option value="">Choose category</option><option>Food</option><option>Travel</option><option>Shopping</option><option>Education</option><option>Bills</option><option>Health</option><option>Investment</option><option>Other</option>
+            </select>
+            <input class="form-input" id="pfExpenseDate" type="date" required>
+            <input class="form-input" id="pfExpenseNote" type="text" maxlength="240" placeholder="Description (optional)">
+            <button class="btn btn-primary" type="submit">Save Expense</button>
+          </form>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Expense history</div>
+        <div class="overflow-x"><table><thead><tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th>Type</th></tr></thead>
+        <tbody id="pfTransactions"><tr><td colspan="5" style="text-align:center;padding:24px;color:#6b88aa">Loading...</td></tr></tbody></table></div>
       </div>
     </div>
 
@@ -4150,6 +4196,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
 <script src="js/brand-directory.js"></script>
 <script src="js/coupon-meta.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/personal-finance.js"></script>
 <script src="js/brands-admin.js"></script>
 <script src="js/chatbotAdmin.js"></script>
 <script src="js/gmail.js"></script>
@@ -4197,6 +4244,7 @@ const sectionTitles = {
   coupons:       ['Coupons', '/ Management'],
   reviews:       ['Reviews', '/ Homepage Testimonials'],
   revenue:       ['Revenue Overview', '/ Financial'],
+  'personal-finance': ['Personal Finance', '/ Private'],
   transactions:  ['Transactions', '/ Investigation'],
   orders:        ['Orders', '/ Fulfilment'],
   payouts:       ['Seller Payout', '/ Pending'],
@@ -4219,6 +4267,12 @@ const sectionTitles = {
 };
 
 function showSection(id, navEl) {
+  if (id === 'personal-finance') {
+    const currentAdmin = typeof Auth !== 'undefined' ? Auth.getAdminUser() : null;
+    if (String(currentAdmin && currentAdmin.email || '').toLowerCase().trim() !== 'rupayandas2024@gmail.com') {
+      return;
+    }
+  }
   // Hide all sections, show the target
   document.querySelectorAll('.section-view').forEach(s => s.classList.remove('active'));
   const target = document.getElementById('sec-' + id);
