@@ -5,7 +5,7 @@
 // platform — all buyer payments flow through this custom UPI/QR module.
 //
 //   GET  /config    public feature flags for the checkout modal (no secrets)
-//   POST /create    start a payment for an amount (+ optional coupon) (auth)
+//   POST /create    start a payment for a required coupon (auth)
 //   GET  /status    authoritative current state   (auth)
 //   POST /verify    ask the server to re-check    (auth)
 //   POST /cancel    cancel a pending payment      (auth)
@@ -33,7 +33,7 @@
 //     window, and releases it on cancel/supersede/expiry.
 //
 // Security posture
-//   * /create accepts the amount the checkout is displaying, but treats it as
+//   * /create requires a coupon ID; any amount from the checkout is
 //     untrusted input: it must be numeric, > 0 and <= PAYMENT_MAX_AMOUNT.
 //   * When a coupon is referenced, that coupon's server-side price is
 //     authoritative and a mismatched amount is refused with AMOUNT_MISMATCH,
