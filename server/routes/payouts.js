@@ -665,6 +665,67 @@ router.get('/admin/payouts/stats', authenticateToken, requireAdmin, async (req, 
   }
 });
 
+// POST /api/admin/payouts/recalculate-legacy — repair stored seller payout
+// values created by the previous paise-based formula. Preview by default;
+// only pending payout ledger rows are changed. Paid/processing rows are immutable.
+router.post('/admin/payouts/recalculate-legacy', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
+  try {
+    const apply = req.body && req.body.apply === true;
+    const couponSheets = [db.SHEETS.SELLER_COUPONS, db.SHEETS.COUPONS].filter(Boolean);
+    const couponRowsBySheet = await Promise.all(couponSheets.map(name => db.getRowsFresh(name, { strict: true })));
+    const couponById = new Map();
+    const couponChanges = [];
+    for (let si = 0; si < couponSheets.length; si++) {
+      const sheet = couponSheets[si];
+      for (const coupon of couponRowsBySheet[si] || []) {
+        const status = String(coupon.status || '').toLowerCase();
+        const sellerEmail = String(coupon.sellerEmail || coupon.seller_email || '').trim();
+        if (!coupon.id || !sellerEmail || ['pending','review','submitted','awaiting','proof_requested','rejected'].includes(status)) continue;
+        let expected;
+        try { expected = sellerPayout.calculateSellerPayout(sellerPayout.faceValueOf(coupon)); } catch (_) { continue; }
+        couponById.set(String(coupon.id), { coupon, expected });
+        const stored = Number(coupon.sellerPayout ?? coupon.seller_payout);
+        if (!Number.isFinite(stored) || Math.round(stored * 100) !== expected * 100) {
+          couponChanges.push({ sheet, id: String(coupon.id), oldAmount: coupon.sellerPayout ?? coupon.seller_payout ?? null, newAmount: expected });
+        }
+      }
+    }
+
+    const payoutRows = await getAllPayouts();
+    const payoutChanges = [];
+    for (const payout of payoutRows || []) {
+      if (String(payout.status || '').toLowerCase() !== 'pending') continue;
+      const sourceId = String(payout.sourceCouponId || payout.source_coupon_id || '');
+      const source = couponById.get(sourceId);
+      if (!source) continue;
+      const oldAmount = Number(payout.amount);
+      if (!Number.isFinite(oldAmount) || Math.round(oldAmount * 100) !== source.expected * 100) {
+        payoutChanges.push({ id: String(payout.id), oldAmount: payout.amount, newAmount: source.expected });
+      }
+    }
+
+    if (apply) {
+      for (const change of couponChanges) {
+        await db.updateRow(change.sheet, 'id', change.id, { sellerPayout: change.newAmount }, { strict: true });
+      }
+      for (const change of payoutChanges) {
+        await db.updateRow(db.SHEETS.PAYOUTS, 'id', change.id, { amount: change.newAmount }, { strict: true });
+      }
+    }
+    return res.json({
+      ok: true, mode: apply ? 'applied' : 'preview',
+      couponRowsToUpdate: couponChanges.length,
+      pendingPayoutRowsToUpdate: payoutChanges.length,
+      protectedPaidOrProcessingRows: (payoutRows || []).filter(p => ['paid','processing'].includes(String(p.status || '').toLowerCase())).length,
+      changes: { coupons: couponChanges, pendingPayouts: payoutChanges },
+      message: apply ? 'Eligible historical coupon and pending payout values were recalculated.' : 'Preview only. Send apply:true to commit these changes.',
+    });
+  } catch (err) {
+    console.error('[payouts] historical payout recalculation failed:', err.message);
+    return res.status(503).json({ error: 'Historical seller payouts could not be recalculated safely.' });
+  }
+});
+
 // POST /api/admin/payouts/:id/approve — mark a payout as paid
 router.post('/admin/payouts/:id/approve', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
