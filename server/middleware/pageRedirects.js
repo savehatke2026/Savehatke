@@ -4,10 +4,11 @@
 // Server-side 302s for four page rules. They run before express.static, so a
 // restricted page's HTML never reaches the browser and nothing flashes:
 //
-//   1. /vault (any path form)                → always redirect to /
-//   2. /dashboard (and any dashboard subpage) → / when the session is not valid
-//   3. /login (and /login.html)              → / when the session IS valid
-//   4. /login stays reachable for anyone not logged in
+//   1. / (and /index variants)               → /vault for a verified admin
+//   2. /vault (any path form)                → / when the caller is not an admin
+//   3. /dashboard (and any dashboard subpage) → / when the session is not valid
+//   4. /login (and /login.html)              → / when the session IS valid
+//   5. /login stays reachable for anyone not logged in
 //
 // Authentication reuses the same trusted check as the API: resolveCaller reads
 // the HttpOnly sh_session cookie and validateSessionToken validates it against
@@ -25,8 +26,7 @@ function normalisePath(req) {
   return p.replace(/\.html$/, '');
 }
 
-const ALWAYS_HOME_PAGES = new Set([]);
-const VAULT_PAGES = new Set(['/vault']);
+const ADMIN_HOME_PAGES = new Set(['/', '/index']);
 const LOGIN_PAGES = new Set(['/login']);
 
 function isDashboardPath(p) {
@@ -55,10 +55,11 @@ async function pageRedirectGuard(req, res, next) {
   }
 
   // Rules 2, 3 and 4 need the session.
+  const isHome = ADMIN_HOME_PAGES.has(p);
   const isVault = isVaultPath(p);
   const isDash = isDashboardPath(p);
   const isLogin = LOGIN_PAGES.has(p);
-  if (!isVault && !isDash && !isLogin) return next();
+  if (!isHome && !isVault && !isDash && !isLogin) return next();
 
   let caller = null;
   try {
@@ -71,6 +72,10 @@ async function pageRedirectGuard(req, res, next) {
   }
   const loggedIn = Boolean(caller && caller.id);
   const isAdmin = Boolean(caller && (isAdminRole(caller) || ['admin', 'super admin', 'support'].includes(String(caller.role || '').toLowerCase())));
+
+  // A verified admin must never land on the public homepage. This covers
+  // /, /index, and /index.html (normalisePath strips the .html suffix).
+  if (isHome && isAdmin) return res.redirect(302, '/vault');
 
   // Vault is strictly for authenticated admins; non-admins bounce to /
   if (isVault && !isAdmin) return res.redirect(302, '/');
