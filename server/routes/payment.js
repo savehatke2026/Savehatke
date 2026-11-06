@@ -551,21 +551,20 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
     }
 
     const couponId = String((req.body && req.body.couponId) || '').trim();
-    if (!couponId && requestedAmount === null) {
-      return fail(res, 400, 'INVALID_INPUT', 'An amount is required to start a payment.');
+    if (!couponId) {
+      return fail(res, 400, 'COUPON_REQUIRED', 'A valid coupon is required to start a payment.');
+    }
+    if (requestedAmount === null && hasAmount) {
+      return fail(res, 400, 'INVALID_AMOUNT', 'The payment amount is invalid.');
     }
 
-    // ── Resolve the authoritative amount ───────────────────────────────────
-    // Two shapes are accepted:
-    //   { amount, couponId }  — the real checkout. The coupon's server-side
-    //                           price is authoritative and the supplied amount
-    //                           must agree with it, so a tampered body cannot
-    //                           buy a ₹999 coupon for ₹1.
-    //   { amount }            — a coupon-less payment for an arbitrary amount.
+    // The coupon is mandatory. The server loads it and computes the payable
+    // amount from its stored face value/expiry; a client-supplied amount is
+    // only a consistency check and can never create a standalone payment.
     let coupon = null;
     let amount = null;
 
-    if (couponId) {
+    {
       coupon = await loadCoupon(couponId);
       const verdict = evaluateCoupon(coupon, { userId, userEmail });
 
@@ -598,19 +597,11 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
       }
 
       amount = verdict.amount;
-    } else {
-      // No coupon referenced: the validated amount is the whole request.
-      amount = requestedAmount;
     }
 
-    // Reuse a live payment instead of starting a second window. This is what
-    // makes a page refresh or a reopened modal keep the ORIGINAL expires_at,
-    // and is what prevents two tabs from each minting a 10-minute timer.
-    // Coupon-less payments have no coupon to key on, so they dedupe on the
-    // amount instead (see findLiveOpenPayment).
-    const live = couponId
-      ? await store.findLivePaymentForUserCoupon(userId, couponId)
-      : await store.findLiveOpenPayment(userId, amount);
+    // Reuse the live payment for this exact coupon. Standalone amount-only
+    // payment sessions are intentionally unsupported.
+    const live = await store.findLivePaymentForUserCoupon(userId, couponId);
     if (live && new Date(live.expiresAt).getTime() > Date.now()) {
       // Still inside the 10-minute on-screen window: a refresh / reopened modal
       // resumes the SAME window (same QR, same countdown). Enforce one active
@@ -771,7 +762,7 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
     // Session is live: log the lifecycle anchors and open the checking loop
     // immediately (the SSE tick keeps it going while the window is open; the
     // scan itself is coalesced, so this never multiplies Gmail calls).
-    console.log(`[PAYMENT_SESSION] created sessionId=${paymentId} couponId=${couponId || '-'} userExpiry=${expiresAt} backendExpiry=${checkExpiresAt}`);
+    console.log(`[PAYMENT_SESSION] created sessionId=${paymentId} couponId=${couponId} userExpiry=${expiresAt} backendExpiry=${checkExpiresAt}`);
     try { verifier.triggerMailboxScan().catch(() => {}); } catch (_) {}
 
     let presented;

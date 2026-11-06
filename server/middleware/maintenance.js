@@ -137,8 +137,11 @@ async function maintenanceGuard(req, res, next) {
       message: status.message || 'SaveHatke is temporarily unavailable while we make some improvements. Please check back shortly.',
     });
   } catch (err) {
-    console.warn('Maintenance guard check failed, allowing request:', err.message);
-    return next();
+    console.error('Maintenance guard check failed; refusing request:', err.message);
+    return res.status(503).json({
+      error: 'SaveHatke is temporarily unavailable. Please try again shortly.',
+      code: 'MAINTENANCE_CHECK_UNAVAILABLE',
+    });
   }
 }
 

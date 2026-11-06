@@ -43,6 +43,7 @@
 const crypto = require('crypto');
 const googleDrive = require('./googleDrive');
 const brandAssets = require('./brandAssets');
+const { sniffImage, looksComplete } = require('../utils/imageSniff');
 
 const MAX_IMAGE_BYTES = 3 * 1024 * 1024; // 3 MB decoded — well under the route's 4.25mb JSON cap
 
@@ -51,17 +52,6 @@ const KINDS = { brandLogo: 'logos', backgroundImage: 'backgrounds' };
 
 // Accepted formats. Sniffed from magic bytes — the declared filename/content
 // type is never trusted on its own.
-const MIME_BY_SIGNATURE = [
-  { mime: 'image/png', ext: 'png', test: (b) => b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47 },
-  { mime: 'image/jpeg', ext: 'jpg', test: (b) => b.length > 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff },
-  {
-    mime: 'image/webp', ext: 'webp',
-    test: (b) => b.length > 12
-      && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46
-      && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50,
-  },
-];
-
 function isConfigured() {
   return googleDrive.isConfigured();
 }
@@ -91,20 +81,22 @@ function validateImageUpload({ dataBase64, contentType }) {
     throw new Error(`Image is too large. The maximum size is ${Math.round(MAX_IMAGE_BYTES / (1024 * 1024))} MB.`);
   }
 
-  // Content sniffing decides — a renamed .exe or .svg script is refused even
-  // if the browser reported an image type.
-  const sig = MIME_BY_SIGNATURE.find((s) => s.test(buffer));
-  if (!sig) {
+  // Inspect the actual bytes, require a complete raster image, and require
+  // the browser's declared MIME type to agree with the detected file type.
+  // SVG, HTML, executables, truncated files and MIME-spoofed files are refused.
+  const sig = sniffImage(buffer);
+  if (!sig || !['image/png', 'image/jpeg', 'image/webp'].includes(sig.mime)) {
     throw new Error('Unsupported image format. Please upload a PNG, JPG, JPEG or WebP file.');
   }
-  // A browser-reported type that disagrees with the bytes is not fatal (some
-  // browsers are loose), but a CONFLICTING concrete claim is refused.
-  const claimed = String(contentType || '').toLowerCase();
-  if (claimed && /^image\//.test(claimed) && claimed !== sig.mime) {
+  if (!looksComplete(buffer, sig.mime)) {
+    throw new Error('The image is incomplete or damaged. Please re-save it and try again.');
+  }
+  const claimed = String(contentType || '').toLowerCase().split(';')[0].trim();
+  if (claimed && claimed !== sig.mime) {
     throw new Error('The file content does not match its image type. Please re-export the image and try again.');
   }
 
-  return { buffer, ext: sig.ext, contentType: sig.mime };
+  return { buffer, ext: sig.ext.replace(/^\./, ''), contentType: sig.mime };
 }
 
 /**

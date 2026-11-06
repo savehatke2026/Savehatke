@@ -1,6 +1,7 @@
 'use strict';
 
 // The ONLY seller payout formula. Marketplace sellingPrice is never an input.
+// Seller payouts are paid in whole rupees; fractions are rounded half-up.
 const PAYOUT_RATE = 0.07;
 const PAYOUT_PRICING_MODEL = 'face-value-7-percent';
 const MIN_FACE_VALUE = 100;
@@ -27,8 +28,9 @@ function calculateSellerPayout(faceValue) {
     error.status = 400;
     throw error;
   }
-  // sellerPayout = faceValue * 0.07, rounded only to the nearest paise.
-  return Math.floor((paise * 7 + 50) / 100) / 100;
+  // 7% of face value, rounded half-up to the nearest whole rupee.
+  // paise * 7 / 10000 converts face-value paise to payout rupees.
+  return Math.floor((paise * 7 + 5000) / 10000);
 }
 
 function faceValueOf(coupon = {}) {
@@ -42,13 +44,20 @@ function couponPayoutInfo(coupon = {}) {
     const sellerPayout = calculateSellerPayout(faceValue);
     const stored = coupon.sellerPayout ?? coupon.seller_payout;
     const storedPaise = moneyToPaise(stored);
+    // Existing coupons may still carry the previous paise-precise 7% amount.
+    // Accept that exact legacy value during migration, but expose/store the new
+    // whole-rupee amount from this point onward.
+    const legacyPaise = Math.floor((moneyToPaise(faceValue) * 7 + 50) / 100);
+    const storedMatches = storedPaise !== null && (
+      storedPaise === moneyToPaise(sellerPayout) || storedPaise === legacyPaise
+    );
     return {
       faceValue: moneyToPaise(faceValue) / 100,
       sellerPayout,
       payoutRate: PAYOUT_RATE,
       payoutEligible: true,
-      payoutVerified: storedPaise !== null && storedPaise === moneyToPaise(sellerPayout),
-      payoutValidationError: storedPaise === moneyToPaise(sellerPayout) ? '' : 'Stored seller payout is missing or does not match 7% of face value.',
+      payoutVerified: storedMatches,
+      payoutValidationError: storedMatches ? '' : 'Stored seller payout is missing or does not match 7% of face value.',
     };
   } catch (error) {
     return { faceValue: faceValueOf(coupon) ?? null, sellerPayout: null, payoutRate: PAYOUT_RATE,
