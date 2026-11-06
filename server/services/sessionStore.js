@@ -63,14 +63,18 @@ async function createSession(data, ttlMs) {
   await db.appendRow(targetTable, row, { strict: true });
   return row;
 }
-async function findSessionByToken(tokenHash) {
+async function findByToken(tokenHash) {
   if (!db.isSheetsConnected()) throw new Error('Google Sheets session storage is unavailable');
   for (const table of TABLES) {
     const rows = await rowsFor(table);
     const row = rows.find((r) => String(r.session_token || '') === String(tokenHash));
-    if (row) return row;
+    if (row) return { table, row };
   }
   return null;
+}
+async function findSessionByToken(tokenHash) {
+  const found = await findByToken(tokenHash);
+  return found ? found.row : null;
 }
 async function findSessionById(sessionId) {
   const found = await findById(sessionId);
@@ -84,10 +88,10 @@ async function updateFound(found, patch) {
   return true;
 }
 async function endSessionByToken(tokenHash, reason = 'Logged out') {
-  const row = await findSessionByToken(tokenHash);
-  if (!row || row.status !== 'Active') { sessionCache.remove(tokenHash); return false; }
+  const found = await findByToken(tokenHash);
+  if (!found || found.row.status !== 'Active') { sessionCache.remove(tokenHash); return false; }
   const now = new Date().toISOString();
-  return updateFound({ table: tableFor(row.login_method), row }, {
+  return updateFound(found, {
     status: reason, last_active: now, revoked_at: now,
     ...(reason === 'Logged out' ? { logged_out_at: now } : {}),
   });
@@ -174,7 +178,7 @@ async function getAccountSessionHistory(email, limit = 200) {
     if (!key) return [];
     return (await allRows()).filter((r) => String(r.email || '').trim().toLowerCase() === key)
       .sort((a,b) => new Date(b.login_time || 0) - new Date(a.login_time || 0))
-      .slice(0, Math.max(1, Number(limit) || 200));
+      .slice(0, Math.max(1, Number(limit) || 200)).map(clean);
   } catch (err) {
     console.warn('[sessions] Google Sheets history unavailable:', err.message);
     return null;

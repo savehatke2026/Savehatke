@@ -2,7 +2,7 @@
 // SaveHatke — Session Validation Cache
 // ============================================
 // Per-instance cache used only to throttle last_active writes. Session rows
-// are always re-read from Supabase before authorization, so revocation is
+// are always re-read from Google Sheets before authorization, so revocation is
 // effective across Vercel instances on the next request.
 
 const SESSION_CACHE_TTL_MS = 60 * 1000;
