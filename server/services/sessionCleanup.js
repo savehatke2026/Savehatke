@@ -66,8 +66,7 @@ async function runSessionCleanup() {
     console.warn('Session purge warning:', e && e.message ? e.message : e);
   }
   if (purged > 0) {
-    const days = Math.round(sessionStore.SESSION_RETENTION_MS / (24 * 60 * 60 * 1000));
-    console.log(`🗑️  Session cleanup: ${purged} ended session${purged === 1 ? '' : 's'} deleted (past ${days}-day retention).`);
+    console.log(`🗑️  Session cleanup: ${purged} non-active session${purged === 1 ? '' : 's'} deleted.`);
   }
 
 
@@ -134,8 +133,7 @@ function startSessionCleanupInterval() {
   }, CLEANUP_INTERVAL_MS);
   // One full sweep shortly after boot
   setTimeout(() => runSessionCleanup().catch(() => {}), 15 * 1000);
-  const days = Math.round(sessionStore.SESSION_RETENTION_MS / (24 * 60 * 60 * 1000));
-  console.log(`⏱️  Session cleanup job scheduled (every 10 minutes; ended sessions deleted after ${days} days).`);
+  console.log('⏱️  Session cleanup job scheduled (every 10 minutes; non-active sessions are deleted).');
 }
 
 module.exports = {
