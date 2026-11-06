@@ -2253,7 +2253,7 @@ router.put('/users/status', authenticateToken, requireAdmin, adminMutationLimite
 router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
-      sessionStore.getAllSessions(),
+      sessionStore.getUserSessionsList(),
       db.getRows(db.SHEETS.USERS).catch(() => []),
       // readyState guard: an unconnected mongoose buffers the query and this
       // endpoint would hang instead of simply listing sessions without photos.
