@@ -111,8 +111,8 @@ async function resolveCaller(req) {
  *   app.use('/api/coupons', maintenanceGuard, couponRoutes);
  *
  * Reads the cached maintenance flag (≤10s stale) so the per-request cost
- * is negligible. Fails open on a Supabase outage — better to let users in
- * than to lock them out because of a transient DB error.
+ * is negligible. Fails closed on a Supabase outage so an unknown maintenance
+ * state cannot become an accidental access bypass.
  */
 async function maintenanceGuard(req, res, next) {
   try {
@@ -137,8 +137,11 @@ async function maintenanceGuard(req, res, next) {
       message: status.message || 'SaveHatke is temporarily unavailable while we make some improvements. Please check back shortly.',
     });
   } catch (err) {
-    console.warn('Maintenance guard check failed, allowing request:', err.message);
-    return next();
+    console.error('Maintenance guard check failed; refusing request:', err.message);
+    return res.status(503).json({
+      error: 'SaveHatke is temporarily unavailable. Please try again shortly.',
+      code: 'MAINTENANCE_CHECK_UNAVAILABLE',
+    });
   }
 }
 

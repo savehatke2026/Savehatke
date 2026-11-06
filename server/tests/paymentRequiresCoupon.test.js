@@ -1,0 +1,14 @@
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const source = fs.readFileSync(path.join(__dirname, '..', 'routes', 'payment.js'), 'utf8');
+const createStart = source.indexOf("router.post('/create'");
+const createEnd = source.indexOf("router.", createStart + 10);
+assert.notEqual(createStart, -1, 'payment create route exists');
+const createRoute = source.slice(createStart, createEnd === -1 ? source.length : createEnd);
+assert.match(createRoute, /if\s*\(!couponId\)[\s\S]{0,220}COUPON_REQUIRED/, 'missing coupon must be rejected');
+assert.match(createRoute, /loadCoupon\(couponId\)/, 'coupon must be loaded from server storage');
+assert.match(createRoute, /evaluateCoupon\(coupon/, 'coupon availability and price must be validated');
+assert.doesNotMatch(createRoute, /findLiveOpenPayment/, 'amount-only payment lookup must not be reachable');
+console.log('paymentRequiresCoupon: 4 passed');

@@ -5,7 +5,7 @@
 // platform — all buyer payments flow through this custom UPI/QR module.
 //
 //   GET  /config    public feature flags for the checkout modal (no secrets)
-//   POST /create    start a payment for an amount (+ optional coupon) (auth)
+//   POST /create    start a payment for a required coupon (auth)
 //   GET  /status    authoritative current state   (auth)
 //   POST /verify    ask the server to re-check    (auth)
 //   POST /cancel    cancel a pending payment      (auth)
@@ -33,7 +33,7 @@
 //     window, and releases it on cancel/supersede/expiry.
 //
 // Security posture
-//   * /create accepts the amount the checkout is displaying, but treats it as
+//   * /create requires a coupon ID; any amount from the checkout is
 //     untrusted input: it must be numeric, > 0 and <= PAYMENT_MAX_AMOUNT.
 //   * When a coupon is referenced, that coupon's server-side price is
 //     authoritative and a mismatched amount is refused with AMOUNT_MISMATCH,
@@ -551,21 +551,16 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
     }
 
     const couponId = String((req.body && req.body.couponId) || '').trim();
-    if (!couponId && requestedAmount === null) {
-      return fail(res, 400, 'INVALID_INPUT', 'An amount is required to start a payment.');
+    if (!couponId) {
+      return fail(res, 400, 'COUPON_REQUIRED', 'A valid coupon is required to start a payment.');
     }
 
-    // ── Resolve the authoritative amount ───────────────────────────────────
-    // Two shapes are accepted:
-    //   { amount, couponId }  — the real checkout. The coupon's server-side
-    //                           price is authoritative and the supplied amount
-    //                           must agree with it, so a tampered body cannot
-    //                           buy a ₹999 coupon for ₹1.
-    //   { amount }            — a coupon-less payment for an arbitrary amount.
+    // A coupon is mandatory. The server loads it and computes the payable
+    // amount from its stored face value/expiry; client amount is only a check.
     let coupon = null;
     let amount = null;
 
-    if (couponId) {
+    {
       coupon = await loadCoupon(couponId);
       const verdict = evaluateCoupon(coupon, { userId, userEmail });
 
@@ -598,19 +593,11 @@ router.post('/create', createLimiter, authenticateToken, createAccountLimiter, a
       }
 
       amount = verdict.amount;
-    } else {
-      // No coupon referenced: the validated amount is the whole request.
-      amount = requestedAmount;
     }
 
-    // Reuse a live payment instead of starting a second window. This is what
-    // makes a page refresh or a reopened modal keep the ORIGINAL expires_at,
-    // and is what prevents two tabs from each minting a 10-minute timer.
-    // Coupon-less payments have no coupon to key on, so they dedupe on the
-    // amount instead (see findLiveOpenPayment).
-    const live = couponId
-      ? await store.findLivePaymentForUserCoupon(userId, couponId)
-      : await store.findLiveOpenPayment(userId, amount);
+    // Reuse the live payment for this exact coupon. Standalone amount-only
+    // payment sessions are intentionally unsupported.
+    const live = await store.findLivePaymentForUserCoupon(userId, couponId);
     if (live && new Date(live.expiresAt).getTime() > Date.now()) {
       // Still inside the 10-minute on-screen window: a refresh / reopened modal
       // resumes the SAME window (same QR, same countdown). Enforce one active
