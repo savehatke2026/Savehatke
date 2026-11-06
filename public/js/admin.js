@@ -3274,7 +3274,7 @@ async function loadUserActivity() {
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = String(value); };
     set('userActivityTodayCount', new Set(rows.filter((r) => r.date === today).map((r) => r.userId || r.email)).size);
-    set('userActivityIntervalsCount', events.length);
+    set('userActivityIntervalsCount', new Set(events.map((e) => String(e.user_id) + '|' + String(e.activity_date) + '|' + String(e.interval_slot))).size);
     set('userActivityDaysCount', new Set(rows.map((r) => r.date)).size);
     if (!rows.length) {
       body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">No activity recorded yet. Activity will appear as signed-in users browse the website. Tracking starts after deployment.</td></tr>';
@@ -3285,7 +3285,7 @@ async function loadUserActivity() {
         const active = r.slots.has(slot), h = String(Math.floor(slot / 4)).padStart(2, '0'), m = String((slot % 4) * 15).padStart(2, '0');
         return '<span title="' + h + ':' + m + (active ? ' · Active' : ' · No activity') + '" style="display:inline-block;width:5px;height:13px;margin:1px;border-radius:2px;background:' + (active ? '#00c875' : 'rgba(120,145,175,.16)') + '"></span>';
       }).join('');
-      return '<tr><td>' + escapeHtml(r.email || r.userId || 'Unknown') + '</td><td>' + escapeHtml(r.date) + '</td><td style="min-width:520px;line-height:0;white-space:normal">' + dots + '</td><td>' + (r.slots.size * 15) + ' min</td><td>' + fmtDateTime(r.first) + ' – ' + fmtDateTime(r.last) + '</td></tr>';
+      return '<tr><td>' + escapeHtml(r.email || r.userId || 'Unknown') + '</td><td>' + escapeHtml(r.date) + '</td><td style="min-width:520px;line-height:0;white-space:normal">' + dots + '</td><td>' + r.slots.size + ' active intervals</td><td>' + fmtDateTime(r.first) + ' – ' + fmtDateTime(r.last) + '</td></tr>';
     }).join('');
   } catch (err) {
     body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef9a9a;padding:24px;">Could not load activity: ' + escapeHtml(err.message || 'Unknown error') + '</td></tr>';
