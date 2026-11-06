@@ -114,7 +114,7 @@ router.post('/balance-add', async (req, res) => {
   try {
     await ensureFinanceInitialized();
     const result = await applyFinanceEntry({
-      type: 'BALANCE_ADD', amount, transactionDate: new Date().toISOString().slice(0, 10),
+      type: 'BALANCE_ADD', amount, note: String(req.body && req.body.note || '').trim().slice(0, 240), transactionDate: new Date().toISOString().slice(0, 10),
       requestId: String(req.get('Idempotency-Key') || req.body?.requestId || uuidv4()).slice(0, 120),
     });
     return res.json({ ok: true, message: 'Balance updated.', balance: Number(result.balance), duplicate: !!result.duplicate });
