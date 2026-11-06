@@ -4316,6 +4316,9 @@ function showSection(id, navEl) {
   if (id === 'reports' && typeof loadMonthlyReports === 'function') {
     loadMonthlyReports();
   }
+  if (id === 'personal-finance' && typeof loadPersonalFinance === 'function') {
+    loadPersonalFinance();
+  }
   if (id === 'revenue' && typeof loadRevenueOverview === 'function') {
     loadRevenueOverview();
   }
