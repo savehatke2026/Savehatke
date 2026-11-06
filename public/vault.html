@@ -6111,7 +6111,7 @@ function renderTable(status) {
     const base = `
       <td><strong style="font-family:'JetBrains Mono',monospace" title="${idAttr}">${esc(shortId(c.id))}</strong></td>
       <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(c.subject)}"><strong>${esc(c.subject)}</strong></td>
-      <td><div style="display:flex;align-items:center;gap:8px">${c.email ? emailAvatarHtml(c.email, 28) : avatarHtml(c.user)}${esc(c.user)}</div></td>
+      <td><div style="display:flex;align-items:center;gap:8px">${status === 'open' ? (c.email ? emailAvatarHtml(c.email, 28) : '') : (c.email ? emailAvatarHtml(c.email, 28) : avatarHtml(c.user))}${esc(status === 'open' ? (c.email || '—') : c.user)}</div></td>
       <td style="font-size:.78rem;color:#6b88aa">${fmtDT(c.createdAt)}</td>`;
 
     if (status === 'open') {
