@@ -4,7 +4,7 @@
 // Admin pays sellers when their coupons are sold.
 //
 // Seller payout rule (single source of truth): every payout equals 7% of the
-// coupon's face value (`originalValue`), rounded half-up to the nearest paise. There is no flat
+// coupon's face value (`originalValue`), rounded half-up to the nearest whole rupee. There is no flat
 // fallback, no tiered rate, and no read of `sellingPrice` — the marketplace
 // selling price is a separate value and never feeds the payout. The arithmetic
 // lives in services/sellerPayout.js; this route only ever asks it for the
@@ -109,13 +109,14 @@ async function resolveCouponPayoutAmount(coupon) {
   return { ok: false, reason: `Coupon ${id} has no face value eligible for a payout (must be ₹100–₹10,000).` };
 }
 
-// Wraps the sellerPayout service so callers only see a valid paise-precise
-// amount or no answer. Invalid face values fall through to the next source.
+// Wraps the sellerPayout service so callers only see "an integer rupee" or
+// "no answer". Returning null on invalid face values lets the caller fall
+// through to the next source without a try/catch.
 function tryCompute7Percent(faceValue) {
   try {
     const rupees = sellerPayout.calculateSellerPayout(faceValue);
-    // Preserve the canonical two-decimal payout. Never round it to whole rupees.
-    return Math.round(rupees * 100) / 100;
+    // sellerPayout already returns a whole-rupee integer (half-up rounded).
+    return Math.round(rupees);
   } catch (e) {
     return null;
   }
@@ -304,11 +305,11 @@ async function calculateSellerPayoutBalance(email, payoutRows = null) {
     const invalidation = describeCouponInvalidation(coupon, auditRows, allPayouts);
     if (invalidation.invalidated || invalidation.paymentWithheld) continue;
     const result = await resolveCouponPayoutAmount(coupon);
-    if (!result.ok || !Number.isSafeInteger(Math.round(result.amount * 100)) || result.amount <= 0) {
+    if (!result.ok || !Number.isSafeInteger(result.amount) || result.amount <= 0) {
       throw new Error('A seller earning could not be verified');
     }
     earned += result.amount;
-    if (!Number.isSafeInteger(Math.round(earned * 100))) throw new Error('Seller balance is out of range');
+    if (!Number.isSafeInteger(earned)) throw new Error('Seller balance is out of range');
   }
 
   const ownPayouts = allPayouts.filter((p) => String(p.sellerEmail || '').toLowerCase().trim() === cleanEmail);
@@ -316,17 +317,17 @@ async function calculateSellerPayoutBalance(email, payoutRows = null) {
   for (const payout of ownPayouts) {
     if (String(payout.status || '').toLowerCase() !== 'paid') continue;
     const amount = Number(payout.amount);
-    if (!Number.isFinite(amount) || amount < 0 || !Number.isSafeInteger(Math.round(amount * 100))) throw new Error('Payout ledger is invalid');
+    if (!Number.isSafeInteger(amount) || amount < 0) throw new Error('Payout ledger is invalid');
     paid += amount;
-    if (!Number.isSafeInteger(Math.round(paid * 100))) throw new Error('Payout balance is out of range');
+    if (!Number.isSafeInteger(paid)) throw new Error('Payout balance is out of range');
   }
 
   let reserved = 0;
   for (const reservation of reservations) {
     const amount = Number(reservation.amount);
-    if (!Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount * 100))) throw new Error('Payout reservation ledger is invalid');
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new Error('Payout reservation ledger is invalid');
     reserved += amount;
-    if (!Number.isSafeInteger(Math.round(reserved * 100))) throw new Error('Payout reservation total is out of range');
+    if (!Number.isSafeInteger(reserved)) throw new Error('Payout reservation total is out of range');
   }
 
   return { earned, paid, reserved, available: Math.max(0, earned - paid - reserved), payouts: ownPayouts };
@@ -346,7 +347,7 @@ async function reservePayoutAmount({ reservationId, payoutId, email, amount, bal
 async function reservePayoutForSettlement(payout, { forRejection = false } = {}) {
   const email = String(payout.sellerEmail || '').toLowerCase().trim();
   const amount = Number(payout.amount);
-  if (!email || !Number.isFinite(amount) || amount <= 0 || !Number.isSafeInteger(Math.round(amount * 100))) throw new Error('Payout record is invalid');
+  if (!email || !Number.isSafeInteger(amount) || amount <= 0) throw new Error('Payout record is invalid');
   const active = await supabase.getActiveSellerPayoutReservations(email);
   const existing = active.find((item) => item.payout_id === String(payout.id)
     || (payout.reservationId && item.reservation_id === payout.reservationId));
@@ -1230,7 +1231,7 @@ router.post('/payouts/request', authenticateToken, payoutRequestAccountLimiter, 
     // a manual request is a separate row with sourceType='manual' that the admin
     // settles by amount.
     const requestedAmount = amount;
-    if (typeof requestedAmount !== 'number' || !Number.isFinite(requestedAmount) || !Number.isSafeInteger(Math.round(requestedAmount * 100)) || requestedAmount < 50) {
+    if (typeof requestedAmount !== 'number' || !Number.isSafeInteger(requestedAmount) || requestedAmount < 50) {
       return res.status(400).json({ error: 'Minimum payout request is ₹50.' });
     }
     if (requestedAmount > 100000) {
