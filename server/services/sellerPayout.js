@@ -1,7 +1,7 @@
 'use strict';
 
 // The ONLY seller payout formula. Marketplace sellingPrice is never an input.
-// Seller payouts are paid in whole rupees; fractions are rounded half-up.
+// Seller payouts retain paise precision; 7% is rounded half-up to the nearest paise.
 const PAYOUT_RATE = 0.07;
 const PAYOUT_PRICING_MODEL = 'face-value-7-percent';
 const MIN_FACE_VALUE = 100;
@@ -9,8 +9,8 @@ const MAX_FACE_VALUE = 10000;
 const VALIDATION_MESSAGE = 'Coupon face value must be between ₹100 and ₹10,000, with at most two decimal places.';
 
 // Parse decimal rupees without permissive parseFloat/character stripping.
-// Integer paise avoid binary floating-point drift; final payout is rounded
-// half-up to a whole rupee using integer arithmetic.
+// Integer paise avoid binary floating-point drift; the percentage is rounded
+// half-up to the nearest paise using integer arithmetic.
 function moneyToPaise(value) {
   if (typeof value !== 'string' && typeof value !== 'number') return null;
   const text = String(value).trim();
@@ -28,8 +28,9 @@ function calculateSellerPayout(faceValue) {
     error.status = 400;
     throw error;
   }
-  // 7% of face value, rounded half-up to the nearest whole rupee.
-  return Math.floor((paise * 7 + 5000) / 10000);
+  // 7% of face value, rounded half-up to the nearest paise.
+  const payoutPaise = Math.floor((paise * 7 + 50) / 100);
+  return payoutPaise / 100;
 }
 
 function faceValueOf(coupon = {}) {
@@ -43,11 +44,10 @@ function couponPayoutInfo(coupon = {}) {
     const sellerPayout = calculateSellerPayout(faceValue);
     const stored = coupon.sellerPayout ?? coupon.seller_payout;
     const storedPaise = moneyToPaise(stored);
-    // Preserve verification of old coupons that stored paise-precise payouts.
-    const legacyPaise = Math.floor((moneyToPaise(faceValue) * 7 + 50) / 100);
-    const storedMatches = storedPaise !== null && (
-      storedPaise === moneyToPaise(sellerPayout) || storedPaise === legacyPaise
-    );
+    // Only the exact paise-precise 7% amount is valid. Historical whole-rupee
+    // values are deliberately flagged for the admin recalculation endpoint.
+    const expectedPaise = Math.floor((moneyToPaise(faceValue) * 7 + 50) / 100);
+    const storedMatches = storedPaise !== null && storedPaise === expectedPaise;
     return {
       faceValue: moneyToPaise(faceValue) / 100,
       sellerPayout,
