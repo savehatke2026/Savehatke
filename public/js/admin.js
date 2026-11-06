@@ -45,8 +45,12 @@ function showAdminDashboard() {
 
 function renderCurrentAdminProfile() {
   const adminUser = Auth.getAdminUser() || {};
-  const name = adminUser.name || adminUser.full_name || 'Admin User';
-  const email = adminUser.email || '';
+  const email = String(adminUser.email || '').trim().toLowerCase();
+  const ADMIN_DISPLAY_NAMES = {
+    'jaggik8888@gmail.com': 'Jaggik',
+    'rupayandas2024@gmail.com': 'Rupayan',
+  };
+  const name = ADMIN_DISPLAY_NAMES[email] || adminUser.name || adminUser.full_name || 'Admin User';
   const role = adminUser.role || 'Super Admin';
 
   // Google logins hand the photo over as `picture`; the email login and
@@ -131,8 +135,18 @@ async function refreshAdminProfile() {
 
     // Only re-render (and re-cache) when something actually changed, so an
     // unchanged profile doesn't thrash the header on every visit.
+    const ADMIN_DISPLAY_NAMES = {
+      'jaggik8888@gmail.com': 'Jaggik',
+      'rupayandas2024@gmail.com': 'Rupayan',
+    };
+    const displayName = ADMIN_DISPLAY_NAMES[String(admin.email || '').trim().toLowerCase()];
+    if (displayName) {
+      merged.name = displayName;
+      merged.full_name = displayName;
+    }
+
     const changed = (merged.profile_image || '') !== (cached.profile_image || cached.picture || '')
-      || (admin.name || '') !== (cached.name || cached.full_name || '')
+      || (merged.name || '') !== (cached.name || cached.full_name || '')
       || (admin.role || '') !== (cached.role || '');
     if (!changed) return;
 
