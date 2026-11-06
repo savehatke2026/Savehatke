@@ -10,13 +10,13 @@
 
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const supabaseService = require('../services/supabase');
+const sessionStore = require('../services/sessionStore');
 const sessionCache = require('../services/sessionCache');
 const { maybeRunSessionCleanup } = require('../services/sessionCleanup');
 const { getJwtSecret, isAuthorizedAdminEmail, ensureAdminRosterReady } = require('../config/security');
 
 // 48 hours — maximum session lifetime, starts at successful login.
-const SESSION_TTL_MS = supabaseService.SESSION_TTL_MS;
+const SESSION_TTL_MS = sessionStore.SESSION_TTL_MS;
 // Admins are logged out automatically 2 hours after login (hard limit).
 const ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const SESSION_COOKIE_NAME = 'sh_session';
@@ -60,7 +60,7 @@ async function validateSessionToken(rawToken) {
   const tokenHash = hashSessionToken(rawToken);
   const now = Date.now();
 
-  const row = await supabaseService.findSessionByToken(tokenHash);
+  const row = await sessionStore.findSessionByToken(tokenHash);
 
   // A pre-migration database cannot enforce revocation. Treat it as
   // unavailable and refuse the request; possession of a cookie alone is not a session.
@@ -74,7 +74,7 @@ async function validateSessionToken(rawToken) {
   if (row.status !== 'Active' || expiresMs <= now) {
     // Lazily flip expired-but-still-Active rows between scheduled sweeps.
     if (row.status === 'Active') {
-      supabaseService.endSessionByToken(tokenHash, 'Expired').catch(() => {});
+      sessionStore.endSessionByToken(tokenHash, 'Expired').catch(() => {});
     }
     sessionCache.remove(tokenHash);
     return { ok: false, user: rowUser(row) };
@@ -104,7 +104,7 @@ function touchSessionThrottled(rawToken, sessionId) {
   const now = Date.now();
   if (entry && now - (entry.lastTouchAt || 0) < SESSION_TOUCH_INTERVAL_MS) return;
   if (entry) entry.lastTouchAt = now;
-  supabaseService.updateSessionActivity(sessionId).catch(() => {});
+  sessionStore.updateSessionActivity(sessionId).catch(() => {});
 }
 
 // ── Session cookie helpers ─────────────────────────────────────────────────
