@@ -2359,10 +2359,10 @@ router.get('/admin-sessions', authenticateToken, requireAdmin, async (req, res) 
 });
 
 // POST /api/admin/sessions/backfill-userids
-// One-shot migration: for every Supabase session whose user_id is empty or
+// One-shot repair: for every Google Sheets session whose user_id is empty or
 // looks wrong (fallback "user_<timestamp>" prefix, or empty), look the email
 // up in the Google Sheets USERS tab and write the canonical user_id back to
-// the session row. Safe to re-run.
+// the appropriate session tab. Safe to re-run.
 router.post('/sessions/backfill-userids', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
     // Load all sessions + all users from Google Sheets.
