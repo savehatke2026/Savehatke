@@ -148,7 +148,7 @@ check('isolation: a session cookie does not bypass the guard for an unknown toke
   assert.equal(r.status, 503);
 });
 
-check('fail-open: a maintenance read error lets the request through (existing behaviour)', async () => {
+check('fail-closed: a maintenance read error refuses the request', async () => {
   reset();
   // Swap in a throwing reader for this one case.
   const supa = require(path.join(SERVER, 'services', 'supabase.js'));
@@ -156,7 +156,8 @@ check('fail-open: a maintenance read error lets the request through (existing be
   supa.getMaintenanceMode = async () => { throw new Error('supabase down'); };
   try {
     const r = await get('/api/coupons');
-    assert.equal(r.status, 200);
+    assert.equal(r.status, 503);
+    assert.equal(r.body.code, 'MAINTENANCE_CHECK_UNAVAILABLE');
   } finally {
     supa.getMaintenanceMode = original;
   }
