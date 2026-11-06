@@ -16,7 +16,7 @@ const emailService = require('../services/emailService');
 const googleDrive = require('../services/googleDrive');
 const { verifyTurnstile } = require('../utils/turnstile');
 const couponVision = require('../services/couponVision');
-// The single seller-payout formula (7% of face value, rounded to the paise).
+// The single seller-payout formula (7% of face value, rounded to whole rupees).
 // Marketplace sellingPrice is never an input to it.
 const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerPayout');
 // The single buyer-price formula (20% / 10% of face value, depending on time
