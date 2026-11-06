@@ -2178,7 +2178,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     </div>
 
     <!-- ════════════════ OWNER-ONLY PERSONAL FINANCE ════════════════ -->
-    <div class="section-view" id="sec-personal-finance">
+    <div class="section-view" id="sec-personal-finance" data-personal-finance-root>
       <div class="page-title-row">
         <div><div class="page-title">Personal <span class="gtext">Finance</span></div><div class="page-subtitle">Private balance and personal expense ledger</div></div>
         <button class="btn btn-ghost btn-sm" onclick="loadPersonalFinance()">↻ Refresh</button>
@@ -2186,7 +2186,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div id="pfMessage" class="card" role="status" style="display:none;margin-bottom:16px"></div>
       <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
         <div class="stat-card sc-green"><div class="stat-lbl">Available Balance</div><div class="stat-val gtext" id="pfBalance">—</div></div>
-        <div class="stat-card sc-blue"><div class="stat-lbl">Balance Added</div><div class="stat-val" id="pfAdditions">—</div></div>
+        
         <div class="stat-card sc-orange"><div class="stat-lbl">Total Expenses</div><div class="stat-val" id="pfExpenses">—</div></div>
       </div>
       <div class="stats-grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
