@@ -60,7 +60,7 @@ async function runSessionCleanup() {
   }
 
   try {
-    const result = await supabaseService.deleteExpiredSessions();
+    const result = await sessionStore.deleteExpiredSessions();
     purged = (result && result.count) || 0;
   } catch (e) {
     console.warn('Session purge warning:', e && e.message ? e.message : e);
@@ -91,7 +91,7 @@ async function maybeRunSessionCleanup() {
     if (!shouldPurge) {
       // Flip only — the same cheap sweep the interval timer performs.
       try {
-        const result = await supabaseService.expireOutdatedSessions();
+        const result = await sessionStore.expireOutdatedSessions();
         const count = (result && result.count) || 0;
         if (count > 0) {
           console.log(`🧹 Session cleanup: ${count} session${count === 1 ? '' : 's'} expired (session limit reached).`);
@@ -122,7 +122,7 @@ function startSessionCleanupInterval() {
       runSessionCleanup().catch((e) => console.warn('Session cleanup warning:', e && e.message ? e.message : e));
     } else {
       // 10-minute cadence: just flip past-expiry rows to 'Expired'.
-      supabaseService.expireOutdatedSessions()
+      sessionStore.expireOutdatedSessions()
         .then((result) => {
           const count = (result && result.count) || 0;
           if (count > 0) {
