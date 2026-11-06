@@ -6,13 +6,13 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 
 const router = express.Router();
-const OWNER_EMAIL = 'rupayandas2024@gmail.com';
+const ALLOWED_ADMIN_EMAIL = 'rupayandas2024@gmail.com';
 const BALANCE_SHEET = db.SHEETS.PERSONAL_FINANCE_BALANCE;
 const LEDGER_SHEET = db.SHEETS.PERSONAL_FINANCE_LEDGER;
 
-function ownerOnly(req, res, next) {
+function personalFinanceAdminOnly(req, res, next) {
   const email = String(req.user && req.user.email || '').toLowerCase().trim();
-  if (email !== OWNER_EMAIL) return res.status(403).json({ error: 'Personal Finance access denied.' });
+  if (email !== ALLOWED_ADMIN_EMAIL) return res.status(403).json({ error: 'Personal Finance access denied.' });
   next();
 }
 function parseAmount(value) {
@@ -26,7 +26,8 @@ function dateOnly(value) {
   return s;
 }
 
-router.use(authenticateToken, requireAdmin, ownerOnly);
+// Any admin role is accepted for this exact email; no Owner/Super Admin role is required.
+router.use(authenticateToken, requireAdmin, personalFinanceAdminOnly);
 
 router.get('/overview', async (req, res) => {
   try {
@@ -56,7 +57,7 @@ router.post('/balance-add', async (req, res) => {
     await db.appendRow(LEDGER_SHEET, {
       id: uuidv4(), type: 'BALANCE_ADD', amount: amount.toFixed(2), category: 'Balance adjustment',
       note: String(req.body.note || 'Balance added').trim().slice(0, 240),
-      transactionDate: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(), createdBy: OWNER_EMAIL,
+      transactionDate: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(), createdBy: ALLOWED_ADMIN_EMAIL,
     }, { strict: true });
     return res.json({ ok: true, message: 'Balance updated.' });
   } catch (err) {
