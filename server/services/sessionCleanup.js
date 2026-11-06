@@ -11,7 +11,7 @@
 //
 //   Phase 2 (purge): rows that ENDED ('Expired' / 'Logged out') more than
 //     SESSION_RETENTION_MS ago (90 days) are deleted from the application's
-//     own user_sessions / admin_sessions tables, so expired session data does
+//     own UserSessions / AdminSessions tabs, so expired session data does
 //     not remain in the database indefinitely. The retention window exists
 //     because those rows double as the device-history ledger behind the
 //     "New device detected" alert (services/deviceRecognition.js) and the
