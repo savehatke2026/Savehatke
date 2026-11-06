@@ -17,7 +17,7 @@ const ADMIN_TABLE = 'admin_sessions';
 const TABLES = [USER_TABLE, ADMIN_TABLE];
 
 function isAdminLoginMethod(method) {
-  return /^(google\\s+)?admin$/i.test(String(method || '').trim());
+  return /^(google\s+)?admin$/i.test(String(method || '').trim());
 }
 function tableFor(method) {
   return isAdminLoginMethod(method) ? ADMIN_TABLE : USER_TABLE;
@@ -210,6 +210,10 @@ async function getAllSessions() {
   return (await allRows()).map(clean)
     .sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
 }
+async function getUserSessionsList() {
+  return (await rowsFor(USER_TABLE)).map(clean)
+    .sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
+}
 async function getAdminSessions() {
   return (await rowsFor(ADMIN_TABLE)).map(clean)
     .sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
@@ -251,5 +255,5 @@ module.exports = {
   createSession, findSessionByToken, findSessionById, endSessionByToken,
   updateSessionActivity, updateSessionFields, endSession, endAllUserSessions,
   expireOutdatedSessions, deleteExpiredSessions, getAllSessions,
-  getAdminSessions, getUserSessions, getAccountSessionHistory, countActiveSessions,
+  getUserSessionsList, getAdminSessions, getUserSessions, getAccountSessionHistory, countActiveSessions,
 };
