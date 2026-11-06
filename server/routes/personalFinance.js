@@ -10,6 +10,20 @@ const ALLOWED_ADMIN_EMAIL = 'rupayandas2024@gmail.com';
 const BALANCE_SHEET = db.SHEETS.PERSONAL_FINANCE_BALANCE;
 const LEDGER_SHEET = db.SHEETS.PERSONAL_FINANCE_LEDGER;
 
+async function readBalance() {
+  const rows = await db.getRows(BALANCE_SHEET, { strict: true });
+  const row = rows.find(item => item.id === 'current-balance');
+  const value = Number(row && row.currentBalance || 0);
+  return Number.isFinite(value) && value >= 0 ? Math.round(value * 100) / 100 : 0;
+}
+async function writeBalance(value) {
+  const rows = await db.getRows(BALANCE_SHEET, { strict: true });
+  const existing = rows.find(item => item.id === 'current-balance');
+  const data = { id: 'current-balance', currentBalance: Number(value).toFixed(2), updatedAt: new Date().toISOString() };
+  if (existing) await db.updateRow(BALANCE_SHEET, 'id', 'current-balance', data, { strict: true });
+  else await db.appendRow(BALANCE_SHEET, data, { strict: true });
+}
+
 function personalFinanceAdminOnly(req, res, next) {
   const email = String(req.user && req.user.email || '').toLowerCase().trim();
   if (email !== ALLOWED_ADMIN_EMAIL) return res.status(403).json({ error: 'Personal Finance access denied.' });
@@ -36,13 +50,13 @@ router.get('/overview', async (req, res) => {
       db.getRows(BALANCE_SHEET, { strict: true }),
       db.getRows(LEDGER_SHEET, { strict: true }),
     ]);
-    const opening = Number((balanceRows.find(r => r.id === 'owner-opening-balance') || {}).openingBalance || 0);
-    const additions = ledgerRows.filter(r => r.type === 'BALANCE_ADD').reduce((n, r) => n + Number(r.amount || 0), 0);
+    const balanceRow = balanceRows.find(r => r.id === 'current-balance');
+    const balance = Math.max(0, Number(balanceRow && balanceRow.currentBalance || 0));
     const expenses = ledgerRows.filter(r => r.type === 'EXPENSE').reduce((n, r) => n + Number(r.amount || 0), 0);
     const transactions = ledgerRows.filter(r => r.type === 'EXPENSE')
       .sort((a, b) => String(b.transactionDate || b.createdAt).localeCompare(String(a.transactionDate || a.createdAt)));
     res.set('Cache-Control', 'no-store');
-    return res.json({ ok: true, balance: Math.round((opening + additions - expenses) * 100) / 100, additions, expenses, transactions });
+    return res.json({ ok: true, balance, expenses, transactions });
   } catch (err) {
     console.error('Personal finance overview failed:', err.message);
     return res.status(503).json({ error: 'Could not read Personal Finance from Google Sheets.' });
@@ -54,11 +68,8 @@ router.post('/balance-add', async (req, res) => {
   if (!amount) return res.status(400).json({ error: 'Enter a valid amount greater than ₹0.' });
   try {
     if (!db.isSheetsConnected()) return res.status(503).json({ error: 'Google Sheets is unavailable. Nothing was saved.' });
-    await db.appendRow(LEDGER_SHEET, {
-      id: uuidv4(), type: 'BALANCE_ADD', amount: amount.toFixed(2), category: 'Balance adjustment',
-      note: String(req.body.note || 'Balance added').trim().slice(0, 240),
-      transactionDate: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(), createdBy: ALLOWED_ADMIN_EMAIL,
-    }, { strict: true });
+    const current = await readBalance();
+    await writeBalance(Math.round((current + amount) * 100) / 100);
     return res.json({ ok: true, message: 'Balance updated.' });
   } catch (err) {
     console.error('Personal finance balance add failed:', err.message);
@@ -76,19 +87,16 @@ router.post('/expense', async (req, res) => {
   if (!transactionDate) return res.status(400).json({ error: 'Enter a valid transaction date.' });
   try {
     if (!db.isSheetsConnected()) return res.status(503).json({ error: 'Google Sheets is unavailable. Nothing was saved.' });
-    const [balanceRows, ledgerRows] = await Promise.all([
-      db.getRows(BALANCE_SHEET, { strict: true }),
+    const [available, ledgerRows] = await Promise.all([
+      readBalance(),
       db.getRows(LEDGER_SHEET, { strict: true }),
     ]);
-    const opening = Number((balanceRows.find(r => r.id === 'owner-opening-balance') || {}).openingBalance || 0);
-    const additions = ledgerRows.filter(r => r.type === 'BALANCE_ADD').reduce((n, r) => n + Number(r.amount || 0), 0);
-    const expenses = ledgerRows.filter(r => r.type === 'EXPENSE').reduce((n, r) => n + Number(r.amount || 0), 0);
-    const available = Math.round((opening + additions - expenses) * 100) / 100;
     if (amount > available) return res.status(409).json({ error: 'Insufficient balance. Add balance before recording this expense.' });
     await db.appendRow(LEDGER_SHEET, {
       id: uuidv4(), type: 'EXPENSE', amount: amount.toFixed(2), category, note,
-      transactionDate, createdAt: new Date().toISOString(), createdBy: OWNER_EMAIL,
+      transactionDate, createdAt: new Date().toISOString(), createdBy: ALLOWED_ADMIN_EMAIL,
     }, { strict: true });
+    await writeBalance(Math.round((available - amount) * 100) / 100);
     return res.json({ ok: true, message: 'Expense saved.' });
   } catch (err) {
     console.error('Personal finance expense failed:', err.message);
