@@ -52,10 +52,14 @@ const SHEETS = {
   ADMIN_PAYOUTS: 'AdminPayouts',
   // One row per reconciled calendar month (upserted by `month`, never appended).
   MONTHLY_SETTLEMENTS: 'MonthlySettlements',
+  PERSONAL_FINANCE_BALANCE: 'PersonalFinanceBalance',
+  PERSONAL_FINANCE_LEDGER: 'PersonalFinanceLedger',
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
 const HEADERS = {
+  [SHEETS.PERSONAL_FINANCE_BALANCE]: ['id', 'openingBalance', 'updatedAt'],
+  [SHEETS.PERSONAL_FINANCE_LEDGER]: ['id', 'type', 'amount', 'category', 'note', 'transactionDate', 'createdAt', 'createdBy'],
   [SHEETS.USERS]: [
     'user_ID',
     'name',
