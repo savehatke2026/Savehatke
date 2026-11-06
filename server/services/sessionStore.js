@@ -11,7 +11,6 @@ const sessionCache = require('./sessionCache');
 
 const SESSION_TTL_MS = 48 * 60 * 60 * 1000;
 const ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
-const SESSION_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 const USER_TABLE = 'user_sessions';
 const ADMIN_TABLE = 'admin_sessions';
 const TABLES = [USER_TABLE, ADMIN_TABLE];
@@ -185,25 +184,25 @@ async function expireOutdatedSessions() {
   sessionCache.clear();
   return { count };
 }
+// Keep only currently Active sessions in the database. Any ended, expired,
+// revoked, unknown-status, or null-status row is removed immediately.
 async function deleteExpiredSessions() {
-  const cutoffMs = Date.now() - SESSION_RETENTION_MS;
   let count = 0;
   const client = getClient();
   for (const table of TABLES) {
-    const { data: ended, error: readError } = await client.from(table)
-      .select('session_id,expires_at,login_time')
-      .in('status', ['Expired', 'Logged out']);
-    throwIfError(readError, 'retention lookup');
-    const ids = (ended || []).filter((row) => {
-      const endedAt = row.expires_at || row.login_time;
-      return endedAt && new Date(endedAt).getTime() < cutoffMs;
-    }).map((row) => row.session_id);
-    if (!ids.length) continue;
     const { data, error } = await client.from(table).delete()
-      .in('session_id', ids).select('session_id');
-    throwIfError(error, 'retention cleanup');
+      .neq('status', 'Active').select('session_id');
+    throwIfError(error, 'non-active session cleanup');
     count += (data || []).length;
+
+    // SQL NULL is not matched by neq, so explicitly remove rows without status.
+    const { data: missingStatus, error: missingStatusError } = await client.from(table)
+      .delete().is('status', null).select('session_id');
+    throwIfError(missingStatusError, 'missing-status session cleanup');
+    count += (missingStatus || []).length;
   }
+  // Deleted rows are never valid sessions; clear any stale process-local cache.
+  sessionCache.clear();
   return { count };
 }
 async function getAllSessions() {
