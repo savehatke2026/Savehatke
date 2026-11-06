@@ -11,6 +11,7 @@ const { adminMutationLimiter } = require('../utils/adminRateLimit');
 const { getActiveAdminEmails, isAdminRosterStale, refreshAdminRoster } = require('../config/security');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const sessionStore = require('../services/sessionStore');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const payoutMethodReminder = require('../services/payoutMethodReminder');
@@ -2099,7 +2100,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
     const [users, coupons, sessions] = await Promise.all([
       db.getRows(db.SHEETS.USERS),
       supabase.isConfigured() ? supabase.getCoupons({}).catch(() => []) : Promise.resolve([]),
-      supabase.isConfigured() ? supabase.getAllSessions().catch(() => []) : Promise.resolve([]),
+      sessionStore.getAllSessions().catch(() => []),
     ]);
 
     // Build bought/sold counts keyed by lowercase email
@@ -2248,15 +2249,11 @@ router.put('/users/status', authenticateToken, requireAdmin, adminMutationLimite
   }
 });
 
-// GET /api/admin/sessions — User sessions (live Supabase data)
+// GET /api/admin/sessions — User sessions (Google Sheets data)
 router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    if (!supabase.isConfigured()) {
-      return res.status(503).json({ error: 'Administrative session storage is temporarily unavailable.' });
-    }
-
     const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
-      supabase.getAllSessions(),
+      sessionStore.getAllSessions(),
       db.getRows(db.SHEETS.USERS).catch(() => []),
       // readyState guard: an unconnected mongoose buffers the query and this
       // endpoint would hang instead of simply listing sessions without photos.
@@ -2308,17 +2305,13 @@ router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
   }
 });
 
-// GET /api/admin/admin-sessions — ADMIN login sessions (live Supabase data).
+// GET /api/admin/admin-sessions — ADMIN login sessions (Google Sheets data).
 // Admin sessions auto-expire 2 hours after login; this view shows who is /
 // was in the panel, from which device, and when their session ends.
 router.get('/admin-sessions', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    if (!supabase.isConfigured()) {
-      return res.status(503).json({ error: 'Administrative session storage is temporarily unavailable.' });
-    }
-
     const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
-      supabase.getAdminSessions(),
+      sessionStore.getAdminSessions(),
       db.getRows(db.SHEETS.USERS).catch(() => []),
       // Same readyState guard as /sessions above.
       mongoose.connection.readyState === 1
@@ -2372,15 +2365,9 @@ router.get('/admin-sessions', authenticateToken, requireAdmin, async (req, res) 
 // the session row. Safe to re-run.
 router.post('/sessions/backfill-userids', authenticateToken, requireAdmin, adminMutationLimiter, async (req, res) => {
   try {
-    if (!supabase.isConfigured()) {
-      return res.status(503).json({ error: 'Supabase is not configured on the server.' });
-    }
-    const supabaseClient = supabase.getClient();
-    if (!supabaseClient) return res.status(503).json({ error: 'Supabase client unavailable.' });
-
-    // Load all sessions + all users in parallel
+    // Load all sessions + all users from Google Sheets.
     const [sessions, sheetUsers] = await Promise.all([
-      supabase.getAllSessions(),
+      sessionStore.getAllSessions(),
       db.getRows(db.SHEETS.USERS).catch(() => []),
     ]);
 
@@ -2418,14 +2405,7 @@ router.post('/sessions/backfill-userids', authenticateToken, requireAdmin, admin
       if (!isBad(s.user_id) && s.user_id === correctId) { skipped++; continue; }
 
       try {
-        const { error } = await supabaseClient
-          .from('user_sessions')
-          .update({ user_id: correctId })
-          .eq('session_id', s.session_id);
-        if (error) {
-          console.warn('[backfill] update error for', s.session_id, error.message);
-          continue;
-        }
+        await sessionStore.updateSessionFields(s.session_id, { user_id: correctId });
         updated++;
         if (sample.length < 5) sample.push({ session_id: s.session_id, email, from: s.user_id, to: correctId });
       } catch (e) {
@@ -2448,7 +2428,7 @@ router.put('/sessions/:sessionId/terminate', authenticateToken, requireAdmin, ad
       return res.status(400).json({ error: 'sessionId is required.' });
     }
 
-    await supabase.endSession(sessionId, 'Logged out');
+    await sessionStore.endSession(sessionId, 'Logged out');
     res.json({ message: 'Session terminated. The user will be logged out on that device.' });
   } catch (err) {
     console.error('Admin terminate session error:', err);
