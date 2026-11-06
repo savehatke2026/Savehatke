@@ -57,7 +57,10 @@ async function createSession(data, ttlMs) {
     revoked_at: '', status: 'Active', logged_out_at: '',
   };
   if (!/^[a-f0-9]{64}$/i.test(row.session_token)) throw new Error('Invalid session token hash');
-  await db.appendRow(tableFor(row.login_method), row, { strict: true });
+  const targetTable = Number(ttlMs) > 0
+    ? (Number(ttlMs) <= ADMIN_SESSION_TTL_MS ? db.SHEETS.ADMIN_SESSIONS : db.SHEETS.USER_SESSIONS)
+    : tableFor(row.login_method);
+  await db.appendRow(targetTable, row, { strict: true });
   return row;
 }
 async function findSessionByToken(tokenHash) {
