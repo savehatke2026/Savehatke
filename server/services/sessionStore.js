@@ -86,15 +86,19 @@ async function createSession(data, ttlMs) {
   throwIfError(error, 'create');
   return inserted;
 }
-async function findSessionByToken(tokenHash) {
+async function findTokenWithTable(tokenHash) {
   if (!/^[a-f0-9]{64}$/i.test(String(tokenHash || ''))) return null;
   const client = getClient();
   for (const table of TABLES) {
     const { data, error } = await client.from(table).select('*').eq('session_token', tokenHash).maybeSingle();
     throwIfError(error, 'token lookup');
-    if (data) return data;
+    if (data) return { table, row: data };
   }
   return null;
+}
+async function findSessionByToken(tokenHash) {
+  const found = await findTokenWithTable(tokenHash);
+  return found ? found.row : null;
 }
 async function findSessionById(sessionId) {
   const found = await findById(sessionId);
@@ -111,10 +115,10 @@ async function updateFound(found, patch) {
   return true;
 }
 async function endSessionByToken(tokenHash, reason = 'Logged out') {
-  const row = await findSessionByToken(tokenHash);
-  if (!row || row.status !== 'Active') { sessionCache.remove(tokenHash); return false; }
+  const found = await findTokenWithTable(tokenHash);
+  if (!found || found.row.status !== 'Active') { sessionCache.remove(tokenHash); return false; }
   const now = new Date().toISOString();
-  return updateFound({ table: tableFor(row.login_method), row }, {
+  return updateFound(found, {
     status: reason, last_active: now, revoked_at: now,
     ...(reason === 'Logged out' ? { logged_out_at: now } : {}),
   });
