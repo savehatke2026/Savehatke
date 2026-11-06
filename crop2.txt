@@ -1,2 +1,0 @@
-minX=714 minVal=0
-CROP L=117 T=125 W=614 H=482
