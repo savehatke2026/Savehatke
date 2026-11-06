@@ -25,6 +25,7 @@ const { calculateSellerPayout, couponPayoutInfo } = require('../services/sellerP
 const dynamicPricing = require('../services/dynamicPricing');
 const { safeRateLimitHandler } = require('../utils/rateLimit');
 const { parseCouponExpiry } = require('../utils/couponExpiry');
+const { sniffImage, looksComplete } = require('../utils/imageSniff');
 
 const router = express.Router();
 
@@ -564,13 +565,19 @@ router.post('/proof', authenticateToken, proofAccountLimiter, async (req, res) =
     if (!PROOF_ALLOWED_TYPES.includes(type)) {
       return res.status(400).json({ error: 'Unsupported file type. Allowed: PNG, JPG, WEBP.' });
     }
-
+    if (typeof dataBase64 !== 'string' || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(dataBase64)) {
+      return res.status(400).json({ error: 'File data is invalid. Please choose the image again.' });
+    }
     const buffer = Buffer.from(dataBase64, 'base64');
     if (!buffer || buffer.length === 0) {
       return res.status(400).json({ error: 'File could not be read.' });
     }
     if (buffer.length > PROOF_MAX_BYTES) {
-      return res.status(400).json({ error: 'File is too large. Maximum size is 3MB.' });
+      return res.status(413).json({ error: 'File is too large. Maximum size is 3MB.' });
+    }
+    const sniffed = sniffImage(buffer);
+    if (!sniffed || sniffed.mime !== type || !looksComplete(buffer, sniffed.mime)) {
+      return res.status(400).json({ error: 'The file is not a complete PNG, JPG or WebP image. Please re-save it and try again.' });
     }
 
     // Drive must be configured — no fallback destination exists.
@@ -590,8 +597,8 @@ router.post('/proof', authenticateToken, proofAccountLimiter, async (req, res) =
       const extFromType = { 'image/png': '.png', 'image/jpeg': '.jpg', 'image/webp': '.webp' };
       const result = await googleDrive.uploadCouponProofScreenshot({
         buffer,
-        ext: extFromType[type] || '.png',
-        mimeType: type,
+        ext: extFromType[sniffed.mime],
+        mimeType: sniffed.mime,
         sellerEmail: req.user?.email,
       });
       return res.status(201).json({
