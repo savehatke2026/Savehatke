@@ -552,6 +552,7 @@ async function createOrder({
   couponCode = '',
   couponBrand = '',
   expiresAt = null,
+  paymentData = null,
 }) {
   const now = new Date().toISOString();
 
@@ -590,9 +591,36 @@ async function createOrder({
     transaction_type: 'PURCHASE',
   };
 
-  // Strict: an order that only exists in this instance's memory is not an
-  // order. The buyer would be shown a UPI QR for something the ledger has
-  // never heard of, and their payment could never be matched.
+  // When checkout supplies paymentData, create the order and payment in one
+  // PostgreSQL transaction. A failed/duplicate payment insert rolls the order
+  // back too; no orphan PENDING orders or half-created checkout sessions.
+  if (paymentData) {
+    const paymentRow = {
+      payment_id: String(paymentData.paymentId),
+      order_id: row.id,
+      user_id: String(userId),
+      user_email: userEmail,
+      coupon_id: String(couponId),
+      amount: money2(amount),
+      currency: 'INR',
+      status: 'PENDING',
+      created_at: now,
+      updated_at: now,
+      expires_at: paymentData.expiresAt || expiresAt || '',
+      check_expires_at: paymentData.checkExpiresAt || '',
+      paid_at: '',
+      upi_id: paymentData.upiId || '',
+      payee_name: paymentData.payeeName || '',
+      upi_uri: paymentData.upiUri || '',
+      verified_transaction_id: '',
+      verified_utr: '',
+      verification_source: '',
+      verification_notes: '',
+    };
+    const created = await db.createCheckout(row, paymentRow);
+    return { ...fromOrder(created.order), payment: fromPayment(created.payment) };
+  }
+
   await db.appendRow(ORDERS, row, STRICT);
   return fromOrder(row);
 }
