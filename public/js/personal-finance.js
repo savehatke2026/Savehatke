@@ -2,6 +2,9 @@
 
 (() => {
   const OWNER_EMAIL = 'rupayandas2024@gmail.com';
+  let pendingBalanceRequestId = null;
+  let pendingExpenseRequestId = null;
+  const requestId = () => (window.crypto && crypto.randomUUID ? crypto.randomUUID() : 'pf-' + Date.now() + '-' + Math.random().toString(16).slice(2));
   const root = () => document.querySelector('[data-personal-finance-root]');
   const money = value => '₹' + Number(value || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const el = id => document.getElementById(id);
@@ -51,7 +54,9 @@
       event.preventDefault(); message('');
       const submit = addForm.querySelector('button[type="submit"]'); submit.disabled = true;
       try {
-        await request('/balance-add', { method: 'POST', body: { amount: el('pfAddAmount').value, note: el('pfAddNote').value } });
+        pendingBalanceRequestId = pendingBalanceRequestId || requestId();
+        await request('/balance-add', { method: 'POST', body: { amount: el('pfAddAmount').value, note: el('pfAddNote').value, requestId: pendingBalanceRequestId } });
+        pendingBalanceRequestId = null;
         addForm.reset(); message('Balance updated.'); await window.loadPersonalFinance();
       } catch (err) { message(err.message || 'Could not update balance.', true); }
       finally { submit.disabled = false; }
@@ -60,10 +65,13 @@
       event.preventDefault(); message('');
       const submit = expenseForm.querySelector('button[type="submit"]'); submit.disabled = true;
       try {
+        pendingExpenseRequestId = pendingExpenseRequestId || requestId();
         await request('/expense', { method: 'POST', body: {
           amount: el('pfExpenseAmount').value, category: el('pfExpenseCategory').value,
-          note: el('pfExpenseNote').value, transactionDate: el('pfExpenseDate').value
+          note: el('pfExpenseNote').value, transactionDate: el('pfExpenseDate').value,
+          requestId: pendingExpenseRequestId
         }});
+        pendingExpenseRequestId = null;
         expenseForm.reset(); el('pfExpenseDate').value = new Date().toISOString().slice(0, 10);
         message('Expense saved.'); await window.loadPersonalFinance();
       } catch (err) { message(err.message || 'Could not save expense.', true); }
