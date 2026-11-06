@@ -10,6 +10,8 @@ create table if not exists public.user_activity_intervals (
   seen_at timestamptz not null default now(),
   page text not null default ''
 );
+create unique index if not exists user_activity_intervals_user_date_slot_uidx
+  on public.user_activity_intervals (user_id, activity_date, interval_slot);
 create index if not exists user_activity_intervals_date_slot_idx
   on public.user_activity_intervals (activity_date desc, interval_slot);
 create index if not exists user_activity_intervals_user_date_idx
