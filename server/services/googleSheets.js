@@ -10,6 +10,8 @@ const fs = require('fs');
 // Sheet names (tabs inside the spreadsheet)
 const SHEETS = {
   USERS: 'Users',
+  USER_SESSIONS: 'UserSessions',
+  ADMIN_SESSIONS: 'AdminSessions',
   COUPONS: 'Coupons',
   // Seller submissions awaiting admin review. Approved rows are copied into
   // Coupons (so sell/payout logic is unchanged) and marked here as approved,
@@ -57,7 +59,15 @@ const SHEETS = {
 };
 
 // Column headers for each sheet (used for initialization and row mapping)
+const SESSION_HEADERS = [
+  'session_id', 'user_id', 'email', 'device', 'os', 'browser', 'country',
+  'state', 'city', 'ip_address', 'login_method', 'user_agent', 'session_token',
+  'login_time', 'last_active', 'expires_at', 'revoked_at', 'status', 'logged_out_at',
+];
+
 const HEADERS = {
+  [SHEETS.USER_SESSIONS]: SESSION_HEADERS,
+  [SHEETS.ADMIN_SESSIONS]: SESSION_HEADERS,
   [SHEETS.PERSONAL_FINANCE_BALANCE]: ['id', 'currentBalance', 'updatedAt'],
   [SHEETS.PERSONAL_FINANCE_LEDGER]: ['id', 'type', 'amount', 'category', 'note', 'transactionDate', 'createdAt', 'createdBy'],
   [SHEETS.USERS]: [
@@ -852,6 +862,8 @@ async function ensureSheets(prefetched) {
 // ── In-Memory Fallback Database ─────────────────────────────────────────────
 // Used when Google Sheets credentials are not available
 const memoryDB = {
+  [SHEETS.USER_SESSIONS]: [],
+  [SHEETS.ADMIN_SESSIONS]: [],
   [SHEETS.USERS]: [],
   [SHEETS.COUPONS]: [],
   [SHEETS.PRICE_TRACKING]: [],
