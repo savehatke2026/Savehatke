@@ -41,7 +41,7 @@ router.post('/activity/ping', authenticateToken, async (req, res) => {
     const now = new Date();
     const ist = new Date(now.getTime() + 330 * 60000);
     const page = String((req.body && req.body.page) || '').slice(0, 120);
-    const { error } = await client.from('user_activity_intervals').insert({
+    const { error } = await client.from('user_activity_intervals').upsert({
       user_id: String(req.user.id),
       email: String(req.user.email || '').trim().toLowerCase(),
       activity_date: ist.toISOString().slice(0, 10),
@@ -49,7 +49,7 @@ router.post('/activity/ping', authenticateToken, async (req, res) => {
       session_id: req.sessionId,
       seen_at: now.toISOString(),
       page,
-    });
+    }, { onConflict: 'user_id,activity_date,interval_slot' });
     if (error) throw error;
     res.status(204).end();
   } catch (err) {
