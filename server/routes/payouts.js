@@ -678,8 +678,12 @@ router.post('/admin/payouts/recalculate-legacy', authenticateToken, requireAdmin
       const sheet = couponSheets[si];
       for (const coupon of couponRowsBySheet[si] || []) {
         const status = String(coupon.status || '').toLowerCase();
+        const source = String(coupon.source || '').toLowerCase();
         const sellerEmail = String(coupon.sellerEmail || coupon.seller_email || '').trim();
-        if (!coupon.id || !sellerEmail || ['pending','review','submitted','awaiting','proof_requested','rejected'].includes(status)) continue;
+        // Never recalculate admin-created inventory just because an admin
+        // contact email happens to be present on its row.
+        if (!coupon.id || !sellerEmail || !['user-submitted','user'].includes(source)
+          || ['pending','review','submitted','awaiting','proof_requested','rejected'].includes(status)) continue;
         let expected;
         try { expected = sellerPayout.calculateSellerPayout(sellerPayout.faceValueOf(coupon)); } catch (_) { continue; }
         couponById.set(String(coupon.id), { coupon, expected });
