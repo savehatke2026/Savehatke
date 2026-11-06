@@ -1818,6 +1818,18 @@ tbody td strong{color:#e2ecff;font-weight:600}
         <div class="stat-card sc-orange"><div class="stat-card-top"><div class="stat-icon si-orange">🚪</div></div><div class="stat-val" style="color:#ffb74d" id="sessionsEndedCount">—</div><div class="stat-lbl">Logged Out / Expired</div></div>
       </div>
 
+      <div class="stats-grid" style="margin:0 0 18px">
+        <div class="stat-card sc-green"><div class="stat-card-top"><div class="stat-icon si-green">🟢</div></div><div class="stat-val gtext" id="userActivityTodayCount">—</div><div class="stat-lbl">Active Users Today</div></div>
+        <div class="stat-card sc-blue"><div class="stat-card-top"><div class="stat-icon si-blue">⏱️</div></div><div class="stat-val" style="color:#4fc3f7" id="userActivityIntervalsCount">—</div><div class="stat-lbl">Activity Samples</div></div>
+        <div class="stat-card sc-purple"><div class="stat-card-top"><div class="stat-icon si-purple">📅</div></div><div class="stat-val" style="color:#ce93d8" id="userActivityDaysCount">—</div><div class="stat-lbl">Days With Activity</div></div>
+      </div>
+      <div class="table-card" style="margin-bottom:22px">
+        <div class="table-header"><h3>Daily User Activity <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(last 7 days · each dot = 15 minutes)</span></h3><button class="btn btn-primary btn-sm" onclick="loadUserActivity()">↻ Refresh</button></div>
+        <div class="overflow-x"><table>
+          <thead><tr><th>User</th><th>Date (IST)</th><th>Activity timeline · 00:00–24:00</th><th>Active Time</th><th>First – Last Seen</th></tr></thead>
+          <tbody id="userActivityTableBody"><tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">Loading activity…</td></tr></tbody>
+        </table></div>
+      </div>
       <div class="table-card">
         <div class="table-header">
           <h3>All Sessions <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(live from Supabase)</span></h3>

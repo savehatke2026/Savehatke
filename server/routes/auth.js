@@ -30,6 +30,34 @@ const { getAdminAccount, getJwtSecret, normalizeEmail, isAdminRosterStale, ensur
 
 const router = express.Router();
 
+// POST /api/auth/activity/ping — server-timestamped activity for signed-in users.
+// Admin identities are excluded server-side, regardless of browser-supplied data.
+router.post('/activity/ping', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user || String(req.user.role || '').toLowerCase() === 'admin') return res.status(204).end();
+    if (!req.sessionId || !req.user.id) return res.status(401).json({ error: 'A valid user session is required.' });
+    const client = supabase.getClient();
+    if (!client) return res.status(503).json({ error: 'Activity storage is unavailable.' });
+    const now = new Date();
+    const ist = new Date(now.getTime() + 330 * 60000);
+    const page = String((req.body && req.body.page) || '').slice(0, 120);
+    const { error } = await client.from('user_activity_intervals').upsert({
+      user_id: String(req.user.id),
+      email: String(req.user.email || '').trim().toLowerCase(),
+      activity_date: ist.toISOString().slice(0, 10),
+      interval_slot: ist.getUTCHours() * 4 + Math.floor(ist.getUTCMinutes() / 15),
+      session_id: req.sessionId,
+      seen_at: now.toISOString(),
+      page,
+    }, { onConflict: 'user_id,activity_date,interval_slot' });
+    if (error) throw error;
+    res.status(204).end();
+  } catch (err) {
+    console.error('[activity] ping failed:', err.message);
+    res.status(503).json({ error: 'Could not record activity.' });
+  }
+});
+
 // Google-only authentication. Register the secure handlers before any legacy
 // These are the only login handlers. Email and client-token login endpoints
 // are retired and cannot create sessions.

@@ -3255,6 +3255,44 @@ function sessionLocation(session) {
   return [session.city, session.state, session.country].filter((v) => v && String(v).trim()).join(', ') || '—';
 }
 
+async function loadUserActivity() {
+  const body = document.getElementById('userActivityTableBody');
+  if (!body) return;
+  try {
+    const data = await api('/admin/user-activity?days=7', { useAdmin: true });
+    const events = Array.isArray(data.events) ? data.events : [];
+    const grouped = new Map();
+    for (const event of events) {
+      const key = String(event.user_id || event.email || '') + '|' + String(event.activity_date || '');
+      if (!grouped.has(key)) grouped.set(key, { userId: event.user_id, email: event.email, date: event.activity_date, slots: new Set(), first: event.seen_at, last: event.seen_at });
+      const row = grouped.get(key);
+      row.slots.add(Number(event.interval_slot));
+      if (event.seen_at && (!row.first || event.seen_at < row.first)) row.first = event.seen_at;
+      if (event.seen_at && (!row.last || event.seen_at > row.last)) row.last = event.seen_at;
+    }
+    const rows = [...grouped.values()].sort((x, y) => String(y.date).localeCompare(String(x.date)) || String(x.email).localeCompare(String(y.email)));
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+    const set = (id, value) => { const el = document.getElementById(id); if (el) el.textContent = String(value); };
+    set('userActivityTodayCount', new Set(rows.filter((r) => r.date === today).map((r) => r.userId || r.email)).size);
+    set('userActivityIntervalsCount', new Set(events.map((e) => String(e.user_id) + '|' + String(e.activity_date) + '|' + String(e.interval_slot))).size);
+    set('userActivityDaysCount', new Set(rows.map((r) => r.date)).size);
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">No activity recorded yet. Activity will appear as signed-in users browse the website. Tracking starts after deployment.</td></tr>';
+      return;
+    }
+    body.innerHTML = rows.map((r) => {
+      const dots = Array.from({ length: 96 }, (_, slot) => {
+        const active = r.slots.has(slot), h = String(Math.floor(slot / 4)).padStart(2, '0'), m = String((slot % 4) * 15).padStart(2, '0');
+        return '<span title="' + h + ':' + m + (active ? ' · Active' : ' · No activity') + '" style="display:inline-block;width:5px;height:13px;margin:1px;border-radius:2px;background:' + (active ? '#00c875' : 'rgba(120,145,175,.16)') + '"></span>';
+      }).join('');
+      return '<tr><td>' + escapeHtml(r.email || r.userId || 'Unknown') + '</td><td>' + escapeHtml(r.date) + '</td><td style="min-width:520px;line-height:0;white-space:normal">' + dots + '</td><td>' + r.slots.size + ' active intervals</td><td>' + fmtDateTime(r.first) + ' – ' + fmtDateTime(r.last) + '</td></tr>';
+    }).join('');
+  } catch (err) {
+    body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ef9a9a;padding:24px;">Could not load activity: ' + escapeHtml(err.message || 'Unknown error') + '</td></tr>';
+  }
+}
+window.loadUserActivity = loadUserActivity;
+
 async function loadSessions() {
   // Single-flight: ignore re-entries while a previous call is still in flight.
   if (sessionsLoading) return;
@@ -3278,6 +3316,7 @@ async function loadSessions() {
     }
 
     renderSessions();
+    loadUserActivity();
   } catch (err) {
     if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load sessions: ${escapeHtml(err.message)}</td></tr>`;
   } finally {

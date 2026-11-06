@@ -2097,11 +2097,18 @@ router.post('/coupons/:id/notify-retry', authenticateToken, requireAdmin, adminM
 // GET /api/admin/users — List all users (live Google Sheets Users tab)
 router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const [users, coupons, sessions] = await Promise.all([
+    const adminEmails = new Set(getActiveAdminEmails().map((email) => String(email || '').trim().toLowerCase()));
+    const [sheetUsers, coupons, sessions] = await Promise.all([
       db.getRows(db.SHEETS.USERS),
       supabase.isConfigured() ? supabase.getCoupons({}).catch(() => []) : Promise.resolve([]),
-      sessionStore.getAllSessions().catch(() => []),
+      sessionStore.getUserSessionsList().catch(() => []),
     ]);
+    // Never expose admin roster identities in the marketplace Users directory.
+    const users = (sheetUsers || []).filter((u) => {
+      const email = String(u.email || '').trim().toLowerCase();
+      return email && !adminEmails.has(email);
+    });
+    const userSessions = sessions.filter((s) => !adminEmails.has(String(s.email || '').trim().toLowerCase()));
 
     // Build bought/sold counts keyed by lowercase email
     const boughtMap = {};
@@ -2115,7 +2122,7 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
 
     // Build latest session per email (most recent login_time wins)
     const latestSessionMap = {};
-    for (const s of sessions) {
+    for (const s of userSessions) {
       const sEmail = String(s.email || '').toLowerCase().trim();
       if (!sEmail) continue;
       const existing = latestSessionMap[sEmail];
@@ -2175,6 +2182,7 @@ router.get('/users/search', authenticateToken, requireAdmin, async (req, res) =>
     const page = Math.max(1, parseInt((req.query && req.query.page) || '1', 10) || 1);
     const pageSize = Math.min(50, Math.max(5, parseInt((req.query && req.query.pageSize) || '25', 10) || 25));
 
+    const adminEmails = new Set(getActiveAdminEmails().map((email) => String(email || '').trim().toLowerCase()));
     const rows = await db.getRows(db.SHEETS.USERS);
     const all = rows.map((u) => {
       const email = String(u.email || '').toLowerCase().trim();
@@ -2186,7 +2194,7 @@ router.get('/users/search', authenticateToken, requireAdmin, async (req, res) =>
         status: String(u.status || 'active').toLowerCase().trim(),
         profilePicture: String(u.profile_picture || '').trim(),
       };
-    }).filter((u) => u.id || u.email);
+    }).filter((u) => (u.id || u.email) && !adminEmails.has(u.email.toLowerCase()));
 
     const counts = { total: all.length, active: all.filter((u) => u.status === 'active').length };
 
@@ -2250,9 +2258,32 @@ router.put('/users/status', authenticateToken, requireAdmin, adminMutationLimite
 });
 
 // GET /api/admin/sessions — User sessions (Google Sheets data)
+// GET /api/admin/user-activity — 15-minute activity timeline, last 7 days by default.
+router.get('/user-activity', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const client = supabase.getClient();
+    if (!client) return res.status(503).json({ error: 'Activity storage is unavailable.' });
+    const days = Math.min(14, Math.max(1, Number(req.query.days) || 7));
+    const since = new Date(Date.now() - (days - 1) * 86400000);
+    const istSince = new Date(since.getTime() + 5.5 * 3600000).toISOString().slice(0, 10);
+    const adminEmails = new Set(getActiveAdminEmails().map((email) => String(email || '').trim().toLowerCase()));
+    const { data, error } = await client.from('user_activity_intervals')
+      .select('user_id,email,activity_date,interval_slot,seen_at,page')
+      .gte('activity_date', istSince)
+      .order('activity_date', { ascending: false })
+      .order('interval_slot', { ascending: true })
+      .limit(25000);
+    if (error) throw error;
+    res.json({ events: (data || []).filter((row) => !adminEmails.has(String(row.email || '').trim().toLowerCase())), days });
+  } catch (err) {
+    console.error('Admin user activity error:', err);
+    res.status(500).json({ error: 'Could not load user activity.' });
+  }
+});
+
 router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
+    const [allUserSessions, sheetUsers, mongoAdmins] = await Promise.all([
       sessionStore.getUserSessionsList(),
       db.getRows(db.SHEETS.USERS).catch(() => []),
       // readyState guard: an unconnected mongoose buffers the query and this
@@ -2261,6 +2292,9 @@ router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
         ? Admin.find({}).select('email profile_image').lean().catch(() => [])
         : Promise.resolve([]),
     ]);
+
+    const adminEmails = new Set(getActiveAdminEmails().map((email) => String(email || '').trim().toLowerCase()));
+    const sessions = allUserSessions.filter((s) => !adminEmails.has(String(s.email || '').trim().toLowerCase()));
 
     // Email → Google profile photo. A session row knows only an email; the
     // photo lives on the account record — profile_picture on the Users sheet,
