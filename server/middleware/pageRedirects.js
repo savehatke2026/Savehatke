@@ -49,12 +49,9 @@ async function pageRedirectGuard(req, res, next) {
   if (!isGetOrHead(req)) return next();
   const p = normalisePath(req);
 
-  // Rule 1 — unconditional redirect, no session lookup needed.
-  if (ALWAYS_HOME_PAGES.has(p)) {
-    return res.redirect(302, '/');
-  }
-
-  // Rules 2, 3 and 4 need the session.
+  // Resolve the session only for pages whose destination depends on identity.
+  // In particular, do not add an unconditional homepage redirect here:
+  // anonymous and normal users must continue to see the public homepage.
   const isHome = ADMIN_HOME_PAGES.has(p);
   const isVault = isVaultPath(p);
   const isDash = isDashboardPath(p);
