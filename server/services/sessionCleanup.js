@@ -19,8 +19,7 @@
 //     rows are removed — an Active session is never deleted.
 //
 //
-// Supabase's own auth.* tables are never touched: this application manages
-// sessions in its own tables and does not use Supabase Auth.
+// Supabase is not used for session storage. Session rows are maintained only in Google Sheets.
 //
 // Two execution modes:
 //   • Local / long-running server: a real setInterval, every 10 minutes.
@@ -29,7 +28,7 @@
 //     and an HTTP endpoint /api/auth/session-cleanup is driven daily by
 //     Vercel Cron (see vercel.json).
 
-const supabaseService = require('./supabase');
+const sessionStore = require('./sessionStore');
 
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // every 10 minutes
 
@@ -51,7 +50,7 @@ async function runSessionCleanup() {
   let purged = 0;
 
   try {
-    const result = await supabaseService.expireOutdatedSessions();
+    const result = await sessionStore.expireOutdatedSessions();
     expired = (result && result.count) || 0;
   } catch (e) {
     console.warn('Session expiry sweep warning:', e && e.message ? e.message : e);
