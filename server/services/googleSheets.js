@@ -932,7 +932,9 @@ async function getRows(sheetName, options = {}) {
 
       const rows = res.data.values;
       if (!rows || rows.length <= 1) {
-        const fallback = [...(memoryDB[sheetName] || [])];
+        // Strict callers must never receive process-local rows as if they were
+        // durable records. An empty, reachable tab is a genuine empty result.
+        const fallback = strict ? [] : [...(memoryDB[sheetName] || [])];
         rowsCache[sheetName] = { data: fallback, timestamp: now };
         return fallback;
       }
