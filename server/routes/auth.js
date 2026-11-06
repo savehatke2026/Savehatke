@@ -488,7 +488,7 @@ router.get('/google-redirect', async (req, res) => {
 });
 
 /**
- * Extract device info from User-Agent and create a server-side session in Google Sheets (48 hours for users, 2 hours for admins). Called on EVERY successful login (users and admins).
+ * Extract device info from User-Agent and create a server-side session in Supabase (48 hours for users, 2 hours for admins). Called on EVERY successful login (users and admins).
  *
  * The returned object carries the raw session token (which the caller places
  * only in the HttpOnly cookie) plus the session id and
@@ -831,7 +831,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     }
 
     // Cryptographically random session identifier. The raw value goes only in
-    // the HttpOnly cookie; only its SHA-256 hash is stored in Google Sheets.
+    // the HttpOnly cookie; only its SHA-256 hash is stored in Supabase.
     const rawToken = generateSessionToken();
 
     // Admin identities come fully resolved from the in-memory allowlist
@@ -874,11 +874,11 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
       // instead of the generic "couldnotcreateenforceablessession" — which
       // gives the user (and us) no way to tell whether the table is missing,
       // a column is wrong, RLS is blocking, or the Supabase client itself
-      // is unconfigured. The actual Google Sheets message stays in the Vercel log.
+      // is unconfigured. The actual Supabase message stays in the Vercel log.
       throw new Error('Could not create an enforceable session: no row returned from createSession');
     }
 
-    console.log(`âœ… Session created in Google Sheets: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
+    console.log(`âœ… Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
 
     // Geo-IP enrichment in the background â€” never blocks the login response
     geoPromise

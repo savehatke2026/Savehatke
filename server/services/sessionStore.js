@@ -1,32 +1,45 @@
 // ============================================
-// SaveHatke — Google Sheets Session Store
+// SaveHatke — Supabase Session Store
 // ============================================
-// Google Sheets is the sole source of truth for user/admin sessions.
+// Supabase is the sole source of truth for user/admin sessions.
 // Only SHA-256 token hashes are stored; raw tokens stay in HttpOnly cookies.
-// Every authorization lookup is a strict, fresh Sheets read (never memory fallback).
+// Authorization always performs a fresh database lookup (never cache fallback).
 
 const crypto = require('crypto');
-const db = require('./googleSheets');
+const supabase = require('./supabase');
 const sessionCache = require('./sessionCache');
 
 const SESSION_TTL_MS = 48 * 60 * 60 * 1000;
 const ADMIN_SESSION_TTL_MS = 2 * 60 * 60 * 1000;
 const SESSION_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
-const TABLES = [db.SHEETS.USER_SESSIONS, db.SHEETS.ADMIN_SESSIONS];
+const USER_TABLE = 'user_sessions';
+const ADMIN_TABLE = 'admin_sessions';
+const TABLES = [USER_TABLE, ADMIN_TABLE];
 
 function isAdminLoginMethod(method) {
-  return /^(google\s+)?admin$/i.test(String(method || '').trim());
+  return /^(google\\s+)?admin$/i.test(String(method || '').trim());
 }
 function tableFor(method) {
-  return isAdminLoginMethod(method) ? db.SHEETS.ADMIN_SESSIONS : db.SHEETS.USER_SESSIONS;
+  return isAdminLoginMethod(method) ? ADMIN_TABLE : USER_TABLE;
 }
 function clean(row) {
+  if (!row) return null;
   const out = { ...row };
   delete out.session_token;
   return out;
 }
+function getClient() {
+  const client = supabase.getClient();
+  if (!client) throw new Error('Supabase session storage is unavailable');
+  return client;
+}
+function throwIfError(error, operation) {
+  if (error) throw new Error(`Supabase session ${operation} failed: ${error.message || 'unknown error'}`);
+}
 async function rowsFor(table) {
-  return db.getRows(table, { strict: true });
+  const { data, error } = await getClient().from(table).select('*').order('login_time', { ascending: false });
+  throwIfError(error, 'read');
+  return data || [];
 }
 async function allRows() {
   const groups = await Promise.all(TABLES.map(rowsFor));
@@ -34,46 +47,57 @@ async function allRows() {
 }
 async function findById(sessionId) {
   for (const table of TABLES) {
-    const rows = await rowsFor(table);
-    const row = rows.find((r) => String(r.session_id) === String(sessionId));
-    if (row) return { table, row };
+    const { data, error } = await getClient().from(table).select('*').eq('session_id', sessionId).maybeSingle();
+    throwIfError(error, 'lookup');
+    if (data) return { table, row: data };
   }
   return null;
 }
 async function createSession(data, ttlMs) {
-  if (!db.isSheetsConnected()) throw new Error('Google Sheets session storage is unavailable');
+  const client = getClient();
   const now = new Date();
   const lifetime = Number(ttlMs) || (isAdminLoginMethod(data.login_method) ? ADMIN_SESSION_TTL_MS : SESSION_TTL_MS);
   const row = {
     session_id: crypto.randomUUID(),
     user_id: String(data.user_id || ''),
-    email: String(data.email || '').trim().toLowerCase(),
-    device: data.device || '', os: data.os || '', browser: data.browser || '',
-    country: data.country || '', state: data.state || '', city: data.city || '',
-    ip_address: data.ip_address || '', login_method: data.login_method || 'Email',
-    user_agent: data.user_agent || '', session_token: String(data.session_token || ''),
-    login_time: now.toISOString(), last_active: now.toISOString(),
+    email: String(data.email || '').trim().toLowerCase() || null,
+    device: data.device || null,
+    os: data.os || null,
+    browser: data.browser || null,
+    country: data.country || null,
+    state: data.state || null,
+    city: data.city || null,
+    ip_address: data.ip_address || null,
+    login_method: data.login_method || 'Email',
+    user_agent: data.user_agent || null,
+    session_token: String(data.session_token || ''),
+    login_time: now.toISOString(),
+    last_active: now.toISOString(),
     expires_at: new Date(now.getTime() + lifetime).toISOString(),
-    revoked_at: '', status: 'Active', logged_out_at: '',
+    revoked_at: null,
+    status: 'Active',
+    logged_out_at: null,
   };
   if (!/^[a-f0-9]{64}$/i.test(row.session_token)) throw new Error('Invalid session token hash');
   const targetTable = Number(ttlMs) > 0
-    ? (Number(ttlMs) <= ADMIN_SESSION_TTL_MS ? db.SHEETS.ADMIN_SESSIONS : db.SHEETS.USER_SESSIONS)
+    ? (Number(ttlMs) <= ADMIN_SESSION_TTL_MS ? ADMIN_TABLE : USER_TABLE)
     : tableFor(row.login_method);
-  await db.appendRow(targetTable, row, { strict: true });
-  return row;
+  const { data: inserted, error } = await client.from(targetTable).insert(row).select('*').single();
+  throwIfError(error, 'create');
+  return inserted;
 }
-async function findByToken(tokenHash) {
-  if (!db.isSheetsConnected()) throw new Error('Google Sheets session storage is unavailable');
+async function findTokenWithTable(tokenHash) {
+  if (!/^[a-f0-9]{64}$/i.test(String(tokenHash || ''))) return null;
+  const client = getClient();
   for (const table of TABLES) {
-    const rows = await rowsFor(table);
-    const row = rows.find((r) => String(r.session_token || '') === String(tokenHash));
-    if (row) return { table, row };
+    const { data, error } = await client.from(table).select('*').eq('session_token', tokenHash).maybeSingle();
+    throwIfError(error, 'token lookup');
+    if (data) return { table, row: data };
   }
   return null;
 }
 async function findSessionByToken(tokenHash) {
-  const found = await findByToken(tokenHash);
+  const found = await findTokenWithTable(tokenHash);
   return found ? found.row : null;
 }
 async function findSessionById(sessionId) {
@@ -82,13 +106,16 @@ async function findSessionById(sessionId) {
 }
 async function updateFound(found, patch) {
   if (!found) return false;
-  await db.updateRow(found.table, 'session_id', found.row.session_id, patch, { strict: true });
+  const { data, error } = await getClient().from(found.table)
+    .update(patch).eq('session_id', found.row.session_id).select('session_id').maybeSingle();
+  throwIfError(error, 'update');
+  if (!data) return false;
   if (found.row.session_token) sessionCache.remove(found.row.session_token);
   sessionCache.invalidateBySessionId(found.row.session_id);
   return true;
 }
 async function endSessionByToken(tokenHash, reason = 'Logged out') {
-  const found = await findByToken(tokenHash);
+  const found = await findTokenWithTable(tokenHash);
   if (!found || found.row.status !== 'Active') { sessionCache.remove(tokenHash); return false; }
   const now = new Date().toISOString();
   return updateFound(found, {
@@ -99,7 +126,10 @@ async function endSessionByToken(tokenHash, reason = 'Logged out') {
 async function updateSessionActivity(sessionId) {
   const found = await findById(sessionId);
   if (!found || found.row.status !== 'Active') return false;
-  await db.updateRow(found.table, 'session_id', sessionId, { last_active: new Date().toISOString() }, { strict: true });
+  const { error } = await getClient().from(found.table)
+    .update({ last_active: new Date().toISOString() })
+    .eq('session_id', sessionId).eq('status', 'Active');
+  throwIfError(error, 'activity update');
   return true;
 }
 async function updateSessionFields(sessionId, patch) {
@@ -116,16 +146,20 @@ async function endSession(sessionId, reason = 'Logged out') {
   });
 }
 async function endAllUserSessions(userId, options = {}) {
+  const client = getClient();
   const except = String(options.exceptSessionId || '');
   let changed = 0;
   for (const table of TABLES) {
-    const rows = await rowsFor(table);
-    for (const row of rows) {
-      if (String(row.user_id) !== String(userId) || row.status !== 'Active' || (except && String(row.session_id) === except)) continue;
-      const now = new Date().toISOString();
-      await db.updateRow(table, 'session_id', row.session_id, {
-        status: 'Logged out', logged_out_at: now, last_active: now, revoked_at: now,
-      }, { strict: true });
+    let query = client.from(table).update({
+      status: 'Logged out',
+      logged_out_at: new Date().toISOString(),
+      last_active: new Date().toISOString(),
+      revoked_at: new Date().toISOString(),
+    }).eq('user_id', String(userId)).eq('status', 'Active').select('session_id,session_token');
+    if (except) query = query.neq('session_id', except);
+    const { data, error } = await query;
+    throwIfError(error, 'bulk logout');
+    for (const row of data || []) {
       if (row.session_token) sessionCache.remove(row.session_token);
       changed++;
     }
@@ -136,13 +170,14 @@ async function endAllUserSessions(userId, options = {}) {
 async function expireOutdatedSessions() {
   const now = new Date().toISOString();
   let count = 0;
+  const client = getClient();
   for (const table of TABLES) {
-    const rows = await rowsFor(table);
-    for (const row of rows) {
-      if (row.status !== 'Active' || !row.expires_at || new Date(row.expires_at).getTime() > Date.now()) continue;
-      await db.updateRow(table, 'session_id', row.session_id, {
-        status: 'Expired', last_active: now, revoked_at: now,
-      }, { strict: true });
+    const { data, error } = await client.from(table)
+      .update({ status: 'Expired', last_active: now, revoked_at: now })
+      .eq('status', 'Active').lte('expires_at', now)
+      .select('session_token');
+    throwIfError(error, 'expiry sweep');
+    for (const row of data || []) {
       if (row.session_token) sessionCache.remove(row.session_token);
       count++;
     }
@@ -151,41 +186,64 @@ async function expireOutdatedSessions() {
   return { count };
 }
 async function deleteExpiredSessions() {
-  const cutoff = Date.now() - SESSION_RETENTION_MS;
+  const cutoffMs = Date.now() - SESSION_RETENTION_MS;
   let count = 0;
+  const client = getClient();
   for (const table of TABLES) {
-    count += await db.deleteRowsWhere(table, (row) =>
-      ['Expired', 'Logged out'].includes(String(row.status)) &&
-      new Date(row.expires_at || row.login_time || 0).getTime() < cutoff
-    );
+    const { data: ended, error: readError } = await client.from(table)
+      .select('session_id,expires_at,login_time')
+      .in('status', ['Expired', 'Logged out']);
+    throwIfError(readError, 'retention lookup');
+    const ids = (ended || []).filter((row) => {
+      const endedAt = row.expires_at || row.login_time;
+      return endedAt && new Date(endedAt).getTime() < cutoffMs;
+    }).map((row) => row.session_id);
+    if (!ids.length) continue;
+    const { data, error } = await client.from(table).delete()
+      .in('session_id', ids).select('session_id');
+    throwIfError(error, 'retention cleanup');
+    count += (data || []).length;
   }
   return { count };
 }
 async function getAllSessions() {
-  return (await allRows()).map(clean).sort((a,b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
+  return (await allRows()).map(clean)
+    .sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
 }
 async function getAdminSessions() {
-  return (await rowsFor(db.SHEETS.ADMIN_SESSIONS)).map(clean).sort((a,b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
+  return (await rowsFor(ADMIN_TABLE)).map(clean)
+    .sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
 }
 async function getUserSessions(userId) {
-  const rows = await rowsFor(db.SHEETS.USER_SESSIONS);
-  return rows.filter((r) => String(r.user_id) === String(userId)).map(clean)
-    .sort((a,b) => new Date(b.login_time || 0) - new Date(a.login_time || 0));
+  const { data, error } = await getClient().from(USER_TABLE).select('*')
+    .eq('user_id', String(userId)).order('login_time', { ascending: false });
+  throwIfError(error, 'user session read');
+  return (data || []).map(clean);
 }
 async function getAccountSessionHistory(email, limit = 200) {
   try {
     const key = String(email || '').trim().toLowerCase();
     if (!key) return [];
     return (await allRows()).filter((r) => String(r.email || '').trim().toLowerCase() === key)
-      .sort((a,b) => new Date(b.login_time || 0) - new Date(a.login_time || 0))
+      .sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0))
       .slice(0, Math.max(1, Number(limit) || 200)).map(clean);
   } catch (err) {
-    console.warn('[sessions] Google Sheets history unavailable:', err.message);
+    console.warn('[sessions] Supabase history unavailable:', err.message);
     return null;
   }
 }
 async function countActiveSessions() {
-  return (await allRows()).filter((r) => r.status === 'Active' && new Date(r.expires_at).getTime() > Date.now()).length;
+  const now = new Date().toISOString();
+  let count = 0;
+  const client = getClient();
+  for (const table of TABLES) {
+    const { count: tableCount, error } = await client.from(table)
+      .select('session_id', { count: 'exact', head: true })
+      .eq('status', 'Active').gt('expires_at', now);
+    throwIfError(error, 'active session count');
+    count += tableCount || 0;
+  }
+  return count;
 }
 
 module.exports = {
