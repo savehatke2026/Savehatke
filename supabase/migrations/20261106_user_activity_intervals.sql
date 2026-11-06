@@ -6,7 +6,7 @@ create table if not exists public.user_activity_intervals (
   email text not null,
   activity_date date not null,
   interval_slot smallint not null check (interval_slot between 0 and 95),
-  session_id text not null,
+  session_id uuid not null,
   seen_at timestamptz not null default now(),
   page text not null default ''
 );
