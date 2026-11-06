@@ -4,7 +4,7 @@
 // Admin pays sellers when their coupons are sold.
 //
 // Seller payout rule (single source of truth): every payout equals 7% of the
-// coupon's face value (`originalValue`), rounded to the paise. There is no flat
+// coupon's face value (`originalValue`), rounded half-up to the nearest whole rupee. There is no flat
 // fallback, no tiered rate, and no read of `sellingPrice` — the marketplace
 // selling price is a separate value and never feeds the payout. The arithmetic
 // lives in services/sellerPayout.js; this route only ever asks it for the
@@ -115,8 +115,7 @@ async function resolveCouponPayoutAmount(coupon) {
 function tryCompute7Percent(faceValue) {
   try {
     const rupees = sellerPayout.calculateSellerPayout(faceValue);
-    // sellerPayout returns a paise-precise decimal (e.g. 7.04). The Payouts
-    // ledger stores integer rupees, so round to the nearest rupee.
+    // sellerPayout already returns a whole-rupee integer (half-up rounded).
     return Math.round(rupees);
   } catch (e) {
     return null;
