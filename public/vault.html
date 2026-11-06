@@ -3414,10 +3414,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
           <div class="page-title">Support <span class="gtext">Cases</span></div>
           <div class="page-subtitle">Manage customer support tickets and resolve issues efficiently.</div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-lg" onclick="exportCases()">📥 Export</button>
-          <a class="btn btn-primary btn-lg" href="https://mail.google.com/mail/u/0/#inbox" target="_blank" rel="noopener noreferrer" style="text-decoration:none">📬 Support MailBox</a>
-        </div>
       </div>
 
       <!-- STAT CARDS -->
@@ -3539,7 +3535,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <h3>✅ Resolved Cases</h3>
             <div class="table-header-actions">
               <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter..." oninput="filterTable('resolved',this.value)" id="filterResolved">
-              <button class="btn btn-ghost btn-sm" onclick="exportCases('resolved')">Export</button>
             </div>
           </div>
           <div class="overflow-x">
@@ -3572,7 +3567,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
             <h3>🔒 Closed Cases</h3>
             <div class="table-header-actions">
               <input class="form-input btn-sm" style="width:200px" placeholder="🔍 Filter..." oninput="filterTable('closed',this.value)" id="filterClosed">
-              <button class="btn btn-ghost btn-sm" onclick="exportCases('closed')">Export</button>
             </div>
           </div>
           <div class="overflow-x">
@@ -3598,16 +3592,10 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
       </div>
 
-      <!-- BOTTOM ANALYTICS ROW -->
-      <div class="two-col">
-        <div class="card">
-          <div class="card-title"><span class="ct-icon">📊</span> Case Status Breakdown</div>
-          <div id="statusBreakdown"></div>
-        </div>
-        <div class="card">
-          <div class="card-title"><span class="ct-icon">🕐</span> Recent Activity</div>
-          <div id="recentActivity" class="activity-list"></div>
-        </div>
+      <!-- RECENT ACTIVITY -->
+      <div class="card">
+        <div class="card-title"><span class="ct-icon">🕐</span> Recent Activity</div>
+        <div id="recentActivity" class="activity-list"></div>
       </div>
     </div>
 
