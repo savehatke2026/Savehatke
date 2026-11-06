@@ -488,15 +488,14 @@ router.get('/google-redirect', async (req, res) => {
 });
 
 /**
- * Extract device info from User-Agent and create a server-side 48-hour
- * session in Supabase. Called on EVERY successful login (users and admins).
+ * Extract device info from User-Agent and create a server-side session in Google Sheets (48 hours for users, 2 hours for admins). Called on EVERY successful login (users and admins).
  *
  * The returned object carries the raw session token (which the caller places
  * only in the HttpOnly cookie) plus the session id and
  * expiry. The database stores only a SHA-256 hash of the token.
  *
  * The user_id is resolved against the Users Google Sheet first (by email),
- * so Supabase always stores the real user id that exists in the sheet.
+ * so the session record always stores the real user id that exists in the sheet.
  * Geo-IP enrichment runs in the background â€” it never delays the login.
  *
  * @returns {Promise<{token:string, sessionId:string, expiresAt:string}>}
@@ -832,7 +831,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     }
 
     // Cryptographically random session identifier. The raw value goes only in
-    // the HttpOnly cookie; only its SHA-256 hash is stored in the database.
+    // the HttpOnly cookie; only its SHA-256 hash is stored in Google Sheets.
     const rawToken = generateSessionToken();
 
     // Admin identities come fully resolved from the in-memory allowlist
@@ -875,7 +874,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
       // instead of the generic "couldnotcreateenforceablessession" — which
       // gives the user (and us) no way to tell whether the table is missing,
       // a column is wrong, RLS is blocking, or the Supabase client itself
-      // is unconfigured. The actual Supabase message stays in the Vercel log.
+      // is unconfigured. The actual Google Sheets message stays in the Vercel log.
       throw new Error('Could not create an enforceable session: no row returned from createSession');
     }
 
@@ -1103,7 +1102,7 @@ router.get('/login-history', authenticateToken, async (req, res) => {
   const LIMIT = Number.isFinite(asked) && asked > 0 ? Math.min(asked, MAX_LIMIT) : DEFAULT_LIMIT;
 
   try {
-    // Admin logins are recorded in admin_sessions, and a hardcoded admin login
+    // Admin logins are recorded in AdminSessions, and a hardcoded admin login
     // mints a fresh user_id every time, so the id-keyed read finds nothing for
     // those accounts. Falling back to the email-keyed history across both
     // tables makes this endpoint report every successful sign-in for users and
