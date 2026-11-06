@@ -11,7 +11,7 @@
 //
 //   Phase 2 (purge): rows that ENDED ('Expired' / 'Logged out') more than
 //     SESSION_RETENTION_MS ago (90 days) are deleted from the application's
-//     own user_sessions / admin_sessions tables, so expired session data does
+//     own UserSessions / AdminSessions tabs, so expired session data does
 //     not remain in the database indefinitely. The retention window exists
 //     because those rows double as the device-history ledger behind the
 //     "New device detected" alert (services/deviceRecognition.js) and the
@@ -19,8 +19,7 @@
 //     rows are removed — an Active session is never deleted.
 //
 //
-// Supabase's own auth.* tables are never touched: this application manages
-// sessions in its own tables and does not use Supabase Auth.
+// Supabase is not used for session storage. Session rows are maintained only in Google Sheets.
 //
 // Two execution modes:
 //   • Local / long-running server: a real setInterval, every 10 minutes.
@@ -29,7 +28,7 @@
 //     and an HTTP endpoint /api/auth/session-cleanup is driven daily by
 //     Vercel Cron (see vercel.json).
 
-const supabaseService = require('./supabase');
+const sessionStore = require('./sessionStore');
 
 const CLEANUP_INTERVAL_MS = 10 * 60 * 1000; // every 10 minutes
 
@@ -51,7 +50,7 @@ async function runSessionCleanup() {
   let purged = 0;
 
   try {
-    const result = await supabaseService.expireOutdatedSessions();
+    const result = await sessionStore.expireOutdatedSessions();
     expired = (result && result.count) || 0;
   } catch (e) {
     console.warn('Session expiry sweep warning:', e && e.message ? e.message : e);
@@ -61,13 +60,13 @@ async function runSessionCleanup() {
   }
 
   try {
-    const result = await supabaseService.deleteExpiredSessions();
+    const result = await sessionStore.deleteExpiredSessions();
     purged = (result && result.count) || 0;
   } catch (e) {
     console.warn('Session purge warning:', e && e.message ? e.message : e);
   }
   if (purged > 0) {
-    const days = Math.round(supabaseService.SESSION_RETENTION_MS / (24 * 60 * 60 * 1000));
+    const days = Math.round(sessionStore.SESSION_RETENTION_MS / (24 * 60 * 60 * 1000));
     console.log(`🗑️  Session cleanup: ${purged} ended session${purged === 1 ? '' : 's'} deleted (past ${days}-day retention).`);
   }
 
@@ -92,7 +91,7 @@ async function maybeRunSessionCleanup() {
     if (!shouldPurge) {
       // Flip only — the same cheap sweep the interval timer performs.
       try {
-        const result = await supabaseService.expireOutdatedSessions();
+        const result = await sessionStore.expireOutdatedSessions();
         const count = (result && result.count) || 0;
         if (count > 0) {
           console.log(`🧹 Session cleanup: ${count} session${count === 1 ? '' : 's'} expired (session limit reached).`);
@@ -123,7 +122,7 @@ function startSessionCleanupInterval() {
       runSessionCleanup().catch((e) => console.warn('Session cleanup warning:', e && e.message ? e.message : e));
     } else {
       // 10-minute cadence: just flip past-expiry rows to 'Expired'.
-      supabaseService.expireOutdatedSessions()
+      sessionStore.expireOutdatedSessions()
         .then((result) => {
           const count = (result && result.count) || 0;
           if (count > 0) {
@@ -135,7 +134,7 @@ function startSessionCleanupInterval() {
   }, CLEANUP_INTERVAL_MS);
   // One full sweep shortly after boot
   setTimeout(() => runSessionCleanup().catch(() => {}), 15 * 1000);
-  const days = Math.round(supabaseService.SESSION_RETENTION_MS / (24 * 60 * 60 * 1000));
+  const days = Math.round(sessionStore.SESSION_RETENTION_MS / (24 * 60 * 60 * 1000));
   console.log(`⏱️  Session cleanup job scheduled (every 10 minutes; ended sessions deleted after ${days} days).`);
 }
 

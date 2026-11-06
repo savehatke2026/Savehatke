@@ -20,6 +20,7 @@ const {
 } = require('../middleware/auth');
 const db = require('../services/googleSheets');
 const supabase = require('../services/supabase');
+const sessionStore = require('../services/sessionStore');
 const emailService = require('../services/emailService');
 const deviceRecognition = require('../services/deviceRecognition');
 const getClientIP = require('../middleware/getClientIP');
@@ -487,15 +488,14 @@ router.get('/google-redirect', async (req, res) => {
 });
 
 /**
- * Extract device info from User-Agent and create a server-side 48-hour
- * session in Supabase. Called on EVERY successful login (users and admins).
+ * Extract device info from User-Agent and create a server-side session in Google Sheets (48 hours for users, 2 hours for admins). Called on EVERY successful login (users and admins).
  *
  * The returned object carries the raw session token (which the caller places
  * only in the HttpOnly cookie) plus the session id and
  * expiry. The database stores only a SHA-256 hash of the token.
  *
  * The user_id is resolved against the Users Google Sheet first (by email),
- * so Supabase always stores the real user id that exists in the sheet.
+ * so the session record always stores the real user id that exists in the sheet.
  * Geo-IP enrichment runs in the background â€” it never delays the login.
  *
  * @returns {Promise<{token:string, sessionId:string, expiresAt:string}>}
@@ -670,15 +670,7 @@ async function enrichSessionGeo(sessionId, ip, geo) {
   const country = rawCountry === 'India' ? 'India \u{1F1EE}\u{1F1F3}' : rawCountry;
 
   try {
-    const client = supabase.getClient();
-    if (client) {
-      // The session lives in exactly one of the two tables; updating both is
-      // harmless (the non-matching table simply updates zero rows).
-      await Promise.all([
-        client.from('user_sessions').update({ country, state, city }).eq('session_id', sessionId),
-        client.from('admin_sessions').update({ country, state, city }).eq('session_id', sessionId),
-      ]);
-    }
+    await sessionStore.updateSessionFields(sessionId, { country, state, city });
   } catch (e) { /* enrichment is best-effort */ }
 }
 
@@ -839,7 +831,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     }
 
     // Cryptographically random session identifier. The raw value goes only in
-    // the HttpOnly cookie; only its SHA-256 hash is stored in the database.
+    // the HttpOnly cookie; only its SHA-256 hash is stored in Google Sheets.
     const rawToken = generateSessionToken();
 
     // Admin identities come fully resolved from the in-memory allowlist
@@ -860,7 +852,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     // User sessions last 48 hours.
     const ttlMs = isAdminLogin ? ADMIN_SESSION_TTL_MS : SESSION_TTL_MS;
 
-    const sessionResult = await supabase.createSession({
+    const sessionResult = await sessionStore.createSession({
       user_id: finalUserId,
       email: cleanEmail,
       device: deviceStr,
@@ -882,11 +874,11 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
       // instead of the generic "couldnotcreateenforceablessession" — which
       // gives the user (and us) no way to tell whether the table is missing,
       // a column is wrong, RLS is blocking, or the Supabase client itself
-      // is unconfigured. The actual Supabase message stays in the Vercel log.
+      // is unconfigured. The actual Google Sheets message stays in the Vercel log.
       throw new Error('Could not create an enforceable session: no row returned from createSession');
     }
 
-    console.log(`âœ… Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
+    console.log(`âœ… Session created in Google Sheets: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
 
     // Geo-IP enrichment in the background â€” never blocks the login response
     geoPromise
@@ -943,7 +935,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
       return res.status(401).json({ error: 'An active session is required.' });
     }
     const now = new Date().toISOString();
-    const revoked = await supabase.endSessionByToken(hashSessionToken(rawSessionToken), 'Logged out');
+    const revoked = await sessionStore.endSessionByToken(hashSessionToken(rawSessionToken), 'Logged out');
     if (!revoked) {
       return res.status(503).json({ error: 'Could not revoke this session. Please try again.' });
     }
@@ -988,7 +980,7 @@ const placeOf = (r) => [r.city, r.state, stripFlag(r.country)]
 // Never exposes raw session tokens â€” only metadata plus an is_current flag.
 router.get('/sessions', authenticateToken, async (req, res) => {
   try {
-    const rows = await supabase.getUserSessions(req.user.id);
+    const rows = await sessionStore.getUserSessions(req.user.id);
 
     // req.sessionId was set by the middleware from the validated session â€”
     // use it to flag which row is the device making this request.
@@ -1025,7 +1017,7 @@ router.post('/sessions/revoke', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'session_id is required.' });
     }
 
-    const row = await supabase.findSessionById(session_id);
+    const row = await sessionStore.findSessionById(session_id);
     if (!row) {
       return res.status(404).json({ error: 'Session not found.' });
     }
@@ -1033,7 +1025,7 @@ router.post('/sessions/revoke', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'You can only manage your own sessions.' });
     }
 
-    await supabase.endSession(session_id, 'Logged out');
+    await sessionStore.endSession(session_id, 'Logged out');
 
     // Revoking the session this request came from? Clear the cookie too.
     if (req.sessionId === session_id) clearSessionCookie(res);
@@ -1050,7 +1042,7 @@ router.post('/sessions/revoke', authenticateToken, async (req, res) => {
 // current one). The account/profile is untouched.
 router.post('/sessions/revoke-all', authenticateToken, async (req, res) => {
   try {
-    await supabase.endAllUserSessions(req.user.id);
+    await sessionStore.endAllUserSessions(req.user.id);
     clearSessionCookie(res);
     res.json({ message: 'All devices have been logged out.' });
   } catch (err) {
@@ -1073,7 +1065,7 @@ router.post('/sessions/revoke-others', authenticateToken, async (req, res) => {
       });
     }
 
-    await supabase.endAllUserSessions(req.user.id, { exceptSessionId: req.sessionId });
+    await sessionStore.endAllUserSessions(req.user.id, { exceptSessionId: req.sessionId });
     res.json({ message: 'All other devices have been logged out.' });
   } catch (err) {
     console.error('Revoke other sessions error:', err);
@@ -1110,14 +1102,14 @@ router.get('/login-history', authenticateToken, async (req, res) => {
   const LIMIT = Number.isFinite(asked) && asked > 0 ? Math.min(asked, MAX_LIMIT) : DEFAULT_LIMIT;
 
   try {
-    // Admin logins are recorded in admin_sessions, and a hardcoded admin login
+    // Admin logins are recorded in AdminSessions, and a hardcoded admin login
     // mints a fresh user_id every time, so the id-keyed read finds nothing for
     // those accounts. Falling back to the email-keyed history across both
     // tables makes this endpoint report every successful sign-in for users and
     // admins alike.
-    let rows = await supabase.getUserSessions(req.user.id);
+    let rows = await sessionStore.getUserSessions(req.user.id);
     if (!rows.length && req.user.email) {
-      rows = (await supabase.getAccountSessionHistory(req.user.email, MAX_LIMIT)) || [];
+      rows = (await sessionStore.getAccountSessionHistory(req.user.email, MAX_LIMIT)) || [];
     }
 
     const entries = rows.map((r) => ({
