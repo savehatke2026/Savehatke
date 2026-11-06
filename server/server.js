@@ -851,10 +851,9 @@ async function initServices() {
     console.warn('⚠️  Google Sheets unavailable. Operating in memory fallback mode.');
   }
 
-  // Ensure Supabase sessions table exists
+  // Supabase remains enabled for non-session features (pricing and maintenance settings).
   const supabase = require('./services/supabase');
   if (supabase.isConfigured()) {
-    await supabase.ensureSessionsTable();
     await supabase.ensureSiteSettingsTable();
     // Load the admin-editable pricing tiers once so the first purchase or
     // listing uses the saved values rather than the built-in defaults.
