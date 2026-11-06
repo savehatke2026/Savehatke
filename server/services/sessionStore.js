@@ -187,7 +187,6 @@ async function expireOutdatedSessions() {
 }
 async function deleteExpiredSessions() {
   const cutoffMs = Date.now() - SESSION_RETENTION_MS;
-  const cutoff = new Date(cutoffMs).toISOString();
   let count = 0;
   const client = getClient();
   for (const table of TABLES) {
