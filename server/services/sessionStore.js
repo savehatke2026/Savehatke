@@ -186,13 +186,22 @@ async function expireOutdatedSessions() {
   return { count };
 }
 async function deleteExpiredSessions() {
-  const cutoff = new Date(Date.now() - SESSION_RETENTION_MS).toISOString();
+  const cutoffMs = Date.now() - SESSION_RETENTION_MS;
+  const cutoff = new Date(cutoffMs).toISOString();
   let count = 0;
   const client = getClient();
   for (const table of TABLES) {
-    const { data, error } = await client.from(table)
-      .delete().in('status', ['Expired', 'Logged out']).lt('expires_at', cutoff)
-      .select('session_id');
+    const { data: ended, error: readError } = await client.from(table)
+      .select('session_id,expires_at,login_time')
+      .in('status', ['Expired', 'Logged out']);
+    throwIfError(readError, 'retention lookup');
+    const ids = (ended || []).filter((row) => {
+      const endedAt = row.expires_at || row.login_time;
+      return endedAt && new Date(endedAt).getTime() < cutoffMs;
+    }).map((row) => row.session_id);
+    if (!ids.length) continue;
+    const { data, error } = await client.from(table).delete()
+      .in('session_id', ids).select('session_id');
     throwIfError(error, 'retention cleanup');
     count += (data || []).length;
   }
