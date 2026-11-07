@@ -724,21 +724,27 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
     }
   }
 
-  // 7) Time window. finalizePayment() enforces this again inside the process
-  //    lock; checking here too lets a clearly-out-of-window notification be
-  //    parked for review rather than bouncing off the store. The deadline is
-  //    the single 10-minute payment_expires_at. Nothing settles after it: a
-  //    payment first verified later takes the late-refund path above.
+  // 7) Time window. FamApp's parsed transaction instant is authoritative:
+  // a transfer made inside the original 10-minute window remains valid even
+  // when Gmail delivers it later. The store re-checks this under its lock.
   const created = new Date(payment.createdAt).getTime();
   const deadline = new Date(payment.paymentExpiresAt || payment.expiresAt).getTime();
   const verifiedNow = Date.now();
-  if (Number.isFinite(created) && Number.isFinite(deadline)) {
-    if (verifiedNow >= deadline) {
-      return reject(
-        'REVIEW',
-        `Payment first verified after the 10-minute deadline (${new Date(deadline).toISOString()}); not unlocked.`
-      );
-    }
+  if (candidate.transactionAt) {
+    const timing = paymentWindow.decideIncomingCredit({
+      transactionAt: candidate.transactionAt,
+      sessionStatus: payment.status,
+      sessionCreatedAt: payment.createdAt,
+      paymentExpiresAt: payment.paymentExpiresAt || payment.expiresAt,
+      payerNameMatches: true,
+      verifiedAtMs: verifiedNow,
+    });
+    if (timing.action !== 'settle') return reject('REVIEW', timing.reason);
+  } else if (Number.isFinite(created) && Number.isFinite(deadline) && verifiedNow >= deadline) {
+    return reject(
+      'REVIEW',
+      `Payment first verified after the 10-minute deadline (${new Date(deadline).toISOString()}); not unlocked.`
+    );
   }
 
   // 8) The payment must still be live. A late confirmation for an expired
@@ -788,6 +794,7 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
         paidAt: candidate.occurredAt,
         raw: candidate.raw,
         receivedAmount: candidate.amount,
+        transactionAt: candidate.transactionAt || null,
       });
     }
   } catch (e) {
@@ -1020,43 +1027,49 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
     return reject('REVIEW', 'FamApp email has no readable transaction time — payment left pending for review.');
   }
 
-  // Live pending payments only (findPendingPaymentsForAmount already excludes
-  // expired windows). Amount-only match, to the paisa.
+  // Match against every still-live session. Exact amount remains the
+  // strongest match. For a mismatch, FamApp does not include our order code,
+  // so the payer name must identify exactly one fresh pending session. Never
+  // guess between concurrent orders or fall back to amount-only attribution.
   const pending = pendingPayments || (await store.findPendingPaymentsForAmount(null));
-  const amountMatches = pending.filter((p) => moneyEquals(p.amount, candidate.amount));
-
-  if (!amountMatches.length) {
-    // Wrong amount / nothing waiting: keep every session live until it expires
-    // (spec — wrong-amount handling). Do NOT mark anything paid.
-    return reject('IGNORED', `No active order is waiting for ₹${candidate.amount.toFixed(2)}.`);
-  }
-
-  // New-email checkpoint: a message must have arrived AFTER a session opened to
-  // settle it. This is what stops an OLD FamApp email verifying a new order.
   const recvdMs = candidate.receivedAt ? new Date(candidate.receivedAt).getTime() : NaN;
-  const fresh = amountMatches.filter((p) => {
+  const fresh = pending.filter((p) => {
     const startedMs = new Date(p.createdAt).getTime();
-    // Fail-open only when a timestamp is genuinely unreadable; otherwise the
-    // email must be at/after the window start (60s clock-skew grace).
-    if (!Number.isFinite(recvdMs) || !Number.isFinite(startedMs)) return true;
+    if (!Number.isFinite(recvdMs) || !Number.isFinite(startedMs)) return false;
     return recvdMs >= startedMs - 60 * 1000;
   });
 
   if (!fresh.length) {
-    return reject('IGNORED', 'FamApp email predates the active payment window (old notification).');
+    return reject('IGNORED', 'FamApp email predates the active payment window (old notification), or its receipt time is unavailable.');
   }
 
-  // Session isolation: a bare amount cannot disambiguate two concurrent
-  // same-amount orders. Settle only when exactly one live session waits for it.
-  if (fresh.length > 1) {
+  const exactMatches = fresh.filter((p) => moneyEquals(p.amount, candidate.amount));
+  let payment = null;
+  let mismatchPath = false;
+
+  if (exactMatches.length > 1) {
     return reject(
       'REVIEW',
-      `₹${candidate.amount.toFixed(2)} matches ${fresh.length} concurrent orders — cannot attribute by amount alone.`
+      `₹${candidate.amount.toFixed(2)} matches ${exactMatches.length} concurrent orders — cannot attribute by amount alone.`
     );
   }
+  if (exactMatches.length === 1) {
+    payment = exactMatches[0];
+  } else {
+    const namedMatches = fresh.filter((p) => payerNameMatches(candidate.payerName, p.buyerName));
+    if (namedMatches.length !== 1) {
+      return reject(
+        'REVIEW',
+        namedMatches.length
+          ? `The mismatched ₹${candidate.amount.toFixed(2)} credit matches ${namedMatches.length} active orders for this payer — routed to admin review.`
+          : 'The FamApp amount differs from the order and the payer name does not uniquely identify one active order — routed to admin review.'
+      );
+    }
+    payment = namedMatches[0];
+    mismatchPath = !moneyEquals(payment.amount, candidate.amount);
+  }
 
-  const payment = fresh[0];
-  console.log(`${tag} Expected amount: ₹${Number(payment.amount).toFixed(2)}`);
+  console.log(`${tag} Matched payment ${payment.paymentId}; required ₹${Number(payment.amount).toFixed(2)}, received ₹${candidate.amount.toFixed(2)}`);
 
   // Both references are required. The customer does not know them when opening
   // the window; they come from the verified FamApp email after payment. A
@@ -1085,7 +1098,18 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
     return reject('REVIEW', `Payment ${payment.paymentId} is ${payment.status}, not PENDING.`);
   }
 
-  console.log(`${tag} Amount matched`);
+  if (mismatchPath) {
+    return settleMatch({
+      payment,
+      candidate: { ...candidate, source: 'email' },
+      notification,
+      pendingPayments: fresh,
+      mismatchPath: true,
+      reject,
+    });
+  }
+
+  console.log(`${tag} Exact amount matched`);
 
   // Settle atomically. finalizePayment gates on the coupon flip, re-checks the
   // transaction ID and UTR under its lock, and is idempotent, so an email can
