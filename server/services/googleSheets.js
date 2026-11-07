@@ -900,7 +900,7 @@ function seedDemoData() {
 
 // Short-term in-memory cache to speed up repeated queries (e.g. user logins)
 const rowsCache = {};
-const CACHE_TTL_MS = 3000; // 3 seconds
+const CACHE_TTL_MS = 10000; // 10 seconds; write helpers invalidate the affected sheet immediately
 
 function invalidateCache(sheetName) {
   delete rowsCache[sheetName];
