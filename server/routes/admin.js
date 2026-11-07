@@ -2825,6 +2825,67 @@ function cronSecretMatches(req) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// GET|POST /api/admin/support/pending-count/run — daily count-only email to admins.
+// Vercel Cron calls this at 09:00 Asia/Kolkata (03:30 UTC). It reads the
+// authoritative SupportTickets tab and never includes ticket details.
+router.all('/support/pending-count/run', async (req, res) => {
+  if (!['GET', 'POST'].includes(req.method)) {
+    return res.status(405).json({ ok: false, error: 'Method not allowed.' });
+  }
+  if (cronSecretMatches(req)) return handlePendingSupportCountRun(req, res);
+  return authenticateToken(req, res, () => requireAdmin(req, res, () => handlePendingSupportCountRun(req, res)));
+});
+
+async function handlePendingSupportCountRun(req, res) {
+  try {
+    // Use the live admin roster, not hard-coded addresses or an environment fallback.
+    await refreshAdminRoster();
+    if (isAdminRosterStale()) {
+      return res.status(503).json({ ok: false, error: 'The current admin roster is unavailable.' });
+    }
+
+    const tickets = await db.getRows(db.SHEETS.SUPPORT_TICKETS, { strict: true });
+    const pendingCount = (Array.isArray(tickets) ? tickets : []).filter((ticket) => {
+      const status = String(ticket.status || 'open').toLowerCase().trim().replace(/[\\s_-]+/g, '');
+      return status === 'open' || status === 'inprogress' || status === 'pending';
+    }).length;
+
+    // A zero count is not an alert; avoid sending unnecessary daily emails.
+    if (pendingCount === 0) {
+      return res.status(200).json({ ok: true, pendingCount: 0, sent: 0, skipped: 'no_pending_cases' });
+    }
+
+    const recipients = [...new Set(getActiveAdminEmails()
+      .map((email) => String(email || '').trim().toLowerCase())
+      .filter((email) => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)))];
+
+    if (!recipients.length) {
+      return res.status(503).json({ ok: false, pendingCount, error: 'No active admin email addresses are configured.' });
+    }
+
+    const subject = `SaveHatke – ${pendingCount} Pending Support Case${pendingCount === 1 ? '' : 's'}`;
+    const message = `You currently have ${pendingCount} pending support case${pendingCount === 1 ? '' : 's'} that require attention.\\n\\nPlease check the SaveHatke Admin Panel.\\n\\n– SaveHatke System`;
+    const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#17202a;line-height:1.6"><p>Hello Admin,</p><p>You currently have <strong>${pendingCount} pending support case${pendingCount === 1 ? '' : 's'}</strong> that require attention.</p><p>Please check the SaveHatke Admin Panel.</p><p>– SaveHatke System</p></body></html>`;
+
+    const results = await Promise.all(recipients.map((to) => emailService.sendCustomEmail({
+      to, subject, text: message, html,
+      headers: { 'X-Entity-Ref-ID': `support-pending-count-${new Date().toISOString().slice(0, 10)}` },
+    })));
+    const sent = results.filter((result) => result && result.success).length;
+    const failed = results.filter((result) => !result || !result.success).length;
+
+    return res.status(failed ? 502 : 200).json({
+      ok: failed === 0,
+      pendingCount,
+      sent,
+      failed,
+    });
+  } catch (err) {
+    console.error('[admin/support-pending-count] run failed:', err && err.message ? err.message : err);
+    return res.status(500).json({ ok: false, error: 'Pending support count email failed.' });
+  }
+}
+
 // GET|POST /api/admin/credentials/alerts/run — daily refresh-token check for the
 // three admin OAuth integrations (support_gmail, google_drive, payment_gmail).
 // Scheduled by vercel.json so it runs even when no admin has the panel open.
