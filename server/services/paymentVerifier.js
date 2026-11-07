@@ -817,6 +817,7 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
   //     received amount from the verified notification — never from the
   //     request body.
   let refundRecord = null;
+  let refundRegistrationError = '';
   if (mismatchPath) {
     try {
       const required = Number(payment.amount || 0);
@@ -833,6 +834,9 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
       });
       if (created && created.ok && created.refund) {
         refundRecord = created.refund;
+      } else {
+        refundRegistrationError = (created && (created.error || created.code || created.reason))
+          || 'Refund service did not return a saved refund record.';
       }
       // Admin notice for a NEW overpayment only. `created` is false on any
       // replay, so this fires at most once per payment. Notification only:
@@ -848,8 +852,37 @@ async function settleMatch({ payment, candidate, notification, pendingPayments, 
         await notifyAdminsOfUnderpayment({ payment, candidate, refundRecord, required, received });
       }
     } catch (e) {
-      console.warn('[paymentVerifier] refund record notice:', e.message);
+      refundRegistrationError = e && e.message ? e.message : 'Unknown refund registration error.';
+      console.warn('[paymentVerifier] refund record registration failed:', refundRegistrationError);
     }
+  }
+
+  // A mismatch is not considered fully processed until its refund request is
+  // durably present in the Refunds sheet. Keep the notification retryable
+  // (REVIEW is deliberately unresolved) so a temporary Sheets outage cannot
+  // silently strand a PAID/REVIEW mismatch without its admin refund request.
+  if (mismatchPath && !refundRecord) {
+    const reason = 'Payment mismatch was verified, but refund registration failed: ' + refundRegistrationError;
+    try {
+      await store.updateNotification(notification.id, {
+        status: 'REVIEW',
+        matched_payment_id: payment.paymentId,
+        notes: reason,
+      });
+    } catch (e) {}
+    return {
+      action: 'review',
+      reason,
+      notification,
+      payment,
+      result,
+      refund: null,
+      mismatch: {
+        requiredAmount: payment.amount,
+        receivedAmount: candidate.amount,
+        delta: Number((Number(candidate.amount || 0) - Number(payment.amount || 0)).toFixed(2)),
+      },
+    };
   }
 
   try {
