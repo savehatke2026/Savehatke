@@ -54,7 +54,7 @@
        own container. */
     .coupon-card-checkout { --card-bg:#001824; --card-border:#00628a; --card-muted:#b1c5f5; --lime:#a8ff5a; --cta:#00E272; --ink:#00100b; container-type:inline-size; display:flex; flex-direction:column; border-radius:19px; background:var(--card-bg); border:1px solid var(--card-border); overflow:hidden; margin:0; }
     /* Marketplace card rules (marketplace.html .match-*), copied as-is so the checkout box looks identical. */
-    .match-banner { position:relative; aspect-ratio:2.24; flex-shrink:0; border-radius:18px; background:#02121e; overflow:hidden; margin:10px 10px 0; }
+    .match-banner { position:relative; aspect-ratio:2.24; flex-shrink:0; border-radius:18px; background:#02121e; overflow:hidden; }
     .match-banner img { display:block; width:100%; height:100%; object-fit:cover; object-position:center; }
     .match-body { padding:3.4cqw; display:flex; flex-direction:column; flex:1; gap:3cqw; min-width:0; }
     .match-info { display:flex; align-items:flex-start; gap:4.4cqw; min-height:24cqw; }
@@ -68,14 +68,16 @@
     .match-description[role="button"] { cursor:pointer; }
     .match-description[role="button"]:focus-visible { outline:2px solid var(--cta); outline-offset:3px; border-radius:4px; }
     .match-meta { display:flex; align-items:center; gap:2.5cqw; margin-top:1.5cqw; white-space:nowrap; }
-    .match-meta-row { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; }
-    .match-meta-row .match-discount { justify-self:start; }
-    .match-meta-row .match-cost { justify-self:center; display:inline-flex; align-items:baseline; gap:1.2cqw; text-align:center; }
-    .match-meta-row .match-timer { justify-self:end; }
+    .match-meta-row { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(max-content,1.5fr); align-items:center; }
+    .match-meta-row .match-discount { grid-column:1; justify-self:start; min-width:0; }
+    .match-meta-row .match-cost { grid-column:2; justify-self:center; margin-right:4cqw; min-width:0; display:inline-flex; align-items:baseline; gap:1.2cqw; text-align:center; }
+    .match-meta-row .match-timer-slot { grid-column:3; justify-self:end; }
+    .match-meta-row .match-discount:empty { display:none; }
+    .match-meta-row .match-soon-tag { grid-column:3; justify-self:end; }
     .match-meta-row .match-discount:empty { display:none; }
     .match-discount { background:var(--lime); color:var(--ink); border-radius:99px; padding:2.9cqw 4cqw; font-size:4.6cqw; font-weight:800; letter-spacing:-.045em; max-width:52cqw; overflow:hidden; text-overflow:ellipsis; }
     .match-cost { font-size:6.1cqw; color:#00E272; font-weight:800; letter-spacing:-.04em; }
-    .match-cost del { font-size:4.2cqw; color:#6b88aa; font-weight:600; margin-left:0; }
+    .match-cost del { font-size:4.2cqw; color:#f7f8fc; font-weight:600; margin-left:1cqw; }
     .match-timer { display:inline-flex; align-items:center; gap:1.6cqw; flex-shrink:0; font-size:4cqw; white-space:nowrap; font-variant-numeric:tabular-nums; padding:1.2cqw 2.6cqw; border-radius:99px; border:1px solid currentColor; background:rgba(255,255,255,.03); min-width:0; max-width:100%; }
     .match-timer svg { width:3cqw; height:3cqw; flex-shrink:0; }
     .match-timer.green  { color:#00E272; box-shadow:0 0 10px rgba(0,226,114,.28), inset 0 0 6px rgba(0,226,114,.08); }
@@ -674,16 +676,12 @@
           </div>
           <div class="match-meta match-meta-row">
             <span class="match-discount" id="csHeroOff" style="display:none"></span>
-            <span class="match-cost" id="csPrice">—</span>
-            <span class="match-timer" id="csExpiryTimer" style="display:none"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="16" cy="18" r="12"/><path d="M16 10v8l5 4M13 2h6M16 2v4M25 6l3 3"/></svg><span data-timer="csTimer">00:00:00</span></span>
+            <span class="match-cost"><span id="csPrice">—</span><del id="csOriginalPrice" style="display:none"></del></span>
+            <span class="match-timer-slot"><span class="match-timer" id="csExpiryTimer" style="display:none"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="16" cy="18" r="12"/><path d="M16 10v8l5 4M13 2h6M16 2v4M25 6l3 3"/></svg><span data-timer="csTimer">00:00:00</span></span></span>
           </div>
         </div>
         <div id="csStatus" role="alert"></div>
       </article>
-      <div class="cv-details" aria-label="Coupon value and minimum order">
-        <div class="cv-item"><small>Coupon Value</small><strong id="csValue">—</strong></div>
-        <div class="cv-item" id="csMinOrderItem" style="display:none"><small>Minimum Order</small><strong id="csMinOrder">—</strong></div>
-      </div>
       <form id="checkout-form" autocomplete="on">
         <div class="field"><label class="field-label" for="buyerName">Name <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#user"/></svg></span><input id="buyerName" name="name" autocomplete="name" placeholder="Payer's full name" required minlength="2"></div><div class="warning" id="payerNameWarn"><span aria-hidden="true">⚠</span><div>Please enter the name of the person making the payment correctly. Incorrect payer information may cause delays in payment verification, order updates, or coupon delivery.</div></div></div>
         <div class="field"><label class="field-label" for="buyerEmail">Email Address <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#mail"/></svg></span><input id="buyerEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required></div></div>
@@ -1279,6 +1277,12 @@
     // states the facts, the summary totals them up.
     set('csValue', currentCoupon.value ? '₹' + currentCoupon.value : '—');
     set('csPrice', totalPrice ? formatRupees(totalPrice) : '—');
+    const originalPriceEl = document.getElementById('csOriginalPrice');
+    const originalPrice = Number(String(currentCoupon.originalValue == null ? '' : currentCoupon.originalValue).replace(/[^\\d.]/g, ''));
+    if (originalPriceEl) {
+      originalPriceEl.textContent = Number.isFinite(originalPrice) && originalPrice > 0 ? formatRupees(originalPrice) : '';
+      originalPriceEl.style.display = originalPriceEl.textContent ? '' : 'none';
+    }
     set('sumValue', currentCoupon.value ? '₹' + currentCoupon.value : '—');
     set('sumPrice', totalPrice ? formatRupees(totalPrice) : '—');
     set('sumTotal', totalPrice ? formatRupees(totalPrice) : '—');
