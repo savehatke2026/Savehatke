@@ -11,6 +11,7 @@ const supabase = require('../services/supabase');
 const brandStore = require('../services/brandStore');
 const { getPublicSettings } = require('../services/publicSettings');
 const paymentStore = require('../services/paymentStore');
+const paymentLedgerDb = require('../services/paymentLedgerDb');
 const twilioWhatsApp = require('../services/twilioWhatsApp');
 const emailService = require('../services/emailService');
 const googleDrive = require('../services/googleDrive');
@@ -1165,9 +1166,11 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
     const userId = String(req.user.id || req.user.userId || '').trim();
     const ordersByCoupon = new Map();
     try {
+      // Orders and Payments are financial-ledger records. Read them only
+      // through the Supabase ledger adapter; do not fall back to Google Sheets.
       const [orderRows, paymentRows] = await Promise.all([
-        db.getRowsFresh(db.SHEETS.ORDERS),
-        db.getRowsFresh(db.SHEETS.PAYMENTS),
+        paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.ORDERS),
+        paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.PAYMENTS),
       ]);
       const belongsToCurrentUser = (row) => {
         const rowUserId = String(row.user_id || row.userId || '').trim();
@@ -1202,7 +1205,12 @@ router.get('/my-purchases', authenticateToken, async (req, res) => {
           ordersByCoupon.set(cid, { order, payment });
         }
       }
-    } catch (e) { /* best effort — dashboard falls back gracefully */ }
+    } catch (e) {
+      console.error('[my-purchases] Supabase Orders/Payments read failed:', e.message);
+      return res.status(503).json({
+        error: 'Purchase and transaction records are temporarily unavailable. Please try again.',
+      });
+    }
 
     // Historical fallback: a sold coupon that was removed from the inventory
     // stores (inventory reset) stays visible in purchase history through the
