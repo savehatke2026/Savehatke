@@ -30,6 +30,63 @@ const { getAdminAccount, getJwtSecret, normalizeEmail, isAdminRosterStale, ensur
 
 const router = express.Router();
 
+
+/**
+ * Return the identity attached to the current, server-validated HttpOnly
+ * session. This is intentionally shared by /me and /session: the homepage
+ * uses /me to restore its cached profile, while older clients may still ask
+ * for /session. Neither route trusts localStorage or caller-supplied identity.
+ */
+async function sendCurrentSession(req, res) {
+  try {
+    const email = String((req.user && req.user.email) || '').trim().toLowerCase();
+    if (!email || !req.sessionId) {
+      return res.status(401).json({ error: 'A valid session is required.', code: 'SESSION_EXPIRED' });
+    }
+
+    let profile = {};
+    if (String(req.user.role || '').toLowerCase() === 'admin') {
+      const admin = getAdminAccount(email);
+      profile = {
+        id: String(req.user.id || email),
+        name: String((admin && admin.name) || email.split('@')[0] || 'Admin'),
+        role: 'admin',
+        status: 'active',
+        picture: '',
+      };
+    } else {
+      // The session row is the authentication authority; the Users sheet is
+      // only used to enrich the response with the current display/status data.
+      const row = await db.findRow(db.SHEETS.USERS, 'email', email);
+      profile = {
+        id: String((row && (row.user_ID || row.user_id || row.id)) || req.user.id || ''),
+        name: String((row && (row.preferred_name || row.name)) || email.split('@')[0]),
+        preferred_name: String((row && row.preferred_name) || ''),
+        username: String((row && row.username) || email.split('@')[0]),
+        role: 'user',
+        status: String((row && row.status) || 'active').trim().toLowerCase(),
+        picture: isAllowedAvatarUrl(row && row.profile_picture) ? String(row.profile_picture).trim() : '',
+        needs_name_setup: !String((row && row.preferred_name) || '').trim(),
+        ...(row && (row.suspendReason || row.suspend_reason)
+          ? { suspendReason: String(row.suspendReason || row.suspend_reason) }
+          : {}),
+      };
+    }
+
+    const user = { ...profile, email };
+    res.set('Cache-Control', 'no-store');
+    return res.json({ authenticated: true, user });
+  } catch (err) {
+    console.error('[auth] Current-session lookup failed:', err && err.message ? err.message : err);
+    return res.status(503).json({ error: 'Could not verify the current account profile.', code: 'AUTH_UNAVAILABLE' });
+  }
+}
+
+// GET /api/auth/me — live profile for the already validated session.
+router.get('/me', authenticateToken, sendCurrentSession);
+// Backwards-compatible session status endpoint; same cookie validation and payload.
+router.get('/session', authenticateToken, sendCurrentSession);
+
 // POST /api/auth/activity/ping — server-timestamped activity for signed-in users.
 // Admin identities are excluded server-side, regardless of browser-supplied data.
 router.post('/activity/ping', authenticateToken, async (req, res) => {
