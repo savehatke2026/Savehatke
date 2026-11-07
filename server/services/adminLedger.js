@@ -51,6 +51,13 @@ function money(v) { return Math.round(num(v) * 100) / 100; }
 function blank(v) { return v === '' || v === undefined || v === null; }
 function ms(v) { const t = Date.parse(v); return Number.isFinite(t) ? t : 0; }
 
+// Supabase coupon rows are normalized to camelCase; Google Sheets rows keep
+// their snake_case headers. Read either representation in the finance read model.
+function field(row, snake, camel) {
+  if (!row) return undefined;
+  return row[snake] !== undefined ? row[snake] : row[camel];
+}
+
 function groupBy(rows, keyFn) {
   const map = new Map();
   for (const row of rows || []) {
@@ -431,18 +438,18 @@ function reservationStatus(coupon, payIds, now) {
   if (!coupon) return 'unknown';
   // Columns from the reservation migration are absent on older databases.
   if (coupon.reserved_until === undefined && coupon.reserved_payment_id === undefined) return 'unknown';
-  const holder = str(coupon.reserved_payment_id);
+  const holder = str(field(coupon, 'reserved_payment_id', 'reservedPaymentId'));
   if (!holder) return 'none';
   if (!payIds.has(holder)) return 'held_by_other';
-  const until = ms(coupon.reserved_until);
+  const until = ms(field(coupon, 'reserved_until', 'reservedUntil'));
   return until > now ? 'active' : 'expired';
 }
 
 function soldToBuyer(coupon, o, payIds) {
   if (!coupon || lower(coupon.status) !== 'sold') return false;
-  if (payIds.has(str(coupon.sold_payment_id))) return true;
-  const buyer = lower(o.buyer_email || o.user_email);
-  return !!buyer && lower(coupon.buyer_email) === buyer;
+  if (payIds.has(str(field(coupon, 'sold_payment_id', 'soldPaymentId')))) return true;
+  const buyer = lower(o.buyer_email || o.user_email || o.buyerEmail || o.userEmail);
+  return !!buyer && lower(field(coupon, 'buyer_email', 'buyerEmail')) === buyer;
 }
 
 function deliveryStatus(status, sold) {
