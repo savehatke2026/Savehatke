@@ -2846,7 +2846,7 @@ async function handlePendingSupportCountRun(req, res) {
 
     const tickets = await db.getRows(db.SHEETS.SUPPORT_TICKETS, { strict: true });
     const pendingCount = (Array.isArray(tickets) ? tickets : []).filter((ticket) => {
-      const status = String(ticket.status || 'open').toLowerCase().trim().replace(/[\\s_-]+/g, '');
+      const status = String(ticket.status || 'open').toLowerCase().trim().replace(/[\s_-]+/g, '');
       return status === 'open' || status === 'inprogress' || status === 'pending';
     }).length;
 
@@ -2857,14 +2857,14 @@ async function handlePendingSupportCountRun(req, res) {
 
     const recipients = [...new Set(getActiveAdminEmails()
       .map((email) => String(email || '').trim().toLowerCase())
-      .filter((email) => /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)))];
+      .filter((email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)))];
 
     if (!recipients.length) {
       return res.status(503).json({ ok: false, pendingCount, error: 'No active admin email addresses are configured.' });
     }
 
     const subject = `SaveHatke – ${pendingCount} Pending Support Case${pendingCount === 1 ? '' : 's'}`;
-    const message = `You currently have ${pendingCount} pending support case${pendingCount === 1 ? '' : 's'} that require attention.\\n\\nPlease check the SaveHatke Admin Panel.\\n\\n– SaveHatke System`;
+    const message = `You currently have ${pendingCount} pending support case${pendingCount === 1 ? '' : 's'} that require attention.\n\nPlease check the SaveHatke Admin Panel.\n\n– SaveHatke System`;
     const html = `<!doctype html><html><body style="font-family:Arial,sans-serif;color:#17202a;line-height:1.6"><p>Hello Admin,</p><p>You currently have <strong>${pendingCount} pending support case${pendingCount === 1 ? '' : 's'}</strong> that require attention.</p><p>Please check the SaveHatke Admin Panel.</p><p>– SaveHatke System</p></body></html>`;
 
     const results = await Promise.all(recipients.map((to) => emailService.sendCustomEmail({
