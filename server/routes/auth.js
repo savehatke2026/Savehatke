@@ -1384,3 +1384,6 @@ async function handleSessionCleanupRun(req, res) {
 }
 
 // GET /api/auth/me
+
+// Export the Express router mounted by server/server.js.
+module.exports = router;
