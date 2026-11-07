@@ -2854,6 +2854,8 @@ let usersCache = [];
 let usersLoading = false;
 let usersDataPromise = null;
 let userDirectoryLoaded = false;
+let usersCacheLoadedAt = 0;
+const USERS_CLIENT_CACHE_TTL_MS = 15000;
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (ch) => ({
@@ -2982,6 +2984,7 @@ function ensureUserDirectory() {
       await loadUsers();
       rebuildUserDirectory();
       userDirectoryLoaded = true;
+      usersCacheLoadedAt = Date.now();
       hydrateEmailAvatars();
     } catch (e) {
       userDirectoryPromise = null;
@@ -3108,10 +3111,16 @@ function userSessionStatusBadge(sessionStatus, accountStatus) {
   return statusTag('offline');
 }
 
-async function loadUsers() {
-  // Share the same promise with every caller; avatar hydration must never
-  // start a duplicate /admin/users request while this fetch is in flight.
+async function loadUsers(options = {}) {
+  // Paint the last successful snapshot immediately when returning to the
+  // Users section. Refresh in the background only after the short freshness
+  // window expires; explicit mutations can bypass this client cache.
   if (usersDataPromise) return usersDataPromise;
+  if (!options.force && userDirectoryLoaded && Date.now() - usersCacheLoadedAt < USERS_CLIENT_CACHE_TTL_MS) {
+    renderUsers();
+    renderLoginHistory();
+    return { users: usersCache };
+  }
   usersLoading = true;
   const body = document.getElementById('usersTableBody');
   usersDataPromise = (async () => {
@@ -3137,6 +3146,7 @@ async function loadUsers() {
       return data;
     } catch (err) {
       userDirectoryLoaded = false;
+      usersCacheLoadedAt = 0;
       if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
       throw err;
     } finally {
@@ -3279,7 +3289,7 @@ async function toggleUserStatus(userId, nextStatus, reason) {
     if (nextStatus === 'suspended') body.reason = String(reason).trim();
     await api('/admin/users/status', { method: 'PUT', useAdmin: true, body });
     showToast(`User is now ${nextStatus}.`, 'success');
-    loadUsers();
+    loadUsers({ force: true });
   } catch (err) {
     showToast(err.message || 'Failed to update user status.', 'error');
   }
