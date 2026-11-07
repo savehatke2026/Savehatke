@@ -231,10 +231,18 @@ async function getAdminCouponList(opts = {}) {
       payoutsByCouponId(),
       (async () => {
         try {
-          return await db.getRowsFresh(db.SHEETS.SELLER_COUPONS);
-        } catch (e) {
-          console.warn('[admin/coupons] SellerCoupons sheet read failed:', e.message);
-          return [];
+          // Seller Coupons is a separate Google Sheets tab and is the
+          // authoritative source for this admin pill. Use strict reads so a
+          // Sheets outage cannot be mistaken for an empty inventory.
+          return await db.getRowsFresh(db.SHEETS.SELLER_COUPONS, { strict: true });
+        } catch (freshError) {
+          console.warn('[admin/coupons] Fresh SellerCoupons read failed; retrying normal read:', freshError.message);
+          try {
+            return await db.getRows(db.SHEETS.SELLER_COUPONS, { strict: true });
+          } catch (fallbackError) {
+            console.error('[admin/coupons] SellerCoupons reads both failed:', fallbackError.message);
+            throw new Error('Seller Coupons inventory could not be read from Google Sheets.');
+          }
         }
       })(),
     ]);
@@ -1005,7 +1013,10 @@ router.get('/coupons', authenticateToken, requireAdmin, async (req, res) => {
     res.json(payload);
   } catch (err) {
     console.error('Admin list coupons error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    res.status(503).json({
+      error: 'Coupon inventory is temporarily unavailable. Please refresh and try again.',
+      code: 'ADMIN_COUPON_INVENTORY_UNAVAILABLE',
+    });
   }
 });
 
