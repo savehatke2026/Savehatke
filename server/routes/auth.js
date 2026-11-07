@@ -197,8 +197,7 @@ function readOAuthStateCookie(req) {
     .find((value) => value.startsWith(`${GOOGLE_STATE_COOKIE}=`));
   if (!part) return { state: null, reason: 'absent' };
   const value = part.slice(GOOGLE_STATE_COOKIE.length + 1);
-  const dot = value.lastIndexOf('.');
-  if (dot < 1) return { state: null, reason: 'malformed' };
+  const dot = value.lastIndexOf('.');  if (dot < 1) return { state: null, reason: 'malformed' };
   const encoded = value.slice(0, dot);
   const supplied = Buffer.from(value.slice(dot + 1));
   const expected = Buffer.from(crypto.createHmac('sha256', getJwtSecret()).update(encoded).digest('base64url'));
@@ -318,7 +317,7 @@ async function finishGoogleLogin(req, res, identity) {
     // the env-var fallback). A stale env list must NEVER grant admin access
     // the Supabase roster would have denied.
     if (isAdminRosterStale()) {
-      console.warn(`[auth] admin sign-in blocked for ${email} — admin allowlist is on env fallback.`);
+      console.warn('[auth] admin sign-in blocked for ' + email + ' — admin allowlist is on env fallback.');
       return res.redirect(303, '/login?google=admin_blocked');
     }
     // Optional Mongo profile storage (being migrated to the admin_allowlist
@@ -397,8 +396,7 @@ async function finishGoogleLogin(req, res, identity) {
   let isNewUser = false;
   if (sheetUser) {
     if (sheetUser.status && String(sheetUser.status).toLowerCase() !== 'active') {
-      return res.status(403).json({ error: 'This account is not active.' });
-    }
+      return res.status(403).json({ error: 'This account is not active.' });    }
     if (sheetUser.google_sub && String(sheetUser.google_sub) !== googleSub) {
       return res.status(403).json({ error: 'This Google identity is not linked to this account.' });
     }
@@ -597,8 +595,7 @@ router.get('/google-redirect', async (req, res) => {
 /**
  * Extract device info from User-Agent and create a server-side session in Supabase (48 hours for users, 2 hours for admins). Called on EVERY successful login (users and admins).
  *
- * The returned object carries the raw session token (which the caller places
- * only in the HttpOnly cookie) plus the session id and
+ * The returned object carries the raw session token (which the caller places * only in the HttpOnly cookie) plus the session id and
  * expiry. The database stores only a SHA-256 hash of the token.
  *
  * The user_id is resolved against the Users Google Sheet first (by email),
@@ -797,8 +794,7 @@ async function enrichSessionGeo(sessionId, ip, geo) {
  * login error, so failures here are swallowed.
  */
 function logLoginFailure(req, { email, userId = '', detail = '' }) {
-  try {
-    const { deviceStr, osStr, browserStr } = parseUserAgent(req);
+  try {    const { deviceStr, osStr, browserStr } = parseUserAgent(req);
     securityAudit.logSecurityEvent({
       userId,
       email,
@@ -997,8 +993,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     // Geo-IP enrichment in the background â€” never blocks the login response
     geoPromise
       .then((geo) => enrichSessionGeo(sessionResult.session_id, ip, geo).then(() => geo))
-      .then((geo) => flagUnfamiliarSignIn({
-        userId: finalUserId,
+      .then((geo) => flagUnfamiliarSignIn({        userId: finalUserId,
         email: cleanEmail,
         ip,
         device: [browserStr, osStr || deviceStr].filter(Boolean).join(' \u2022 '),
@@ -1197,8 +1192,7 @@ router.post('/sessions/revoke-others', authenticateToken, async (req, res) => {
 //                            sign-in), which never produce a session row.
 //                            Legacy 2fa_* rows from before that feature was
 //                            removed are still rendered here on purpose: the
-//                            audit log is append-only history and is never
-//                            rewritten, so old rows must stay readable.
+//                            audit log is append-only history and is never//                            rewritten, so old rows must stay readable.
 //
 // Never exposes session tokens. It does return the sign-in IP: the account
 // owner needs it to recognise their own activity, and the route is behind
@@ -1398,368 +1392,3 @@ async function handleSessionCleanupRun(req, res) {
 }
 
 // GET /api/auth/me
-router.get('/me', authenticateToken, async (req, res) => {
-  try {
-    // Read account status live so a suspension takes effect without waiting
-    // for the fixed server-side session expiry.
-    let status = 'active';
-    let suspendReason = '';
-    let preferredName = '';
-    let displayName = req.user.name;
-    try {
-      let row = null;
-      if (req.user.id) {
-        row = await db.findRow(db.SHEETS.USERS, 'user_id', req.user.id)
-          || await db.findRow(db.SHEETS.USERS, 'id', req.user.id);
-      }
-      if (!row && req.user.email) {
-        row = await db.findRow(db.SHEETS.USERS, 'email', String(req.user.email).toLowerCase().trim());
-      }
-      if (row) {
-        status = String(row.status || 'active').toLowerCase();
-        if (status !== 'active') suspendReason = String(row.suspend_reason || '');
-        if (row.preferred_name && String(row.preferred_name).trim()) {
-          preferredName = String(row.preferred_name).trim();
-          displayName = preferredName;
-        } else if (row.name) {
-          displayName = String(row.name).trim();
-        }
-      }
-    } catch (e) {
-      // Sheet unreachable — fall back to 'active' rather than locking the user
-      // out of their own dashboard on a transient read failure.
-      console.warn('[auth/me] account status lookup failed:', e.message);
-    }
-
-    // Admin sessions are identified by the allowlist roster, not the Users
-    // sheet, so the lookup above always misses for them and used to return a
-    // name-less profile. Serve the display name from the same in-memory
-    // roster cache the sign-in handoff used — no extra lookup required.
-    if (!String(displayName || '').trim() && String(req.user.role || '').toLowerCase() === 'admin') {
-      const adminAccount = getAdminAccount(String(req.user.email || '').toLowerCase().trim());
-      if (adminAccount && adminAccount.name) displayName = String(adminAccount.name).trim();
-    }
-
-    res.json({
-      user: {
-        id: req.user.id,
-        email: req.user.email,
-        name: displayName,
-        preferred_name: preferredName,
-        role: req.user.role,
-        status,
-        ...(suspendReason ? { suspendReason } : {}),
-      },
-    });
-  } catch (err) {
-    console.error('Profile error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
-  }
-});
-
-// ── Notification preferences ───────────────────────────────────────────────
-// Every category the user can actually switch, with its default. Account and
-// security notices are deliberately not in this map: they are mandatory, so
-// there is nothing to store and nothing to switch off. Marketing is the only
-// category that starts off.
-const NOTIFICATION_DEFAULTS = Object.freeze({
-  coupon_activity: true,
-  purchases: true,
-  sales: true,
-  payments: true,
-  reviews: true,
-  support: true,
-  marketing: false,
-});
-
-// Reads the stored JSON blob and fills every known key, so a preference added
-// after the row was written still comes back with its default instead of
-// undefined. A corrupt cell degrades to the defaults rather than a 500.
-function parseNotificationPrefs(raw) {
-  let stored = {};
-  if (typeof raw === 'string' && raw.trim()) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') stored = parsed;
-    } catch (e) {
-      console.warn('[notification-preferences] unparseable value, using defaults');
-    }
-  } else if (raw && typeof raw === 'object') {
-    stored = raw;
-  }
-
-  const out = {};
-  for (const [key, dflt] of Object.entries(NOTIFICATION_DEFAULTS)) {
-    out[key] = typeof stored[key] === 'boolean' ? stored[key] : dflt;
-  }
-  return out;
-}
-
-// The Users sheet is keyed on user_ID, but older rows were written before the
-// id existed, so email is the fallback lookup — same order as /me.
-async function findUserRowForRequest(user) {
-  if (!user) return null;
-  const uid = user.id || user.user_id || user.user_ID;
-  if (uid) {
-    const byId = await db.findRow(db.SHEETS.USERS, 'user_id', uid)
-      || await db.findRow(db.SHEETS.USERS, 'user_ID', uid)
-      || await db.findRow(db.SHEETS.USERS, 'id', uid);
-    if (byId) return byId;
-  }
-  if (user.email) {
-    return db.findRow(db.SHEETS.USERS, 'email', String(user.email).toLowerCase().trim());
-  }
-  return null;
-}
-
-router.get('/notification-preferences', authenticateToken, async (req, res) => {
-  try {
-    const row = await findUserRowForRequest(req.user);
-    if (!row) return res.status(404).json({ error: 'Account not found.' });
-
-    res.json({
-      preferences: parseNotificationPrefs(row.notification_prefs),
-      defaults: { ...NOTIFICATION_DEFAULTS },
-    });
-  } catch (err) {
-    console.error('[notification-preferences] read failed:', err.message);
-    res.status(500).json({ error: 'Unable to load notification settings.' });
-  }
-});
-
-router.put('/notification-preferences', authenticateToken, async (req, res) => {
-  try {
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const incoming = body.preferences && typeof body.preferences === 'object' ? body.preferences : body;
-
-    const unknown = Object.keys(incoming).filter((k) => !(k in NOTIFICATION_DEFAULTS));
-    if (unknown.length) {
-      return res.status(400).json({ error: `Unknown notification setting: ${unknown.join(', ')}` });
-    }
-
-    const row = await findUserRowForRequest(req.user);
-    if (!row) return res.status(404).json({ error: 'Account not found.' });
-
-    // Merge onto what is already stored so a single-toggle PATCH-style save
-    // never silently resets the other categories.
-    const merged = parseNotificationPrefs(row.notification_prefs);
-    for (const [key, value] of Object.entries(incoming)) {
-      if (typeof value === 'boolean') merged[key] = value;
-    }
-
-    const idField = row.user_ID !== undefined ? 'user_ID' : (row.user_id !== undefined ? 'user_id' : 'email');
-    const idValue = idField === 'email' ? String(row.email || '').toLowerCase().trim() : row[idField];
-
-    await db.updateRow(db.SHEETS.USERS, idField, idValue, {
-      notification_prefs: JSON.stringify(merged),
-      updated_at: new Date().toISOString(),
-    });
-
-    res.json({ preferences: merged });
-  } catch (err) {
-    console.error('[notification-preferences] save failed:', err.message);
-    res.status(500).json({ error: 'Unable to save notification settings.' });
-  }
-});
-
-// â”€â”€ One-time onboarding flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-//
-// Small booleans that record which product tours the account has already
-// seen, so a tutorial auto-opens exactly once per user rather than once per
-// browser. Stored as a JSON blob in Users.onboarding_state alongside the
-// notification blob above, and read with the same defaults-on-missing rule.
-// Signed-out visitors have nowhere to persist this, so the client falls back
-// to local storage for them.
-const ONBOARDING_DEFAULTS = Object.freeze({
-  marketplaceTutorialCompleted: false,
-  marketplaceTutorialSkipped: false,
-  nameSetupCompleted: false,
-});
-
-function parseOnboardingState(raw) {
-  let stored = {};
-  if (typeof raw === 'string' && raw.trim()) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') stored = parsed;
-    } catch (e) {
-      console.warn('[onboarding] unparseable value, using defaults');
-    }
-  } else if (raw && typeof raw === 'object') {
-    stored = raw;
-  }
-
-  const out = {};
-  for (const [key, dflt] of Object.entries(ONBOARDING_DEFAULTS)) {
-    out[key] = typeof stored[key] === 'boolean' ? stored[key] : dflt;
-  }
-  return out;
-}
-
-router.get('/onboarding', authenticateToken, async (req, res) => {
-  try {
-    const row = await findUserRowForRequest(req.user);
-    if (!row) return res.status(404).json({ error: 'Account not found.' });
-
-    res.json({
-      onboarding: parseOnboardingState(row.onboarding_state),
-      defaults: { ...ONBOARDING_DEFAULTS },
-    });
-  } catch (err) {
-    console.error('[onboarding] read failed:', err.message);
-    res.status(500).json({ error: 'Unable to load your onboarding state.' });
-  }
-});
-
-router.put('/onboarding', authenticateToken, async (req, res) => {
-  try {
-    const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const incoming = body.onboarding && typeof body.onboarding === 'object' ? body.onboarding : body;
-
-    const unknown = Object.keys(incoming).filter((k) => !(k in ONBOARDING_DEFAULTS));
-    if (unknown.length) {
-      return res.status(400).json({ error: `Unknown onboarding flag: ${unknown.join(', ')}` });
-    }
-    const nonBoolean = Object.entries(incoming).filter(([, v]) => typeof v !== 'boolean');
-    if (nonBoolean.length) {
-      return res.status(400).json({ error: 'Onboarding flags must be true or false.' });
-    }
-
-    const row = await findUserRowForRequest(req.user);
-    if (!row) return res.status(404).json({ error: 'Account not found.' });
-
-    // Merge, so marking one tour seen never clears another.
-    const merged = { ...parseOnboardingState(row.onboarding_state), ...incoming };
-
-    const idField = row.user_ID !== undefined ? 'user_ID' : (row.user_id !== undefined ? 'user_id' : 'email');
-    const idValue = idField === 'email' ? String(row.email || '').toLowerCase().trim() : row[idField];
-
-    await db.updateRow(db.SHEETS.USERS, idField, idValue, {
-      onboarding_state: JSON.stringify(merged),
-      updated_at: new Date().toISOString(),
-    });
-
-    res.json({ onboarding: merged });
-  } catch (err) {
-    console.error('[onboarding] save failed:', err.message);
-    res.status(500).json({ error: 'Unable to save your onboarding state.' });
-  }
-});
-
-// ── First-login onboarding: Save preferred display name ────────────────────
-async function handleUpdatePreferredName(req, res) {
-  try {
-    const rawName = req.body.preferred_name !== undefined
-      ? req.body.preferred_name
-      : (req.body.name !== undefined ? req.body.name : '');
-
-    // Trim leading/trailing spaces automatically
-    const trimmedName = String(rawName || '').trim();
-
-    // Validation 1: Name cannot be empty
-    if (!trimmedName) {
-      return res.status(400).json({ error: 'Name cannot be empty.' });
-    }
-
-    // Validation 2: Prevent excessively long names
-    if (trimmedName.length > 50) {
-      return res.status(400).json({ error: 'Name is too long. Please keep it under 50 characters.' });
-    }
-
-    // Find user record in Google Sheets
-    let row = await findUserRowForRequest(req.user);
-    if (!row && req.user && req.user.email) {
-      const allRows = await db.getRows(db.SHEETS.USERS).catch(() => []);
-      row = (allRows || []).find((r) => {
-        const v = (r && r.email) ? String(r.email).toLowerCase().trim() : '';
-        return v && v === String(req.user.email).toLowerCase().trim();
-      }) || null;
-      if (!row) {
-        const now = new Date().toISOString();
-        const userId = req.user.id || req.user.user_id || uuidv4();
-        row = {
-          user_ID: userId,
-          user_id: userId,
-          id: userId,
-          name: trimmedName,
-          preferred_name: trimmedName,
-          username: (req.user.email || '').split('@')[0],
-          email: req.user.email,
-          status: 'active',
-          created_at: now,
-          updated_at: now,
-          last_login_at: now,
-        };
-        await db.appendRow(db.SHEETS.USERS, row).catch((e) => console.warn('GSheet fallback append notice:', e.message));
-      }
-    }
-    if (!row) {
-      return res.status(404).json({ error: 'User account not found.' });
-    }
-
-    const idField = row.user_ID !== undefined ? 'user_ID' : (row.user_id !== undefined ? 'user_id' : 'email');
-    const idValue = idField === 'email' ? String(row.email || '').toLowerCase().trim() : row[idField];
-
-    // Mark onboarding state completed for name setup
-    const onboarding = parseOnboardingState(row.onboarding_state);
-    onboarding.nameSetupCompleted = true;
-
-    const now = new Date().toISOString();
-
-    // Save preferred name & update name in Google Sheets
-    await db.updateRow(db.SHEETS.USERS, idField, idValue, {
-      name: trimmedName,
-      preferred_name: trimmedName,
-      onboarding_state: JSON.stringify(onboarding),
-      updated_at: now,
-    });
-
-    // Sync preferred name to Supabase if configured
-    if (supabase.isConfigured() && req.user.id) {
-      try {
-        await supabase.updateUser(req.user.id, {
-          name: trimmedName,
-        });
-      } catch (spErr) {
-        console.warn('Supabase name update notice:', spErr.message);
-      }
-    }
-
-    // Return updated user profile
-    const updatedUser = {
-      id: req.user.id || (row ? (row.user_ID || row.user_id || row.id) : ''),
-      user_id: req.user.id || (row ? (row.user_ID || row.user_id || row.id) : ''),
-      email: req.user.email || (row ? row.email : ''),
-      name: trimmedName,
-      preferred_name: trimmedName,
-      needs_name_setup: false,
-      role: req.user.role || 'user',
-      ...(row && row.profile_picture ? { picture: row.profile_picture } : {}),
-      ...(row && row.username ? { username: row.username } : {}),
-    };
-
-    res.json({
-      success: true,
-      message: 'Preferred name saved successfully!',
-      user: updatedUser,
-      redirectTo: '/dashboard.html',
-    });
-  } catch (err) {
-    console.error('Preferred name update failed:', err);
-    res.status(500).json({ error: 'Failed to save preferred name. Please try again.' });
-  }
-}
-
-router.put('/preferred-name', authenticateToken, handleUpdatePreferredName);
-router.post('/preferred-name', authenticateToken, handleUpdatePreferredName);
-router.put('/profile', authenticateToken, handleUpdatePreferredName);
-
-module.exports = router;
-
-// These helpers are also referenced by unmounted legacy recovery routes. The
-// session creator requires a verified Google subject, so those routes cannot
-// mint an alternate authentication session if accidentally mounted.
-module.exports.createLoginSession = createLoginSession;
-module.exports.issueLoginToken = () => { throw new Error('Bearer session tokens are retired.'); };
-module.exports.setSessionCookie = setSessionCookie;
-
