@@ -150,8 +150,10 @@
     #payerNameWarn.show { max-height:220px; opacity:1; padding:10px 14px; margin:12px 0 0; border-color:#685119; }
     /* Availability notice (expired / sold out) — hidden until blockPurchase(). */
     #csStatus { display:none; margin:20px 2px 0; background:#2a151b; border:1px solid #6b2733; border-radius:10px; color:#ff7a81; font-size:18px; font-weight:700; padding:12px 14px; text-align:center; }
-    .agreement { display:flex; gap:20px; align-items:center; margin:28px 4px; font-size:17px; line-height:1.5; cursor:pointer; }
-    .agreement input { width:36px; height:36px; flex-shrink:0; margin:0; accent-color:var(--green); cursor:pointer; }
+    .agreement { display:flex; gap:10px; align-items:center; margin:20px 4px; font-size:15px; line-height:1.45; cursor:pointer; }
+    .agreement input { appearance:auto; -webkit-appearance:checkbox; width:16px; height:16px; min-width:16px; flex:0 0 16px; margin:0; padding:0; accent-color:var(--green); cursor:pointer; }
+    .agreement span { min-width:0; }
+    .agreement a { color:#8fd0ff; }
     .agreement a { color:#8fd0ff; }
     .pay { display:flex; justify-content:center; align-items:center; gap:20px; width:100%; min-height:80px; background:var(--green); color:#001721; border:0; border-radius:17px; font-size:26px; font-weight:700; box-shadow:0 0 32px #00E2720a; transition:background .2s,transform .2s; }
     .pay:hover { background:#00E272; transform:translateY(-1px); }
@@ -685,7 +687,7 @@
       <form id="checkout-form" autocomplete="on">
         <div class="field"><label class="field-label" for="buyerName">Name <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#user"/></svg></span><input id="buyerName" name="name" autocomplete="name" placeholder="Payer's full name" required minlength="2"></div><div class="warning" id="payerNameWarn"><span aria-hidden="true">⚠</span><div>Please enter the name of the person making the payment correctly. Incorrect payer information may cause delays in payment verification, order updates, or coupon delivery.</div></div></div>
         <div class="field"><label class="field-label" for="buyerEmail">Email Address <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#mail"/></svg></span><input id="buyerEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required></div></div>
-        <div class="field"><label class="field-label" for="buyerPhone">Mobile Number <span class="required">*</span></label><div class="phone-row"><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#phone"/></svg></span><select name="country" aria-label="Country calling code"><option value="+91">+91</option><option value="+1">+1</option><option value="+44">+44</option></select></div><div class="input-wrap"><input id="buyerPhone" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10-digit number" pattern="[0-9]{10}" maxlength="10" title="Enter a 10-digit mobile number" required></div></div></div>
+        <div class="field"><label class="field-label" for="buyerPhone">Mobile Number <span class="required">*</span></label><div class="phone-row"><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#phone"/></svg></span><select name="country" aria-label="Country calling code" aria-readonly="true" tabindex="-1"><option value="+91" selected>+91</option></select></div><div class="input-wrap"><input id="buyerPhone" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10-digit number" pattern="[0-9]{10}" maxlength="10" title="Enter a 10-digit mobile number" required></div></div></div>
         <label class="agreement"><input type="checkbox" id="termsCheck" name="agreement" required checked><span>I agree to SaveHatke's <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy.html">Privacy Policy</a>.</span></label>
         <button class="pay" id="payBtn" type="button" onclick="initiatePayment()"><span id="payBtnText" aria-live="polite">Pay</span></button>
       </form>
@@ -748,7 +750,7 @@
         });
       }
       var phone = document.getElementById('buyerPhone');
-      if (phone) phone.addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); });
+      if (phone) { phone.addEventListener('input', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); }); phone.addEventListener('blur', function (e) { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10); }); }
     })();
   </script>
 
