@@ -1065,11 +1065,9 @@ router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) 
         return;
       }
 
-      // Opening the payment window starts verification: while this stream is
-      // live and the payment is still inside its 20-minute backend window, check
-      // the FamApp mailbox each tick and settle the instant a matching credit
-      // arrives — even after the 10-minute on-screen timer has hit 0:00. The
-      // scan is globally coalesced across all concurrent streams.
+      // Check the FamApp mailbox only while the authoritative 10-minute
+      // payment window remains open. At expiry, stop scanning and register the
+      // hidden admin-only refund request.
       if (payment.status === 'PENDING' && checkDeadlineMs(payment) > Date.now()) {
         try { await verifier.triggerMailboxScan(); } catch (e) {}
         payment = (await store.findPaymentById(payment.paymentId)) || payment;
@@ -1080,12 +1078,10 @@ router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) 
         payment = await store.findPaymentById(payment.paymentId);
       }
 
-      // One-time diagnostic: the buyer's on-screen window closed while the
-      // backend verification continues (the two lifecycles are independent).
-      if (!frontendExpiryLogged && payment.status === 'PENDING' &&
-          new Date(payment.expiresAt).getTime() <= Date.now()) {
+      // One-time diagnostic for the single authoritative timer expiry.
+      if (!frontendExpiryLogged && payment.status === 'EXPIRED') {
         frontendExpiryLogged = true;
-        console.log(`[PAYMENT_SESSION] frontend expiry reached sessionId=${paymentId} backend verification continuing`);
+        console.log(`[PAYMENT_SESSION] 10-minute timer expired sessionId=${paymentId}; mailbox checks stopped and admin refund request registered`);
       }
 
       if (payment.status !== lastStatus) {
@@ -1118,10 +1114,9 @@ router.get('/stream', authenticateToken, streamAccountLimiter, async (req, res) 
     }
     await poll();
     // Safety cap: a browser that never closes its tab must not hold a
-    // serverless invocation open forever. 800 ticks at 1.5s covers the full
-    // 20-minute backend verification window; the browser falls back to polling
-    // when the stream drops (serverless caps end it sooner in production).
-    if (ticks > 800) {
+    // serverless invocation open forever. 400 ticks at 1.5s covers the
+    // 10-minute payment window; the browser falls back to polling if needed.
+    if (ticks > 400) {
       closed = true;
       clearInterval(interval);
       try { res.end(); } catch (e) {}
