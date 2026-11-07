@@ -1733,8 +1733,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="table-card" style="margin-bottom:22px">
         <div class="table-header"><h3>Daily User Activity <span style="font-size:.72rem;color:#6b88aa;font-weight:400">(last 7 days · each dot = 15 minutes)</span></h3><button class="btn btn-primary btn-sm" onclick="loadUserActivity()">↻ Refresh</button></div>
         <div class="overflow-x"><table>
-          <thead><tr><th>User</th><th>Date (IST)</th><th>Activity timeline · 00:00–24:00</th><th>Active Time</th><th>First – Last Seen</th></tr></thead>
-          <tbody id="userActivityTableBody"><tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">Loading activity…</td></tr></tbody>
+          <thead><tr><th>Date (IST)</th><th>Overall activity timeline · 00:00–24:00</th><th>Active Users</th><th>Estimated Active Time</th><th>First – Last Seen</th></tr></thead>
+          <tbody id="userActivityTableBody"><tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">Loading overall activity…</td></tr></tbody>
         </table></div>
       </div>
     </div>
@@ -7070,5 +7070,59 @@ function maybeLoadPayouts() {
   .modal{max-height:92vh;max-height:calc(100dvh - 32px);overflow-y:auto}
 }
 </style>
+<script>
+/* Overall daily activity view: aggregate all normal users by IST date/time.
+   User identities are used only transiently to count distinct active users and
+   are never rendered in this dashboard. */
+async function loadUserActivity() {
+  const body = document.getElementById('userActivityTableBody');
+  if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:24px;">Loading overall activity…</td></tr>';
+  try {
+    const result = await api('/admin/user-activity?days=7', { useAdmin: true });
+    const events = Array.isArray(result.events) ? result.events : [];
+    const days = new Map();
+    for (const event of events) {
+      const stamp = new Date(event.seen_at);
+      if (!Number.isFinite(stamp.getTime())) continue;
+      const ist = new Date(stamp.getTime() + 330 * 60000);
+      const date = ist.toISOString().slice(0, 10);
+      const minute = ist.getUTCHours() * 60 + ist.getUTCMinutes();
+      const slot = Math.floor(minute / 15);
+      if (!days.has(date)) days.set(date, { users: new Set(), slots: new Set(), first: stamp, last: stamp, samples: 0 });
+      const day = days.get(date);
+      if (event.user_id) day.users.add(String(event.user_id));
+      day.slots.add(slot);
+      day.samples += 1;
+      if (stamp < day.first) day.first = stamp;
+      if (stamp > day.last) day.last = stamp;
+    }
+    const ordered = [...days.entries()].sort((a,b) => b[0].localeCompare(a[0]));
+    const today = new Date(Date.now() + 330 * 60000).toISOString().slice(0,10);
+    const todayData = days.get(today);
+    setText('userActivityTodayCount', String(todayData ? todayData.users.size : 0));
+    setText('userActivityIntervalsCount', String(events.length));
+    setText('userActivityDaysCount', String(days.size));
+    if (!body) return;
+    if (!ordered.length) {
+      body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#6b88aa;padding:28px;">No overall activity recorded in the last 7 days.</td></tr>';
+      return;
+    }
+    body.innerHTML = ordered.map(([date, day]) => {
+      const bars = Array.from({length:96}, (_,i) => {
+        const active = day.slots.has(i);
+        return '<span title="' + String(Math.floor(i/4)).padStart(2,'0') + ':' + String((i%4)*15).padStart(2,'0') + '" style="display:block;flex:1;min-width:2px;height:18px;border-radius:2px;background:' + (active ? '#00E272' : 'rgba(107,136,170,.13)') + '"></span>';
+      }).join('');
+      const first = day.first.toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',hour12:false});
+      const last = day.last.toLocaleTimeString('en-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit',hour12:false});
+      const activeMinutes = day.slots.size * 15;
+      const activeTime = activeMinutes >= 60 ? Math.floor(activeMinutes/60) + 'h ' + (activeMinutes%60) + 'm' : activeMinutes + 'm';
+      return '<tr><td><strong>' + escapeHtml(date) + '</strong></td><td><div style="display:flex;gap:2px;min-width:360px;align-items:center">' + bars + '</div><div style="display:flex;justify-content:space-between;color:#6b88aa;font-size:.65rem;margin-top:4px"><span>00:00</span><span>06:00</span><span>12:00</span><span>18:00</span><span>24:00</span></div></td><td><strong>' + day.users.size + '</strong></td><td>' + activeTime + '</td><td>' + first + ' – ' + last + '</td></tr>';
+    }).join('');
+  } catch (err) {
+    console.error('Load overall user activity failed:', err);
+    if (body) body.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#ff8585;padding:24px;">Overall activity is currently unavailable.</td></tr>';
+  }
+}
+</script>
 </body>
 </html>
