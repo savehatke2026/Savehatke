@@ -73,17 +73,11 @@ function fail(res, status, code, error, extra = {}) {
 const NO_STORE = { 'Cache-Control': 'no-store, max-age=0' };
 const STORAGE_UNAVAILABLE_MESSAGE = 'Payment storage is temporarily unavailable. Please try again later.';
 
-// The instant a payment stops being matchable by the backend checker: the
-// 20-minute check_expires_at when present, else the legacy 10-minute expires_at.
-// This is what lets verification continue after the on-screen timer hits 0:00.
+// The single authoritative deadline is the customer-visible 10-minute timer.
+// No mailbox scans, webhook recovery, or other payment checks run after it.
 function checkDeadlineMs(payment) {
-  const raw = payment && (payment.checkExpiresAt || payment.check_expires_at);
-  if (raw) {
-    const t = new Date(raw).getTime();
-    if (Number.isFinite(t)) return t;
-  }
-  const legacy = payment && (payment.expiresAt || payment.expires_at);
-  const t = new Date(legacy).getTime();
+  const raw = payment && (payment.expiresAt || payment.expires_at || payment.paymentExpiresAt || payment.payment_expires_at);
+  const t = new Date(raw || '').getTime();
   return Number.isFinite(t) ? t : 0;
 }
 
@@ -806,10 +800,8 @@ router.get('/status', authenticateToken, async (req, res) => {
       }
       const userId = String(req.user.id || req.user.userId || '');
       const live = await store.findLivePaymentForUserCoupon(userId, couponId);
-      // Only auto-resume inside the 10-minute on-screen window. A window whose
-      // countdown already hit 0:00 is left PENDING (the backend keeps checking
-      // it for up to 6h), but it is NOT auto-reopened on a page load — the buyer
-      // starts a fresh window by clicking Pay (which supersedes the old one).
+      // Only auto-resume inside the 10-minute payment window. Expired windows
+      // are not reopened and are not checked again.
       if (live && new Date(live.expiresAt).getTime() > Date.now()) {
         return res.set(NO_STORE).json(await presentPayment(live));
       }
@@ -834,20 +826,16 @@ router.get('/status', authenticateToken, async (req, res) => {
       if (!payment) return fail(res, 404, 'PAYMENT_NOT_FOUND', 'Payment not found.');
     }
 
-    // Poll-fallback verification: when the browser cannot hold an SSE stream
-    // open it polls /status. Drive the same on-demand FamApp scan from here so
-    // those buyers also get near-instant verification. This now runs for the
-    // whole 20-minute backend window (checkDeadlineMs), NOT just the 10-minute
-    // on-screen timer, so a tab left open past 0:00 keeps verifying. The scan is
-    // globally coalesced, so this never multiplies Gmail calls.
+    // Poll-fallback verification is permitted only before the 10-minute
+    // server deadline. Once the timer expires, this endpoint does not scan or
+    // re-check payment evidence; it registers the hidden admin refund request.
     if (payment.status === 'PENDING' && checkDeadlineMs(payment) > Date.now()) {
       try { await verifier.triggerMailboxScan(); } catch (e) {}
       payment = (await store.findPaymentById(payment.paymentId)) || payment;
     }
 
-    // The server owns expiry — but only at the 20-minute backend deadline,
-    // never at the 10-minute on-screen timer. Until then the payment stays
-    // PENDING so a late credit can still settle it.
+    // The server owns the 10-minute expiry. Expiry immediately registers the
+    // admin-only refund request without checking payment evidence.
     if (payment.status === 'PENDING' && checkDeadlineMs(payment) <= Date.now()) {
       await store.expireIfDue(payment.paymentId);
       payment = await store.findPaymentById(payment.paymentId);
@@ -882,10 +870,8 @@ router.get('/active', authenticateToken, async (req, res) => {
     const live = await store.findLivePaymentForUserCoupon(userId, couponId);
     if (!live) return res.set(NO_STORE).json({ status: 'NONE' });
 
-    // Only auto-resume inside the 10-minute on-screen window. Past that the
-    // window is left PENDING (the backend keeps checking it for up to 6h) but is
-    // NOT auto-reopened on a page load; the buyer starts a fresh window via Pay,
-    // which supersedes the old one.
+    // Only auto-resume inside the 10-minute payment window. Expired windows
+    // are not reopened and are not checked again.
     if (new Date(live.expiresAt).getTime() > Date.now()) {
       return res.set(NO_STORE).json(await presentPayment(live));
     }
@@ -920,10 +906,9 @@ router.post('/verify', verifyLimiter, authenticateToken, verifyAccountLimiter, a
       return res.set(NO_STORE).json(await presentPayment(payment));
     }
 
-    // Backend verification deadline — NOT the 10-minute on-screen timer. The
-    // "I've paid — check status" button must keep scanning the mailbox through
-    // the whole 20-minute backend window, including after the buyer's Expired
-    // state, or a payment that already landed would sit undetected.
+    // The 10-minute customer timer is the final verification deadline. After
+    // expiry, do not scan Gmail or re-check payment; register the hidden
+    // admin-only refund request and return the expired state.
     if (checkDeadlineMs(payment) <= Date.now()) {
       await store.expireIfDue(payment.paymentId);
       payment = await store.findPaymentById(payment.paymentId);
@@ -1206,13 +1191,8 @@ router.all('/cron/gmail-watch', async (req, res) => {
 });
 
 // ── /cron/reconcile — payment lifecycle reconciliation (Vercel Cron) ────────
-// Recovery pass, safe to run at any cadence and idempotent (everything derives
-// from stored timestamps, so a restart/deployment loses nothing):
-//   1. expire every PENDING payment whose 20-minute backend window closed
-//      (which also releases its coupon reservation),
-//   2. tidy lapsed coupon reservations,
-//   3. force one mailbox scan so a session left unwatched (buyer closed the
-//      tab, push not configured) still gets a chance to settle.
+// Expire due payment windows, register any missing hidden admin refund tasks,
+// and tidy lapsed coupon reservations. This endpoint NEVER scans the mailbox.
 router.all('/cron/reconcile', async (req, res) => {
   if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
   if (!cronAuthorized(req)) return fail(res, 401, 'CRON_UNAUTHORIZED', 'Unauthorized.');
@@ -1220,12 +1200,8 @@ router.all('/cron/reconcile', async (req, res) => {
     const ready = await store.ensureReady();
     if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
     const summary = await store.reconcileExpiredPayments();
-    let scan = { ok: false, reason: 'not attempted' };
-    try { scan = await verifier.triggerMailboxScan({ force: true }); } catch (e) {
-      scan = { ok: false, reason: e.message };
-    }
-    console.log(`[PAYMENT_SESSION] reconcile expired=${summary.expired} reservationsCleared=${summary.reservationsCleared} scan=${scan.ok ? 'ok' : scan.reason || 'failed'}`);
-    return res.status(200).json({ ok: true, ...summary, scan: { ok: scan.ok, settled: scan.settled || 0 } });
+    console.log(`[PAYMENT_SESSION] reconcile expired=${summary.expired} refundRequestsRegistered=${summary.refundRequestsRegistered || 0} reservationsCleared=${summary.reservationsCleared}`);
+    return res.status(200).json({ ok: true, ...summary });
   } catch (err) {
     console.error('[payment] reconcile error:', err);
     return fail(res, 500, 'RECONCILE_FAILED', 'Payment reconciliation failed.');
@@ -1233,15 +1209,9 @@ router.all('/cron/reconcile', async (req, res) => {
 });
 
 // ── /cron/verify — frequent, idempotent verification pass (external scheduler) ─
-// Vercel Hobby Cron is daily, so the 10-minute verification window is driven by
-// an EXTERNAL scheduler calling this endpoint every few minutes (see the
-// deployment notes). Each call:
-//   1. stamps the two-timer fields on sessions whose customer timer has ended
-//      (server clock, write-once, persisted in Sheets — restart-safe),
-//   2. expires PENDING sessions whose backend deadline has passed,
-//   3. runs one mailbox scan that can settle an in-window payment or create a
-//      single late-payment refund task. Coupon delivery and purchase
-//      finalisation stay guarded by their own atomic, idempotent paths.
+// Reconciliation-only endpoint. Each call expires due 10-minute sessions and
+// retries any missing hidden refund-task writes. It intentionally performs
+// NO Gmail/mailbox scan and NO payment verification after timer expiry.
 // Authenticated with CRON_SECRET; anything else gets 401 before work begins.
 router.all('/cron/verify', async (req, res) => {
   if (!['GET', 'POST'].includes(req.method)) return res.status(405).json({ error: 'Method not allowed.' });
@@ -1249,22 +1219,9 @@ router.all('/cron/verify', async (req, res) => {
   try {
     const ready = await store.ensureReady();
     if (!ready.ok) return fail(res, 503, 'STORAGE_UNAVAILABLE', STORAGE_UNAVAILABLE_MESSAGE);
-    const nowMs = Date.now();
-    const stamp = await store.stampDueVerificationWindows(nowMs);
     const expiry = await store.reconcileExpiredPayments();
-    let scan = { ok: false, reason: 'not attempted' };
-    try { scan = await verifier.triggerMailboxScan({ force: true }); } catch (e) {
-      scan = { ok: false, reason: e.message };
-    }
-    const results = Array.isArray(scan.results) ? scan.results : [];
-    const expiredNoAction = results.filter((r) => r.action === 'ignored' && r.payment).length;
-    console.log(`[PAYMENT_SESSION] verify stamped=${stamp.stamped} expired=${expiry.expired} scan=${scan.ok ? 'ok' : scan.reason || 'failed'} expiredNoAction=${expiredNoAction}`);
-    return res.status(200).json({
-      ok: true,
-      stamped: stamp.stamped,
-      expired: expiry.expired,
-      scan: { ok: scan.ok, scanned: scan.scanned || 0, settled: scan.settled || 0, expiredNoAction },
-    });
+    console.log(`[PAYMENT_SESSION] expiry reconcile expired=${expiry.expired} refundRequestsRegistered=${expiry.refundRequestsRegistered || 0}`);
+    return res.status(200).json({ ok: true, ...expiry });
   } catch (err) {
     console.error('[payment] verify error:', err);
     return fail(res, 500, 'VERIFY_FAILED', 'Payment verification pass failed.');
