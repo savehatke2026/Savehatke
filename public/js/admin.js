@@ -2814,6 +2814,8 @@ window.terminateSession = terminateSession;
 // ── User Management (live Google Sheets data) ────────────────────────────
 let usersCache = [];
 let usersLoading = false;
+let usersDataPromise = null;
+let userDirectoryLoaded = false;
 
 function escapeHtml(s) {
   return String(s ?? '').replace(/[&<>"']/g, (ch) => ({
@@ -2932,21 +2934,21 @@ function rebuildUserDirectory() {
  * awaiting it: the avatars start as initials and fill in when it lands.
  */
 function ensureUserDirectory() {
-  if (userDirectory.size) return Promise.resolve();
+  if (userDirectoryLoaded) return Promise.resolve();
   if (userDirectoryPromise) return userDirectoryPromise;
 
   userDirectoryPromise = (async () => {
     try {
-      if (!usersCache.length) {
-        const data = await api('/admin/users', { useAdmin: true });
-        usersCache = data.users || [];
-      }
+      // Reuse the Users-table request if it is already running. This prevents
+      // sessions/payout rows from triggering a second full Users API read.
+      await loadUsers();
       rebuildUserDirectory();
+      userDirectoryLoaded = true;
       hydrateEmailAvatars();
     } catch (e) {
-      // A directory that cannot load is not an error worth showing an admin:
-      // every avatar simply stays an initials tile.
       userDirectoryPromise = null;
+    } finally {
+      if (userDirectoryLoaded) userDirectoryPromise = null;
     }
   })();
   return userDirectoryPromise;
@@ -3069,35 +3071,42 @@ function userSessionStatusBadge(sessionStatus, accountStatus) {
 }
 
 async function loadUsers() {
-  // Single-flight: ignore re-entries while a previous call is still in flight.
-  if (usersLoading) return;
+  // Share the same promise with every caller; avatar hydration must never
+  // start a duplicate /admin/users request while this fetch is in flight.
+  if (usersDataPromise) return usersDataPromise;
   usersLoading = true;
   const body = document.getElementById('usersTableBody');
-  try {
-    const data = await api('/admin/users', { useAdmin: true });
-    usersCache = (data.users || []).slice().sort((a, b) => String(b.lastLoginAt || b.createdAt || '').localeCompare(String(a.lastLoginAt || a.createdAt || '')));
-    // Refresh the email → photo directory from the same payload, then upgrade any
-    // placeholder avatars another section already painted.
-    rebuildUserDirectory();
-    hydrateEmailAvatars();
+  usersDataPromise = (async () => {
+    try {
+      const data = await api('/admin/users', { useAdmin: true });
+      usersCache = (data.users || []).slice().sort((a, b) => String(b.lastLoginAt || b.createdAt || '').localeCompare(String(a.lastLoginAt || a.createdAt || '')));
+      rebuildUserDirectory();
+      userDirectoryLoaded = true;
+      hydrateEmailAvatars();
 
-    const c = data.counts || {};
-    const total = c.total ?? usersCache.length;
-    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    set('usersTotalCount', total);
-    set('usersActiveCount', c.active ?? '—');
-    set('usersSuspendedCount', c.suspended ?? '—');
-    set('usersNavBadge', total);
-    const sub = document.getElementById('usersSubtitle');
-    if (sub) sub.textContent = `${total} total registered user${total === 1 ? '' : 's'}`;
+      const c = data.counts || {};
+      const total = c.total ?? usersCache.length;
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set('usersTotalCount', total);
+      set('usersActiveCount', c.active ?? '—');
+      set('usersSuspendedCount', c.suspended ?? '—');
+      set('usersNavBadge', total);
+      const sub = document.getElementById('usersSubtitle');
+      if (sub) sub.textContent = `${total} total registered user${total === 1 ? '' : 's'}`;
 
-    renderUsers();
-    renderLoginHistory();
-  } catch (err) {
-    if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
-  } finally {
-    usersLoading = false;
-  }
+      renderUsers();
+      renderLoginHistory();
+      return data;
+    } catch (err) {
+      userDirectoryLoaded = false;
+      if (body) body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:#ef9a9a;padding:24px;">Failed to load users: ${escapeHtml(err.message)}</td></tr>`;
+      throw err;
+    } finally {
+      usersLoading = false;
+      usersDataPromise = null;
+    }
+  })();
+  return usersDataPromise;
 }
 
 function renderUsers() {
