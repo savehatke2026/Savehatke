@@ -1230,11 +1230,11 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
   // Late-eligible sessions (expired or cancelled but still inside their
   // verification deadline) also need the mailbox checked, so a late credit can
   // be detected and turned into a single refund task.
-  const late = pending.length ? [] : await store.findLateCandidatePayments();
+  const late = await store.findLateCandidatePayments();
   if (!pending.length && !late.length) {
     return { ok: true, scanned: 0, settled: 0, reason: 'No active payment session.', idle: true };
   }
-  console.log(`[PAYMENT_EMAIL] checking pending=${pending.length}`);
+  console.log(`[PAYMENT_EMAIL] checking pending=${pending.length} lateCandidates=${late.length}`);
 
   // The read helpers (listMessages / getMessageFull) live on gmailService and
   // take a `gmail` client as their first argument, so they work against ANY
