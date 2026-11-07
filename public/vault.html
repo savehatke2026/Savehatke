@@ -2015,6 +2015,17 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
       </div>
 
+      <div class="table-card" style="margin-bottom:16px">
+        <div class="table-header" style="display:flex;justify-content:space-between;align-items:center">
+          <h3>Approved Seller Coupon Amounts</h3>
+          <button class="btn btn-ghost btn-xs" onclick="loadApprovedSellerCouponPayouts()">↻ Refresh</button>
+        </div>
+        <div class="overflow-x"><table class="seller-approved-payout-table">
+          <thead><tr><th>Seller</th><th>Coupon</th><th>Face Value</th><th>Approved Payout</th><th>Coupon Status</th><th>Payout Status</th></tr></thead>
+          <tbody id="approvedSellerCouponPayoutBody"><tr><td colspan="6" style="text-align:center;padding:18px;color:#6b88aa">Open Seller Payout to load approved coupon amounts.</td></tr></tbody>
+        </table></div>
+      </div>
+
       <!-- Filter / search row -->
       <div class="table-card" style="padding:14px 16px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
         <div style="display:flex;gap:6px;flex-wrap:wrap">
