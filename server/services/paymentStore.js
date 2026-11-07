@@ -798,24 +798,49 @@ async function transitionOrder(orderId, fromStatus, toStatus, extra = {}) {
  * coupon visible again in the public listings once the 20-minute backend
  * window closes with no payment.
  */
+async function ensureTimerExpiryRefundTask(payment) {
+  if (!payment || !payment.paymentId || !payment.userId) return { ok: false, reason: 'missing_payment_owner' };
+  try {
+    const refundService = require('./refunds');
+    const order = payment.orderId ? await findOrderById(payment.orderId).catch(() => null) : null;
+    return await refundService.createTimerExpiryRefundTask({
+      paymentId: payment.paymentId,
+      userId: payment.userId,
+      userEmail: payment.userEmail || '',
+      couponId: payment.couponId || '',
+      orderCode: (order && order.orderCode) || '',
+      requiredAmount: payment.amount,
+      paymentExpiresAt: payment.expiresAt || '',
+    });
+  } catch (error) {
+    console.warn('[paymentStore] timer-expiry refund request could not be registered:', payment.paymentId, error.message);
+    return { ok: false, reason: 'registration_failed' };
+  }
+}
+
 async function expireIfDue(paymentId, { now = new Date().toISOString() } = {}) {
   const current = await findPaymentById(paymentId);
-  if (!current || current.status !== 'PENDING') return null;
-  // Only retire once the BACKEND checking window (20 min) has closed — NOT at
-  // the 10-minute frontend timer. Until then the payment stays PENDING so a
-  // late credit can still settle it.
+  if (!current) return null;
+
+  // An already-expired payment may be retried by reconciliation if the Refunds
+  // sheet was temporarily unavailable during the first registration attempt.
+  if (current.status === 'EXPIRED') {
+    await ensureTimerExpiryRefundTask(current);
+    return current;
+  }
+  if (current.status !== 'PENDING') return null;
   if (checkDeadline(current) > toTime(now)) return null;
 
-  // Recovery before expiry: a coupon may already be sold to THIS payment while
-  // the PAID write failed earlier. Never expire such a payment. Finish its PAID
-  // write instead, and only when the sale is provably this payment's.
+  // If the coupon was already sold to this exact payment, finish the PAID write
+  // rather than creating a refund request for a completed purchase.
   const recovered = await recoverSoldPayment(current);
   if (recovered !== 'NOT_SOLD_TO_THIS_PAYMENT') return recovered;
 
   const expired = await transitionPayment(paymentId, 'PENDING', 'EXPIRED', { updated_at: now });
   if (expired) {
     await transitionOrder(expired.orderId, 'PENDING', 'EXPIRED', { updated_at: now });
-    console.log(`[PAYMENT_SESSION] backend expiry reached sessionId=${paymentId} verification stopped`);
+    console.log(`[PAYMENT_SESSION] 10-minute payment timer expired sessionId=${paymentId}; registering admin-only refund request without checking payment`);
+    await ensureTimerExpiryRefundTask(expired);
     if (expired.couponId) {
       await releaseCouponReservation({ couponId: expired.couponId, paymentId }).catch(() => {});
     }
@@ -1560,13 +1585,27 @@ async function reconcileExpiredPayments() {
   const nowIso = new Date().toISOString();
   const rows = await rowsFresh(PAYMENTS);
   const due = rows.filter((r) => r.status === 'PENDING' && checkDeadline(r) <= toTime(nowIso));
+  const alreadyExpired = rows.filter((r) => r.status === 'EXPIRED');
   let expired = 0;
+  let refundRequestsRegistered = 0;
   for (const row of due) {
     try {
       const moved = await expireIfDue(row.payment_id, { now: nowIso });
-      if (moved) expired++;
+      if (moved && moved.status === 'EXPIRED') expired++;
+      if (moved && moved.status === 'EXPIRED') refundRequestsRegistered++;
     } catch (e) {
       console.warn('[paymentStore] reconcile expire failed for', row.payment_id, e.message);
+    }
+  }
+  // Retry missing refund-task writes for expired sessions. The refund service
+  // deduplicates by payment id, so this is safe on every reconciliation pass.
+  for (const row of alreadyExpired) {
+    try {
+      const payment = fromPayment(row);
+      const result = await ensureTimerExpiryRefundTask(payment);
+      if (result && result.ok && result.created) refundRequestsRegistered++;
+    } catch (e) {
+      console.warn('[paymentStore] reconcile refund-task retry failed for', row.payment_id, e.message);
     }
   }
   let reservationsCleared = 0;
@@ -1575,7 +1614,7 @@ async function reconcileExpiredPayments() {
   } catch (e) {
     console.warn('[paymentStore] reconcile reservation cleanup notice:', e.message);
   }
-  return { expired, reservationsCleared };
+  return { expired, refundRequestsRegistered, reservationsCleared };
 }
 
 // ── Notification inbox ─────────────────────────────────────────────────────
