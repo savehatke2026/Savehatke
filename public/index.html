@@ -623,6 +623,7 @@
     }
     .recent-logo { display:flex; align-items:center; justify-content:center; width:48px; height:50px; border-radius:9px; flex-shrink:0; overflow:hidden; transition:transform .24s ease; }
     .recent-logo svg { width:100%; height:100%; }
+    .recent-logo img { display:block; width:100%; height:100%; object-fit:contain; padding:6px; background:rgba(255,255,255,.08); border-radius:9px; }
     .recent-zomato { background:#ff003b; color:white; font:bold italic 13px 'Outfit',sans-serif; letter-spacing:-.5px; }
     .recent-flipkart { background:#ffdf00; }
     .recent-swiggy { background:#ff7900; }
@@ -1880,13 +1881,18 @@
       const key = sale.brand.toLowerCase();
       const color = brandColors[key] || '#1f4e79';
       const letter = sale.brand.charAt(0).toUpperCase();
+      const logoUrl = typeof getBrandLogo === 'function' ? getBrandLogo(sale.brand) : '';
+      const logoClass = logoUrl && typeof getBrandLogoClass === 'function' ? getBrandLogoClass(logoUrl) : '';
+      const logoMarkup = logoUrl
+        ? '<img src="' + esc(logoUrl) + '" class="' + esc(logoClass) + '" alt="' + esc(sale.brand) + ' logo" loading="lazy" onerror="this.remove();this.parentElement.textContent=\'' + esc(letter) + '\';">'
+        : esc(letter);
       const hasPrice = sale.price !== null && Number.isFinite(sale.price);
       const saving = hasPrice ? sale.value - sale.price : NaN;
       const saveTag = Number.isFinite(saving) && saving > 0
         ? '<span class="recent-save">SAVE \u20B9' + money.format(saving) + '</span>'
         : '';
       return '<article class="recent-box">' +
-        '<div class="recent-logo recent-generic" style="background:' + color + '" aria-label="' + esc(sale.brand) + '">' + esc(letter) + '</div>' +
+        '<div class="recent-logo recent-generic" style="background:' + (logoUrl ? 'transparent' : color) + '" aria-label="' + esc(sale.brand) + '">' + logoMarkup + '</div>' +
         '<div class="recent-copy"><p>Someone purchased</p>' +
         '<strong>\u20B9' + money.format(sale.value) + ' ' + esc(sale.brand) + ' Coupon</strong>' +
         saveTag +
@@ -1899,8 +1905,19 @@
       .then(function (res) { return res.ok ? res.json() : { sales: [] }; })
       .then(function (data) {
         const sales = Array.isArray(data.sales) ? data.sales : [];
-        grid.innerHTML = sales.map(cardMarkup).join('');
-        section.hidden = sales.length === 0;
+        const renderSales = function () {
+          grid.innerHTML = sales.map(cardMarkup).join('');
+          section.hidden = sales.length === 0;
+        };
+        // Resolve Drive-hosted brand logos in one batch before rendering.
+        // coupon-meta.js provides local logo fallbacks if a Drive asset is missing.
+        if (sales.length && typeof ensureBrandAssets === 'function') {
+          ensureBrandAssets(sales.map(function (sale) { return sale.brand; }))
+            .then(renderSales)
+            .catch(renderSales);
+        } else {
+          renderSales();
+        }
       })
       .catch(function () { section.hidden = true; });
   })();
