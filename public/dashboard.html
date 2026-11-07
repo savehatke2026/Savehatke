@@ -5192,42 +5192,55 @@
   function deriveNotifications() {
     const out = [];
     const enabled = (key) => !notifPrefs || notifPrefs[key] !== false;
+    const push = (item) => { if (item && out.length < 20) out.push(item); };
 
-    if (enabled('sales')) STATE.sales.filter(isSold).slice(0, 3).forEach((c) => {
-      out.push({
-        icon: '🎉',
-        text: `Your coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> was purchased! ${c.sellingPrice != null && c.sellingPrice !== '' ? inr(c.sellingPrice) : 'Your payout'} added to wallet.`,
-        time: timeAgo(c.soldAt || c.addedAt),
-        unread: true,
-      });
-    });
+    if (enabled('sales')) STATE.sales.filter(isSold).slice(0, 3).forEach((c) => push({
+      icon: '🎉',
+      text: `Your coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> was purchased! ${c.sellingPrice != null && c.sellingPrice !== '' ? inr(c.sellingPrice) : 'Your payout'} added to wallet.`,
+      time: timeAgo(c.soldAt || c.addedAt), unread: true,
+    }));
 
-    if (enabled('coupon_activity')) STATE.sales.filter(isPending).slice(0, 2).forEach((c) => {
-      out.push({
-        icon: '⏳',
-        text: `Coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> is under review.`,
-        time: timeAgo(c.addedAt),
-        unread: true,
-      });
-    });
+    if (enabled('coupon_activity')) STATE.sales.filter((c) => isPending(c) || ['rejected','approved','available'].includes(String(c.status || '').toLowerCase())).slice(0, 3).forEach((c) => push({
+      icon: String(c.status || '').toLowerCase() === 'rejected' ? '⚠️' : '⏳',
+      text: `Coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> — ${escapeHtml(STATUS_LABELS[String(c.status || '').toLowerCase()]?.[0] || c.status || 'updated')}.`,
+      time: timeAgo(c.updatedAt || c.addedAt), unread: true,
+    }));
 
-    if (enabled('support')) STATE.tickets.slice(0, 2).forEach((t) => {
-      out.push({
-        icon: '🎧',
-        text: `Support ticket <strong>#SH-${escapeHtml((t.id || '').slice(0, 8).toUpperCase())}</strong> — ${escapeHtml(t.status || 'open')}.`,
-        time: timeAgo(t.createdAt),
-        unread: String(t.status || '').toLowerCase() === 'open',
-      });
-    });
+    if (enabled('purchases')) STATE.purchases.slice(0, 3).forEach((c) => push({
+      icon: '🛍️',
+      text: `Your purchase of <strong>${escapeHtml(c.brand || c.title || c.code || 'a coupon')}</strong> is ${escapeHtml(c.status || 'updated')}.`,
+      time: timeAgo(c.purchasedAt || c.soldAt || c.addedAt || c.createdAt), unread: true,
+    }));
 
-    if (out.length === 0 && !notifPrefs) {
-      out.push({
-        icon: '👋',
-        text: `Welcome to SaveHatke! Buy a coupon or submit one to get started.`,
-        time: 'just now',
-        unread: true,
-      });
+    if (enabled('payments')) {
+      STATE.payouts.slice(0, 2).forEach((p) => push({
+        icon: '💳',
+        text: `Payout update: <strong>${escapeHtml(p.status || 'updated')}</strong>${p.amount != null ? ' — ' + inr(p.amount) : ''}.`,
+        time: timeAgo(p.updatedAt || p.createdAt || p.requestedAt), unread: true,
+      }));
+      STATE.refunds.slice(0, 2).forEach((r) => push({
+        icon: '↩️',
+        text: `Refund update: <strong>${escapeHtml(r.status || 'updated')}</strong>${r.amount != null ? ' — ' + inr(r.amount) : ''}.`,
+        time: timeAgo(r.updatedAt || r.createdAt), unread: true,
+      }));
     }
+
+    if (enabled('reviews')) STATE.reviews.slice(0, 2).forEach((review) => push({
+      icon: '⭐',
+      text: `Your review for <strong>${escapeHtml(review.brand || review.couponBrand || 'a coupon')}</strong> is ${escapeHtml(review.status || 'recorded')}.`,
+      time: timeAgo(review.updatedAt || review.createdAt), unread: true,
+    }));
+
+    if (enabled('support')) STATE.tickets.slice(0, 2).forEach((t) => push({
+      icon: '🎧',
+      text: `Support ticket <strong>#SH-${escapeHtml((t.id || '').slice(0, 8).toUpperCase())}</strong> — ${escapeHtml(t.status || 'open')}.`,
+      time: timeAgo(t.updatedAt || t.createdAt), unread: String(t.status || '').toLowerCase() === 'open',
+    }));
+
+    if (out.length === 0 && !notifPrefs) push({
+      icon: '👋', text: 'Welcome to SaveHatke! Buy a coupon or submit one to get started.',
+      time: 'just now', unread: true,
+    });
     return out.slice(0, 6);
   }
 
