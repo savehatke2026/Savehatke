@@ -4099,6 +4099,10 @@
       .map((c) => ({
         kind: isUsedBuy(c) ? 'used' : (isExpiredBuy(c) ? 'expired' : 'purchased'),
         brand: c.brand || 'Coupon',
+        title: c.title || c.discount || c.description || '',
+        description: c.description || '',
+        discount: c.discount || '',
+        modalValue: c.originalValue || c.discount || '',
         code: c.code,
         orderId: c.orderCode || c.id || '',
         value: c.originalValue ? `${inr(c.originalValue)} OFF` : (c.description || ''),
@@ -4202,7 +4206,8 @@
       const dateSub = (exp && !isNaN(exp.getTime())) ? 'Expiry date' : `Added ${timeAgo(c.addedAt)}`;
       const safeOrder = escapeHtml(c.orderId || '');
       const rowPayload = encodeURIComponent(JSON.stringify({
-        brand: c.brand, code: c.code, value: c.value,
+        brand: c.brand, title: c.title, description: c.description,
+        discount: c.discount, modalValue: c.modalValue, code: c.code, value: c.value,
         exp: c.exp, kind: c.kind, category: c.category || '', addedAt: c.addedAt,
         orderId: c.orderId || '', backgroundImage: c.backgroundImage || '', terms: c.terms || '', id: c.id || ''
       }));
@@ -7264,8 +7269,9 @@
       const c = JSON.parse(decodeURIComponent(encodedPayload));
       PurchasedCouponModal.open({
         id: c.id || "", orderId: c.orderId || "", kind: c.kind || "",
-        brand: c.brand || "", title: "", discount: "", description: "",
-        value: c.value || "", category: c.category || "", expiry: c.exp || "",
+        brand: c.brand || "", title: c.title || c.discount || c.description || "",
+        discount: c.discount || "", description: c.description || "",
+        value: c.modalValue || "", category: c.category || "", expiry: c.exp || "",
         backgroundImage: c.backgroundImage || "", terms: c.terms || "", code: c.code || "",
       });
     } catch (e) { console.warn("openCouponDetail error", e); }
