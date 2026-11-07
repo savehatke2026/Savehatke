@@ -2625,18 +2625,17 @@ async function openReviewModal(couponId) {
         + detailRows.map(([label, value]) => '<span style="color:#6b88aa">' + escapeHtml(label) + ':</span><span style="color:#e2ecff;overflow-wrap:anywhere;white-space:pre-wrap">' + escapeHtml(String(value)) + '</span>').join('')
         + '</div>';
     }
-    const payoutEl = document.getElementById('armPayoutDetails');
-    if (payoutEl) {
-      const face = Number(String(c.originalValue || '').replace(/[^0-9.]/g, '')) || 0;
-      const hasStoredPayout = c.sellerPayout !== null && c.sellerPayout !== undefined && c.sellerPayout !== '';
-      const payout = hasStoredPayout ? Number(c.sellerPayout) : Math.round(face * 0.07);
-      payoutEl.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:#00E272;margin-bottom:7px">💰 Seller Payout Calculation</div>'
-        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:.78rem">'
-        + '<span style="color:#8fa8c8">Face Value</span><strong style="color:#e2ecff">' + moneyText(face) + '</strong>'
-        + '<span style="color:#8fa8c8">Payout Rate</span><strong style="color:#e2ecff">7%</strong>'
-        + '<span style="color:#8fa8c8">Seller Payout (rounded, no paisa)</span><strong style="color:#00E272">' + (Number.isFinite(payout) ? moneyText(payout) : moneyText(Math.round(face * 0.07))) + '</strong>'
-        + '</div><div style="font-size:.7rem;color:#6b88aa;margin-top:7px">Calculated from face value only — not discount value or remaining gift card balance.</div>';
+    const face = Number(String(c.originalValue || '').replace(/[^0-9.]/g, '')) || 0;
+    const suggestedPayout = Math.round(face * 0.07);
+    const payoutInput = document.getElementById('armSellerPayoutAmount');
+    if (payoutInput) {
+      const stored = c.sellerPayout !== null && c.sellerPayout !== undefined && c.sellerPayout !== ''
+        ? Number(c.sellerPayout) : suggestedPayout;
+      payoutInput.value = Number.isFinite(stored) ? String(Math.round(stored)) : String(suggestedPayout);
+      payoutInput.max = String(Math.max(1, Math.floor(face)));
     }
+    const payoutHint = document.getElementById('armPayoutHint');
+    if (payoutHint) payoutHint.textContent = 'Suggested 7% amount: ' + moneyText(suggestedPayout) + '. You can change this before approval.';
 
     // Seller Details — the account's own Google photo beside the address.
     const sEmailEl = document.getElementById('armSellerEmail');
@@ -2748,13 +2747,22 @@ async function submitReviewModalAction(action) {
     const data = await api(`/admin/coupons/${encodeURIComponent(currentReviewCouponId)}/review-action`, {
       method: 'POST',
       useAdmin: true,
-      body: { action, notes },
+      body: {
+        action,
+        notes,
+        ...(action === 'approve' ? { sellerPayoutAmount: Number(document.getElementById('armSellerPayoutAmount')?.value) } : {}),
+      },
     });
     if (typeof showToast === 'function') showToast(data.message || `Coupon ${action}d successfully!`, 'success');
     closeReviewModal();
-    // The decision moves the coupon between Coupon Management's tabs, so both
-    // of its tables (and the sidebar counts) need to be re-read.
     if (typeof refreshCouponViews === 'function') refreshCouponViews();
+    if (action === 'approve') {
+      // Approved coupon payout estimates are shown separately from payable
+      // payout requests; the actual payout ledger row is created on sale.
+      if (typeof showSection === 'function') showSection('payouts', null);
+      if (typeof loadPayouts === 'function') loadPayouts();
+      if (typeof loadApprovedSellerCouponPayouts === 'function') loadApprovedSellerCouponPayouts();
+    }
   } catch (err) {
     if (typeof showToast === 'function') showToast(`Action failed: ${err.message}`, 'error');
   } finally {
@@ -2804,6 +2812,7 @@ window.quickReviewAction = quickReviewAction;
 window.openReviewModal = openReviewModal;
 window.closeReviewModal = closeReviewModal;
 window.submitReviewModalAction = submitReviewModalAction;
+window.loadApprovedSellerCouponPayouts = loadApprovedSellerCouponPayouts;
 window.retryReviewModalNotify = retryReviewModalNotify;
 window.loadUsers = loadUsers;
 window.toggleUserStatus = toggleUserStatus;
