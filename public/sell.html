@@ -1660,13 +1660,13 @@ function renderCouponCard(id, index) {
   if (PROOF_ENABLED) card.appendChild(createProofField(id));
 
   const typeSelect = card.querySelector('#type-' + id);
-  const discountGroup = typeSelect?.closest('.fgrid')?.querySelector('#discount-' + id)?.closest('.fgroup');
+  const discountGroup = card.querySelector('#discount-' + id)?.closest('.fgroup');
   const syncGiftCardFields = () => {
     const isGiftCard = typeSelect?.value === 'Gift Card / Store Credit';
-    giftBalanceGroup.hidden = !isGiftCard;
-    giftRedemptionGroup.hidden = !isGiftCard;
-    if (discountGroup) discountGroup.hidden = isGiftCard;
-    minOrderGroup.hidden = isGiftCard;
+    giftBalanceGroup.style.display = isGiftCard ? '' : 'none';
+    giftRedemptionGroup.style.display = isGiftCard ? '' : 'none';
+    if (discountGroup) discountGroup.style.display = isGiftCard ? 'none' : '';
+    minOrderGroup.style.display = isGiftCard ? 'none' : '';
     const balanceInput = document.getElementById('giftbalance-' + id);
     const redemptionInput = document.getElementById('giftredemption-' + id);
     if (balanceInput) balanceInput.required = isGiftCard;
