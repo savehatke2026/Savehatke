@@ -227,9 +227,23 @@ async function getAccountSessionHistory(email, limit = 200) {
   try {
     const key = String(email || '').trim().toLowerCase();
     if (!key) return [];
-    return (await allRows()).filter((r) => String(r.email || '').trim().toLowerCase() === key)
+    // Filter by account in Postgres BEFORE fetching. Reading all accounts first
+    // silently hits Supabase's default 1,000-row API cap; older accounts then
+    // appear to have no device history and receive a false "new device" email
+    // on every later login. Query both session ledgers directly and merge them.
+    const maxRows = Math.max(1, Math.min(1000, Number(limit) || 200));
+    const groups = await Promise.all(TABLES.map(async (table) => {
+      const { data, error } = await getClient().from(table).select('*')
+        .eq('email', key)
+        .order('login_time', { ascending: false })
+        .limit(maxRows);
+      throwIfError(error, 'account history read');
+      return data || [];
+    }));
+    return groups.flat()
       .sort((a, b) => new Date(b.login_time || 0) - new Date(a.login_time || 0))
-      .slice(0, Math.max(1, Number(limit) || 200)).map(clean);
+      .slice(0, maxRows)
+      .map(clean);
   } catch (err) {
     console.warn('[sessions] Supabase history unavailable:', err.message);
     return null;
