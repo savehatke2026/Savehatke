@@ -2530,9 +2530,14 @@ tbody td strong{color:#e2ecff;font-weight:600}
     <!-- ════════════════ REFUNDS ════════════════ -->
     <div class="section-view" id="sec-refunds">
       <div class="page-title-row">
-        <div><div class="page-title">Refund <span class="gtext">Requests</span></div><div class="page-subtitle">4 refund requests awaiting review</div></div>
+        <div><div class="page-title">Refund <span class="gtext">Requests</span></div><div class="page-subtitle">Review late payments and manage customer refunds</div></div>
+        <button class="btn btn-ghost btn-sm" onclick="loadRefundRequests()">↻ Refresh</button>
       </div>
-      <div class="empty-state"><div class="es-icon">↩️</div><div class="es-title">Refund Requests</div><div class="es-sub">Refund management panel loads from database.</div></div>
+      <div id="refundAdminSummary" class="stat-grid" style="margin-bottom:18px"></div>
+      <div class="table-card">
+        <div class="table-header"><h3>All Refund Requests</h3><span id="refundAdminStatus" style="color:#8ba7c5;font-size:.8rem">Not loaded</span></div>
+        <div id="refundAdminTable" style="overflow-x:auto"><div class="empty-state"><div class="es-icon">↩️</div><div class="es-title">Refund Requests</div><div class="es-sub">Loading refund records from Google Sheets…</div></div></div>
+      </div>
     </div>
 
     <!-- ════════════════ ADMINS & ROLES (Supabase roster) ════════════════ -->
@@ -4042,6 +4047,8 @@ function showSection(id, navEl) {
   // Update topbar title
   const t = sectionTitles[id];
   if (t) document.getElementById('topbarTitle').innerHTML = `${t[0]} <span>${t[1]}</span>`;
+
+  if (id === 'refunds' && typeof loadRefundRequests === 'function') loadRefundRequests();
 
   // Load section-specific data if available
   if (id === 'admins' && typeof loadAdminsList === 'function') {
@@ -7124,5 +7131,53 @@ async function loadUserActivity() {
   }
 }
 </script>
+
+<script>
+// Admin refund queue. The server enforces admin access; customer APIs never expose unapproved late tasks.
+function refundAdminEscape(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function refundAdminMoney(value) {
+  const n = Number(value || 0);
+  return '₹' + (Number.isFinite(n) ? n.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}) : '0.00');
+}
+async function loadRefundRequests() {
+  const table = document.getElementById('refundAdminTable');
+  const status = document.getElementById('refundAdminStatus');
+  if (table) table.innerHTML = '<div style="padding:24px;text-align:center;color:#8ba7c5">Loading refund records…</div>';
+  if (status) status.textContent = 'Fetching…';
+  try {
+    const data = await api('/refunds/admin', { useAdmin: true });
+    const rows = Array.isArray(data.refunds) ? data.refunds : [];
+    const pendingApproval = rows.filter(r => r.mismatchType === 'late_payment' && r.adminApproved !== true).length;
+    const waiting = rows.filter(r => r.status === 'pending').length;
+    const paid = rows.filter(r => r.status === 'refunded').length;
+    const summary = document.getElementById('refundAdminSummary');
+    if (summary) summary.innerHTML = [['Total Requests', rows.length], ['Awaiting Approval', pendingApproval], ['Pending Refund', waiting], ['Refunded', paid]].map(([label,value]) => '<div class="stat-card"><div class="stat-lbl">'+label+'</div><div class="stat-val">'+value+'</div></div>').join('');
+    if (!table) return;
+    if (!rows.length) table.innerHTML = '<div class="empty-state"><div class="es-icon">↩️</div><div class="es-title">No refund requests</div><div class="es-sub">New refund records will appear here.</div></div>';
+    else table.innerHTML = '<table class="data-table" style="width:100%;min-width:980px"><thead><tr><th>Refund ID</th><th>User</th><th>Type</th><th>Amount</th><th>Status</th><th>Admin Approval</th><th>Created</th><th>Actions</th></tr></thead><tbody>' + rows.map(r => {
+      const id = refundAdminEscape(r.refundId || r.id), late = r.mismatchType === 'late_payment', approved = r.adminApproved === true;
+      const action = late && !approved && !['refunded','rejected'].includes(r.status) ? '<button class="btn btn-primary btn-sm" onclick="approveLateRefundAdmin(\''+id+'\')">Approve &amp; Show to User</button>' : '<span style="color:#8ba7c5">—</span>';
+      const date = r.createdAt ? new Date(r.createdAt).toLocaleString('en-IN') : '—';
+      return '<tr><td>'+id+'</td><td>'+refundAdminEscape(r.userEmail || r.userId)+'</td><td>'+refundAdminEscape(r.mismatchType || '—')+'</td><td>'+refundAdminMoney(r.refundAmount)+'</td><td>'+refundAdminEscape(r.status)+'</td><td>'+(late ? (approved ? '<span style="color:#00e272">Approved</span>' : '<span style="color:#f6c453">Awaiting approval</span>') : 'Not required')+'</td><td>'+refundAdminEscape(date)+'</td><td>'+action+'</td></tr>';
+    }).join('') + '</tbody></table>';
+    if (status) status.textContent = rows.length + ' record(s)';
+  } catch (err) {
+    console.error('Load admin refunds failed:', err);
+    if (table) table.innerHTML = '<div style="padding:24px;text-align:center;color:#ff8585">'+refundAdminEscape(err.message || 'Could not load refunds. Please refresh.')+'</div>';
+    if (status) status.textContent = 'Unavailable';
+  }
+}
+async function approveLateRefundAdmin(id) {
+  if (!id || !confirm('Approve this late-payment refund request? It will become visible in the customer dashboard as Pending. This does NOT send the refund.')) return;
+  try {
+    await api('/refunds/admin/' + encodeURIComponent(id) + '/approve', { method: 'POST', useAdmin: true, body: {} });
+    if (typeof showToast === 'function') showToast('Refund approved. It is now visible to the customer as Pending.');
+    await loadRefundRequests();
+  } catch (err) { alert(err.message || 'Could not approve refund.'); }
+}
+</script>
+
 </body>
 </html>
