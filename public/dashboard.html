@@ -5191,8 +5191,9 @@
 
   function deriveNotifications() {
     const out = [];
+    const enabled = (key) => !notifPrefs || notifPrefs[key] !== false;
 
-    STATE.sales.filter(isSold).slice(0, 3).forEach((c) => {
+    if (enabled('sales')) STATE.sales.filter(isSold).slice(0, 3).forEach((c) => {
       out.push({
         icon: '🎉',
         text: `Your coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> was purchased! ${c.sellingPrice != null && c.sellingPrice !== '' ? inr(c.sellingPrice) : 'Your payout'} added to wallet.`,
@@ -5201,7 +5202,7 @@
       });
     });
 
-    STATE.sales.filter(isPending).slice(0, 2).forEach((c) => {
+    if (enabled('coupon_activity')) STATE.sales.filter(isPending).slice(0, 2).forEach((c) => {
       out.push({
         icon: '⏳',
         text: `Coupon <strong>${escapeHtml(c.code || c.brand || '')}</strong> is under review.`,
@@ -5210,7 +5211,7 @@
       });
     });
 
-    STATE.tickets.slice(0, 2).forEach((t) => {
+    if (enabled('support')) STATE.tickets.slice(0, 2).forEach((t) => {
       out.push({
         icon: '🎧',
         text: `Support ticket <strong>#SH-${escapeHtml((t.id || '').slice(0, 8).toUpperCase())}</strong> — ${escapeHtml(t.status || 'open')}.`,
@@ -5219,7 +5220,7 @@
       });
     });
 
-    if (out.length === 0) {
+    if (out.length === 0 && !notifPrefs) {
       out.push({
         icon: '👋',
         text: `Welcome to SaveHatke! Buy a coupon or submit one to get started.`,
