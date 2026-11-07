@@ -5899,7 +5899,9 @@
     };
 
     if (payoutDetails.loading && !payoutDetails.loaded) {
-      showAddButton('Loading…', () => {}, true);
+      // Keep the seller action available while payout details are fetched.
+      // Opening the editor can independently load the saved details.
+      showAddButton('Edit Payment Method', () => openPayoutDetailsModal());
       return;
     }
     if (payoutDetails.error) {
