@@ -684,10 +684,14 @@ function updateNavAuth() {
       logoutBtn.addEventListener('click', async () => {
         if (logoutBtn.disabled) return;
         logoutBtn.disabled = true;
+        logoutBtn.innerHTML = `${logoutIcon}<span>Logging out…</span>`;
+        // Give the user a brief, consistent one-second response before ending the session.
+        await new Promise(resolve => setTimeout(resolve, 1000));
         try {
           await api('/auth/logout', { method: 'POST' });
         } catch (e) {
           logoutBtn.disabled = false;
+          logoutBtn.innerHTML = `${logoutIcon}Log out`;
           if (dropdown) dropdown.classList.remove('active');
           showToast('Logout could not be confirmed. Please retry.', 'error');
           return;
