@@ -77,6 +77,18 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Admin-only queue. Unapproved late-payment tasks are visible here, never via the customer API.
+router.get('/admin', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const refunds = await refundsService.readAllRefunds();
+    refunds.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+    res.json({ refunds });
+  } catch (err) {
+    console.error('Admin list refunds error:', err);
+    sendRefundError(res, err, 'Could not load admin refunds.');
+  }
+});
+
 // ── GET /api/refunds/:id ───────────────────────────────────────────────────
 // Returns one refund, scoped to the requesting user. A refund that exists
 // but belongs to another user looks identical to a missing refund — the
@@ -142,6 +154,17 @@ router.post('/:id/request', refundRequestIpLimiter, authenticateToken, refundReq
 // broader surface: they can mark a refund refunded/rejected with a
 // reference number and an admin note. These endpoints live here (not in
 // /admin) so the refund surface stays in one file.
+router.post('/admin/:id/approve', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
+  try {
+    const result = await refundsService.approveLateRefund(req.params.id, reqUserEmail(req) || reqUserId(req) || 'admin');
+    if (!result || !result.ok) return res.status(400).json({ error: (result && result.error) || 'Could not approve refund.' });
+    res.json({ ok: true, refund: result.refund });
+  } catch (err) {
+    console.error('Approve late refund error:', err);
+    sendRefundError(res, err, 'Could not approve refund.');
+  }
+});
+
 router.post('/admin/:id/mark-refunded', authenticateToken, requireAdmin, adminFinancialLimiter, async (req, res) => {
   try {
     const { refundReference = '', adminNote = '', confirmSent = false } = req.body || {};
