@@ -5887,7 +5887,7 @@
     const content = document.getElementById('paymentMethodCurrentContent');
     const editButton = document.getElementById('paymentMethodActionBtn');
     const addButton = document.getElementById('paymentMethodAddBtn');
-    if (!box || !content || !editButton || !addButton) return;
+    if (!box || !editButton || !addButton) return;
 
     const showAddButton = (label, handler, disabled = false) => {
       box.hidden = true;
@@ -5895,7 +5895,7 @@
       addButton.textContent = label;
       addButton.disabled = disabled;
       addButton.onclick = handler;
-      content.replaceChildren();
+      if (content) content.replaceChildren();
     };
 
     if (payoutDetails.loading && !payoutDetails.loaded) {
@@ -5917,7 +5917,7 @@
 
     addButton.hidden = true;
     box.hidden = false;
-    content.replaceChildren();
+    if (content) content.replaceChildren();
 
     if (String(d.method || '').toUpperCase() === 'QR') {
       const img = document.createElement('img');
@@ -5926,11 +5926,11 @@
       img.src = d.qrFileId
         ? '/api/proxy/drive/' + encodeURIComponent(d.qrFileId)
         : '';
-      content.appendChild(img);
+      if (content) content.appendChild(img);
     } else {
       // Full UPI is returned only by the authenticated endpoint for this
       // seller's own saved payout destination.
-      content.textContent = String(d.upiIdFull || d.upiId || '');
+      if (content) content.textContent = String(d.upiIdFull || d.upiId || '');
     }
 
     editButton.textContent = 'Edit Payment Method';
