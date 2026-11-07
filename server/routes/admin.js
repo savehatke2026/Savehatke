@@ -473,7 +473,7 @@ router.get('/list-admins', authenticateToken, requireAdmin, async (req, res) => 
       id: a.adminId,
       name: a.name,
       email: a.email,
-      avatar_url: avatars[a.email] || '',
+      avatar_url: avatars[String(a.email || '').trim().toLowerCase()] || '',
       created_at: a.createdAt,
       last_login: lastLogins[a.email] || null,
     }));
@@ -2097,9 +2097,19 @@ router.post('/coupons/:id/notify-retry', authenticateToken, requireAdmin, adminM
 router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
   try {
     const adminEmails = new Set(getActiveAdminEmails().map((email) => String(email || '').trim().toLowerCase()));
-    const [sheetUsers, coupons, sessions] = await Promise.all([
+    const [sheetUsers, couponRows, sessions] = await Promise.all([
       db.getRows(db.SHEETS.USERS),
-      supabase.isConfigured() ? supabase.getCoupons({}).catch(() => []) : Promise.resolve([]),
+      // User purchase/sale counters need only two email columns. Avoid pulling
+      // every coupon field (images, terms, code metadata, etc.) for this table.
+      supabase.isConfigured()
+        ? (async () => {
+            const client = supabase.getClient();
+            if (!client) return [];
+            const { data, error } = await client.from('coupons').select('buyer_email,seller_email');
+            if (error) throw error;
+            return data || [];
+          })().catch((e) => { console.warn('[admin] user coupon counters unavailable:', e.message); return []; })
+        : Promise.resolve([]),
       sessionStore.getUserSessionsList().catch(() => []),
     ]);
     // Never expose admin roster identities in the marketplace Users directory.
@@ -2112,9 +2122,9 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
     // Build bought/sold counts keyed by lowercase email
     const boughtMap = {};
     const soldMap = {};
-    for (const c of coupons) {
-      const buyer = String(c.buyerEmail || '').toLowerCase().trim();
-      const seller = String(c.sellerEmail || '').toLowerCase().trim();
+    for (const c of couponRows) {
+      const buyer = String(c.buyer_email || '').toLowerCase().trim();
+      const seller = String(c.seller_email || '').toLowerCase().trim();
       if (buyer) boughtMap[buyer] = (boughtMap[buyer] || 0) + 1;
       if (seller) soldMap[seller] = (soldMap[seller] || 0) + 1;
     }
