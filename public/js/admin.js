@@ -1407,6 +1407,35 @@ const SELLER_STATUS = {
   expired: { label: 'Expired', cls: 'badge-gray' },
 };
 
+async function loadApprovedSellerCouponPayouts() {
+  const body = document.getElementById('approvedSellerCouponPayoutBody');
+  if (!body) return;
+  body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:18px;color:#6b88aa">Loading approved seller coupon amounts…</td></tr>';
+  try {
+    const data = await api('/admin/approved-seller-coupons', { useAdmin: true });
+    const rows = Array.isArray(data.coupons) ? data.coupons : [];
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:22px;color:#6b88aa">No approved seller coupons yet.</td></tr>';
+      return;
+    }
+    const rupees = value => '₹' + Number(value || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    body.innerHTML = rows.map(row => {
+      const status = String(row.payoutStatus || 'awaiting_sale').toLowerCase();
+      const label = status === 'awaiting_sale' ? 'Awaiting sale' : status.charAt(0).toUpperCase() + status.slice(1);
+      return '<tr>'
+        + '<td><div style="font-weight:650;color:#e2ecff">' + escapeHtml(row.sellerName || 'Seller') + '</div><div style="font-size:.75rem;color:#8fa8c8">' + escapeHtml(row.sellerEmail || '—') + '</div></td>'
+        + '<td><div style="font-weight:650;color:#e2ecff">' + escapeHtml(row.brand || '—') + '</div><div style="font-size:.75rem;color:#8fa8c8">' + escapeHtml(row.title || row.couponId) + '</div></td>'
+        + '<td>' + rupees(row.faceValue) + '</td>'
+        + '<td style="font-weight:800;color:#00E272">' + rupees(row.amount) + '</td>'
+        + '<td>' + escapeHtml(row.couponStatus || '—') + '</td>'
+        + '<td><span class="badge ' + (status === 'paid' ? 'badge-green' : status === 'pending' ? 'badge-orange' : 'badge-gray') + '">' + escapeHtml(label) + '</span></td>'
+        + '</tr>';
+    }).join('');
+  } catch (err) {
+    body.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:18px;color:#ff8585">' + escapeHtml(err.message || 'Could not load approved seller coupon amounts') + '</td></tr>';
+  }
+}
+
 async function loadPending() {
   const container = document.getElementById('pendingList');
   if (!container) return;
