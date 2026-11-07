@@ -159,10 +159,27 @@ async function refreshAdminProfile() {
 }
 
 async function adminLogout() {
-  // Revoke the server-side session before clearing its local UI marker.
+  const logoutItem = document.querySelector('#profileDropdown .profile-dd-item.danger');
+  if (window.__adminLogoutPending) return;
+  window.__adminLogoutPending = true;
+  const originalLabel = logoutItem ? logoutItem.textContent : '';
+  if (logoutItem) {
+    logoutItem.textContent = 'Logging out…';
+    logoutItem.style.pointerEvents = 'none';
+    logoutItem.setAttribute('aria-disabled', 'true');
+  }
+
+  // Keep the profile action responsive and wait one second before revoking the session.
+  await new Promise(resolve => setTimeout(resolve, 1000));
   try {
     await api('/auth/logout', { method: 'POST', useAdmin: true });
   } catch (e) {
+    window.__adminLogoutPending = false;
+    if (logoutItem) {
+      logoutItem.textContent = originalLabel || '🚪 Logout';
+      logoutItem.style.pointerEvents = '';
+      logoutItem.removeAttribute('aria-disabled');
+    }
     showToast('Logout could not be confirmed. Please retry.', 'error');
     return;
   }
