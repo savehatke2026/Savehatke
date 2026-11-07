@@ -80,6 +80,15 @@ check('sold-to-buyer matches on buyer email when no payment id is recorded', () 
   const coupon = { status: 'sold', buyer_email: 'Buyer@X.com' };
   assert.equal(soldToBuyer(coupon, { buyer_email: 'buyer@x.com' }, new Set()), true);
 });
+check('sold-to-buyer supports normalized Supabase camelCase coupon fields', () => {
+  const coupon = { status: 'sold', soldPaymentId: 'P-CAMEL', buyerEmail: 'Buyer@X.com' };
+  assert.equal(soldToBuyer(coupon, { buyer_email: 'buyer@x.com' }, new Set(['P-CAMEL'])), true);
+  assert.equal(soldToBuyer({ status: 'sold', buyerEmail: 'Buyer@X.com' }, { buyer_email: 'buyer@x.com' }, new Set()), true);
+});
+check('reservation supports normalized Supabase camelCase coupon fields', () => {
+  const coupon = { reservedPaymentId: 'P-CAMEL', reservedUntil: new Date(Date.now() + 60000).toISOString() };
+  assert.equal(reservationStatus(coupon, new Set(['P-CAMEL']), Date.now()), 'active');
+});
 check('a coupon sold to someone else is not counted as this order\'s delivery', () => {
   const coupon = { status: 'sold', sold_payment_id: 'OTHER', buyer_email: 'other@x.com' };
   assert.equal(soldToBuyer(coupon, { buyer_email: 'a@x.com' }, new Set(['P1'])), false);
