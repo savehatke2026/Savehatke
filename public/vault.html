@@ -3286,6 +3286,12 @@ tbody td strong{color:#e2ecff;font-weight:600}
     </div>
 
     <!-- ════════════════ SUPPORT CASES ════════════════ -->
+    <style>
+      #sec-support table th,
+      #sec-support table td { text-align: center !important; vertical-align: middle; }
+      #sec-support table td .badge { display: inline-flex; justify-content: center; }
+      #sec-support table td > div { justify-content: center; }
+    </style>
     <div class="section-view" id="sec-support">
       <div class="page-title-row">
         <div>
@@ -3350,6 +3356,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
                   <th>Subject</th>
                   <th>Category</th>
                   <th>User Email</th>
+                  <th>Status</th>
                   <th>Submitted</th>
                   <th>Actions</th>
                 </tr>
@@ -3383,6 +3390,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
                   <th>Subject</th>
                   <th>Category</th>
                   <th>User Email</th>
+                  <th>Status</th>
                   <th>Submitted</th>
                   <th>Actions</th>
                 </tr>
@@ -3464,11 +3472,6 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
       </div>
 
-      <!-- RECENT ACTIVITY -->
-      <div class="card">
-        <div class="card-title"><span class="ct-icon">🕐</span> Recent Activity</div>
-        <div id="recentActivity" class="activity-list"></div>
-      </div>
     </div>
 
     <!-- ═══════════════════════ EMAIL TESTING ═══════════════════════ -->
@@ -5800,6 +5803,30 @@ async function loadSupportCases(silent, force = false) {
   }
 }
 
+async function copySupportCaseId(id) {
+  const value = String(id || '');
+  if (!value) return;
+  try {
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(value);
+    } else {
+      const field = document.createElement('textarea');
+      field.value = value;
+      field.setAttribute('readonly', '');
+      field.style.position = 'fixed';
+      field.style.opacity = '0';
+      document.body.appendChild(field);
+      field.select();
+      const copied = document.execCommand('copy');
+      field.remove();
+      if (!copied) throw new Error('Clipboard copy was blocked');
+    }
+    showToast('Case ID copied', 'success');
+  } catch (err) {
+    showToast('Could not copy Case ID', 'error');
+  }
+}
+
 function getFilteredCases(status) {
   let filtered = cases.filter(c => c.status === status);
   const search = activeFilters[status] || '';
@@ -5834,10 +5861,11 @@ function renderTable(status) {
   tbody.innerHTML = filtered.map(c => {
     const idAttr = esc(c.id);
     const base = `
-      <td><strong style="font-family:'JetBrains Mono',monospace" title="${idAttr}">${esc(shortId(c.id))}</strong></td>
+      <td><button type="button" class="btn btn-ghost btn-sm" style="font-family:'JetBrains Mono',monospace;padding:3px 6px" title="Copy case ID" onclick="copySupportCaseId('${idAttr}')">${esc(shortId(c.id))}</button></td>
       <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(c.subject)}"><strong>${esc(c.subject)}</strong></td>
       <td><span class="badge badge-blue">${esc(c.category || 'General')}</span></td>
-      <td><div style="display:flex;align-items:center;gap:8px">${c.email ? emailAvatarHtml(c.email, 28) : ''}<span>${esc(c.email || '—')}</span></div></td>
+      <td><span>${esc(c.email || '—')}</span></td>
+      <td><span class="badge ${({open:'badge-orange',inprogress:'badge-blue',resolved:'badge-green',closed:'badge-purple'})[status] || ''}">${({open:'Open',inprogress:'In Progress',resolved:'Resolved',closed:'Closed'})[status] || esc(status)}</span></td>
       <td style="font-size:.78rem;color:#6b88aa">${fmtDT(c.createdAt)}</td>`;
 
     if (status === 'open') {
@@ -5845,8 +5873,6 @@ function renderTable(status) {
         <td>
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" onclick="viewCase('${idAttr}')">View</button>
-            <button class="btn btn-info btn-sm" onclick="quickStatus('${idAttr}','inprogress')">Start</button>
-            <button class="btn btn-danger btn-sm" onclick="quickStatus('${idAttr}','closed')">Close</button>
           </div>
         </td>
       </tr>`;
@@ -5857,7 +5883,6 @@ function renderTable(status) {
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" onclick="viewCase('${idAttr}')">View</button>
             <button class="btn btn-success btn-sm" onclick="quickStatus('${idAttr}','resolved')">Resolve</button>
-            <button class="btn btn-danger btn-sm" onclick="quickStatus('${idAttr}','closed')">Close</button>
           </div>
         </td>
       </tr>`;
@@ -5869,7 +5894,6 @@ function renderTable(status) {
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             <button class="btn btn-ghost btn-sm" onclick="viewCase('${idAttr}')">View</button>
             <button class="btn btn-warning btn-sm" onclick="quickStatus('${idAttr}','open')">Reopen</button>
-            <button class="btn btn-danger btn-sm" onclick="quickStatus('${idAttr}','closed')">Close</button>
           </div>
         </td>
       </tr>`;
@@ -6185,7 +6209,6 @@ document.addEventListener('keydown', e => {
 function renderAll() {
   ['open','inprogress','resolved','closed'].forEach(renderTable);
   updateStats();
-  renderRecentActivity();
 }
 
 // Init support cases (data loads when the section is opened)
