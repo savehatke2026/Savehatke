@@ -293,31 +293,17 @@ app.use((req, res, next) => {
 
 // ── Rate limiting ───────────────────────────────────────────────────────────
 //
-// TWO LAYERS, deliberately, in this order:
+// Keep rate limiting local to each running application instance. The existing
+// express-rate-limit middleware below protects public API traffic, admin
+// endpoints, authentication, coupon scans/proof uploads and support uploads.
+// No external Redis/Upstash service or credentials are required.
 //
-//   1. Distributed (Upstash Redis) — services/rateLimitService. One shared
-//      counter across every Vercel instance, so the budget cannot be multiplied
-//      by the number of warm instances and cannot be reset by a cold start.
-//      Mounted below, before the body parsers, so a throttled upload is refused
-//      before its bytes are buffered.
+// Layer order: Vercel Firewall -> local rate limits -> authentication ->
+// authorization -> business logic.
 //
-//   2. Local (express-rate-limit, in-process) — the limiters defined in this
-//      block. KEPT as the emergency backstop: when Redis is unreachable these
-//      are the only thing still bounding a flood inside one instance. When
-//      Redis is healthy they never fire first, because the Redis budget is
-//      always the tighter of the two.
-//
-// Layer order end to end:  Vercel WAF -> distributed Redis -> local backstop
-//                          -> authentication -> authorization -> business logic.
-//
-// Webhooks are excluded from both: see NEVER_LIMIT in the rate-limit service.
-// A throttled payment-provider retry is a lost payment confirmation, so those
-// routes are protected by their HMAC signature over the exact raw bytes (which
-// refuses when unconfigured) and by notification-fingerprint idempotency.
-const { distributedLimiter, describe: describeRateLimits } = require('./services/rateLimitService');
-
-app.use('/api', distributedLimiter({ resolveCaller }));
-
+// Payment webhooks retain their independent HMAC signature verification and
+// idempotent settlement checks; they are intentionally not blocked by generic
+// request-rate limits.
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 600, // 600 requests per window (index makes ~5 reads per load; shared NAT/IP headroom)
@@ -347,10 +333,9 @@ const authLimiter = rateLimit({
   handler: safeRateLimitHandler('Too many sign-in attempts. Please wait before trying again.'),
 });
 
-// Proof-image uploads only. Sell Coupon submissions are NOT capped here: their
-// limit is 5 requests per rolling minute per authenticated account, enforced by
-// the distributed policy (rateLimitService) and sellerAccountLimiter in
-// routes/coupons.js. There is deliberately no per-IP daily or hourly submission cap.
+// Proof-image uploads only. Coupon submissions also have a local per-account
+// limit in routes/coupons.js; the general apiLimiter above remains the IP-based
+// backstop. There is deliberately no per-IP daily or hourly submission cap.
 const couponProofLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
   max: 10, // 10 proof uploads per hour per IP
