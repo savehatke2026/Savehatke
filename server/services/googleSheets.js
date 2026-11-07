@@ -858,7 +858,10 @@ async function ensureSheets(prefetched) {
       );
     }
   } catch (err) {
-    console.warn('ensureSheets warning:', err.message);
+    // Do not report a healthy Sheets connection when tab/header provisioning
+    // failed. Financial writers depend on these exact headers and tabs.
+    console.error('ensureSheets failed:', err.message);
+    throw err;
   }
 }
 
@@ -1120,7 +1123,11 @@ async function appendRow(sheetName, data, options = {}) {
           : [];
         if (actual.length) rowHeaders = actual;
       } catch (e) {
-        // Header read failed — fall back to configured header order
+        // A strict financial append must never guess the live column order.
+        // Otherwise an existing tab with reordered/custom headers can receive
+        // values in the wrong columns while appearing successful.
+        if (strict) throw new Error(`Could not read ${sheetName} headers before financial append: ${e.message}`);
+        // Non-financial legacy writes retain the configured-header fallback.
       }
       const normData = dataByNormKey(data);
       const row = rowHeaders.map((h) => {
@@ -1136,7 +1143,7 @@ async function appendRow(sheetName, data, options = {}) {
       });
     } catch (err) {
       console.warn(`Google Sheets append warning for ${sheetName}:`, err.message);
-      if (strict) throw new Error('Google Sheets financial write failed');
+      if (strict) throw new Error(`Google Sheets financial write failed for ${sheetName}: ${err.message}`);
       data.gsheetError = err.message;
     }
   }
