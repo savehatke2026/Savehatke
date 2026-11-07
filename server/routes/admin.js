@@ -1747,7 +1747,14 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
           return res.json({ message: 'Coupon already approved.', coupon: sellerRow });
         }
         const approvedAt = new Date().toISOString();
-        const sellerPayout = calculateSellerPayout(sellerRow.originalValue);
+        const requestedPayout = req.body && req.body.sellerPayoutAmount;
+        const sellerPayout = requestedPayout === undefined || requestedPayout === null || requestedPayout === ''
+          ? calculateSellerPayout(sellerRow.originalValue)
+          : Number(requestedPayout);
+        const faceValue = Number(sellerRow.originalValue);
+        if (!Number.isSafeInteger(sellerPayout) || sellerPayout < 0 || sellerPayout > faceValue) {
+          return res.status(400).json({ error: 'Enter a whole-rupee payout between ₹0 and the coupon face value.', code: 'INVALID_SELLER_PAYOUT' });
+        }
         await db.updateRow(db.SHEETS.SELLER_COUPONS, 'id', id, {
           status: 'available',
           isVerified: 'true',
@@ -1835,9 +1842,15 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
         updates.verifiedAt = now;
       }
       if (isSellerCoupon(coupon) && !skipPayoutWrite) {
-        // 7% of the verified face value — written to the existing Sheets
-        // sellerPayout column (the only place this number is persisted).
-        updates.sellerPayout = calculateSellerPayout(coupon.originalValue);
+        const requestedPayout = req.body && req.body.sellerPayoutAmount;
+        const faceValue = Number(coupon.originalValue);
+        const amount = requestedPayout === undefined || requestedPayout === null || requestedPayout === ''
+          ? calculateSellerPayout(coupon.originalValue)
+          : Number(requestedPayout);
+        if (!Number.isSafeInteger(amount) || amount < 0 || amount > faceValue) {
+          return res.status(400).json({ error: 'Enter a whole-rupee payout between ₹0 and the coupon face value.', code: 'INVALID_SELLER_PAYOUT' });
+        }
+        updates.sellerPayout = amount;
       }
     }
 
