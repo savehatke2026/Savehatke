@@ -6913,6 +6913,17 @@ function maybeLoadPayouts() {
   </div>
 </div>
 
+<style>
+#adminReviewModal .seller-review-grid{min-width:0}
+@media(max-width:640px){
+  #adminReviewModal #armContent>div:first-child{grid-template-columns:1fr!important}
+  #adminReviewModal #armContent .card [style*="grid-template-columns:repeat(2"]{grid-template-columns:1fr!important}
+}
+.seller-approved-payout-table{width:100%;border-collapse:separate;border-spacing:0;min-width:780px}
+.seller-approved-payout-table th,.seller-approved-payout-table td{padding:12px 14px;text-align:center;vertical-align:middle;border-bottom:1px solid rgba(79,195,247,.1);font-size:.8rem}
+.seller-approved-payout-table th{color:#8fa8c8;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap;background:rgba(6,13,31,.35)}
+.seller-approved-payout-table tbody tr:hover{background:rgba(79,195,247,.035)}
+</style>
 <!-- ════════════════ IN-PANEL COUPON REVIEW MODAL ════════════════ -->
 <!-- Opened from Coupons → ⏳ Pending / ✅ Active. -->
 <div id="adminReviewModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(2,6,18,0.85);backdrop-filter:blur(8px);overflow-y:auto;padding:24px 16px;align-items:center;justify-content:center;">
@@ -6939,39 +6950,40 @@ function maybeLoadPayouts() {
       </div>
 
       <div id="armContent" style="display:none;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-          <!-- Left Col: Details -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;align-items:stretch;">
           <div class="card" style="margin:0;background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.12);border-radius:12px;padding:16px;">
-            <h4 style="font-size:.88rem;font-weight:700;margin-bottom:12px;color:#4fc3f7;display:flex;align-items:center;gap:6px;">📋 Coupon Information</h4>
-            <div style="display:grid;grid-template-columns:110px 1fr;gap:8px 10px;font-size:.82rem;">
-              <span style="color:#6b88aa;">Brand / Store:</span><strong id="armBrand" style="color:#e2ecff;">—</strong>
-              <span style="color:#6b88aa;">Title:</span><span id="armTitle" style="color:#e2ecff;word-break:break-word;">—</span>
-              <span style="color:#6b88aa;">Code:</span><div id="armCode">—</div>
-              <span style="color:#6b88aa;">Category:</span><span id="armCategory" style="color:#e2ecff;">—</span>
-              <span style="color:#6b88aa;">Type:</span><span id="armType" style="color:#e2ecff;">—</span>
-              <span style="color:#6b88aa;">Face Value:</span><span id="armValue" style="color:#e2ecff;">—</span>
-              <span style="color:#6b88aa;">Selling Price:</span><strong id="armPrice" style="color:#00E272;">—</strong>
-              <span style="color:#6b88aa;">Description:</span><span id="armDesc" style="color:#e2ecff;word-break:break-word;">—</span>
-              <span style="color:#6b88aa;">Expiry Date:</span><span id="armExpiry" style="color:#e2ecff;">—</span>
-              <span style="color:#6b88aa;">Submitted:</span><span id="armSubmitted" style="color:#e2ecff;">—</span>
+            <h4 style="font-size:.88rem;font-weight:700;margin-bottom:10px;color:#4fc3f7;display:flex;align-items:center;gap:6px;">👤 Seller Details</h4>
+            <div style="display:grid;grid-template-columns:100px 1fr;gap:7px 10px;font-size:.82rem;">
+              <span style="color:#6b88aa;">Name:</span><span id="armSellerName" style="color:#e2ecff;">—</span>
+              <span style="color:#6b88aa;">Email:</span><span id="armSellerEmail" style="color:#e2ecff;word-break:break-all;">—</span>
+              <span style="color:#6b88aa;">User ID:</span><span id="armSellerId" style="color:#e2ecff;font-family:'JetBrains Mono',monospace;font-size:.76rem;">—</span>
+              <span style="color:#6b88aa;">Source:</span><span id="armSource" style="color:#e2ecff;">—</span>
             </div>
-            <div id="armTypeSpecificDetails" style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(79,195,247,.12);"></div>
-            <div id="armPayoutDetails" style="margin-top:12px;padding:12px;border-radius:9px;background:rgba(0,226,114,.06);border:1px solid rgba(0,226,114,.18);"></div>
           </div>
-
-          <!-- Right Col: Seller & Duplicates -->
-          <div style="display:flex;flex-direction:column;gap:14px;">
-            <div class="card" style="margin:0;background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.12);border-radius:12px;padding:16px;">
-              <h4 style="font-size:.88rem;font-weight:700;margin-bottom:10px;color:#4fc3f7;display:flex;align-items:center;gap:6px;">👤 Seller Details</h4>
-              <div style="display:grid;grid-template-columns:100px 1fr;gap:6px 10px;font-size:.82rem;">
-                <span style="color:#6b88aa;">Name:</span><span id="armSellerName" style="color:#e2ecff;">—</span>
-                <span style="color:#6b88aa;">Email:</span><span id="armSellerEmail" style="color:#e2ecff;word-break:break-all;">—</span>
-                <span style="color:#6b88aa;">User ID:</span><span id="armSellerId" style="color:#e2ecff;font-family:'JetBrains Mono',monospace;font-size:.76rem;">—</span>
-                <span style="color:#6b88aa;">Source:</span><span id="armSource" style="color:#e2ecff;">—</span>
-              </div>
-            </div>
-
+          <div class="card" style="margin:0;background:rgba(15,30,58,.6);border:1px solid rgba(0,226,114,.18);border-radius:12px;padding:16px;">
+            <h4 style="font-size:.88rem;font-weight:700;margin-bottom:10px;color:#00E272;display:flex;align-items:center;gap:6px;">💰 Seller Payout Calculations</h4>
+            <label for="armSellerPayoutAmount" style="display:block;font-size:.76rem;color:#8fa8c8;margin-bottom:6px;">Approved seller payout (₹, whole rupees)</label>
+            <input id="armSellerPayoutAmount" type="number" inputmode="numeric" min="0" step="1" style="width:100%;box-sizing:border-box;background:#060d1f;border:1px solid rgba(0,226,114,.35);border-radius:8px;color:#00E272;padding:11px 12px;font-size:1.15rem;font-weight:800;font-variant-numeric:tabular-nums;">
+            <div id="armPayoutHint" style="font-size:.7rem;color:#8fa8c8;margin-top:8px;">Suggested amount will be calculated from coupon face value.</div>
+            <div style="font-size:.68rem;color:#6b88aa;margin-top:6px;">The saved amount becomes the seller's payout amount when the coupon is sold. It does not mark a payout as paid.</div>
           </div>
+        </div>
+
+        <div class="card" style="margin:0 0 16px;background:rgba(15,30,58,.6);border:1px solid rgba(79,195,247,.12);border-radius:12px;padding:16px;">
+          <h4 style="font-size:.9rem;font-weight:700;margin-bottom:12px;color:#4fc3f7;display:flex;align-items:center;gap:6px;">📋 Coupon Information</h4>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 22px;font-size:.82rem;">
+            <span style="color:#6b88aa;">Brand / Store:</span><strong id="armBrand" style="color:#e2ecff;">—</strong>
+            <span style="color:#6b88aa;">Title:</span><span id="armTitle" style="color:#e2ecff;word-break:break-word;">—</span>
+            <span style="color:#6b88aa;">Code:</span><div id="armCode">—</div>
+            <span style="color:#6b88aa;">Category:</span><span id="armCategory" style="color:#e2ecff;">—</span>
+            <span style="color:#6b88aa;">Type:</span><span id="armType" style="color:#e2ecff;">—</span>
+            <span style="color:#6b88aa;">Face Value:</span><span id="armValue" style="color:#e2ecff;">—</span>
+            <span style="color:#6b88aa;">Selling Price:</span><strong id="armPrice" style="color:#00E272;">—</strong>
+            <span style="color:#6b88aa;">Description:</span><span id="armDesc" style="color:#e2ecff;word-break:break-word;">—</span>
+            <span style="color:#6b88aa;">Expiry Date:</span><span id="armExpiry" style="color:#e2ecff;">—</span>
+            <span style="color:#6b88aa;">Submitted:</span><span id="armSubmitted" style="color:#e2ecff;">—</span>
+          </div>
+          <div id="armTypeSpecificDetails" style="margin-top:14px;padding-top:12px;border-top:1px solid rgba(79,195,247,.12);"></div>
         </div>
 
         <!-- Proof Screenshot -->
