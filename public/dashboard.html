@@ -783,6 +783,11 @@
     .rv-textarea::placeholder{color:#546e8f}
     .rv-counter{font-size:.72rem;color:#6b88aa;text-align:right;margin-top:6px;font-family:'JetBrains Mono',monospace}
     .rv-counter.over{color:#ef9a9a}
+    .rv-public-consent{display:flex;align-items:flex-start;gap:11px;margin:4px 0 20px;padding:13px;background:rgba(79,195,247,.06);border:1px solid rgba(79,195,247,.16);border-radius:11px;cursor:pointer}
+    .rv-public-consent input{width:18px;height:18px;accent-color:#00E272;flex-shrink:0;margin-top:2px}
+    .rv-public-consent span{display:flex;flex-direction:column;gap:4px}
+    .rv-public-consent strong{font-size:.84rem;color:#e2ecff}
+    .rv-public-consent small{font-size:.74rem;color:#8da8c8;line-height:1.5}
 
     @media(max-width:600px){
       .rv-summary{grid-template-columns:minmax(0,1fr);gap:12px}
@@ -2857,10 +2862,29 @@
     </div>
 
     <div class="rv-field">
+      <label class="rv-field-lbl" for="rvModalFullName">Full Name</label>
+      <input class="rv-textarea" id="rvModalFullName" type="text" maxlength="60" autocomplete="name" placeholder="Enter your full name" style="min-height:0">
+    </div>
+
+    <div class="rv-field">
+      <label class="rv-field-lbl" for="rvModalState">State</label>
+      <select class="rv-textarea" id="rvModalState" required style="min-height:0">
+        <option value="">Select your state</option>
+        <option>Andhra Pradesh</option><option>Arunachal Pradesh</option><option>Assam</option><option>Bihar</option><option>Chhattisgarh</option><option>Goa</option><option>Gujarat</option><option>Haryana</option><option>Himachal Pradesh</option><option>Jharkhand</option><option>Karnataka</option><option>Kerala</option><option>Madhya Pradesh</option><option>Maharashtra</option><option>Manipur</option><option>Meghalaya</option><option>Mizoram</option><option>Nagaland</option><option>Odisha</option><option>Punjab</option><option>Rajasthan</option><option>Sikkim</option><option>Tamil Nadu</option><option>Telangana</option><option>Tripura</option><option>Uttar Pradesh</option><option>Uttarakhand</option><option>West Bengal</option>
+        <option>Andaman and Nicobar Islands</option><option>Chandigarh</option><option>Dadra and Nagar Haveli and Daman and Diu</option><option>Delhi</option><option>Jammu and Kashmir</option><option>Ladakh</option><option>Lakshadweep</option><option>Puducherry</option>
+      </select>
+    </div>
+
+    <div class="rv-field">
       <label class="rv-field-lbl" for="rvModalText">Your Review</label>
       <textarea class="rv-textarea" id="rvModalText" maxlength="500" placeholder="Write your experience..." oninput="updateReviewCounter()"></textarea>
       <div class="rv-counter" id="rvModalCounter">0 / 500</div>
     </div>
+
+    <label class="rv-public-consent">
+      <input type="checkbox" id="rvModalPublicOptIn">
+      <span><strong>Use this review publicly</strong><small>If selected, you agree that SaveHatke may display your review, full name and state on its website after moderation. Your email will never be displayed.</small></span>
+    </label>
 
     <div class="modal-footer">
       <button class="btn btn-ghost" style="flex:1" onclick="closeModal('reviewModal')">Cancel</button>
@@ -6890,6 +6914,17 @@
 
     const ta = document.getElementById('rvModalText');
     if (ta) ta.value = rvDraft.reviewText || '';
+    const fullName = document.getElementById('rvModalFullName');
+    if (fullName) fullName.value = rvDraft.fullName || '';
+    const state = document.getElementById('rvModalState');
+    if (state) state.value = rvDraft.state || '';
+    const publicOptIn = document.getElementById('rvModalPublicOptIn');
+    if (publicOptIn) publicOptIn.checked = Boolean(rvDraft.publicOptIn);
+    const profileFields = ['rvModalFullName','rvModalState','rvModalPublicOptIn'];
+    profileFields.forEach((id) => {
+      const field = document.getElementById(id);
+      if (field) field.disabled = rvDraft.mode === 'edit' && false;
+    });
     updateReviewCounter();
   }
 
@@ -6904,6 +6939,9 @@
       couponLabel: reviewableCouponLabel(c),
       rating: Number(rvPendingRatings[couponId] || 0),
       reviewText: '',
+      fullName: STATE.user?.name || STATE.user?.displayName || '',
+      state: '',
+      publicOptIn: false,
     };
     // innerHTML, not textContent — the gradient word is part of the modal's look.
     const title = document.getElementById('rvModalTitle');
@@ -6928,6 +6966,9 @@
       couponLabel: r.couponTitle || (r.pricePaid ? `${inr(r.pricePaid)} Coupon` : 'Coupon'),
       rating: Number(r.rating || 0),
       reviewText: r.reviewText || '',
+      fullName: r.buyerName || '',
+      state: r.state || '',
+      publicOptIn: Boolean(r.publicOptIn),
     };
     const editTitle = document.getElementById('rvModalTitle');
     if (editTitle) editTitle.innerHTML = 'Edit <span class="gtext">Review</span>';
@@ -6950,6 +6991,17 @@
 
     const ta = document.getElementById('rvModalText');
     const reviewText = ta ? ta.value.trim() : '';
+    const fullName = String(document.getElementById('rvModalFullName')?.value || '').trim();
+    const state = String(document.getElementById('rvModalState')?.value || '').trim();
+    const publicOptIn = Boolean(document.getElementById('rvModalPublicOptIn')?.checked);
+    if (fullName.length < 2 || fullName.length > 60) {
+      showToast('Please enter your full name (2–60 characters).', 'warning');
+      return;
+    }
+    if (!state) {
+      showToast('Please select your state.', 'warning');
+      return;
+    }
     if (reviewText.length > REVIEW_MAX_LENGTH) {
       showToast(`Your review must be ${REVIEW_MAX_LENGTH} characters or fewer.`, 'warning');
       return;
@@ -6963,13 +7015,13 @@
       if (rvDraft.mode === 'edit') {
         await api(`/reviews/${encodeURIComponent(rvDraft.reviewId)}`, {
           method: 'PUT',
-          body: { rating: rvDraft.rating, reviewText },
+          body: { rating: rvDraft.rating, reviewText, fullName, state, publicOptIn },
         });
         showToast('Review updated', 'success');
       } else {
         await api('/reviews', {
           method: 'POST',
-          body: { couponId: rvDraft.couponId, rating: rvDraft.rating, reviewText },
+          body: { couponId: rvDraft.couponId, rating: rvDraft.rating, reviewText, fullName, state, publicOptIn },
         });
         delete rvPendingRatings[rvDraft.couponId];
         showToast('Review submitted successfully.', 'success');
