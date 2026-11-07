@@ -114,12 +114,10 @@ function seenFingerprints(accountKey, rows) {
 }
 
 // ── Signed device token cookie ─────────────────────────────────────────────
-// Corroborating signal only. It carries the fingerprint this browser was last
-// recognised under, which keeps a device known if its User-Agent later drifts
-// (an OS rename, a changed model string). It is HttpOnly, account-bound and
-// HMAC-signed, and it can only ever match a fingerprint the ledger already
-// holds — presenting one for a device the account has never used proves
-// nothing and suppresses nothing.
+// Persistent browser trust signal. The cookie is HttpOnly, account-bound and
+// HMAC-signed. It survives expired/cleaned session-history rows, so a familiar
+// browser does not trigger a fresh email on every later login. A valid token is
+// accepted only when its fingerprint matches the current browser signature.
 
 function cookieNameFor(accountKey) {
   return COOKIE_PREFIX + hmac('cookie-name', accountKey).slice(0, 12);
@@ -223,9 +221,14 @@ async function evaluateSignInDevice({ req, res, email, userAgent, device, os, br
 
   const seen = seenFingerprints(accountKey, history);
   let recognisedBy = '';
-  if (seen.has(current.fromUserAgent)) recognisedBy = 'device signature';
+  // Trust the signed, account-bound browser cookie directly when its
+  // fingerprint still matches this User-Agent. Do not require the matching
+  // session row to remain in Supabase: session cleanup/expiry must not turn a
+  // previously trusted browser into a "new device" on every subsequent login.
+  if (tokenFingerprint && tokenFingerprint === current.fromUserAgent) recognisedBy = 'signed device token';
+  else if (seen.has(current.fromUserAgent)) recognisedBy = 'device signature';
   else if (seen.has(current.fromLabels)) recognisedBy = 'device signature (legacy row)';
-  else if (tokenFingerprint && seen.has(tokenFingerprint)) recognisedBy = 'signed device token';
+  else if (tokenFingerprint && seen.has(tokenFingerprint)) recognisedBy = 'signed device token (history corroborated)';
 
   if (recognisedBy) {
     return {
