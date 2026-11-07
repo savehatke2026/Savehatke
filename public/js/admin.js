@@ -2578,12 +2578,12 @@ async function openReviewModal(couponId) {
     // Show the fields submitted for this coupon type. Gift-card metadata is
     // currently persisted in howToUse for compatibility with existing sheets.
     const howToUseText = String(c.howToUse || '');
-    const giftBalanceMatch = howToUseText.match(/Remaining gift card balance:\\s*₹?([0-9,.]+)/i);
-    const giftRedemptionMatch = howToUseText.match(/Redemption method:\\s*([^\\n]+)/i);
+    const giftBalanceMatch = howToUseText.match(/Remaining gift card balance:\s*₹?([0-9,.]+)/i);
+    const giftRedemptionMatch = howToUseText.match(/Redemption method:\s*([^\n]+)/i);
     const isGiftCard = /gift card|store credit/i.test(String(c.type || ''));
     const cleanHowToUse = howToUseText
-      .replace(/\\n?Remaining gift card balance:\\s*₹?[0-9,.]+/ig, '')
-      .replace(/\\n?Redemption method:\\s*[^\\n]+/ig, '')
+      .replace(/\n?Remaining gift card balance:\s*₹?[0-9,.]+/ig, '')
+      .replace(/\n?Redemption method:\s*[^\n]+/ig, '')
       .trim();
     const moneyText = (value) => value === undefined || value === null || value === ''
       ? '—' : '₹' + Number(String(value).replace(/[^0-9.]/g, '')).toLocaleString('en-IN');
@@ -2608,7 +2608,8 @@ async function openReviewModal(couponId) {
     const payoutEl = document.getElementById('armPayoutDetails');
     if (payoutEl) {
       const face = Number(String(c.originalValue || '').replace(/[^0-9.]/g, '')) || 0;
-      const payout = Number(c.sellerPayout);
+      const hasStoredPayout = c.sellerPayout !== null && c.sellerPayout !== undefined && c.sellerPayout !== '';
+      const payout = hasStoredPayout ? Number(c.sellerPayout) : Math.round(face * 0.07);
       payoutEl.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:#00E272;margin-bottom:7px">💰 Seller Payout Calculation</div>'
         + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:.78rem">'
         + '<span style="color:#8fa8c8">Face Value</span><strong style="color:#e2ecff">' + moneyText(face) + '</strong>'
