@@ -596,25 +596,36 @@ router.get('/stats', authenticateToken, requireAdmin, async (req, res) => {
     monthlyReports.maybeEnsure({ actor: 'admin-dashboard' });
     if (!supabase.isConfigured()) throw new Error('Supabase is not configured');
 
-    const [users, allCoupons, tracked, tickets] = await Promise.all([
+    const [users, couponCounts, tracked, tickets] = await Promise.all([
       db.getRows(db.SHEETS.USERS, { strict: true }),
-      supabase.getCoupons({ strict: true }),
+      (async () => {
+        const client = supabase.getClient();
+        if (!client) throw new Error('Supabase is not configured');
+        // Head-only exact counts avoid downloading every coupon and its large
+        // image/description metadata just to paint four dashboard numbers.
+        const [total, sold, available, pending] = await Promise.all([
+          client.from('coupons').select('id', { count: 'exact', head: true }),
+          client.from('coupons').select('id', { count: 'exact', head: true }).eq('status', 'sold'),
+          client.from('coupons').select('id', { count: 'exact', head: true }).eq('status', 'available'),
+          client.from('coupons').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
+        ]);
+        for (const result of [total, sold, available, pending]) {
+          if (result.error) throw result.error;
+        }
+        return { total: total.count || 0, sold: sold.count || 0,
+          available: available.count || 0, pending: pending.count || 0 };
+      })(),
       db.getRows(db.SHEETS.PRICE_TRACKING, { strict: true }),
       db.getRows(db.SHEETS.SUPPORT_TICKETS, { strict: true }),
     ]);
 
-    const coupons = Array.isArray(allCoupons) ? allCoupons : [];
-    const soldCoupons = coupons.filter((c) => String(c.status || '').toLowerCase() === 'sold').length;
-    const availableCoupons = coupons.filter((c) => String(c.status || '').toLowerCase() === 'available').length;
-    const pendingCoupons = coupons.filter((c) => String(c.status || '').toLowerCase() === 'pending').length;
-
     res.set('Cache-Control', 'no-store');
     res.json({ stats: {
       totalUsers: users.length,
-      totalCoupons: coupons.length,
-      availableCoupons,
-      soldCoupons,
-      pendingCoupons,
+      totalCoupons: couponCounts.total,
+      availableCoupons: couponCounts.available,
+      soldCoupons: couponCounts.sold,
+      pendingCoupons: couponCounts.pending,
       totalTracked: tracked.length,
       totalTickets: tickets.length,
     } });
