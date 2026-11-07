@@ -157,6 +157,8 @@ function normalize(row) {
     refundReason: row.refund_reason || row.refundReason || '',
     status: clampStatus(row.status),
     adminApproved: row.admin_approved === true || String(row.admin_approved || '').toLowerCase() === 'true',
+    adminApprovedAt: row.admin_approved_at || row.adminApprovedAt || '',
+    adminApprovedBy: row.admin_approved_by || row.adminApprovedBy || '',
     refundReference: row.refund_reference || row.refundReference || '',
     adminNote: row.admin_note || row.adminNote || '',
     processedAt: row.processed_at || row.processedAt || '',
@@ -185,6 +187,8 @@ function toSheetsRow(r) {
     refund_reason: r.refundReason,
     status: r.status,
     admin_approved: r.adminApproved === true,
+    admin_approved_at: r.adminApprovedAt || '',
+    admin_approved_by: r.adminApprovedBy || '',
     refund_reference: r.refundReference,
     admin_note: r.adminNote,
     processed_at: r.processedAt,
@@ -535,7 +539,8 @@ async function approveLateRefund(refundId, processedBy = 'admin') {
   if (existing.mismatchType !== 'late_payment') return { ok: false, code: 'INVALID_TYPE', error: 'Only late-payment refunds require this approval.' };
   if (existing.status === 'refunded' || existing.status === 'rejected') return { ok: false, code: 'REFUND_FINALISED', error: 'This refund is already finalised.' };
   if (existing.adminApproved) return { ok: true, created: false, refund: existing };
-  const updated = normalize({ ...existing, admin_approved: true, admin_note: [existing.adminNote, 'Approved by ' + processedBy].filter(Boolean).join(' | '), updated_at: new Date().toISOString() });
+  const approvedAt = new Date().toISOString();
+  const updated = normalize({ ...existing, admin_approved: true, admin_approved_at: approvedAt, admin_approved_by: processedBy, admin_note: [existing.adminNote, 'Approved by ' + processedBy].filter(Boolean).join(' | '), updated_at: approvedAt });
   try { await db.updateRow(SHEETS.REFUNDS, 'id', existing.refundId || existing.id, toSheetsRow(updated), { strict: true }); }
   catch (e) { return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'Approval could not be saved. Nothing was changed.' }; }
   return { ok: true, refund: updated };
