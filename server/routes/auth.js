@@ -389,7 +389,7 @@ async function finishGoogleLogin(req, res, identity) {
     // Sheets outage shouldn't block a sign-in — fall through and create a
     // Supabase-only profile. The user keeps signing in; an admin can backfill
     // the Sheets row when the API recovers.
-    console.warn(`[auth] Sheets findRow failed for ${email} (${e.message}); falling through to Supabase-only profile.`);
+    console.warn('[auth] Sheets findRow failed for ' + email + ' (' + e.message + '); falling through to Supabase-only profile.');
     sheetUser = null;
   }
   const now = new Date().toISOString();
@@ -413,7 +413,7 @@ async function finishGoogleLogin(req, res, identity) {
       // Mirror write failed — keep going with the existing Sheets row. The
       // session can still be issued; the next successful Sheets read sees the
       // previous values, which is fine for a non-critical mirror.
-      console.warn(`[auth] Sheets updateRow failed for ${email} (${e.message}); continuing with cached row.`);
+      console.warn('[auth] Sheets updateRow failed for ' + email + ' (' + e.message + '); continuing with cached row.');
     });
   } else {
     isNewUser = true;
@@ -432,7 +432,7 @@ async function finishGoogleLogin(req, res, identity) {
       // enough for `setSessionCookie + sendGoogleLoginHandoff` to issue a
       // session; Supabase.createUser below mirrors what the Sheets row would
       // have carried.
-      console.warn(`[auth] Sheets appendRow failed for new user ${email} (${e.message}); continuing with Supabase-only profile.`);
+      console.warn('[auth] Sheets appendRow failed for new user ' + email + ' (' + e.message + '); continuing with Supabase-only profile.');
     }
     if (supabase.isConfigured()) {
       await supabase.createUser({ user_id: id, name: googleName, email, username: sheetUser.username })
@@ -489,8 +489,8 @@ router.get('/google-redirect', async (req, res) => {
   // reason still goes to the deploy log.
   const fail = (slug, logLine) => {
     const safe = String(slug || 'unknown').toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 40) || 'unknown';
-    if (logLine) console.warn(`[auth] Google OAuth rejected: ${logLine}`);
-    else console.warn(`[auth] Google OAuth rejected: ${safe}`);
+    if (logLine) console.warn('[auth] Google OAuth rejected: ' + logLine);
+    else console.warn('[auth] Google OAuth rejected: ' + safe);
     return res.redirect(303, `/login?google=failed&reason=${safe}`);
   };
 
@@ -670,9 +670,9 @@ async function resolveSessionUserId(userId, cleanEmail, preknownRow) {
       });
       fromSheet = newId;
       userIdSource = 'sheet-row-backfilled';
-      console.log(`[session] Backfilled empty user_id for ${cleanEmail} â†’ ${newId}`);
+      console.log('[session] Backfilled empty user_id for ' + cleanEmail + ' -> ' + newId);
     } catch (e) {
-      console.warn(`[session] Failed to backfill user_id for ${cleanEmail}:`, e.message);
+      console.warn('[session] Failed to backfill user_id for ' + cleanEmail + ':', e.message);
     }
   }
 
@@ -906,11 +906,11 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
     // precede a successful authentication or follow a rejected one. A
     // recognised device sends nothing. Opt-out via SIGNIN_ALERT_DISABLED=true.
     if (!deviceCheck.evaluated) {
-      console.warn(`[Auth] New-device check inconclusive for ${cleanEmail || 'unknown account'} (${deviceCheck.reason}) — no alert sent.`);
+      console.warn('[Auth] New-device check inconclusive for ' + (cleanEmail || 'unknown account') + ' (' + deviceCheck.reason + ') - no alert sent.');
     } else if (!deviceCheck.isNewDevice) {
-      console.log(`[Auth] Recognised device for ${cleanEmail} (${deviceCheck.reason}) — no new-device alert.`);
+      console.log('[Auth] Recognised device for ' + cleanEmail + ' (' + deviceCheck.reason + ') - no new-device alert.');
     } else if (process.env.SIGNIN_ALERT_DISABLED === 'true') {
-      console.warn(`[Auth] New device for ${cleanEmail} but SIGNIN_ALERT_DISABLED=true — alert suppressed.`);
+      console.warn('[Auth] New device for ' + cleanEmail + ' but SIGNIN_ALERT_DISABLED=true - alert suppressed.');
     } else {
       withDeadline(geoPromise, GEO_WAIT_FOR_EMAIL_MS)
         .then((geo) => emailService.sendSignInAlertEmail({
@@ -930,11 +930,11 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
         }))
         .then((r) => {
           if (r && r.success) {
-            console.log(`[Auth] New-device alert sent to ${cleanEmail} (IP ${ip}, device ${deviceStr} / ${browserStr} / ${osStr})`);
+            console.log('[Auth] New-device alert sent to ' + cleanEmail + ' (IP ' + ip + ', device ' + deviceStr + ' / ' + browserStr + ' / ' + osStr + ')');
           } else if (r && r.isSimulated) {
-            console.warn(`[Auth] New-device alert NOT sent for ${cleanEmail} -> ${r.error || 'SMTP not configured'}`);
+            console.warn('[Auth] New-device alert NOT sent for ' + cleanEmail + ' -> ' + (r.error || 'SMTP not configured'));
           } else {
-            console.warn(`[Auth] New-device alert FAILED for ${cleanEmail}: ${(r && r.error) || 'unknown'}`);
+            console.warn('[Auth] New-device alert FAILED for ' + cleanEmail + ': ' + ((r && r.error) || 'unknown'));
           }
         })
         .catch((e) => console.warn('[Auth] New-device alert unexpected error:', e && e.message ? e.message : e));
@@ -988,7 +988,7 @@ async function createLoginSession(req, userId, loginMethod, email, userName, res
       throw new Error('Could not create an enforceable session: no row returned from createSession');
     }
 
-    console.log(`âœ… Session created in Supabase: ${sessionResult.session_id} for ${isAdminLogin ? 'ADMIN' : 'user'} ${finalUserId}${cleanEmail ? ' (' + cleanEmail + ')' : ''} | user_id source: ${userIdSource} | ip: ${ip} | expires: ${sessionResult.expires_at} (${isAdminLogin ? '2h' : '48h'})`);
+    console.log('Session created in Supabase: ' + sessionResult.session_id + ' for ' + (isAdminLogin ? 'ADMIN' : 'user') + ' ' + finalUserId + (cleanEmail ? ' (' + cleanEmail + ')' : '') + ' | user_id source: ' + userIdSource + ' | ip: ' + ip + ' | expires: ' + sessionResult.expires_at + ' (' + (isAdminLogin ? '2h' : '48h') + ')');
 
     // Geo-IP enrichment in the background â€” never blocks the login response
     geoPromise
