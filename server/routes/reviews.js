@@ -20,6 +20,17 @@ const router = express.Router();
 
 const MAX_REVIEW_LENGTH = 500;
 
+const REVIEW_STATES = new Set(["Andhra Pradesh","Arunachal Pradesh","Assam","Bihar","Chhattisgarh","Goa","Gujarat","Haryana","Himachal Pradesh","Jharkhand","Karnataka","Kerala","Madhya Pradesh","Maharashtra","Manipur","Meghalaya","Mizoram","Nagaland","Odisha","Punjab","Rajasthan","Sikkim","Tamil Nadu","Telangana","Tripura","Uttar Pradesh","Uttarakhand","West Bengal","Andaman and Nicobar Islands","Chandigarh","Dadra and Nagar Haveli and Daman and Diu","Delhi","Jammu and Kashmir","Ladakh","Lakshadweep","Puducherry"]);
+function validateReviewProfile(body) {
+  const fullName = String(body.fullName || '').trim();
+  const state = String(body.state || '').trim();
+  if (fullName.length < 2 || fullName.length > 60) return { ok: false, error: 'Please enter your full name (2–60 characters).' };
+  if (!REVIEW_STATES.has(state)) return { ok: false, error: 'Please select a valid Indian state or union territory.' };
+  if (typeof body.publicOptIn !== 'boolean') return { ok: false, error: 'Please choose whether we may use this review publicly.' };
+  return { ok: true, fullName, state, publicOptIn: body.publicOptIn };
+}
+
+
 // Statuses that are not a completed purchase. Anything still in the seller's
 // submission pipeline ("pending", "available", …) or explicitly unwound
 // ("cancelled", "refunded") can never be reviewed.
@@ -41,6 +52,8 @@ function sanitize(row) {
     id: row.id,
     couponId: row.couponId || '',
     buyerName: String(row.buyerName || '').trim(),
+    state: String(row.state || '').trim(),
+    publicOptIn: row.publicOptIn === true || String(row.publicOptIn).toLowerCase() === 'true',
     brand: row.brand || '',
     couponTitle: row.couponTitle || '',
     pricePaid: Number(row.pricePaid || 0),
@@ -231,6 +244,8 @@ router.post('/', authenticateToken, async (req, res) => {
 
     const valid = validateReviewInput(body);
     if (!valid.ok) return res.status(400).json({ error: valid.error });
+    const profile = validateReviewProfile(body);
+    if (!profile.ok) return res.status(400).json({ error: profile.error });
 
     const couponId = String(body.couponId || '').trim();
     const eligible = await resolveReviewableCoupon(couponId, req.user);
@@ -248,7 +263,9 @@ router.post('/', authenticateToken, async (req, res) => {
       couponId,
       buyerEmail: normEmail(req.user.email),
       buyerUserId: req.user.id || '',
-      buyerName: String(req.user.name || req.user.displayName || '').trim().slice(0, 60),
+      buyerName: profile.fullName,
+      state: profile.state,
+      publicOptIn: profile.publicOptIn,
       brand: coupon.brand || '',
       couponTitle: coupon.title || coupon.description || '',
       pricePaid: Number(coupon.sellingPrice || 0),
@@ -273,6 +290,8 @@ router.put('/:id', authenticateToken, async (req, res) => {
 
     const valid = validateReviewInput(body);
     if (!valid.ok) return res.status(400).json({ error: valid.error });
+    const profile = validateReviewProfile(body);
+    if (!profile.ok) return res.status(400).json({ error: profile.error });
 
     const own = await findOwnReview(String(req.params.id || '').trim(), req.user);
     if (!own.ok) return res.status(own.status).json({ error: own.error });
@@ -280,6 +299,9 @@ router.put('/:id', authenticateToken, async (req, res) => {
     const updates = {
       rating: valid.rating,
       reviewText: valid.reviewText,
+      buyerName: profile.fullName,
+      state: profile.state,
+      publicOptIn: profile.publicOptIn,
       updatedAt: nowIso(),
     };
     await db.updateRow(db.SHEETS.REVIEWS, 'id', own.row.id, updates);
