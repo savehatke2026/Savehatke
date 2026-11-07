@@ -58,6 +58,53 @@ router.post('/activity/ping', authenticateToken, async (req, res) => {
   }
 });
 
+// Optional browser-location enrichment after successful login. The browser
+// sends coordinates only for this request; only the resolved city/state/country
+// are persisted in the existing session columns.
+router.post('/location', authenticateToken, async (req, res) => {
+  try {
+    if (!req.sessionId) return res.status(401).json({ error: 'A valid session is required.' });
+    const latitude = Number(req.body && req.body.latitude);
+    const longitude = Number(req.body && req.body.longitude);
+    if (!Number.isFinite(latitude) || latitude < -90 || latitude > 90
+      || !Number.isFinite(longitude) || longitude < -180 || longitude > 180) {
+      return res.status(400).json({ error: 'A valid location is required.' });
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    let geoResponse;
+    try {
+      const url = new URL('https://api.bigdatacloud.net/data/reverse-geocode-client');
+      url.searchParams.set('latitude', String(latitude));
+      url.searchParams.set('longitude', String(longitude));
+      url.searchParams.set('localityLanguage', 'en');
+      geoResponse = await fetch(url, { signal: controller.signal });
+    } finally {
+      clearTimeout(timer);
+    }
+    if (!geoResponse.ok) return res.status(502).json({ error: 'Location lookup is unavailable.' });
+    const geo = await geoResponse.json();
+    const city = String(geo.city || geo.locality || '').trim().slice(0, 120);
+    const state = String(geo.principalSubdivision || '').trim().slice(0, 120);
+    const countryName = String(geo.countryName || '').trim().slice(0, 120);
+    if (!city && !state && !countryName) {
+      return res.status(422).json({ error: 'Location could not be resolved.' });
+    }
+    const country = countryName === 'India' ? 'India ' + String.fromCodePoint(0x1F1EE, 0x1F1F3) : countryName;
+    const updated = await sessionStore.updateSessionFields(req.sessionId, {
+      ...(city ? { city } : {}),
+      ...(state ? { state } : {}),
+      ...(country ? { country } : {}),
+    });
+    if (!updated) return res.status(404).json({ error: 'Session not found.' });
+    return res.json({ success: true });
+  } catch (err) {
+    console.warn('[auth] Browser location enrichment failed:', err.message);
+    return res.status(503).json({ error: 'Could not update location.' });
+  }
+});
+
 // Google-only authentication. Register the secure handlers before any legacy
 // These are the only login handlers. Email and client-token login endpoints
 // are retired and cannot create sessions.
@@ -215,8 +262,40 @@ function sendGoogleLoginHandoff(res, user, destination) {
       localStorage.removeItem('sh_login_return_to');
       if (!/^\\/(sell|sell\\.html|dashboard|dashboard\\.html|index|marketplace|marketplace\\.html)$/.test(back)) back = '';
     } catch (e) { back = ''; }
-    window.location.replace(${safeScriptJson(isAdmin)} || !back ? ${safeScriptJson(target)} : back);
-  </script></body></html>`);
+    var destinationUrl = ${safeScriptJson(isAdmin)} || !back ? ${safeScriptJson(target)} : back;
+    var redirected = false;
+    function finishLoginHandoff() {
+      if (redirected) return;
+      redirected = true;
+      window.location.replace(destinationUrl);
+    }
+    // Ask for browser location only after Google has authenticated the account.
+    // Coordinates are sent transiently for reverse geocoding and are never stored.
+    if (navigator.geolocation && window.isSecureContext) {
+      var locationFallback = window.setTimeout(finishLoginHandoff, 9000);
+      navigator.geolocation.getCurrentPosition(function (position) {
+        var coords = position && position.coords;
+        if (!coords || !Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) {
+          window.clearTimeout(locationFallback);
+          finishLoginHandoff();
+          return;
+        }
+        fetch('/api/auth/location', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude })
+        }).catch(function () {}).finally(function () {
+          window.clearTimeout(locationFallback);
+          finishLoginHandoff();
+        });
+      }, function () {
+        window.clearTimeout(locationFallback);
+        finishLoginHandoff();
+      }, { enableHighAccuracy: true, maximumAge: 300000, timeout: 7000 });
+    } else {
+      finishLoginHandoff();
+    }
 }
 
 async function finishGoogleLogin(req, res, identity) {
@@ -698,7 +777,14 @@ async function enrichSessionGeo(sessionId, ip, geo) {
   const country = rawCountry === 'India' ? 'India \u{1F1EE}\u{1F1F3}' : rawCountry;
 
   try {
-    await sessionStore.updateSessionFields(sessionId, { country, state, city });
+    // Browser GPS can provide a more precise result. Never let a slower IP
+    // lookup overwrite a location that has already been resolved in-session.
+    const current = await sessionStore.findSessionById(sessionId);
+    const hasLocation = current && [current.city, current.state, current.country]
+      .some((value) => value && String(value).trim() && String(value).trim() !== 'Unknown');
+    if (!hasLocation) {
+      await sessionStore.updateSessionFields(sessionId, { country, state, city });
+    }
   } catch (e) { /* enrichment is best-effort */ }
 }
 
