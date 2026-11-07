@@ -82,6 +82,75 @@ async function sendCurrentSession(req, res) {
   }
 }
 
+// ── User notification preferences ──────────────────────────────────────
+// Stored per account in the existing private site_settings table. The
+// authenticated session supplies the email; caller-supplied identities are
+// never accepted. Admin accounts do not use the end-user preference screen.
+const NOTIFICATION_PREFERENCE_DEFAULTS = Object.freeze({
+  coupon_activity: true,
+  purchases: true,
+  sales: true,
+  payments: true,
+  reviews: true,
+  support: true,
+  marketing: false,
+});
+function notificationPreferenceKey(email) {
+  return 'user_notification_preferences:' + String(email || '').trim().toLowerCase();
+}
+function normalizeNotificationPreferences(value, base = NOTIFICATION_PREFERENCE_DEFAULTS) {
+  const result = { ...base };
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return result;
+  for (const key of Object.keys(NOTIFICATION_PREFERENCE_DEFAULTS)) {
+    if (typeof value[key] === 'boolean') result[key] = value[key];
+  }
+  return result;
+}
+router.get('/notification-preferences', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user || String(req.user.role || '').toLowerCase() === 'admin') {
+      return res.status(403).json({ error: 'Notification preferences are available for user accounts only.' });
+    }
+    const email = String(req.user.email || '').trim().toLowerCase();
+    if (!email || !req.sessionId) return res.status(401).json({ error: 'A valid user session is required.' });
+    const stored = await supabase.getSiteSetting(notificationPreferenceKey(email));
+    const preferences = normalizeNotificationPreferences(stored && stored.value);
+    res.set('Cache-Control', 'no-store');
+    return res.json({ preferences });
+  } catch (err) {
+    console.error('[auth] Notification preference read failed:', err.message);
+    return res.status(503).json({ error: 'Could not load notification preferences.' });
+  }
+});
+router.put('/notification-preferences', authenticateToken, async (req, res) => {
+  try {
+    if (!req.user || String(req.user.role || '').toLowerCase() === 'admin') {
+      return res.status(403).json({ error: 'Notification preferences are available for user accounts only.' });
+    }
+    const email = String(req.user.email || '').trim().toLowerCase();
+    if (!email || !req.sessionId) return res.status(401).json({ error: 'A valid user session is required.' });
+    const patch = req.body && req.body.preferences;
+    if (!patch || typeof patch !== 'object' || Array.isArray(patch) || !Object.keys(patch).length) {
+      return res.status(400).json({ error: 'At least one notification preference is required.' });
+    }
+    for (const [key, value] of Object.entries(patch)) {
+      if (!(key in NOTIFICATION_PREFERENCE_DEFAULTS) || typeof value !== 'boolean') {
+        return res.status(400).json({ error: 'Invalid notification preference.' });
+      }
+    }
+    const key = notificationPreferenceKey(email);
+    const stored = await supabase.getSiteSetting(key);
+    const current = normalizeNotificationPreferences(stored && stored.value);
+    const preferences = normalizeNotificationPreferences(patch, current);
+    await supabase.setSiteSetting(key, preferences, email);
+    res.set('Cache-Control', 'no-store');
+    return res.json({ preferences });
+  } catch (err) {
+    console.error('[auth] Notification preference save failed:', err.message);
+    return res.status(503).json({ error: 'Could not save notification preferences.' });
+  }
+});
+
 // GET /api/auth/me — live profile for the already validated session.
 router.get('/me', authenticateToken, sendCurrentSession);
 // Backwards-compatible session status endpoint; same cookie validation and payload.
