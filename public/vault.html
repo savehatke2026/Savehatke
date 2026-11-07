@@ -7147,7 +7147,8 @@ async function loadRefundRequests() {
   if (table) table.innerHTML = '<div style="padding:24px;text-align:center;color:#8ba7c5">Loading refund records…</div>';
   if (status) status.textContent = 'Fetching…';
   try {
-    const data = await api('/refunds/admin', { useAdmin: true });
+    const adminToken = typeof Auth !== 'undefined' ? (Auth.getAdminToken() || Auth.getToken()) : '';
+    const data = await api('/refunds/admin', { headers: adminToken ? { Authorization: 'Bearer ' + adminToken } : {} });
     const rows = Array.isArray(data.refunds) ? data.refunds : [];
     const pendingApproval = rows.filter(r => r.mismatchType === 'late_payment' && r.adminApproved !== true).length;
     const waiting = rows.filter(r => r.status === 'pending').length;
@@ -7172,7 +7173,8 @@ async function loadRefundRequests() {
 async function approveLateRefundAdmin(id) {
   if (!id || !confirm('Approve this late-payment refund request? It will become visible in the customer dashboard as Pending. This does NOT send the refund.')) return;
   try {
-    await api('/refunds/admin/' + encodeURIComponent(id) + '/approve', { method: 'POST', useAdmin: true, body: {} });
+    const adminToken = typeof Auth !== 'undefined' ? (Auth.getAdminToken() || Auth.getToken()) : '';
+    await api('/refunds/admin/' + encodeURIComponent(id) + '/approve', { method: 'POST', headers: adminToken ? { Authorization: 'Bearer ' + adminToken } : {}, body: {} });
     if (typeof showToast === 'function') showToast('Refund approved. It is now visible to the customer as Pending.');
     await loadRefundRequests();
   } catch (err) { alert(err.message || 'Could not approve refund.'); }
