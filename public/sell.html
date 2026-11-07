@@ -1579,7 +1579,7 @@ function renderCouponCard(id, index) {
     }),
     makeField({
       id: 'type-' + id, label: 'Coupon Type', kind: 'select', value: 'Discount',
-      options: [['Discount', 'Discount'], ['Cashback', 'Cashback'], ['BOGO', 'BOGO'], ['Free Delivery', 'Free Delivery']],
+      options: [['Discount', 'Discount'], ['Cashback', 'Cashback'], ['BOGO', 'BOGO'], ['Free Delivery', 'Free Delivery'], ['Gift Card / Store Credit', 'Gift Card / Store Credit']],
     })
   ));
 
@@ -1599,10 +1599,30 @@ function renderCouponCard(id, index) {
     hint: `The coupon's face value — ₹${MIN_FACE_VALUE} to ₹${MAX_FACE_VALUE}, up to 2 decimals.`,
   }));
 
-  card.appendChild(makeField({
+  const minOrderGroup = makeField({
     id: 'minorder-' + id, label: 'Minimum Order Value (₹)', type: 'number',
     placeholder: 'e.g. 999',
-  }));
+  });
+  minOrderGroup.id = 'minorder-group-' + id;
+  card.appendChild(minOrderGroup);
+
+  // Gift cards / store credit have a balance and redemption method rather than
+  // a discount amount. Keep these fields per coupon and show them only for
+  // that type; the values are included in How to Use for existing storage.
+  const giftBalanceGroup = makeField({
+    id: 'giftbalance-' + id, label: 'Remaining Gift Card Balance (₹)', type: 'number',
+    min: '0.01', step: '0.01', inputMode: 'decimal',
+    placeholder: 'e.g. 450', hint: 'Enter the unused balance available to the buyer.',
+  });
+  giftBalanceGroup.id = 'giftbalance-group-' + id;
+  card.appendChild(giftBalanceGroup);
+
+  const giftRedemptionGroup = makeField({
+    id: 'giftredemption-' + id, label: 'Redemption Method', kind: 'select',
+    options: [['Online', 'Online'], ['In-store', 'In-store'], ['Online and in-store', 'Online and in-store']],
+  });
+  giftRedemptionGroup.id = 'giftredemption-group-' + id;
+  card.appendChild(giftRedemptionGroup);
 
   // Valid From, Coupon Source and Status are no longer shown to the seller:
   // the source and status are fixed server-side (user-submitted / pending
@@ -1636,6 +1656,22 @@ function renderCouponCard(id, index) {
 
   // Screenshot / proof — one per coupon, last field in the card.
   if (PROOF_ENABLED) card.appendChild(createProofField(id));
+
+  const typeSelect = card.querySelector('#type-' + id);
+  const discountGroup = card.querySelector('#discount-' + id)?.closest('.fgroup');
+  const syncGiftCardFields = () => {
+    const isGiftCard = typeSelect?.value === 'Gift Card / Store Credit';
+    giftBalanceGroup.style.display = isGiftCard ? '' : 'none';
+    giftRedemptionGroup.style.display = isGiftCard ? '' : 'none';
+    if (discountGroup) discountGroup.style.display = isGiftCard ? 'none' : '';
+    minOrderGroup.style.display = isGiftCard ? 'none' : '';
+    const balanceInput = document.getElementById('giftbalance-' + id);
+    const redemptionInput = document.getElementById('giftredemption-' + id);
+    if (balanceInput) balanceInput.required = isGiftCard;
+    if (redemptionInput) redemptionInput.required = isGiftCard;
+  };
+  typeSelect?.addEventListener('change', syncGiftCardFields);
+  syncGiftCardFields();
 
   renderBrandButton(id);
   return card;
@@ -2814,6 +2850,8 @@ function collectCoupons() {
       discount: val('discount', id),
       minOrderValue: val('minorder', id),
       faceValue: val('value', id),
+      giftCardBalance: val('giftbalance', id),
+      giftRedemptionMethod: val('giftredemption', id),
       expiryDate: val('expiry', id),
       affiliateLink: val('link', id),
       description: val('description', id),
@@ -2858,13 +2896,25 @@ function validateCoupons() {
     if (!c.brand) return fail('please pick a Brand.', 'bsel-btn-' + c.id);
     if (!c.title) return fail('Coupon Title is required.', 'title-' + c.id);
     if (!c.code) return fail('Coupon Code is required.', 'code-' + c.id);
-    if (!c.discount) return fail('Discount Value is required.', 'discount-' + c.id);
+    const isGiftCard = c.type === 'Gift Card / Store Credit';
+    if (!isGiftCard && !c.discount) return fail('Discount Value is required.', 'discount-' + c.id);
 
     // Face value drives the payout, so it is required and strictly validated:
     // ₹100–₹10,000 with at most 2 decimals. The server re-checks this and is
     // the only party that decides the payout.
     const faceProblem = faceValueProblem(c.faceValue);
     if (faceProblem) return fail(faceProblem, 'value-' + c.id);
+    if (isGiftCard) {
+      const balance = Number(c.giftCardBalance);
+      const face = Number(c.faceValue);
+      if (!c.giftCardBalance || !Number.isFinite(balance) || balance <= 0) {
+        return fail('Remaining Gift Card Balance is required and must be greater than zero.', 'giftbalance-' + c.id);
+      }
+      if (balance > face) {
+        return fail('Remaining balance cannot be greater than the coupon face value.', 'giftbalance-' + c.id);
+      }
+      if (!c.giftRedemptionMethod) return fail('Please select a redemption method.', 'giftredemption-' + c.id);
+    }
 
     if (!c.expiryDate) return fail('Expiry Date & Time is required.', 'expiry-' + c.id);
     const expiryAt = Date.parse(c.expiryDate);
@@ -2954,6 +3004,10 @@ function buildReviewSummary() {
       ['Coupon Type', c.type || '—'],
       ['Discount Value', c.discount || '—'],
       ['Coupon Face Value', c.faceValue ? '₹' + c.faceValue : '—'],
+      ...(c.type === 'Gift Card / Store Credit' ? [
+        ['Remaining Balance', c.giftCardBalance ? '₹' + c.giftCardBalance : '—'],
+        ['Redemption Method', c.giftRedemptionMethod || '—'],
+      ] : []),
       ['Minimum Order', c.minOrderValue ? '₹' + c.minOrderValue : '—'],
       ['Expiry', c.expiryDate ? formatReviewDate(c.expiryDate) : '—'],
       ['Affiliate Link', c.affiliateLink || '—'],
@@ -3199,7 +3253,13 @@ async function submitCoupons() {
           // The server stores `description` and falls back to the title when it
           // is blank.
           description: orNone(c.description) || orNone(c.title),
-          howToUse: orNone(c.howToUse),
+          howToUse: orNone([
+            c.howToUse,
+            ...(c.type === 'Gift Card / Store Credit' ? [
+              'Remaining gift card balance: ₹' + c.giftCardBalance,
+              'Redemption method: ' + c.giftRedemptionMethod,
+            ] : []),
+          ].filter(Boolean).join('\n\n')),
           type: orNone(c.type),
           discount: orNone(c.discount),
           minOrderValue: orNone(c.minOrderValue),
