@@ -7093,6 +7093,21 @@ function maybeLoadPayouts() {
   input,select,textarea{font-size:16px !important}
   .modal{max-height:92vh;max-height:calc(100dvh - 32px);overflow-y:auto}
 }
+
+/* Seller submissions: stable column sizing and centered cell alignment. */
+#pendingList .st-table{table-layout:fixed;min-width:1120px;width:100%;border-collapse:separate;border-spacing:0}
+#pendingList .st-table th,#pendingList .st-table td{padding:11px 10px;text-align:center;vertical-align:middle;white-space:normal}
+#pendingList .st-table th{font-size:.68rem;letter-spacing:.045em;color:#8fa8c8;text-transform:uppercase;background:#0a1730}
+#pendingList .st-table td{border-bottom:1px solid rgba(79,195,247,.09);font-size:.78rem}
+#pendingList .st-table tbody tr:hover{background:rgba(79,195,247,.035)}
+#pendingList .st-table td:nth-child(1){width:82px}
+#pendingList .st-table td:nth-child(2){width:210px}
+#pendingList .st-table td:nth-child(3){width:230px}
+#pendingList .st-table td:nth-child(4),#pendingList .st-table td:nth-child(5),#pendingList .st-table td:nth-child(6){width:115px}
+#pendingList .st-table td:nth-child(7){width:130px}
+#pendingList .st-table td:nth-child(8){width:150px}
+#pendingList .st-table .st-brand-box{margin:0 auto;width:42px;height:42px}
+#pendingList .st-table .admin-actions{justify-content:center;gap:6px}
 </style>
 <script>
 /* Overall daily activity view: aggregate all normal users by IST date/time.
