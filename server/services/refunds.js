@@ -528,6 +528,75 @@ async function updateRefundStatus(refundId, { status, adminNote, refundReference
 }
 
 
+/**
+ * Create an admin-only refund request when the 10-minute checkout timer expires.
+ * This intentionally does NOT inspect Gmail, webhooks, UTRs, transaction IDs,
+ * or any payment evidence. The amount is the server-stored checkout amount and
+ * is only a requested amount: an admin must independently review/confirm it
+ * before the customer can see the request or any refund can be marked sent.
+ * Idempotent per payment id; retries never create duplicate tasks.
+ */
+async function createTimerExpiryRefundTask({
+  paymentId, userId, userEmail = '', couponId = '', orderCode = '',
+  requiredAmount, paymentExpiresAt = '',
+}) {
+  if (!paymentId || !userId) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'paymentId and userId are required.' };
+  }
+  const amount = money2(requiredAmount);
+  if (!(Number(amount) > 0)) {
+    return { ok: false, code: 'INVALID_INPUT', error: 'A positive server-stored checkout amount is required.' };
+  }
+  let all;
+  try { all = await readAllRefunds(); }
+  catch (e) { return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'The refund task could not be saved to Google Sheets.' }; }
+  const existing = all.find((r) => r.paymentId === paymentId) || null;
+  if (existing) return { ok: true, created: false, refund: existing, reason: 'already_exists' };
+
+  const now = new Date().toISOString();
+  const takenOrderIds = new Set(all.map((r) => r.orderId).filter(Boolean));
+  const takenTxnIds = new Set(all.map((r) => r.transactionId).filter(Boolean));
+  const refund = normalize({
+    refund_id: `rfnd_${uuidv4().slice(0, 12)}`,
+    user_id: userId,
+    user_email: userEmail,
+    payment_id: paymentId,
+    coupon_id: couponId,
+    order_code: orderCode,
+    order_id: ids.generateUniqueOrderIdSync('REFUND', takenOrderIds, { date: now }),
+    transaction_id: ids.generateUniqueTransactionIdSync(takenTxnIds, { date: now }),
+    transaction_type: 'REFUND',
+    required_amount: amount,
+    received_amount: '0.00',
+    refund_amount: amount,
+    currency: 'INR',
+    mismatch_type: 'late_payment',
+    refund_reason: 'Payment window expired; refund request awaiting admin review',
+    status: 'pending',
+    admin_approved: false,
+    refund_reference: '',
+    admin_note: [
+      'Automatically registered when the 10-minute payment timer expired.',
+      'No payment verification or mailbox check was performed after expiry.',
+      'Requested amount is the server-stored checkout amount, not proof of payment.',
+      'Admin must independently review before confirming this request.',
+      `Payment deadline: ${paymentExpiresAt || 'not recorded'}.`,
+      'Coupon was not delivered.',
+    ].join(' '),
+    processed_at: '',
+    processed_by: '',
+    created_at: now,
+    updated_at: now,
+  });
+  try {
+    await db.appendRow(SHEETS.REFUNDS, toSheetsRow(refund), { strict: true });
+  } catch (e) {
+    console.warn('[refunds] timer-expiry task write failed:', e && e.message);
+    return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'The refund task could not be saved to Google Sheets.' };
+  }
+  return { ok: true, created: true, refund };
+}
+
 /** Admin-only approval gate for late-payment refunds. */
 async function approveLateRefund(refundId, processedBy = 'admin') {
   if (!refundId) return { ok: false, code: 'INVALID_INPUT', error: 'refundId is required.' };
@@ -616,6 +685,7 @@ module.exports = {
   getRefundById,
   createOrUpdateRefund,
   createLateRefundTask,
+  createTimerExpiryRefundTask,
   approveLateRefund,
   updateRefundStatus,
   statusTimeline,
