@@ -616,12 +616,12 @@
     .recent-view-all:hover { color:#00E272; }
     .recent-view-all:focus-visible { outline:2px solid #00E272; outline-offset:5px; border-radius:4px; }
     .recent-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:8px; }
-    .recent-box { display:flex; align-items:center; gap:10px; min-width:0; min-height:88px; padding:10px; border-radius:10px; border:1px solid rgba(79,195,247,.2); background:rgba(255,255,255,.018); box-shadow:none; transition:border-color .2s ease,background .2s ease,transform .24s ease; }
+    .recent-box { display:flex; align-items:center; gap:7px; min-width:0; min-height:88px; padding:10px 8px; border-radius:10px; border:1px solid rgba(79,195,247,.2); background:rgba(255,255,255,.018); box-shadow:none; transition:border-color .2s ease,background .2s ease,transform .24s ease; }
     @media(hover:hover) and (pointer:fine) {
       .recent-box:hover { transform:translateY(-2px); border-color:rgba(0,226,114,.42); background:rgba(0,226,114,.035); box-shadow:none; }
       .recent-box:hover .recent-logo { transform:scale(1.035); }
     }
-    .recent-logo { display:flex; align-items:center; justify-content:center; width:48px; height:50px; border-radius:9px; flex-shrink:0; overflow:hidden; background:#fff; transition:transform .24s ease; }
+    .recent-logo { display:flex; align-items:center; justify-content:center; width:42px; height:46px; border-radius:9px; flex:0 0 42px; overflow:hidden; background:#fff; transition:transform .24s ease; }
     .recent-logo svg { width:100%; height:100%; }
     .recent-logo img { display:block; width:100%; height:100%; object-fit:contain; padding:6px; background:#fff; border-radius:9px; }
     .recent-zomato { background:#ff003b; color:white; font:bold italic 13px 'Outfit',sans-serif; letter-spacing:-.5px; }
@@ -632,9 +632,9 @@
     .recent-amazon { background:#030303; }
     .recent-nykaa { background:#ed1769; color:white; font:italic 600 14px 'Outfit',sans-serif; }
     .recent-generic { color:#fff; font:700 1.2rem 'Outfit',sans-serif; }
-    .recent-copy { min-width:0; }
+    .recent-copy { min-width:0; flex:1 1 0; }
     .recent-copy p { color:#bdcde2; font-size:.7rem; line-height:1.5; }
-    .recent-copy strong { display:block; color:#f4f7ff; font-size:.76rem; font-weight:600; line-height:1.6; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .recent-copy strong { display:block; color:#f4f7ff; font-size:.76rem; font-weight:600; line-height:1.45; white-space:normal; overflow:visible; overflow-wrap:anywhere; text-overflow:clip; }
     .recent-copy time { display:block; color:#b5c8df; font-size:.78rem; margin-top:4px; }
     /* Each recent sale keeps its own compact outlined card. */
     .recent-save { display:table; width:max-content; margin-top:2px; padding:0 6px; border-radius:999px; border:1px solid rgba(0,226,114,.25); background:rgba(0,226,114,.1); color:#00E272; font-size:.62rem; font-weight:600; line-height:16px; white-space:nowrap; }
