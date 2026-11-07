@@ -1985,8 +1985,7 @@
           </div>
           <div class="payment-method-actions" id="paymentMethodActions">
             <div class="payment-method-current" id="paymentMethodCurrentBox" hidden>
-              <div class="payment-method-current-content" id="paymentMethodCurrentContent"></div>
-              <button type="button" class="btn btn-ghost btn-sm" id="paymentMethodActionBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method">Edit</button>
+              <button type="button" class="btn btn-sm" id="paymentMethodActionBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method" style="background:#00E272;color:#00100b;border:1px solid #00E272;font-weight:700;">Edit Payment Method</button>
             </div>
             <button type="button" class="btn btn-primary btn-sm" id="paymentMethodAddBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method" disabled>Loading…</button>
           </div>
@@ -5935,7 +5934,7 @@
       content.textContent = String(d.upiIdFull || d.upiId || '');
     }
 
-    editButton.textContent = 'Edit';
+    editButton.textContent = 'Edit Payment Method';
     editButton.disabled = false;
     editButton.onclick = () => openPayoutDetailsModal();
   }
