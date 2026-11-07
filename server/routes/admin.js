@@ -1752,8 +1752,8 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
           ? calculateSellerPayout(sellerRow.originalValue)
           : Number(requestedPayout);
         const faceValue = Number(sellerRow.originalValue);
-        if (!Number.isSafeInteger(sellerPayout) || sellerPayout < 0 || sellerPayout > faceValue) {
-          return res.status(400).json({ error: 'Enter a whole-rupee payout between ₹0 and the coupon face value.', code: 'INVALID_SELLER_PAYOUT' });
+        if (!Number.isSafeInteger(sellerPayout) || sellerPayout < 1 || sellerPayout > faceValue) {
+          return res.status(400).json({ error: 'Enter a whole-rupee payout between ₹1 and the coupon face value.', code: 'INVALID_SELLER_PAYOUT' });
         }
         await db.updateRow(db.SHEETS.SELLER_COUPONS, 'id', id, {
           status: 'available',
@@ -1847,7 +1847,7 @@ router.post('/coupons/:id/review-action', authenticateToken, requireAdmin, admin
         const amount = requestedPayout === undefined || requestedPayout === null || requestedPayout === ''
           ? calculateSellerPayout(coupon.originalValue)
           : Number(requestedPayout);
-        if (!Number.isSafeInteger(amount) || amount < 0 || amount > faceValue) {
+        if (!Number.isSafeInteger(amount) || amount < 1 || amount > faceValue) {
           return res.status(400).json({ error: 'Enter a whole-rupee payout between ₹0 and the coupon face value.', code: 'INVALID_SELLER_PAYOUT' });
         }
         updates.sellerPayout = amount;
