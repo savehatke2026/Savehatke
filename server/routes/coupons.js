@@ -115,9 +115,10 @@ async function hasCompletedPurchase(user) {
   const userId = String((user && (user.id || user.userId)) || '').trim();
   if (!email && !userId) return false;
   try {
+    // Orders and Payments are stored in the Supabase financial ledger.
     const [orderRows, paymentRows] = await Promise.all([
-      db.getRowsFresh(db.SHEETS.ORDERS),
-      db.getRowsFresh(db.SHEETS.PAYMENTS),
+      paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.ORDERS),
+      paymentLedgerDb.getRowsFresh(paymentLedgerDb.SHEETS.PAYMENTS),
     ]);
     const belongsToUser = (row) => {
       const rowUserId = String(row.user_id || row.userId || '').trim();
