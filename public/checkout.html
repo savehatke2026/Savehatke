@@ -1800,6 +1800,20 @@
         // the verified amounts, not by the PAID status alone.
         const pick = selectPaymentWindow(data);
         if (pick.window && windowAlreadyShown(pick.window)) break;  // already on screen
+
+        // PAID confirms the money, but it does not by itself prove that the
+        // coupon code is ready to deliver. Keep the payment PAID and retry the
+        // authenticated status endpoint before showing any success/reveal UI.
+        if (pick.window && !String(data.coupon_code || '').trim()) {
+          clearInterval(upiState.timerId); upiState.timerId = null;
+          stopUpiStream();
+          stopUpiPoll();
+          closeUpiBox({ instant: true });
+          showCouponDeliveryPending();
+          recoverPaidCouponCode(pick);
+          break;
+        }
+
         markWindowShown(pick.window);
         clearInterval(upiState.timerId); upiState.timerId = null;
         stopUpiStream();
@@ -2164,6 +2178,49 @@
 
   function stopUpiPoll() {
     if (upiState.pollId) { clearInterval(upiState.pollId); upiState.pollId = null; }
+  }
+
+  let couponRecoveryInProgress = false;
+
+  function showCouponDeliveryPending() {
+    showToastLocal('Payment received. We are securely retrieving your coupon code. Please keep this page open.', 'info');
+  }
+
+  // A PAID response can briefly arrive before the order/coupon reads are
+  // consistent. Retry the same owner-authenticated status endpoint; never
+  // fabricate a code, weaken server checks, or mark the payment unpaid.
+  async function recoverPaidCouponCode(pick) {
+    if (couponRecoveryInProgress || !upiState.paymentId) return;
+    couponRecoveryInProgress = true;
+    const paymentId = upiState.paymentId;
+    try {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        if (attempt > 0) await new Promise(resolve => setTimeout(resolve, 1500));
+        try {
+          const response = await fetch('/api/payment/status?payment_id=' + encodeURIComponent(paymentId), {
+            credentials: 'include',
+            headers: authHeaders(),
+            cache: 'no-store',
+          });
+          const latest = await response.json().catch(() => ({}));
+          if (response.ok && String(latest.status || '').toUpperCase() === 'PAID' &&
+              String(latest.coupon_code || '').trim()) {
+            applyPaymentState(latest);
+            return;
+          }
+          // A different terminal state must not be rewritten as a success.
+          if (response.ok && latest.status && String(latest.status).toUpperCase() !== 'PAID') {
+            showToastLocal('Your payment is being reviewed. Please check My Purchases for updates.', 'warning');
+            return;
+          }
+        } catch (error) {
+          // A temporary network failure is not evidence that payment failed.
+        }
+      }
+      showToastLocal('Your payment is confirmed, but the coupon is still being prepared. Please check My Purchases or contact Support if it does not appear.', 'warning');
+    } finally {
+      couponRecoveryInProgress = false;
+    }
   }
 
   /** The server confirmed a real, verified payment. Reveal the code. */
