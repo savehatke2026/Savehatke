@@ -473,39 +473,49 @@ async function getStats(range = {}) {
 }
 
 // ── Rate limiting ─────────────────────────────────────────────────────────
-// The guest/user/IP budgets are admin-configurable (chatbotSettings) and are
-// enforced through the shared Upstash Redis counters in services/
-// rateLimitService, so every Vercel instance spends from ONE budget.
-//
-// This used to be a process-local Map, which meant the real allowance was
-// (configured limit x warm instances) and every cold start handed the caller a
-// fresh budget — on the endpoint that calls a paid AI provider.
-//
-// Failure policy: an anonymous guest is refused if Redis is unreachable
-// ('closed'), because there is no verified identity to fall back on; an
-// authenticated user degrades to a per-instance window ('local') so a Redis
-// outage does not take the assistant away from signed-in customers.
-const rateLimitService = require('./rateLimitService');
+// Chatbot guest/user/IP budgets remain configurable in chatbotSettings.
+// Counters are process-local: no Redis/Upstash service or credentials needed.
+// On serverless hosting each warm instance has its own window and cold starts
+// reset it, so this is a best-effort abuse throttle rather than a global quota.
+const CHAT_RATE_WINDOW_MS = 15 * 60 * 1000;
+const CHAT_RATE_MAX_BUCKETS = 20000;
+const chatRateBuckets = new Map();
 
 /**
  * Consume one chat token for `bucketType:bucketKey`.
  * @returns {Promise<{allowed:boolean, retryAfterSec:number}>}
  */
 async function checkRateLimitDistributed(bucketType, bucketKey, limit) {
-  const identifier = `${bucketType}:${bucketKey}`;
-  const result = await rateLimitService.consumeDynamic(`chat:${bucketType}`, identifier, {
-    limit,
-    window: '15 m',
-    // Guests have no verified identity, so a degraded counter would be trivial
-    // to reset; authenticated callers keep working on the local fallback.
-    fail: bucketType === 'guest' ? 'closed' : 'local',
-  });
-  if (result.allowed) return { allowed: true, retryAfterSec: 0, degraded: Boolean(result.degraded) };
-  return {
-    allowed: false,
-    retryAfterSec: result.retryAfter || Math.ceil((15 * 60)),
-    unavailable: Boolean(result.unavailable),
-  };
+  const now = Date.now();
+  const key = `chat:${bucketType}:${String(bucketKey || 'unknown')}`;
+  let bucket = chatRateBuckets.get(key);
+
+  if (!bucket || bucket.resetAt <= now) {
+    // Opportunistically remove expired entries without timers (safe in
+    // serverless runtimes). Bound memory if many unique guest/IP keys arrive.
+    if (chatRateBuckets.size >= CHAT_RATE_MAX_BUCKETS) {
+      for (const [existingKey, existing] of chatRateBuckets) {
+        if (existing.resetAt <= now) chatRateBuckets.delete(existingKey);
+      }
+    }
+    if (chatRateBuckets.size >= CHAT_RATE_MAX_BUCKETS) {
+      return { allowed: false, retryAfterSec: 60, unavailable: true };
+    }
+    bucket = { count: 0, resetAt: now + CHAT_RATE_WINDOW_MS };
+    chatRateBuckets.set(key, bucket);
+  }
+
+  const max = Math.max(1, Math.floor(Number(limit) || 1));
+  if (bucket.count >= max) {
+    return {
+      allowed: false,
+      retryAfterSec: Math.max(1, Math.ceil((bucket.resetAt - now) / 1000)),
+      unavailable: false,
+    };
+  }
+
+  bucket.count += 1;
+  return { allowed: true, retryAfterSec: 0, degraded: false };
 }
 
 // ── Prompt-injection heuristics ───────────────────────────────────────────
