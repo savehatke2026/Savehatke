@@ -38,6 +38,16 @@ const upi = require('../services/upi');
 
 const router = express.Router();
 
+// Tiny warm-instance cache keeps repeated admin Users views fast while still
+// refreshing frequently enough for account/status changes.
+let adminUsersResponseCache = null;
+let adminUsersResponseCachedAt = 0;
+const ADMIN_USERS_CACHE_TTL_MS = 10000;
+function invalidateAdminUsersResponseCache() {
+  adminUsersResponseCache = null;
+  adminUsersResponseCachedAt = 0;
+}
+
 // ── Seller payout helpers (admin) ────────────────────────────────────────
 // Every payout field a client might send. They are dropped from every admin
 // write so a raw request body can never set its own payout.
@@ -2131,6 +2141,9 @@ router.post('/coupons/:id/notify-retry', authenticateToken, requireAdmin, adminM
 
 // GET /api/admin/users — List all users (live Google Sheets Users tab)
 router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
+  if (adminUsersResponseCache && Date.now() - adminUsersResponseCachedAt < ADMIN_USERS_CACHE_TTL_MS) {
+    return res.json(adminUsersResponseCache);
+  }
   try {
     const adminEmails = new Set(getActiveAdminEmails().map((email) => String(email || '').trim().toLowerCase()));
     const [sheetUsers, couponRows, sessions] = await Promise.all([
@@ -2146,7 +2159,20 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
             return data || [];
           })().catch((e) => { console.warn('[admin] user coupon counters unavailable:', e.message); return []; })
         : Promise.resolve([]),
-      sessionStore.getUserSessionsList().catch(() => []),
+      (async () => {
+        // The Users table needs only the latest-login/status fields. Avoid
+        // selecting device, IP, user-agent and token metadata for every session.
+        const client = supabase.getClient();
+        if (!client) return [];
+        const { data, error } = await client.from('user_sessions')
+          .select('email,login_time,last_active,status,login_method,logged_out_at')
+          .order('login_time', { ascending: false });
+        if (error) throw error;
+        return data || [];
+      })().catch((e) => {
+        console.warn('[admin] user session summary unavailable:', e.message);
+        return [];
+      }),
     ]);
     // Never expose admin roster identities in the marketplace Users directory.
     const users = (sheetUsers || []).filter((u) => {
@@ -2203,14 +2229,17 @@ router.get('/users', authenticateToken, requireAdmin, async (req, res) => {
         couponsSold: soldMap[email] || 0,
       };
     });
-    res.json({
+    const payload = {
       users: list,
       counts: {
         total: list.length,
         active: list.filter((u) => u.status === 'active').length,
         suspended: list.filter((u) => u.status === 'suspended' || u.status === 'banned').length,
       },
-    });
+    };
+    adminUsersResponseCache = payload;
+    adminUsersResponseCachedAt = Date.now();
+    res.json(payload);
   } catch (err) {
     console.error('Admin list users error:', err);
     res.status(500).json({ error: 'Internal server error.' });
@@ -2291,6 +2320,7 @@ router.put('/users/status', authenticateToken, requireAdmin, adminMutationLimite
       suspend_reason: status === 'suspended' ? reason : '',
       suspended_at: status === 'suspended' ? now : '',
     });
+    invalidateAdminUsersResponseCache();
     console.log(
       `[admin] ${req.user && req.user.email ? req.user.email : 'admin'} set ${existing.email || userId} to ${status}` +
       (status === 'suspended' ? ` — reason: ${reason}` : '')
