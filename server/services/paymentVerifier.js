@@ -1026,6 +1026,51 @@ async function processEmailCandidate(candidate, { pendingPayments = null } = {})
         previousPaymentId: prior.matchedPaymentId || '',
       };
     }
+
+    // Retry only the narrow failure recorded after money was already verified
+    // and the payment state was committed, but the Refunds sheet write failed.
+    // This path is idempotent because createOrUpdateRefund keys by paymentId.
+    if (String(prior.status || '').toUpperCase() === 'REVIEW'
+        && String(prior.notes || '').startsWith('Payment mismatch was verified, but refund registration failed:')
+        && prior.matchedPaymentId) {
+      try {
+        const settledPayment = await store.findPaymentById(prior.matchedPaymentId);
+        if (settledPayment) {
+          const retry = await refundsService.createOrUpdateRefund({
+            paymentId: settledPayment.paymentId,
+            userId: settledPayment.userId || settledPayment.userEmail || '',
+            userEmail: settledPayment.userEmail || '',
+            couponId: settledPayment.couponId || '',
+            orderCode: settledPayment.orderCode || '',
+            requiredAmount: Number(settledPayment.amount || 0),
+            receivedAmount: Number(prior.amount || 0),
+            currency: settledPayment.currency || 'INR',
+          });
+          if (retry && retry.ok && retry.refund) {
+            await store.updateNotification(prior.id, {
+              status: 'MATCHED',
+              matched_payment_id: settledPayment.paymentId,
+              notes: `Refund registration recovered: ${retry.refund.refundId} (${retry.refund.mismatchType}).`,
+            });
+            return {
+              action: 'refund_registered',
+              reason: 'Previously verified payment mismatch now has its refund request recorded.',
+              notification: prior,
+              payment: settledPayment,
+              refund: retry.refund,
+            };
+          }
+        }
+      } catch (e) {
+        console.warn('[Payment Email] refund registration retry failed:', e.message);
+      }
+      return {
+        action: 'review',
+        reason: 'Payment mismatch is verified, but its refund request is still awaiting successful storage.',
+        notification: prior,
+        previousPaymentId: prior.matchedPaymentId || '',
+      };
+    }
     console.warn(
       `${tag} re-processing unresolved notification ${prior.id || '(unknown)'} ` +
       `(previous status: ${prior.status || 'none'}) — a settled or ignored message is never re-opened`
