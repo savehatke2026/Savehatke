@@ -1591,8 +1591,11 @@ async function reconcileExpiredPayments() {
   for (const row of due) {
     try {
       const moved = await expireIfDue(row.payment_id, { now: nowIso });
-      if (moved && moved.status === 'EXPIRED') expired++;
-      if (moved && moved.status === 'EXPIRED') refundRequestsRegistered++;
+      if (moved && moved.status === 'EXPIRED') {
+        expired++;
+        const task = await ensureTimerExpiryRefundTask(moved);
+        if (task && task.ok && task.created) refundRequestsRegistered++;
+      }
     } catch (e) {
       console.warn('[paymentStore] reconcile expire failed for', row.payment_id, e.message);
     }
