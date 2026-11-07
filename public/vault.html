@@ -3294,44 +3294,34 @@ tbody td strong{color:#e2ecff;font-weight:600}
         </div>
       </div>
 
-      <!-- STAT CARDS -->
+      <!-- SIMPLE SUPPORT OVERVIEW -->
       <div class="stats-grid">
+        <div class="stat-card sc-purple">
+          <div class="stat-icon si-purple">🎫</div>
+          <div class="stat-val" id="statTotalCases">0</div>
+          <div class="stat-lbl">Total Cases</div>
+        </div>
         <div class="stat-card sc-orange" onclick="switchTab('open')" style="cursor:pointer">
-          <div class="stat-card-top">
-            <div class="stat-icon si-orange">📬</div>
-            <span class="stat-trend trend-down" id="trendOpen">↑ 3</span>
-          </div>
+          <div class="stat-icon si-orange">📬</div>
           <div class="stat-val" style="color:#ffb74d" id="statOpen">0</div>
           <div class="stat-lbl">Open Cases</div>
-          <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progOpen" style="background:linear-gradient(90deg,#ffb74d,#f57c00);width:0%"></div></div>
         </div>
         <div class="stat-card sc-blue" onclick="switchTab('inprogress')" style="cursor:pointer">
-          <div class="stat-card-top">
-            <div class="stat-icon si-blue">⚙️</div>
-            <span class="stat-trend trend-up" id="trendProgress">↑ 5%</span>
-          </div>
+          <div class="stat-icon si-blue">⚙️</div>
           <div class="stat-val" style="color:#4fc3f7" id="statProgress">0</div>
           <div class="stat-lbl">In Progress</div>
-          <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progProgress" style="background:linear-gradient(90deg,#4fc3f7,#0288d1);width:0%"></div></div>
         </div>
         <div class="stat-card sc-green" onclick="switchTab('resolved')" style="cursor:pointer">
-          <div class="stat-card-top">
-            <div class="stat-icon si-green">✅</div>
-            <span class="stat-trend trend-up" id="trendResolved">↑ 12%</span>
-          </div>
+          <div class="stat-icon si-green">✅</div>
           <div class="stat-val gtext" id="statResolved">0</div>
           <div class="stat-lbl">Resolved</div>
-          <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progResolved" style="width:0%"></div></div>
         </div>
-        <div class="stat-card sc-purple" onclick="switchTab('closed')" style="cursor:pointer">
-          <div class="stat-card-top">
-            <div class="stat-icon si-purple">🔒</div>
-            <span class="stat-trend trend-up" id="trendClosed">↑ 8%</span>
-          </div>
-          <div class="stat-val" style="color:#ce93d8" id="statClosed">0</div>
-          <div class="stat-lbl">Closed</div>
-          <div class="prog-bar" style="margin-top:10px"><div class="prog-fill" id="progClosed" style="background:linear-gradient(90deg,#ce93d8,#9c27b0);width:0%"></div></div>
-        </div>
+      </div>
+      <div class="table-header-actions" style="justify-content:flex-start;gap:10px;margin:0 0 16px">
+        <input class="form-input btn-sm" style="width:min(320px,100%)" placeholder="Search case ID, email, subject..." id="supportCasesSearch" oninput="globalSearchCases(this.value)" aria-label="Search support cases">
+        <select class="form-input btn-sm" id="supportCategoryFilter" onchange="filterSupportCategory(this.value)" aria-label="Filter support cases by category" style="width:min(220px,100%)">
+          <option value="">All categories</option>
+        </select>
       </div>
 
       <!-- TABS -->
@@ -3358,7 +3348,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
                 <tr>
                   <th>Case ID</th>
                   <th>Subject</th>
-                  <th>User</th>
+                  <th>Category</th>
+                  <th>User Email</th>
                   <th>Submitted</th>
                   <th>Actions</th>
                 </tr>
@@ -3390,7 +3381,8 @@ tbody td strong{color:#e2ecff;font-weight:600}
                 <tr>
                   <th>Case ID</th>
                   <th>Subject</th>
-                  <th>User</th>
+                  <th>Category</th>
+                  <th>User Email</th>
                   <th>Submitted</th>
                   <th>Actions</th>
                 </tr>
@@ -5754,6 +5746,7 @@ function closeModal(id) {
 let cases = [];
 let currentViewId = null;
 let activeFilters = { open:'', inprogress:'', resolved:'', closed:'' };
+let activeCategoryFilter = '';
 let supportCasesLoaded = false;
 
 function esc(s) {
@@ -5814,8 +5807,10 @@ function getFilteredCases(status) {
       String(c.id).toLowerCase().includes(q) ||
       String(c.subject).toLowerCase().includes(q) ||
       String(c.user).toLowerCase().includes(q) ||
-      String(c.email).toLowerCase().includes(q));
+      String(c.email).toLowerCase().includes(q) ||
+      String(c.category || '').toLowerCase().includes(q));
   }
+  if (activeCategoryFilter) filtered = filtered.filter(c => String(c.category || '').toLowerCase() === activeCategoryFilter);
   return filtered;
 }
 
@@ -5839,7 +5834,8 @@ function renderTable(status) {
     const base = `
       <td><strong style="font-family:'JetBrains Mono',monospace" title="${idAttr}">${esc(shortId(c.id))}</strong></td>
       <td style="max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(c.subject)}"><strong>${esc(c.subject)}</strong></td>
-      <td><div style="display:flex;align-items:center;gap:8px">${status === 'open' ? (c.email ? emailAvatarHtml(c.email, 28) : '') : (c.email ? emailAvatarHtml(c.email, 28) : avatarHtml(c.user))}${esc(status === 'open' ? (c.email || '—') : c.user)}</div></td>
+      <td><span class="badge badge-blue">${esc(c.category || 'General')}</span></td>
+      <td><div style="display:flex;align-items:center;gap:8px">${c.email ? emailAvatarHtml(c.email, 28) : ''}<span>${esc(c.email || '—')}</span></div></td>
       <td style="font-size:.78rem;color:#6b88aa">${fmtDT(c.createdAt)}</td>`;
 
     if (status === 'open') {
@@ -5893,25 +5889,37 @@ function renderTable(status) {
 
 function updateStats() {
   const counts = { open:0, inprogress:0, resolved:0, closed:0 };
-  cases.forEach(c => counts[c.status]++);
-  const total = cases.length || 1;
-
-  document.getElementById('statOpen').textContent = counts.open;
-  document.getElementById('statProgress').textContent = counts.inprogress;
-  document.getElementById('statResolved').textContent = counts.resolved;
-  document.getElementById('statClosed').textContent = counts.closed;
-
-  document.getElementById('tabBadgeOpen').textContent = counts.open;
-  document.getElementById('tabBadgeProgress').textContent = counts.inprogress;
-  document.getElementById('tabBadgeResolved').textContent = counts.resolved;
-  document.getElementById('tabBadgeClosed').textContent = counts.closed;
+  cases.forEach(c => { if (Object.prototype.hasOwnProperty.call(counts, c.status)) counts[c.status]++; });
+  setCaseText('statTotalCases', cases.length);
+  setCaseText('statOpen', counts.open);
+  setCaseText('statProgress', counts.inprogress);
+  setCaseText('statResolved', counts.resolved);
+  setCaseText('tabBadgeOpen', counts.open);
+  setCaseText('tabBadgeProgress', counts.inprogress);
+  setCaseText('tabBadgeResolved', counts.resolved);
+  setCaseText('tabBadgeClosed', counts.closed);
   const sidebarBadge = document.getElementById('sidebarOpenBadge');
   if (sidebarBadge) sidebarBadge.textContent = counts.open;
-
-  document.getElementById('progOpen').style.width = ((counts.open/total)*100)+'%';
-  document.getElementById('progProgress').style.width = ((counts.inprogress/total)*100)+'%';
-  document.getElementById('progResolved').style.width = ((counts.resolved/total)*100)+'%';
-  document.getElementById('progClosed').style.width = ((counts.closed/total)*100)+'%';
+  updateSupportCategoryOptions();
+}
+function setCaseText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = String(value);
+}
+function updateSupportCategoryOptions() {
+  const select = document.getElementById('supportCategoryFilter');
+  if (!select) return;
+  const selected = activeCategoryFilter;
+  const categories = [...new Set(cases.map(c => String(c.category || '').trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b));
+  select.innerHTML = '<option value="">All categories</option>' + categories.map(category =>
+    '<option value="' + esc(category.toLowerCase()) + '">' + esc(category) + '</option>'
+  ).join('');
+  select.value = selected;
+}
+function filterSupportCategory(value) {
+  activeCategoryFilter = String(value || '').toLowerCase();
+  ['open','inprogress','resolved','closed'].forEach(renderTable);
 }
 
 function switchTab(status) {
