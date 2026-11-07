@@ -551,6 +551,38 @@ async function withholdPayoutsForCoupon({ couponId, reason = '', actorEmail = 'a
 //  ADMIN ENDPOINTS
 // ===================================================
 
+// GET /api/admin/approved-seller-coupons — approved seller coupon payout amounts.
+router.get('/admin/approved-seller-coupons', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const [coupons, payoutRows] = await Promise.all([
+      db.getRowsFresh(db.SHEETS.SELLER_COUPONS, { strict: true }),
+      getAllPayouts(),
+    ]);
+    const rows = (coupons || []).filter(c => String(c.approvedAt || '').trim())
+      .map(c => {
+        const payout = (payoutRows || []).find(x => String(x.sourceCouponId || '') === String(c.id || ''));
+        return {
+          couponId: String(c.id || ''),
+          sellerEmail: String(c.sellerEmail || ''),
+          sellerName: String(c.sellerName || ''),
+          brand: String(c.brand || ''),
+          title: String(c.title || ''),
+          faceValue: Number(c.originalValue || 0),
+          amount: Number(c.sellerPayout || 0),
+          approvedAt: String(c.approvedAt || ''),
+          couponStatus: String(c.status || ''),
+          payoutStatus: payout ? String(payout.status || 'pending') : 'awaiting_sale',
+          payoutId: payout ? String(payout.id || '') : '',
+        };
+      })
+      .sort((a,b) => Date.parse(b.approvedAt || 0) - Date.parse(a.approvedAt || 0));
+    res.json({ coupons: rows });
+  } catch (err) {
+    console.error('Approved seller coupon payout list error:', err);
+    res.status(503).json({ error: 'Approved seller coupon payout amounts are temporarily unavailable.' });
+  }
+});
+
 // GET /api/admin/payouts — list payouts with optional filters
 router.get('/admin/payouts', authenticateToken, requireAdmin, async (req, res) => {
   try {
