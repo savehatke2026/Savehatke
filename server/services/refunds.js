@@ -232,7 +232,10 @@ async function getRefundsForUser(userId) {
 async function getRefundById(id) {
   if (!id) return null;
   const all = await readAllRefunds();
-  return all.find((r) => (r.refundId || r.id) === id) || null;
+  const found = all.find((r) => (r.refundId || r.id) === id) || null;
+  // Customer detail lookups must obey the same approval gate as the list API.
+  if (found && found.mismatchType === 'late_payment' && found.adminApproved !== true) return null;
+  return found;
 }
 
 // ── Write helpers (server-only) ──────────────────────────────────────────
