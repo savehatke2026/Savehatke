@@ -1059,12 +1059,19 @@ const handleCouponSubmission = async (req, res) => {
   }
 };
 
-// Submission budget (10 requests/hour per account, 20/hour per IP) is enforced
-// by the distributed limiter in services/rateLimitService.js, shared across all
-// instances. The in-memory per-minute limiter is no longer used here because it
-// counted per-process and reset on cold start.
-router.post('/sell', authenticateToken, handleCouponSubmission);
-router.post('/submit', authenticateToken, handleCouponSubmission);
+// Keep seller submissions bounded without an external Redis dependency. This
+// account-level limit is per running instance; server.js also applies the
+// general IP-based API limiter before the route is reached.
+const submitAccountLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  keyGenerator: (req) => `user:${String(req.user.id || req.user.userId || '')}`,
+  standardHeaders: false,
+  legacyHeaders: false,
+  handler: safeRateLimitHandler('Too many coupon submissions. Please wait a minute and try again.'),
+});
+router.post('/sell', authenticateToken, submitAccountLimiter, handleCouponSubmission);
+router.post('/submit', authenticateToken, submitAccountLimiter, handleCouponSubmission);
 
 // Retire the legacy direct-buy route. Coupon codes are only revealed from the
 // payment API after the exact order has been marked PAID server-side.
