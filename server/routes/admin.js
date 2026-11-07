@@ -883,6 +883,11 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
       brand: c.brand || '',
       title: c.title || '',
       category: c.category || '',
+      type: c.type || '',
+      discount: c.discount || '',
+      minOrderValue: c.minOrderValue || '',
+      howToUse: c.howToUse || '',
+      affiliateLink: c.affiliateLink || '',
       originalValue: c.originalValue || '',
       sellingPrice: c.sellingPrice || '',
       expiryDate: c.expiryDate || '',
@@ -898,7 +903,6 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
       backgroundImage: c.backgroundImage || '',
       proofUrl: c.proofUrl || '',
       terms: c.terms || '',
-      discount: c.discount || '',
       // The code is NOT sent here. It is revealed only by /reveal-code.
       hasCode: !!c.code,
       };
