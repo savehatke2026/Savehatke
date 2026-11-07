@@ -138,14 +138,6 @@
   }
 
   // ── Add / edit form ────────────────────────────────────────────────────────
-  function fillCategorySelect() {
-    var sel = $('brandFormCategory');
-    if (!sel) return;
-    sel.innerHTML = (state.categories || []).map(function (c) {
-      return '<option value="' + esc(c) + '">' + esc(c) + '</option>';
-    }).join('');
-  }
-
   function setLogoPreview(url, label) {
     var box = $('brandLogoPreview');
     if (!box) return;
@@ -159,12 +151,7 @@
     pickedLogo = null;
     $('brandFormTitle').textContent = brand ? 'Edit brand' : 'Add brand';
     $('brandFormName').value = brand ? brand.name : '';
-    $('brandFormDescription').value = brand ? (brand.description || '') : '';
-    $('brandFormOrder').value = brand ? brand.displayOrder : 0;
-    $('brandFormActive').checked = brand ? brand.isActive !== false : true;
     $('brandFormError').textContent = '';
-    fillCategorySelect();
-    $('brandFormCategory').value = brand ? brand.category : 'General';
     if (brand && brand.logoFileId) {
       pickedLogo = { id: brand.logoFileId, name: brand.name, url: '/api/brand-assets/file/' + encodeURIComponent(brand.logoFileId) };
       setLogoPreview(pickedLogo.url, brand.name);
@@ -178,10 +165,6 @@
   function readForm() {
     return {
       name: $('brandFormName').value,
-      category: $('brandFormCategory').value,
-      description: $('brandFormDescription').value,
-      displayOrder: $('brandFormOrder').value,
-      isActive: $('brandFormActive').checked,
       logoFileId: pickedLogo ? pickedLogo.id : '',
     };
   }
