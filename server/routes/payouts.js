@@ -69,6 +69,21 @@ const PAYOUT_PRICING_MODEL = 'face-value-7-percent';
  * @returns {{ok: true, amount: number, source: 'coupon'|'supabase'|'sheet'}|{ok: false, reason: string}}
  */
 async function resolveCouponPayoutAmount(coupon) {
+  // Admin-approved seller coupon amount overrides the default 7% calculation.
+  // The review source is SellerCoupons; marketplace coupon rows may be
+  // normalized by Supabase and intentionally omit this Sheets-only field.
+  if (coupon && coupon.id) {
+    try {
+      const reviewed = await db.findRow(db.SHEETS.SELLER_COUPONS, 'id', coupon.id);
+      const override = reviewed && reviewed.sellerPayout;
+      if (override !== undefined && override !== null && String(override).trim() !== '') {
+        const amount = Number(override);
+        if (Number.isSafeInteger(amount) && amount >= 0) return { ok: true, amount, source: 'seller-review' };
+      }
+    } catch (e) {
+      // Preserve the existing formula fallback if the review sheet is unavailable.
+    }
+  }
   // 1. Both call sites already hold the full coupon row; prefer it.
   const direct = coupon && sellerPayout.faceValueOf(coupon);
   if (direct !== undefined && direct !== null && String(direct).trim() !== '') {
