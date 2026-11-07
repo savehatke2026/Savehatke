@@ -6169,22 +6169,6 @@ async function updateCaseStatus(id, newStatus, extra) {
 
 
 
-function renderRecentActivity() {
-  const el = document.getElementById('recentActivity');
-  if (!el) return;
-  const recent = [...cases].sort((a,b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 6);
-  const dotColors = { open:'#ffb74d', inprogress:'#4fc3f7', resolved:'#00E272', closed:'#ce93d8' };
-  const statusVerbs = { open:'submitted', inprogress:'started working on', resolved:'resolved', closed:'closed' };
-
-  el.innerHTML = recent.length ? recent.map(c => `
-    <div class="activity-item">
-      <div class="activity-dot" style="background:${dotColors[c.status]}"></div>
-      <div class="activity-text"><strong>${esc(c.user)}</strong> ${statusVerbs[c.status]||'updated'} <strong>${esc(shortId(c.id))}</strong> — ${esc(c.subject)}</div>
-      <div class="activity-time">${fmtDT(c.createdAt).split('·')[1]?.trim()||''}</div>
-    </div>
-  `).join('') : '<div style="color:#6b88aa;font-size:.85rem;padding:8px 0">No support activity yet.</div>';
-}
-
 // Close support modal on overlay click
 ['viewCaseModal', 'resolveCaseModal'].forEach(id => {
   const ov = document.getElementById(id);
