@@ -99,7 +99,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
     if (!userId) return res.status(401).json({ error: 'Not authenticated.' });
 
     const refund = await refundsService.getRefundById(req.params.id);
-    if (!refund || refund.userId !== userId) {
+    if (!refund || refund.userId !== userId || (refund.mismatchType === 'late_payment' && refund.adminApproved !== true)) {
       return res.status(404).json({ error: 'Refund not found.' });
     }
     res.json({
