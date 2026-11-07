@@ -15,22 +15,18 @@
 //   POST /gmail-push          Gmail Pub/Sub push  (shared-secret, no user auth)
 //   GET/POST /cron/gmail-watch renew the Gmail push watch      (CRON_SECRET)
 //   GET/POST /gmail-watch/start arm the Gmail push watch once  (CRON_SECRET)
-//   GET/POST /cron/reconcile   expire due sessions + release
-//                              reservations + one safe scan   (CRON_SECRET)
+//   GET/POST /cron/reconcile   expire due sessions + register hidden
+//                              admin-only refund requests (CRON_SECRET)
 //
-// Continuous checking (see paymentStore.PAYMENT_CHECK_WINDOW_MS)
-//   * The 10-minute `expires_at` is only the on-screen countdown. A payment
-//     stays PENDING and matchable until `check_expires_at` (20 minutes from
-//     creation), so a credit that lands AFTER the timer hits 0:00 — but inside
-//     the backend-only second half of the session — is still detected and
-//     settled.
-//   * Detection is instant via Gmail push (/gmail-push); while a tab is open
-//     the SSE/poll paths also drive the same coalesced scan.
-//   * One active checker per user: opening a new payment window supersedes the
-//     user's previous PENDING session (paymentStore.supersedeLivePaymentsForUser).
-//   * Coupon reservation: creating the payment window atomically reserves the
-//     coupon (hidden from the public listings) for the same 20-minute backend
-//     window, and releases it on cancel/supersede/expiry.
+// Payment lifecycle
+//   * The server-side 10-minute expires_at is the only verification deadline.
+//   * Mailbox scans run only while the timer is open. At expiry, the session is
+//     expired and a private refund request is registered without checking
+//     payment evidence.
+//   * Unapproved late-payment refund requests are visible only to admins.
+//     Customer refund APIs expose them only after an admin approves them.
+//   * Coupon reservations are released when the payment expires, is cancelled,
+//     or is superseded.
 //
 // Security posture
 //   * /create requires a coupon ID; any amount from the checkout is
