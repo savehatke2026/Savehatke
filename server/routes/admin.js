@@ -435,12 +435,13 @@ function adminMutationGuard(targetEmail, callerEmail, currentRoster) {
 }
 
 async function getAdminAvatarsByEmail(emails) {
-  // Google photos are persisted to the admin profile at every sign-in
-  // (routes/auth.js), so the panel shows the same picture Google verified —
-  // read-only here; missing profiles simply fall back to the initials tile.
-  if (!Array.isArray(emails) || emails.length === 0) return {};
+  // Google photos are persisted to the admin profile at sign-in. Avoid a
+  // buffered Mongoose query when Mongo is disconnected; the UI then uses initials.
+  const normalized = [...new Set((Array.isArray(emails) ? emails : [])
+    .map((email) => String(email || '').trim().toLowerCase()).filter(Boolean))];
+  if (!normalized.length || mongoose.connection.readyState !== 1) return {};
   try {
-    const docs = await Admin.find({ email: { $in: emails } })
+    const docs = await Admin.find({ email: { $in: normalized } })
       .select('email profile_image')
       .lean();
     const map = {};
@@ -2281,14 +2282,9 @@ router.get('/user-activity', authenticateToken, requireAdmin, async (req, res) =
 
 router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const [allUserSessions, sheetUsers, mongoAdmins] = await Promise.all([
+    const [allUserSessions, sheetUsers] = await Promise.all([
       sessionStore.getUserSessionsList(),
       db.getRows(db.SHEETS.USERS).catch(() => []),
-      // readyState guard: an unconnected mongoose buffers the query and this
-      // endpoint would hang instead of simply listing sessions without photos.
-      mongoose.connection.readyState === 1
-        ? Admin.find({}).select('email profile_image').lean().catch(() => [])
-        : Promise.resolve([]),
     ]);
 
     const adminEmails = new Set(getActiveAdminEmails().map((email) => String(email || '').trim().toLowerCase()));
@@ -2307,11 +2303,6 @@ router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
       const key = String((u && u.email) || '').toLowerCase().trim();
       const photo = String((u && u.profile_picture) || '').trim();
       if (key && photo) photoByEmail.set(key, photo);
-    }
-    for (const a of mongoAdmins || []) {
-      const key = String((a && a.email) || '').toLowerCase().trim();
-      const photo = String((a && a.profile_image) || '').trim();
-      if (key && photo && !photoByEmail.has(key)) photoByEmail.set(key, photo);
     }
     for (const s of sessions) {
       const photo = photoByEmail.get(String(s.email || '').toLowerCase().trim());
@@ -2342,30 +2333,12 @@ router.get('/sessions', authenticateToken, requireAdmin, async (req, res) => {
 // was in the panel, from which device, and when their session ends.
 router.get('/admin-sessions', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const [sessions, sheetUsers, mongoAdmins] = await Promise.all([
-      sessionStore.getAdminSessions(),
-      db.getRows(db.SHEETS.USERS).catch(() => []),
-      // Same readyState guard as /sessions above.
-      mongoose.connection.readyState === 1
-        ? Admin.find({}).select('email profile_image').lean().catch(() => [])
-        : Promise.resolve([]),
-    ]);
-
-    // Same email→photo directory as GET /sessions above: admins get their
-    // Google photo too, from whichever record holds the newest one.
-    const photoByEmail = new Map();
-    for (const u of sheetUsers || []) {
-      const key = String((u && u.email) || '').toLowerCase().trim();
-      const photo = String((u && u.profile_picture) || '').trim();
-      if (key && photo) photoByEmail.set(key, photo);
-    }
-    for (const a of mongoAdmins || []) {
-      const key = String((a && a.email) || '').toLowerCase().trim();
-      const photo = String((a && a.profile_image) || '').trim();
-      if (key && photo && !photoByEmail.has(key)) photoByEmail.set(key, photo);
-    }
+    // Admin avatars come from the admin profile documents written at Google
+    // sign-in. Do not read the entire marketplace Users sheet for this view.
+    const sessions = await sessionStore.getAdminSessions();
+    const avatars = await getAdminAvatarsByEmail(sessions.map((s) => s.email));
     for (const s of sessions) {
-      const photo = photoByEmail.get(String(s.email || '').toLowerCase().trim());
+      const photo = avatars[String(s.email || '').trim().toLowerCase()];
       if (photo) s.profilePicture = photo;
     }
 
