@@ -239,64 +239,56 @@ function sendGoogleLoginHandoff(res, user, destination) {
   const adminRole = String(user.role || '').toLowerCase();
   const isAdmin = ['admin', 'owner', 'super admin', 'support'].includes(adminRole);
   const target = isAdmin ? '/vault' : destination;
-  // Return-to override: a page that bounced a logged-out visitor here (e.g.
-  // the Sell page) leaves a one-shot hint in localStorage. Honour it for
-  // regular users only, and only for a fixed allowlist of same-site paths —
-  // the value is client-controlled storage, so anything else falls back to
-  // the normal destination. Auth mechanics (session cookie, tokens, OAuth
-  // state) are untouched; this only chooses WHERE a successful login lands.
-  // Admins always go to /vault regardless of the flag.
+  const adminStorageScript = isAdmin
+    ? "localStorage.setItem('sh_admin_user', " + safeScriptJson(JSON.stringify(user)) + ");"
+    : "localStorage.removeItem('sh_admin_user');";
+  const html = [
+    '<!doctype html><html><head><meta charset="utf-8"><title>SaveHatke</title></head><body><script>',
+    'try {',
+    "  localStorage.removeItem('sh_token');",
+    "  localStorage.removeItem('sh_admin_token');",
+    "  localStorage.setItem('sh_authenticated', '1');",
+    '  localStorage.setItem("sh_user", ' + safeScriptJson(JSON.stringify(user)) + ');',
+    '  ' + adminStorageScript,
+    '} catch (e) {}',
+    "var back = '';",
+    'try {',
+    "  back = String(localStorage.getItem('sh_login_return_to') || '');",
+    "  localStorage.removeItem('sh_login_return_to');",
+    "  var allowedReturnPaths = ['/sell', '/sell.html', '/dashboard', '/dashboard.html', '/index', '/marketplace', '/marketplace.html'];",
+    '  if (allowedReturnPaths.indexOf(back) === -1) back = "";',
+    '} catch (e) { back = ""; }',
+    'var destinationUrl = ' + safeScriptJson(isAdmin) + ' || !back ? ' + safeScriptJson(target) + ' : back;',
+    'var redirected = false;',
+    'function finishLoginHandoff() {',
+    '  if (redirected) return;',
+    '  redirected = true;',
+    '  window.location.replace(destinationUrl);',
+    '}',
+    '// Browser location is requested only after Google has authenticated the account.',
+    '// Coordinates are sent transiently for reverse geocoding and are never stored.',
+    'if (navigator.geolocation && window.isSecureContext) {',
+    '  var locationFallback = window.setTimeout(finishLoginHandoff, 9000);',
+    '  navigator.geolocation.getCurrentPosition(function (position) {',
+    '    var coords = position && position.coords;',
+    '    if (!coords || !Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) {',
+    '      window.clearTimeout(locationFallback); finishLoginHandoff(); return;',
+    '    }',
+    "    fetch('/api/auth/location', {",
+    "      method: 'POST', credentials: 'same-origin',",
+    "      headers: { 'Content-Type': 'application/json' },",
+    '      body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude })',
+    '    }).catch(function () {}).finally(function () {',
+    '      window.clearTimeout(locationFallback); finishLoginHandoff();',
+    '    });',
+    '  }, function () { window.clearTimeout(locationFallback); finishLoginHandoff(); },',
+    '  { enableHighAccuracy: true, maximumAge: 300000, timeout: 7000 });',
+    '} else { finishLoginHandoff(); }',
+    '</script></body></html>'
+  ].join('\n');
   res.set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'Referrer-Policy': 'no-referrer' });
-  return res.status(200).send(`<!doctype html><html><head><meta charset="utf-8"><title>SaveHatke</title></head><body><script>
-    try {
-      localStorage.removeItem('sh_token');
-      localStorage.removeItem('sh_admin_token');
-      localStorage.setItem('sh_authenticated', '1');
-      localStorage.setItem('sh_user', ${safeScriptJson(JSON.stringify(user))});
-      ${isAdmin ? `localStorage.setItem('sh_admin_user', ${safeScriptJson(JSON.stringify(user))});` : `localStorage.removeItem('sh_admin_user');`}
-    } catch (e) {}
-    var back = '';
-    try {
-      back = String(localStorage.getItem('sh_login_return_to') || '');
-      localStorage.removeItem('sh_login_return_to');
-      if (!/^\\/(sell|sell\\.html|dashboard|dashboard\\.html|index|marketplace|marketplace\\.html)$/.test(back)) back = '';
-    } catch (e) { back = ''; }
-    var destinationUrl = ${safeScriptJson(isAdmin)} || !back ? ${safeScriptJson(target)} : back;
-    var redirected = false;
-    function finishLoginHandoff() {
-      if (redirected) return;
-      redirected = true;
-      window.location.replace(destinationUrl);
-    }
-    // Ask for browser location only after Google has authenticated the account.
-    // Coordinates are sent transiently for reverse geocoding and are never stored.
-    if (navigator.geolocation && window.isSecureContext) {
-      var locationFallback = window.setTimeout(finishLoginHandoff, 9000);
-      navigator.geolocation.getCurrentPosition(function (position) {
-        var coords = position && position.coords;
-        if (!coords || !Number.isFinite(coords.latitude) || !Number.isFinite(coords.longitude)) {
-          window.clearTimeout(locationFallback);
-          finishLoginHandoff();
-          return;
-        }
-        fetch('/api/auth/location', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ latitude: coords.latitude, longitude: coords.longitude })
-        }).catch(function () {}).finally(function () {
-          window.clearTimeout(locationFallback);
-          finishLoginHandoff();
-        });
-      }, function () {
-        window.clearTimeout(locationFallback);
-        finishLoginHandoff();
-      }, { enableHighAccuracy: true, maximumAge: 300000, timeout: 7000 });
-    } else {
-      finishLoginHandoff();
-    }
+  return res.status(200).send(html);
 }
-
 async function finishGoogleLogin(req, res, identity) {
   const email = normalizeEmail(identity.email);
   const googleSub = String(identity.sub || '').trim();
