@@ -282,6 +282,9 @@ const HEADERS = {
     'reviewText',
     'createdAt',
     'updatedAt',
+    // Appended at the end to preserve the existing Reviews tab column order.
+    'state',
+    'publicOptIn',
   ],
   // Homepage testimonials, written and ordered entirely from the admin panel's
   // Reviews section. These are marketing copy the admin controls — unrelated to
