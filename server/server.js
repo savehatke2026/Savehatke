@@ -296,7 +296,7 @@ app.use((req, res, next) => {
 // Keep rate limiting local to each running application instance. The existing
 // express-rate-limit middleware below protects public API traffic, admin
 // endpoints, authentication, coupon scans/proof uploads and support uploads.
-// No external Redis/Upstash service or credentials are required.
+// No external rate-limiting service or credentials are required.
 //
 // Layer order: Vercel Firewall -> local rate limits -> authentication ->
 // authorization -> business logic.
