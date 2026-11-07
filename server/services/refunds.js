@@ -156,6 +156,7 @@ function normalize(row) {
     mismatchType: clampMismatchType(row.mismatch_type || row.mismatchType),
     refundReason: row.refund_reason || row.refundReason || '',
     status: clampStatus(row.status),
+    adminApproved: row.admin_approved === true || String(row.admin_approved || '').toLowerCase() === 'true',
     refundReference: row.refund_reference || row.refundReference || '',
     adminNote: row.admin_note || row.adminNote || '',
     processedAt: row.processed_at || row.processedAt || '',
@@ -183,6 +184,7 @@ function toSheetsRow(r) {
     mismatch_type: r.mismatchType,
     refund_reason: r.refundReason,
     status: r.status,
+    admin_approved: r.adminApproved === true,
     refund_reference: r.refundReference,
     admin_note: r.adminNote,
     processed_at: r.processedAt,
@@ -223,7 +225,7 @@ async function getRefundsForUser(userId) {
   if (!userId) return [];
   const all = await readAllRefunds();
   return all
-    .filter((r) => r.userId === userId)
+    .filter((r) => r.userId === userId && (r.mismatchType !== 'late_payment' || r.adminApproved === true))
     .sort((a, b) => (new Date(b.createdAt || 0).getTime()) - (new Date(a.createdAt || 0).getTime()));
 }
 
@@ -408,6 +410,7 @@ async function createLateRefundTask({
     mismatch_type: 'late_payment',
     refund_reason: REASON_LATE_PAYMENT,
     status: 'pending',
+    admin_approved: false,
     refund_reference: '',
     admin_note: [
       `Late payment: transaction ${transactionId || 'n/a'} at ${transactionAt || 'unknown'}`,
@@ -517,6 +520,24 @@ async function updateRefundStatus(refundId, { status, adminNote, refundReference
   return { ok: true, refund: updated };
 }
 
+
+/** Admin-only approval gate for late-payment refunds. */
+async function approveLateRefund(refundId, processedBy = 'admin') {
+  if (!refundId) return { ok: false, code: 'INVALID_INPUT', error: 'refundId is required.' };
+  let all;
+  try { all = await readAllRefunds(); }
+  catch (e) { return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'Refund records are unavailable.' }; }
+  const existing = all.find((r) => (r.refundId || r.id) === refundId);
+  if (!existing) return { ok: false, code: 'NOT_FOUND', error: 'Refund not found.' };
+  if (existing.mismatchType !== 'late_payment') return { ok: false, code: 'INVALID_TYPE', error: 'Only late-payment refunds require this approval.' };
+  if (existing.status === 'refunded' || existing.status === 'rejected') return { ok: false, code: 'REFUND_FINALISED', error: 'This refund is already finalised.' };
+  if (existing.adminApproved) return { ok: true, created: false, refund: existing };
+  const updated = normalize({ ...existing, admin_approved: true, admin_note: [existing.adminNote, 'Approved by ' + processedBy].filter(Boolean).join(' | '), updated_at: new Date().toISOString() });
+  try { await db.updateRow(SHEETS.REFUNDS, 'id', existing.refundId || existing.id, toSheetsRow(updated), { strict: true }); }
+  catch (e) { return { ok: false, code: 'STORAGE_UNAVAILABLE', error: 'Approval could not be saved. Nothing was changed.' }; }
+  return { ok: true, refund: updated };
+}
+
 // ── Status timeline ──────────────────────────────────────────────────────
 
 // Returns the ordered list of stages a refund passes through. The dashboard
@@ -587,6 +608,7 @@ module.exports = {
   getRefundById,
   createOrUpdateRefund,
   createLateRefundTask,
+  approveLateRefund,
   updateRefundStatus,
   statusTimeline,
   summarize,
