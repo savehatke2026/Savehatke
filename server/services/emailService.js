@@ -6,6 +6,28 @@
 
 const nodemailer = require('nodemailer');
 const crypto = require('crypto');
+const notificationPreferencesStore = require('./supabase');
+const NOTIFICATION_PREF_KEYS = Object.freeze({
+  coupon_activity: true, purchases: true, sales: true, payments: true,
+  reviews: true, support: true, marketing: false,
+});
+
+// Transactional mail follows the user's saved preference. Security/OTP mail
+// intentionally never calls this helper and remains mandatory. If preferences
+// cannot be read, fail open so a storage outage never silently loses receipts.
+async function isUserNotificationEnabled(email, category) {
+  const recipient = String(email || '').trim().toLowerCase();
+  if (!recipient || !(category in NOTIFICATION_PREF_KEYS)) return true;
+  try {
+    const row = await notificationPreferencesStore.getSiteSetting('user_notification_preferences:' + recipient);
+    const value = row && row.value && typeof row.value === 'object' ? row.value : {};
+    return typeof value[category] === 'boolean' ? value[category] : NOTIFICATION_PREF_KEYS[category];
+  } catch (err) {
+    console.warn('[EmailService] Notification preference lookup failed; allowing transactional email:', err.message);
+    return true;
+  }
+}
+
 
 let transporter = null;
 
@@ -830,6 +852,11 @@ function isSupportEmailConfigured() {
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
 async function sendSupportAckEmail({ to, userName, caseId, subject, createdAt, message, orderId }, opts = {}) {
+  if (!(await isUserNotificationEnabled(to, 'support'))) {
+    console.log('[EmailService] support notification skipped by recipient preference.');
+    return { success: true, skipped: true, reason: 'user_preference' };
+  }
+
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
   const safeCaseId = escapeHtml(caseId);
@@ -1137,6 +1164,11 @@ This is an automated confirmation that your support request was received. Please
  * @returns {Promise<{success: boolean, messageId?: string, isSimulated?: boolean, error?: string}>}
  */
 async function sendSupportResolvedEmail({ to, userName, caseId, subject, resolvedAt, userMessage, resolution }, opts = {}) {
+  if (!(await isUserNotificationEnabled(to, 'support'))) {
+    console.log('[EmailService] support notification skipped by recipient preference.');
+    return { success: true, skipped: true, reason: 'user_preference' };
+  }
+
   const cleanEmail = String(to || '').toLowerCase().trim();
   const safeName = escapeHtml(userName && String(userName).trim() ? userName.trim() : 'there');
   const safeCaseId = escapeHtml(caseId);
@@ -2485,6 +2517,11 @@ async function sendPaymentSuccessEmail({
   to, buyerName, amount, orderCode, couponBrand, couponTitle, couponCode,
   paidAt, transactionId, transactionType, gatewayReference, currency = 'INR',
 } = {}, opts = {}) {
+  if (!(await isUserNotificationEnabled(to, 'purchases'))) {
+    console.log('[EmailService] purchases notification skipped by recipient preference.');
+    return { success: true, skipped: true, reason: 'user_preference' };
+  }
+
   const cleanEmail = String(to || '').toLowerCase().trim();
   const displayName = buyerName && String(buyerName).trim() ? String(buyerName).trim() : 'there';
   const safeName = escapeHtml(displayName);
@@ -2781,6 +2818,11 @@ ${EMAIL_GREEN_DARK_RULES}
 async function sendCouponDetailsEmail({
   to, userName, brandName, couponDescription, couponValue, expiryDate, orderId,
 } = {}, opts = {}) {
+  if (!(await isUserNotificationEnabled(to, 'purchases'))) {
+    console.log('[EmailService] purchases notification skipped by recipient preference.');
+    return { success: true, skipped: true, reason: 'user_preference' };
+  }
+
   const cleanEmail = String(to || '').toLowerCase().trim();
   const displayName = userName && String(userName).trim() ? String(userName).trim() : 'there';
   const safeName = escapeHtml(displayName);
@@ -3059,6 +3101,11 @@ ${EMAIL_GREEN_DARK_RULES}
  * From rule. Contains no payment details.
  */
 async function sendPayoutMethodReminderEmail({ to, sellerName = '' }, opts = {}) {
+  if (!(await isUserNotificationEnabled(to, 'payments'))) {
+    console.log('[EmailService] payments notification skipped by recipient preference.');
+    return { success: true, skipped: true, reason: 'user_preference' };
+  }
+
   const cleanTo = String(to || '').trim().toLowerCase();
   if (!cleanTo) return { success: false, error: 'recipient required' };
 
