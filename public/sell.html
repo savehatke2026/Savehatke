@@ -1615,7 +1615,6 @@ function renderCouponCard(id, index) {
     placeholder: 'e.g. 450', hint: 'Enter the unused balance available to the buyer.',
   });
   giftBalanceGroup.id = 'giftbalance-group-' + id;
-  giftBalanceGroup.hidden = true;
   card.appendChild(giftBalanceGroup);
 
   const giftRedemptionGroup = makeField({
@@ -1623,7 +1622,6 @@ function renderCouponCard(id, index) {
     options: [['Online', 'Online'], ['In-store', 'In-store'], ['Online and in-store', 'Online and in-store']],
   });
   giftRedemptionGroup.id = 'giftredemption-group-' + id;
-  giftRedemptionGroup.hidden = true;
   card.appendChild(giftRedemptionGroup);
 
   // Valid From, Coupon Source and Status are no longer shown to the seller:
