@@ -828,13 +828,22 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     const STATUS_FILTERS = ['pending', 'proof_requested', 'available', 'rejected', 'sold', 'expired'];
     const statusFilter = STATUS_FILTERS.includes(String(req.query.status || '').toLowerCase())
       ? String(req.query.status).toLowerCase() : '';
+    const cacheKey = ['seller-coupons', search, sort, statusFilter, page, pageSize].join('|');
+    const cached = couponListCache.get(cacheKey);
+    if (cached) return res.json(cached);
 
-    // Reads the SellerCoupons tab only. Approved rows are hidden here: they are
-    // published (copied to Coupons) or paid out from their own screens.
-    const rows = await db.getRowsFresh(db.SHEETS.SELLER_COUPONS);
+    // Fetch the three independent sources together. Previously the Users and
+    // Supabase reads happened after the full SellerCoupons read, serializing
+    // network latency on every page/search/filter request.
+    const [rows, userRows, supaRows] = await Promise.all([
+      db.getRowsFresh(db.SHEETS.SELLER_COUPONS),
+      db.getRows(db.SHEETS.USERS).catch(() => []),
+      supabase.isConfigured()
+        ? supabase.getCoupons({ status: 'pending', source: 'user-submitted' }).catch(() => [])
+        : Promise.resolve([]),
+    ]);
+
     const isSellerRow = (c) => {
-      // Approved rows stay listed until published, so Publish can be clicked.
-      // Published rows have left this queue for Active coupons.
       if (String(c.publishedAt || '').trim()) return false;
       const st = String(c.status || '').toLowerCase();
       return statusFilter ? st === statusFilter : true;
@@ -859,12 +868,8 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     const total = list.length;
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
     const safePage = Math.min(page, totalPages);
-    // The Coupons sheet never stores the seller's name (only sellerEmail), so
-    // resolve it from the Users tab by email. preferred_name wins over name.
     const pageSlice = list.slice((safePage - 1) * pageSize, safePage * pageSize);
-    // Full account record per seller, from the Users tab: name, username, status
-    // and Google profile picture. Read once per page, keyed by lowercased email.
-    const userRows = pageSlice.length ? await db.getRows(db.SHEETS.USERS) : [];
+
     const accountByEmail = new Map();
     for (const u of userRows || []) {
       const key = String(u.email || '').toLowerCase().trim();
@@ -876,52 +881,41 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
         profilePicture: String(u.profile_picture || '').trim(),
       });
     }
-      const pageRows = pageSlice.map((c) => {
+    const pageRows = pageSlice.map((c) => {
       const account = accountByEmail.get(String(c.sellerEmail || '').toLowerCase().trim()) || {};
       return {
-      id: c.id,
-      brand: c.brand || '',
-      title: c.title || '',
-      category: c.category || '',
-      type: c.type || '',
-      discount: c.discount || '',
-      minOrderValue: c.minOrderValue || '',
-      howToUse: c.howToUse || '',
-      affiliateLink: c.affiliateLink || '',
-      originalValue: c.originalValue || '',
-      sellingPrice: c.sellingPrice || '',
-      expiryDate: c.expiryDate || '',
-      addedAt: c.addedAt || '',
-      sellerEmail: c.sellerEmail || '',
-      // Seller account details come from the Users tab, not the coupon row.
-      sellerName: account.name || c.sellerName || '',
-      sellerUsername: account.username || '',
-      sellerStatus: account.status || '',
-      sellerProfilePicture: account.profilePicture || '',
-      status: c.status || '',
-      brandLogo: c.brandLogo || '',
-      backgroundImage: c.backgroundImage || '',
-      proofUrl: c.proofUrl || '',
-      terms: c.terms || '',
-      // The code is NOT sent here. It is revealed only by /reveal-code.
-      hasCode: !!c.code,
+        id: c.id,
+        brand: c.brand || '',
+        title: c.title || '',
+        category: c.category || '',
+        type: c.type || '',
+        discount: c.discount || '',
+        minOrderValue: c.minOrderValue || '',
+        howToUse: c.howToUse || '',
+        affiliateLink: c.affiliateLink || '',
+        originalValue: c.originalValue || '',
+        sellingPrice: c.sellingPrice || '',
+        expiryDate: c.expiryDate || '',
+        addedAt: c.addedAt || '',
+        sellerEmail: c.sellerEmail || '',
+        sellerName: account.name || c.sellerName || '',
+        sellerUsername: account.username || '',
+        sellerStatus: account.status || '',
+        sellerProfilePicture: account.profilePicture || '',
+        status: c.status || '',
+        brandLogo: c.brandLogo || '',
+        backgroundImage: c.backgroundImage || '',
+        proofUrl: c.proofUrl || '',
+        terms: c.terms || '',
+        hasCode: !!c.code,
       };
     });
 
-    // Supabase-only submissions: present in Supabase as pending seller rows but
-    // missing from the Sheet. Best-effort — a Supabase failure just reports 0.
-    let supabaseOnly = 0;
-    if (supabase.isConfigured()) {
-      try {
-        const sheetIds = new Set((rows || []).map((r) => String(r.id)));
-        const supaRows = await supabase.getCoupons({ status: 'pending', source: 'user-submitted' });
-        supabaseOnly = (supaRows || []).filter((r) => !sheetIds.has(String(r.id))).length;
-      } catch (e) {
-        supabaseOnly = 0;
-      }
-    }
-
-    res.json({ coupons: pageRows, total, page: safePage, pageSize, totalPages, supabaseOnly });
+    const sheetIds = new Set((rows || []).map((r) => String(r.id)));
+    const supabaseOnly = (supaRows || []).filter((r) => !sheetIds.has(String(r.id))).length;
+    const payload = { coupons: pageRows, total, page: safePage, pageSize, totalPages, supabaseOnly };
+    couponListCache.set(cacheKey, payload);
+    res.json(payload);
   } catch (err) {
     console.error('Admin seller coupons error:', err);
     res.status(500).json({ error: 'Internal server error.' });
