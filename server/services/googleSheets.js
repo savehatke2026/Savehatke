@@ -576,6 +576,8 @@ const HEADERS = {
     'transaction_id',
     'transaction_type',
     'admin_approved',
+    'admin_approved_at',
+    'admin_approved_by',
   ],
   // Admin revenue-share payout ledger (40/40/20). One row per payout event; the
   // acting admin, amount, status and references are the audit trail. Amounts are
