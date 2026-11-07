@@ -17,6 +17,7 @@ const emailService = require('../services/emailService');
 const payoutMethodReminder = require('../services/payoutMethodReminder');
 const monthlyReports = require('../services/monthlyReports');
 const couponListCache = require('../services/couponListCache');
+const { parseCouponExpiry } = require('../utils/couponExpiry');
 const googleDrive = require('../services/googleDrive');
 const brandStore = require('../services/brandStore');
 const securityStore = require('../services/securityCredentialsStore');
@@ -162,16 +163,13 @@ function isSellerSubmissionRow(c) {
   return String(c.sellerEmail || '').trim() !== '';
 }
 
-// Expiry parity with the admin client's couponIsExpired(): a row is expired
-// when its status says so, or its date is past (timerOn does not rescue it).
-const ADMIN_DATE_ONLY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+// One server-side expiry rule for Admin and Marketplace. Date-only values
+// expire at the end of the date in IST; empty/unparseable values have no
+// provable expiry and are not treated as expired.
 function adminCouponExpired(c) {
-  if (String(c.status || '').toLowerCase() === 'expired') return true;
-  const s = String((c && c.expiryDate) || '').trim();
-  if (!s) return false;
-  const m = ADMIN_DATE_ONLY_RE.exec(s);
-  const t = m ? Date.UTC(+m[1], +m[2] - 1, +m[3], 23, 59, 59, 999) : Date.parse(s);
-  return Number.isFinite(t) && t < Date.now();
+  if (String((c && c.status) || '').toLowerCase() === 'expired') return true;
+  const expiresAt = parseCouponExpiry(c && c.expiryDate);
+  return expiresAt !== null && expiresAt <= Date.now();
 }
 
 /**
@@ -245,8 +243,10 @@ async function getAdminCouponList(opts = {}) {
   // up in Active/Sold/Expired.
   const payoutMap = raw.payouts || new Map();
   if (status) {
-    supaCoupons = supaCoupons.filter((c) => String(c.status || '') === status);
-    sheetCoupons = sheetCoupons.filter((c) => String(c.status || '') === status);
+    const matchesStatus = (c) => String(c.status || '') === status
+      && (String(status).toLowerCase() !== 'available' || !adminCouponExpired(c));
+    supaCoupons = supaCoupons.filter(matchesStatus);
+    sheetCoupons = sheetCoupons.filter(matchesStatus);
   }
   if (source) {
     // The seller view ('user-submitted') uses the strict seller rule, so an
@@ -300,7 +300,7 @@ async function getAdminCouponList(opts = {}) {
   };
   for (const c of supaAll) {
     const st = String(c.status || '').toLowerCase();
-    if (st === 'available') summary.active++;
+    if (st === 'available' && !adminCouponExpired(c)) summary.active++;
     if (st === 'sold') summary.sold++;
     if (adminCouponExpired(c)) summary.expired++;
   }
@@ -319,7 +319,7 @@ async function getAdminCouponList(opts = {}) {
   } else {
     rows = merged.filter((c) => !(String(c.status || '').toLowerCase() === 'pending' && isSellerSubmissionRow(c)));
     switch (pill) {
-      case 'active': rows = rows.filter((c) => String(c.status || '').toLowerCase() === 'available'); break;
+      case 'active': rows = rows.filter((c) => String(c.status || '').toLowerCase() === 'available' && !adminCouponExpired(c)); break;
       case 'seller': rows = merged.filter(isSellerSubmissionRow); break;
       case 'sold': rows = rows.filter((c) => String(c.status || '').toLowerCase() === 'sold'); break;
       case 'expired': rows = rows.filter(adminCouponExpired); break;
