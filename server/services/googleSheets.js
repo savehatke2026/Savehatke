@@ -1119,9 +1119,12 @@ async function appendRow(sheetName, data, options = {}) {
           range: `${sheetName}!1:1`,
         });
         const actual = hdrRes.data.values && hdrRes.data.values[0]
-          ? hdrRes.data.values[0].filter((h) => String(h).trim() !== '')
+          ? hdrRes.data.values[0]
           : [];
-        if (actual.length) rowHeaders = actual;
+        // Preserve blank cells in the header row. Filtering them out shifts
+        // every column to their right and silently writes financial fields
+        // under the wrong headers when a legacy tab has an empty column.
+        if (actual.some((h) => String(h || '').trim() !== '')) rowHeaders = actual;
       } catch (e) {
         // A strict financial append must never guess the live column order.
         // Otherwise an existing tab with reordered/custom headers can receive
