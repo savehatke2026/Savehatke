@@ -848,7 +848,16 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     // Supabase reads happened after the full SellerCoupons read, serializing
     // network latency on every page/search/filter request.
     const [rows, userRows, supaRows] = await Promise.all([
-      db.getRowsFresh(db.SHEETS.SELLER_COUPONS),
+      (async () => {
+        try {
+          return await db.getRowsFresh(db.SHEETS.SELLER_COUPONS, { strict: true });
+        } catch (freshError) {
+          // A transient strict/fresh read should not blank the admin inventory
+          // if the Sheets service still has a usable cached read.
+          console.warn('[admin/seller-coupons] Fresh SellerCoupons read failed; trying normal read:', freshError.message);
+          return await db.getRows(db.SHEETS.SELLER_COUPONS, { strict: true });
+        }
+      })(),
       db.getRows(db.SHEETS.USERS).catch(() => []),
       supabase.isConfigured()
         ? supabase.getCoupons({ status: 'pending', source: 'user-submitted' }).catch(() => [])
@@ -930,7 +939,10 @@ router.get('/seller-coupons', authenticateToken, requireAdmin, async (req, res) 
     res.json(payload);
   } catch (err) {
     console.error('Admin seller coupons error:', err);
-    res.status(500).json({ error: 'Internal server error.' });
+    res.status(503).json({
+      error: 'Seller coupon inventory is temporarily unavailable. Please refresh and try again.',
+      code: 'SELLER_COUPON_INVENTORY_UNAVAILABLE',
+    });
   }
 });
 
