@@ -1452,7 +1452,7 @@ async function loadPending() {
             <div class="overflow-x">
               <table class="appr-table st-table" style="min-width:1200px">
                 <thead><tr>
-                  <th>Brand</th><th>Seller</th>
+                  <th>Brand</th><th>Coupon / Type</th><th>Seller</th>
                   <th>Face value</th><th>Expiry</th><th>Submitted</th><th>Status</th>
                   <th class="ta-right">Actions</th>
                 </tr></thead>
@@ -1511,6 +1511,7 @@ function sellerRowHtml(c) {
   return `
     <tr data-coupon-id="${id}">
       <td>${sellerBrandBoxHtml(c.brand || '', c)}</td>
+      <td><div style="min-width:150px"><div style="font-weight:700;color:#e2ecff">${escHtml(c.title || '—')}</div><div style="font-size:.72rem;color:#8fa8c8;margin-top:3px">${escHtml(c.type || '—')}</div></div></td>
       <td><div class="cm-seller-cell" style="flex-wrap:nowrap">${c.sellerEmail ? emailAvatarHtml(c.sellerEmail, 24) : ''}<div style="min-width:0;flex:1"><div class="cm-seller" style="color:#e2ecff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${escHtml(c.sellerEmail || '')}">${escHtml(c.sellerEmail || '—')}</div></div></div></td>
       <td>₹${escHtml(c.originalValue || '—')}</td>
       <td>${escHtml(c.expiryDate ? String(c.expiryDate).slice(0, 10) : '—')}</td>
@@ -2573,6 +2574,48 @@ async function openReviewModal(couponId) {
 
     const subEl = document.getElementById('armSubmitted');
     if (subEl) subEl.textContent = c.addedAt || c.createdAt ? new Date(c.addedAt || c.createdAt).toLocaleString('en-IN') : '—';
+
+    // Show the fields submitted for this coupon type. Gift-card metadata is
+    // currently persisted in howToUse for compatibility with existing sheets.
+    const howToUseText = String(c.howToUse || '');
+    const giftBalanceMatch = howToUseText.match(/Remaining gift card balance:\\s*₹?([0-9,.]+)/i);
+    const giftRedemptionMatch = howToUseText.match(/Redemption method:\\s*([^\\n]+)/i);
+    const isGiftCard = /gift card|store credit/i.test(String(c.type || ''));
+    const cleanHowToUse = howToUseText
+      .replace(/\\n?Remaining gift card balance:\\s*₹?[0-9,.]+/ig, '')
+      .replace(/\\n?Redemption method:\\s*[^\\n]+/ig, '')
+      .trim();
+    const moneyText = (value) => value === undefined || value === null || value === ''
+      ? '—' : '₹' + Number(String(value).replace(/[^0-9.]/g, '')).toLocaleString('en-IN');
+    const detailRows = [];
+    if (isGiftCard) {
+      detailRows.push(['Remaining Balance', giftBalanceMatch ? moneyText(giftBalanceMatch[1]) : '—']);
+      detailRows.push(['Redemption Method', giftRedemptionMatch ? giftRedemptionMatch[1].trim() : '—']);
+    } else {
+      detailRows.push(['Discount / Offer Value', c.discount || '—']);
+      detailRows.push(['Minimum Order Value', c.minOrderValue ? moneyText(c.minOrderValue) : '—']);
+    }
+    detailRows.push(['How to Use', cleanHowToUse || '—']);
+    detailRows.push(['Affiliate Link', c.affiliateLink || '—']);
+    detailRows.push(['Terms & Conditions', c.terms || '—']);
+    const typeDetailsEl = document.getElementById('armTypeSpecificDetails');
+    if (typeDetailsEl) {
+      typeDetailsEl.innerHTML = '<h5 style="font-size:.82rem;color:#4fc3f7;margin:0 0 9px">🧾 Submitted ' + (isGiftCard ? 'Gift Card' : 'Coupon') + ' Details</h5>'
+        + '<div style="display:grid;grid-template-columns:130px 1fr;gap:7px 10px;font-size:.78rem">'
+        + detailRows.map(([label, value]) => '<span style="color:#6b88aa">' + escapeHtml(label) + ':</span><span style="color:#e2ecff;overflow-wrap:anywhere;white-space:pre-wrap">' + escapeHtml(String(value)) + '</span>').join('')
+        + '</div>';
+    }
+    const payoutEl = document.getElementById('armPayoutDetails');
+    if (payoutEl) {
+      const face = Number(String(c.originalValue || '').replace(/[^0-9.]/g, '')) || 0;
+      const payout = Number(c.sellerPayout);
+      payoutEl.innerHTML = '<div style="font-size:.82rem;font-weight:700;color:#00E272;margin-bottom:7px">💰 Seller Payout Calculation</div>'
+        + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;font-size:.78rem">'
+        + '<span style="color:#8fa8c8">Face Value</span><strong style="color:#e2ecff">' + moneyText(face) + '</strong>'
+        + '<span style="color:#8fa8c8">Payout Rate</span><strong style="color:#e2ecff">7%</strong>'
+        + '<span style="color:#8fa8c8">Seller Payout (rounded, no paisa)</span><strong style="color:#00E272">' + (Number.isFinite(payout) ? moneyText(payout) : moneyText(Math.round(face * 0.07))) + '</strong>'
+        + '</div><div style="font-size:.7rem;color:#6b88aa;margin-top:7px">Calculated from face value only — not discount value or remaining gift card balance.</div>';
+    }
 
     // Seller Details — the account's own Google photo beside the address.
     const sEmailEl = document.getElementById('armSellerEmail');
