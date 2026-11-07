@@ -682,14 +682,11 @@
             <span class="match-timer-slot"><span class="match-timer" id="csExpiryTimer" style="display:none"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><circle cx="16" cy="18" r="12"/><path d="M16 10v8l5 4M13 2h6M16 2v4M25 6l3 3"/></svg><span data-timer="csTimer">00:00:00</span></span></span>
           </div>
         </div>
-        <div class="cc-boxes">
-          <span class="cc-cat" id="csCategoryBox" style="display:none"><span class="cc-cat-ico" id="csCatIco" aria-hidden="true"></span><span id="csCategory"></span></span>
-        </div>
         <div id="csStatus" role="alert"></div>
       </article>
       <form id="checkout-form" autocomplete="on">
         <div class="field"><label class="field-label" for="buyerName">Name <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#user"/></svg></span><input id="buyerName" name="name" autocomplete="name" placeholder="Payer's full name" required minlength="2"></div><div class="warning" id="payerNameWarn"><span aria-hidden="true">⚠</span><div>Please enter the name of the person making the payment correctly. Incorrect payer information may cause delays in payment verification, order updates, or coupon delivery.</div></div></div>
-        <div class="field"><label class="field-label" for="buyerEmail">Email Address <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#mail"/></svg></span><input id="buyerEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required></div></div>
+        <div class="field"><label class="field-label" for="buyerEmail">Email Address <span class="required">*</span></label><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#mail"/></svg></span><input id="buyerEmail" name="email" type="email" autocomplete="email" placeholder="you@example.com" required readonly aria-readonly="true" title="Your account email is locked for checkout"></div></div>
         <div class="field"><label class="field-label" for="buyerPhone">Mobile Number <span class="required">*</span></label><div class="phone-row"><div class="input-wrap"><span class="input-icon"><svg aria-hidden="true"><use href="#phone"/></svg></span><select name="country" aria-label="Country calling code" aria-readonly="true" tabindex="-1"><option value="+91" selected>+91</option></select></div><div class="input-wrap"><input id="buyerPhone" name="mobile" type="tel" inputmode="numeric" autocomplete="tel-national" placeholder="10-digit number" pattern="[0-9]{10}" maxlength="10" title="Enter a 10-digit mobile number" required></div></div></div>
         <label class="agreement"><input type="checkbox" id="termsCheck" name="agreement" required checked><span>I agree to SaveHatke's <a href="terms.html">Terms &amp; Conditions</a> and <a href="privacy.html">Privacy Policy</a>.</span></label>
         <button class="pay" id="payBtn" type="button" onclick="initiatePayment()"><span id="payBtnText" aria-live="polite">Pay</span></button>
@@ -1424,6 +1421,13 @@
       setIfEmpty('buyerName', nameValue);
       setIfEmpty('buyerEmail', emailValue);
       setIfEmpty('buyerPhone', phoneValue);
+      // Checkout is tied to the authenticated account; the email is display-only.
+      const buyerEmailInput = document.getElementById('buyerEmail');
+      if (buyerEmailInput) {
+        buyerEmailInput.readOnly = true;
+        buyerEmailInput.setAttribute('aria-readonly', 'true');
+        buyerEmailInput.title = 'Your account email is locked for checkout';
+      }
     }
 
     // Check auth requirement for buying
