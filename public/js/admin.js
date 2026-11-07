@@ -1414,10 +1414,13 @@ async function loadPending() {
     sellerTable.page = data.page || 1;
     cmSetPendingBadge(data.total || 0);
     const rows = data.coupons || [];
-    // Resolve the Drive brand logos for this page before painting, so the
-    // Brand column shows the real logo on first render (not the initial tile).
-    await preloadBrandAssets(rows);
-    if (seq !== sellerTable.seq) return;
+    // Paint the seller rows immediately. Drive logo resolution is visual
+    // enrichment only and must never delay the coupon data/table itself.
+    preloadBrandAssets(rows).then(() => {
+      if (seq !== sellerTable.seq) return;
+      const tbody = container.querySelector('.st-table tbody');
+      if (tbody) tbody.innerHTML = rows.map(sellerRowHtml).join('');
+    }).catch(() => {});
     const warn = data.supabaseOnly
       ? `<div class="st-warn">⚠️ ${data.supabaseOnly} submission${data.supabaseOnly !== 1 ? 's' : ''} exist in the database but not in the sheet, so they are not listed here.</div>`
       : '';
