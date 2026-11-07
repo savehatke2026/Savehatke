@@ -1281,7 +1281,9 @@ async function scanPaymentMailbox({ maxMessages = 15 } = {}) {
   // Restrict as tightly as possible: the sender allow-list (FamApp by default)
   // AND messages no older than the earliest live payment window (minus a small
   // grace). This never downloads the whole inbox.
-  const watch = pending.length ? pending : late;
+  // Include both active and expired sessions when bounding Gmail search; otherwise
+  // a newer pending checkout could hide an older late-payment credit.
+  const watch = [...pending, ...late];
   const startTimes = watch.map((p) => new Date(p.createdAt).getTime()).filter(Number.isFinite);
   const earliestStart = startTimes.length ? Math.min(...startTimes) : NaN;
   const afterSecs = Number.isFinite(earliestStart)
