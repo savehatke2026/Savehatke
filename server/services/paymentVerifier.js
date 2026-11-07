@@ -1178,19 +1178,35 @@ async function handleLateCandidate(candidate, notification, reject) {
     verifiedAtMs: Date.now(),
   });
 
-  // Only an in-window transaction may settle. Everything else leaves the coupon
-  // locked and creates NO refund: an expired session is never refunded.
+  // Only an in-window transaction may settle. A verified late credit creates
+  // an admin-only refund task; it is hidden from the customer until approval.
   if (decision.action === 'ignore') return null;
   if (decision.action === 'settle') return null; // in-window: the normal path settles it
   if (decision.action === 'expired_no_action') {
+    const refundService = require('./refunds');
+    const refundResult = await refundService.createLateRefundTask({
+      paymentId: session.paymentId,
+      userId: session.userId,
+      userEmail: session.userEmail,
+      couponId: session.couponId,
+      orderCode: session.orderCode,
+      receivedAmount: candidate.amount,
+      transactionId: candidate.transactionId || '',
+      paymentExpiresAt: session.paymentExpiresAt || session.expiresAt || '',
+      transactionAt: candidate.transactionAt,
+      payerName: candidate.payerName || '',
+    });
+    if (!refundResult || !refundResult.ok || !refundResult.refund) {
+      return reject('REVIEW', 'Late payment matched, but its admin refund task could not be saved: ' + ((refundResult && refundResult.error) || 'unknown error'));
+    }
     try {
       await store.updateNotification(notification.id, {
-        status: 'IGNORED',
+        status: 'MATCHED',
         matched_payment_id: session.paymentId,
-        notes: `Transaction after the 10-minute deadline for ${session.paymentId}; coupon not unlocked; no refund for expired session.`,
+        notes: `Late payment recorded for admin refund review (${refundResult.refund.refundId}); coupon not unlocked; customer visibility waits for admin approval.`,
       });
     } catch (e) {}
-    return { action: 'ignored', reason: decision.reason, notification, payment: session };
+    return { action: 'refund_pending_admin', reason: decision.reason, notification, payment: session, refund: refundResult.refund };
   }
   return reject('REVIEW', decision.reason);
 }
