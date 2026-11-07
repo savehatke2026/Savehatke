@@ -1895,11 +1895,6 @@
           <div class="view-title">My <span class="gtext">Coupons</span></div>
           <div class="view-subtitle">Manage your purchased coupons and coupons you've listed for sale.</div>
         </div>
-        <!-- Browse is the only action here. Selling goes through the Sell
-             Coupons page, which is what collects the required screenshot. -->
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <a href="marketplace" class="btn btn-primary btn-sm" id="mcActionBrowse">＋ Browse Coupons</a>
-        </div>
       </div>
 
       <div class="mc-tabs" id="mcSideTabs" role="tablist" aria-label="Purchased or for sale">
@@ -1973,7 +1968,7 @@
           </div>
           <div class="payment-method-actions" id="paymentMethodActions">
             <div class="payment-method-current" id="paymentMethodCurrentBox" hidden>
-              <button type="button" class="btn btn-sm" id="paymentMethodActionBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method" style="background:#00E272;color:#00100b;border:1px solid #00E272;font-weight:700;">Edit Payment Method</button>
+              <button type="button" class="btn btn-sm" id="paymentMethodActionBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method" style="background:#00E272;color:#00100b;border:0;font-weight:700;outline:0;box-shadow:none;">Edit Payment Method</button>
             </div>
             <button type="button" class="btn btn-primary btn-sm" id="paymentMethodAddBtn" onclick="openPayoutDetailsModal()" aria-controls="payment-method" disabled>Loading…</button>
           </div>
