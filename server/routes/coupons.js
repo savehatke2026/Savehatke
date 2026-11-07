@@ -51,15 +51,10 @@ const proofAccountLimiter = rateLimit({
 
 
 // Every coupon shows a live "expires in" countdown that starts at 2 weeks.
-// When a coupon has no explicit expiry we anchor the 14-day window to its
-// addedAt timestamp (stable across reloads); if addedAt is also missing we
-// anchor to "now" so the coupon still gets a 14-day timer instead of none.
-const TWO_WEEKS_MS = 14 * 24 * 60 * 60 * 1000;
-function defaultExpiry(explicitExpiry, addedAt) {
-  if (explicitExpiry) return explicitExpiry;
-  const base = addedAt ? new Date(addedAt).getTime() : Date.now();
-  const t = Number.isFinite(base) ? base : Date.now();
-  return new Date(t + TWO_WEEKS_MS).toISOString();
+// Preserve the stored expiry exactly. An unset expiry stays unset; never
+// manufacture a countdown that can disagree with marketplace eligibility.
+function defaultExpiry(explicitExpiry) {
+  return explicitExpiry || '';
 }
 
 // Maximum coupons in one submission request. A larger batch is refused whole.
@@ -189,8 +184,7 @@ async function canSellCoupons(user) {
 // stays authoritative for sold (pending/reserved rows never reach these
 // readers anyway); expiry mirrors the card countdown — a bare "YYYY-MM-DD"
 // counts through the END of that day on the server clock, and a coupon with
-// no expiry never expires (the listing anchors a 14-day display countdown
-// via defaultExpiry). The admin Timer switch only hides the countdown chip:
+// no expiry never expires and has no countdown. The admin Timer switch only hides the countdown chip:
 // an expired coupon is hidden even when its switch is off.
 function couponExpiryMs(c) {
   // Shared parser (IST wall-clock, date-only = end of that day) — the same
@@ -309,10 +303,8 @@ router.get('/', optionalAuth, async (req, res) => {
         addedAt: c.addedAt,
         // Expiry is not sensitive (the code itself is still withheld) and the
         // marketplace cards render a live "expires in" countdown from it.
-        // Every coupon's timer starts at 2 weeks: when no explicit expiry is
-        // set we anchor 14 days to addedAt (or to now if addedAt is missing),
-        // so every coupon always shows a live countdown timer.
-        expiryDate: defaultExpiry(c.expiryDate, c.addedAt),
+        // Only a real stored expiry is sent to the card; blank means no timer.
+        expiryDate: defaultExpiry(c.expiryDate),
         // Admin-controlled sale switch — gates the "🔥 Sale" badge on the card.
         onSale: c.onSale !== false,
         // Admin-controlled timer switch — when off the card hides the countdown
@@ -349,7 +341,7 @@ router.get('/', optionalAuth, async (req, res) => {
     };
     const keyed = available.map((c) => {
       const buyerPrice = dynamicPricing.getBuyerPrice(c);
-      const expiry = Date.parse(defaultExpiry(c.expiryDate, c.addedAt) || '');
+      const expiry = parseCouponExpiry(c.expiryDate);
       // Rupees the buyer keeps: face value minus the computed buyer price.
       // Only meaningful for purchasable coupons; others rank last in 'value'.
       const saved = buyerPrice.purchasable && Number.isFinite(buyerPrice.faceValue)
@@ -1414,9 +1406,8 @@ router.get('/:id', async (req, res) => {
         backgroundImage: coupon.backgroundImage || '',
         source: coupon.source,
         addedAt: coupon.addedAt,
-        // Same 2-week default as the list route, so the card countdown and the
-        // checkout countdown always agree.
-        expiryDate: defaultExpiry(coupon.expiryDate, coupon.addedAt),
+        // Preserve the real expiry so checkout and the marketplace card agree.
+        expiryDate: defaultExpiry(coupon.expiryDate),
         onSale: coupon.onSale !== false,
         timerOn: coupon.timerOn !== false,
         discountOn: coupon.discountOn === true,
