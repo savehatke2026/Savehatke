@@ -1191,6 +1191,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
     .bd-stat-l{font-size:.75rem;color:#6b88aa;text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
     .bd-toolbar{display:flex;flex-wrap:wrap;gap:10px;padding:12px;margin-bottom:14px}
     .bd-input{flex:1 1 180px;min-width:0;padding:9px 12px;border-radius:10px;border:1px solid rgba(79,195,247,.2);background:#060d1f;color:#e8f4ff;font:inherit;font-size:.88rem}
+    .bd-brand-name-input{flex:0 1 auto;width:100%;min-height:36px;height:36px;padding:7px 11px}
     .bd-input:focus{outline:none;border-color:#4fc3f7}
     .bd-list{padding:6px}
     .bd-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;border-radius:12px;flex-wrap:wrap}
@@ -2595,14 +2596,7 @@ tbody td strong{color:#e2ecff;font-weight:600}
       <div class="modal bd-modal">
         <div class="modal-title" id="brandFormTitle">Add brand</div>
         <label class="bd-field"><span>Brand name <em>*</em></span>
-          <input type="text" id="brandFormName" class="bd-input" maxlength="80" autocomplete="off"></label>
-        <label class="bd-field"><span>Category</span>
-          <select id="brandFormCategory" class="bd-input"></select></label>
-        <label class="bd-field"><span>Short description (optional)</span>
-          <textarea id="brandFormDescription" class="bd-input" rows="2" maxlength="300"></textarea></label>
-        <label class="bd-field"><span>Display order</span>
-          <input type="number" id="brandFormOrder" class="bd-input" value="0" step="1"></label>
-        <label class="bd-check"><input type="checkbox" id="brandFormActive" checked> Active (visible to users and selectable for new coupons)</label>
+          <input type="text" id="brandFormName" class="bd-input bd-brand-name-input" maxlength="80" autocomplete="off"></label>
 
         <div class="bd-field"><span>Logo (Google Drive)</span>
           <div class="bd-logo-row">
